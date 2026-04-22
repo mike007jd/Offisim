@@ -1,12 +1,25 @@
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@offisim/ui-core';
+import {
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@offisim/ui-core';
 import { Bot, ShieldCheck } from 'lucide-react';
 import { isTauri } from '../../lib/env';
+import { isLlmExecutionLane } from '../../lib/provider-config';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 import { getAvailableProviderPresets } from './provider-presets';
 import { SectionLabel, SurfaceCard, surfaceInputProps } from './settings-primitives';
 
 const IS_DESKTOP = isTauri();
 const AVAILABLE_PRESETS = getAvailableProviderPresets({ tauri: IS_DESKTOP });
+const EXECUTION_LANE_LABELS = {
+  gateway: 'Gateway',
+  'claude-agent-sdk': 'Claude Agent SDK',
+  'openai-agents-sdk': 'OpenAI Agents SDK',
+} as const;
 
 interface SettingsProviderTabProps {
   controller: ReturnType<typeof useSettingsWorkspaceController>;
@@ -14,12 +27,11 @@ interface SettingsProviderTabProps {
 
 export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   const {
-    acpCommand,
     apiKey,
     baseURL,
+    executionLane,
     handlePresetChange,
     hasStoredSecret,
-    isSubscription,
     isThinkingProvider,
     model,
     preset,
@@ -28,12 +40,14 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
     selectedPreset,
     selectedRegion,
     selectedSurface,
-    setAcpCommand,
     setApiKey,
     setBaseURL,
+    setExecutionLane,
     setModel,
     setRuntimeModelDefault,
     showBaseURL,
+    supportedExecutionLanes,
+    verifiedExecutionLanes,
   } = controller;
   const apiKeyPlaceholder = hasStoredSecret
     ? 'Stored securely on this device'
@@ -53,9 +67,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             <p className="text-sm font-semibold text-white">
               {selectedPreset?.label ?? 'Custom provider'}
             </p>
-            <p className="mt-2 text-sm text-slate-300">
-              {compatibilitySummary}
-            </p>
+            <p className="mt-2 text-sm text-slate-300">{compatibilitySummary}</p>
             <p className="mt-3 text-xs leading-5 text-slate-400">{selectedCapabilities}</p>
           </div>
         </SurfaceCard>
@@ -80,41 +92,52 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               </Select>
             </div>
 
-            {isSubscription ? (
-              <>
-                <div className="lg:col-span-2 rounded-[20px] border border-blue-400/15 bg-blue-400/10 px-4 py-4">
-                  <p className="text-sm font-semibold text-blue-100">Subscription runtime</p>
-                  <p className="mt-2 text-sm text-slate-300">Desktop-only. No API key required.</p>
-                </div>
-                <div className="lg:col-span-2">
-                  <SectionLabel htmlFor="settings-acp-command">ACP command</SectionLabel>
-                  <Input
-                    id="settings-acp-command"
-                    value={acpCommand}
-                    onChange={(event) => setAcpCommand(event.target.value)}
-                    placeholder="claude"
-                    className={surfaceInputProps('font-mono')}
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="lg:col-span-2">
-                <SectionLabel htmlFor="settings-api-key">Secure API key</SectionLabel>
-                <Input
-                  id="settings-api-key"
-                  type="password"
-                  value={apiKey}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  placeholder={apiKeyPlaceholder}
-                  className={surfaceInputProps()}
-                />
-                {IS_DESKTOP && hasStoredSecret ? (
-                  <p className="mt-2 text-xs text-slate-400">
-                    Leave this empty to keep the existing secure credential.
-                  </p>
-                ) : null}
-              </div>
-            )}
+            <div className="lg:col-span-2">
+              <SectionLabel htmlFor="settings-execution-lane">Execution lane</SectionLabel>
+              <Select
+                value={executionLane}
+                onValueChange={(value) => {
+                  if (isLlmExecutionLane(value)) {
+                    setExecutionLane(value);
+                  }
+                }}
+              >
+                <SelectTrigger id="settings-execution-lane" className={surfaceInputProps()}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {supportedExecutionLanes.map((lane) => (
+                    <SelectItem key={lane} value={lane}>
+                      {EXECUTION_LANE_LABELS[lane]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-2 text-xs text-slate-400">
+                {supportedExecutionLanes.includes('claude-agent-sdk')
+                  ? 'Claude Agent SDK is verified for this preset in desktop-trusted mode and runs through the local trusted host sidecar.'
+                  : verifiedExecutionLanes.length > supportedExecutionLanes.length
+                    ? 'Additional lanes are verified in backend harness, but the current product host still exposes gateway only.'
+                    : 'This preset currently verifies gateway execution only in the active runtime mode.'}
+              </p>
+            </div>
+
+            <div className="lg:col-span-2">
+              <SectionLabel htmlFor="settings-api-key">Secure API key</SectionLabel>
+              <Input
+                id="settings-api-key"
+                type="password"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                placeholder={apiKeyPlaceholder}
+                className={surfaceInputProps()}
+              />
+              {IS_DESKTOP && hasStoredSecret ? (
+                <p className="mt-2 text-xs text-slate-400">
+                  Leave this empty to keep the existing secure credential.
+                </p>
+              ) : null}
+            </div>
 
             {showBaseURL ? (
               <div className="lg:col-span-2">
@@ -129,26 +152,24 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               </div>
             ) : null}
 
-            {!isSubscription ? (
-              <div className="lg:col-span-2">
-                <SectionLabel htmlFor="settings-model">Recommended model</SectionLabel>
-                <Input
-                  id="settings-model"
-                  value={model}
-                  onChange={(event) => {
-                    const nextModel = event.target.value;
-                    setModel(nextModel);
-                    setRuntimeModelDefault((prev) => ({
-                      ...prev,
-                      provider: selectedPreset?.defaults.provider ?? 'openai-compat',
-                      model: nextModel,
-                    }));
-                  }}
-                  placeholder="model-name"
-                  className={surfaceInputProps('font-mono text-sm')}
-                />
-              </div>
-            ) : null}
+            <div className="lg:col-span-2">
+              <SectionLabel htmlFor="settings-model">Recommended model</SectionLabel>
+              <Input
+                id="settings-model"
+                value={model}
+                onChange={(event) => {
+                  const nextModel = event.target.value;
+                  setModel(nextModel);
+                  setRuntimeModelDefault((prev) => ({
+                    ...prev,
+                    provider: selectedPreset?.defaults.provider ?? 'openai-compat',
+                    model: nextModel,
+                  }));
+                }}
+                placeholder="model-name"
+                className={surfaceInputProps('font-mono text-sm')}
+              />
+            </div>
           </div>
 
           {isThinkingProvider ? (

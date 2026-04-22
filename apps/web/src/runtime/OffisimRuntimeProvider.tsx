@@ -132,7 +132,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
           if (!runtimeCtx) {
             throw new Error('Runtime context unavailable');
           }
-          const raw = await handleSkillInstallTool(toolName as never, args, runtimeCtx);
+          const raw = await handleSkillInstallTool(toolName as never, args, runtimeCtx, '');
           try {
             return JSON.parse(raw);
           } catch {

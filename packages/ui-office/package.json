@@ -59,7 +59,7 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.json && mkdir -p dist/components/install dist/components/workspace && cp src/components/install/install-animations.css dist/components/install/ && cp src/components/workspace/workspace-shell.css dist/components/workspace/",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
     "clean": "rm -rf dist"
   },
   "dependencies": {

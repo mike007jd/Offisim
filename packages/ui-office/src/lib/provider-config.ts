@@ -1,4 +1,5 @@
 import type {
+  LlmExecutionLane,
   LlmProvider,
   ModelPolicyConfig,
   ModelProfile,
@@ -29,7 +30,7 @@ export type ProviderRegion = 'intl' | 'cn' | 'shared' | 'local';
 
 export type ProviderCompatibility = 'native' | 'anthropic-compatible' | 'openai-compatible';
 
-export type ProviderSurface = 'general' | 'coding-plan' | 'desktop-subscription';
+export type ProviderSurface = 'general' | 'coding-plan';
 
 export interface ProviderCapabilities {
   streaming: boolean;
@@ -41,6 +42,7 @@ export interface ProviderCapabilities {
 
 export interface ProviderConfig {
   provider: LlmProvider;
+  executionLane: LlmExecutionLane;
   providerVariantId?: string;
   vendor?: ProviderVendor;
   region?: ProviderRegion;
@@ -51,14 +53,16 @@ export interface ProviderConfig {
   baseURL?: string;
   model: string;
   defaultHeaders?: Record<string, string>;
-  acpCommand?: string;
-  acpArgs?: string[];
   runtimePolicy?: Partial<RuntimePolicyConfig>;
 }
 
 const STORAGE_KEY = 'offisim-provider-config';
 
 const DEFAULT_EXECUTION_MODE: RuntimeExecutionMode = 'auto';
+export const DEFAULT_EXECUTION_LANE: LlmExecutionLane = 'gateway';
+export const PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES: readonly LlmExecutionLane[] = [
+  DEFAULT_EXECUTION_LANE,
+];
 const DEFAULT_SUMMARIZATION: RuntimeSummarizationPolicy = {
   enabled: true,
   triggerTokens: 60_000,
@@ -98,10 +102,11 @@ const PROVIDER_COMPATIBILITIES = new Set<ProviderCompatibility>([
   'anthropic-compatible',
   'openai-compatible',
 ]);
-const PROVIDER_SURFACES = new Set<ProviderSurface>([
-  'general',
-  'coding-plan',
-  'desktop-subscription',
+const PROVIDER_SURFACES = new Set<ProviderSurface>(['general', 'coding-plan']);
+const EXECUTION_LANES = new Set<LlmExecutionLane>([
+  'gateway',
+  'claude-agent-sdk',
+  'openai-agents-sdk',
 ]);
 
 function trimEnvString(value: string | boolean | undefined): string | undefined {
@@ -118,6 +123,7 @@ function loadEnvBackedProviderConfig(): ProviderConfig | null {
 
   return {
     provider: 'anthropic',
+    executionLane: DEFAULT_EXECUTION_LANE,
     providerVariantId: 'minimax-intl-anthropic-coding',
     vendor: 'minimax',
     region: 'intl',
@@ -142,12 +148,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isLlmProvider(value: unknown): value is LlmProvider {
-  return (
-    value === 'anthropic' ||
-    value === 'openai' ||
-    value === 'openai-compat' ||
-    value === 'subscription'
-  );
+  return value === 'anthropic' || value === 'openai' || value === 'openai-compat';
+}
+
+export function isLlmExecutionLane(value: unknown): value is LlmExecutionLane {
+  return typeof value === 'string' && EXECUTION_LANES.has(value as LlmExecutionLane);
+}
+
+export function normalizeExecutionLane(value: unknown): LlmExecutionLane {
+  return isLlmExecutionLane(value) ? value : DEFAULT_EXECUTION_LANE;
+}
+
+export function normalizeSupportedExecutionLanes(value: unknown): readonly LlmExecutionLane[] {
+  const normalized = Array.isArray(value)
+    ? value.filter(isLlmExecutionLane)
+    : ([] as LlmExecutionLane[]);
+  const lanes = normalized.length > 0 ? Array.from(new Set(normalized)) : [DEFAULT_EXECUTION_LANE];
+  return lanes.includes(DEFAULT_EXECUTION_LANE) ? lanes : [DEFAULT_EXECUTION_LANE, ...lanes];
 }
 
 function isRuntimeExecutionMode(value: unknown): value is RuntimeExecutionMode {
@@ -360,6 +377,33 @@ export function resolveEffectiveExecutionMode(
   return options.tauri ? 'desktop-trusted' : 'browser-limited';
 }
 
+export function resolveAvailableExecutionLanes(
+  supportedLanes: readonly LlmExecutionLane[] | undefined,
+  executionMode: RuntimeExecutionMode,
+  options: { tauri: boolean },
+): readonly LlmExecutionLane[] {
+  const normalized = normalizeSupportedExecutionLanes(supportedLanes);
+  const effectiveMode = resolveEffectiveExecutionMode(executionMode, options);
+  if (effectiveMode === 'browser-limited') {
+    return [DEFAULT_EXECUTION_LANE];
+  }
+
+  const hostSupported = PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES;
+  const available = normalized.filter((lane) => hostSupported.includes(lane));
+  return available.length > 0 ? available : [DEFAULT_EXECUTION_LANE];
+}
+
+export function isExecutionLaneAllowed(
+  executionLane: LlmExecutionLane,
+  supportedLanes: readonly LlmExecutionLane[] | undefined,
+  executionMode: RuntimeExecutionMode,
+  options: { tauri: boolean },
+): boolean {
+  return resolveAvailableExecutionLanes(supportedLanes, executionMode, options).includes(
+    executionLane,
+  );
+}
+
 export function resolveEffectiveRuntimePolicy(
   policy: unknown,
   provider: LlmProvider,
@@ -397,19 +441,19 @@ function normalizeProviderConfig(parsed: unknown): ProviderConfig | null {
 
   // Reject unusable half-configs. A valid provider must carry either an apiKey
   // (web mode, or pre-Tauri-strip fresh save) or a baseURL (third-party compat
-  // endpoint — credential goes through Keychain via setRuntimeSecret on Tauri).
-  // `subscription` is exempt — ACP spawns `claude` via child_process, no HTTP
-  // credential. Without this guard a stale `{provider:'openai',model:'...'}`
-  // record from an older ProviderConfig schema falls through to OpenAI SDK
-  // default (`api.openai.com`) with an empty key and produces a misleading 401.
+  // endpoint — credential goes through secure desktop storage on Tauri).
+  // Without this guard a stale `{provider:'openai',model:'...'}` record from an
+  // older ProviderConfig schema falls through to OpenAI SDK default
+  // (`api.openai.com`) with an empty key and produces a misleading 401.
   const hasApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0;
   const hasBaseURL = typeof parsed.baseURL === 'string' && parsed.baseURL.trim().length > 0;
-  if (provider !== 'subscription' && !hasApiKey && !hasBaseURL) {
+  if (!hasApiKey && !hasBaseURL) {
     return null;
   }
 
   const normalized: ProviderConfig = {
     provider,
+    executionLane: normalizeExecutionLane(parsed.executionLane),
     model,
     ...(typeof parsed.providerVariantId === 'string' && parsed.providerVariantId.trim()
       ? { providerVariantId: parsed.providerVariantId }
@@ -426,10 +470,6 @@ function normalizeProviderConfig(parsed: unknown): ProviderConfig | null {
     ...(isRecord(parsed.defaultHeaders)
       ? { defaultHeaders: parsed.defaultHeaders as Record<string, string> }
       : {}),
-    ...(typeof parsed.acpCommand === 'string' ? { acpCommand: parsed.acpCommand } : {}),
-    ...(Array.isArray(parsed.acpArgs)
-      ? { acpArgs: parsed.acpArgs.filter((arg): arg is string => typeof arg === 'string') }
-      : {}),
   };
 
   normalized.runtimePolicy = normalizeRuntimePolicy(parsed.runtimePolicy, provider, model);
@@ -442,11 +482,16 @@ function toPersistedConfig(config: ProviderConfig): ProviderConfig {
     return config;
   }
 
+  const clamped =
+    isTauri() && !PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES.includes(normalized.executionLane)
+      ? { ...normalized, executionLane: DEFAULT_EXECUTION_LANE }
+      : normalized;
+
   if (!isTauri()) {
-    return normalized;
+    return clamped;
   }
 
-  const { apiKey: _apiKey, ...persisted } = normalized;
+  const { apiKey: _apiKey, ...persisted } = clamped;
   return persisted;
 }
 
@@ -456,21 +501,16 @@ export function loadProviderConfig(): ProviderConfig | null {
     if (!raw) return loadEnvBackedProviderConfig();
     const parsed = normalizeProviderConfig(JSON.parse(raw));
     if (!parsed) return loadEnvBackedProviderConfig();
-
-    // subscription adapter runs `claude acp` via node:child_process and cannot run
-    // in a browser renderer. Drop any such saved config when we're not in Tauri.
-    if (!isTauri() && parsed.provider === 'subscription') {
-      console.warn(
-        '[Offisim] Saved provider "subscription" requires the desktop app. Ignoring saved config in browser.',
-      );
-      return loadEnvBackedProviderConfig();
+    if (
+      !isTauri() ||
+      PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES.includes(parsed.executionLane)
+    ) {
+      return parsed;
     }
-
-    if (isTauri() && parsed.provider === 'subscription') {
-      const { apiKey: _apiKey, ...desktopConfig } = parsed;
-      return desktopConfig;
-    }
-    return parsed;
+    return {
+      ...parsed,
+      executionLane: DEFAULT_EXECUTION_LANE,
+    };
   } catch {
     return loadEnvBackedProviderConfig();
   }
@@ -482,18 +522,4 @@ export function saveProviderConfig(config: ProviderConfig): void {
 
 export function clearProviderConfig(): void {
   localStorage.removeItem(STORAGE_KEY);
-}
-
-/**
- * Build the subscription (ACP) gateway config from ProviderConfig.
- * Returns undefined for non-subscription providers.
- */
-export function buildSubscriptionGatewayConfig(
-  config: ProviderConfig,
-): { command?: string; args?: string[] } | undefined {
-  if (config.provider !== 'subscription') return undefined;
-  return {
-    command: config.acpCommand ?? 'claude',
-    args: config.acpArgs ?? ['acp'],
-  };
 }

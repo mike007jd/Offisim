@@ -1,0 +1,2726 @@
+{
+  "conflicts": [],
+  "generatedAt": "2026-04-22T03:29:17.736Z",
+  "newModels": [
+    {
+      "modelId": "claude-3-7-sonnet-20250219",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-3-haiku-20240307",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-3-opus-20240229",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-4-opus-20250514",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-4-sonnet-20250514",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-haiku-4-5",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-haiku-4-5-20251001",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-opus-4-1",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-opus-4-1-20250805",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-opus-4-20250514",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-opus-4-5",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-opus-4-5-20251101",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-opus-4-6",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-opus-4-6-20260205",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-opus-4-7",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-opus-4-7-20260416",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-sonnet-4-5",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-sonnet-4-5-20250929",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "claude-sonnet-4-6",
+      "providerId": "anthropic-default"
+    },
+    {
+      "modelId": "deepseek-chat",
+      "providerId": "deepseek-openai-general"
+    },
+    {
+      "modelId": "deepseek-coder",
+      "providerId": "deepseek-openai-general"
+    },
+    {
+      "modelId": "deepseek-r1",
+      "providerId": "deepseek-openai-general"
+    },
+    {
+      "modelId": "deepseek-v3",
+      "providerId": "deepseek-openai-general"
+    },
+    {
+      "modelId": "deepseek-v3.2",
+      "providerId": "deepseek-openai-general"
+    },
+    {
+      "modelId": "deep-research-pro-preview-12-2025",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-1.5-flash",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.0-flash",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.0-flash-001",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.0-flash-exp-image-generation",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.0-flash-lite",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.0-flash-lite-001",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-computer-use-preview-10-2025",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-flash-image",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-flash-lite",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-flash-lite-preview-06-17",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-flash-lite-preview-09-2025",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-flash-native-audio-latest",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-flash-native-audio-preview-09-2025",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-flash-native-audio-preview-12-2025",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-flash-preview-09-2025",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-flash-preview-tts",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-pro",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-2.5-pro-preview-tts",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-3-flash-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-3-pro-image-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-3-pro-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-3.1-flash-image-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-3.1-flash-lite-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-3.1-flash-live-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-3.1-pro-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-3.1-pro-preview-customtools",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-embedding-001",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-embedding-2-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-exp-1114",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-exp-1206",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-flash-latest",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-flash-lite-latest",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-gemma-2-27b-it",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-gemma-2-9b-it",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-live-2.5-flash-preview-native-audio-09-2025",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-pro-latest",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemini-robotics-er-1.5-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "gemma-3-27b-it",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "learnlm-1.5-pro-experimental",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "lyria-3-clip-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "lyria-3-pro-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "veo-2.0-generate-001",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "veo-3.1-fast-generate-001",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "veo-3.1-fast-generate-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "veo-3.1-generate-001",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "veo-3.1-generate-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "veo-3.1-lite-generate-preview",
+      "providerId": "gemini-openai-general"
+    },
+    {
+      "modelId": "MiniMax-M2",
+      "providerId": "minimax-cn-anthropic-coding"
+    },
+    {
+      "modelId": "MiniMax-M2.1",
+      "providerId": "minimax-cn-anthropic-coding"
+    },
+    {
+      "modelId": "MiniMax-M2.1-lightning",
+      "providerId": "minimax-cn-anthropic-coding"
+    },
+    {
+      "modelId": "MiniMax-M2.5",
+      "providerId": "minimax-cn-anthropic-coding"
+    },
+    {
+      "modelId": "MiniMax-M2.5-lightning",
+      "providerId": "minimax-cn-anthropic-coding"
+    },
+    {
+      "modelId": "speech-02-hd",
+      "providerId": "minimax-cn-anthropic-coding"
+    },
+    {
+      "modelId": "speech-02-turbo",
+      "providerId": "minimax-cn-anthropic-coding"
+    },
+    {
+      "modelId": "speech-2.6-hd",
+      "providerId": "minimax-cn-anthropic-coding"
+    },
+    {
+      "modelId": "speech-2.6-turbo",
+      "providerId": "minimax-cn-anthropic-coding"
+    },
+    {
+      "modelId": "MiniMax-M2",
+      "providerId": "minimax-intl-anthropic-coding"
+    },
+    {
+      "modelId": "MiniMax-M2.1",
+      "providerId": "minimax-intl-anthropic-coding"
+    },
+    {
+      "modelId": "MiniMax-M2.1-lightning",
+      "providerId": "minimax-intl-anthropic-coding"
+    },
+    {
+      "modelId": "MiniMax-M2.5",
+      "providerId": "minimax-intl-anthropic-coding"
+    },
+    {
+      "modelId": "MiniMax-M2.5-lightning",
+      "providerId": "minimax-intl-anthropic-coding"
+    },
+    {
+      "modelId": "speech-02-hd",
+      "providerId": "minimax-intl-anthropic-coding"
+    },
+    {
+      "modelId": "speech-02-turbo",
+      "providerId": "minimax-intl-anthropic-coding"
+    },
+    {
+      "modelId": "speech-2.6-hd",
+      "providerId": "minimax-intl-anthropic-coding"
+    },
+    {
+      "modelId": "speech-2.6-turbo",
+      "providerId": "minimax-intl-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-k2-0711-preview",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-k2-0905-preview",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-k2-thinking-turbo",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-k2-turbo-preview",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-latest",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-latest-128k",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-latest-32k",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-latest-8k",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-thinking-preview",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-128k",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-128k-0430",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-128k-vision-preview",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-32k",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-32k-0430",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-32k-vision-preview",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-8k",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-8k-0430",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-8k-vision-preview",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "moonshot-v1-auto",
+      "providerId": "kimi-cn-anthropic-coding"
+    },
+    {
+      "modelId": "kimi-k2-0711-preview",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "kimi-k2-0905-preview",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "kimi-k2-thinking-turbo",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "kimi-k2-turbo-preview",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "kimi-latest",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "kimi-latest-128k",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "kimi-latest-32k",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "kimi-latest-8k",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "kimi-thinking-preview",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-128k",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-128k-0430",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-128k-vision-preview",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-32k",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-32k-0430",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-32k-vision-preview",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-8k",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-8k-0430",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-8k-vision-preview",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-auto",
+      "providerId": "kimi-cn-openai-general"
+    },
+    {
+      "modelId": "kimi-k2-0711-preview",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "kimi-k2-0905-preview",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "kimi-k2-thinking-turbo",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "kimi-k2-turbo-preview",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "kimi-latest",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "kimi-latest-128k",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "kimi-latest-32k",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "kimi-latest-8k",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "kimi-thinking-preview",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-128k",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-128k-0430",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-128k-vision-preview",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-32k",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-32k-0430",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-32k-vision-preview",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-8k",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-8k-0430",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-8k-vision-preview",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "moonshot-v1-auto",
+      "providerId": "kimi-intl-openai-general"
+    },
+    {
+      "modelId": "1024-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "1024-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "1024-x-1536/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "1024-x-1536/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "1536-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "1536-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "chatgpt-4o-latest",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "chatgpt-image-latest",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "codex-mini-latest",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "dall-e-2",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "dall-e-3",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-3.5-turbo",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-3.5-turbo-0125",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-3.5-turbo-0613",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-3.5-turbo-1106",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-4-0613",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-4.1-2025-04-14",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-4.1-mini-2025-04-14",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-4.1-nano-2025-04-14",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-4o-2024-08-06",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-4o-2024-11-20",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:gpt-4o-mini-2024-07-18",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "ft:o4-mini-2025-04-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-3.5-turbo",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-3.5-turbo-0125",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-3.5-turbo-1106",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-3.5-turbo-16k",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4-0125-preview",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4-0314",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4-0613",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4-1106-preview",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4-turbo",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4-turbo-2024-04-09",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4-turbo-preview",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4.1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4.1-2025-04-14",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4.1-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4.1-mini-2025-04-14",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4.1-nano",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4.1-nano-2025-04-14",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-2024-05-13",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-2024-08-06",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-2024-11-20",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-audio-preview",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-audio-preview-2024-12-17",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-audio-preview-2025-06-03",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-2024-07-18",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-audio-preview",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-audio-preview-2024-12-17",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-realtime-preview",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-realtime-preview-2024-12-17",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-search-preview",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-search-preview-2025-03-11",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-transcribe",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-transcribe-2025-03-20",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-transcribe-2025-12-15",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-tts",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-tts-2025-03-20",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-mini-tts-2025-12-15",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-realtime-preview",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-realtime-preview-2024-12-17",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-realtime-preview-2025-06-03",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-search-preview",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-search-preview-2025-03-11",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-transcribe",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-4o-transcribe-diarize",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-2025-08-07",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-chat",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-chat-latest",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-codex",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-mini-2025-08-07",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-nano",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-nano-2025-08-07",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-pro",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-pro-2025-10-06",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-search-api",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5-search-api-2025-10-14",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.1-2025-11-13",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.1-chat-latest",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.1-codex",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.1-codex-max",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.1-codex-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.2",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.2-2025-12-11",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.2-chat-latest",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.2-codex",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.2-pro",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.2-pro-2025-12-11",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.3-chat-latest",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.3-codex",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.4",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.4-2026-03-05",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.4-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.4-nano",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.4-pro",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-5.4-pro-2026-03-05",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-audio",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-audio-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-audio-2025-08-28",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-audio-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-audio-mini-2025-10-06",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-audio-mini-2025-12-15",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-image-1-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-realtime",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-realtime-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-realtime-2025-08-28",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-realtime-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-realtime-mini-2025-10-06",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "gpt-realtime-mini-2025-12-15",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "high/1024-x-1024/gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "high/1024-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "high/1024-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "high/1024-x-1536/gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "high/1024-x-1536/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "high/1024-x-1536/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "high/1536-x-1024/gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "high/1536-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "high/1536-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1024-x-1024/gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1024-x-1024/gpt-image-1-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1024-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1024-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1024-x-1536/gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1024-x-1536/gpt-image-1-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1024-x-1536/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1024-x-1536/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1536-x-1024/gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1536-x-1024/gpt-image-1-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1536-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "low/1536-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1024-x-1024/gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1024-x-1024/gpt-image-1-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1024-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1024-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1024-x-1536/gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1024-x-1536/gpt-image-1-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1024-x-1536/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1024-x-1536/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1536-x-1024/gpt-image-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1536-x-1024/gpt-image-1-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1536-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "medium/1536-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o1-2024-12-17",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o1-pro",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o1-pro-2025-03-19",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o3",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o3-2025-04-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o3-deep-research",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o3-deep-research-2025-06-26",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o3-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o3-mini-2025-01-31",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o3-pro",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o3-pro-2025-06-10",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o4-mini",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o4-mini-2025-04-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o4-mini-deep-research",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "o4-mini-deep-research-2025-06-26",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "omni-moderation-2024-09-26",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "omni-moderation-latest",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "standard/1024-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "standard/1024-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "standard/1024-x-1536/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "standard/1024-x-1536/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "standard/1536-x-1024/gpt-image-1.5",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "standard/1536-x-1024/gpt-image-1.5-2025-12-16",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "text-embedding-3-large",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "text-embedding-3-small",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "text-embedding-ada-002",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "text-embedding-ada-002-v2",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "text-moderation-007",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "text-moderation-latest",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "text-moderation-stable",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "tts-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "tts-1-1106",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "tts-1-hd",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "tts-1-hd-1106",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "whisper-1",
+      "providerId": "openai-default"
+    },
+    {
+      "modelId": "anthropic/claude-3-haiku",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-3.5-sonnet",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-3.7-sonnet",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-haiku-4.5",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-opus-4",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-opus-4.1",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-opus-4.5",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-opus-4.6",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-sonnet-4",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-sonnet-4.5",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "anthropic/claude-sonnet-4.6",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "bytedance/ui-tars-1.5-7b",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "deepseek/deepseek-chat",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "deepseek/deepseek-chat-v3-0324",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "deepseek/deepseek-chat-v3.1",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "deepseek/deepseek-r1",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "deepseek/deepseek-r1-0528",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "deepseek/deepseek-v3.2",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "deepseek/deepseek-v3.2-exp",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "google/gemini-2.0-flash-001",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "google/gemini-2.5-flash",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "google/gemini-2.5-pro",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "google/gemini-3-flash-preview",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "google/gemini-3-pro-preview",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "google/gemini-3.1-flash-lite-preview",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "google/gemini-3.1-pro-preview",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "gryphe/mythomax-l2-13b",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mancer/weaver",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "meta-llama/llama-3-70b-instruct",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "minimax/minimax-m2",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "minimax/minimax-m2.1",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "minimax/minimax-m2.5",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/devstral-2512",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/ministral-14b-2512",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/ministral-3b-2512",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/ministral-8b-2512",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/mistral-7b-instruct",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/mistral-large",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/mistral-large-2512",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/mistral-small-3.1-24b-instruct",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/mistral-small-3.2-24b-instruct",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "mistralai/mixtral-8x22b-instruct",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "moonshotai/kimi-k2.5",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-3.5-turbo",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-3.5-turbo-16k",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-4",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-4.1",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-4.1-mini",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-4.1-nano",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-4o",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-4o-2024-05-13",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5-chat",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5-codex",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5-mini",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5-nano",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5.1-codex-max",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5.2",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5.2-chat",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5.2-codex",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-5.2-pro",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-oss-120b",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/gpt-oss-20b",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/o1",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/o3-mini",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openai/o3-mini-high",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openrouter/auto",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openrouter/bodybuilder",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "openrouter/free",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen-2.5-coder-32b-instruct",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen-vl-plus",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3-235b-a22b-2507",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3-235b-a22b-thinking-2507",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3-coder",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3-coder-plus",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3.5-122b-a10b",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3.5-27b",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3.5-35b-a3b",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3.5-397b-a17b",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3.5-flash-02-23",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "qwen/qwen3.5-plus-02-15",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "switchpoint/router",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "undi95/remm-slerp-l2-13b",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "x-ai/grok-4",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "xiaomi/mimo-v2-flash",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "z-ai/glm-4.6",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "z-ai/glm-4.6:exacto",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "z-ai/glm-4.7",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "z-ai/glm-4.7-flash",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "z-ai/glm-5",
+      "providerId": "openrouter-openai-general"
+    },
+    {
+      "modelId": "glm-4-32b-0414-128k",
+      "providerId": "zai-shared-anthropic-coding"
+    },
+    {
+      "modelId": "glm-4.5",
+      "providerId": "zai-shared-anthropic-coding"
+    },
+    {
+      "modelId": "glm-4.5-airx",
+      "providerId": "zai-shared-anthropic-coding"
+    },
+    {
+      "modelId": "glm-4.5-flash",
+      "providerId": "zai-shared-anthropic-coding"
+    },
+    {
+      "modelId": "glm-4.5-x",
+      "providerId": "zai-shared-anthropic-coding"
+    },
+    {
+      "modelId": "glm-4.5v",
+      "providerId": "zai-shared-anthropic-coding"
+    },
+    {
+      "modelId": "glm-4.6",
+      "providerId": "zai-shared-anthropic-coding"
+    },
+    {
+      "modelId": "glm-5",
+      "providerId": "zai-shared-anthropic-coding"
+    },
+    {
+      "modelId": "glm-5-code",
+      "providerId": "zai-shared-anthropic-coding"
+    },
+    {
+      "modelId": "glm-4-32b-0414-128k",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-4.5",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-4.5-air",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-4.5-airx",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-4.5-flash",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-4.5-x",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-4.5v",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-4.6",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-4.7",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-5-code",
+      "providerId": "zai-shared-openai-coding"
+    },
+    {
+      "modelId": "glm-4-32b-0414-128k",
+      "providerId": "zai-shared-openai-general"
+    },
+    {
+      "modelId": "glm-4.5",
+      "providerId": "zai-shared-openai-general"
+    },
+    {
+      "modelId": "glm-4.5-airx",
+      "providerId": "zai-shared-openai-general"
+    },
+    {
+      "modelId": "glm-4.5-flash",
+      "providerId": "zai-shared-openai-general"
+    },
+    {
+      "modelId": "glm-4.5-x",
+      "providerId": "zai-shared-openai-general"
+    },
+    {
+      "modelId": "glm-4.6",
+      "providerId": "zai-shared-openai-general"
+    },
+    {
+      "modelId": "glm-4.7",
+      "providerId": "zai-shared-openai-general"
+    },
+    {
+      "modelId": "glm-5",
+      "providerId": "zai-shared-openai-general"
+    },
+    {
+      "modelId": "glm-5-code",
+      "providerId": "zai-shared-openai-general"
+    }
+  ],
+  "newProviderAliases": [
+    {
+      "communityAlias": "a2a",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/a2a",
+      "modelCount": 0,
+      "providerDisplayName": "A2A (Agent-to-Agent) (`a2a`)"
+    },
+    {
+      "communityAlias": "abliteration",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/abliteration",
+      "modelCount": 0,
+      "providerDisplayName": "Abliteration (`abliteration`)"
+    },
+    {
+      "communityAlias": "ai21",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/ai21",
+      "modelCount": 12,
+      "providerDisplayName": "AI21 (`ai21`)"
+    },
+    {
+      "communityAlias": "ai21_chat",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/ai21",
+      "modelCount": 0,
+      "providerDisplayName": "AI21 Chat (`ai21_chat`)"
+    },
+    {
+      "communityAlias": "aiml",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/aiml",
+      "modelCount": 12,
+      "providerDisplayName": "AI/ML API (`aiml`)"
+    },
+    {
+      "communityAlias": "aleph_alpha",
+      "modelCount": 6
+    },
+    {
+      "communityAlias": "amazon_nova",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/amazon_nova",
+      "modelCount": 4,
+      "providerDisplayName": "Amazon Nova (`amazon_nova`)"
+    },
+    {
+      "communityAlias": "anthropic_text",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/anthropic",
+      "modelCount": 0,
+      "providerDisplayName": "Anthropic Text (`anthropic_text`)"
+    },
+    {
+      "communityAlias": "anyscale",
+      "modelCount": 12
+    },
+    {
+      "communityAlias": "apertis",
+      "modelCount": 0,
+      "providerDisplayName": "Apertis (`apertis`)"
+    },
+    {
+      "communityAlias": "assemblyai",
+      "docsUrl": "https://docs.litellm.ai/docs/pass_through/assembly_ai",
+      "modelCount": 2,
+      "providerDisplayName": "AssemblyAI (`assemblyai`)"
+    },
+    {
+      "communityAlias": "auto_router",
+      "docsUrl": "https://docs.litellm.ai/docs/proxy/auto_routing",
+      "modelCount": 0,
+      "providerDisplayName": "Auto Router (`auto_router`)"
+    },
+    {
+      "communityAlias": "aws_polly",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/aws_polly",
+      "modelCount": 4,
+      "providerDisplayName": "AWS - Polly (`aws_polly`)"
+    },
+    {
+      "communityAlias": "azure",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/azure",
+      "modelCount": 189,
+      "providerDisplayName": "Azure (`azure`)"
+    },
+    {
+      "communityAlias": "azure_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/azure_ai",
+      "modelCount": 76,
+      "providerDisplayName": "Azure AI (`azure_ai`)"
+    },
+    {
+      "communityAlias": "azure_ai/agents",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/azure_ai_agents",
+      "modelCount": 0,
+      "providerDisplayName": "Azure AI Foundry Agents (`azure_ai/agents`)"
+    },
+    {
+      "communityAlias": "azure_ai/doc-intelligence",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/azure_document_intelligence",
+      "modelCount": 0,
+      "providerDisplayName": "Azure AI Document Intelligence (`azure_ai/doc-intelligence`)"
+    },
+    {
+      "communityAlias": "azure_text",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/azure",
+      "modelCount": 3,
+      "providerDisplayName": "Azure Text (`azure_text`)"
+    },
+    {
+      "communityAlias": "baseten",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/baseten",
+      "modelCount": 11,
+      "providerDisplayName": "Baseten (`baseten`)"
+    },
+    {
+      "communityAlias": "bedrock",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/bedrock",
+      "modelCount": 264,
+      "providerDisplayName": "AWS - Bedrock (`bedrock`)"
+    },
+    {
+      "communityAlias": "bedrock_converse",
+      "modelCount": 120
+    },
+    {
+      "communityAlias": "bedrock_mantle",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/bedrock",
+      "modelCount": 4,
+      "providerDisplayName": "Bedrock Mantle (`bedrock_mantle`)"
+    },
+    {
+      "communityAlias": "black_forest_labs",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/black_forest_labs",
+      "modelCount": 8,
+      "providerDisplayName": "Black Forest Labs (`black_forest_labs`)"
+    },
+    {
+      "communityAlias": "brave",
+      "docsUrl": "https://docs.litellm.ai/docs/search/brave",
+      "modelCount": 0,
+      "providerDisplayName": "Brave Search (`brave`)"
+    },
+    {
+      "communityAlias": "bytez",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/bytez",
+      "modelCount": 0,
+      "providerDisplayName": "Bytez (`bytez`)"
+    },
+    {
+      "communityAlias": "cerebras",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/cerebras",
+      "modelCount": 7,
+      "providerDisplayName": "Cerebras (`cerebras`)"
+    },
+    {
+      "communityAlias": "charity_engine",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/charity_engine",
+      "modelCount": 0,
+      "providerDisplayName": "Charity Engine (`charity_engine`)"
+    },
+    {
+      "communityAlias": "chatgpt",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/chatgpt",
+      "modelCount": 10,
+      "providerDisplayName": "ChatGPT Subscription (`chatgpt`)"
+    },
+    {
+      "communityAlias": "chutes",
+      "modelCount": 0,
+      "providerDisplayName": "Chutes (`chutes`)"
+    },
+    {
+      "communityAlias": "clarifai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/clarifai",
+      "modelCount": 0,
+      "providerDisplayName": "Clarifai (`clarifai`)"
+    },
+    {
+      "communityAlias": "cloudflare",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/cloudflare_workers",
+      "modelCount": 4,
+      "providerDisplayName": "Cloudflare AI Workers (`cloudflare`)"
+    },
+    {
+      "communityAlias": "codestral",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/codestral",
+      "modelCount": 2,
+      "providerDisplayName": "Codestral (`codestral`)"
+    },
+    {
+      "communityAlias": "cohere",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/cohere",
+      "modelCount": 15,
+      "providerDisplayName": "Cohere (`cohere`)"
+    },
+    {
+      "communityAlias": "cohere_chat",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/cohere",
+      "modelCount": 7,
+      "providerDisplayName": "Cohere Chat (`cohere_chat`)"
+    },
+    {
+      "communityAlias": "cometapi",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/cometapi",
+      "modelCount": 0,
+      "providerDisplayName": "CometAPI (`cometapi`)"
+    },
+    {
+      "communityAlias": "compactifai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/compactifai",
+      "modelCount": 0,
+      "providerDisplayName": "CompactifAI (`compactifai`)"
+    },
+    {
+      "communityAlias": "cursor",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/cursor",
+      "modelCount": 0,
+      "providerDisplayName": "Cursor BYOK (`cursor`)"
+    },
+    {
+      "communityAlias": "custom",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/custom_llm_server",
+      "modelCount": 0,
+      "providerDisplayName": "Custom (`custom`)"
+    },
+    {
+      "communityAlias": "custom_openai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/openai_compatible",
+      "modelCount": 0,
+      "providerDisplayName": "Custom OpenAI (`custom_openai`)"
+    },
+    {
+      "communityAlias": "dashscope",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/dashscope",
+      "modelCount": 32,
+      "providerDisplayName": "Dashscope (`dashscope`)"
+    },
+    {
+      "communityAlias": "databricks",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/databricks",
+      "modelCount": 28,
+      "providerDisplayName": "Databricks (`databricks`)"
+    },
+    {
+      "communityAlias": "dataforseo",
+      "docsUrl": "https://docs.litellm.ai/docs/search/dataforseo",
+      "modelCount": 1,
+      "providerDisplayName": "DataForSEO (`dataforseo`)"
+    },
+    {
+      "communityAlias": "datarobot",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/datarobot",
+      "modelCount": 0,
+      "providerDisplayName": "DataRobot (`datarobot`)"
+    },
+    {
+      "communityAlias": "deepgram",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/deepgram",
+      "modelCount": 36,
+      "providerDisplayName": "Deepgram (`deepgram`)"
+    },
+    {
+      "communityAlias": "deepinfra",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/deepinfra",
+      "modelCount": 67,
+      "providerDisplayName": "DeepInfra (`deepinfra`)"
+    },
+    {
+      "communityAlias": "docker_model_runner",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/docker_model_runner",
+      "modelCount": 0,
+      "providerDisplayName": "Docker Model Runner (`docker_model_runner`)"
+    },
+    {
+      "communityAlias": "duckduckgo",
+      "docsUrl": "https://docs.litellm.ai/docs/search/duckduckgo",
+      "modelCount": 1,
+      "providerDisplayName": "DuckDuckGo (`duckduckgo`)"
+    },
+    {
+      "communityAlias": "elevenlabs",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/elevenlabs",
+      "modelCount": 4,
+      "providerDisplayName": "ElevenLabs (`elevenlabs`)"
+    },
+    {
+      "communityAlias": "empower",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/empower",
+      "modelCount": 0,
+      "providerDisplayName": "Empower (`empower`)"
+    },
+    {
+      "communityAlias": "exa_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/search/exa_ai",
+      "modelCount": 1,
+      "providerDisplayName": "Exa AI (`exa_ai`)"
+    },
+    {
+      "communityAlias": "fal_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/fal_ai",
+      "modelCount": 12,
+      "providerDisplayName": "Fal AI (`fal_ai`)"
+    },
+    {
+      "communityAlias": "featherless_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/featherless_ai",
+      "modelCount": 2,
+      "providerDisplayName": "Featherless AI (`featherless_ai`)"
+    },
+    {
+      "communityAlias": "firecrawl",
+      "docsUrl": "https://docs.litellm.ai/docs/search/firecrawl",
+      "modelCount": 1,
+      "providerDisplayName": "Firecrawl (`firecrawl`)"
+    },
+    {
+      "communityAlias": "fireworks_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/fireworks_ai",
+      "modelCount": 269,
+      "providerDisplayName": "Fireworks AI (`fireworks_ai`)"
+    },
+    {
+      "communityAlias": "fireworks_ai-embedding-models",
+      "modelCount": 7
+    },
+    {
+      "communityAlias": "friendliai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/friendliai",
+      "modelCount": 2,
+      "providerDisplayName": "FriendliAI (`friendliai`)"
+    },
+    {
+      "communityAlias": "galadriel",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/galadriel",
+      "modelCount": 0,
+      "providerDisplayName": "Galadriel (`galadriel`)"
+    },
+    {
+      "communityAlias": "gigachat",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/gigachat",
+      "modelCount": 6,
+      "providerDisplayName": "GigaChat (`gigachat`)"
+    },
+    {
+      "communityAlias": "github",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/github",
+      "modelCount": 0,
+      "providerDisplayName": "GitHub Models (`github`)"
+    },
+    {
+      "communityAlias": "github_copilot",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/github_copilot",
+      "modelCount": 31,
+      "providerDisplayName": "GitHub Copilot (`github_copilot`)"
+    },
+    {
+      "communityAlias": "gmi",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/gmi_cloud",
+      "modelCount": 17,
+      "providerDisplayName": "GMI Cloud (`gmi`)"
+    },
+    {
+      "communityAlias": "google_pse",
+      "docsUrl": "https://docs.litellm.ai/docs/search/google_pse",
+      "modelCount": 1,
+      "providerDisplayName": "Google PSE (`google_pse`)"
+    },
+    {
+      "communityAlias": "gradient_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/gradient_ai",
+      "modelCount": 13,
+      "providerDisplayName": "GradientAI (`gradient_ai`)"
+    },
+    {
+      "communityAlias": "groq",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/groq",
+      "modelCount": 14,
+      "providerDisplayName": "Groq AI (`groq`)"
+    },
+    {
+      "communityAlias": "helicone",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/helicone",
+      "modelCount": 0,
+      "providerDisplayName": "Helicone (`helicone`)"
+    },
+    {
+      "communityAlias": "heroku",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/heroku",
+      "modelCount": 4,
+      "providerDisplayName": "Heroku (`heroku`)"
+    },
+    {
+      "communityAlias": "hosted_vllm",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/vllm",
+      "modelCount": 0,
+      "providerDisplayName": "Hosted VLLM (`hosted_vllm`)"
+    },
+    {
+      "communityAlias": "huggingface",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/huggingface",
+      "modelCount": 0,
+      "providerDisplayName": "Huggingface (`huggingface`)"
+    },
+    {
+      "communityAlias": "hyperbolic",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/hyperbolic",
+      "modelCount": 16,
+      "providerDisplayName": "Hyperbolic (`hyperbolic`)"
+    },
+    {
+      "communityAlias": "infinity",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/infinity",
+      "modelCount": 0,
+      "providerDisplayName": "Infinity (`infinity`)"
+    },
+    {
+      "communityAlias": "jina_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/jina_ai",
+      "modelCount": 1,
+      "providerDisplayName": "Jina AI (`jina_ai`)"
+    },
+    {
+      "communityAlias": "lambda_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/lambda_ai",
+      "modelCount": 20,
+      "providerDisplayName": "Lambda AI (`lambda_ai`)"
+    },
+    {
+      "communityAlias": "langgraph",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/langgraph",
+      "modelCount": 0,
+      "providerDisplayName": "LangGraph (`langgraph`)"
+    },
+    {
+      "communityAlias": "lemonade",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/lemonade",
+      "modelCount": 5,
+      "providerDisplayName": "Lemonade (`lemonade`)"
+    },
+    {
+      "communityAlias": "linkup",
+      "docsUrl": "https://docs.litellm.ai/docs/search/linkup",
+      "modelCount": 2,
+      "providerDisplayName": "Linkup (`linkup`)"
+    },
+    {
+      "communityAlias": "litellm_proxy",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/litellm_proxy",
+      "modelCount": 0,
+      "providerDisplayName": "LiteLLM Proxy (`litellm_proxy`)"
+    },
+    {
+      "communityAlias": "llamafile",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/llamafile",
+      "modelCount": 0,
+      "providerDisplayName": "Llamafile (`llamafile`)"
+    },
+    {
+      "communityAlias": "llamagate",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/llamagate",
+      "modelCount": 16,
+      "providerDisplayName": "LlamaGate (`llamagate`)"
+    },
+    {
+      "communityAlias": "lm_studio",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/lm_studio",
+      "modelCount": 0,
+      "providerDisplayName": "LM Studio (`lm_studio`)"
+    },
+    {
+      "communityAlias": "manus",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/manus",
+      "modelCount": 0,
+      "providerDisplayName": "Manus (`manus`)"
+    },
+    {
+      "communityAlias": "maritalk",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/maritalk",
+      "modelCount": 0,
+      "providerDisplayName": "Maritalk (`maritalk`)"
+    },
+    {
+      "communityAlias": "meta_llama",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/meta_llama",
+      "modelCount": 4,
+      "providerDisplayName": "Meta - Llama API (`meta_llama`)"
+    },
+    {
+      "communityAlias": "milvus",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/milvus_vector_stores",
+      "modelCount": 0,
+      "providerDisplayName": "Milvus (`milvus`)"
+    },
+    {
+      "communityAlias": "mistral",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/mistral",
+      "modelCount": 51,
+      "providerDisplayName": "Mistral AI API (`mistral`)"
+    },
+    {
+      "communityAlias": "morph",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/morph",
+      "modelCount": 2,
+      "providerDisplayName": "Morph (`morph`)"
+    },
+    {
+      "communityAlias": "nanogpt",
+      "modelCount": 0,
+      "providerDisplayName": "NanoGPT (`nanogpt`)"
+    },
+    {
+      "communityAlias": "nebius",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/nebius",
+      "modelCount": 30,
+      "providerDisplayName": "Nebius AI Studio (`nebius`)"
+    },
+    {
+      "communityAlias": "nlp_cloud",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/nlp_cloud",
+      "modelCount": 2,
+      "providerDisplayName": "NLP Cloud (`nlp_cloud`)"
+    },
+    {
+      "communityAlias": "novita",
+      "docsUrl": "https://novita.ai/models/llm?utm_source=github_litellm&utm_medium=github_readme&utm_campaign=github_link",
+      "modelCount": 85,
+      "providerDisplayName": "Novita AI (`novita`)"
+    },
+    {
+      "communityAlias": "nscale",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/nscale",
+      "modelCount": 16,
+      "providerDisplayName": "Nscale (`nscale`)"
+    },
+    {
+      "communityAlias": "nvidia_nim",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/nvidia_nim",
+      "modelCount": 3,
+      "providerDisplayName": "Nvidia NIM (`nvidia_nim`)"
+    },
+    {
+      "communityAlias": "oci",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/oci",
+      "modelCount": 37,
+      "providerDisplayName": "OCI (`oci`)"
+    },
+    {
+      "communityAlias": "ollama",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/ollama",
+      "modelCount": 29,
+      "providerDisplayName": "Ollama (`ollama`)"
+    },
+    {
+      "communityAlias": "ollama_chat",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/ollama",
+      "modelCount": 0,
+      "providerDisplayName": "Ollama Chat (`ollama_chat`)"
+    },
+    {
+      "communityAlias": "one of https://docs.litellm.ai/docs/providers",
+      "modelCount": 1
+    },
+    {
+      "communityAlias": "oobabooga",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/openai_compatible",
+      "modelCount": 0,
+      "providerDisplayName": "Oobabooga (`oobabooga`)"
+    },
+    {
+      "communityAlias": "openai_like",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/openai_compatible",
+      "modelCount": 0,
+      "providerDisplayName": "OpenAI-like (`openai_like`)"
+    },
+    {
+      "communityAlias": "ovhcloud",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/ovhcloud",
+      "modelCount": 15,
+      "providerDisplayName": "OVHCloud AI Endpoints (`ovhcloud`)"
+    },
+    {
+      "communityAlias": "palm",
+      "modelCount": 6
+    },
+    {
+      "communityAlias": "parallel_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/search/parallel_ai",
+      "modelCount": 2,
+      "providerDisplayName": "Parallel AI (`parallel_ai`)"
+    },
+    {
+      "communityAlias": "perplexity",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/perplexity",
+      "modelCount": 41,
+      "providerDisplayName": "Perplexity AI (`perplexity`)"
+    },
+    {
+      "communityAlias": "petals",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/petals",
+      "modelCount": 0,
+      "providerDisplayName": "Petals (`petals`)"
+    },
+    {
+      "communityAlias": "pg_vector",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/pg_vector",
+      "modelCount": 0,
+      "providerDisplayName": "PG Vector (`pg_vector`)"
+    },
+    {
+      "communityAlias": "poe",
+      "modelCount": 0,
+      "providerDisplayName": "Poe (`poe`)"
+    },
+    {
+      "communityAlias": "predibase",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/predibase",
+      "modelCount": 0,
+      "providerDisplayName": "Predibase (`predibase`)"
+    },
+    {
+      "communityAlias": "publicai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/publicai",
+      "modelCount": 9,
+      "providerDisplayName": "PublicAI (`publicai`)"
+    },
+    {
+      "communityAlias": "pydantic_ai_agents",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/pydantic_ai_agent",
+      "modelCount": 0,
+      "providerDisplayName": "Pydantic AI Agents (`pydantic_ai_agents`)"
+    },
+    {
+      "communityAlias": "ragflow",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/ragflow",
+      "modelCount": 0,
+      "providerDisplayName": "RAGFlow (`ragflow`)"
+    },
+    {
+      "communityAlias": "recraft",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/recraft",
+      "modelCount": 2,
+      "providerDisplayName": "Recraft (`recraft`)"
+    },
+    {
+      "communityAlias": "replicate",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/replicate",
+      "modelCount": 40,
+      "providerDisplayName": "Replicate (`replicate`)"
+    },
+    {
+      "communityAlias": "runwayml",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/runwayml/videos",
+      "modelCount": 6,
+      "providerDisplayName": "RunwayML (`runwayml`)"
+    },
+    {
+      "communityAlias": "s3_vectors",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/s3_vectors",
+      "modelCount": 0,
+      "providerDisplayName": "AWS S3 Vectors (`s3_vectors`)"
+    },
+    {
+      "communityAlias": "sagemaker",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/aws_sagemaker",
+      "modelCount": 6,
+      "providerDisplayName": "AWS - Sagemaker (`sagemaker`)"
+    },
+    {
+      "communityAlias": "sagemaker_chat",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/aws_sagemaker",
+      "modelCount": 0,
+      "providerDisplayName": "Sagemaker Chat (`sagemaker_chat`)"
+    },
+    {
+      "communityAlias": "sambanova",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/sambanova",
+      "modelCount": 16,
+      "providerDisplayName": "Sambanova (`sambanova`)"
+    },
+    {
+      "communityAlias": "sap",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/sap",
+      "modelCount": 0,
+      "providerDisplayName": "SAP Generative AI Hub (`sap`)"
+    },
+    {
+      "communityAlias": "sarvam",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/sarvam",
+      "modelCount": 1,
+      "providerDisplayName": "Sarvam (`sarvam`)"
+    },
+    {
+      "communityAlias": "scaleway",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/scaleway",
+      "modelCount": 0,
+      "providerDisplayName": "Scaleway (`scaleway`)"
+    },
+    {
+      "communityAlias": "searchapi",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/searchapi",
+      "modelCount": 0,
+      "providerDisplayName": "SearchAPI (`searchapi`)"
+    },
+    {
+      "communityAlias": "searxng",
+      "docsUrl": "https://docs.litellm.ai/docs/search/searxng",
+      "modelCount": 1,
+      "providerDisplayName": "SearXNG (`searxng`)"
+    },
+    {
+      "communityAlias": "serper",
+      "docsUrl": "https://docs.litellm.ai/docs/search/serper",
+      "modelCount": 1,
+      "providerDisplayName": "Serper (`serper`)"
+    },
+    {
+      "communityAlias": "snowflake",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/snowflake",
+      "modelCount": 24,
+      "providerDisplayName": "Snowflake (`snowflake`)"
+    },
+    {
+      "communityAlias": "stability",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/stability",
+      "modelCount": 23,
+      "providerDisplayName": "Stability AI (`stability`)"
+    },
+    {
+      "communityAlias": "synthetic",
+      "modelCount": 0,
+      "providerDisplayName": "Synthetic (`synthetic`)"
+    },
+    {
+      "communityAlias": "tavily",
+      "docsUrl": "https://docs.litellm.ai/docs/search/tavily",
+      "modelCount": 2,
+      "providerDisplayName": "Tavily (`tavily`)"
+    },
+    {
+      "communityAlias": "text-completion-codestral",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/codestral",
+      "modelCount": 2,
+      "providerDisplayName": "Text Completion Codestral (`text-completion-codestral`)"
+    },
+    {
+      "communityAlias": "text-completion-openai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/text_completion_openai",
+      "modelCount": 6,
+      "providerDisplayName": "Text Completion OpenAI (`text-completion-openai`)"
+    },
+    {
+      "communityAlias": "together_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/togetherai",
+      "modelCount": 43,
+      "providerDisplayName": "Together AI (`together_ai`)"
+    },
+    {
+      "communityAlias": "topaz",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/topaz",
+      "modelCount": 0,
+      "providerDisplayName": "Topaz (`topaz`)"
+    },
+    {
+      "communityAlias": "triton",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/triton-inference-server",
+      "modelCount": 0,
+      "providerDisplayName": "Triton (`triton`)"
+    },
+    {
+      "communityAlias": "v0",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/v0",
+      "modelCount": 3,
+      "providerDisplayName": "V0 (`v0`)"
+    },
+    {
+      "communityAlias": "venice",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/venice",
+      "modelCount": 0,
+      "providerDisplayName": "Venice.ai (`venice`)"
+    },
+    {
+      "communityAlias": "vercel_ai_gateway",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/vercel_ai_gateway",
+      "modelCount": 101,
+      "providerDisplayName": "Vercel AI Gateway (`vercel_ai_gateway`)"
+    },
+    {
+      "communityAlias": "vertex_ai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/vertex",
+      "modelCount": 9,
+      "providerDisplayName": "Google - Vertex AI (`vertex_ai`)"
+    },
+    {
+      "communityAlias": "vertex_ai-ai21_models",
+      "modelCount": 5
+    },
+    {
+      "communityAlias": "vertex_ai-anthropic_models",
+      "modelCount": 29
+    },
+    {
+      "communityAlias": "vertex_ai-deepseek_models",
+      "modelCount": 3
+    },
+    {
+      "communityAlias": "vertex_ai-embedding-models",
+      "modelCount": 9
+    },
+    {
+      "communityAlias": "vertex_ai-image-models",
+      "modelCount": 8
+    },
+    {
+      "communityAlias": "vertex_ai-language-models",
+      "modelCount": 31
+    },
+    {
+      "communityAlias": "vertex_ai-llama_models",
+      "modelCount": 11
+    },
+    {
+      "communityAlias": "vertex_ai-minimax_models",
+      "modelCount": 1
+    },
+    {
+      "communityAlias": "vertex_ai-mistral_models",
+      "modelCount": 19
+    },
+    {
+      "communityAlias": "vertex_ai-moonshot_models",
+      "modelCount": 1
+    },
+    {
+      "communityAlias": "vertex_ai-openai_models",
+      "modelCount": 2
+    },
+    {
+      "communityAlias": "vertex_ai-qwen_models",
+      "modelCount": 4
+    },
+    {
+      "communityAlias": "vertex_ai-text-models",
+      "modelCount": 2
+    },
+    {
+      "communityAlias": "vertex_ai-video-models",
+      "modelCount": 7
+    },
+    {
+      "communityAlias": "vertex_ai-zai_models",
+      "modelCount": 2
+    },
+    {
+      "communityAlias": "vertex_ai/agent_engine",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/vertex_ai_agent_engine",
+      "modelCount": 0,
+      "providerDisplayName": "Vertex AI Agent Engine (`vertex_ai/agent_engine`)"
+    },
+    {
+      "communityAlias": "vllm",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/vllm",
+      "modelCount": 0,
+      "providerDisplayName": "VLLM (`vllm`)"
+    },
+    {
+      "communityAlias": "volcengine",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/volcano",
+      "modelCount": 12,
+      "providerDisplayName": "Volcengine (`volcengine`)"
+    },
+    {
+      "communityAlias": "voyage",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/voyage",
+      "modelCount": 19,
+      "providerDisplayName": "Voyage AI (`voyage`)"
+    },
+    {
+      "communityAlias": "wandb",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/wandb_inference",
+      "modelCount": 16,
+      "providerDisplayName": "WandB Inference (`wandb`)"
+    },
+    {
+      "communityAlias": "watsonx",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/watsonx",
+      "modelCount": 29,
+      "providerDisplayName": "IBM - Watsonx.ai (`watsonx`)"
+    },
+    {
+      "communityAlias": "watsonx_text",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/watsonx",
+      "modelCount": 0,
+      "providerDisplayName": "Watsonx Text (`watsonx_text`)"
+    },
+    {
+      "communityAlias": "xai",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/xai",
+      "modelCount": 36,
+      "providerDisplayName": "xAI (`xai`)"
+    },
+    {
+      "communityAlias": "xiaomi_mimo",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/xiaomi_mimo",
+      "modelCount": 0,
+      "providerDisplayName": "Xiaomi Mimo (`xiaomi_mimo`)"
+    },
+    {
+      "communityAlias": "xinference",
+      "docsUrl": "https://docs.litellm.ai/docs/providers/xinference",
+      "modelCount": 0,
+      "providerDisplayName": "Xinference (`xinference`)"
+    }
+  ],
+  "summary": {
+    "conflictCount": 0,
+    "newModelCount": 451,
+    "newProviderAliasCount": 159,
+    "providerCount": 15
+  },
+  "version": 1
+}

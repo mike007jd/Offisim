@@ -188,7 +188,6 @@ apps/
 ## License and Key Model
 
 Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
-`subscription` provider 走 `claude acp` via `node:child_process`, 桌面端专用。
 
 ### Web Provider Defaults
 
@@ -200,6 +199,7 @@ Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 ### Live Product Findings
 
 - `web` live：真实 MiniMax 请求跑通，底部 token / cost / latency 都是真值
+- `claude-agent-sdk` 的 Anthropic-family lane 证据已记录在 repo，但当前 product host 仍对 `desktop-trusted` / `browser-limited` 都只暴露 `gateway`。实现形态仍是 Rust trusted host + 本地 Node sidecar，待 tool-enabled turn 主路径闭环后再重新开放产品暴露面
 - chat 一轮 streaming fix 已落（`fix-chat-streaming-ux` archived），但仍非强感知 streaming；二次迭代目标是正文 chunk 在气泡里增长
 - 2D DiceBear 卡通头像和 3D 块人是两种渲染引擎；衣服色通过 `outfitColorFromSeed(seed)` 桥接（2D 的 shirt 色 = 3D 的 body 色，hex 字节等价），其他部件（发型 / 脸 / 配饰）由 DiceBear 自 seed 独立派生
 - A2A 产品抽象 = **品牌外观外包员工**（external employee with brand avatar）。接不同 A2A 产品 → 办公室场景出现对应品牌员工 avatar（OpenClaw / Hermes / Codex 等，发版带内置 **支持列表**；没命中的走 **custom** 通用外包样式）。走员工语义：席位 / zone / ceremony 和内部员工一致，仅 2D+3D 渲染按 brandKey 分支。**不与 DiceBear / 块人内部员工共用资产** —— DiceBear + 块人专供内部员工（核心逻辑），外包员工每 brand 独立 2D+3D 资产

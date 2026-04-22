@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "rootDir": "..",
+    "baseUrl": ".",
+    "paths": {
+      "@offisim/doc-engine": ["../doc-engine/src/index.ts"],
+      "@offisim/registry-client": ["../registry-client/src/index.ts"],
+      "@offisim/renderer": ["../renderer/src/index.ts"],
+      "@offisim/ui-core": ["../ui-core/src/index.ts"]
+    }
+  },
+  "include": [
+    "src",
+    "../doc-engine/src",
+    "../registry-client/src",
+    "../renderer/src",
+    "../ui-core/src"
+  ]
+}

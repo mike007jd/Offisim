@@ -1,0 +1,276 @@
+{
+  "version": 1,
+  "providers": {
+    "anthropic-default": {
+      "productName": "Anthropic",
+      "vendor": "anthropic",
+      "region": "shared",
+      "compatibility": "native",
+      "surface": "general",
+      "providerTransport": "anthropic",
+      "authMode": "api-key",
+      "defaultModel": "claude-sonnet-4-20250514",
+      "communityAliases": ["anthropic"],
+      "models": {
+        "claude-sonnet-4-20250514": {
+          "displayName": "Claude Sonnet 4"
+        }
+      }
+    },
+    "custom": {
+      "productName": "Custom (OpenAI-compatible)",
+      "vendor": "custom",
+      "region": "shared",
+      "compatibility": "openai-compatible",
+      "surface": "general",
+      "providerTransport": "openai-compat",
+      "authMode": "api-key",
+      "models": {}
+    },
+    "deepseek-openai-general": {
+      "productName": "DeepSeek",
+      "vendor": "deepseek",
+      "region": "shared",
+      "compatibility": "openai-compatible",
+      "surface": "general",
+      "providerTransport": "openai-compat",
+      "authMode": "api-key",
+      "baseURL": "https://api.deepseek.com/v1",
+      "defaultModel": "deepseek-reasoner",
+      "communityAliases": ["deepseek"],
+      "models": {
+        "deepseek-reasoner": {
+          "displayName": "DeepSeek Reasoner"
+        }
+      }
+    },
+    "gemini-openai-general": {
+      "productName": "Google Gemini",
+      "vendor": "google",
+      "region": "shared",
+      "compatibility": "openai-compatible",
+      "surface": "general",
+      "providerTransport": "openai-compat",
+      "authMode": "api-key",
+      "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "defaultModel": "gemini-2.5-flash",
+      "communityAliases": ["gemini"],
+      "models": {
+        "gemini-2.5-flash": {
+          "displayName": "Gemini 2.5 Flash"
+        }
+      }
+    },
+    "kimi-cn-anthropic-coding": {
+      "productName": "Kimi CN · Claude Code",
+      "vendor": "kimi",
+      "region": "cn",
+      "compatibility": "anthropic-compatible",
+      "surface": "coding-plan",
+      "providerTransport": "anthropic",
+      "authMode": "api-key",
+      "baseURL": "https://api.moonshot.cn/anthropic",
+      "defaultModel": "kimi-k2.5",
+      "communityAliases": ["moonshot"],
+      "models": {
+        "kimi-k2-thinking": {
+          "displayName": "Kimi K2 Thinking"
+        },
+        "kimi-k2.5": {
+          "displayName": "Kimi K2.5"
+        }
+      }
+    },
+    "kimi-cn-openai-general": {
+      "productName": "Kimi CN · General API",
+      "vendor": "kimi",
+      "region": "cn",
+      "compatibility": "openai-compatible",
+      "surface": "general",
+      "providerTransport": "openai-compat",
+      "authMode": "api-key",
+      "baseURL": "https://api.moonshot.cn/v1",
+      "defaultModel": "kimi-k2.5",
+      "communityAliases": ["moonshot"],
+      "models": {
+        "kimi-k2-thinking": {
+          "displayName": "Kimi K2 Thinking"
+        },
+        "kimi-k2.5": {
+          "displayName": "Kimi K2.5"
+        }
+      }
+    },
+    "kimi-intl-openai-general": {
+      "productName": "Kimi Intl · General API",
+      "vendor": "kimi",
+      "region": "intl",
+      "compatibility": "openai-compatible",
+      "surface": "general",
+      "providerTransport": "openai-compat",
+      "authMode": "api-key",
+      "baseURL": "https://api.moonshot.ai/v1",
+      "defaultModel": "kimi-k2.5",
+      "communityAliases": ["moonshot"],
+      "models": {
+        "kimi-k2-thinking": {
+          "displayName": "Kimi K2 Thinking"
+        },
+        "kimi-k2.5": {
+          "displayName": "Kimi K2.5"
+        }
+      }
+    },
+    "lmstudio": {
+      "productName": "LM Studio (Local)",
+      "vendor": "lmstudio",
+      "region": "local",
+      "compatibility": "openai-compatible",
+      "surface": "general",
+      "providerTransport": "openai-compat",
+      "authMode": "api-key",
+      "baseURL": "http://localhost:1234/v1",
+      "defaultModel": "qwen/qwen3.5-9b",
+      "models": {
+        "qwen/qwen3.5-9b": {
+          "displayName": "Qwen 3.5 9B"
+        }
+      }
+    },
+    "minimax-cn-anthropic-coding": {
+      "productName": "MiniMax CN",
+      "vendor": "minimax",
+      "region": "cn",
+      "compatibility": "anthropic-compatible",
+      "surface": "coding-plan",
+      "providerTransport": "anthropic",
+      "authMode": "api-key",
+      "baseURL": "https://api.minimaxi.com/anthropic",
+      "defaultModel": "MiniMax-M2.7",
+      "communityAliases": ["minimax"],
+      "models": {
+        "MiniMax-M2.7": {
+          "displayName": "MiniMax M2.7"
+        },
+        "MiniMax-M2.7-highspeed": {
+          "displayName": "MiniMax M2.7 Highspeed"
+        }
+      }
+    },
+    "minimax-intl-anthropic-coding": {
+      "productName": "MiniMax Global",
+      "vendor": "minimax",
+      "region": "intl",
+      "compatibility": "anthropic-compatible",
+      "surface": "coding-plan",
+      "providerTransport": "anthropic",
+      "authMode": "api-key",
+      "baseURL": "https://api.minimax.io/anthropic",
+      "defaultModel": "MiniMax-M2.7",
+      "communityAliases": ["minimax"],
+      "models": {
+        "MiniMax-M2.7": {
+          "displayName": "MiniMax M2.7"
+        },
+        "MiniMax-M2.7-highspeed": {
+          "displayName": "MiniMax M2.7 Highspeed"
+        }
+      }
+    },
+    "openai-default": {
+      "productName": "OpenAI",
+      "vendor": "openai",
+      "region": "shared",
+      "compatibility": "native",
+      "surface": "general",
+      "providerTransport": "openai",
+      "authMode": "api-key",
+      "defaultModel": "gpt-4o-mini",
+      "communityAliases": ["openai"],
+      "models": {
+        "gpt-4o-mini": {
+          "displayName": "GPT-4o mini"
+        }
+      }
+    },
+    "openrouter-openai-general": {
+      "productName": "OpenRouter",
+      "vendor": "openrouter",
+      "region": "shared",
+      "compatibility": "openai-compatible",
+      "surface": "general",
+      "providerTransport": "openai-compat",
+      "authMode": "api-key",
+      "baseURL": "https://openrouter.ai/api/v1",
+      "defaultModel": "google/gemma-3-4b-it:free",
+      "communityAliases": ["openrouter"],
+      "models": {
+        "google/gemma-3-4b-it:free": {
+          "displayName": "Gemma 3 4B Instruct (free)"
+        }
+      }
+    },
+    "zai-shared-anthropic-coding": {
+      "productName": "Z.AI · Claude Code",
+      "vendor": "zai",
+      "region": "shared",
+      "compatibility": "anthropic-compatible",
+      "surface": "coding-plan",
+      "providerTransport": "anthropic",
+      "authMode": "api-key",
+      "baseURL": "https://api.z.ai/api/anthropic",
+      "defaultModel": "GLM-4.7",
+      "communityAliases": ["zai"],
+      "models": {
+        "GLM-4.5-Air": {
+          "communityAliases": ["glm-4.5-air"],
+          "displayName": "GLM 4.5 Air"
+        },
+        "GLM-4.7": {
+          "communityAliases": ["glm-4.7"],
+          "displayName": "GLM 4.7"
+        }
+      }
+    },
+    "zai-shared-openai-coding": {
+      "productName": "Z.AI · Coding API",
+      "vendor": "zai",
+      "region": "shared",
+      "compatibility": "openai-compatible",
+      "surface": "coding-plan",
+      "providerTransport": "openai-compat",
+      "authMode": "api-key",
+      "baseURL": "https://api.z.ai/api/coding/paas/v4",
+      "defaultModel": "glm-5.1",
+      "communityAliases": ["zai"],
+      "models": {
+        "glm-5": {
+          "displayName": "GLM 5"
+        },
+        "glm-5.1": {
+          "displayName": "GLM 5.1"
+        }
+      }
+    },
+    "zai-shared-openai-general": {
+      "productName": "Z.AI · General API",
+      "vendor": "zai",
+      "region": "shared",
+      "compatibility": "openai-compatible",
+      "surface": "general",
+      "providerTransport": "openai-compat",
+      "authMode": "api-key",
+      "baseURL": "https://api.z.ai/api/paas/v4",
+      "defaultModel": "glm-4.5-air",
+      "communityAliases": ["zai"],
+      "models": {
+        "glm-4.5-air": {
+          "displayName": "GLM 4.5 Air"
+        },
+        "glm-4.5v": {
+          "displayName": "GLM 4.5V"
+        }
+      }
+    }
+  }
+}

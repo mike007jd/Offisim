@@ -1,0 +1,28 @@
+{
+  "providers": {
+    "gemini": {
+      "display_name": "Google AI Studio - Gemini (`gemini`)",
+      "url": "https://docs.litellm.ai/docs/providers/gemini",
+      "endpoints": {
+        "chat_completions": true,
+        "responses": true,
+        "count_tokens": true
+      }
+    },
+    "mystery": {
+      "display_name": "Mystery Provider (`mystery`)",
+      "url": "https://example.com/mystery",
+      "endpoints": {
+        "chat_completions": true
+      }
+    },
+    "moonshot": {
+      "display_name": "Moonshot (`moonshot`)",
+      "url": "https://docs.litellm.ai/docs/providers/moonshot",
+      "endpoints": {
+        "chat_completions": true,
+        "responses": true
+      }
+    }
+  }
+}

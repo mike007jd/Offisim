@@ -1,0 +1,678 @@
+{
+  "generatedAt": "2026-04-22T03:29:17.736Z",
+  "providers": {
+    "anthropic-default": {
+      "authMode": "api-key",
+      "communityAliases": [
+        "anthropic"
+      ],
+      "communityDisplayName": "Anthropic (`anthropic`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/anthropic",
+      "compatibility": "native",
+      "defaultModel": "claude-sonnet-4-20250514",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "claude-sonnet-4-20250514": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1000000,
+          "displayName": "Claude Sonnet 4",
+          "maxOutputTokens": 64000,
+          "pricing": {
+            "inputCostPerToken": 0.000003,
+            "outputCostPerToken": 0.000015
+          }
+        }
+      },
+      "productName": "Anthropic",
+      "providerTransport": "anthropic",
+      "region": "shared",
+      "supportedEndpoints": [
+        "a2a",
+        "batches",
+        "chat_completions",
+        "count_tokens",
+        "interactions",
+        "messages",
+        "responses",
+        "skills"
+      ],
+      "surface": "general",
+      "vendor": "anthropic"
+    },
+    "custom": {
+      "authMode": "api-key",
+      "compatibility": "openai-compatible",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {},
+      "notes": "Custom endpoints stay gateway-only until a curated product profile exists.",
+      "productName": "Custom (OpenAI-compatible)",
+      "providerTransport": "openai-compat",
+      "region": "shared",
+      "surface": "general",
+      "vendor": "custom"
+    },
+    "deepseek-openai-general": {
+      "authMode": "api-key",
+      "baseURL": "https://api.deepseek.com/v1",
+      "communityAliases": [
+        "deepseek"
+      ],
+      "communityDisplayName": "Deepseek (`deepseek`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/deepseek",
+      "compatibility": "openai-compatible",
+      "defaultModel": "deepseek-reasoner",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "deepseek-reasoner": {
+          "capabilities": {
+            "functionCalling": false,
+            "reasoning": true
+          },
+          "contextWindow": 131072,
+          "displayName": "DeepSeek Reasoner",
+          "maxOutputTokens": 65536,
+          "pricing": {
+            "inputCostPerToken": 2.8e-7,
+            "outputCostPerToken": 4.2e-7
+          },
+          "supportedEndpoints": [
+            "/v1/chat/completions"
+          ]
+        }
+      },
+      "productName": "DeepSeek",
+      "providerTransport": "openai-compat",
+      "region": "shared",
+      "supportedEndpoints": [
+        "a2a",
+        "chat_completions",
+        "interactions",
+        "messages",
+        "responses"
+      ],
+      "surface": "general",
+      "vendor": "deepseek"
+    },
+    "gemini-openai-general": {
+      "authMode": "api-key",
+      "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "communityAliases": [
+        "gemini"
+      ],
+      "communityDisplayName": "Google AI Studio - Gemini (`gemini`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/gemini",
+      "compatibility": "openai-compatible",
+      "defaultModel": "gemini-2.5-flash",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "gemini-2.5-flash": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 1048576,
+          "displayName": "Gemini 2.5 Flash",
+          "maxOutputTokens": 65535,
+          "pricing": {
+            "inputCostPerToken": 3e-7,
+            "outputCostPerToken": 0.0000025
+          },
+          "supportedEndpoints": [
+            "/v1/batch",
+            "/v1/chat/completions",
+            "/v1/completions"
+          ]
+        }
+      },
+      "productName": "Google Gemini",
+      "providerTransport": "openai-compat",
+      "region": "shared",
+      "supportedEndpoints": [
+        "a2a",
+        "chat_completions",
+        "count_tokens",
+        "generateContent",
+        "interactions",
+        "messages",
+        "rag_ingest",
+        "realtime",
+        "responses",
+        "vector_stores_search"
+      ],
+      "surface": "general",
+      "vendor": "google"
+    },
+    "kimi-cn-anthropic-coding": {
+      "authMode": "api-key",
+      "baseURL": "https://api.moonshot.cn/anthropic",
+      "communityAliases": [
+        "moonshot"
+      ],
+      "communityDisplayName": "Moonshot (`moonshot`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/moonshot",
+      "compatibility": "anthropic-compatible",
+      "defaultModel": "kimi-k2.5",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "kimi-k2-thinking": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "Kimi K2 Thinking",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.0000025
+          }
+        },
+        "kimi-k2.5": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "Kimi K2.5",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.000003
+          }
+        }
+      },
+      "productName": "Kimi CN · Claude Code",
+      "providerTransport": "anthropic",
+      "region": "cn",
+      "supportedEndpoints": [
+        "a2a",
+        "chat_completions",
+        "interactions",
+        "messages",
+        "responses"
+      ],
+      "surface": "coding-plan",
+      "vendor": "kimi"
+    },
+    "kimi-cn-openai-general": {
+      "authMode": "api-key",
+      "baseURL": "https://api.moonshot.cn/v1",
+      "communityAliases": [
+        "moonshot"
+      ],
+      "communityDisplayName": "Moonshot (`moonshot`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/moonshot",
+      "compatibility": "openai-compatible",
+      "defaultModel": "kimi-k2.5",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "kimi-k2-thinking": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "Kimi K2 Thinking",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.0000025
+          }
+        },
+        "kimi-k2.5": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "Kimi K2.5",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.000003
+          }
+        }
+      },
+      "productName": "Kimi CN · General API",
+      "providerTransport": "openai-compat",
+      "region": "cn",
+      "supportedEndpoints": [
+        "a2a",
+        "chat_completions",
+        "interactions",
+        "messages",
+        "responses"
+      ],
+      "surface": "general",
+      "vendor": "kimi"
+    },
+    "kimi-intl-openai-general": {
+      "authMode": "api-key",
+      "baseURL": "https://api.moonshot.ai/v1",
+      "communityAliases": [
+        "moonshot"
+      ],
+      "communityDisplayName": "Moonshot (`moonshot`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/moonshot",
+      "compatibility": "openai-compatible",
+      "defaultModel": "kimi-k2.5",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "kimi-k2-thinking": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "Kimi K2 Thinking",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.0000025
+          }
+        },
+        "kimi-k2.5": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 262144,
+          "displayName": "Kimi K2.5",
+          "maxOutputTokens": 262144,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.000003
+          }
+        }
+      },
+      "productName": "Kimi Intl · General API",
+      "providerTransport": "openai-compat",
+      "region": "intl",
+      "supportedEndpoints": [
+        "a2a",
+        "chat_completions",
+        "interactions",
+        "messages",
+        "responses"
+      ],
+      "surface": "general",
+      "vendor": "kimi"
+    },
+    "lmstudio": {
+      "authMode": "api-key",
+      "baseURL": "http://localhost:1234/v1",
+      "compatibility": "openai-compatible",
+      "defaultModel": "qwen/qwen3.5-9b",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "qwen/qwen3.5-9b": {
+          "displayName": "Qwen 3.5 9B"
+        }
+      },
+      "productName": "LM Studio (Local)",
+      "providerTransport": "openai-compat",
+      "region": "local",
+      "surface": "general",
+      "vendor": "lmstudio"
+    },
+    "minimax-cn-anthropic-coding": {
+      "authMode": "api-key",
+      "baseURL": "https://api.minimaxi.com/anthropic",
+      "communityAliases": [
+        "minimax"
+      ],
+      "communityDisplayName": "Minimax (`minimax`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/minimax",
+      "compatibility": "anthropic-compatible",
+      "defaultModel": "MiniMax-M2.7",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "MiniMax-M2.7": {
+          "displayName": "MiniMax M2.7"
+        },
+        "MiniMax-M2.7-highspeed": {
+          "displayName": "MiniMax M2.7 Highspeed"
+        }
+      },
+      "productName": "MiniMax CN",
+      "providerTransport": "anthropic",
+      "region": "cn",
+      "supportedEndpoints": [
+        "chat_completions",
+        "messages",
+        "responses"
+      ],
+      "surface": "coding-plan",
+      "vendor": "minimax"
+    },
+    "minimax-intl-anthropic-coding": {
+      "authMode": "api-key",
+      "baseURL": "https://api.minimax.io/anthropic",
+      "communityAliases": [
+        "minimax"
+      ],
+      "communityDisplayName": "Minimax (`minimax`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/minimax",
+      "compatibility": "anthropic-compatible",
+      "defaultModel": "MiniMax-M2.7",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "MiniMax-M2.7": {
+          "displayName": "MiniMax M2.7"
+        },
+        "MiniMax-M2.7-highspeed": {
+          "displayName": "MiniMax M2.7 Highspeed"
+        }
+      },
+      "productName": "MiniMax Global",
+      "providerTransport": "anthropic",
+      "region": "intl",
+      "supportedEndpoints": [
+        "chat_completions",
+        "messages",
+        "responses"
+      ],
+      "surface": "coding-plan",
+      "vendor": "minimax"
+    },
+    "openai-default": {
+      "authMode": "api-key",
+      "communityAliases": [
+        "openai"
+      ],
+      "communityDisplayName": "OpenAI (`openai`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/openai",
+      "compatibility": "native",
+      "defaultModel": "gpt-4o-mini",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "gpt-4o-mini": {
+          "capabilities": {
+            "functionCalling": true
+          },
+          "contextWindow": 128000,
+          "displayName": "GPT-4o mini",
+          "maxOutputTokens": 16384,
+          "pricing": {
+            "inputCostPerToken": 1.5e-7,
+            "outputCostPerToken": 6e-7
+          }
+        }
+      },
+      "productName": "OpenAI",
+      "providerTransport": "openai",
+      "region": "shared",
+      "supportedEndpoints": [
+        "a2a",
+        "assistants",
+        "audio_speech",
+        "audio_transcriptions",
+        "batches",
+        "chat_completions",
+        "compact",
+        "container",
+        "container_files",
+        "embeddings",
+        "fine_tuning",
+        "image_generations",
+        "image_variations",
+        "interactions",
+        "messages",
+        "moderations",
+        "rag_ingest",
+        "rag_query",
+        "realtime",
+        "responses",
+        "text_completion",
+        "vector_store_files",
+        "vector_stores_create",
+        "vector_stores_search"
+      ],
+      "surface": "general",
+      "vendor": "openai"
+    },
+    "openrouter-openai-general": {
+      "authMode": "api-key",
+      "baseURL": "https://openrouter.ai/api/v1",
+      "communityAliases": [
+        "openrouter"
+      ],
+      "communityDisplayName": "OpenRouter (`openrouter`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/openrouter",
+      "compatibility": "openai-compatible",
+      "defaultModel": "google/gemma-3-4b-it:free",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "google/gemma-3-4b-it:free": {
+          "displayName": "Gemma 3 4B Instruct (free)"
+        }
+      },
+      "productName": "OpenRouter",
+      "providerTransport": "openai-compat",
+      "region": "shared",
+      "supportedEndpoints": [
+        "a2a",
+        "chat_completions",
+        "embeddings",
+        "interactions",
+        "messages",
+        "responses"
+      ],
+      "surface": "general",
+      "vendor": "openrouter"
+    },
+    "zai-shared-anthropic-coding": {
+      "authMode": "api-key",
+      "baseURL": "https://api.z.ai/api/anthropic",
+      "communityAliases": [
+        "zai"
+      ],
+      "communityDisplayName": "Z.AI (Zhipu AI) (`zai`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
+      "compatibility": "anthropic-compatible",
+      "defaultModel": "GLM-4.7",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "GLM-4.5-Air": {
+          "capabilities": {
+            "functionCalling": true
+          },
+          "communityAliases": [
+            "glm-4.5-air"
+          ],
+          "contextWindow": 128000,
+          "displayName": "GLM 4.5 Air",
+          "maxOutputTokens": 32000,
+          "pricing": {
+            "inputCostPerToken": 2e-7,
+            "outputCostPerToken": 0.0000011
+          }
+        },
+        "GLM-4.7": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "communityAliases": [
+            "glm-4.7"
+          ],
+          "contextWindow": 200000,
+          "displayName": "GLM 4.7",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.0000022
+          }
+        }
+      },
+      "productName": "Z.AI · Claude Code",
+      "providerTransport": "anthropic",
+      "region": "shared",
+      "supportedEndpoints": [
+        "a2a",
+        "chat_completions",
+        "interactions",
+        "messages",
+        "responses"
+      ],
+      "surface": "coding-plan",
+      "vendor": "zai"
+    },
+    "zai-shared-openai-coding": {
+      "authMode": "api-key",
+      "baseURL": "https://api.z.ai/api/coding/paas/v4",
+      "communityAliases": [
+        "zai"
+      ],
+      "communityDisplayName": "Z.AI (Zhipu AI) (`zai`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
+      "compatibility": "openai-compatible",
+      "defaultModel": "glm-5.1",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "glm-5": {
+          "capabilities": {
+            "functionCalling": true,
+            "reasoning": true
+          },
+          "contextWindow": 200000,
+          "displayName": "GLM 5",
+          "maxOutputTokens": 128000,
+          "pricing": {
+            "inputCostPerToken": 0.000001,
+            "outputCostPerToken": 0.0000032
+          }
+        },
+        "glm-5.1": {
+          "displayName": "GLM 5.1"
+        }
+      },
+      "productName": "Z.AI · Coding API",
+      "providerTransport": "openai-compat",
+      "region": "shared",
+      "supportedEndpoints": [
+        "a2a",
+        "chat_completions",
+        "interactions",
+        "messages",
+        "responses"
+      ],
+      "surface": "coding-plan",
+      "vendor": "zai"
+    },
+    "zai-shared-openai-general": {
+      "authMode": "api-key",
+      "baseURL": "https://api.z.ai/api/paas/v4",
+      "communityAliases": [
+        "zai"
+      ],
+      "communityDisplayName": "Z.AI (Zhipu AI) (`zai`)",
+      "communityDocsUrl": "https://docs.litellm.ai/docs/providers/zai",
+      "compatibility": "openai-compatible",
+      "defaultModel": "glm-4.5-air",
+      "executionLaneHints": {
+        "productExposed": [
+          "gateway"
+        ]
+      },
+      "models": {
+        "glm-4.5-air": {
+          "capabilities": {
+            "functionCalling": true
+          },
+          "contextWindow": 128000,
+          "displayName": "GLM 4.5 Air",
+          "maxOutputTokens": 32000,
+          "pricing": {
+            "inputCostPerToken": 2e-7,
+            "outputCostPerToken": 0.0000011
+          }
+        },
+        "glm-4.5v": {
+          "capabilities": {
+            "functionCalling": true
+          },
+          "contextWindow": 128000,
+          "displayName": "GLM 4.5V",
+          "maxOutputTokens": 32000,
+          "pricing": {
+            "inputCostPerToken": 6e-7,
+            "outputCostPerToken": 0.0000018
+          }
+        }
+      },
+      "productName": "Z.AI · General API",
+      "providerTransport": "openai-compat",
+      "region": "shared",
+      "supportedEndpoints": [
+        "a2a",
+        "chat_completions",
+        "interactions",
+        "messages",
+        "responses"
+      ],
+      "surface": "general",
+      "vendor": "zai"
+    }
+  },
+  "version": 1
+}

@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "providers": {
+    "anthropic-default": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "custom": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      },
+      "notes": "Custom endpoints stay gateway-only until a curated product profile exists."
+    },
+    "deepseek-openai-general": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "gemini-openai-general": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "kimi-cn-anthropic-coding": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "kimi-cn-openai-general": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "kimi-intl-openai-general": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "lmstudio": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "minimax-cn-anthropic-coding": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "minimax-intl-anthropic-coding": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "openai-default": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "openrouter-openai-general": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "zai-shared-anthropic-coding": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "zai-shared-openai-coding": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    },
+    "zai-shared-openai-general": {
+      "executionLaneHints": {
+        "productExposed": ["gateway"]
+      }
+    }
+  }
+}
