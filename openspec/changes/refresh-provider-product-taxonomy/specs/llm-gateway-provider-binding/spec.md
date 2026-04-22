@@ -33,7 +33,7 @@ Legacy short-format records (for example `{"provider":"openai","model":"gpt-4o-m
 
 ### Requirement: A runtime has exactly one LlmGateway bound to its active execution lane
 
-Each `RuntimeContext` SHALL hold a single active model execution binding constructed once during runtime init from the selected product config after resolution into a concrete transport profile and execution lane.
+Each `RuntimeContext` SHALL hold a single active model execution binding constructed once during runtime init from the selected product config after resolution into a concrete provider variant, transport profile, and execution lane.
 
 The active binding MAY be:
 
@@ -45,7 +45,7 @@ All LLM-calling nodes and services SHALL reach the active binding through one Of
 #### Scenario: Product selection resolves before gateway creation
 
 - **WHEN** a runtime loads a saved `qwen-model-studio` product config
-- **THEN** runtime init first resolves it to a concrete transport profile and execution lane
+- **THEN** runtime init first resolves it to a concrete provider variant, transport profile, and execution lane
 - **AND** only then creates the single active gateway/execution adapter for that runtime
 
 #### Scenario: Codex product does not create multiple bindings

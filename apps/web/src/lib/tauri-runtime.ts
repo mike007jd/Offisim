@@ -14,6 +14,8 @@ import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
 import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
 import type { LlmGateway } from '@offisim/core/dist/llm/gateway.js';
 import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
+import { OpenAiAgentsSdkAdapter } from '@offisim/core/dist/llm/openai-agents-sdk-adapter.js';
+import { assertOpenAiAgentsSdkLaneSupported } from '@offisim/core/dist/llm/openai-agents-sdk-lane-policy.js';
 import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
 import { McpToolExecutor } from '@offisim/core/dist/mcp/mcp-tool-executor.js';
@@ -115,9 +117,17 @@ function createTauriExecutionAdapter(config: ProviderConfig): LlmGateway {
         baseURL: config.baseURL,
       });
     case 'openai-agents-sdk':
-      throw new Error(
-        'Execution lane "openai-agents-sdk" is not implemented yet. Use "gateway" for now.',
-      );
+      assertOpenAiAgentsSdkLaneSupported({
+        provider: config.provider,
+        providerVariantId: config.providerVariantId,
+        allowExperimentalCompat: false,
+      });
+      return new OpenAiAgentsSdkAdapter('ignored', {
+        baseURL: config.baseURL,
+        defaultHeaders: config.defaultHeaders,
+        dangerouslyAllowBrowser: true,
+        fetch: createTauriLlmFetch('bearer'),
+      });
     default:
       throw new Error(`Unknown execution lane: ${config.executionLane as string}`);
   }

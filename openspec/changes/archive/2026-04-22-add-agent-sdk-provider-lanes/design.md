@@ -121,7 +121,7 @@ harness 需要升级为正式验证层，至少覆盖：
 
 1. 先完成 ACP 删除与 canonical spec/document cleanup
 2. 引入 execution lane schema，但默认所有 provider 仍落 `gateway`
-3. 在 backend harness 中先接 `claude-agent-sdk`，从 Anthropic native + 一家 verified Anthropic-compatible provider 开始
+3. 在 backend harness 中先接 `claude-agent-sdk`，以 verified Anthropic-compatible provider（首批 MiniMax / Z.AI）作为 lane 证据起点；Anthropic native 可作为补充样本，但不再作为 preset 暴露前置条件
 4. 再接 `openai-agents-sdk`，从 OpenAI native 开始
 5. 等 harness 证据充分后，再把 trusted desktop runtime / Settings UI 打开对应 lane
 6. protocols-ledger 补入 Anthropic Claude Agent SDK 与 OpenAI Agents SDK 两行，并持续维护 verified provider matrix
@@ -129,6 +129,6 @@ harness 需要升级为正式验证层，至少覆盖：
 ## Open Questions
 
 - desktop-trusted 环境里的 agent SDK lane 最终宿主是什么：Node sidecar、独立 backend service，还是别的 trusted host？
-- `claude-agent-sdk` lane 是否首发只开 Anthropic native + MiniMax，还是把 Kimi/Qwen/Z.AI 一起纳入首批验证？
+- `claude-agent-sdk` lane 首批除 MiniMax / Z.AI 外，Kimi/Qwen 是否也要一起纳入验证？
 - `openai-agents-sdk` 对第三方 provider 是走官方 custom provider 接口，还是借 AI SDK adapter 统一封装？
 - provider lane 选择是否需要按 model 细分，而不是仅按 provider/preset 细分？

@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "rootDir": "../..",
+    "baseUrl": ".",
+    "paths": {
+      "@offisim/db-platform": ["../../packages/db-platform/src/index.ts"]
+    }
+  },
+  "include": ["src", "../../packages/db-platform/src"]
+}

@@ -26,21 +26,32 @@ TBD - created by archiving change fix-boss-scope-openai-hardcode-leak. Update Pu
 - **THEN** `normalizeProviderConfig()` returns `null`
 - **AND** `loadProviderConfig()` falls back to env-backed config or `null`
 
-### Requirement: A runtime has exactly one LlmGateway bound to its active execution lane
+### Requirement: A runtime has exactly one active model execution binding bound to its ProviderConfig
 
-Each `RuntimeContext` SHALL hold a single `LlmGateway` instance as `ctx.llmGateway`, constructed once during runtime init from the active `ProviderConfig` and `executionLane`. Browser runtimes MAY construct this through `createGateway(...)`; trusted runtimes MAY bind an equivalent Offisim-owned execution adapter (for example the Tauri `TauriClaudeAgentSdkGateway` for `claude-agent-sdk`). All LLM-calling nodes and services — `boss-node`, `manager-node`, `hr-node`, `pm-planner-node`, `employee-node` (direct + team chat paths), `RecordedSystemLlmCaller`, middleware (`summarization`, `node-context`, `user-preference`, etc.) — SHALL reach the gateway through `ctx.llmGateway` or helpers that fall back to it (`recordedLlmStream` / `recordedLlmCall`'s `ctx.modelRegistry?.getGateway(...) ?? ctx.llmGateway` pattern). Per-scope gateway rebuilding is forbidden.
+Each `RuntimeContext` SHALL hold a single active model execution binding constructed once during runtime init from the active `ProviderConfig`, including its selected execution lane. The active binding MAY be:
 
-#### Scenario: Only one runtime-level execution adapter binding per init
+- a `gateway` lane backed by `createGateway(...)`, or
+- an agent SDK lane backed by a single Offisim-owned execution adapter (`claude-agent-sdk` or `openai-agents-sdk`)
 
-- **WHEN** auditing `createTauriRuntime` / `createBrowserRuntime` call sites plus all node + service files in `packages/core/src/agents/` and `packages/core/src/services/`
-- **THEN** exactly one runtime-level adapter binding SHALL exist per runtime-bundle init
-- **AND** no node / service / middleware file SHALL import `createGateway` or directly instantiate `new OpenAiAdapter(...)` / `new AnthropicAdapter(...)` / `new ClaudeAgentSdkAdapter(...)`
+All LLM-calling nodes and services — `boss-node`, `manager-node`, `hr-node`, `pm-planner-node`, `employee-node` (direct + team chat paths), `RecordedSystemLlmCaller`, and middleware — SHALL reach the active binding through one Offisim-owned execution abstraction. Per-scope execution-binding rebuilding is forbidden.
 
-#### Scenario: Boss, manager, employee all hit the same gateway
+#### Scenario: Gateway lane creates one gateway per runtime init
 
-- **WHEN** a chat turn triggers `boss-node` → `manager-node` → `employee-node` sequence (team chat)
-- **THEN** all three nodes' LLM calls SHALL go through the same `ctx.llmGateway` instance (reference-equal across nodes within one runtime)
-- **AND** the gateway's `baseURL` SHALL match `config.baseURL` byte-for-byte when the ProviderConfig specifies one (e.g. `https://api.minimax.io/anthropic` for a MiniMax config)
+- **WHEN** a runtime selects `executionLane = "gateway"`
+- **THEN** exactly one `createGateway(...)` invocation per runtime-bundle-init exists
+- **AND** no node / service / middleware file directly instantiates provider SDK clients outside the active Offisim execution binding
+
+#### Scenario: Agent SDK lane creates one execution adapter per runtime init
+
+- **WHEN** a runtime selects `executionLane = "claude-agent-sdk"` or `executionLane = "openai-agents-sdk"`
+- **THEN** runtime init creates exactly one active execution adapter for that lane
+- **AND** no node / service / middleware file instantiates a second vendor runtime for the same thread
+
+#### Scenario: Boss, manager, employee all hit the same active binding
+
+- **WHEN** a chat turn triggers `boss-node` → `manager-node` → `employee-node`
+- **THEN** all three nodes' model calls go through the same active execution binding instance within that runtime
+- **AND** switching provider or lane requires a full runtime reinit before subsequent turns use the new binding
 
 ### Requirement: Adapter constructors must receive explicit baseURL when ProviderConfig specifies one
 

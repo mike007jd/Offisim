@@ -10,6 +10,7 @@
     "build:claude-agent-host": "node scripts/build-claude-agent-host.mjs",
     "build:runtime-deps": "node scripts/build-runtime-deps.mjs",
     "dev:all": "node scripts/dev-all.mjs",
+    "harness:edge": "node scripts/harness-edge.mjs",
     "harness:load": "node scripts/harness-load.mjs",
     "harness:smoke": "node scripts/harness-smoke.mjs",
     "typecheck": "turbo run typecheck",

@@ -6,9 +6,9 @@ Defines the Tauri desktop credential-isolation contract for outbound LLM traffic
 
 ## Requirements
 
-### Requirement: Provider credential never crosses the Rust→JS boundary on Tauri
+### Requirement: Provider credential SHALL never cross the Rust→JS boundary on Tauri
 
-On Tauri desktop, the provider credential is stored in a Rust-only plaintext file at `<app_local_data_dir>/runtime_secret.txt` (Unix mode `0600`, atomic tmp-file + rename on write). The threat model here is webview prompt-injection, not local-disk exfiltration — process-level file isolation is sufficient.
+On Tauri desktop, the provider credential SHALL be stored in a Rust-only plaintext file at `<app_local_data_dir>/runtime_secret.txt` (Unix mode `0600`, atomic tmp-file + rename on write). The threat model here is webview prompt-injection, not local-disk exfiltration — process-level file isolation is sufficient.
 
 The secret SHALL NOT be readable from the webview. The desktop secret storage command surface SHALL expose only `runtime_secret_status` / `runtime_secret_set` / `runtime_secret_clear`. No `_get` / `_read` / `_peek` variant may be added. The only Rust code that dereferences the file contents SHALL be trusted transport bridges (`apps/desktop/src-tauri/src/llm_transport.rs` and `apps/desktop/src-tauri/src/claude_agent_host.rs`) immediately before dispatching outbound work — after injection the credential SHALL be dropped (no storage on per-connection state, no logging).
 

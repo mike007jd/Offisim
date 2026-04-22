@@ -4,6 +4,8 @@
 
 Offisim SHALL define a first-class provider product catalog and use it as the primary Settings/runtime selection surface. Product entries SHALL use user-understandable product identities rather than raw protocol labels.
 
+For API-key and compat-backed products, the product catalog SHALL consume the reviewed curated provider catalog produced by `provider-source-registry` rather than maintaining an independent duplicate provider-facts table inside Settings/runtime code. The product layer MAY add repo-owned host-gated local-auth products that are not represented as public API provider variants.
+
 The initial curated catalog SHALL include at least:
 
 - `codex`
@@ -31,10 +33,17 @@ Settings UI SHALL present these product identities as the primary choice before 
 - **THEN** the product list contains `Qwen / Model Studio`
 - **AND** the user is not required to start from `openai-compat` or `anthropic-compatible` terminology
 
-### Requirement: Product identity SHALL be distinct from access mode, transport profile, and execution lane
+#### Scenario: API product facts come from the curated provider catalog
+
+- **WHEN** Offisim exposes an API-backed product such as `OpenRouter` or `Anthropic API`
+- **THEN** its default endpoint, model metadata, and other provider facts are derived from the reviewed curated provider catalog
+- **AND** Settings/runtime code does not maintain a second conflicting hard-coded provider facts table for that same product
+
+### Requirement: Product identity SHALL be distinct from provider variant, access mode, transport profile, and execution lane
 
 Each product catalog entry SHALL be able to declare:
 
+- one or more backing provider variants
 - one or more `accessMode` values
 - a default transport profile
 - allowed advanced transport overrides
@@ -54,6 +63,12 @@ Offisim SHALL treat these as separate layers. A product selection alone SHALL NO
 - **WHEN** a product ultimately resolves to an OpenAI-compatible or Anthropic-compatible endpoint
 - **THEN** the product keeps its own display identity
 - **AND** the compat/protocol detail is only shown as derived or advanced information
+
+#### Scenario: Product resolves to one curated provider variant at runtime
+
+- **WHEN** a user selects `Kimi`
+- **THEN** Offisim resolves that product into one concrete curated provider variant appropriate for the chosen region, access mode, and surface
+- **AND** runtime binding is created from the resolved variant rather than from the product label alone
 
 ### Requirement: Subscription and local-auth products SHALL be first-class products
 
@@ -97,7 +112,7 @@ The saved config SHALL be able to carry:
 
 - **WHEN** a user saves a `Qwen / Model Studio` configuration
 - **THEN** the persisted config contains `productId = "qwen-model-studio"`
-- **AND** runtime resolution later derives the concrete transport profile from that product
+- **AND** runtime resolution later derives the concrete provider variant and transport profile from that product
 
 ### Requirement: Legacy provider records SHALL migrate into product-centric config safely
 

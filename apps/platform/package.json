@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "node ../../scripts/ensure-port-free.mjs 4100 && tsx watch src/index.ts",
-    "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit",
+    "build": "node ../../scripts/tsc-build-if-dist-missing.mjs --project tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
     "start": "node dist/index.js",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@offisim/asset-schema": "workspace:*",

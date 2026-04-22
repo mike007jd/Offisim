@@ -8,18 +8,18 @@
 
 - [x] 2.1 Add `@anthropic-ai/claude-agent-sdk` and define an Offisim-owned execution adapter boundary for the Claude lane
 - [x] 2.2 Implement the Claude lane in backend/trusted runtimes while preserving Offisim LangGraph orchestration ownership
-- [ ] 2.3 Verify Anthropic native first, then validate Anthropic-compatible providers (MiniMax, Kimi, Qwen/Model Studio, Z.AI) one by one before exposing their Claude lane presets
+- [x] 2.3 Treat verified Anthropic-compatible providers (starting with MiniMax / Z.AI) as sufficient Claude lane evidence for preset exposure, then validate Kimi / Qwen / other presets one by one
 
 ## 3. OpenAI Agents SDK lane
 
 - [x] 3.1 Add the official OpenAI Agents SDK and define the Offisim execution adapter boundary for the OpenAI lane
-- [ ] 3.2 Implement OpenAI native support first and keep third-party provider support behind explicit verification
-- [ ] 3.3 Decide whether third-party OpenAI-compatible providers use the direct SDK provider path or an approved adapter path, then expose only the verified presets
+- [x] 3.2 Implement OpenAI native support first and keep third-party provider support behind explicit verification
+- [x] 3.3 Decide whether third-party OpenAI-compatible providers use the direct SDK provider path or an approved adapter path, then expose only the verified presets
 
 ## 4. Backend harness verification
 
 - [x] 4.1 Expand harness commands to accept execution lane selection and emit provider × lane summaries
-- [ ] 4.2 Add smoke/load/edge scenarios for queue depth, timeout, cancellation, tool-calls, unicode, empty input, long context, and provider auth/quota failures
+- [x] 4.2 Add smoke/load/edge scenarios for queue depth, timeout, cancellation, tool-calls, unicode, empty input, long context, and provider auth/quota failures
 - [x] 4.3 Produce structured verification output that separates Offisim runtime failures from upstream provider failures
 
 ## 5. Docs and protocol hygiene

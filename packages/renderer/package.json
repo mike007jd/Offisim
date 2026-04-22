@@ -11,9 +11,9 @@
     }
   },
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "node ../../scripts/tsc-build-if-dist-missing.mjs --project tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@offisim/shared-types": "workspace:*"

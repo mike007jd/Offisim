@@ -71,7 +71,7 @@ function getErrorStatusCode(error) {
   return typeof error.statusCode === 'number' ? error.statusCode : undefined;
 }
 
-function classifyHarnessFailure(error) {
+export function classifyHarnessFailure(error) {
   const message = normalizeErrorMessage(error);
   const statusCode = getErrorStatusCode(error);
   const normalized = message.toLowerCase();
@@ -371,6 +371,12 @@ export function resolveCommonOptions(args) {
     trimString(args['employee-role'] || process.env.HARNESS_EMPLOYEE_ROLE) || 'engineer';
   const companyName =
     trimString(args['company-name'] || process.env.HARNESS_COMPANY_NAME) || 'Harness Company';
+  const providerVariantId =
+    trimString(args['provider-variant'] || process.env.HARNESS_PROVIDER_VARIANT) || undefined;
+  const allowExperimentalOpenAiCompat = parseBoolean(
+    args['allow-experimental-openai-compat'] ??
+      process.env.HARNESS_ALLOW_EXPERIMENTAL_OPENAI_COMPAT,
+  );
   const pathToClaudeCodeExecutable =
     trimString(args['claude-code-executable'] || process.env.HARNESS_CLAUDE_CODE_EXECUTABLE) ||
     undefined;
@@ -391,6 +397,8 @@ export function resolveCommonOptions(args) {
     employeeName,
     employeeRole,
     companyName,
+    providerVariantId,
+    allowExperimentalOpenAiCompat,
     pathToClaudeCodeExecutable,
     forceBuild,
   };
@@ -402,6 +410,8 @@ export async function createGatewayHarness(options) {
     provider: options.provider,
     executionLane: options.executionLane,
     apiKey: options.apiKey,
+    providerVariantId: options.providerVariantId,
+    allowExperimentalOpenAiCompat: options.allowExperimentalOpenAiCompat,
     ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
     ...(buildHeaders(options) ? { defaultHeaders: buildHeaders(options) } : {}),
     cwd: ROOT,
