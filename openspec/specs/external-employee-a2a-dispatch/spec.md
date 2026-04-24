@@ -1,7 +1,7 @@
 # external-employee-a2a-dispatch Specification
 
 ## Purpose
-TBD - created by archiving change rewire-a2a-as-external-employee. Update Purpose after archive.
+Defines how external employees are represented and dispatched over A2A while preserving employee-semantic events, deliverables, and internal-employee behavior.
 ## Requirements
 ### Requirement: Employee schema carries external A2A dispatch fields
 

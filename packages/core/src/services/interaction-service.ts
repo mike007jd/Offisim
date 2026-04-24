@@ -62,6 +62,16 @@ export interface InteractionResolveResult {
   readonly skillInstallOutcome?: SkillInstallConfirmOutcome;
 }
 
+export interface InteractionWaitOptions {
+  readonly signal?: AbortSignal;
+}
+
+interface InteractionResolutionWaiter {
+  readonly interactionId: string;
+  readonly resolve: (response: InteractionResponse) => void;
+  readonly reject: (error: Error) => void;
+}
+
 export class InteractionService implements ToolPermissionGrantResolver {
   private threadMode: InteractionMode;
   private pending: InteractionRequest | null = null;
@@ -70,6 +80,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
   private readonly sessionGrants = new Set<string>();
   private readonly planReviewPayloads = new Map<string, unknown>();
   private readonly planReviewDecisions = new Map<string, PlanReviewDecision>();
+  private resolutionWaiter: InteractionResolutionWaiter | null = null;
 
   constructor(
     private readonly deps: {
@@ -142,6 +153,10 @@ export class InteractionService implements ToolPermissionGrantResolver {
     this.syncPendingStore();
     await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
     await this.persistHistory(pending, null, 'cancelled');
+    this.rejectResolutionWaiter(
+      pending.interactionId,
+      new Error('Interaction request was cancelled before it was resolved.'),
+    );
     return pending;
   }
 
@@ -149,6 +164,10 @@ export class InteractionService implements ToolPermissionGrantResolver {
     const replaced = this.pending;
     if (replaced) {
       await this.persistHistory(replaced, null, 'superseded');
+      this.rejectResolutionWaiter(
+        replaced.interactionId,
+        new Error('Interaction request was superseded before it was resolved.'),
+      );
     }
     this.pending = request;
     this.syncPendingStore();
@@ -174,6 +193,28 @@ export class InteractionService implements ToolPermissionGrantResolver {
     return request;
   }
 
+  async requestAndWait(
+    request: InteractionRequest,
+    options: InteractionWaitOptions = {},
+  ): Promise<InteractionResponse> {
+    if (options.signal?.aborted) {
+      throw this.abortError(options.signal);
+    }
+
+    const response = this.waitForResolution(request.interactionId, options.signal);
+    try {
+      await this.request(request);
+    } catch (err) {
+      this.rejectResolutionWaiter(
+        request.interactionId,
+        err instanceof Error ? err : new Error(String(err ?? 'Interaction request failed.')),
+      );
+      await response.catch(() => undefined);
+      throw err;
+    }
+    return response;
+  }
+
   async resolve(response: InteractionResponse): Promise<InteractionResolveResult | null> {
     const pending = this.pending;
     if (!pending || pending.interactionId !== response.interactionId) return null;
@@ -195,10 +236,81 @@ export class InteractionService implements ToolPermissionGrantResolver {
     this.deps.eventBus.emit(
       interactionResolved(this.deps.companyId, this.deps.threadId, pending, response),
     );
+    this.resolveResolutionWaiter(pending.interactionId, response);
     return {
       request: pending,
       ...(skillInstallOutcome ? { skillInstallOutcome } : {}),
     };
+  }
+
+  private waitForResolution(
+    interactionId: string,
+    signal?: AbortSignal,
+  ): Promise<InteractionResponse> {
+    this.rejectResolutionWaiter(
+      interactionId,
+      new Error('Interaction request was replaced before it was resolved.'),
+    );
+
+    return new Promise<InteractionResponse>((resolve, reject) => {
+      const cleanup = () => {
+        signal?.removeEventListener('abort', onAbort);
+        if (this.resolutionWaiter?.interactionId === interactionId) {
+          this.resolutionWaiter = null;
+        }
+      };
+      const settleResolve = (response: InteractionResponse) => {
+        cleanup();
+        resolve(response);
+      };
+      const settleReject = (error: Error) => {
+        cleanup();
+        reject(error);
+      };
+      const onAbort = () => {
+        void this.cancelPendingInteraction(interactionId).catch(() => {});
+        settleReject(this.abortError(signal));
+      };
+
+      if (signal?.aborted) {
+        settleReject(this.abortError(signal));
+        return;
+      }
+
+      signal?.addEventListener('abort', onAbort, { once: true });
+      this.resolutionWaiter = {
+        interactionId,
+        resolve: settleResolve,
+        reject: settleReject,
+      };
+    });
+  }
+
+  private resolveResolutionWaiter(interactionId: string, response: InteractionResponse): void {
+    if (this.resolutionWaiter?.interactionId === interactionId) {
+      this.resolutionWaiter.resolve(response);
+    }
+  }
+
+  private rejectResolutionWaiter(interactionId: string, error: Error): void {
+    if (this.resolutionWaiter?.interactionId === interactionId) {
+      this.resolutionWaiter.reject(error);
+    }
+  }
+
+  private abortError(signal: AbortSignal | undefined): Error {
+    return signal?.reason instanceof Error
+      ? signal.reason
+      : new Error('Interaction request was aborted before it was resolved.');
+  }
+
+  private async cancelPendingInteraction(interactionId: string): Promise<void> {
+    const pending = this.pending;
+    if (!pending || pending.interactionId !== interactionId) return;
+    this.pending = null;
+    this.syncPendingStore();
+    await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
+    await this.persistHistory(pending, null, 'cancelled');
   }
 
   private async applySkillInstallConfirm(

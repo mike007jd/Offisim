@@ -1,3 +1,5 @@
+> Historical note (2026-04-22): Treat the remaining unchecked live-verify items in this archive as `Superseded by later archived change; excluded from current roadmap debt.` They remain useful as historical evidence, but they should not be counted as open product debt.
+
 ## 1. Reproduce + 抓 stack
 
 - [x] 1.1 release bundle 复现 direct chat readonly；当前调试链按 release 走（2026-04-21）

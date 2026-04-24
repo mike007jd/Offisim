@@ -1,7 +1,7 @@
 # external-employee-brand-avatars Specification
 
 ## Purpose
-TBD - created by archiving change add-external-employee-brand-avatars. Update Purpose after archive.
+Defines registry-backed 2D and 3D brand avatar rendering for external employees, including deterministic fallback behavior for unknown brands.
 
 ## Requirements
 

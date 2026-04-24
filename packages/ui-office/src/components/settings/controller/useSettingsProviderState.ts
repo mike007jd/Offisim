@@ -1,110 +1,206 @@
-import type { LlmExecutionLane } from '@offisim/shared-types';
+import type {
+  LlmExecutionLane,
+  ProviderProductAccessMode,
+  ProviderProductId,
+} from '@offisim/shared-types';
 import { useMemo, useState } from 'react';
 import { isTauri } from '../../../lib/env';
 import type { ProviderConfig } from '../../../lib/provider-config';
 import {
-  findProviderPresetKeyByConfig,
+  getDefaultProviderAccessMode,
   getDefaultProviderPresetKey,
+  getDefaultProviderVariantId,
   getProviderPreset,
+  getProviderProductAccess,
+  getProviderVariantById,
   getSupportedExecutionLanesForPreset,
 } from '../provider-presets';
 
 const IS_DESKTOP = isTauri();
-const DEFAULT_PRESET_KEY = getDefaultProviderPresetKey({ tauri: IS_DESKTOP });
+const DEFAULT_PRODUCT_ID = getDefaultProviderPresetKey({ tauri: IS_DESKTOP });
 
 export interface ProviderStateSnapshot {
-  preset: string;
-  executionLane: LlmExecutionLane;
+  productId: ProviderProductId;
+  accessMode: ProviderProductAccessMode;
   apiKey: string;
-  baseURL: string;
+  endpointOverride: string;
   model: string;
   defaultHeaders: string;
+  executionLane: LlmExecutionLane;
+}
+
+function resolveSelectionMetadata(
+  productId: ProviderProductId,
+  accessMode?: ProviderProductAccessMode | null,
+  providerVariantId?: string | null,
+) {
+  const product = getProviderPreset(productId);
+  const access =
+    getProviderProductAccess(product, accessMode) ?? getProviderProductAccess(product, null);
+  const resolvedAccessMode = access?.accessMode ?? getDefaultProviderAccessMode(productId);
+  const resolvedVariantId =
+    providerVariantId && getProviderVariantById(providerVariantId)
+      ? providerVariantId
+      : (getDefaultProviderVariantId(productId, resolvedAccessMode) ?? '');
+  const variant = getProviderVariantById(resolvedVariantId);
+  const supportedExecutionLanes = getSupportedExecutionLanesForPreset(
+    product,
+    resolvedAccessMode,
+    resolvedVariantId || null,
+  );
+
+  return {
+    productId: product?.productId ?? DEFAULT_PRODUCT_ID,
+    accessMode: resolvedAccessMode,
+    providerVariantId: resolvedVariantId,
+    executionLane: supportedExecutionLanes[0] ?? 'gateway',
+    supportedExecutionLanes,
+    variant,
+    defaultApiKey: access?.defaultApiKeyValue ?? '',
+  };
+}
+
+function resolveSelectionDefaults(
+  productId: ProviderProductId,
+  accessMode?: ProviderProductAccessMode | null,
+  providerVariantId?: string | null,
+) {
+  const metadata = resolveSelectionMetadata(productId, accessMode, providerVariantId);
+
+  return {
+    productId: metadata.productId,
+    accessMode: metadata.accessMode,
+    providerVariantId: metadata.providerVariantId,
+    executionLane: metadata.executionLane,
+    supportedExecutionLanes: metadata.supportedExecutionLanes,
+    model: metadata.variant?.defaultModel ?? '',
+    apiKey: metadata.defaultApiKey,
+  };
 }
 
 export function useSettingsProviderState() {
-  const [preset, setPreset] = useState<string>(DEFAULT_PRESET_KEY);
-  const [executionLane, setExecutionLane] = useState<LlmExecutionLane>('gateway');
-  const [apiKey, setApiKey] = useState('');
-  const [baseURL, setBaseURL] = useState('');
-  const [model, setModel] = useState('');
+  const initialSelection = resolveSelectionDefaults(DEFAULT_PRODUCT_ID);
+
+  const [productId, setProductId] = useState<ProviderProductId>(initialSelection.productId);
+  const [accessMode, setAccessMode] = useState<ProviderProductAccessMode>(
+    initialSelection.accessMode,
+  );
+  const [providerVariantId, setProviderVariantId] = useState(initialSelection.providerVariantId);
+  const [executionLane, setExecutionLane] = useState<LlmExecutionLane>(
+    initialSelection.executionLane,
+  );
+  const [apiKey, setApiKey] = useState(initialSelection.apiKey);
+  const [endpointOverride, setEndpointOverride] = useState('');
+  const [model, setModel] = useState(initialSelection.model);
   const [defaultHeaders, setDefaultHeaders] = useState('');
   const [hasStoredSecret, setHasStoredSecret] = useState(false);
 
-  function handlePresetChange(value: string) {
-    const prevVendor = getProviderPreset(preset)?.vendor;
-    const nextPreset = getProviderPreset(value);
-    setPreset(value);
-    if (nextPreset) {
-      setBaseURL(nextPreset.defaults.baseURL ?? '');
-      setModel(nextPreset.defaults.model ?? '');
-      setExecutionLane(getSupportedExecutionLanesForPreset(nextPreset)[0] ?? 'gateway');
-      setDefaultHeaders(
-        nextPreset.defaults.defaultHeaders
-          ? JSON.stringify(nextPreset.defaults.defaultHeaders)
-          : '',
-      );
-    }
-    // Stored secret is bound to the previous vendor's credentials. Switching
-    // vendors requires a fresh key; otherwise Save would reuse the stale
-    // secret under a new baseURL and every request would 401 at the provider.
-    if (prevVendor && nextPreset?.vendor && prevVendor !== nextPreset.vendor) {
+  function applySelection(
+    nextProductId: ProviderProductId,
+    nextAccessMode?: ProviderProductAccessMode | null,
+    nextProviderVariantId?: string | null,
+  ) {
+    const defaults = resolveSelectionDefaults(nextProductId, nextAccessMode, nextProviderVariantId);
+    setProductId(defaults.productId);
+    setAccessMode(defaults.accessMode);
+    setProviderVariantId(defaults.providerVariantId);
+    setExecutionLane(defaults.executionLane);
+    setModel(defaults.model);
+    setEndpointOverride('');
+    setDefaultHeaders('');
+    setApiKey(defaults.apiKey);
+  }
+
+  function handleProductChange(value: string) {
+    if (!getProviderPreset(value)) return;
+    applySelection(value as ProviderProductId);
+    setHasStoredSecret(false);
+  }
+
+  function handleAccessModeChange(value: ProviderProductAccessMode) {
+    applySelection(productId, value, providerVariantId);
+    if (value !== 'api-key') {
       setApiKey('');
       setHasStoredSecret(false);
     }
   }
 
-  function applyFromSaved(saved: ProviderConfig): void {
-    setApiKey(saved.apiKey ?? '');
-    setBaseURL(saved.baseURL ?? '');
-    setModel(saved.model ?? '');
-    setExecutionLane(saved.executionLane);
-    setDefaultHeaders(saved.defaultHeaders ? JSON.stringify(saved.defaultHeaders) : '');
-    const matchKey = findProviderPresetKeyByConfig(saved);
-    if (matchKey) {
-      setPreset(matchKey);
-      return;
+  function handleVariantChange(value: string) {
+    const defaults = resolveSelectionDefaults(productId, accessMode, value);
+    setProviderVariantId(defaults.providerVariantId);
+    if (!defaults.supportedExecutionLanes.includes(executionLane)) {
+      setExecutionLane(defaults.executionLane);
     }
-    setPreset(DEFAULT_PRESET_KEY);
+    if (!model || model === getProviderVariantById(providerVariantId)?.defaultModel) {
+      setModel(defaults.model);
+    }
   }
 
-  function applyDefaults(presetKey: string = DEFAULT_PRESET_KEY): void {
-    const targetPreset = getProviderPreset(presetKey);
-    setPreset(presetKey);
-    setBaseURL(targetPreset?.defaults.baseURL ?? '');
-    setModel(targetPreset?.defaults.model ?? '');
-    setExecutionLane(getSupportedExecutionLanesForPreset(targetPreset)[0] ?? 'gateway');
-    setDefaultHeaders(
-      targetPreset?.defaults.defaultHeaders
-        ? JSON.stringify(targetPreset.defaults.defaultHeaders)
-        : '',
+  function applyFromSaved(saved: ProviderConfig): void {
+    const selection = resolveSelectionMetadata(
+      saved.productId,
+      saved.accessMode,
+      saved.providerVariantId,
     );
+
+    setProductId(saved.productId);
+    setAccessMode(selection.accessMode);
+    setProviderVariantId(selection.providerVariantId);
+    setApiKey(saved.apiKey ?? '');
+    setEndpointOverride(saved.endpointOverride ?? '');
+    setModel(saved.model);
+    setExecutionLane(
+      selection.supportedExecutionLanes.includes(saved.executionLane)
+        ? saved.executionLane
+        : selection.executionLane,
+    );
+    setDefaultHeaders(saved.defaultHeaders ? JSON.stringify(saved.defaultHeaders) : '');
+  }
+
+  function applyDefaults(nextProductId: ProviderProductId = DEFAULT_PRODUCT_ID): void {
+    applySelection(nextProductId);
+    setHasStoredSecret(false);
   }
 
   const snapshot = useMemo<ProviderStateSnapshot>(
-    () => ({ preset, executionLane, apiKey, baseURL, model, defaultHeaders }),
-    [preset, executionLane, apiKey, baseURL, model, defaultHeaders],
+    () => ({
+      productId,
+      accessMode,
+      apiKey,
+      endpointOverride,
+      model,
+      defaultHeaders,
+      executionLane,
+    }),
+    [productId, accessMode, apiKey, endpointOverride, model, defaultHeaders, executionLane],
   );
 
   return {
-    preset,
+    productId,
+    accessMode,
+    providerVariantId,
     executionLane,
     apiKey,
-    baseURL,
+    endpointOverride,
     model,
     defaultHeaders,
     hasStoredSecret,
-    setPreset,
+    setProductId,
+    setAccessMode,
+    setProviderVariantId,
     setExecutionLane,
     setApiKey,
-    setBaseURL,
+    setEndpointOverride,
     setModel,
     setDefaultHeaders,
     setHasStoredSecret,
-    handlePresetChange,
+    handleProductChange,
+    handleAccessModeChange,
+    handleVariantChange,
     applyFromSaved,
     applyDefaults,
     snapshot,
   };
 }
 
-export { DEFAULT_PRESET_KEY, IS_DESKTOP };
+export { DEFAULT_PRODUCT_ID, IS_DESKTOP };

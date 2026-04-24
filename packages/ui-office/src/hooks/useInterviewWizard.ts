@@ -58,6 +58,7 @@ export const DEFAULT_WIZARD_FORM: EmployeeFormData = {
   temperature: 0.7,
   maxTokens: 4096,
   toolPermissionPolicy: null,
+  runtimeBinding: null,
   communicationFrequency: 'medium',
   riskPreference: 'balanced',
   decisionStyle: 'collaborative',

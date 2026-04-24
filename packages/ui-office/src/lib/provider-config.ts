@@ -1,8 +1,13 @@
 import type {
+  EmployeeRuntimeBinding,
+  EngineId,
   LlmExecutionLane,
   LlmProvider,
   ModelPolicyConfig,
   ModelProfile,
+  ProviderAuthStrategy,
+  ProviderProductAccessMode,
+  ProviderProductId,
   RuntimeExecutionMode,
   RuntimeMemoryPolicy,
   RuntimePolicyConfig,
@@ -12,48 +17,99 @@ import type {
   RuntimeToolSearchPolicy,
 } from '@offisim/shared-types';
 import { isTauri } from './env';
+import {
+  findProviderProductIdByLegacyRoute,
+  getDefaultProviderAccessMode,
+  getDefaultProviderVariantId,
+  getProviderProduct,
+  getProviderProductAccess,
+  getProviderVariant,
+  getSupportedExecutionLanesForProduct,
+  isProviderCompatibility,
+  isProviderProductAccessMode,
+  isProviderProductId,
+  type ProviderCapabilities,
+  type ProviderCompatibility,
+  type ProviderProductAccessDefinition,
+  type ProviderProductDefinition,
+  type ProviderRegion,
+  type ProviderSurface,
+  type ProviderVariantDefinition,
+  type ProviderVendor,
+} from './provider-product-taxonomy';
 
-export type ProviderVendor =
-  | 'offisim'
-  | 'anthropic'
-  | 'openai'
-  | 'openrouter'
-  | 'google'
-  | 'deepseek'
-  | 'minimax'
-  | 'kimi'
-  | 'zai'
-  | 'lmstudio'
-  | 'custom';
+export type {
+  ProviderCapabilities,
+  ProviderCompatibility,
+  ProviderProductAccessDefinition,
+  ProviderProductDefinition,
+  ProviderRegion,
+  ProviderSurface,
+  ProviderVariantDefinition,
+  ProviderVendor,
+};
 
-export type ProviderRegion = 'intl' | 'cn' | 'shared' | 'local';
-
-export type ProviderCompatibility = 'native' | 'anthropic-compatible' | 'openai-compatible';
-
-export type ProviderSurface = 'general' | 'coding-plan';
-
-export interface ProviderCapabilities {
-  streaming: boolean;
-  thinking: boolean;
-  toolCalls: boolean;
-  toolStreaming: boolean;
-  codingPlan: boolean;
+export interface ProviderConfigMigrationSource {
+  readonly kind: 'legacy-provider-record';
+  readonly legacyProvider?: string;
+  readonly legacyVariantId?: string;
+  readonly legacyVendor?: string;
 }
 
 export interface ProviderConfig {
-  provider: LlmProvider;
+  productId: ProviderProductId;
+  accessMode: ProviderProductAccessMode;
   executionLane: LlmExecutionLane;
+  model: string;
   providerVariantId?: string;
+  endpointOverride?: string;
+  defaultHeaders?: Record<string, string>;
+  apiKey?: string;
+  runtimePolicy?: Partial<RuntimePolicyConfig>;
+  requiresReconfigure?: boolean;
+  migrationSource?: ProviderConfigMigrationSource;
+  /** Derived fields hydrated at load time for consumers that still need them. */
+  provider?: LlmProvider;
+  baseURL?: string;
   vendor?: ProviderVendor;
   region?: ProviderRegion;
   compatibility?: ProviderCompatibility;
   surface?: ProviderSurface;
   capabilities?: ProviderCapabilities;
-  apiKey?: string;
-  baseURL?: string;
-  model: string;
-  defaultHeaders?: Record<string, string>;
-  runtimePolicy?: Partial<RuntimePolicyConfig>;
+}
+
+export type ProviderAvailabilityCode =
+  | 'host-unavailable'
+  | 'resolver-missing'
+  | 'requires-reconfigure'
+  | 'invalid-config'
+  | 'invalid-product';
+
+export interface ProviderAvailabilityState {
+  readonly available: boolean;
+  readonly code?: ProviderAvailabilityCode;
+  readonly message?: string;
+}
+
+export interface ResolvedTransportProfile {
+  readonly provider: LlmProvider;
+  readonly baseURL?: string;
+  readonly defaultHeaders?: Readonly<Record<string, string>>;
+  readonly executionLane: LlmExecutionLane;
+  readonly authStrategy: ProviderAuthStrategy;
+}
+
+export interface ResolvedProviderConfig {
+  readonly config: ProviderConfig;
+  readonly product: ProviderProductDefinition;
+  readonly access: ProviderProductAccessDefinition;
+  readonly variant: ProviderVariantDefinition | null;
+  readonly provider: LlmProvider;
+  readonly model: string;
+  readonly executionLane: LlmExecutionLane;
+  readonly transport: ResolvedTransportProfile;
+  readonly capabilities?: ProviderCapabilities;
+  readonly availability: ProviderAvailabilityState;
 }
 
 const STORAGE_KEY = 'offisim-provider-config';
@@ -61,7 +117,10 @@ const STORAGE_KEY = 'offisim-provider-config';
 const DEFAULT_EXECUTION_MODE: RuntimeExecutionMode = 'auto';
 export const DEFAULT_EXECUTION_LANE: LlmExecutionLane = 'gateway';
 export const PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES: readonly LlmExecutionLane[] = [
-  DEFAULT_EXECUTION_LANE,
+  'gateway',
+  'claude-agent-sdk',
+  'codex-agent-sdk',
+  'openai-agents-sdk',
 ];
 const DEFAULT_SUMMARIZATION: RuntimeSummarizationPolicy = {
   enabled: true,
@@ -83,31 +142,13 @@ const DEFAULT_TOOL_PERMISSIONS: RuntimeToolPermissionsPolicy = {
   rules: [],
 };
 const DEFAULT_MODEL_PROFILE_NAME = 'runtime-default';
-const PROVIDER_VENDORS = new Set<ProviderVendor>([
-  'offisim',
-  'anthropic',
-  'openai',
-  'openrouter',
-  'google',
-  'deepseek',
-  'minimax',
-  'kimi',
-  'zai',
-  'lmstudio',
-  'custom',
-]);
-const PROVIDER_REGIONS = new Set<ProviderRegion>(['intl', 'cn', 'shared', 'local']);
-const PROVIDER_COMPATIBILITIES = new Set<ProviderCompatibility>([
-  'native',
-  'anthropic-compatible',
-  'openai-compatible',
-]);
-const PROVIDER_SURFACES = new Set<ProviderSurface>(['general', 'coding-plan']);
 const EXECUTION_LANES = new Set<LlmExecutionLane>([
   'gateway',
   'claude-agent-sdk',
+  'codex-agent-sdk',
   'openai-agents-sdk',
 ]);
+const ENGINE_IDS = new Set<EngineId>(['codex-engine', 'claude-engine']);
 
 function trimEnvString(value: string | boolean | undefined): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -117,30 +158,20 @@ function loadEnvBackedProviderConfig(): ProviderConfig | null {
   const apiKey = trimEnvString(import.meta.env.VITE_MINIMAX_API_KEY);
   if (!apiKey) return null;
 
-  const baseURL =
-    trimEnvString(import.meta.env.VITE_MINIMAX_BASE_URL) ?? 'https://api.minimax.io/anthropic';
   const model = trimEnvString(import.meta.env.VITE_MINIMAX_MODEL) ?? 'MiniMax-M2.7-highspeed';
-
-  return {
-    provider: 'anthropic',
+  const endpointOverride = trimEnvString(import.meta.env.VITE_MINIMAX_BASE_URL);
+  const config: ProviderConfig = {
+    productId: 'minimax',
+    accessMode: 'api-key',
     executionLane: DEFAULT_EXECUTION_LANE,
     providerVariantId: 'minimax-intl-anthropic-coding',
-    vendor: 'minimax',
-    region: 'intl',
-    compatibility: 'anthropic-compatible',
-    surface: 'coding-plan',
-    capabilities: {
-      streaming: true,
-      thinking: true,
-      toolCalls: true,
-      toolStreaming: false,
-      codingPlan: true,
-    },
     apiKey,
-    baseURL,
     model,
+    ...(endpointOverride ? { endpointOverride } : {}),
     runtimePolicy: createDefaultRuntimePolicy('anthropic', model),
   };
+
+  return hydrateDerivedProviderFields(config);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -163,8 +194,7 @@ export function normalizeSupportedExecutionLanes(value: unknown): readonly LlmEx
   const normalized = Array.isArray(value)
     ? value.filter(isLlmExecutionLane)
     : ([] as LlmExecutionLane[]);
-  const lanes = normalized.length > 0 ? Array.from(new Set(normalized)) : [DEFAULT_EXECUTION_LANE];
-  return lanes.includes(DEFAULT_EXECUTION_LANE) ? lanes : [DEFAULT_EXECUTION_LANE, ...lanes];
+  return normalized.length > 0 ? Array.from(new Set(normalized)) : [DEFAULT_EXECUTION_LANE];
 }
 
 function isRuntimeExecutionMode(value: unknown): value is RuntimeExecutionMode {
@@ -173,36 +203,6 @@ function isRuntimeExecutionMode(value: unknown): value is RuntimeExecutionMode {
 
 function normalizeExecutionMode(value: unknown): RuntimeExecutionMode {
   return isRuntimeExecutionMode(value) ? value : DEFAULT_EXECUTION_MODE;
-}
-
-function isProviderVendor(value: unknown): value is ProviderVendor {
-  return typeof value === 'string' && PROVIDER_VENDORS.has(value as ProviderVendor);
-}
-
-function isProviderRegion(value: unknown): value is ProviderRegion {
-  return typeof value === 'string' && PROVIDER_REGIONS.has(value as ProviderRegion);
-}
-
-function isProviderCompatibility(value: unknown): value is ProviderCompatibility {
-  return typeof value === 'string' && PROVIDER_COMPATIBILITIES.has(value as ProviderCompatibility);
-}
-
-function isProviderSurface(value: unknown): value is ProviderSurface {
-  return typeof value === 'string' && PROVIDER_SURFACES.has(value as ProviderSurface);
-}
-
-function normalizeProviderCapabilities(candidate: unknown): ProviderCapabilities | undefined {
-  if (!isRecord(candidate)) return undefined;
-
-  const normalized: ProviderCapabilities = {
-    streaming: typeof candidate.streaming === 'boolean' ? candidate.streaming : false,
-    thinking: typeof candidate.thinking === 'boolean' ? candidate.thinking : false,
-    toolCalls: typeof candidate.toolCalls === 'boolean' ? candidate.toolCalls : false,
-    toolStreaming: typeof candidate.toolStreaming === 'boolean' ? candidate.toolStreaming : false,
-    codingPlan: typeof candidate.codingPlan === 'boolean' ? candidate.codingPlan : false,
-  };
-
-  return normalized;
 }
 
 function normalizeModelProfile(
@@ -334,6 +334,54 @@ function normalizeToolPermissions(candidate: unknown): RuntimeToolPermissionsPol
   };
 }
 
+function normalizeEmployeeRuntimeBinding(candidate: unknown): EmployeeRuntimeBinding | undefined {
+  if (!isRecord(candidate)) return undefined;
+  if (candidate.mode === 'provider') {
+    return { mode: 'provider' };
+  }
+  if (candidate.mode === 'engine' && ENGINE_IDS.has(candidate.engineId as EngineId)) {
+    return {
+      mode: 'engine',
+      engineId: candidate.engineId as EngineId,
+    };
+  }
+  return undefined;
+}
+
+function normalizeEndpointOverride(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeMigrationSource(value: unknown): ProviderConfigMigrationSource | undefined {
+  if (!isRecord(value)) return undefined;
+  return {
+    kind: 'legacy-provider-record',
+    ...(typeof value.legacyProvider === 'string' ? { legacyProvider: value.legacyProvider } : {}),
+    ...(typeof value.legacyVariantId === 'string'
+      ? { legacyVariantId: value.legacyVariantId }
+      : {}),
+    ...(typeof value.legacyVendor === 'string' ? { legacyVendor: value.legacyVendor } : {}),
+  };
+}
+
+function buildLegacyMigrationSource(input: {
+  legacyProvider?: string | null;
+  legacyVariantId?: string;
+  legacyVendor?: string;
+}): ProviderConfigMigrationSource | undefined {
+  const { legacyProvider, legacyVariantId, legacyVendor } = input;
+  if (!legacyProvider && !legacyVariantId && !legacyVendor) {
+    return undefined;
+  }
+
+  return {
+    kind: 'legacy-provider-record',
+    ...(legacyProvider ? { legacyProvider } : {}),
+    ...(legacyVariantId ? { legacyVariantId } : {}),
+    ...(legacyVendor ? { legacyVendor } : {}),
+  };
+}
+
 export function createDefaultRuntimePolicy(
   provider: LlmProvider,
   model: string,
@@ -356,6 +404,7 @@ export function normalizeRuntimePolicy(
   model: string,
 ): RuntimePolicyConfig {
   const candidate = isRecord(policy) ? policy : {};
+  const employeeRuntimeDefault = normalizeEmployeeRuntimeBinding(candidate.employeeRuntimeDefault);
   return {
     executionMode: normalizeExecutionMode(candidate.executionMode),
     modelPolicy: normalizeModelPolicy(candidate.modelPolicy, provider, model),
@@ -363,6 +412,10 @@ export function normalizeRuntimePolicy(
     memory: normalizeMemory(candidate.memory),
     toolSearch: normalizeToolSearch(candidate.toolSearch),
     toolPermissions: normalizeToolPermissions(candidate.toolPermissions),
+    ...(employeeRuntimeDefault ? { employeeRuntimeDefault } : {}),
+    ...(typeof candidate.gitAutoCommit === 'boolean'
+      ? { gitAutoCommit: candidate.gitAutoCommit }
+      : {}),
   };
 }
 
@@ -388,8 +441,9 @@ export function resolveAvailableExecutionLanes(
     return [DEFAULT_EXECUTION_LANE];
   }
 
-  const hostSupported = PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES;
-  const available = normalized.filter((lane) => hostSupported.includes(lane));
+  const available = normalized.filter((lane) =>
+    PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES.includes(lane),
+  );
   return available.length > 0 ? available : [DEFAULT_EXECUTION_LANE];
 }
 
@@ -424,56 +478,337 @@ export function getInstallEnvironmentForExecutionMode(
 }
 
 export function buildRuntimeModelPolicy(config: ProviderConfig): ModelPolicyConfig {
-  return normalizeRuntimePolicy(config.runtimePolicy, config.provider, config.model).modelPolicy;
+  const resolved = resolveProviderConfig(config);
+  if (!resolved) {
+    return normalizeRuntimePolicy(config.runtimePolicy, 'openai-compat', config.model).modelPolicy;
+  }
+  return normalizeRuntimePolicy(config.runtimePolicy, resolved.provider, config.model).modelPolicy;
 }
 
-function normalizeProviderConfig(parsed: unknown): ProviderConfig | null {
-  if (!isRecord(parsed)) return null;
+export function resolveProviderConfig(
+  config: ProviderConfig,
+): ResolvedProviderConfig | null {
+  const product = getProviderProduct(config.productId);
+  if (!product) return null;
 
-  const provider = parsed.provider;
-  const model = parsed.model;
-  const apiKey = parsed.apiKey;
-  const capabilities = normalizeProviderCapabilities(parsed.capabilities);
+  const access = getProviderProductAccess(product, config.accessMode);
+  if (!access) return null;
 
-  if (!isLlmProvider(provider) || typeof model !== 'string' || !model.trim()) {
-    return null;
-  }
+  const variant =
+    getProviderVariant(config.providerVariantId ?? undefined) ??
+    getProviderVariant(access.defaultVariantId ?? undefined) ??
+    null;
 
-  // Reject unusable half-configs. A valid provider must carry either an apiKey
-  // (web mode, or pre-Tauri-strip fresh save) or a baseURL (third-party compat
-  // endpoint — credential goes through secure desktop storage on Tauri).
-  // Without this guard a stale `{provider:'openai',model:'...'}` record from an
-  // older ProviderConfig schema falls through to OpenAI SDK default
-  // (`api.openai.com`) with an empty key and produces a misleading 401.
-  const hasApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0;
-  const hasBaseURL = typeof parsed.baseURL === 'string' && parsed.baseURL.trim().length > 0;
-  if (!hasApiKey && !hasBaseURL) {
-    return null;
-  }
+  const supportedExecutionLanes = getSupportedExecutionLanesForProduct(
+    product,
+    access.accessMode,
+    variant?.providerVariantId ?? null,
+  );
+  const executionLane = supportedExecutionLanes.includes(config.executionLane)
+    ? config.executionLane
+    : (supportedExecutionLanes[0] ?? DEFAULT_EXECUTION_LANE);
+  const baseURL = config.endpointOverride?.trim() || variant?.baseURL;
+  const mergedHeaders =
+    variant?.defaultHeaders || config.defaultHeaders
+      ? {
+          ...(variant?.defaultHeaders ?? {}),
+          ...(config.defaultHeaders ?? {}),
+        }
+      : undefined;
 
-  const normalized: ProviderConfig = {
+  const provider = variant?.provider ?? config.provider;
+  if (!provider) return null;
+
+  const availability =
+    config.requiresReconfigure === true
+      ? {
+          available: false,
+          code: 'requires-reconfigure' as const,
+          message:
+            'This provider configuration was migrated from a retired route and must be reviewed before use.',
+        }
+      : access.endpointOverrideMode === 'required' && !baseURL
+        ? {
+            available: false,
+            code: 'invalid-config' as const,
+            message:
+              'This product requires an explicit endpoint override before runtime binding can be created.',
+          }
+        : ({ available: true } as const);
+
+  return {
+    config,
+    product,
+    access,
+    variant,
     provider,
-    executionLane: normalizeExecutionLane(parsed.executionLane),
+    model: config.model,
+    executionLane,
+    transport: {
+      provider,
+      ...(baseURL ? { baseURL } : {}),
+      ...(mergedHeaders ? { defaultHeaders: mergedHeaders } : {}),
+      executionLane,
+      authStrategy: access.authStrategy,
+    },
+    capabilities: variant?.capabilities ?? config.capabilities,
+    availability,
+  };
+}
+
+export function resolveProviderHostAvailability(
+  resolved: ResolvedProviderConfig,
+  options: {
+    tauri: boolean;
+    trustedHostStatus?: {
+      available: boolean;
+      message?: string | null;
+    } | null;
+  },
+): ProviderAvailabilityState {
+  if (!resolved.availability.available) return resolved.availability;
+  if (resolved.transport.authStrategy !== 'trusted-local-auth') {
+    return resolved.availability;
+  }
+  if (!options.tauri) {
+    return {
+      available: false,
+      code: 'host-unavailable',
+      message: `${resolved.product.displayName} is unavailable in browser-limited runtime. Switch product or move to a trusted host.`,
+    };
+  }
+  if (options.trustedHostStatus?.available) {
+    return { available: true };
+  }
+  return {
+    available: false,
+    code: 'resolver-missing',
+    message:
+      options.trustedHostStatus?.message ??
+      `${resolved.product.displayName} local auth is unavailable on this trusted host.`,
+  };
+}
+
+function isInvalidResolvedConfig(resolved: ResolvedProviderConfig | null): boolean {
+  return resolved?.availability.available === false && resolved.availability.code === 'invalid-config';
+}
+
+function getBrowserAvailableExecutionLanes(
+  resolved: ResolvedProviderConfig,
+): readonly LlmExecutionLane[] {
+  return resolveAvailableExecutionLanes(
+    getSupportedExecutionLanesForProduct(
+      resolved.product,
+      resolved.access.accessMode,
+      resolved.variant?.providerVariantId ?? null,
+    ),
+    DEFAULT_EXECUTION_MODE,
+    { tauri: false },
+  );
+}
+
+function clampProviderConfigForCurrentHost(
+  config: ProviderConfig,
+  resolved: ResolvedProviderConfig | null,
+): ProviderConfig {
+  if (isTauri() || !resolved || resolved.transport.authStrategy === 'trusted-local-auth') {
+    return config;
+  }
+
+  const availableExecutionLanes = getBrowserAvailableExecutionLanes(resolved);
+  if (availableExecutionLanes.includes(config.executionLane)) {
+    return config;
+  }
+
+  return {
+    ...config,
+    executionLane: availableExecutionLanes[0] ?? DEFAULT_EXECUTION_LANE,
+  };
+}
+
+function hydrateDerivedProviderFields(config: ProviderConfig): ProviderConfig {
+  const resolved = resolveProviderConfig(config);
+  if (!resolved) return config;
+
+  return {
+    ...config,
+    provider: resolved.provider,
+    ...(resolved.transport.baseURL ? { baseURL: resolved.transport.baseURL } : {}),
+    ...(resolved.variant?.vendor ? { vendor: resolved.variant.vendor } : {}),
+    ...(resolved.variant?.region ? { region: resolved.variant.region } : {}),
+    ...(resolved.variant?.compatibility ? { compatibility: resolved.variant.compatibility } : {}),
+    ...(resolved.variant?.surface ? { surface: resolved.variant.surface } : {}),
+    ...(resolved.capabilities ? { capabilities: resolved.capabilities } : {}),
+  };
+}
+
+function normalizeProductProviderConfig(parsed: Record<string, unknown>): ProviderConfig | null {
+  if (!isProviderProductId(parsed.productId)) return null;
+
+  const productId = parsed.productId;
+  const product = getProviderProduct(productId);
+  if (!product) return null;
+
+  const requestedAccessMode = isProviderProductAccessMode(parsed.accessMode)
+    ? parsed.accessMode
+    : getDefaultProviderAccessMode(productId);
+  const access = getProviderProductAccess(product, requestedAccessMode);
+  if (!access) return null;
+
+  const model = typeof parsed.model === 'string' ? parsed.model.trim() : '';
+  if (!model) return null;
+
+  const requestedVariantId =
+    typeof parsed.providerVariantId === 'string' && parsed.providerVariantId.trim()
+      ? parsed.providerVariantId.trim()
+      : undefined;
+  const allowedVariantIds = new Set(access.variantIds ?? product.variantIds);
+  const providerVariantId =
+    requestedVariantId && allowedVariantIds.has(requestedVariantId)
+      ? requestedVariantId
+      : getDefaultProviderVariantId(productId, access.accessMode);
+
+  const supportedExecutionLanes = getSupportedExecutionLanesForProduct(
+    product,
+    access.accessMode,
+    providerVariantId ?? null,
+  );
+  const normalizedExecutionLane = normalizeExecutionLane(parsed.executionLane);
+  const endpointOverride = normalizeEndpointOverride(parsed.endpointOverride);
+  const defaultHeaders = isRecord(parsed.defaultHeaders)
+    ? (parsed.defaultHeaders as Record<string, string>)
+    : undefined;
+  const migrationSource = normalizeMigrationSource(parsed.migrationSource);
+  const normalized: ProviderConfig = {
+    productId,
+    accessMode: access.accessMode,
+    executionLane: supportedExecutionLanes.includes(normalizedExecutionLane)
+      ? normalizedExecutionLane
+      : (supportedExecutionLanes[0] ?? DEFAULT_EXECUTION_LANE),
     model,
-    ...(typeof parsed.providerVariantId === 'string' && parsed.providerVariantId.trim()
-      ? { providerVariantId: parsed.providerVariantId }
+    ...(providerVariantId ? { providerVariantId } : {}),
+    ...(endpointOverride ? { endpointOverride } : {}),
+    ...(typeof parsed.apiKey === 'string' ? { apiKey: parsed.apiKey } : {}),
+    ...(defaultHeaders ? { defaultHeaders } : {}),
+    ...(typeof parsed.requiresReconfigure === 'boolean'
+      ? { requiresReconfigure: parsed.requiresReconfigure }
       : {}),
-    ...(isProviderVendor(parsed.vendor) ? { vendor: parsed.vendor } : {}),
-    ...(isProviderRegion(parsed.region) ? { region: parsed.region } : {}),
-    ...(isProviderCompatibility(parsed.compatibility)
-      ? { compatibility: parsed.compatibility }
-      : {}),
-    ...(isProviderSurface(parsed.surface) ? { surface: parsed.surface } : {}),
-    ...(capabilities ? { capabilities } : {}),
-    ...(typeof apiKey === 'string' ? { apiKey } : {}),
-    ...(typeof parsed.baseURL === 'string' ? { baseURL: parsed.baseURL } : {}),
-    ...(isRecord(parsed.defaultHeaders)
-      ? { defaultHeaders: parsed.defaultHeaders as Record<string, string> }
-      : {}),
+    ...(migrationSource ? { migrationSource } : {}),
   };
 
-  normalized.runtimePolicy = normalizeRuntimePolicy(parsed.runtimePolicy, provider, model);
-  return normalized;
+  const resolved = resolveProviderConfig(normalized);
+  if (!resolved) return null;
+  if (isInvalidResolvedConfig(resolved)) {
+    return null;
+  }
+
+  const derived = hydrateDerivedProviderFields(normalized);
+  derived.runtimePolicy = normalizeRuntimePolicy(parsed.runtimePolicy, resolved.provider, model);
+  return derived;
+}
+
+function migrateLegacyProviderConfig(parsed: Record<string, unknown>): ProviderConfig | null {
+  const legacyProvider =
+    typeof parsed.provider === 'string' && parsed.provider.trim() ? parsed.provider.trim() : null;
+  const legacyVariantId =
+    typeof parsed.providerVariantId === 'string' && parsed.providerVariantId.trim()
+      ? parsed.providerVariantId.trim()
+      : undefined;
+  const legacyVendor =
+    typeof parsed.vendor === 'string' && parsed.vendor.trim() ? parsed.vendor.trim() : undefined;
+
+  if (legacyProvider === 'subscription') {
+    const migrationSource = buildLegacyMigrationSource({
+      legacyProvider,
+      legacyVariantId,
+      legacyVendor,
+    });
+    const migrated = normalizeProductProviderConfig({
+      productId: 'claude',
+      accessMode: 'subscription',
+      executionLane: 'claude-agent-sdk',
+      model:
+        typeof parsed.model === 'string' && parsed.model.trim()
+          ? parsed.model.trim()
+          : 'claude-sonnet-4-20250514',
+      requiresReconfigure: true,
+      ...(migrationSource ? { migrationSource } : {}),
+      runtimePolicy: parsed.runtimePolicy,
+    });
+    return migrated;
+  }
+
+  const provider = legacyProvider;
+  const model = typeof parsed.model === 'string' ? parsed.model.trim() : '';
+  if (!isLlmProvider(provider) || !model) {
+    return null;
+  }
+
+  const apiKey = typeof parsed.apiKey === 'string' ? parsed.apiKey : undefined;
+  const baseURL = normalizeEndpointOverride(parsed.baseURL);
+  if (!apiKey && !baseURL) {
+    return null;
+  }
+
+  const productId =
+    findProviderProductIdByLegacyRoute({
+      provider,
+      providerVariantId: legacyVariantId,
+      vendor: legacyVendor,
+      baseURL,
+      compatibility:
+        typeof parsed.compatibility === 'string' && isProviderCompatibility(parsed.compatibility)
+          ? parsed.compatibility
+          : undefined,
+    }) ??
+    (provider === 'openai'
+      ? 'openai-api'
+      : provider === 'anthropic'
+        ? 'anthropic-api'
+        : 'custom-compatible');
+
+  const defaultVariantId = getDefaultProviderVariantId(productId, 'api-key');
+  const currentVariant = legacyVariantId ? getProviderVariant(legacyVariantId) : undefined;
+  const defaultVariant = getProviderVariant(defaultVariantId);
+  const endpointOverride =
+    baseURL && baseURL !== currentVariant?.baseURL && baseURL !== defaultVariant?.baseURL
+      ? baseURL
+      : undefined;
+  const migrationSource = buildLegacyMigrationSource({
+    legacyProvider: provider,
+    legacyVariantId,
+    legacyVendor,
+  });
+  const migrated = normalizeProductProviderConfig({
+    productId,
+    accessMode: 'api-key',
+    executionLane: parsed.executionLane,
+    providerVariantId: legacyVariantId ?? defaultVariantId,
+    model,
+    ...(endpointOverride ? { endpointOverride } : {}),
+    ...(apiKey ? { apiKey } : {}),
+    ...(isRecord(parsed.defaultHeaders) ? { defaultHeaders: parsed.defaultHeaders } : {}),
+    ...(migrationSource ? { migrationSource } : {}),
+    ...(typeof parsed.requiresReconfigure === 'boolean'
+      ? { requiresReconfigure: parsed.requiresReconfigure }
+      : {}),
+    runtimePolicy: parsed.runtimePolicy,
+  });
+
+  if (!migrated) return null;
+  const resolved = resolveProviderConfig(migrated);
+  if (!resolved) return null;
+  if (isInvalidResolvedConfig(resolved)) {
+    return null;
+  }
+  return migrated;
+}
+
+export function normalizeProviderConfig(parsed: unknown): ProviderConfig | null {
+  if (!isRecord(parsed)) return null;
+  return 'productId' in parsed
+    ? normalizeProductProviderConfig(parsed)
+    : migrateLegacyProviderConfig(parsed);
 }
 
 function toPersistedConfig(config: ProviderConfig): ProviderConfig {
@@ -482,17 +817,23 @@ function toPersistedConfig(config: ProviderConfig): ProviderConfig {
     return config;
   }
 
-  const clamped =
-    isTauri() && !PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES.includes(normalized.executionLane)
-      ? { ...normalized, executionLane: DEFAULT_EXECUTION_LANE }
-      : normalized;
+  const resolved = resolveProviderConfig(normalized);
+  const clamped = clampProviderConfigForCurrentHost(normalized, resolved);
 
-  if (!isTauri()) {
-    return clamped;
-  }
-
-  const { apiKey: _apiKey, ...persisted } = clamped;
-  return persisted;
+  const {
+    apiKey: _apiKey,
+    provider: _provider,
+    baseURL: _baseURL,
+    vendor: _vendor,
+    region: _region,
+    compatibility: _compatibility,
+    surface: _surface,
+    capabilities: _capabilities,
+    ...persisted
+  } = clamped;
+  return isTauri()
+    ? persisted
+    : { ...persisted, ...(clamped.apiKey ? { apiKey: clamped.apiKey } : {}) };
 }
 
 export function loadProviderConfig(): ProviderConfig | null {
@@ -501,16 +842,7 @@ export function loadProviderConfig(): ProviderConfig | null {
     if (!raw) return loadEnvBackedProviderConfig();
     const parsed = normalizeProviderConfig(JSON.parse(raw));
     if (!parsed) return loadEnvBackedProviderConfig();
-    if (
-      !isTauri() ||
-      PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES.includes(parsed.executionLane)
-    ) {
-      return parsed;
-    }
-    return {
-      ...parsed,
-      executionLane: DEFAULT_EXECUTION_LANE,
-    };
+    return clampProviderConfigForCurrentHost(parsed, resolveProviderConfig(parsed));
   } catch {
     return loadEnvBackedProviderConfig();
   }

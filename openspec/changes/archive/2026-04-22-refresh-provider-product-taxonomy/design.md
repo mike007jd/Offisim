@@ -201,6 +201,37 @@ Settings provider tab 的主流程变成：
 6. 更新 provider matrix / protocol ledger / canonical specs / settings 文案，明确 source-registry 与 product taxonomy 的边界
 7. 对旧配置执行一次迁移并记录需要用户重配的情况
 
+## Code Touch Points
+
+- Shared schema and persistence entry:
+  - `packages/shared-types/src/models.ts`
+  - `packages/ui-office/src/lib/provider-config.ts`
+- Current preset-first registry to replace or split:
+  - `packages/ui-office/src/components/settings/provider-presets.ts`
+  - upstream input: `catalog/provider-source-registry/generated/curated-catalog.json`
+- Settings controller and save orchestration:
+  - `packages/ui-office/src/components/settings/controller/useSettingsProviderState.ts`
+  - `packages/ui-office/src/components/settings/controller/useSettingsSaveOrchestrator.ts`
+  - `packages/ui-office/src/components/settings/controller/assembleSettingsControllerApi.ts`
+  - `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx`
+  - `packages/ui-office/src/components/settings/SettingsProviderTab.tsx`
+- Runtime binding and trusted desktop host:
+  - `apps/web/src/lib/browser-runtime.ts`
+  - `apps/web/src/lib/tauri-runtime.ts`
+  - `packages/ui-office/src/lib/desktop-provider-secrets.ts`
+  - `apps/web/src/lib/tauri-llm-fetch.ts`
+
+Desktop trusted-host code currently resolves through the Tauri runtime path under `apps/web/src/lib/*`; there is no separate `apps/desktop/src` implementation surface for provider binding today. This change should therefore treat `apps/web/src/lib/tauri-runtime.ts` as the primary desktop runtime integration point.
+
+## Verification Entry Points
+
+- Existing source-registry coverage:
+  - `scripts/provider-source-registry/test/provider-source-registry.test.mjs`
+- Existing harness/runtime coverage surface:
+  - `scripts/harness-lib.test.mjs`
+- Gap to close in this change:
+  - there is currently no dedicated provider-config/settings-controller test file covering product migration, product-to-variant resolution, or local-auth unavailable-host behavior; this change should add focused tests around those areas instead of relying only on manual Settings QA
+
 ## Open Questions
 
 - `codex` 是否最终只代表“本机 Codex/ChatGPT subscription auth”，还是允许未来再挂 API-key 模式？

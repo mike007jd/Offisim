@@ -25,17 +25,11 @@ function workspaceRootFromEnv() {
   return workspaceRoot;
 }
 
-function injectedApiKey() {
-  const apiKey =
+function injectedApiKeyOrUndefined() {
+  return (
     asNonEmptyString(process.env.ANTHROPIC_API_KEY) ??
-    asNonEmptyString(process.env.ANTHROPIC_AUTH_TOKEN);
-  if (!apiKey) {
-    throw Object.assign(
-      new Error('No Anthropic credential was injected into the trusted Claude lane host.'),
-      { code: 'no-credential' },
-    );
-  }
-  return apiKey;
+    asNonEmptyString(process.env.ANTHROPIC_AUTH_TOKEN)
+  );
 }
 
 async function loadClaudeAdapter(workspaceRoot) {
@@ -57,7 +51,7 @@ async function main() {
   }
 
   const ClaudeAgentSdkAdapter = await loadClaudeAdapter(workspaceRoot);
-  const adapter = new ClaudeAgentSdkAdapter(injectedApiKey(), {
+  const adapter = new ClaudeAgentSdkAdapter(injectedApiKeyOrUndefined(), {
     baseURL: asNonEmptyString(process.env.ANTHROPIC_BASE_URL),
     cwd: asNonEmptyString(payload.cwd) ?? workspaceRoot,
     pathToClaudeCodeExecutable: asNonEmptyString(process.env.OFFISIM_CLAUDE_CODE_EXECUTABLE),

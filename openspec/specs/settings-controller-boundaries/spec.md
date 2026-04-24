@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` owns the Settings workspace controller — the React hook `useSettingsWorkspaceController` that glues provider presets, execution-lane selection, runtime-policy state, save/load/reinit lifecycle, and dirty-tracking into a single controller surface consumed by `SettingsPage` / `SettingsContentArea` / `SettingsProviderTab` / `SettingsRuntimeTab` / `SettingsTabNav` — plus the `SettingsWorkspaceSurface` JSX component used by overlay mode. Pre-refactor (Round 2, 2026-04-18) it was a 624-NBNC double-export file that stacked 24 `useState` hooks, a 140-line `isActive`-driven load effect, a 120-line async `handleSave`, two independent reinit effects, plus three formatter helpers and three parser helpers into a single function scope. This spec locks the post-refactor decomposition so future provider-preset or runtime-policy edits touch one sibling hook, not the 600-line monolith, and prevents the two reinit effects from being merged again.
+`packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` owns the Settings workspace controller — the React hook `useSettingsWorkspaceController` that glues provider-product selection, access mode, advanced routing, runtime-policy state, save/load/reinit lifecycle, and dirty-tracking into a single controller surface consumed by `SettingsPage` / `SettingsContentArea` / `SettingsProviderTab` / `SettingsRuntimeTab` / `SettingsTabNav` — plus the `SettingsWorkspaceSurface` JSX component used by overlay mode. Pre-refactor (Round 2, 2026-04-18) it was a 624-NBNC double-export file that stacked 24 `useState` hooks, a 140-line `isActive`-driven load effect, a 120-line async `handleSave`, two independent reinit effects, plus three formatter helpers and three parser helpers into a single function scope. This spec locks the post-refactor decomposition so future provider-product or runtime-policy edits touch one sibling hook, not the 600-line monolith, and prevents the two reinit effects from being merged again.
 
 ## Requirements
 
@@ -30,20 +30,27 @@ The barrel body SHALL NOT contain inline `useState<...>` declarations (except st
 
 ### Requirement: Controller sibling hooks are one-responsibility-per-file
 
-The 4 controller sibling hooks SHALL live in `packages/ui-office/src/components/settings/controller/`:
+The 4 controller sibling hooks SHALL continue to live in `packages/ui-office/src/components/settings/controller/`, but provider-state ownership SHALL become product-centric:
 
-- `useSettingsProviderState.ts` — owns the 7 provider state values (`preset`, `executionLane`, `apiKey`, `baseURL`, `model`, `defaultHeaders`, `hasStoredSecret`) and their setters, `handlePresetChange`, and `applyFromSaved(saved)` / `applyDefaults(presetKey)` helpers. Exposes a `snapshot` object used by dirty tracking.
-- `useSettingsRuntimePolicy.ts` — owns the 13 runtime-policy state values (`executionMode`, `summarizationEnabled`, `summarizationTriggerTokens`, `summarizationKeepRecentMessages`, `memoryEnabled`, `memoryInjectionEnabled`, `memoryMaxFacts`, `memoryConfidenceThreshold`, `toolSearchEnabled`, `gitAutoCommit`, `toolPermissions`, `runtimeModelDefault`, `runtimeModelOverrides`) and their setters, `applyFromSaved(policy)` / `applyDefaults()` helpers, and `buildRuntimePolicy(providerPreset, model)` used by save. Exposes a `snapshot` object used by dirty tracking.
-- `useSettingsSaveOrchestrator.ts` — owns `isSaving`, `isReinitializing`, `saveError` state, `savingRef`, `reinitBaseVersionRef`, the `isActive`-driven load `useEffect`, the async `handleSave` function, and **two independent** reinit `useEffect`s (runtime-version detector + 5-second timeout). Depends on `useOffisimRuntimeStatus()` for `runtimeVersion`. Receives `markLoaded: () => void` from the dirty-tracking hook (via the barrel) and calls it at the tail of `loadState()` so the dirty-tracking hook captures the loaded snapshot in the same React batch as the `applyFromSaved` state updates.
-- `useSettingsDirtyTracking.ts` — owns `loadedSnapshotRef` (typed `string | null`, initial `null`) and the internal `captureVersion` counter, exposes `hasUnsavedChanges: boolean`, `requestDismiss: () => void`, `markLoaded: () => void`, and `resetLoadedSnapshot: (snapshot: string) => void`. Accepts `isActive`, the externally-computed `snapshotJson` string, and `onDismiss` callback.
+- `useSettingsProviderState.ts` — owns the primary provider/product state values (`productId`, `accessMode`, `apiKey`, `model`, `endpointOverride`, `defaultHeaders`, `executionLane`, `hasStoredSecret`, and any derived advanced-routing toggles) plus their setters, `handleProductChange`, and `applyFromSaved(saved)` / `applyDefaults(productId)` helpers. It exposes a `snapshot` object used by dirty tracking.
+- `useSettingsRuntimePolicy.ts` — continues to own runtime-policy state and helpers.
+- `useSettingsSaveOrchestrator.ts` — continues to own load/save/reinit orchestration and trusted-host secret interactions.
+- `useSettingsDirtyTracking.ts` — continues to own the loaded snapshot reference and dirty-tracking lifecycle.
+
+Compatibility/vendor/surface labels SHALL NOT remain the primary owner fields of the provider-state hook. They MAY still exist as derived metadata for display or migration purposes, but product identity is the primary state.
 
 #### Scenario: Exactly 4 controller hook files exist
 - **WHEN** listing `packages/ui-office/src/components/settings/controller/*.ts`
 - **THEN** exactly these 4 files exist: `useSettingsProviderState.ts`, `useSettingsRuntimePolicy.ts`, `useSettingsSaveOrchestrator.ts`, `useSettingsDirtyTracking.ts`
 
-#### Scenario: Provider state is single-owner
-- **WHEN** grepping `packages/ui-office/src/components/settings/**/*.{ts,tsx}` for `useState<string>\(DEFAULT_PRESET_KEY\)` or any of the literal identifiers `setApiKey`, `setBaseURL`, `setDefaultHeaders`, `setExecutionLane`, `handlePresetChange` defined at module scope
-- **THEN** each declaration match is inside `controller/useSettingsProviderState.ts`
+#### Scenario: Product state is single-owner
+- **WHEN** grepping `packages/ui-office/src/components/settings/**/*.{ts,tsx}` for provider-state declarations such as `productId`, `accessMode`, `endpointOverride`, `executionLane`, or `handleProductChange`
+- **THEN** their owning state declarations are inside `controller/useSettingsProviderState.ts`
+
+#### Scenario: Provider hook no longer centers raw compat fields
+- **WHEN** inspecting `useSettingsProviderState.ts`
+- **THEN** the hook treats product identity as the primary selection model
+- **AND** raw compatibility/vendor/surface fields, if still present, are derived metadata rather than the main user-selection state
 
 #### Scenario: Runtime policy state is single-owner
 - **WHEN** grepping for `setExecutionMode`, `setSummarizationEnabled`, `setMemoryMaxFacts`, `setToolPermissions`, `setRuntimeModelDefault`, `buildRuntimePolicy` declarations in `components/settings/**/*.{ts,tsx}`
@@ -74,7 +81,19 @@ The `useSettingsSaveOrchestrator.ts` hook SHALL declare **two** separate `useEff
 
 ### Requirement: Snapshot bytes are deterministic for the lane-aware settings model
 
-The dirty-tracking snapshot string used to compute `hasUnsavedChanges` SHALL be deterministic for identical state values and SHALL reflect the current lane-aware provider state. Specifically the snapshot object SHALL contain, in this order, the keys: `preset`, `executionLane`, `apiKey`, `baseURL`, `model`, `defaultHeaders`, `executionMode`, `summarizationEnabled`, `summarizationTriggerTokens`, `summarizationKeepRecentMessages`, `memoryEnabled`, `memoryInjectionEnabled`, `memoryMaxFacts`, `memoryConfidenceThreshold`, `toolSearchEnabled`, `gitAutoCommit`, `toolPermissions`, `runtimeModelDefault`, `runtimeModelOverrides`, `density`. `hasStoredSecret` SHALL NOT appear in the snapshot.
+The dirty-tracking snapshot string SHALL remain stable and deterministic under the new product-centric schema. The snapshot object SHALL contain the provider-selection keys in product-centric order before runtime-policy fields.
+
+At minimum, the provider portion of the snapshot SHALL be ordered as:
+
+- `productId`
+- `accessMode`
+- `apiKey`
+- `endpointOverride`
+- `model`
+- `defaultHeaders`
+- `executionLane`
+
+`hasStoredSecret` SHALL NOT appear in the snapshot.
 
 The capture mechanism that writes `loadedSnapshotRef` SHALL be driven by a `captureVersion: number` counter owned internally by `useSettingsDirtyTracking`, not by a flag ref. The hook SHALL expose a `markLoaded: () => void` callback that increments the counter. The `useSettingsSaveOrchestrator`'s `loadState()` SHALL call `markLoaded()` at its tail, batching the counter increment with the `applyFromSaved` state updates so the post-commit capture effect reads the post-load `snapshotJson`. The capture effect SHALL early-return when `captureVersion === 0` so the initial render does not capture the defaults snapshot.
 
@@ -83,22 +102,12 @@ The capture mechanism that writes `loadedSnapshotRef` SHALL be driven by a `capt
 - **THEN** the parsed key list and order are identical both times
 - **AND** `hasStoredSecret` is absent
 
-#### Scenario: Initial open with no saved config does not mark dirty
-- **WHEN** the user opens Settings for the first time with no `localStorage["offisim-provider-config"]` entry (env-backed path loads MiniMax defaults)
+#### Scenario: Initial open with migrated config does not mark dirty
+- **WHEN** the user opens Settings and a legacy saved provider record is migrated into the new product-centric schema during load
 - **THEN** `hasUnsavedChanges` is `false` after load completes and before any user edit
-- **AND** the `Save settings` button is rendered with disabled styling (`opacity-50 cursor-not-allowed bg-white/10 text-slate-500`) and `disabled=true`
 
-#### Scenario: Initial open with saved config does not mark dirty
-- **WHEN** the user opens Settings with an existing `localStorage["offisim-provider-config"]` saved config
-- **THEN** `hasUnsavedChanges` is `false` after load completes and before any user edit
-- **AND** the `Save settings` button is disabled
-
-#### Scenario: Toggling a provider field flips dirty
-- **WHEN** the surface is active, load has completed, and `apiKey` is edited by one character
-- **THEN** `hasUnsavedChanges` transitions from `false` to `true`
-
-#### Scenario: Toggling a runtime-policy field flips dirty
-- **WHEN** the surface is active, load has completed, and `memoryEnabled` is toggled
+#### Scenario: Editing the selected product flips dirty
+- **WHEN** load has completed and the user changes `productId` from one product to another
 - **THEN** `hasUnsavedChanges` transitions from `false` to `true`
 
 #### Scenario: Saving clears dirty
@@ -117,28 +126,35 @@ The capture mechanism that writes `loadedSnapshotRef` SHALL be driven by a `capt
 `useSettingsWorkspaceController(options)` SHALL retain its pre-refactor input and output surface:
 
 - Input `options: SettingsWorkspaceControllerOptions` with fields `isActive: boolean`, `closeOnSave?: boolean`, `onDismiss: () => void`, `onSave: (config: ProviderConfig) => void`, `onSaveSuccess?: () => void`, `onToast?: (message: string, variant?: 'info' | 'success' | 'error') => void`
-- Return object SHALL expose the lane-aware settings surface used by current consumers. The field list includes (non-exhaustive): `apiKey`, `baseURL`, `defaultHeaders`, `density`, `executionLane`, `executionMode`, `gitAutoCommit`, `handlePresetChange`, `handleSave`, `hasStoredSecret`, `hasUnsavedChanges`, `isSaveDisabled`, `isSaving`, `isThinkingProvider`, `memoryConfidenceThreshold`, `memoryEnabled`, `memoryInjectionEnabled`, `memoryMaxFacts`, `model`, `notify`, `preset`, `requestDismiss`, `saveError`, `selectedCapabilities`, `selectedCompatibility`, `selectedPreset`, `selectedRegion`, `selectedSurface`, `selectedVendor`, `setApiKey`, `setBaseURL`, `setDensity`, `setExecutionLane`, `setExecutionMode`, `setGitAutoCommit`, `setMemoryConfidenceThreshold`, `setMemoryEnabled`, `setMemoryInjectionEnabled`, `setMemoryMaxFacts`, `setModel`, `setRuntimeModelDefault`, `setSummarizationEnabled`, `setSummarizationKeepRecentMessages`, `setSummarizationTriggerTokens`, `setToolSearchEnabled`, `showBaseURL`, `supportedExecutionLanes`, `summarizationEnabled`, `summarizationKeepRecentMessages`, `summarizationTriggerTokens`, `toolSearchEnabled`, `verifiedExecutionLanes`.
+- Return object SHALL expose a product-centric controller API. The field list includes product-first selection fields such as `productId`, `accessMode`, `handleProductChange`, `handleAccessModeChange`, `providerVariantId`, `showEndpointOverride`, `showVariantSelector`, and the derived compatibility display fields still consumed by Settings UI.
 
 `isSaving` SHALL continue to be `isSaving || isReinitializing` (merged exposed flag).
 
-#### Scenario: Return field name parity
-- **WHEN** extracting the object keys returned by `useSettingsWorkspaceController`
-- **THEN** the controller includes the lane-aware fields needed by current Settings consumers
-- **AND** retired ACP-only fields (`acpCommand`, `setAcpCommand`, `isSubscription`) are absent
+#### Scenario: Provider tab consumes product-first controller fields
+- **WHEN** `SettingsProviderTab` renders
+- **THEN** its primary selection controls bind to product-centric controller fields
+- **AND** the product selection is not reconstructed from compatibility/vendor/surface triage in the component
+
+#### Scenario: Consumers do not need to infer Codex from raw provider fields
+- **WHEN** a consumer needs to know the currently selected provider product
+- **THEN** it can read the product-centric controller field directly
+- **AND** it does not need to infer `Codex` or `Claude` from raw protocol/provider metadata
 
 ### Requirement: Observable save and reinit behavior is unchanged
 
-For identical saved `ProviderConfig` input, identical `isTauri()` result, identical `runtimeVersion` stream, and identical user input, the surface SHALL produce:
+For identical user intent, the Settings surface SHALL preserve the same save/reinit lifecycle semantics as before: save writes config, trusted-host secret actions happen in the orchestrator, successful save triggers runtime reinit, and timeout/version-bump behavior remains stable.
 
-1. A deterministic `ProviderConfig` argument to `onSave(config)` that includes the selected `executionLane` and excludes retired ACP-only fields
-2. Identical sequence of calls to `setRuntimeSecret` / `saveProviderConfig` / `getRuntimeSecretStatus`
-3. Identical reinit lifecycle: `isReinitializing` becomes `true` on save success, becomes `false` on either `runtimeVersion` bump or the 5s timeout (not both — first one wins), and on timeout the `saveError` string becomes `'Runtime failed to reinitialize. Check your provider settings and try again.'`
-4. Identical `hasUnsavedChanges` values across the Escape-confirmation prompt path (`window.confirm('Discard unsaved changes in Settings?')`)
+The saved config payload itself SHALL now be product-centric rather than preset/compat-centric.
 
-#### Scenario: Save emits lane-aware ProviderConfig
-- **WHEN** Save is pressed after choosing a preset, execution lane, model, and optional base URL override
-- **THEN** the `onSave(config)` call argument includes `executionLane`
-- **AND** it does not include retired ACP-only fields such as `acpCommand` or `acpArgs`
+#### Scenario: Save emits a product-centric provider config
+- **WHEN** the user presses Save on the new provider settings flow
+- **THEN** `onSave(config)` receives a product-centric config payload
+- **AND** the reinit lifecycle proceeds with the same success/timeout behavior as before
+
+#### Scenario: Trusted-host secret handling still stays in the save orchestrator
+- **WHEN** the selected access mode requires secret persistence or secret clearing
+- **THEN** `useSettingsSaveOrchestrator.ts` remains the only controller hook that performs those side effects
+- **AND** the provider tab stays render/controller-only
 
 #### Scenario: Reinit timeout path
 - **WHEN** `runtimeVersion` does not bump within 5s of save success

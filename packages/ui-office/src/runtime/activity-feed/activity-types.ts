@@ -8,7 +8,7 @@ export type RuntimeActivityTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface RuntimeActivityEntry {
   id: string;
-  kind: 'node' | 'plan' | 'dispatch' | 'tool' | 'cost' | 'system' | 'llm';
+  kind: 'node' | 'plan' | 'dispatch' | 'tool' | 'cost' | 'system' | 'llm' | 'engine';
   tone: RuntimeActivityTone;
   label: string;
   timestamp: number;

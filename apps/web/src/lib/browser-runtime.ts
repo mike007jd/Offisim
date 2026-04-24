@@ -55,6 +55,8 @@ import type { InteractionMode } from '@offisim/shared-types';
 import {
   DEFAULT_EXECUTION_LANE,
   getInstallEnvironmentForExecutionMode,
+  resolveProviderConfig,
+  resolveProviderHostAvailability,
   resolveEffectiveRuntimePolicy,
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
@@ -174,16 +176,34 @@ export async function createBrowserRuntime(
   companyId: string,
   opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
-  if (config.executionLane !== DEFAULT_EXECUTION_LANE) {
+  const resolvedProvider = resolveProviderConfig(config);
+  if (!resolvedProvider) {
+    throw new Error('Unable to resolve the saved provider product configuration.');
+  }
+  const hostAvailability = resolveProviderHostAvailability(resolvedProvider, { tauri: false });
+  if (!hostAvailability.available) {
+    throw new Error(hostAvailability.message ?? 'Selected product is unavailable on this host.');
+  }
+  if (resolvedProvider.executionLane !== DEFAULT_EXECUTION_LANE) {
     throw new Error(
-      `Execution lane "${config.executionLane}" is not available in browser-limited runtime. Switch back to "gateway" or move to a trusted backend host.`,
+      `Execution lane "${resolvedProvider.executionLane}" is not available in browser-limited runtime. Switch back to "gateway" or move to a trusted backend host.`,
     );
+  }
+  if (
+    resolvedProvider.transport.authStrategy === 'api-key' &&
+    (!config.apiKey || !config.apiKey.trim())
+  ) {
+    throw new Error('API Key is required for this product in browser-limited runtime.');
   }
 
   const threadId = `thread-${companyId}`;
   const snapshot = loadBrowserRuntimeSnapshot();
   const { dbPromise, contentLoader } = wireDeliverableContentStore(snapshot);
   const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
+  const company = await repos.companies.findById(companyId);
+  if (!company) {
+    throw new Error(`Active company "${companyId}" no longer exists. Select a company again.`);
+  }
   const existingThread = await repos.threads.findById(threadId);
   if (!existingThread) {
     await repos.threads.create({
@@ -223,23 +243,28 @@ export async function createBrowserRuntime(
   const deliverableContentBridge = createDeliverableContentBridge({ eventBus, dbPromise });
 
   const proxyBaseURL =
-    IS_DEV && config.baseURL ? `${window.location.origin}/api/llm-proxy` : undefined;
+    IS_DEV && resolvedProvider.transport.baseURL
+      ? `${window.location.origin}/api/llm-proxy`
+      : undefined;
   const proxyHeaders =
-    IS_DEV && config.baseURL
-      ? { ...config.defaultHeaders, 'X-LLM-Base-URL': config.baseURL }
-      : config.defaultHeaders;
+    IS_DEV && resolvedProvider.transport.baseURL
+      ? {
+          ...resolvedProvider.transport.defaultHeaders,
+          'X-LLM-Base-URL': resolvedProvider.transport.baseURL,
+        }
+      : resolvedProvider.transport.defaultHeaders;
 
   const gateway = createGateway({
-    provider: config.provider,
+    provider: resolvedProvider.provider,
     apiKey: config.apiKey ?? '',
-    baseURL: proxyBaseURL ?? config.baseURL,
+    baseURL: proxyBaseURL ?? resolvedProvider.transport.baseURL,
     defaultHeaders: proxyHeaders,
     dangerouslyAllowBrowser: true,
   });
 
   const runtimePolicy = resolveEffectiveRuntimePolicy(
     config.runtimePolicy,
-    config.provider,
+    resolvedProvider.provider,
     config.model,
     { tauri: false },
   );

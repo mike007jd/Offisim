@@ -45,16 +45,21 @@ import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-
 import type { InteractionMode } from '@offisim/shared-types';
 import {
   getInstallEnvironmentForExecutionMode,
+  getTrustedHostProductStatus,
+  resolveProviderConfig,
+  resolveProviderHostAvailability,
   resolveEffectiveRuntimePolicy,
 } from '@offisim/ui-office/web';
-import type { ProviderConfig } from '@offisim/ui-office/web';
+import type { ProviderConfig, ResolvedProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import { InMemoryUploadRefResolver, createTauriSkillInstallEnvironment } from './skill-install-env';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { TauriClaudeAgentSdkGateway } from './tauri-claude-agent-sdk';
+import { TauriCodexAgentSdkGateway } from './tauri-codex-agent-sdk';
 import { createTauriDrizzleDb } from './tauri-drizzle';
+import { createTauriEngineAdapterRegistry } from './tauri-engine-adapters';
 import { TauriFileSnapshotAdapter } from './tauri-file-snapshot-adapter';
 import { type AuthScheme, createTauriLlmFetch } from './tauri-llm-fetch';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
@@ -74,7 +79,7 @@ import { tryActivateTauriVault } from './vault-tauri-activation';
 // lifetime (see openspec/specs/desktop-llm-credential-isolation/spec.md).
 // ---------------------------------------------------------------------------
 
-function authSchemeFor(provider: ProviderConfig['provider'], baseURL?: string): AuthScheme {
+function authSchemeFor(provider: ResolvedProviderConfig['provider'], baseURL?: string): AuthScheme {
   if (provider === 'anthropic') {
     // Official api.anthropic.com uses the legacy `x-api-key` header. Every
     // third-party Anthropic-compatible endpoint (MiniMax et al.) expects a
@@ -93,38 +98,50 @@ function authSchemeFor(provider: ProviderConfig['provider'], baseURL?: string): 
   return 'bearer';
 }
 
-function createTauriExecutionAdapter(config: ProviderConfig): LlmGateway {
-  switch (config.executionLane) {
+function createTauriExecutionAdapter(
+  config: ProviderConfig,
+  resolved: ResolvedProviderConfig,
+): LlmGateway {
+  switch (resolved.executionLane) {
     case 'gateway':
       return createGateway({
-        provider: config.provider,
+        provider: resolved.provider,
         // Tauri runtime never sees the provider credential — it lives only in
         // Rust storage and is injected by the Rust-side bridge. The HTTP SDK
         // clients still demand a non-empty string, so we pass a sentinel.
         apiKey: 'ignored',
-        baseURL: config.baseURL,
-        defaultHeaders: config.defaultHeaders,
+        baseURL: resolved.transport.baseURL,
+        defaultHeaders: resolved.transport.defaultHeaders,
         dangerouslyAllowBrowser: true,
-        fetch: createTauriLlmFetch(authSchemeFor(config.provider, config.baseURL)),
+        fetch: createTauriLlmFetch(authSchemeFor(resolved.provider, resolved.transport.baseURL)),
       });
     case 'claude-agent-sdk':
-      if (config.provider !== 'anthropic') {
+      if (resolved.provider !== 'anthropic') {
         throw new Error(
-          `Execution lane "claude-agent-sdk" currently requires provider "anthropic"; received "${config.provider}".`,
+          `Execution lane "claude-agent-sdk" currently requires provider "anthropic"; received "${resolved.provider}".`,
         );
       }
       return new TauriClaudeAgentSdkGateway({
-        baseURL: config.baseURL,
+        baseURL: resolved.transport.baseURL,
+        credentialMode:
+          resolved.transport.authStrategy === 'trusted-local-auth' ? 'local-auth' : 'api-key',
       });
+    case 'codex-agent-sdk':
+      if (resolved.provider !== 'openai') {
+        throw new Error(
+          `Execution lane "codex-agent-sdk" currently requires provider "openai"; received "${resolved.provider}".`,
+        );
+      }
+      return new TauriCodexAgentSdkGateway();
     case 'openai-agents-sdk':
       assertOpenAiAgentsSdkLaneSupported({
-        provider: config.provider,
-        providerVariantId: config.providerVariantId,
+        provider: resolved.provider,
+        providerVariantId: resolved.variant?.providerVariantId ?? config.providerVariantId,
         allowExperimentalCompat: false,
       });
       return new OpenAiAgentsSdkAdapter('ignored', {
-        baseURL: config.baseURL,
-        defaultHeaders: config.defaultHeaders,
+        baseURL: resolved.transport.baseURL,
+        defaultHeaders: resolved.transport.defaultHeaders,
         dangerouslyAllowBrowser: true,
         fetch: createTauriLlmFetch('bearer'),
       });
@@ -182,9 +199,29 @@ export async function createTauriRuntime(
   companyId: string,
   opts?: { defaultInteractionMode?: InteractionMode },
 ): Promise<RuntimeBundle> {
+  const resolvedProvider = resolveProviderConfig(config);
+  if (!resolvedProvider) {
+    throw new Error('Unable to resolve the saved provider product configuration.');
+  }
+  const trustedHostStatus =
+    resolvedProvider.transport.authStrategy === 'trusted-local-auth'
+      ? await getTrustedHostProductStatus(config.productId, config.accessMode)
+      : null;
+  const hostAvailability = resolveProviderHostAvailability(resolvedProvider, {
+    tauri: true,
+    trustedHostStatus,
+  });
+  if (!hostAvailability.available) {
+    throw new Error(hostAvailability.message ?? 'Selected product is unavailable on this host.');
+  }
+
   const threadId = `thread-${companyId}`;
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
+  const company = await repos.companies.findById(companyId);
+  if (!company) {
+    throw new Error(`Active company "${companyId}" no longer exists. Select a company again.`);
+  }
   const existingThread = await repos.threads.findById(threadId);
   if (!existingThread) {
     await repos.threads.create({
@@ -200,11 +237,11 @@ export async function createTauriRuntime(
     repo: repos.deliverables,
   });
 
-  const gateway = createTauriExecutionAdapter(config);
+  const gateway = createTauriExecutionAdapter(config, resolvedProvider);
 
   const runtimePolicy = resolveEffectiveRuntimePolicy(
     config.runtimePolicy,
-    config.provider,
+    resolvedProvider.provider,
     config.model,
     { tauri: true },
   );
@@ -349,6 +386,7 @@ export async function createTauriRuntime(
     sessionCostTracker,
     toolTelemetryService,
     fileHistoryService,
+    engineAdapters: createTauriEngineAdapterRegistry(),
     interactionService,
     ...(skillLoader ? { skillLoader } : {}),
     skillStagingManager,

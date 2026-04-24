@@ -26,16 +26,16 @@ interface DeliverableResponse {
   content: string;
 }
 
+export interface MaterializedEmployeeDeliverable {
+  fileName: string | null;
+  mimeType: string | null;
+  artifactContent: string;
+}
+
 function buildInferredArtifact(
   taskDescription: string,
   content: string,
-):
-  | {
-      fileName: string | null;
-      mimeType: string | null;
-      artifactContent: string;
-    }
-  | null {
+): MaterializedEmployeeDeliverable | null {
   const inferred = inferDeliverableFile(taskDescription, content);
   if (!inferred) return null;
 
@@ -67,14 +67,7 @@ export async function materializeFileDeliverableIfNeeded(
   response: DeliverableResponse,
   request: DeliverableRepairRequest,
   taskRunId?: string,
-): Promise<
-  | {
-      fileName: string | null;
-      mimeType: string | null;
-      artifactContent: string;
-    }
-  | null
-> {
+): Promise<MaterializedEmployeeDeliverable | null> {
   const primaryArtifact = buildInferredArtifact(taskDescription, response.content);
   if (primaryArtifact) return primaryArtifact;
   if (!taskNeedsFileDeliverable(taskDescription)) return null;

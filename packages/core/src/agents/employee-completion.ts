@@ -17,6 +17,7 @@ import {
   buildEmployeeDeliverableTitle,
   materializeFileDeliverableIfNeeded,
 } from './employee-deliverables.js';
+import type { MaterializedEmployeeDeliverable } from './employee-deliverables.js';
 import { TASK_TYPE_HANDOFF_CONTINUATION } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
 
@@ -58,6 +59,7 @@ export interface FinalizeSuccessContext {
   readonly source: 'normal' | 'recovery';
   readonly round: number;
   readonly signal: AbortSignal | undefined;
+  readonly materializedDeliverableOverride?: MaterializedEmployeeDeliverable | null;
 }
 
 /**
@@ -95,20 +97,22 @@ export async function finalizeEmployeeSuccess(
   } = preflight;
   const { repos, eventBus, companyId, threadId, memoryService, scratchpad } = runtimeCtx;
 
-  const materializedDeliverable = await materializeFileDeliverableIfNeeded(
-    runtimeCtx,
-    taskDescription,
-    employee,
-    llmResponse,
-    {
-      model: resolved.model,
-      provider: resolved.provider,
-      temperature: resolved.temperature,
-      maxTokens: resolved.maxTokens,
-      signal,
-    },
-    taskRunId,
-  );
+  const materializedDeliverable =
+    ctx.materializedDeliverableOverride ??
+    (await materializeFileDeliverableIfNeeded(
+      runtimeCtx,
+      taskDescription,
+      employee,
+      llmResponse,
+      {
+        model: resolved.model,
+        provider: resolved.provider,
+        temperature: resolved.temperature,
+        maxTokens: resolved.maxTokens,
+        signal,
+      },
+      taskRunId,
+    ));
 
   // Recovery path emits hookRegistry.emit INSIDE the taskRun update block
   // (pre-refactor order). Normal path fires it later, after appendAgentEvent.

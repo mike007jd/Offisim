@@ -82,7 +82,18 @@ function buildPrompt(messages: readonly LlmMessage[]): string {
   ].join('\n');
 }
 
-function buildSdkEnv(apiKey: string, baseURL?: string): Record<string, string | undefined> {
+function buildSdkEnv(
+  apiKey: string | undefined,
+  baseURL?: string,
+): Record<string, string | undefined> {
+  if (!apiKey) {
+    return {
+      ANTHROPIC_API_KEY: undefined,
+      ANTHROPIC_AUTH_TOKEN: undefined,
+      ANTHROPIC_BASE_URL: baseURL,
+    };
+  }
+
   if (!baseURL) {
     return {
       ANTHROPIC_API_KEY: apiKey,
@@ -183,7 +194,7 @@ export class ClaudeAgentSdkAdapter implements LlmGateway {
   private readonly retryConfig: RetryConfig;
 
   constructor(
-    private readonly apiKey: string,
+    private readonly apiKey: string | undefined,
     private readonly options: ClaudeAgentSdkAdapterOptions = {},
   ) {
     this.retryConfig = options.retryConfig ?? DEFAULT_RETRY_CONFIG;

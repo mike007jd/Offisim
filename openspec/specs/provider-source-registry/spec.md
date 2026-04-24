@@ -1,7 +1,7 @@
 # provider-source-registry Specification
 
 ## Purpose
-TBD - created by archiving change add-provider-source-registry. Update Purpose after archive.
+Defines the provenance-aware source registry and reviewed refresh flow used to build Offisim's curated provider and model catalog.
 ## Requirements
 ### Requirement: Offisim SHALL maintain an explicit provider source registry
 
@@ -56,4 +56,3 @@ Offisim SHALL support a manual curated override layer that can narrow or replace
 - **THEN** the merged catalog SHALL use the curated override as the winning value
 - **AND** provenance SHALL identify the override source explicitly
 - **AND** the overridden upstream value SHALL remain visible in raw or intermediate refresh artifacts
-

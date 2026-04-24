@@ -2,15 +2,50 @@
 
 ## Purpose
 
-Defines the Tauri desktop credential-isolation contract for outbound LLM traffic. The webview must never receive provider secret bytes; Rust alone stores and reads the credential, injects it immediately before dispatch, and exposes only opaque status/set/clear commands to TypeScript. This spec also locks the Rust-side transport bridge shapes (`llm_fetch` for HTTP gateway traffic and `claude_agent_execute` for the trusted Claude lane) so desktop LLM behavior stays aligned with Offisim's runtime boundary while preserving the prompt-injection threat model.
+Defines the Tauri desktop credential-isolation contract for outbound LLM traffic. The webview must never receive provider secret bytes; Rust alone stores and reads the credential, injects it immediately before dispatch, and exposes only opaque status/set/clear commands to TypeScript. This spec also locks the Rust-side transport bridge shapes (`llm_fetch` for HTTP gateway traffic, `codex_agent_execute` for trusted Codex sidecars, and `claude_agent_execute` for trusted Claude sidecars) so desktop LLM behavior stays aligned with Offisim's runtime boundary while preserving the prompt-injection threat model.
 
 ## Requirements
+
+### Requirement: Trusted hosts SHALL resolve credential strategy from product access mode
+
+On Tauri desktop, the trusted host SHALL resolve credential strategy from the selected product's `accessMode`.
+
+- `api-key` products SHALL continue to use the Rust-owned secret file and per-request header injection
+- `local-auth` / `subscription` products SHALL use a Rust-owned resolver that reads approved local auth sources without exposing raw credential material to the webview
+
+The webview SHALL only receive opaque availability/status results. It SHALL NOT receive raw tokens, refresh tokens, session cookies, or provider secret bytes.
+
+#### Scenario: OpenAI API product uses the secret file path
+- **WHEN** the selected product is `openai-api` with `accessMode = "api-key"`
+- **THEN** Tauri injects the credential through the existing Rust-owned secret-file bridge
+- **AND** the webview still sees only placeholder credential values
+
+#### Scenario: Codex product uses a trusted local-auth resolver
+- **WHEN** the selected product is `codex` with `accessMode = "local-auth"`
+- **THEN** the trusted host resolves availability and auth from approved local auth sources
+- **AND** no raw auth token is returned to TypeScript
+
+### Requirement: Unsupported local-auth products SHALL fail closed on unsupported hosts
+
+If a selected product requires trusted-host local auth and the current host cannot supply a verified resolver, runtime init SHALL fail closed with a structured unavailable state.
+
+Offisim SHALL NOT silently rewrite such a product into an API-key product or browser-direct route.
+
+#### Scenario: Codex is unavailable on webview-only host
+- **WHEN** the selected product is `codex` and the active host is `browser-limited`
+- **THEN** runtime init reports `product unavailable on current host`
+- **AND** no outbound request is attempted
+
+#### Scenario: Claude local-auth resolver missing on desktop
+- **WHEN** the selected product is `claude`, the host is `desktop-trusted`, and no verified Claude auth resolver is available
+- **THEN** runtime init reports a structured unavailable state
+- **AND** Offisim does not silently fall back to an Anthropic API-key route
 
 ### Requirement: Provider credential SHALL never cross the Rust→JS boundary on Tauri
 
 On Tauri desktop, the provider credential SHALL be stored in a Rust-only plaintext file at `<app_local_data_dir>/runtime_secret.txt` (Unix mode `0600`, atomic tmp-file + rename on write). The threat model here is webview prompt-injection, not local-disk exfiltration — process-level file isolation is sufficient.
 
-The secret SHALL NOT be readable from the webview. The desktop secret storage command surface SHALL expose only `runtime_secret_status` / `runtime_secret_set` / `runtime_secret_clear`. No `_get` / `_read` / `_peek` variant may be added. The only Rust code that dereferences the file contents SHALL be trusted transport bridges (`apps/desktop/src-tauri/src/llm_transport.rs` and `apps/desktop/src-tauri/src/claude_agent_host.rs`) immediately before dispatching outbound work — after injection the credential SHALL be dropped (no storage on per-connection state, no logging).
+The secret SHALL NOT be readable from the webview. The desktop secret storage command surface SHALL expose only `runtime_secret_status` / `runtime_secret_set` / `runtime_secret_clear`. No `_get` / `_read` / `_peek` variant may be added. The only Rust code that dereferences the file contents SHALL be trusted transport bridges (`apps/desktop/src-tauri/src/llm_transport.rs`, `apps/desktop/src-tauri/src/codex_agent_host.rs`, and `apps/desktop/src-tauri/src/claude_agent_host.rs`) immediately before dispatching outbound work — after injection the credential SHALL be dropped (no storage on per-connection state, no logging).
 
 #### Scenario: Grep for forbidden get-command
 - **WHEN** grepping `apps/desktop/src-tauri/src/` for `runtime_secret_get` / `runtime_secret_read` / `runtime_secret_peek`
@@ -31,7 +66,8 @@ The secret SHALL NOT be readable from the webview. The desktop secret storage co
 All Tauri-mode outbound LLM work SHALL route through a Rust-owned bridge selected by the active execution lane:
 
 - `gateway` lane: any request made by `AnthropicAdapter` / `OpenAiAdapter` (both the `openai` and `openai-compat` branches) SHALL route through the Rust `llm_fetch` Tauri command via a custom `fetch` injected into SDK client options at `createTauriRuntime` time.
-- `claude-agent-sdk` lane: any request made by the trusted Claude execution adapter SHALL route through the Rust `claude_agent_execute` / `claude_agent_abort` commands, which spawn the local trusted host sidecar and inject the provider secret through process environment variables.
+- `codex-agent-sdk` lane and `codex-engine` mode: any request made by the trusted Codex adapter SHALL route through the Rust `codex_agent_execute` / `codex_agent_abort` commands, which spawn the local trusted host sidecar and resolve approved local auth without returning credential material to the webview.
+- `claude-agent-sdk` lane and `claude-engine` mode: any request made by the trusted Claude adapter SHALL route through the Rust `claude_agent_execute` / `claude_agent_abort` commands, which spawn the local trusted host sidecar and inject the provider secret through process environment variables.
 
 Direct `globalThis.fetch(<provider-endpoint>)` / `new XMLHttpRequest()` / any other transport from webview to provider endpoints SHALL NOT occur in the Tauri code path.
 
@@ -45,6 +81,12 @@ Direct `globalThis.fetch(<provider-endpoint>)` / `new XMLHttpRequest()` / any ot
 - **THEN** `apps/web/src/lib/tauri-runtime.ts` binds a `TauriClaudeAgentSdkGateway`, not a browser-direct SDK client
 - **AND** each request invokes `claude_agent_execute`
 - **AND** the provider secret is injected only inside `claude_agent_host.rs`, not in webview JavaScript
+
+#### Scenario: Engine mode routes through trusted host command
+- **WHEN** a Tauri employee runtime binding selects `codex-engine` or `claude-engine`
+- **THEN** TypeScript binds an `EngineAdapter`, not an `LlmGateway`
+- **AND** each run invokes the matching trusted host command
+- **AND** raw credential material remains behind the Rust trusted-host boundary
 
 #### Scenario: Third-party compat streaming
 - **WHEN** a MiniMax / OpenRouter / Kimi / Gemini-compat / Zai / other third-party compat config is active
@@ -83,7 +125,8 @@ The TS side SHALL pass an `auth: { scheme: 'bearer' | 'x-api-key' | 'none', head
 When the SDK's request is aborted (user cancels / orchestrator tears down / timeout fires), the active TS-side bridge SHALL trigger the matching Rust abort command:
 
 - `gateway` lane → `invoke('llm_fetch_abort', { requestId })`
-- `claude-agent-sdk` lane → `invoke('claude_agent_abort', { requestId })`
+- `codex-agent-sdk` lane / `codex-engine` mode → `invoke('codex_agent_abort', { requestId })`
+- `claude-agent-sdk` lane / `claude-engine` mode → `invoke('claude_agent_abort', { requestId })`
 
 The Rust side SHALL cancel the in-flight request via a per-request `tokio_util::sync::CancellationToken`, closing the Channel with no further emissions. Abort SHALL be idempotent — aborting a completed / not-yet-started / already-aborted request SHALL return Ok without error.
 

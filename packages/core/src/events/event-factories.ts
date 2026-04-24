@@ -30,6 +30,11 @@ export {
 } from './employee-events.js';
 
 export {
+  engineActivity,
+  engineProposalCreated,
+} from './engine-events.js';
+
+export {
   taskStateChanged,
   taskAssignmentChanged,
   taskAssignmentDispatched,

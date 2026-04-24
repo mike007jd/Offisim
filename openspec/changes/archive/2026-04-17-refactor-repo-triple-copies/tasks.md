@@ -1,3 +1,5 @@
+> Historical note (2026-04-22): Treat the remaining unchecked items in this archive as `Deferred into follow-on change; track only the successor change.` They are excluded from current roadmap debt and should be followed only through the continuation change.
+
 ## 1. Baseline capture
 
 - [x] 1.1 Record pre-refactor line counts: `wc -l packages/core/src/runtime/drizzle-repositories.ts packages/core/src/runtime/memory-repositories.ts apps/web/src/lib/tauri-repos.ts`

@@ -1,4 +1,4 @@
-import { StrictMode, Suspense, lazy, useCallback, useState } from 'react';
+import { StrictMode, Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import {
@@ -6,8 +6,14 @@ import {
   NotificationProvider,
   PlanStepStoreProvider,
   ThemeProvider,
+  isTauri,
   useOffisimRuntime,
 } from '@offisim/ui-office/web';
+import {
+  readStoredActiveCompany,
+  restoreStoredActiveCompany,
+  storeActiveCompany,
+} from './lib/active-company-storage';
 import { installThreeConsoleFilter } from './lib/three-console';
 import { BootstrapProvider } from './runtime/BootstrapProvider';
 import { OffisimRuntimeProvider } from './runtime/OffisimRuntimeProvider';
@@ -17,24 +23,6 @@ import {
 } from './runtime/tauri-dev-ephemeral';
 
 const App = lazy(() => import('./App.js').then((module) => ({ default: module.App })));
-
-/** Persist active company across page reloads. */
-const STORAGE_KEY = 'offisim:active-company';
-
-function readStoredCompany(): string | null {
-  if (isTauriDevEphemeralEnabled()) {
-    return null;
-  }
-  return localStorage.getItem(STORAGE_KEY);
-}
-
-function storeCompany(id: string | null) {
-  if (id) {
-    localStorage.setItem(STORAGE_KEY, id);
-    return;
-  }
-  localStorage.removeItem(STORAGE_KEY);
-}
 
 /**
  * Wrapper that provides CompanyContext powered by runtime repos.
@@ -69,14 +57,60 @@ function CompanyBridge({
  */
 function Shell() {
   const isResettingDevData = useTauriDevEphemeralReset();
-  const [companyId, setCompanyId] = useState(readStoredCompany);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [isRestoringCompany, setIsRestoringCompany] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (isResettingDevData) {
+      setIsRestoringCompany(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const restoreCompany = async () => {
+      if (isTauriDevEphemeralEnabled()) {
+        if (!cancelled) {
+          setCompanyId(null);
+          setIsRestoringCompany(false);
+        }
+        return;
+      }
+
+      setIsRestoringCompany(true);
+      try {
+        const storedCompanyId = readStoredActiveCompany();
+        const restoredCompanyId = storedCompanyId
+          ? await restoreStoredActiveCompany({ host: isTauri() ? 'tauri' : 'browser' })
+          : null;
+        if (cancelled) return;
+        setCompanyId(restoredCompanyId);
+      } catch (error) {
+        console.error('[Shell] failed to restore the active company:', error);
+        if (cancelled) return;
+        setCompanyId(null);
+      } finally {
+        if (!cancelled) {
+          setIsRestoringCompany(false);
+        }
+      }
+    };
+
+    void restoreCompany();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isResettingDevData]);
 
   const handleCompanySwitch = useCallback((id: string | null) => {
-    storeCompany(id);
+    storeActiveCompany(id);
     setCompanyId(id);
   }, []);
 
-  if (isResettingDevData) {
+  if (isResettingDevData || isRestoringCompany) {
     return (
       <ThemeProvider>
         <AppBootFallback />
@@ -88,11 +122,13 @@ function Shell() {
     return (
       <ThemeProvider>
         <BootstrapProvider>
-          <NotificationProvider>
-            <Suspense fallback={<AppBootFallback />}>
-              <App onCompanySwitch={handleCompanySwitch} />
-            </Suspense>
-          </NotificationProvider>
+          <PlanStepStoreProvider>
+            <NotificationProvider>
+              <Suspense fallback={<AppBootFallback />}>
+                <App onCompanySwitch={handleCompanySwitch} />
+              </Suspense>
+            </NotificationProvider>
+          </PlanStepStoreProvider>
         </BootstrapProvider>
       </ThemeProvider>
     );

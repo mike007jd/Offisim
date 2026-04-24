@@ -111,6 +111,19 @@ export type {
   LlmStreamChunk,
 } from './llm/gateway.js';
 export type { EventBus, EventHandler } from './events/event-bus.js';
+export type {
+  EngineAdapter,
+  EngineAdapterRegistry,
+} from './engine/engine-adapter.js';
+export type {
+  EngineArtifact,
+  EngineProposal,
+  EngineRunContext,
+  EngineRunHandle,
+  EngineRunResult,
+  EngineTaskEnvelope,
+  RuntimeActivityEvent,
+} from './engine/engine-types.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
 export {
   WORKSTATION_ACCESS_DENIED,
@@ -193,6 +206,9 @@ export { recordedLlmCall, recordedLlmStream } from './llm/recorded-call.js';
 export { RecordedSystemLlmCaller } from './llm/recorded-system-caller.js';
 export type { SystemLlmCallerDeps } from './llm/recorded-system-caller.js';
 
+// --- Runtime Engines ---
+export { resolveEmployeeRuntimeBinding } from './engine/runtime-binding.js';
+
 // --- Middleware ---
 export { LlmMiddlewareChain } from './middleware/chain.js';
 export type { LlmMiddleware, LlmCallContext, LlmCallMeta } from './middleware/types.js';
@@ -255,6 +271,8 @@ export {
   employeeUpdated,
   employeeDeleted,
   employeeInstalled,
+  engineActivity,
+  engineProposalCreated,
   errorOccurred,
   deliverableCreated,
   directChatStarted,

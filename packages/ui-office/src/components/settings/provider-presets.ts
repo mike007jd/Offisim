@@ -1,347 +1,87 @@
-import type { LlmExecutionLane, LlmProvider } from '@offisim/shared-types';
-import { DEFAULT_EXECUTION_LANE } from '../../lib/provider-config';
-import type {
-  ProviderCapabilities,
-  ProviderCompatibility,
-  ProviderConfig,
-  ProviderRegion,
-  ProviderSurface,
-  ProviderVendor,
-} from '../../lib/provider-config';
+import type { LlmExecutionLane, ProviderProductId } from '@offisim/shared-types';
+import type { ProviderConfig } from '../../lib/provider-config';
+import {
+  DEFAULT_PROVIDER_PRODUCT_ID,
+  PROVIDER_PRODUCTS,
+  findProviderProductIdByLegacyRoute,
+  findProviderProductIdByVariantId,
+  getAvailableProviderProducts,
+  getDefaultProviderAccessMode,
+  getDefaultProviderProductId,
+  getDefaultProviderVariantId,
+  getProviderProduct,
+  getProviderProductAccess,
+  getProviderProductOrder,
+  getProviderVariant,
+  getSupportedExecutionLanesForProduct,
+  listProviderVariantsForProduct,
+  type ProviderProductDefinition,
+  type ProviderVariantDefinition,
+} from '../../lib/provider-product-taxonomy';
 
-export interface ProviderPreset {
-  label: string;
-  vendor: ProviderVendor;
-  region: ProviderRegion;
-  compatibility: ProviderCompatibility;
-  surface: ProviderSurface;
-  supportedExecutionLanes: readonly LlmExecutionLane[];
-  defaults: Partial<ProviderConfig>;
-  capabilities: ProviderCapabilities;
-  recommendedModels?: string[];
-  hasThinking?: boolean;
-}
+export type ProviderPreset = ProviderProductDefinition;
+export type ProviderProduct = ProviderProductDefinition;
 
-function createCapabilities(overrides: Partial<ProviderCapabilities>): ProviderCapabilities {
-  return {
-    streaming: true,
-    thinking: false,
-    toolCalls: false,
-    toolStreaming: false,
-    codingPlan: false,
-    ...overrides,
-  };
-}
-
-function createPreset(
-  label: string,
-  metadata: {
-    vendor: ProviderVendor;
-    region: ProviderRegion;
-    compatibility: ProviderCompatibility;
-    surface: ProviderSurface;
-    defaults: Partial<ProviderConfig> & { provider: LlmProvider };
-    capabilities: ProviderCapabilities;
-    supportedExecutionLanes?: readonly LlmExecutionLane[];
-    recommendedModels?: string[];
-  },
-): ProviderPreset {
-  return {
-    label,
-    ...metadata,
-    defaults: {
-      ...metadata.defaults,
-      executionLane: metadata.defaults.executionLane ?? DEFAULT_EXECUTION_LANE,
-      vendor: metadata.vendor,
-      region: metadata.region,
-      compatibility: metadata.compatibility,
-      surface: metadata.surface,
-      capabilities: metadata.capabilities,
-    },
-    supportedExecutionLanes: metadata.supportedExecutionLanes ?? [DEFAULT_EXECUTION_LANE],
-    hasThinking: metadata.capabilities.thinking,
-  };
-}
-
-export const PROVIDER_PRESETS: Record<string, ProviderPreset> = {
-  'minimax-intl-anthropic-coding': createPreset('MiniMax Global', {
-    vendor: 'minimax',
-    region: 'intl',
-    compatibility: 'anthropic-compatible',
-    surface: 'coding-plan',
-    supportedExecutionLanes: ['gateway', 'claude-agent-sdk'],
-    defaults: {
-      provider: 'anthropic',
-      baseURL: 'https://api.minimax.io/anthropic',
-      model: 'MiniMax-M2.7',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-      codingPlan: true,
-    }),
-    recommendedModels: ['MiniMax-M2.7', 'MiniMax-M2.7-highspeed'],
-  }),
-  'minimax-cn-anthropic-coding': createPreset('MiniMax CN', {
-    vendor: 'minimax',
-    region: 'cn',
-    compatibility: 'anthropic-compatible',
-    surface: 'coding-plan',
-    defaults: {
-      provider: 'anthropic',
-      baseURL: 'https://api.minimaxi.com/anthropic',
-      model: 'MiniMax-M2.7',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-      codingPlan: true,
-    }),
-    recommendedModels: ['MiniMax-M2.7', 'MiniMax-M2.7-highspeed'],
-  }),
-  'kimi-cn-anthropic-coding': createPreset('Kimi CN · Claude Code', {
-    vendor: 'kimi',
-    region: 'cn',
-    compatibility: 'anthropic-compatible',
-    surface: 'coding-plan',
-    defaults: {
-      provider: 'anthropic',
-      baseURL: 'https://api.moonshot.cn/anthropic',
-      model: 'kimi-k2.5',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-      codingPlan: true,
-    }),
-    recommendedModels: ['kimi-k2.5', 'kimi-k2-thinking'],
-  }),
-  'kimi-cn-openai-general': createPreset('Kimi CN · General API', {
-    vendor: 'kimi',
-    region: 'cn',
-    compatibility: 'openai-compatible',
-    surface: 'general',
-    defaults: {
-      provider: 'openai-compat',
-      baseURL: 'https://api.moonshot.cn/v1',
-      model: 'kimi-k2.5',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-    }),
-    recommendedModels: ['kimi-k2.5', 'kimi-k2-thinking'],
-  }),
-  'kimi-intl-openai-general': createPreset('Kimi Intl · General API', {
-    vendor: 'kimi',
-    region: 'intl',
-    compatibility: 'openai-compatible',
-    surface: 'general',
-    defaults: {
-      provider: 'openai-compat',
-      baseURL: 'https://api.moonshot.ai/v1',
-      model: 'kimi-k2.5',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-    }),
-    recommendedModels: ['kimi-k2.5', 'kimi-k2-thinking'],
-  }),
-  'zai-shared-anthropic-coding': createPreset('Z.AI · Claude Code', {
-    vendor: 'zai',
-    region: 'shared',
-    compatibility: 'anthropic-compatible',
-    surface: 'coding-plan',
-    supportedExecutionLanes: ['gateway', 'claude-agent-sdk'],
-    defaults: {
-      provider: 'anthropic',
-      baseURL: 'https://api.z.ai/api/anthropic',
-      model: 'GLM-4.7',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-      codingPlan: true,
-    }),
-    recommendedModels: ['GLM-4.7', 'GLM-4.5-Air'],
-  }),
-  'zai-shared-openai-general': createPreset('Z.AI · General API', {
-    vendor: 'zai',
-    region: 'shared',
-    compatibility: 'openai-compatible',
-    surface: 'general',
-    defaults: {
-      provider: 'openai-compat',
-      baseURL: 'https://api.z.ai/api/paas/v4',
-      model: 'glm-4.5-air',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-    }),
-    recommendedModels: ['glm-4.5-air', 'glm-4.5v'],
-  }),
-  'zai-shared-openai-coding': createPreset('Z.AI · Coding API', {
-    vendor: 'zai',
-    region: 'shared',
-    compatibility: 'openai-compatible',
-    surface: 'coding-plan',
-    defaults: {
-      provider: 'openai-compat',
-      baseURL: 'https://api.z.ai/api/coding/paas/v4',
-      model: 'glm-5.1',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-      codingPlan: true,
-    }),
-    recommendedModels: ['glm-5.1', 'glm-5'],
-  }),
-  'gemini-openai-general': createPreset('Google Gemini', {
-    vendor: 'google',
-    region: 'shared',
-    compatibility: 'openai-compatible',
-    surface: 'general',
-    defaults: {
-      provider: 'openai-compat',
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai',
-      model: 'gemini-2.5-flash',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-    }),
-  }),
-  'deepseek-openai-general': createPreset('DeepSeek', {
-    vendor: 'deepseek',
-    region: 'shared',
-    compatibility: 'openai-compatible',
-    surface: 'general',
-    defaults: {
-      provider: 'openai-compat',
-      baseURL: 'https://api.deepseek.com/v1',
-      model: 'deepseek-reasoner',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-    }),
-  }),
-  'openrouter-openai-general': createPreset('OpenRouter', {
-    vendor: 'openrouter',
-    region: 'shared',
-    compatibility: 'openai-compatible',
-    surface: 'general',
-    defaults: {
-      provider: 'openai-compat',
-      baseURL: 'https://openrouter.ai/api/v1',
-      model: 'google/gemma-3-4b-it:free',
-    },
-    capabilities: createCapabilities({
-      toolCalls: true,
-    }),
-  }),
-  'openai-default': createPreset('OpenAI', {
-    vendor: 'openai',
-    region: 'shared',
-    compatibility: 'native',
-    surface: 'general',
-    defaults: {
-      provider: 'openai',
-      model: 'gpt-4o-mini',
-    },
-    capabilities: createCapabilities({
-      toolCalls: true,
-    }),
-  }),
-  'anthropic-default': createPreset('Anthropic', {
-    vendor: 'anthropic',
-    region: 'shared',
-    compatibility: 'native',
-    surface: 'general',
-    defaults: {
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-20250514',
-    },
-    capabilities: createCapabilities({
-      thinking: true,
-      toolCalls: true,
-    }),
-  }),
-  lmstudio: createPreset('LM Studio (Local)', {
-    vendor: 'lmstudio',
-    region: 'local',
-    compatibility: 'openai-compatible',
-    surface: 'general',
-    defaults: {
-      provider: 'openai-compat',
-      baseURL: 'http://localhost:1234/v1',
-      model: 'qwen/qwen3.5-9b',
-      apiKey: 'lm-studio',
-    },
-    capabilities: createCapabilities({}),
-  }),
-  custom: createPreset('Custom (OpenAI-compatible)', {
-    vendor: 'custom',
-    region: 'shared',
-    compatibility: 'openai-compatible',
-    surface: 'general',
-    defaults: {
-      provider: 'openai-compat',
-      model: '',
-    },
-    capabilities: createCapabilities({}),
-  }),
-};
-
-/** Default preset key when no config is saved. */
-export const DEFAULT_PRESET_KEY = 'minimax-intl-anthropic-coding';
+export const PROVIDER_PRESETS = PROVIDER_PRODUCTS;
+export const PROVIDER_PRODUCTS_ORDER = getProviderProductOrder();
+export const DEFAULT_PRESET_KEY = DEFAULT_PROVIDER_PRODUCT_ID;
 
 export function getProviderPreset(key: string): ProviderPreset | undefined {
-  return PROVIDER_PRESETS[key];
+  return getProviderProduct(key);
+}
+
+export function getProviderProductById(
+  key: ProviderProductId | string | null | undefined,
+): ProviderProductDefinition | undefined {
+  return getProviderProduct(key);
+}
+
+export function getProviderVariantById(
+  providerVariantId: string | null | undefined,
+): ProviderVariantDefinition | undefined {
+  return getProviderVariant(providerVariantId);
 }
 
 export function getSupportedExecutionLanesForPreset(
   preset: ProviderPreset | undefined,
+  accessMode = preset?.defaultAccessMode,
+  providerVariantId?: string | null,
 ): readonly LlmExecutionLane[] {
-  return preset?.supportedExecutionLanes ?? [DEFAULT_EXECUTION_LANE];
+  return getSupportedExecutionLanesForProduct(preset, accessMode, providerVariantId);
 }
 
 export function findProviderPresetKeyByConfig(
   config: Partial<ProviderConfig> | null,
 ): string | null {
   if (!config) return null;
-
-  if (config.providerVariantId && PROVIDER_PRESETS[config.providerVariantId]) {
-    return config.providerVariantId;
+  if (config.productId) {
+    return getProviderProduct(config.productId)?.productId ?? null;
   }
-
-  const match = Object.entries(PROVIDER_PRESETS).find(([, preset]) => {
-    return (
-      preset.defaults.provider === config.provider &&
-      preset.defaults.baseURL === config.baseURL &&
-      (config.surface ? preset.surface === config.surface : true)
-    );
+  if (config.providerVariantId) {
+    return findProviderProductIdByVariantId(config.providerVariantId);
+  }
+  return findProviderProductIdByLegacyRoute({
+    provider: config.provider,
+    providerVariantId: config.providerVariantId,
+    vendor: config.vendor,
+    baseURL: config.baseURL,
+    compatibility: config.compatibility,
   });
-
-  return match?.[0] ?? null;
 }
 
-/**
- * Returns the presets available in the current environment.
- */
-export function getAvailableProviderPresets(_options: {
+export function getAvailableProviderPresets(options: {
   tauri: boolean;
-}): Record<string, ProviderPreset> {
-  return PROVIDER_PRESETS;
+}): Readonly<Record<ProviderProductId, ProviderProductDefinition>> {
+  return getAvailableProviderProducts(options);
 }
 
-export function getDefaultProviderPresetKey(_options: {
-  tauri: boolean;
-}): string {
-  return DEFAULT_PRESET_KEY;
+export function getDefaultProviderPresetKey(options: { tauri: boolean }): ProviderProductId {
+  return getDefaultProviderProductId(options);
 }
 
-export type { LlmProvider };
+export {
+  getDefaultProviderAccessMode,
+  getDefaultProviderVariantId,
+  getProviderProductAccess,
+  listProviderVariantsForProduct,
+};

@@ -73,6 +73,15 @@ pub struct ClaudeAgentExecuteRequest {
     base_url: Option<String>,
     #[serde(default)]
     cwd: Option<String>,
+    #[serde(default)]
+    credential_mode: Option<ClaudeCredentialMode>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum ClaudeCredentialMode {
+    ApiKey,
+    LocalAuth,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -211,7 +220,7 @@ fn resolved_request_cwd(
 
 fn build_env(
     workspace_root: Option<&PathBuf>,
-    secret: &str,
+    secret: Option<&str>,
     base_url: Option<&str>,
 ) -> HashMap<String, String> {
     let mut env = HashMap::new();
@@ -235,14 +244,16 @@ fn build_env(
         }
     }
 
-    if let Some(base_url) = base_url.and_then(|value| {
-        let trimmed = value.trim();
-        (!trimmed.is_empty()).then_some(trimmed)
-    }) {
-        env.insert("ANTHROPIC_BASE_URL".into(), base_url.to_string());
-        env.insert("ANTHROPIC_AUTH_TOKEN".into(), secret.to_string());
-    } else {
-        env.insert("ANTHROPIC_API_KEY".into(), secret.to_string());
+    if let Some(secret) = secret {
+        if let Some(base_url) = base_url.and_then(|value| {
+            let trimmed = value.trim();
+            (!trimmed.is_empty()).then_some(trimmed)
+        }) {
+            env.insert("ANTHROPIC_BASE_URL".into(), base_url.to_string());
+            env.insert("ANTHROPIC_AUTH_TOKEN".into(), secret.to_string());
+        } else {
+            env.insert("ANTHROPIC_API_KEY".into(), secret.to_string());
+        }
     }
 
     env
@@ -258,9 +269,18 @@ async fn do_execute<R: tauri::Runtime>(
     on_event: &Channel<ClaudeAgentHostEvent>,
     token: CancellationToken,
 ) -> Result<(), HostError> {
-    let secret = runtime_secrets::read_secret_raw()
-        .map_err(HostError::Request)?
-        .ok_or(HostError::NoCredential)?;
+    let credential_mode = req
+        .credential_mode
+        .unwrap_or(ClaudeCredentialMode::ApiKey);
+    let secret = if credential_mode == ClaudeCredentialMode::ApiKey {
+        Some(
+            runtime_secrets::read_secret_raw()
+                .map_err(HostError::Request)?
+                .ok_or(HostError::NoCredential)?,
+        )
+    } else {
+        None
+    };
     let workspace_root = workspace_root();
     let cwd = resolved_request_cwd(req.cwd.as_deref(), workspace_root.as_ref())?;
     let script_path = sidecar_script_path(app, workspace_root.as_ref())?;
@@ -278,7 +298,7 @@ async fn do_execute<R: tauri::Runtime>(
         .env_clear()
         .envs(build_env(
             workspace_root.as_ref(),
-            &secret,
+            secret.as_deref(),
             req.base_url.as_deref(),
         ))
         .stdin(std::process::Stdio::piped())

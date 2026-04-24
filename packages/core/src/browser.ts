@@ -126,6 +126,19 @@ export type {
   LlmStreamChunk,
 } from './llm/gateway.js';
 export type { EventBus, EventHandler } from './events/event-bus.js';
+export type {
+  EngineAdapter,
+  EngineAdapterRegistry,
+} from './engine/engine-adapter.js';
+export type {
+  EngineArtifact,
+  EngineProposal,
+  EngineRunContext,
+  EngineRunHandle,
+  EngineRunResult,
+  EngineTaskEnvelope,
+  RuntimeActivityEvent,
+} from './engine/engine-types.js';
 export type { ToolExecutor, ToolCallRequest, ToolCallResponse } from './runtime/tool-executor.js';
 export type {
   ToolPermissionAuthorizer,
@@ -199,6 +212,8 @@ export {
   employeeUpdated,
   employeeDeleted,
   employeeInstalled,
+  engineActivity,
+  engineProposalCreated,
   errorOccurred,
   deliverableCreated,
   directChatStarted,
@@ -215,6 +230,8 @@ export {
   interactionResolved,
   interactionModeChanged,
 } from './events/event-factories.js';
+
+export { resolveEmployeeRuntimeBinding } from './engine/runtime-binding.js';
 
 // --- Memory Repositories (browser-safe, no Drizzle/sqlite) ---
 export {

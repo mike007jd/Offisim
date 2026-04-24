@@ -1,7 +1,7 @@
 # activity-feed-composition Specification
 
 ## Purpose
-TBD - created by archiving change refactor-activity-feed-hook. Update Purpose after archive.
+Defines the thin-composition contract for runtime activity feed assembly so the top-level hook stays small and event-family mapping lives in dedicated modules.
 ## Requirements
 ### Requirement: useRuntimeActivityFeed is a thin composition hook
 
@@ -74,4 +74,3 @@ For identical event streams, the resulting `entries` list (order, tone, title, d
 #### Scenario: Full task run entry sequence
 - **WHEN** running a task that emits `graph.node.entered(manager)` → `plan.created` → `task.assignment.dispatched` → `tool.execution.telemetry(started/completed)` → `deliverable.created` → `graph.node.entered(boss_summary)` → `llm.call.completed`
 - **THEN** `entries` contains entries for each event in the same order, with the same tone / title / detail as pre-refactor
-

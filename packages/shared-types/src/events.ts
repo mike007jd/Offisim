@@ -12,6 +12,7 @@ export * from './events/cost.js';
 export * from './events/deliverable.js';
 export * from './events/direct-chat.js';
 export * from './events/employee.js';
+export * from './events/engine.js';
 export * from './events/execution.js';
 export * from './events/graph.js';
 export * from './events/handoff.js';

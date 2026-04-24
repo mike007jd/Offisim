@@ -1,4 +1,5 @@
 mod claude_agent_host;
+mod codex_agent_host;
 mod deep_link;
 mod git;
 mod llm_transport;
@@ -236,8 +237,11 @@ pub fn run() {
             runtime_secrets::runtime_secret_status,
             runtime_secrets::runtime_secret_set,
             runtime_secrets::runtime_secret_clear,
+            runtime_secrets::trusted_host_product_status,
             claude_agent_host::claude_agent_execute,
             claude_agent_host::claude_agent_abort,
+            codex_agent_host::codex_agent_execute,
+            codex_agent_host::codex_agent_abort,
             llm_transport::llm_fetch,
             llm_transport::llm_fetch_abort,
             git::git_exec,

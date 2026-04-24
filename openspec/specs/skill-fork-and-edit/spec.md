@@ -1,7 +1,7 @@
 # skill-fork-and-edit Specification
 
 ## Purpose
-TBD - created by archiving change add-skills-fork-and-edit. Update Purpose after archive.
+Defines employee-facing skill fork and edit tools plus the persistence and provenance rules for employee-scope skill copies.
 ## Requirements
 ### Requirement: Employee tool kit exposes `fork_skill` and `edit_skill_body`
 
@@ -141,4 +141,3 @@ The `SkillInstallCommitter.handle(request, response)` method SHALL branch on `re
 - **WHEN** a confirm response arrives after staging has expired (5-second TTL)
 - **THEN** `staging.take(stagingRef)` SHALL return null
 - **AND** the committer SHALL return `{ kind: 'staging-expired' }` regardless of action
-

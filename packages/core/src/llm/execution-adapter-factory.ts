@@ -48,6 +48,10 @@ export function createExecutionAdapter(config: ExecutionAdapterConfig): LlmGatew
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
         fetch: config.fetch,
       });
+    case 'codex-agent-sdk':
+      throw new Error(
+        'Execution lane "codex-agent-sdk" requires the trusted desktop host. It is unavailable in the generic core adapter factory.',
+      );
     default:
       throw new Error(`Unknown execution lane: ${config.executionLane as string}`);
   }

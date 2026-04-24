@@ -122,6 +122,7 @@ export * from './hooks/useSopRuntimeState.js';
 export * from './lib/env.js';
 export * from './lib/desktop-mcp-registry.js';
 export * from './lib/desktop-provider-secrets.js';
+export * from './lib/provider-product-taxonomy.js';
 export * from './lib/provider-config.js';
 export * from './lib/export-to-manifest.js';
 export * from './lib/vault-export.js';

@@ -1,5 +1,6 @@
 import type { CommunicationFrequency, DecisionStyle, RiskPreference } from './persona.js';
 import type { PrefabBinding } from './prefab.js';
+import type { EmployeeRuntimeBinding, EngineId } from './models.js';
 
 export interface EmployeeAppearance {
   skinColor: number;
@@ -39,6 +40,7 @@ export interface EmployeeConfig {
   temperature?: number;
   maxTokens?: number;
   toolPermissionPolicy?: EmployeeToolPermissionPolicy;
+  runtimeBinding?: EmployeeRuntimeBinding;
 }
 
 function parseJsonObject(raw: string | null): Record<string, unknown> | null {
@@ -132,6 +134,23 @@ function pickToolPermissionPolicy(value: unknown): EmployeeToolPermissionPolicy 
   return { defaultMode, overrides };
 }
 
+function pickEngineId(value: unknown): EngineId | undefined {
+  return value === 'codex-engine' || value === 'claude-engine' ? value : undefined;
+}
+
+function pickEmployeeRuntimeBinding(value: unknown): EmployeeRuntimeBinding | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as { mode?: unknown; engineId?: unknown };
+  if (raw.mode === 'provider') {
+    return { mode: 'provider' };
+  }
+  if (raw.mode === 'engine') {
+    const engineId = pickEngineId(raw.engineId);
+    return engineId ? { mode: 'engine', engineId } : undefined;
+  }
+  return undefined;
+}
+
 /**
  * Parse an employee.persona_json string into a typed EmployeePersona.
  * All fields are optional; invalid JSON or non-object payloads return `{}`.
@@ -177,6 +196,8 @@ export function parseEmployeeConfig(raw: string | null): EmployeeConfig {
   if (maxTokens !== undefined) config.maxTokens = maxTokens;
   const toolPermissionPolicy = pickToolPermissionPolicy(obj.toolPermissionPolicy);
   if (toolPermissionPolicy !== undefined) config.toolPermissionPolicy = toolPermissionPolicy;
+  const runtimeBinding = pickEmployeeRuntimeBinding(obj.runtimeBinding);
+  if (runtimeBinding !== undefined) config.runtimeBinding = runtimeBinding;
   return config;
 }
 

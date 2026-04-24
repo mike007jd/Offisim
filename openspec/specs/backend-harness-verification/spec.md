@@ -1,7 +1,7 @@
 # backend-harness-verification Specification
 
 ## Purpose
-TBD - created by archiving change add-agent-sdk-provider-lanes. Update Purpose after archive.
+Defines the backend-only verification harness that proves provider-by-lane support with smoke, load, and edge evidence before new lane exposure ships.
 
 ## Requirements
 

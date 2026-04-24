@@ -1,7 +1,7 @@
 # tauri-checkpoint-serialization Specification
 
 ## Purpose
-TBD - created by archiving change fix-tauri-checkpoint-serial-writer. Update Purpose after archive.
+Defines Tauri checkpoint writer-serialization and single-execute constraints so SQLite pool behavior does not corrupt or deadlock checkpoint writes.
 ## Requirements
 ### Requirement: `TauriCheckpointSaver` write ops avoid explicit multi-call transactions
 
@@ -55,4 +55,3 @@ All `TauriCheckpointSaver` write methods (`put`, `putWrites`, `deleteThread`) SH
 - **WHEN** `putWrites` fails with a SQLite error
 - **THEN** a single `console.error` call SHALL fire with a message beginning `[tauri-checkpoint/putWrites]` followed by the thrown error's stack (or message if stack is absent)
 - **AND** the caller promise SHALL still reject with the original error unchanged
-

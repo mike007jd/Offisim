@@ -5,7 +5,7 @@ import {
   employeeUpdated,
   employeeWorkstationChanged,
 } from '@offisim/core/browser';
-import type { RoleSlug } from '@offisim/shared-types';
+import type { EmployeeRuntimeBinding, RoleSlug } from '@offisim/shared-types';
 import type { CommunicationFrequency, DecisionStyle, RiskPreference } from '@offisim/shared-types';
 import { parseEmployeeConfig, parseEmployeePersona } from '@offisim/shared-types';
 import { useCallback, useEffect, useState } from 'react';
@@ -45,6 +45,7 @@ export interface EmployeeFormData {
   temperature: number;
   maxTokens: number;
   toolPermissionPolicy: ToolPermissionPolicy | null;
+  runtimeBinding: EmployeeRuntimeBinding | null;
   communicationFrequency: CommunicationFrequency;
   riskPreference: RiskPreference;
   decisionStyle: DecisionStyle;
@@ -66,6 +67,7 @@ const DEFAULT_FORM: EmployeeFormData = {
   temperature: 0.7,
   maxTokens: 4096,
   toolPermissionPolicy: null,
+  runtimeBinding: null,
   communicationFrequency: 'medium',
   riskPreference: 'balanced',
   decisionStyle: 'collaborative',
@@ -102,7 +104,7 @@ export function parseConfigJson(
   raw: string | null,
 ): Pick<
   EmployeeFormData,
-  'modelPreference' | 'temperature' | 'maxTokens' | 'toolPermissionPolicy'
+  'modelPreference' | 'temperature' | 'maxTokens' | 'toolPermissionPolicy' | 'runtimeBinding'
 > {
   const config = parseEmployeeConfig(raw);
   return {
@@ -110,6 +112,7 @@ export function parseConfigJson(
     temperature: config.temperature ?? 0.7,
     maxTokens: config.maxTokens ?? 4096,
     toolPermissionPolicy: (config.toolPermissionPolicy ?? null) as ToolPermissionPolicy | null,
+    runtimeBinding: config.runtimeBinding ?? null,
   };
 }
 
@@ -139,7 +142,7 @@ export function buildPersonaJson(
 export function buildConfigJson(
   formData: Pick<
     EmployeeFormData,
-    'modelPreference' | 'temperature' | 'maxTokens' | 'toolPermissionPolicy'
+    'modelPreference' | 'temperature' | 'maxTokens' | 'toolPermissionPolicy' | 'runtimeBinding'
   >,
 ): string {
   return JSON.stringify({
@@ -149,6 +152,7 @@ export function buildConfigJson(
     ...(formData.toolPermissionPolicy
       ? { toolPermissionPolicy: formData.toolPermissionPolicy }
       : {}),
+    ...(formData.runtimeBinding ? { runtimeBinding: formData.runtimeBinding } : {}),
   });
 }
 

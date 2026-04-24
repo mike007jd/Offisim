@@ -1,5 +1,6 @@
 import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
+import type { EngineAdapterRegistry } from '../engine/engine-adapter.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { SkillInstallEnvironment } from '../skills/skill-install-environment.js';
@@ -61,6 +62,8 @@ export interface RuntimeContext {
   readonly toolTelemetryService?: ToolTelemetryService;
   /** File mutation snapshot and rewind support for desktop-trusted runtimes. */
   readonly fileHistoryService?: FileHistoryService;
+  /** Trusted runtime engine adapters for per-employee engine mode. */
+  readonly engineAdapters?: EngineAdapterRegistry;
   /** Human-in-the-loop interaction controller. */
   readonly interactionService?: InteractionService;
   /** Optional lifecycle hook registry for graph/task/interaction instrumentation. */
@@ -120,6 +123,7 @@ export function createRuntimeContext(deps: {
   sessionCostTracker?: SessionCostTracker;
   toolTelemetryService?: ToolTelemetryService;
   fileHistoryService?: FileHistoryService;
+  engineAdapters?: EngineAdapterRegistry;
   interactionService?: InteractionService;
   hookRegistry?: HookRegistry;
   scratchpad?: Scratchpad;

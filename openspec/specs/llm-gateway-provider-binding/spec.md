@@ -1,39 +1,53 @@
 # llm-gateway-provider-binding Specification
 
 ## Purpose
-TBD - created by archiving change fix-boss-scope-openai-hardcode-leak. Update Purpose after archive.
+Defines how one saved provider config resolves into exactly one active runtime binding and rejects unusable half-records before LLM execution starts.
 ## Requirements
 ### Requirement: ProviderConfig load rejects unusable half-records
 
-`normalizeProviderConfig(parsed)` in `packages/ui-office/src/lib/provider-config.ts` SHALL return `null` when the parsed record carries neither an `apiKey` string nor a `baseURL` string. Legacy short-format records (e.g. `{"provider":"openai","model":"gpt-4o-mini"}` written by an earlier ProviderConfig schema) and manually-seeded half records from DevTools SHALL fall through to `null`, letting `loadProviderConfig()` cascade to env fallback and ultimately to the `*RuntimeReposOnly` empty-state branch instead of silently synthesizing an OpenAI gateway against `api.openai.com` with an empty credential.
+`normalizeProviderConfig(parsed)` in `packages/ui-office/src/lib/provider-config.ts` SHALL normalize either:
 
-#### Scenario: Stale {provider:'openai',model:'gpt-4o-mini'} record rejected
+- a valid product-centric provider record, or
+- a legacy provider record that can be safely migrated into a product-centric record
 
-- **WHEN** localStorage holds a legacy record `{"provider":"openai","model":"gpt-4o-mini"}` with no `apiKey` and no `baseURL`
-- **THEN** `loadProviderConfig()` returns `null`, not the half-record
-- **AND** `buildRuntimeBundle(null, ...)` routes to `createTauriRuntimeReposOnly` / `createBrowserRuntimeReposOnly` with no LLM gateway
-- **AND** no outbound HTTP request to `api.openai.com` occurs
+It SHALL return `null` when the parsed data can do neither.
 
-#### Scenario: Valid third-party config with baseURL still loads
+A valid product-centric record SHALL be allowed to omit `apiKey` and `baseURL` when its selected `accessMode` is host-resolved (for example trusted-host local auth). API-key products and compat products SHALL still require the transport information their access mode needs.
 
-- **WHEN** localStorage holds `{"provider":"anthropic","vendor":"minimax","baseURL":"https://api.minimax.io/anthropic","model":"MiniMax-M2.7-highspeed",...}` (Tauri-persisted form, `apiKey` stripped by `toPersistedConfig`)
-- **THEN** `normalizeProviderConfig` accepts it because `baseURL` is present
-- **AND** `loadProviderConfig()` returns the normalized config for the runtime to consume
+Legacy short-format records (for example `{"provider":"openai","model":"gpt-4o-mini"}` with no credential and no base URL) SHALL continue to resolve to `null`, letting `loadProviderConfig()` fall back to env/default empty-state behavior instead of synthesizing a guessed provider route.
 
-#### Scenario: Stale retired ACP record is rejected
+#### Scenario: Product-centric local-auth record loads without apiKey
 
-- **WHEN** localStorage still carries a retired record `{"provider":"subscription","model":"default",...}` with neither `apiKey` nor `baseURL`
-- **THEN** `normalizeProviderConfig()` returns `null`
-- **AND** `loadProviderConfig()` falls back to env-backed config or `null`
+- **WHEN** local storage holds a product-centric record such as `{"productId":"codex","accessMode":"local-auth","model":"gpt-5.4",...}`
+- **THEN** `normalizeProviderConfig()` accepts it even though no `apiKey` or `baseURL` is present
+- **AND** runtime init proceeds to host-availability resolution rather than rejecting it as a half-record
 
-### Requirement: A runtime has exactly one active model execution binding bound to its ProviderConfig
+#### Scenario: Legacy OpenAI half-record is still rejected
 
-Each `RuntimeContext` SHALL hold a single active model execution binding constructed once during runtime init from the active `ProviderConfig`, including its selected execution lane. The active binding MAY be:
+- **WHEN** local storage holds a legacy record `{"provider":"openai","model":"gpt-4o-mini"}` with no `apiKey` and no `baseURL`
+- **THEN** `loadProviderConfig()` returns `null`
+- **AND** no outbound HTTP request is synthesized from that stale record
+
+#### Scenario: Legacy compat record migrates to a product
+
+- **WHEN** local storage holds a legacy record that clearly matches a curated product such as OpenRouter, MiniMax, or Qwen / Model Studio
+- **THEN** normalization returns the corresponding product-centric config
+- **AND** the migrated product identity becomes the runtime's primary provider selection
+
+### Requirement: A runtime has exactly one LlmGateway bound to its active execution lane
+
+Each `RuntimeContext` SHALL hold a single active model execution binding constructed once during runtime init from the selected product config after resolution into a concrete provider variant, transport profile, and execution lane. The active binding MAY be:
 
 - a `gateway` lane backed by `createGateway(...)`, or
 - an agent SDK lane backed by a single Offisim-owned execution adapter (`claude-agent-sdk` or `openai-agents-sdk`)
 
-All LLM-calling nodes and services — `boss-node`, `manager-node`, `hr-node`, `pm-planner-node`, `employee-node` (direct + team chat paths), `RecordedSystemLlmCaller`, and middleware — SHALL reach the active binding through one Offisim-owned execution abstraction. Per-scope execution-binding rebuilding is forbidden.
+All LLM-calling nodes and services SHALL reach the active binding through one Offisim-owned execution abstraction. Product identity is resolved before adapter construction; nodes and services SHALL NOT branch on product IDs directly.
+
+#### Scenario: Product selection resolves before gateway creation
+
+- **WHEN** a runtime loads a saved `qwen-model-studio` product config
+- **THEN** runtime init first resolves it to a concrete provider variant, transport profile, and execution lane
+- **AND** only then creates the single active gateway/execution adapter for that runtime
 
 #### Scenario: Gateway lane creates one gateway per runtime init
 
@@ -47,11 +61,11 @@ All LLM-calling nodes and services — `boss-node`, `manager-node`, `hr-node`, `
 - **THEN** runtime init creates exactly one active execution adapter for that lane
 - **AND** no node / service / middleware file instantiates a second vendor runtime for the same thread
 
-#### Scenario: Boss, manager, employee all hit the same active binding
+#### Scenario: Codex product does not create multiple bindings
 
-- **WHEN** a chat turn triggers `boss-node` → `manager-node` → `employee-node`
-- **THEN** all three nodes' model calls go through the same active execution binding instance within that runtime
-- **AND** switching provider or lane requires a full runtime reinit before subsequent turns use the new binding
+- **WHEN** a trusted runtime selects `productId = "codex"`
+- **THEN** runtime init resolves either one usable active binding or one structured unavailable state
+- **AND** it does not create parallel fallback bindings for both subscription and API-key paths
 
 ### Requirement: Adapter constructors must receive explicit baseURL when ProviderConfig specifies one
 

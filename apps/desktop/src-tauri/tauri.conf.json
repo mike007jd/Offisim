@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "node ../../scripts/tauri-before-dev.mjs desktop",
     "devUrl": "http://localhost:5176",
-    "beforeBuildCommand": "pnpm build:claude-agent-host && pnpm --filter @offisim/web build",
+    "beforeBuildCommand": "pnpm build:frontend",
     "frontendDist": "../../web/dist"
   },
   "app": {
@@ -34,7 +34,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": ["resources/claude-agent-host.mjs"],
+    "resources": ["resources/claude-agent-host.mjs", "resources/codex-agent-host.mjs"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

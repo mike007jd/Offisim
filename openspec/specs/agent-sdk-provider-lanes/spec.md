@@ -1,13 +1,13 @@
 # agent-sdk-provider-lanes Specification
 
 ## Purpose
-TBD - created by archiving change add-agent-sdk-provider-lanes. Update Purpose after archive.
+Defines execution lanes as verified leaf adapters for provider bindings so Offisim can expose gateway, Codex Agent SDK, Claude Agent SDK, and OpenAI Agents SDK without bypassing LangGraph orchestration. These lanes are provider-side model/transport bindings; they are not employee engine mode.
 
 ## Requirements
 
 ### Requirement: Provider configuration SHALL declare an execution lane
 
-Offisim provider configuration SHALL carry an explicit execution lane for every active provider binding. Supported lanes are `gateway`, `claude-agent-sdk`, and `openai-agents-sdk`.
+Offisim provider configuration SHALL carry an explicit execution lane for every active provider binding. Supported lanes are `gateway`, `codex-agent-sdk`, `claude-agent-sdk`, and `openai-agents-sdk`.
 
 The selected lane SHALL be evaluated together with runtime execution mode. `browser-limited` runtimes MUST reject any non-`gateway` lane. `desktop-trusted` and backend harness runtimes MAY allow agent SDK lanes only when the selected preset explicitly advertises support.
 
@@ -22,6 +22,12 @@ The selected lane SHALL be evaluated together with runtime execution mode. `brow
 - **WHEN** a trusted runtime loads a preset whose supported lane set includes `gateway` and `claude-agent-sdk`
 - **THEN** the user may select either lane
 - **AND** runtime init binds exactly the selected lane, not both
+
+#### Scenario: Execution lane is not engine mode
+
+- **WHEN** a provider config selects `executionLane = "codex-agent-sdk"` or `executionLane = "claude-agent-sdk"`
+- **THEN** Offisim still treats it as the leaf LLM execution adapter for Offisim-owned graph nodes
+- **AND** employee engine mode is not enabled unless the employee runtime binding explicitly selects `codex-engine` or `claude-engine`
 
 ### Requirement: Provider presets SHALL advertise verified lane support explicitly
 
@@ -43,7 +49,7 @@ Custom or manually-entered provider configs MUST default to `gateway`-only until
 
 ### Requirement: Offisim LangGraph SHALL remain the top-level orchestrator
 
-Execution lanes are leaf-level model execution mechanisms. They SHALL NOT replace Offisim's top-level LangGraph orchestration, runtime policy evaluation, checkpoint ownership, tool-permission policy, or thread queueing model.
+Execution lanes are leaf-level model execution mechanisms. They SHALL NOT replace Offisim's top-level LangGraph orchestration, runtime policy evaluation, checkpoint ownership, tool-permission policy, employee runtime binding, or thread queueing model.
 
 Every boss / manager / employee / system-service call path SHALL reach the currently active lane through one Offisim-owned execution abstraction. Per-node direct vendor SDK instantiation is forbidden.
 

@@ -1,7 +1,7 @@
 # shared-types-event-domains Specification
 
 ## Purpose
-TBD - created by archiving change split-shared-types-events-by-domain. Update Purpose after archive.
+Defines the domain-split shared event payload modules and thin barrel contract so runtime event types stay modular without changing external imports.
 ## Requirements
 ### Requirement: events.ts is a thin re-export barrel
 
@@ -71,4 +71,3 @@ The refactor SHALL be type-only and SHALL NOT affect any runtime value, event pa
 #### Scenario: Full-repo build parity
 - **WHEN** running `pnpm build` after the refactor
 - **THEN** all packages build successfully with zero errors, and the produced `.d.ts` files continue to export all pre-change types
-

@@ -26,7 +26,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
 - `getExecutionBatches()` 是 `SopService.getExecutionOrder()` 本地副本, 两处必须同步
 - `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI, 新增字段注意链路完整性
-- Marketplace 安装：employee 已物化；skill 作为一等 asset（T2.1 `add-skills-foundation-two-tier-schema`）schema + SkillLoader + 两层 scope 已落地，publish/install 分支仍在补；sop / company_template / office_layout / prefab 未完成。Skill 不再嵌入 `employee.config_json.runtimeSkill`（该字段已删）
+- Marketplace 安装：employee 已物化；skill 作为一等 asset（T2.1 `add-skills-foundation-two-tier-schema`）schema + SkillLoader + 两层 scope + publish/install/fork/edit 主路径已落地；剩余主要是 UX 和 evidence 收口。sop / company_template / office_layout / prefab 仍未完成。Skill 不再嵌入 `employee.config_json.runtimeSkill`（该字段已删）
 - `GitAutoCommitService` 桌面端专用, 浏览器 no-op
 - `SopSyncService` 先 JSON.parse 再 stringify 比较 definition, 避免 key 顺序差异
 
@@ -50,6 +50,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - DB 表 `skills`（migration 025 / desktop v31）：`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞
 - 旧 `runtimeSkill` 迁移：`migrateRuntimeSkills()` 扫全员 `config_json.runtimeSkill` → 生成员工 scope SKILL.md + 插 row（`source_kind='synthesized'`, `source_ref='legacy:runtimeSkill'`），strip 原字段。Guard 在 `settings.skills_migration_v1_done`（`settings` key-value 表也是 025 加的）
 - 员工 prompt 装配：`employee-prompt-assembly.ts` 在 skillLoader 可用时注入 `## Available skills` 块（description 截 200 UTF-16）；列表空则整段不输出。**本次不注册 `activate_skill` 工具**（纯 tier-1 informational）
+- `employee-tool-kit.ts` 在 `skillStagingManager` + `skillLoader` 可用时注册 skill install/fork/edit 工具；skills 本体仍通过 prompt 的 `## Available skills` 暴露，不走 activation tool
 - **Fork + edit API（T2.3）**：
   - `installSkill` 加 `source: { kind: 'fork', parentSkillId, parentVersion }` 变体 — 同 `installSkill` 入口，`scope='company' + source.kind='fork'` 会抛 `scope-target-conflict`（spec skill-fork-and-edit scenario 2）；`source_kind='forked'` + `source_ref='company-skill:<pid>@<pver>'`
   - `readSkillDirectory(skillId)` 批量读 SKILL.md + `scripts/`/`references/`/`assets/` 全树（深度遍历），fork 用来 snapshot parent

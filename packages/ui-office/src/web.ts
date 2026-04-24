@@ -54,7 +54,11 @@ export {
   getInstallEnvironmentForExecutionMode,
   isExecutionLaneAllowed,
   loadProviderConfig,
+  resolveProviderConfig,
+  resolveProviderHostAvailability,
   type ProviderConfig,
+  type ResolvedProviderConfig,
+  type ResolvedTransportProfile,
   resolveAvailableExecutionLanes,
   resolveEffectiveRuntimePolicy,
 } from './lib/provider-config.js';
@@ -63,6 +67,7 @@ export {
   getSupportedExecutionLanesForPreset,
 } from './components/settings/provider-presets.js';
 export { loadStoredBrowserMcpServers } from './lib/desktop-mcp-registry.js';
+export { getTrustedHostProductStatus } from './lib/desktop-provider-secrets.js';
 export { NotificationProvider } from './runtime/notification-provider.js';
 export {
   OffisimRuntimeContext,

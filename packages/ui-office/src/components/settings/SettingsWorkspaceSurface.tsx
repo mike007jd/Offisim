@@ -41,15 +41,24 @@ export function useSettingsWorkspaceController({
   const { density, setDensity } = useTheme();
   const provider = useSettingsProviderState();
   const runtimePolicy = useSettingsRuntimePolicy();
-  const selectedPreset = getProviderPreset(provider.preset);
+  const selectedProduct = getProviderPreset(provider.productId);
   const availableExecutionLanes = useMemo(
     () =>
       resolveAvailableExecutionLanes(
-        getSupportedExecutionLanesForPreset(selectedPreset),
+        getSupportedExecutionLanesForPreset(
+          selectedProduct,
+          provider.accessMode,
+          provider.providerVariantId,
+        ),
         runtimePolicy.executionMode,
         { tauri: IS_DESKTOP },
       ),
-    [selectedPreset, runtimePolicy.executionMode],
+    [
+      selectedProduct,
+      provider.accessMode,
+      provider.providerVariantId,
+      runtimePolicy.executionMode,
+    ],
   );
 
   useEffect(() => {
@@ -99,12 +108,13 @@ export function SettingsWorkspaceSurface({
   onActiveTabChange,
 }: SettingsWorkspaceSurfaceProps) {
   const {
-    baseURL,
+    effectiveEndpoint,
+    selectedAccess,
     selectedCapabilities,
     selectedCompatibility,
-    selectedPreset,
-    selectedRegion,
+    selectedProduct,
     selectedSurface,
+    selectedVariant,
     selectedVendor,
   } = controller;
 
@@ -126,19 +136,19 @@ export function SettingsWorkspaceSurface({
 
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              label="Official compatibility"
-              value={selectedCompatibility}
-              detail={selectedPreset?.label ?? 'Custom'}
+              label="Product"
+              value={selectedProduct?.displayName ?? 'Manual'}
+              detail={selectedAccess?.label ?? 'Select access'}
             />
             <MetricCard
-              label="Surface"
-              value={selectedSurface}
-              detail={`Region: ${selectedRegion}`}
+              label="Transport"
+              value={selectedCompatibility}
+              detail={selectedVariant?.displayName ?? 'Manual routing'}
             />
-            <MetricCard label="Capabilities" value={selectedCapabilities} detail="Preset-aware" />
+            <MetricCard label="Capabilities" value={selectedCapabilities} detail={selectedSurface} />
             <MetricCard
               label="Endpoint"
-              value={baseURL || selectedPreset?.defaults.baseURL || 'Manual'}
+              value={effectiveEndpoint || 'Manual'}
               detail={selectedVendor}
             />
           </div>

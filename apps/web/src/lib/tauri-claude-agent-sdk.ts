@@ -48,6 +48,7 @@ export class TauriClaudeAgentSdkGateway implements LlmGateway {
     private readonly options: {
       baseURL?: string;
       cwd?: string;
+      credentialMode?: 'api-key' | 'local-auth';
     } = {},
   ) {}
 
@@ -120,6 +121,7 @@ export class TauriClaudeAgentSdkGateway implements LlmGateway {
         request: serializeRequest(request),
         ...(this.options.baseURL ? { baseURL: this.options.baseURL } : {}),
         ...(this.options.cwd ? { cwd: this.options.cwd } : {}),
+        ...(this.options.credentialMode ? { credentialMode: this.options.credentialMode } : {}),
       },
       onEvent: channel,
     }).catch((err: unknown) => {

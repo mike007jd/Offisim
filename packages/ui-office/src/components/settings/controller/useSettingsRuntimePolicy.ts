@@ -1,4 +1,5 @@
 import type {
+  EmployeeRuntimeBinding,
   LlmProvider,
   ModelProfile,
   RuntimeExecutionMode,
@@ -7,7 +8,6 @@ import type {
 } from '@offisim/shared-types';
 import { useMemo, useState } from 'react';
 import { createDefaultRuntimePolicy } from '../../../lib/provider-config';
-import type { ProviderPreset } from '../provider-presets';
 
 const DEFAULT_POLICY = createDefaultRuntimePolicy('anthropic', '');
 
@@ -38,6 +38,7 @@ export interface RuntimePolicySnapshot {
   toolSearchEnabled: boolean;
   gitAutoCommit: boolean;
   toolPermissions: RuntimeToolPermissionsPolicy;
+  employeeRuntimeDefault: EmployeeRuntimeBinding | undefined;
   runtimeModelDefault: ModelProfile;
   runtimeModelOverrides: Record<string, ModelProfile> | undefined;
 }
@@ -64,6 +65,9 @@ export function useSettingsRuntimePolicy() {
   const [toolPermissions, setToolPermissions] = useState<RuntimeToolPermissionsPolicy>(
     DEFAULT_POLICY.toolPermissions,
   );
+  const [employeeRuntimeDefault, setEmployeeRuntimeDefault] = useState<
+    EmployeeRuntimeBinding | undefined
+  >(DEFAULT_POLICY.employeeRuntimeDefault);
   const [runtimeModelDefault, setRuntimeModelDefault] = useState<ModelProfile>(
     DEFAULT_POLICY.modelPolicy.default,
   );
@@ -83,6 +87,7 @@ export function useSettingsRuntimePolicy() {
     setToolSearchEnabled(policy.toolSearch.enabled);
     setGitAutoCommit(policy.gitAutoCommit ?? true);
     setToolPermissions(policy.toolPermissions);
+    setEmployeeRuntimeDefault(policy.employeeRuntimeDefault);
     setRuntimeModelDefault(policy.modelPolicy.default);
     setRuntimeModelOverrides(policy.modelPolicy.overrides);
   }
@@ -99,6 +104,7 @@ export function useSettingsRuntimePolicy() {
     setToolSearchEnabled(DEFAULT_POLICY.toolSearch.enabled);
     setGitAutoCommit(DEFAULT_POLICY.gitAutoCommit ?? true);
     setToolPermissions(DEFAULT_POLICY.toolPermissions);
+    setEmployeeRuntimeDefault(DEFAULT_POLICY.employeeRuntimeDefault);
     setRuntimeModelDefault({
       ...DEFAULT_POLICY.modelPolicy.default,
       provider: providerDefaults?.provider ?? DEFAULT_POLICY.modelPolicy.default.provider,
@@ -107,16 +113,13 @@ export function useSettingsRuntimePolicy() {
     setRuntimeModelOverrides(DEFAULT_POLICY.modelPolicy.overrides);
   }
 
-  function buildRuntimePolicy(
-    providerPreset: ProviderPreset | undefined,
-    model: string,
-  ): RuntimePolicyConfig {
+  function buildRuntimePolicy(provider: LlmProvider, model: string): RuntimePolicyConfig {
     return {
       executionMode,
       modelPolicy: {
         default: {
           ...runtimeModelDefault,
-          provider: providerPreset?.defaults.provider ?? 'openai-compat',
+          provider,
           model,
           profileName: runtimeModelDefault.profileName || 'runtime-default',
         },
@@ -146,6 +149,7 @@ export function useSettingsRuntimePolicy() {
         enabled: toolSearchEnabled,
       },
       toolPermissions,
+      ...(employeeRuntimeDefault ? { employeeRuntimeDefault } : {}),
       gitAutoCommit,
     };
   }
@@ -163,6 +167,7 @@ export function useSettingsRuntimePolicy() {
       toolSearchEnabled,
       gitAutoCommit,
       toolPermissions,
+      employeeRuntimeDefault,
       runtimeModelDefault,
       runtimeModelOverrides,
     }),
@@ -178,6 +183,7 @@ export function useSettingsRuntimePolicy() {
       toolSearchEnabled,
       gitAutoCommit,
       toolPermissions,
+      employeeRuntimeDefault,
       runtimeModelDefault,
       runtimeModelOverrides,
     ],
@@ -195,6 +201,7 @@ export function useSettingsRuntimePolicy() {
     toolSearchEnabled,
     gitAutoCommit,
     toolPermissions,
+    employeeRuntimeDefault,
     runtimeModelDefault,
     runtimeModelOverrides,
     setExecutionMode,
@@ -208,6 +215,7 @@ export function useSettingsRuntimePolicy() {
     setToolSearchEnabled,
     setGitAutoCommit,
     setToolPermissions,
+    setEmployeeRuntimeDefault,
     setRuntimeModelDefault,
     setRuntimeModelOverrides,
     applyFromSaved,

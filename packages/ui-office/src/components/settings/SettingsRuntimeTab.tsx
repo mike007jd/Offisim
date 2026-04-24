@@ -30,9 +30,9 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
     memoryInjectionEnabled,
     memoryMaxFacts,
     model,
-    preset,
+    productId,
     saveError,
-    selectedPreset,
+    selectedProduct,
     setDensity,
     setExecutionMode,
     setGitAutoCommit,
@@ -57,7 +57,9 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
           <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Bound model</p>
             <p className="mt-2 font-mono text-sm text-cyan-100">{model || 'Unset'}</p>
-            <p className="mt-1 text-xs text-slate-400">{selectedPreset?.label ?? preset}</p>
+            <p className="mt-1 text-xs text-slate-400">
+              {selectedProduct?.displayName ?? productId}
+            </p>
           </div>
         </SurfaceCard>
       </div>

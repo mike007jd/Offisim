@@ -5,6 +5,7 @@ import type { ActivityMapperSink } from './activity-feed/activity-types';
 import { subscribeConversationBudgetMappers } from './activity-feed/mappers/conversation-budget-mappers';
 import { subscribeCostMappers } from './activity-feed/mappers/cost-mappers';
 import { subscribeDeliverableMappers } from './activity-feed/mappers/deliverable-mappers';
+import { subscribeEngineMappers } from './activity-feed/mappers/engine-mappers';
 import { subscribeExecutionMappers } from './activity-feed/mappers/execution-mappers';
 import { subscribeGraphMappers } from './activity-feed/mappers/graph-mappers';
 import { subscribeHandoffMappers } from './activity-feed/mappers/handoff-mappers';
@@ -123,6 +124,7 @@ export function useRuntimeActivityFeed(opts?: { maxEntries?: number }): {
       subscribeToolMappers(eventBus, sink),
       subscribeExecutionMappers(eventBus, sink),
       subscribeDeliverableMappers(eventBus, sink),
+      subscribeEngineMappers(eventBus, sink),
       subscribeHandoffMappers(eventBus, sink),
       subscribeMemoryMappers(eventBus, sink),
       subscribeWorkspaceMappers(eventBus, sink),
