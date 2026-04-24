@@ -11,9 +11,9 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - `InstallService.planCache` 是实例属性, `dispose()` 清理, 不要模块层缓存
 - Employee repo `create()` 可选 `employee_id`, `transact()` 中必须用预生成 ID (非 `void promise.then()`)
 - `createCheckpointSaver()` 是 async, `SqliteSaver` 懒加载避免 browser 拉 Node 依赖
-- 外部 agent 接入统一走 A2A (`packages/core/src/a2a/`)。核心员工 runtime 当前 execution lanes 是 `gateway`（`anthropic-adapter` / `openai-adapter`）、`claude-agent-sdk`（`ClaudeAgentSdkAdapter`）和 `openai-agents-sdk`（`OpenAiAgentsSdkAdapter`，native OpenAI first，compat 仅允许 verified / harness-explicit 路径）
+- 外部 agent 接入统一走 A2A (`packages/core/src/a2a/`)。核心员工 runtime 当前 execution lanes 是 `gateway`（`anthropic-adapter` / `openai-adapter`）、`claude-agent-sdk`（`ClaudeAgentSdkAdapter`）、`codex-agent-sdk`（`CodexAgentSdkAdapter`，sidecar 走 `apps/desktop/src-tauri/resources/codex-agent-host.mjs`）和 `openai-agents-sdk`（`OpenAiAgentsSdkAdapter`，native OpenAI first，compat 仅允许 verified / harness-explicit 路径）
 - `AnthropicAdapter` 非官方 endpoint 自动 CORS-friendly (Bearer 替 x-api-key, strip telemetry, `messages.create({stream:true})` 替 `.stream()`)
-- **Tauri 模式 credential-isolated bridge 分三条**：`gateway` lane 走 Rust-side `llm_fetch` command；`claude-agent-sdk` lane 走 Rust-side `claude_agent_execute` trusted-host bridge（local Node sidecar + provider secret env 注入，credential 不越 Rust→JS 边界）；`openai-agents-sdk` lane 复用 Rust-side `llm_fetch` 作为 OpenAI SDK transport override。`GatewayConfig.fetch` / `AnthropicAdapterOptions.fetch` / `OpenAiAdapterOptions.fetch` / `OpenAiAgentsSdkAdapterOptions.fetch` 是 HTTP/OpenAI transport 的唯一注入口。web 模式不注入 fetch，仍走原 SDK 默认 transport + `createCorsCleanFetch`
+- **Tauri 模式 credential-isolated bridge 分四条**：`gateway` lane 走 Rust-side `llm_fetch` command；`claude-agent-sdk` lane 走 Rust-side `claude_agent_execute` trusted-host bridge（local Node sidecar + provider secret env 注入，credential 不越 Rust→JS 边界）；`codex-agent-sdk` lane 同模式走 `codex_agent_execute` + `codex_agent_host.mjs` sidecar；`openai-agents-sdk` lane 复用 Rust-side `llm_fetch` 作为 OpenAI SDK transport override。注册器在 `apps/web/src/lib/tauri-engine-adapters.ts`。`GatewayConfig.fetch` / `AnthropicAdapterOptions.fetch` / `OpenAiAdapterOptions.fetch` / `OpenAiAgentsSdkAdapterOptions.fetch` 是 HTTP/OpenAI transport 的唯一注入口。web 模式不注入 fetch，仍走原 SDK 默认 transport + `createCorsCleanFetch`
 
 ## Data Model & Zones
 

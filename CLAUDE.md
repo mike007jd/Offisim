@@ -42,6 +42,8 @@ apps/
   desktop         — Tauri 2 桌面应用
   platform        — Hono API 服务端
   launcher        — Tauri launcher
+catalog/
+  provider-source-registry — provider 元数据 catalog (generated 大文件: curated-catalog / merged-catalog / raw-source-snapshots + sources.json + registry.schema.json + curated-overrides)
 ```
 
 构建顺序: `shared-types → core → renderer/db-*/doc-engine/... → ui-office → apps`
@@ -143,7 +145,7 @@ apps/
 
 ### Cross-Cutting Facts (2026-04-11 audit)
 
-- **desktop 内置 MCP bridge**: `lib.rs` 注册 `mcp_bridge::init()` — desktop 有 web 没有的 MCP 能力。28 条 SQLite 迁移在 `fn migrations()`
+- **desktop 内置 MCP bridge**: `lib.rs` 注册 `mcp_bridge::init()` — desktop 有 web 没有的 MCP 能力。33 条 SQLite 迁移在 `fn migrations()`（最近一条 v33: `node_summaries` + `compact_summaries`，commit `bcd155cb`）
 - **desktop 是纯 Tauri 壳**: 零 npm deps, frontendDist 直接指 `../../web/dist`
 - **desktop Rust 端 plugin 三件套** (Phase 1c 补齐): `Cargo.toml` `tauri-plugin-fs = "2"` + `lib.rs` `.plugin(tauri_plugin_fs::init())` + `capabilities/default.json` `fs:default` + `fs:allow-app-{read,write,meta}-recursive`。**动 vault / Tauri fs 路径前核对这三处都在**, 任一缺失都是 runtime 静默 no-op (Phase 1c 翻车原点)
 - **desktop 必须 single-instance**: `tauri-plugin-single-instance = "2"` 要放在 `apps/desktop/src-tauri/src/lib.rs` 的 `.plugin(...)` 最前面，先于 `tauri-plugin-sql` / 其他 plugin 初始化。否则第二个 Tauri dev / binary 会和已运行实例共用 `appDataDir/offisim.db`，撞上 SQLite 写锁后表现成前端 runtime 初始化挂住、黑屏 webview。
@@ -199,7 +201,7 @@ Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 ### Live Product Findings
 
 - `web` live：真实 MiniMax 请求跑通，底部 token / cost / latency 都是真值
-- `claude-agent-sdk` 的 Anthropic-family lane 证据已记录在 repo，但当前 product host 仍对 `desktop-trusted` / `browser-limited` 都只暴露 `gateway`。实现形态仍是 Rust trusted host + 本地 Node sidecar，待 tool-enabled turn 主路径闭环后再重新开放产品暴露面
+- **Agent SDK execution lanes 已正式开放（commits `3e99f940` `feat: add agent sdk execution lanes` + `d5e0f4c9` `Add SOP-driven dual runtime engine support`）**：核心员工 runtime 现走 4 lane —— `gateway`（默认 HTTP）、`claude-agent-sdk`、`codex-agent-sdk`、`openai-agents-sdk`。Tauri 侧统一注册在 `apps/web/src/lib/tauri-engine-adapters.ts`；trusted host 命令对应 `claude_agent_execute` / `codex_agent_execute`，sidecars 在 `apps/desktop/src-tauri/src/{claude,codex}_agent_host.rs` + `resources/codex-agent-host.mjs`；Web 不注入 fetch 仍走 SDK 默认 transport。Provider 元数据 catalog 在 `catalog/provider-source-registry/` (commit `61427aab`)
 - chat 一轮 streaming fix 已落（`fix-chat-streaming-ux` archived），但仍非强感知 streaming；二次迭代目标是正文 chunk 在气泡里增长
 - 2D DiceBear 卡通头像和 3D 块人是两种渲染引擎；衣服色通过 `outfitColorFromSeed(seed)` 桥接（2D 的 shirt 色 = 3D 的 body 色，hex 字节等价），其他部件（发型 / 脸 / 配饰）由 DiceBear 自 seed 独立派生
 - A2A 产品抽象 = **品牌外观外包员工**（external employee with brand avatar）。接不同 A2A 产品 → 办公室场景出现对应品牌员工 avatar（OpenClaw / Hermes / Codex 等，发版带内置 **支持列表**；没命中的走 **custom** 通用外包样式）。走员工语义：席位 / zone / ceremony 和内部员工一致，仅 2D+3D 渲染按 brandKey 分支。**不与 DiceBear / 块人内部员工共用资产** —— DiceBear + 块人专供内部员工（核心逻辑），外包员工每 brand 独立 2D+3D 资产
