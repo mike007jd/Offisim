@@ -60,6 +60,8 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
       data-testid={`agent-card-${id}`}
       role={isInteractive ? 'button' : undefined}
       tabIndex={isInteractive ? 0 : undefined}
+      aria-label={isInteractive ? `${agent.name} employee card` : undefined}
+      aria-pressed={isInteractive ? (isSelected ?? false) : undefined}
       className={[
         'bg-black/40 p-4 rounded-xl border cursor-pointer',
         'transition-all duration-300',

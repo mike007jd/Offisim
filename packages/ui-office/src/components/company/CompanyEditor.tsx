@@ -1,5 +1,6 @@
+import { useFocusTrap, useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
 import { ExternalLink, Save, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { UseCompanyEditorReturn } from '../../hooks/useCompanyEditor';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { useOfficeLayout } from '../../hooks/useOfficeLayout.js';
@@ -59,6 +60,21 @@ export function CompanyEditor({
     [activeLayout?.layout_json],
   );
 
+  const editorStackId = 'company-editor';
+  useRegisterModal(isOpen ? editorStackId : null, 'overlay');
+
+  const handleRequestClose = useCallback(() => {
+    if (isSaving) return;
+    // Dirty-state confirmation: keep the dialog open unless the user confirms.
+    if (isDirty && !window.confirm('Discard unsaved company changes?')) return;
+    close();
+  }, [close, isDirty, isSaving]);
+
+  useTopmostEscape(isOpen ? editorStackId : null, handleRequestClose, { enabled: isOpen });
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
+
   if (!isOpen) return null;
 
   async function handleSave() {
@@ -67,15 +83,17 @@ export function CompanyEditor({
   }
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: Escape handled by useTopmostEscape; backdrop click is a mouse affordance only
+    // biome-ignore lint/a11y/useSemanticElements: <dialog> can't host this fixed full-screen overlay layout
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md"
       onClick={(e) => {
-        if (e.target === e.currentTarget) close();
+        if (e.target === e.currentTarget) handleRequestClose();
       }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') close();
-      }}
-      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Company editor"
     >
       <div className="mx-auto mt-3 flex h-[calc(100vh-24px)] w-[min(1480px,calc(100vw-24px))] max-w-none flex-col overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top,#14203d_0%,#0b1121_42%,#040814_100%)] shadow-[0_30px_120px_rgba(0,0,0,0.52)]">
         <div className="border-b border-white/10 bg-slate-950/45 px-6 py-5 backdrop-blur-xl">
@@ -95,8 +113,9 @@ export function CompanyEditor({
             </div>
             <button
               type="button"
-              onClick={close}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+              onClick={handleRequestClose}
+              disabled={isSaving}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
               aria-label="Close company editor"
             >
               <X className="h-4 w-4" />
@@ -228,7 +247,7 @@ export function CompanyEditor({
         <div className="flex items-center justify-end gap-3 border-t border-white/10 bg-slate-950/35 px-6 py-4 backdrop-blur-xl">
           <button
             type="button"
-            onClick={close}
+            onClick={handleRequestClose}
             disabled={isSaving}
             className="inline-flex h-11 items-center rounded-2xl border border-white/10 px-4 text-sm text-slate-300 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50"
           >

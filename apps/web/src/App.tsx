@@ -130,7 +130,6 @@ export function App({ onCompanySwitch }: AppProps) {
     activeOverlay: overlay.activeOverlay,
     closeOverlay: overlay.closeOverlay,
     goBack,
-    shortcutHelpOpen,
     setShortcutHelpOpen,
     employeeEditor,
     handleToggleDashboard: officeBindings.handleToggleDashboard,
@@ -268,6 +267,7 @@ export function App({ onCompanySwitch }: AppProps) {
             officeState={officeState}
             providerConfig={providerConfig}
             activeCompanyName={activeCompanyName}
+            activeCompanyId={activeCompanyId}
             sceneInteractive={overlay.activeOverlay === null}
             agents={agents}
             onOpenCompanyEditor={companyEditor.open}
@@ -281,11 +281,12 @@ export function App({ onCompanySwitch }: AppProps) {
             collaborationRailProps={collaborationRailProps}
             handleOpenSettings={handleOpenSettings}
             handleBackToOffice={handleBackToOffice}
-            onOpenSops={() => setActiveWorkspace('sops')}
-            onOpenMarket={() => setActiveWorkspace('market')}
+            onSelectWorkspace={setActiveWorkspace}
             onOpenStudio={lifecycle.handleOpenStudio}
             onOpenCompanySelect={overlay.openCompanySelect}
             onOpenEmployeeCreator={overlay.openEmployeeCreator}
+            onToggleDashboard={officeBindings.handleToggleDashboard}
+            onToggleKanban={officeBindings.handleToggleKanban}
             onSelectEmployee={officeBindings.handleSelectEmployee}
             onViewModeChange={officeBindings.onViewModeChange}
             onSceneFallbackTo2D={officeBindings.onSceneFallbackTo2D}

@@ -1,6 +1,6 @@
-import { Button } from '@offisim/ui-core';
+import { Button, useFocusTrap, useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
 import { X } from 'lucide-react';
-import { type CSSProperties, useCallback, useEffect, useRef } from 'react';
+import { type CSSProperties, useCallback, useRef } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { KanbanBoard } from './KanbanBoard';
 
@@ -29,15 +29,10 @@ export function KanbanOverlay({ open, onClose, requestText }: KanbanOverlayProps
   const agents = useAgentStates();
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+  const kanbanStackId = 'kanban-overlay';
+  useRegisterModal(open ? kanbanStackId : null, 'overlay');
+  useTopmostEscape(open ? kanbanStackId : null, onClose, { enabled: open });
+  useFocusTrap(overlayRef, open);
 
   // Close when clicking backdrop
   const handleBackdropClick = useCallback(
@@ -59,15 +54,16 @@ export function KanbanOverlay({ open, onClose, requestText }: KanbanOverlayProps
   };
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: Escape handled by useTopmostEscape; backdrop click is a mouse affordance only
+    // biome-ignore lint/a11y/useSemanticElements: <dialog> can't host this fixed full-screen overlay layout
     <div
       ref={overlayRef}
       className="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm"
       style={overlayStyle}
       onClick={handleBackdropClick}
-      tabIndex={-1}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
-      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Project board"
       aria-hidden={!open}
     >
       <div className="absolute inset-x-0 top-12 bottom-0 flex flex-col" style={panelStyle}>

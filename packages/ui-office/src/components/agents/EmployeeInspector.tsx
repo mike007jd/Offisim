@@ -1,5 +1,5 @@
 import type { EmployeeRow, MemoryEntryRow } from '@offisim/core/browser';
-import { Badge, Button } from '@offisim/ui-core';
+import { Badge, Button, isAnyModalOpen } from '@offisim/ui-core';
 import {
   Brain,
   BriefcaseBusiness,
@@ -167,11 +167,14 @@ export function EmployeeInspector({
   const [employee, setEmployee] = useState<EmployeeRow | null>(null);
   const [isUpdatingEnabled, setIsUpdatingEnabled] = useState(false);
 
-  // Close on Escape
+  // Close on Escape. Inspector is a popover (not stack-registered), so it must
+  // ignore Escape when any modal above it owns keyboard input.
   useEffect(() => {
     if (!employeeId) return;
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      if (isAnyModalOpen()) return;
+      onClose();
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -275,11 +278,14 @@ export function EmployeeInspector({
   }
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: floating inspector is a popover anchored to rail, not a modal dialog
     <div
       ref={panelRef}
       className="fixed top-16 z-50 w-80 max-w-[min(22rem,calc(100vw-2rem))]"
       style={{ left: `${leftOffset}px` }}
       data-testid="employee-inspector"
+      role="dialog"
+      aria-label={`Inspecting ${agent.name}`}
     >
       {/* Floating card */}
       <div className="rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-md">
@@ -288,8 +294,11 @@ export function EmployeeInspector({
           className="flex items-center justify-between border-b border-white/8"
           style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-md)' }}
         >
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Quick Inspect
+          <span
+            className="text-xs font-semibold uppercase tracking-wider text-slate-400"
+            title="Anchored to the selected employee in the personnel rail"
+          >
+            Inspecting
           </span>
           <button
             type="button"

@@ -6,6 +6,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  useRegisterModal,
+  useTopmostEscape,
 } from '@offisim/ui-core';
 import { ArrowLeft, Dices, Rocket } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -67,16 +69,9 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, open]);
+  const creatorStackId = 'employee-creator';
+  useRegisterModal(open ? creatorStackId : null, 'overlay');
+  useTopmostEscape(open ? creatorStackId : null, onClose, { enabled: open });
 
   const effectiveSeed = seed || 'default';
 
@@ -112,8 +107,8 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
   return (
     <div className="h-screen w-screen bg-surface flex flex-col overflow-hidden">
       {/* ── Top Bar ────────────────────────────────────────────────── */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] px-6">
-        <div className="flex items-center gap-4">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onClose}
@@ -122,14 +117,12 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="h-5 w-px bg-white/10" />
-          <h1 className="font-mono text-sm font-bold uppercase tracking-[0.2em] text-white/90">
-            EMPLOYEE_DEPLOYMENT
-          </h1>
+          <div className="hidden h-5 w-px bg-white/10 sm:block" />
+          <h1 className="truncate text-sm font-semibold text-white/90">Add employee</h1>
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           {STEPS.map((step, i) => (
             <button
               key={step}
@@ -138,16 +131,16 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
               className="flex items-center gap-2"
             >
               <div
-                className={`flex items-center gap-1.5 rounded px-2.5 py-1 font-mono text-[10px] tracking-[0.15em] transition-colors ${
+                className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
                   activeStep === i
-                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                    : 'text-white/30 hover:text-white/50'
+                    ? 'border border-blue-500/30 bg-blue-500/20 text-blue-300'
+                    : 'text-white/40 hover:text-white/60'
                 }`}
               >
                 <span className="tabular-nums">{String(i + 1).padStart(2, '0')}</span>
-                <span>{step}</span>
+                <span className="hidden sm:inline">{step}</span>
               </div>
-              {i < STEPS.length - 1 && <div className="mx-1 h-px w-4 bg-white/10" />}
+              {i < STEPS.length - 1 && <div className="mx-1 h-px w-3 bg-white/10" />}
             </button>
           ))}
         </div>
@@ -191,7 +184,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
 
         {/* ── Right Panel: Configuration (55%) ─────────────────── */}
         <div className="flex w-full lg:w-[55%] flex-col border-t lg:border-t-0 lg:border-l border-white/[0.06] overflow-y-auto">
-          <div className="flex flex-1 flex-col gap-5 p-8">
+          <div className="flex flex-1 flex-col gap-5 p-5 pb-10 sm:p-6 md:p-8 md:pb-12">
             {/* Section: Identity */}
             <SectionPanel title="IDENTITY" stepIndex={0} activeStep={activeStep}>
               <div className="space-y-4">
@@ -253,10 +246,10 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                   />
                 </div>
                 <div>
-                  <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.15em] text-white/30">
-                    PRESET IDENTITIES
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                    Preset identities
                   </p>
-                  <div className="grid grid-cols-6 gap-2">
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
                     {PRESET_SEEDS.map((presetSeed) => (
                       <button
                         key={presetSeed}
@@ -291,11 +284,14 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       </div>
 
       {/* ── Bottom Bar ────────────────────────────────────────────── */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-t border-white/[0.06] px-8">
+      <div
+        className="flex h-16 shrink-0 items-center justify-between gap-3 border-t border-white/[0.06] px-4 sm:px-6 md:px-8"
+        style={{ paddingBottom: 'max(0px, env(safe-area-inset-bottom))' }}
+      >
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg border border-white/10 px-5 py-2.5 font-mono text-xs uppercase tracking-wider text-white/50 transition-colors hover:bg-white/[0.05] hover:text-white/70"
+          className="rounded-lg border border-white/10 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-white/60 transition-colors hover:bg-white/[0.05] hover:text-white sm:px-5"
         >
           Cancel
         </button>
@@ -303,15 +299,11 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           type="button"
           disabled={!canDeploy}
           onClick={handleDeploy}
-          className={`
-            flex items-center gap-2.5 rounded-xl px-8 py-3 font-mono text-sm font-semibold uppercase tracking-wider
-            transition-all duration-200
-            ${
-              canDeploy
-                ? 'bg-blue-600 text-white shadow-[0_0_30px_rgba(59,130,246,0.3)] hover:shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:bg-blue-500 active:scale-[0.98]'
-                : 'bg-white/[0.04] text-white/30 cursor-not-allowed'
-            }
-          `}
+          className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-200 sm:px-8 ${
+            canDeploy
+              ? 'bg-blue-600 text-white shadow-[0_0_24px_rgba(59,130,246,0.25)] hover:bg-blue-500 hover:shadow-[0_0_32px_rgba(59,130,246,0.4)] active:scale-[0.98]'
+              : 'cursor-not-allowed bg-white/[0.04] text-white/30'
+          }`}
         >
           <Rocket className="h-4 w-4" />
           Add Employee

@@ -8,7 +8,8 @@ import {
   type ProviderConfig,
   StatusBar,
 } from '@offisim/ui-office/web';
-import React, { Suspense } from 'react';
+import React, { Suspense, useMemo } from 'react';
+import { PEER_WORKSPACE_ITEMS, buildOfficeToolItems } from '../../lib/workspace-navigation';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
 import type {
   OfficeSessionState,
@@ -44,6 +45,7 @@ export interface AppMainShellProps {
   officeState: OfficeSessionState;
   providerConfig: ProviderConfig | null;
   activeCompanyName: string | undefined;
+  activeCompanyId: string | null;
   sceneInteractive: boolean;
   agents: React.ComponentProps<typeof AgentPanel>['agents'];
   onOpenCompanyEditor: () => void;
@@ -57,11 +59,12 @@ export interface AppMainShellProps {
   collaborationRailProps: CollaborationRailProps;
   handleOpenSettings: () => void;
   handleBackToOffice: () => void;
-  onOpenSops: () => void;
-  onOpenMarket: () => void;
+  onSelectWorkspace: (key: WorkspaceKey) => void;
   onOpenStudio: () => void;
   onOpenCompanySelect: () => void;
   onOpenEmployeeCreator: () => void;
+  onToggleDashboard: () => void;
+  onToggleKanban: () => void;
   onSelectEmployee: (id: string | null) => void;
   onViewModeChange: (mode: '2D' | '3D') => void;
   onSceneFallbackTo2D: () => void;
@@ -82,6 +85,7 @@ export function AppMainShell(props: AppMainShellProps) {
     officeState,
     providerConfig,
     activeCompanyName,
+    activeCompanyId,
     sceneInteractive,
     agents,
     onOpenCompanyEditor,
@@ -95,11 +99,12 @@ export function AppMainShell(props: AppMainShellProps) {
     collaborationRailProps,
     handleOpenSettings,
     handleBackToOffice,
-    onOpenSops,
-    onOpenMarket,
+    onSelectWorkspace,
     onOpenStudio,
     onOpenCompanySelect,
     onOpenEmployeeCreator,
+    onToggleDashboard,
+    onToggleKanban,
     onSelectEmployee,
     onViewModeChange,
     onSceneFallbackTo2D,
@@ -111,6 +116,28 @@ export function AppMainShell(props: AppMainShellProps) {
     addToast,
   } = props;
 
+  const officeToolItems = useMemo(
+    () =>
+      buildOfficeToolItems({
+        hasActiveCompany: activeCompanyId !== null,
+        dashboardOpen: officeState.dashboardOpen,
+        kanbanOpen: officeState.kanbanOpen,
+        onOpenStudio,
+        onToggleDashboard,
+        onToggleKanban,
+        onOpenAddEmployee: onOpenEmployeeCreator,
+      }),
+    [
+      activeCompanyId,
+      officeState.dashboardOpen,
+      officeState.kanbanOpen,
+      onOpenStudio,
+      onToggleDashboard,
+      onToggleKanban,
+      onOpenEmployeeCreator,
+    ],
+  );
+
   return (
     <AppLayout
       header={
@@ -118,10 +145,6 @@ export function AppMainShell(props: AppMainShellProps) {
           providerName={providerConfig?.model}
           companyName={activeCompanyName}
           onOpenSettings={handleOpenSettings}
-          onOpenOffice={handleBackToOffice}
-          onOpenSops={onOpenSops}
-          onOpenMarket={onOpenMarket}
-          onOpenStudio={onOpenStudio}
           onOpenCompanySelect={onOpenCompanySelect}
           onOpenCompanyEditor={onOpenCompanyEditor}
           onFileImport={onFileImport}
@@ -145,6 +168,9 @@ export function AppMainShell(props: AppMainShellProps) {
           activeWorkspace={activeWorkspace}
           onBackToOffice={handleBackToOffice}
           workspaceTitle={WORKSPACE_TITLES[activeWorkspace]}
+          peerWorkspaces={PEER_WORKSPACE_ITEMS}
+          onSelectWorkspace={onSelectWorkspace}
+          officeTools={officeToolItems}
         />
       }
       agentPanel={

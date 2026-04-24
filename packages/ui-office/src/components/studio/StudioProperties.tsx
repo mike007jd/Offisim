@@ -85,6 +85,98 @@ const DELETE_BTN_DISABLED: React.CSSProperties = {
 
 // -- Component ----------------------------------------------------------------
 
+const TOOL_HINTS: Record<string, { label: string; hint: string }> = {
+  select: {
+    label: 'Select',
+    hint: 'Click a zone or placed object to edit its properties.',
+  },
+  place: {
+    label: 'Place',
+    hint: 'Choose a prefab from the left palette, then click in the scene to place it.',
+  },
+  zone: {
+    label: 'Zone',
+    hint: 'Choose a zone preset from the palette, then drag in the scene to outline it.',
+  },
+  move: {
+    label: 'Move',
+    hint: 'Drag a placed object to relocate it within its zone.',
+  },
+};
+
+const DEFAULT_TOOL_HINT = {
+  label: 'Select',
+  hint: 'Click a zone or placed object to edit its properties.',
+};
+
+function StudioPropertiesEmptyState() {
+  const tool = useStudioStore((s) => s.tool);
+  const focusedZoneId = useStudioStore((s) => s.focusedZoneId);
+  const isEditingZone = useStudioStore((s) => s.isEditingZone);
+  const hint = TOOL_HINTS[tool] ?? DEFAULT_TOOL_HINT;
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: SP.md,
+        padding: SP.xl,
+        textAlign: 'center',
+      }}
+    >
+      <BoxSelect size={32} style={{ color: STUDIO_COLORS.textDisabled }} />
+      <div
+        style={{
+          fontSize: FONT.base,
+          color: STUDIO_COLORS.textPrimary,
+          fontWeight: FONT.semibold,
+        }}
+      >
+        Nothing selected
+      </div>
+      <div
+        style={{
+          fontSize: FONT.sm,
+          color: STUDIO_COLORS.textTertiary,
+          lineHeight: 1.45,
+          maxWidth: 240,
+        }}
+      >
+        {hint.hint}
+      </div>
+      <div
+        style={{
+          fontSize: FONT.xs,
+          color: STUDIO_COLORS.textSecondary,
+          borderTop: `1px solid ${STUDIO_COLORS.borderSubtle}`,
+          paddingTop: SP.sm,
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+        }}
+      >
+        <span>
+          Current tool: <strong style={{ color: STUDIO_COLORS.textPrimary }}>{hint.label}</strong>
+        </span>
+        {focusedZoneId && (
+          <span>
+            Focused zone:{' '}
+            <strong style={{ color: STUDIO_COLORS.textPrimary }}>
+              {focusedZoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : focusedZoneId}
+            </strong>
+          </span>
+        )}
+        {isEditingZone && <span>Editing zone — press Escape to exit edit mode.</span>}
+      </div>
+    </div>
+  );
+}
+
 export function StudioProperties() {
   // Zone selection
   const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
@@ -135,31 +227,7 @@ export function StudioProperties() {
       <div style={sectionHeaderStyle()}>Properties</div>
 
       {/* Empty state */}
-      {showEmpty && (
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: SP.md,
-            padding: SP.xl,
-          }}
-        >
-          <BoxSelect size={32} style={{ color: STUDIO_COLORS.textDisabled }} />
-          <span
-            style={{
-              fontSize: FONT.base,
-              color: STUDIO_COLORS.textTertiary,
-              textAlign: 'center',
-              lineHeight: 1.4,
-            }}
-          >
-            Select an object to view properties
-          </span>
-        </div>
-      )}
+      {showEmpty && <StudioPropertiesEmptyState />}
 
       {/* Selected zone details */}
       {showZone &&

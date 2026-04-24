@@ -18,6 +18,7 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
+  useRegisterModal,
 } from '@offisim/ui-core';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -118,6 +119,7 @@ export function EmployeeEditorDialog({
   sourceAssetId,
   sourcePackageId,
 }: EmployeeEditorDialogProps) {
+  useRegisterModal(isOpen ? 'employee-editor' : null, 'dialog');
   const { activeCompanyId } = useCompany();
   const { zones: companyZones } = useCompanyZones();
   const isEditMode = employeeId !== null;

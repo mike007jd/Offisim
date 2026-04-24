@@ -6,9 +6,12 @@ import {
   CardHeader,
   CardTitle,
   ScrollArea,
+  useFocusTrap,
+  useRegisterModal,
+  useTopmostEscape,
 } from '@offisim/ui-core';
 import { AlertTriangle, Bell, FileOutput, Trash2, X, XCircle } from 'lucide-react';
-import { type CSSProperties, useCallback, useEffect, useRef } from 'react';
+import { type CSSProperties, useCallback, useRef } from 'react';
 import { useCostDashboard } from '../../hooks/useCostDashboard';
 import { useDeliverables } from '../../hooks/useDeliverables';
 import { type TrackedError, useErrorTracking } from '../../hooks/useErrorTracking';
@@ -279,17 +282,11 @@ export function DashboardOverlay({ open, onClose, activeThreadId }: DashboardOve
 
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Close on Escape key
-  useEffect(() => {
-    if (!open) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+  // Topmost Escape + modal stack registration
+  const dashboardStackId = 'dashboard-overlay';
+  useRegisterModal(open ? dashboardStackId : null, 'overlay');
+  useTopmostEscape(open ? dashboardStackId : null, onClose, { enabled: open });
+  useFocusTrap(overlayRef, open);
 
   // Close when clicking the backdrop
   const handleBackdropClick = useCallback(
@@ -314,18 +311,16 @@ export function DashboardOverlay({ open, onClose, activeThreadId }: DashboardOve
   };
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: Escape handled by useTopmostEscape; backdrop click is a mouse affordance only
+    // biome-ignore lint/a11y/useSemanticElements: <dialog> can't host this fixed full-screen overlay layout
     <div
       ref={overlayRef}
       className="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm"
       style={overlayStyle}
       onClick={handleBackdropClick}
-      tabIndex={-1}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClose();
-        }
-      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Boss Dashboard"
       aria-hidden={!open}
     >
       <div className="absolute inset-x-0 top-12 bottom-0 overflow-y-auto" style={panelStyle}>

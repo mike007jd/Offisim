@@ -280,24 +280,24 @@ export function CompanySelectionPage({
   };
 
   return (
-    <div className="flex h-screen bg-[#07101d] text-white">
-      <aside className="w-[320px] shrink-0 border-r border-white/8 bg-black/20 p-5">
-        <div className="mb-5 flex items-center justify-between">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#07101d] text-white lg:flex-row">
+      <aside className="flex shrink-0 flex-col border-white/8 bg-black/20 p-5 lg:w-[320px] lg:border-r">
+        <div className="mb-4 flex items-center justify-between lg:mb-5">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Companies</div>
-            <div className="mt-2 text-2xl font-semibold text-white">Portal</div>
+            <div className="text-[11px] uppercase tracking-wider text-slate-500">Companies</div>
+            <div className="mt-1 text-xl font-semibold text-white lg:mt-2 lg:text-2xl">Portal</div>
           </div>
           <button
             type="button"
             onClick={onCreateNew}
-            className="inline-flex items-center gap-2 rounded-xl border border-blue-400/25 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-200 transition hover:border-blue-300/50 hover:bg-blue-500/15"
+            className="inline-flex items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-200 transition hover:border-blue-300/50 hover:bg-blue-500/15"
           >
             <FolderPlus className="h-4 w-4" />
             New
           </button>
         </div>
 
-        <div className="space-y-3 overflow-y-auto pr-1">
+        <div className="flex max-h-[32vh] flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none lg:space-y-3">
           {visibleCompanies.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-sm text-slate-400">
               No companies yet. Create one to start building your workspace.
@@ -315,7 +315,7 @@ export function CompanySelectionPage({
                   key={company.company_id || `company:${company.name}:${index}`}
                   type="button"
                   onClick={() => onPreviewCompany(company.company_id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                  className={`w-full rounded-xl border p-3 text-left transition lg:p-4 ${
                     isPreview
                       ? 'border-blue-400/40 bg-blue-500/10 shadow-[0_0_0_1px_rgba(96,165,250,0.2)]'
                       : 'border-white/8 bg-white/[0.03] hover:border-white/14 hover:bg-white/[0.05]'
@@ -326,17 +326,17 @@ export function CompanySelectionPage({
                       <div className="truncate text-base font-semibold text-white">
                         {company.name}
                       </div>
-                      <div className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">
+                      <div className="mt-1 text-xs uppercase tracking-wider text-slate-500">
                         {company.template_label ?? 'Custom Layout'}
                       </div>
                     </div>
                     {isActive && (
-                      <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
                         Active
                       </span>
                     )}
                   </div>
-                  <div className="mt-4 flex items-center gap-4 text-xs text-slate-400">
+                  <div className="mt-3 flex items-center gap-4 text-xs text-slate-400 lg:mt-4">
                     <span className="inline-flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5" />
                       {summary.employeeCount}
@@ -353,20 +353,18 @@ export function CompanySelectionPage({
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_340px] gap-6 p-6">
+      <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 lg:p-6">
           <section className="min-w-0">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
-                  Preview
-                </div>
-                <div className="mt-2 text-2xl font-semibold text-white">
+                <div className="text-[11px] uppercase tracking-wider text-slate-500">Preview</div>
+                <div className="mt-1 text-xl font-semibold text-white lg:mt-2 lg:text-2xl">
                   {selectedCompany?.name ?? 'Company Showcase'}
                 </div>
               </div>
             </div>
-            <div className="h-[calc(100vh-96px)] min-h-[540px]">
+            <div className="h-[42vh] min-h-[280px] lg:h-[calc(100vh-96px)] lg:min-h-[540px]">
               <CompanyPortalPreview
                 company={selectedCompany}
                 zones={data?.zones ?? []}
@@ -376,14 +374,12 @@ export function CompanySelectionPage({
             </div>
           </section>
 
-          <aside className="rounded-[28px] border border-white/10 bg-black/20 p-5">
-            <div className="text-[11px] uppercase tracking-[0.28em] text-slate-500">
-              Company Brief
-            </div>
+          <aside className="rounded-2xl border border-white/10 bg-black/20 p-5">
+            <div className="text-[11px] uppercase tracking-wider text-slate-500">Company Brief</div>
             {selectedCompany ? (
               <>
                 <div className="mt-4 flex items-start gap-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                  <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                     <Building2 className="h-5 w-5 text-blue-300" />
                   </div>
                   <div className="min-w-0">
@@ -403,17 +399,15 @@ export function CompanySelectionPage({
                   <InfoStat label="Assets" value={String(data?.prefabs.length ?? 0)} />
                 </div>
 
-                <div className="mt-6 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
-                    Updated
-                  </div>
+                <div className="mt-6 rounded-xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-wider text-slate-500">Updated</div>
                   <div className="mt-2 text-sm text-slate-300">
                     {formatUpdatedAt(selectedCompany.updated_at)}
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-wider text-slate-500">
                     Layout Signal
                   </div>
                   <div className="mt-2 text-sm text-slate-300">
@@ -423,11 +417,11 @@ export function CompanySelectionPage({
                   </div>
                 </div>
 
-                <div className="mt-6 space-y-3">
+                <div className="mt-6 space-y-3 pb-2">
                   <button
                     type="button"
                     onClick={() => onEnterCompany(selectedCompany.company_id)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-400"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-400"
                   >
                     Enter Company
                     <ArrowRight className="h-4 w-4" />
@@ -435,7 +429,7 @@ export function CompanySelectionPage({
                   <button
                     type="button"
                     onClick={handleArchiveClick}
-                    className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition ${
+                    className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${
                       archiveArmed
                         ? 'border-rose-400/40 bg-rose-500/10 text-rose-100 hover:border-rose-300/60 hover:bg-rose-500/15'
                         : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.05]'
@@ -445,7 +439,7 @@ export function CompanySelectionPage({
                     {archiveArmed ? 'Confirm Archive' : 'Archive Company'}
                   </button>
                   {archiveArmed && (
-                    <p className="rounded-2xl border border-rose-400/20 bg-rose-500/8 px-4 py-3 text-xs leading-relaxed text-rose-100">
+                    <p className="rounded-xl border border-rose-400/20 bg-rose-500/8 px-4 py-3 text-xs leading-relaxed text-rose-100">
                       Archive {selectedCompany.name}? The company will be removed from the active
                       list.
                     </p>
@@ -453,7 +447,7 @@ export function CompanySelectionPage({
                 </div>
               </>
             ) : (
-              <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-sm text-slate-400">
+              <div className="mt-6 rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-sm text-slate-400">
                 Pick a company on the left to inspect its layout, or create a new company.
               </div>
             )}
@@ -466,8 +460,8 @@ export function CompanySelectionPage({
 
 function InfoStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">{label}</div>
+    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
+      <div className="text-[11px] uppercase tracking-wider text-slate-500">{label}</div>
       <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
     </div>
   );

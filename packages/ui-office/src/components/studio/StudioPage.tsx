@@ -14,7 +14,13 @@ import {
   SYSTEM_ZONE_TEMPLATES,
   templateToZone,
 } from '@offisim/shared-types';
-import { ToastBanner, useToasts } from '@offisim/ui-core';
+import {
+  ToastBanner,
+  getTopmostModalId,
+  useRegisterModal,
+  useToasts,
+  useTopmostEscape,
+} from '@offisim/ui-core';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveZonesToDb } from '../../lib/zone-persistence.js';
@@ -77,6 +83,8 @@ function CompanyNameModal({
 }) {
   const [name, setName] = useState('My Company');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useTopmostEscape('studio-company-name', onCancel);
 
   useEffect(() => {
     inputRef.current?.select();
@@ -207,6 +215,13 @@ export function StudioPage(props: StudioPageProps) {
   const [saveFlash, setSaveFlash] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [loading, setLoading] = useState(mode === 'edit' || !props.repos);
+
+  // Register in the modal stack so Office-level shortcuts gate on Studio and
+  // the inline company-name modal can take topmost ownership above us.
+  const studioStackId = 'studio-page';
+  useRegisterModal(studioStackId, 'overlay');
+  const companyNameModalStackId = 'studio-company-name';
+  useRegisterModal(showNameModal ? companyNameModalStackId : null, 'dialog');
 
   // Pending save resolver when waiting for company name
   const pendingSaveRef = useRef<((name: string | null) => void) | null>(null);
@@ -364,6 +379,10 @@ export function StudioPage(props: StudioPageProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // Only consume shortcuts when Studio itself owns the topmost modal slot.
+      // When the company-name modal or any other dialog layers above, let it
+      // handle keys and peel its own layer first.
+      if (getTopmostModalId() !== studioStackId) return;
 
       const store = useStudioStore.getState();
 

@@ -1,44 +1,47 @@
-import { Button } from '@offisim/ui-core';
-import { ClipboardList, Download, Plus } from 'lucide-react';
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
+import { EmptyState } from '@offisim/ui-core';
+import { ClipboardList, FileText } from 'lucide-react';
 
 export interface SopEmptyStateProps {
   hasNoSops: boolean;
   onCreateClick: () => void;
   onImportClick: () => void;
+  /** Optional template starter. */
+  onTemplateClick?: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// SopEmptyState
-// ---------------------------------------------------------------------------
+/**
+ * SOP default state. When no SOP is selected or the user has no SOPs, surface
+ * template / create / import starting actions and keep run-style actions
+ * absent until a runnable graph exists.
+ */
+export function SopEmptyState({
+  hasNoSops,
+  onCreateClick,
+  onImportClick,
+  onTemplateClick,
+}: SopEmptyStateProps) {
+  const title = hasNoSops ? 'Start your first SOP' : 'Select an SOP';
+  const description = hasNoSops
+    ? 'A Standard Operating Procedure captures a repeatable workflow. Start from a template, build from scratch, or import one.'
+    : 'Pick an SOP from the list to view its graph, edit steps, or run it against a new task.';
 
-export function SopEmptyState({ hasNoSops, onCreateClick, onImportClick }: SopEmptyStateProps) {
+  const secondaryActions = hasNoSops
+    ? [
+        ...(onTemplateClick ? [{ label: 'Use a template', onClick: onTemplateClick }] : []),
+        { label: 'Import SOP', onClick: onImportClick },
+      ]
+    : [];
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-8">
-      <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-        <ClipboardList className="w-7 h-7 text-slate-500" />
-      </div>
-      <div className="space-y-1">
-        <p className="text-sm font-medium text-slate-300">
-          {hasNoSops ? 'No SOPs yet' : 'Select an SOP'}
-        </p>
-        <p className="text-xs text-slate-500 max-w-xs">
-          {hasNoSops
-            ? 'Create your first Standard Operating Procedure or import one from a URL.'
-            : 'Choose an SOP from the dropdown above to view its workflow.'}
-        </p>
-      </div>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="gap-1" onClick={onCreateClick}>
-          <Plus className="w-3.5 h-3.5" /> Create
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1" onClick={onImportClick}>
-          <Download className="w-3.5 h-3.5" /> Import
-        </Button>
-      </div>
+    <div className="flex flex-1 items-center justify-center">
+      <EmptyState
+        icon={hasNoSops ? FileText : ClipboardList}
+        title={title}
+        description={description}
+        primaryAction={{ label: 'Create SOP', onClick: onCreateClick }}
+        secondaryActions={secondaryActions}
+        footer={hasNoSops ? undefined : 'Run actions appear once a SOP has a complete graph.'}
+      />
     </div>
   );
 }

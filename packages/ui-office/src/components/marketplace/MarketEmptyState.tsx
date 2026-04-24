@@ -1,3 +1,4 @@
+import { EmptyState } from '@offisim/ui-core';
 import { CheckCircle, Package, Search, Upload } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -35,22 +36,14 @@ const VARIANT_CONFIG: Record<
 
 export function MarketEmptyState({ variant, onAction, actionLabel }: MarketEmptyStateProps) {
   const config = VARIANT_CONFIG[variant];
-  const Icon = config.icon;
-
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
-      <Icon className="h-12 w-12 text-slate-500" />
-      <h3 className="text-lg font-semibold text-slate-300">{config.title}</h3>
-      <p className="max-w-sm text-center text-sm text-slate-500">{config.description}</p>
-      {actionLabel && (
-        <button
-          type="button"
-          onClick={onAction}
-          className="mt-2 rounded-lg bg-white/[0.06] px-4 py-2 text-sm text-slate-300 hover:bg-white/10 transition-colors"
-        >
-          {actionLabel}
-        </button>
-      )}
+    <div className="flex h-full items-center justify-center p-6">
+      <EmptyState
+        icon={config.icon}
+        title={config.title}
+        description={config.description}
+        primaryAction={actionLabel ? { label: actionLabel, onClick: onAction } : undefined}
+      />
     </div>
   );
 }

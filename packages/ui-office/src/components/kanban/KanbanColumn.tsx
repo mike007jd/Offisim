@@ -6,9 +6,7 @@ import { KanbanCard } from './KanbanCard';
 // Column status → header accent
 // ---------------------------------------------------------------------------
 
-function columnAccent(
-  status: 'pending' | 'active' | 'completed' | 'requirements',
-): string {
+function columnAccent(status: 'pending' | 'active' | 'completed' | 'requirements'): string {
   switch (status) {
     case 'completed':
       return 'border-t-green-400/60';

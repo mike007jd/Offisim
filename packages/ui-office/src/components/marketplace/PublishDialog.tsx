@@ -340,10 +340,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                   <label htmlFor="publish-kind" className="text-xs font-medium text-slate-300">
                     Kind
                   </label>
-                  <Select
-                    value={kind}
-                    onValueChange={(value) => setKind(value as PublishKind)}
-                  >
+                  <Select value={kind} onValueChange={(value) => setKind(value as PublishKind)}>
                     <SelectTrigger id="publish-kind" className="mt-2">
                       <SelectValue />
                     </SelectTrigger>

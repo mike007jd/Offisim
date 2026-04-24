@@ -1,4 +1,5 @@
 import type { CompanyTemplate } from '@offisim/core/browser';
+import { useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
@@ -79,25 +80,14 @@ export function CompanyCreationWizard({
     ensureCompanyCreationWizardKeyframes();
   }, []);
 
-  useEffect(() => {
-    // Gate: no dismiss during in-flight creation — the pending create() promise
-    // would still resolve after unmount and bounce the user into the new
-    // company. Use `isCreating` instead of step === 'creating' because the
-    // custom-company path flips `isCreating` without transitioning step.
-    if (!onDismiss || isCreating) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // Capture-phase + stopImmediatePropagation so App.tsx's global Escape
-        // handler (registered first, bubble phase) does not also fire and
-        // inadvertently flip view back to 'office'.
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        onDismiss();
-      }
-    };
-    window.addEventListener('keydown', handler, true);
-    return () => window.removeEventListener('keydown', handler, true);
-  }, [onDismiss, isCreating]);
+  // Register in the shared modal stack so Office shortcuts gate on wizard
+  // activity, and so Escape targets topmost only. `isCreating` blocks dismiss
+  // while the create promise is in flight.
+  const wizardStackId = 'company-creation-wizard';
+  useRegisterModal(onDismiss ? wizardStackId : null, 'overlay');
+  useTopmostEscape(onDismiss && !isCreating ? wizardStackId : null, () => onDismiss?.(), {
+    enabled: Boolean(onDismiss) && !isCreating,
+  });
 
   const currentTemplateIdx = useMemo(
     () => templates.findIndex((template) => template.id === selectedTemplateId),
@@ -199,11 +189,11 @@ export function CompanyCreationWizard({
         </button>
       )}
 
-      <div className="relative z-10 flex min-h-0 flex-1 overflow-hidden">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {selected && meta ? (
           <>
             <div
-              className="flex w-[340px] shrink-0 flex-col border-r border-white/[0.06]"
+              className="flex w-full shrink-0 flex-col border-b border-white/[0.06] lg:w-[340px] lg:border-r lg:border-b-0"
               key={`info-${selected.id}`}
               style={{ animation: 'wiz-fade-in 0.3s ease-out' }}
             >
@@ -322,7 +312,7 @@ export function CompanyCreationWizard({
             </div>
 
             <div
-              className="flex min-w-0 flex-1 items-center justify-center p-4"
+              className="flex min-h-[36vh] min-w-0 flex-1 items-center justify-center p-4 lg:min-h-0"
               key={`fp-${selected.id}`}
               style={{ animation: 'wiz-fade-in 0.4s ease-out' }}
             >
@@ -351,11 +341,14 @@ export function CompanyCreationWizard({
         )}
       </div>
 
-      <div className="relative z-10 border-t border-white/[0.06] bg-black/60 px-6 py-4 backdrop-blur-xl">
+      <div
+        className="relative z-10 border-t border-white/[0.06] bg-black/60 px-4 py-3 backdrop-blur-xl lg:px-6 lg:py-4"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
         {step === 'creating' ? (
           <BuildingAnimation />
         ) : (
-          <div className="mx-auto flex max-w-3xl items-center gap-4">
+          <div className="mx-auto flex max-w-3xl flex-col items-stretch gap-3 lg:flex-row lg:items-end lg:gap-4">
             <div className="flex-1">
               <label
                 htmlFor="company-name"
@@ -378,7 +371,7 @@ export function CompanyCreationWizard({
                 void handlePrimaryAction();
               }}
               disabled={primaryDisabled}
-              className="mt-5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-3 text-sm font-semibold text-white transition-all hover:from-blue-500 hover:to-blue-400 disabled:cursor-not-allowed disabled:opacity-30"
+              className="w-full shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-3 text-sm font-semibold text-white transition-all hover:from-blue-500 hover:to-blue-400 disabled:cursor-not-allowed disabled:opacity-30 lg:w-auto lg:px-8"
               style={
                 (isCreateYourOwn || runtimeReady) && selectedTemplateId
                   ? { animation: 'wiz-cta-pulse 3s ease-in-out infinite' }

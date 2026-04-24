@@ -15,15 +15,14 @@ export function SkillBindingList({ companyId, employeeId }: SkillBindingListProp
       <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-white/10 py-6 text-center">
         <Puzzle className="h-8 w-8 text-slate-500" />
         <p className="max-w-[260px] text-xs italic text-slate-400/70">
-          No skills available. Skills installed from the marketplace or created locally will appear here.
+          No skills available. Skills installed from the marketplace or created locally will appear
+          here.
         </p>
       </div>
     );
   }
 
-  const employeeSlugs = new Set(
-    merged.filter((s) => s.scope === 'employee').map((s) => s.slug),
-  );
+  const employeeSlugs = new Set(merged.filter((s) => s.scope === 'employee').map((s) => s.slug));
 
   return (
     <div className="flex flex-col gap-2">

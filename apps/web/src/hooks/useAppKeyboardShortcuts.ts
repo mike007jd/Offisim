@@ -1,3 +1,4 @@
+import { getTopmostModalId, isAnyModalOpen } from '@offisim/ui-core';
 import { useEffect } from 'react';
 import type { OfficeSessionState, UpdateWorkspaceStateFn } from '../components/workspaces/types';
 import type { OverlayKey } from '../lib/app-view-layout';
@@ -8,11 +9,8 @@ export interface AppKeyboardShortcutsDeps {
   activeOverlay: OverlayKey | null;
   closeOverlay: () => void;
   goBack: () => void;
-  shortcutHelpOpen: boolean;
-  setShortcutHelpOpen: (next: boolean) => void;
+  setShortcutHelpOpen: (updater: boolean | ((prev: boolean) => boolean)) => void;
   employeeEditor: {
-    isOpen: boolean;
-    close: () => void;
     openForEdit: (id: string) => Promise<void> | void;
   };
   handleToggleDashboard: () => void;
@@ -27,7 +25,6 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     activeOverlay,
     closeOverlay,
     goBack,
-    shortcutHelpOpen,
     setShortcutHelpOpen,
     employeeEditor,
     handleToggleDashboard,
@@ -37,6 +34,44 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      const anyModalOpen = isAnyModalOpen();
+
+      // Cmd/Ctrl+/ always toggles the shortcut help. Surface it even while
+      // other modals are open so users can discover shortcuts at any time.
+      if ((e.metaKey || e.ctrlKey) && (e.key === '/' || e.key === '?')) {
+        e.preventDefault();
+        setShortcutHelpOpen((prev) => !prev);
+        return;
+      }
+
+      if (
+        isOffice &&
+        (e.metaKey || e.ctrlKey) &&
+        e.key.toLowerCase() === 'd' &&
+        officeState.dashboardOpen &&
+        getTopmostModalId() === 'dashboard-overlay'
+      ) {
+        e.preventDefault();
+        handleToggleDashboard();
+        return;
+      }
+
+      if (
+        isOffice &&
+        (e.metaKey || e.ctrlKey) &&
+        e.key.toLowerCase() === 'j' &&
+        officeState.kanbanOpen &&
+        getTopmostModalId() === 'kanban-overlay'
+      ) {
+        e.preventDefault();
+        handleToggleKanban();
+        return;
+      }
+
+      // When any topmost modal owns input, leave every other shortcut to the
+      // owner's own useTopmostEscape / keydown handlers.
+      if (anyModalOpen) return;
+
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
         if (!isOffice) return;
         e.preventDefault();
@@ -65,20 +100,11 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
         void employeeEditor.openForEdit(officeState.selectedEmployeeId);
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && (e.key === '/' || e.key === '?')) {
-        e.preventDefault();
-        setShortcutHelpOpen(true);
-        return;
-      }
+
+      // Escape fallback for non-modal overlays (e.g. CompanySelectionPage)
+      // that don't register in the modal stack. Modal-backed surfaces already
+      // handle Escape via useTopmostEscape.
       if (e.key === 'Escape') {
-        if (shortcutHelpOpen) {
-          setShortcutHelpOpen(false);
-          return;
-        }
-        if (employeeEditor.isOpen) {
-          employeeEditor.close();
-          return;
-        }
         if (activeOverlay) {
           closeOverlay();
           return;
@@ -96,9 +122,10 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     goBack,
     handleToggleDashboard,
     handleToggleKanban,
+    officeState.dashboardOpen,
+    officeState.kanbanOpen,
     officeState.selectedEmployeeId,
     setShortcutHelpOpen,
-    shortcutHelpOpen,
     updateWorkspaceState,
   ]);
 }

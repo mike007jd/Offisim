@@ -1,27 +1,34 @@
 import { Button } from '@offisim/ui-core';
-import {
-  ArrowLeft,
-  Building2,
-  ChevronDown,
-  PenTool,
-  Pencil,
-  Settings,
-  Store,
-  Workflow,
-} from 'lucide-react';
-import type { ReactNode } from 'react';
+import { ArrowLeft, Building2, ChevronDown, MoreHorizontal, Pencil } from 'lucide-react';
+import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
 type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log' | 'settings';
+
+type HeaderIcon = ComponentType<{ className?: string }>;
+
+export interface HeaderPeerWorkspaceItem {
+  key: WorkspaceKey;
+  label: string;
+  icon: HeaderIcon;
+}
+
+export interface HeaderOfficeToolItem {
+  key: string;
+  label: string;
+  icon: HeaderIcon;
+  shortcut?: string;
+  isActive?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+  onActivate: () => void;
+}
 
 interface HeaderProps {
   providerName?: string;
   companyName?: string;
   onOpenSettings: () => void;
-  onOpenOffice?: () => void;
-  onOpenSops?: () => void;
-  onOpenMarket?: () => void;
-  onOpenStudio?: () => void;
   onOpenCompanySelect?: () => void;
   onOpenCompanyEditor?: () => void;
   onFileImport: (file: File) => void;
@@ -33,16 +40,17 @@ interface HeaderProps {
   activeWorkspace?: WorkspaceKey;
   onBackToOffice?: () => void;
   workspaceTitle?: string;
+  /** Peer workspace navigation (Office/SOPs/Market/Activity/Settings). Always visible. */
+  peerWorkspaces: ReadonlyArray<HeaderPeerWorkspaceItem>;
+  onSelectWorkspace: (key: WorkspaceKey) => void;
+  /** Office-scoped tools. Rendered only when activeWorkspace === 'office'. */
+  officeTools?: ReadonlyArray<HeaderOfficeToolItem>;
 }
 
 export function Header({
   providerName,
   companyName,
   onOpenSettings,
-  onOpenOffice,
-  onOpenSops,
-  onOpenMarket,
-  onOpenStudio,
   onOpenCompanySelect,
   onOpenCompanyEditor,
   onFileImport,
@@ -54,17 +62,20 @@ export function Header({
   activeWorkspace = 'office',
   onBackToOffice,
   workspaceTitle,
+  peerWorkspaces,
+  onSelectWorkspace,
+  officeTools,
 }: HeaderProps) {
   const isOffice = activeWorkspace === 'office';
 
   return (
     <header
-      className="flex min-h-11 items-center justify-between rounded-[18px] border border-white/10 bg-black/20 shadow-2xl backdrop-blur-md"
+      className="flex min-h-11 flex-wrap items-center justify-between gap-y-1 rounded-[18px] border border-white/10 bg-black/20 shadow-2xl backdrop-blur-md"
       style={{ paddingInline: 'var(--sp-md)', paddingBlock: '0.375rem' }}
     >
       <div
         className="flex min-w-0 flex-wrap items-center"
-        style={{ columnGap: '0.625rem', rowGap: '0.375rem' }}
+        style={{ columnGap: '0.5rem', rowGap: '0.25rem' }}
       >
         {!isOffice && onBackToOffice && (
           <>
@@ -78,7 +89,7 @@ export function Header({
             </button>
             <div className="h-5 w-px bg-white/10" />
             {workspaceTitle && (
-              <h1 className="text-sm font-semibold tracking-wide text-slate-100">
+              <h1 className="truncate text-sm font-semibold tracking-wide text-slate-100">
                 {workspaceTitle}
               </h1>
             )}
@@ -86,49 +97,22 @@ export function Header({
         )}
 
         {isOffice && viewMode && onViewModeChange && (
-          <div className="flex h-8 items-center rounded-full border border-white/10 bg-black/35 px-1">
-            <button
-              type="button"
-              onClick={() => onViewModeChange('3D')}
-              title="Switch to 3D office view"
-              aria-label="Switch to 3D office view"
-              className={`h-6 px-3 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
-                viewMode === '3D'
-                  ? 'rounded-full border border-cyan-400/35 bg-cyan-400/12 text-cyan-100'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              3D
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange('2D')}
-              title="Switch to 2D office map"
-              aria-label="Switch to 2D office map"
-              className={`h-6 px-3 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
-                viewMode === '2D'
-                  ? 'rounded-full border border-cyan-400/35 bg-cyan-400/12 text-cyan-100'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              2D
-            </button>
-          </div>
+          <ViewModeToggle value={viewMode} onChange={onViewModeChange} />
         )}
 
         {isOffice && onOpenCompanySelect && (
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
               onClick={onOpenCompanySelect}
-              className="flex h-8 min-w-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 hover:border-white/20 hover:bg-white/10 transition-colors"
+              className="flex h-8 min-w-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 transition-colors hover:border-white/20 hover:bg-white/10"
               title="Switch Company"
             >
-              <Building2 className="h-3.5 w-3.5 text-violet-400 flex-shrink-0" />
-              <span className="text-xs font-medium text-slate-200 max-w-[140px] truncate">
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-400" />
+              <span className="max-w-[140px] truncate text-xs font-medium text-slate-200">
                 {companyName || 'Select Company'}
               </span>
-              <ChevronDown className="h-3 w-3 text-slate-500 flex-shrink-0" />
+              <ChevronDown className="h-3 w-3 shrink-0 text-slate-500" />
             </button>
             {onOpenCompanyEditor && (
               <>
@@ -147,37 +131,21 @@ export function Header({
           </div>
         )}
 
-        {isOffice && <div className="h-5 w-px bg-white/10" />}
+        {isOffice && <div className="hidden h-5 w-px bg-white/10 sm:block" />}
 
-        {isOffice && (
-          <nav
-            aria-label="Primary workspace navigation"
-            className="flex items-center gap-1 rounded-full border border-white/10 bg-black/30 p-1"
-          >
-            {onOpenOffice && (
-              <button
-                type="button"
-                onClick={onOpenOffice}
-                aria-label="Office workspace"
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
-                  isOffice
-                    ? 'border border-cyan-400/30 bg-blue-500/15 text-blue-100'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
-                }`}
-              >
-                Office
-              </button>
-            )}
-          </nav>
-        )}
+        <PeerWorkspaceNav
+          items={peerWorkspaces}
+          active={activeWorkspace}
+          onSelect={onSelectWorkspace}
+        />
 
         {providerName && (
           <div
-            className="flex items-center space-x-2 rounded-full border border-emerald-500/10 bg-emerald-500/5 px-2.5 py-1"
+            className="hidden items-center gap-2 rounded-full border border-emerald-500/10 bg-emerald-500/5 px-2.5 py-1 md:inline-flex"
             title={`Current provider: ${providerName}`}
           >
-            <div className="w-1 h-1 bg-emerald-500 rounded-full" />
-            <span className="text-xs font-mono text-emerald-500/80 uppercase tracking-wider">
+            <div className="h-1 w-1 rounded-full bg-emerald-500" />
+            <span className="font-mono text-xs uppercase tracking-wider text-emerald-500/80">
               {providerName}
             </span>
           </div>
@@ -200,61 +168,184 @@ export function Header({
         {isOffice && projectSlot}
       </div>
 
-      <div className="flex items-center shrink-0" style={{ columnGap: 'var(--sp-sm)' }}>
+      <div
+        className="flex shrink-0 flex-wrap items-center justify-end"
+        style={{ columnGap: 'var(--sp-sm)', rowGap: '0.25rem' }}
+      >
+        {isOffice && officeTools && officeTools.length > 0 && <OfficeToolBar items={officeTools} />}
         <FileImportTrigger onFileSelect={onFileImport} />
-        {onOpenSops && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onOpenSops}
-            title="SOPs"
-            aria-label="SOPs workspace"
-            className={`h-8 w-8 hover:bg-white/5 ${activeWorkspace === 'sops' ? 'bg-cyan-500/15 border border-cyan-400/30' : ''}`}
-          >
-            <Workflow
-              className={`h-4 w-4 ${activeWorkspace === 'sops' ? 'text-cyan-300' : 'text-slate-400 hover:text-cyan-300'}`}
-            />
-          </Button>
-        )}
-        {onOpenMarket && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onOpenMarket}
-            title="Market utility"
-            aria-label="Market utility"
-            className={`h-8 w-8 hover:bg-white/5 ${activeWorkspace === 'market' ? 'bg-cyan-500/15 border border-cyan-400/30' : ''}`}
-          >
-            <Store
-              className={`h-4 w-4 ${activeWorkspace === 'market' ? 'text-cyan-300' : 'text-slate-400 hover:text-cyan-300'}`}
-            />
-          </Button>
-        )}
         {notificationSlot}
-        {onOpenStudio && activeWorkspace === 'office' && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onOpenStudio}
-            title="Studio utility"
-            aria-label="Studio utility"
-            className="h-8 w-8 hover:bg-white/5"
-          >
-            <PenTool className="h-4 w-4 text-slate-400 hover:text-emerald-400" />
-          </Button>
-        )}
-        <div className="h-6 w-px bg-white/10" />
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onOpenSettings}
-          title={needsConfig ? 'Settings - API key required' : 'Settings'}
-          aria-label={needsConfig ? 'Settings - API key required' : 'Settings'}
-          className="h-8 w-8 hover:bg-white/5"
-        >
-          <Settings className="h-4 w-4 text-slate-400 hover:text-blue-400" />
-        </Button>
       </div>
     </header>
+  );
+}
+
+function ViewModeToggle({
+  value,
+  onChange,
+}: { value: '2D' | '3D'; onChange: (mode: '2D' | '3D') => void }) {
+  return (
+    <div className="flex h-8 items-center rounded-full border border-white/10 bg-black/35 px-1">
+      {(['3D', '2D'] as const).map((mode) => {
+        const active = value === mode;
+        return (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => onChange(mode)}
+            title={`Switch to ${mode} office view`}
+            aria-label={`Switch to ${mode} office view`}
+            className={`h-6 rounded-md px-3 text-xs font-semibold uppercase tracking-wider transition-all ${
+              active
+                ? 'rounded-full border border-cyan-400/35 bg-cyan-400/12 text-cyan-100'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            {mode}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PeerWorkspaceNav({
+  items,
+  active,
+  onSelect,
+}: {
+  items: ReadonlyArray<HeaderPeerWorkspaceItem>;
+  active: WorkspaceKey;
+  onSelect: (key: WorkspaceKey) => void;
+}) {
+  return (
+    <nav
+      aria-label="Primary workspace navigation"
+      className="flex items-center gap-0.5 rounded-full border border-white/10 bg-black/30 p-0.5"
+    >
+      {items.map((item) => {
+        const selected = item.key === active;
+        const Icon = item.icon;
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => onSelect(item.key)}
+            aria-label={`${item.label} workspace`}
+            title={item.label}
+            aria-current={selected ? 'page' : undefined}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide transition-colors sm:px-3 ${
+              selected
+                ? 'border border-cyan-400/30 bg-blue-500/15 text-blue-100'
+                : 'border border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200'
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+const MAX_VISIBLE_OFFICE_TOOLS = 3;
+
+function OfficeToolBar({ items }: { items: ReadonlyArray<HeaderOfficeToolItem> }) {
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!overflowOpen) return;
+    const handler = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOverflowOpen(false);
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [overflowOpen]);
+
+  if (items.length === 0) return null;
+  const visible = items.slice(0, MAX_VISIBLE_OFFICE_TOOLS);
+  const overflow = items.slice(MAX_VISIBLE_OFFICE_TOOLS);
+
+  return (
+    <div
+      role="toolbar"
+      aria-label="Office tools"
+      className="flex items-center gap-0.5 rounded-full border border-white/10 bg-black/30 p-0.5"
+    >
+      {visible.map((tool) => (
+        <OfficeToolButton key={tool.key} tool={tool} />
+      ))}
+      {overflow.length > 0 && (
+        <div ref={menuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setOverflowOpen((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={overflowOpen}
+            aria-label="More office tools"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-white/8 hover:text-slate-100"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+          {overflowOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-[calc(100%+4px)] z-10 w-48 overflow-hidden rounded-xl border border-white/10 bg-slate-900 shadow-2xl"
+            >
+              {overflow.map((tool) => (
+                <button
+                  key={tool.key}
+                  type="button"
+                  role="menuitem"
+                  disabled={tool.disabled}
+                  onClick={() => {
+                    setOverflowOpen(false);
+                    if (!tool.disabled) tool.onActivate();
+                  }}
+                  title={tool.disabled ? tool.disabledReason : undefined}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <tool.icon className="h-4 w-4" />
+                  <span className="flex-1">{tool.label}</span>
+                  {tool.shortcut && (
+                    <kbd className="rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[10px] text-slate-400">
+                      {tool.shortcut}
+                    </kbd>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OfficeToolButton({ tool }: { tool: HeaderOfficeToolItem }) {
+  const Icon = tool.icon;
+  const label = tool.label + (tool.shortcut ? ` (${tool.shortcut})` : '');
+  const active = tool.isActive === true;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!tool.disabled) tool.onActivate();
+      }}
+      disabled={tool.disabled}
+      aria-pressed={active}
+      aria-label={label}
+      title={tool.disabled ? tool.disabledReason : label}
+      data-office-tool={tool.key}
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        active
+          ? 'border border-cyan-400/35 bg-cyan-400/15 text-cyan-100'
+          : 'border border-transparent text-slate-400 hover:bg-white/8 hover:text-slate-100'
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
   );
 }
