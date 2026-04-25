@@ -3,19 +3,20 @@
 ## Purpose
 
 The main app shell defines stable layout behavior at desktop (1440x900), tablet (1280x800), and narrow (390x844) viewports without horizontal document overflow. The active screen's primary action is reachable at narrow widths without being clipped by rails, collapse handles, overlays, or fixed footers. Company Portal and the template wizard stack into single column on narrow screens. Screens with sticky/fixed bottom actions reserve enough bottom padding so the last form field, validation message, or preview is never hidden behind the footer. The responsive change is validated through screenshot QA at the three reference viewports across all primary screens.
-
 ## Requirements
-
 ### Requirement: App shell supports desktop tablet and narrow viewports
-The main app shell SHALL define stable desktop, tablet, and narrow layout behavior without horizontal document overflow. At `390px` viewport width, the user SHALL be able to reach the active screen's primary action without content being clipped by side rails, collapse handles, overlays, or fixed footers.
+The main app shell SHALL define stable desktop, tablet, and narrow layout behavior without horizontal document overflow. At `390px` viewport width, the user SHALL be able to reach the active screen's primary action without content being clipped by side rails, collapse handles, overlays, or fixed footers. At desktop and tablet widths in Office, the right rail (chat / tasks surface) SHALL render expanded by default unless the user has explicitly collapsed it (preference persisted in `localStorage`).
 
 #### Scenario: Desktop workspace retains full shell
 - **WHEN** the viewport is `1440x900` and the active workspace is Office
 - **THEN** the app renders Header, left panel, central scene/workspace area, right task panel, and StatusBar without overlapping the primary scene or task input controls
+- **AND** the right rail SHALL render expanded by default
 
-#### Scenario: Tablet workspace collapses nonessential rails
-- **WHEN** the viewport is `1280x800`
-- **THEN** AppLayout MAY collapse secondary rails or handles, but SHALL preserve visible peer workspace navigation, the active workspace body, and the current primary action
+#### Scenario: Tablet workspace keeps right rail expanded
+- **WHEN** the viewport is `1280x800` and the active workspace is Office with no persisted right rail preference
+- **THEN** AppLayout SHALL render the right rail expanded (not collapsed)
+- **AND** SHALL preserve visible peer workspace navigation, the active workspace body, and the current primary action
+- **AND** MAY collapse other secondary rails or handles (e.g. left personnel rail behavior is unchanged by this requirement)
 
 #### Scenario: Narrow viewport has no horizontal overflow
 - **WHEN** the viewport is `390x844`
@@ -57,3 +58,4 @@ The responsive shell change SHALL be validated through local screenshots or equi
 - **WHEN** implementation verification is performed
 - **THEN** the verification notes SHALL include the three required viewport sizes and the covered screens
 - **AND** any remaining narrow-screen limitation SHALL be documented as a product decision rather than an accidental clipping bug
+
