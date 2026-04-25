@@ -52,19 +52,19 @@ export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeSta
 
   const handleToggleDashboard = useCallback(
     () =>
-      updateWorkspaceState('office', (prev) => ({
-        ...prev,
-        dashboardOpen: !prev.dashboardOpen,
-      })),
+      updateWorkspaceState('office', (prev) => {
+        const next = !prev.dashboardOpen;
+        return { ...prev, dashboardOpen: next, kanbanOpen: next ? false : prev.kanbanOpen };
+      }),
     [updateWorkspaceState],
   );
 
   const handleToggleKanban = useCallback(
     () =>
-      updateWorkspaceState('office', (prev) => ({
-        ...prev,
-        kanbanOpen: !prev.kanbanOpen,
-      })),
+      updateWorkspaceState('office', (prev) => {
+        const next = !prev.kanbanOpen;
+        return { ...prev, kanbanOpen: next, dashboardOpen: next ? false : prev.dashboardOpen };
+      }),
     [updateWorkspaceState],
   );
 

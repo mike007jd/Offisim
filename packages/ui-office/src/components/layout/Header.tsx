@@ -1,7 +1,12 @@
-import { Button } from '@offisim/ui-core';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@offisim/ui-core';
 import { ArrowLeft, Building2, ChevronDown, MoreHorizontal, Pencil } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
-import { useEffect, useRef, useState } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
 type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log' | 'settings';
@@ -252,18 +257,6 @@ function PeerWorkspaceNav({
 const MAX_VISIBLE_OFFICE_TOOLS = 3;
 
 function OfficeToolBar({ items }: { items: ReadonlyArray<HeaderOfficeToolItem> }) {
-  const [overflowOpen, setOverflowOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!overflowOpen) return;
-    const handler = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setOverflowOpen(false);
-    };
-    window.addEventListener('mousedown', handler);
-    return () => window.removeEventListener('mousedown', handler);
-  }, [overflowOpen]);
-
   if (items.length === 0) return null;
   const visible = items.slice(0, MAX_VISIBLE_OFFICE_TOOLS);
   const overflow = items.slice(MAX_VISIBLE_OFFICE_TOOLS);
@@ -278,47 +271,40 @@ function OfficeToolBar({ items }: { items: ReadonlyArray<HeaderOfficeToolItem> }
         <OfficeToolButton key={tool.key} tool={tool} />
       ))}
       {overflow.length > 0 && (
-        <div ref={menuRef} className="relative">
-          <button
-            type="button"
-            onClick={() => setOverflowOpen((open) => !open)}
-            aria-haspopup="menu"
-            aria-expanded={overflowOpen}
-            aria-label="More office tools"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-white/8 hover:text-slate-100"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
-          {overflowOpen && (
-            <div
-              role="menu"
-              className="absolute right-0 top-[calc(100%+4px)] z-10 w-48 overflow-hidden rounded-xl border border-white/10 bg-slate-900 shadow-2xl"
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="More office tools"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-white/8 hover:text-slate-100"
             >
-              {overflow.map((tool) => (
-                <button
-                  key={tool.key}
-                  type="button"
-                  role="menuitem"
-                  disabled={tool.disabled}
-                  onClick={() => {
-                    setOverflowOpen(false);
-                    if (!tool.disabled) tool.onActivate();
-                  }}
-                  title={tool.disabled ? tool.disabledReason : undefined}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <tool.icon className="h-4 w-4" />
-                  <span className="flex-1">{tool.label}</span>
-                  {tool.shortcut && (
-                    <kbd className="rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[10px] text-slate-400">
-                      {tool.shortcut}
-                    </kbd>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            collisionPadding={8}
+            className="max-h-[60vh] w-48 overflow-y-auto"
+          >
+            {overflow.map((tool) => (
+              <DropdownMenuItem
+                key={tool.key}
+                disabled={tool.disabled}
+                title={tool.disabled ? tool.disabledReason : undefined}
+                onSelect={() => tool.onActivate()}
+                className="gap-2"
+              >
+                <tool.icon className="h-4 w-4" />
+                <span className="flex-1">{tool.label}</span>
+                {tool.shortcut && (
+                  <kbd className="rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[10px] text-slate-400">
+                    {tool.shortcut}
+                  </kbd>
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );
@@ -339,10 +325,10 @@ function OfficeToolButton({ tool }: { tool: HeaderOfficeToolItem }) {
       aria-label={label}
       title={tool.disabled ? tool.disabledReason : label}
       data-office-tool={tool.key}
-      className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`relative inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         active
-          ? 'border border-cyan-400/35 bg-cyan-400/15 text-cyan-100'
-          : 'border border-transparent text-slate-400 hover:bg-white/8 hover:text-slate-100'
+          ? 'text-cyan-200 hover:text-cyan-100 after:absolute after:bottom-0.5 after:left-2 after:right-2 after:h-px after:rounded-full after:bg-cyan-300/70'
+          : 'text-slate-400 hover:bg-white/8 hover:text-slate-100'
       }`}
     >
       <Icon className="h-4 w-4" />
