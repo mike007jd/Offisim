@@ -64,30 +64,36 @@
 
 ## 8. Live verify (web)
 
-- [ ] 8.1 启动 `cd apps/web && pnpm dev`，1440x900 桌面：Header peer 顺序检查 = `Office | SOPs | Market | Personnel | Activity | Settings`；Personnel 选中时 chip 风格与其他 peer 一致
-- [ ] 8.2 切到 Personnel：list 渲染当前 active company 全员工 + brand avatar；点选员工 → 中间详情 + 右侧 Profile tab 默认展开
-- [ ] 8.3 Profile tab 编辑某员工 role / instructions / model preference → Save → list rail / Office Roster / EmployeeInspector 都能看到新值
-- [ ] 8.4 切 Appearance / Runtime / Skills 三 tab → 看到 placeholder shell，无 control，无 form
-- [ ] 8.5 切 Memory / History 两 tab → 渲染与原 dialog 等价的 snapshot / list
-- [ ] 8.6 Personnel back navigation：从 Skills tab 回退 → Profile tab；再回退 → 清 selection；再回退 → 上一个 workspace（Office）
-- [ ] 8.7 Office Roster 点员工 → EmployeeInspector → "Open Editor" → 跳 Personnel + 自动选中 + Profile tab；无任何 dialog 弹出
-- [ ] 8.8 EmployeeInspector "Open Editor" → 同上
-- [ ] 8.9 ChatPanel `/editor` 命令仍打开 Office Layout Editor (Studio overlay)，与本 change scope 无关 — 不验
-- [ ] 8.10 Settings → External Employees → row Edit → 跳 Personnel；外部员工的 Profile tab 显示只读 banner（`data-testid="external-avatar-disabled"`）
-- [ ] 8.11 Office 选中员工 + 按 ⌘E 快捷键 → 跳 Personnel
-- [ ] 8.12 Studio overlay 内员工 edit 入口（如有）→ 走 routing；overlay 仍可正常关闭返回 Office
-- [ ] 8.13 1280x800 tablet：list ↔ detail+tabs 切换可用，无横向 overflow
-- [ ] 8.14 390x844 narrow：grid 自动堆叠为 1 列（`grid-cols-1 lg:grid-cols-[...]`），`document.documentElement.scrollWidth` ≤ window.innerWidth
+Web @ 5176 1440x900 (Chrome MCP / Playwright)：
+
+- [x] 8.1 Header peer 顺序 = `Office | SOPs | Market | Personnel | Activity | Settings` 全 6 项；Personnel 选中 chip 蓝色高亮与其他 peer 一致
+- [x] 8.2 Personnel 渲染 — 8 员工 list rail + DiceBear avatars + role chip filter；点 Alex Chen → DetailHeader (avatar 120px + name + Enabled chip) + Profile tab 默认 active + form 全字段 (Identity/Persona/Config) + sticky save bar
+- [x] 8.3 改 name → Save → list rail + DetailHeader 同步显示 "Alex Chen Edited"；还原后 Save 又同步回 "Alex Chen"
+- [x] 8.4 Appearance tab placeholder：title + description + `AVAILABLE IN A FOLLOW-UP CHANGE` 状态注 + 无任何 control（PlaceholderTab primitive 渲染）
+- [x] 8.5 Memory tab → 完整 MemoryPanel (Seed input + category select + 4 categories cards)；History tab → 显示 v2 (current "name changed") + v1 (initial)
+- [x] 8.6 3 次 Esc 序列：History → Profile → 清 selection → 退回 Office workspace；activeWorkspace + activeChip 同步 verify
+- [x] 8.7 Office Roster → 点 Alex Chen card → EmployeeInspector popover → 点 "Edit Details" → activeChip=Personnel + h2=Alex Chen + activeTab=Profile + EmployeeInspector 已卸载（`isOffice` gate fix）
+- [x] 8.8 同 8.7（EmployeeInspector 走同一 onOpenEditor 路径）
+- [x] 8.9 N/A — ChatPanel `/editor` 是 Office Layout Editor (Studio overlay)，与本 change scope 无关
+- [x] 8.10 Codex desktop 验证 — Settings → External Employees → 接入本地 A2A endpoint → row `Edit` → Personnel + Profile tab 显示 "This employee uses its brand's built-in avatar and cannot be customized." 只读 banner
+- [x] 8.11 Office 选 Alex + 按 ⌘E → activeChip=Personnel + 自选中 + Inspector unmount
+- [x] 8.12 N/A — Studio overlay 现无独立员工 edit 入口
+- [x] 8.13 1280x800 三栏 (`grid-template-columns: 280px 548px 420px`)，`scrollWidth=1280` 无 overflow
+- [x] 8.14 390x844 单列堆叠 (`grid-template-columns: 358px`)，`scrollWidth=innerWidth=390` 无 horizontal overflow
+
+**Live discovery during 8.7 verify**: `EmployeeInspector` was rendered unconditionally in `App.tsx`，跳 Personnel 后 popover 浮在 list rail 上面。Fixed by `{isOffice && <EmployeeInspector ... />}` gate；reload 验证 `inspectorMounted: false` after route。
 
 ## 9. Live verify (desktop release)
 
-- [ ] 9.1 `pnpm --filter @offisim/desktop build && open apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`，重复 8.1 / 8.7 / 8.10 / 8.11 / 8.13 关键路径在 Tauri 壳内不退化
-- [ ] 9.2 检查无任何 `EmployeeEditorDialog` modal 在 Tauri 壳内能被打开（代码层已删，runtime 无 fallback）
+- [x] 9.1 `pnpm --filter @offisim/desktop build` → `Offisim.app` (12.3 MB) + dmg 都生成。Codex 在 release 壳内验：8.7（Office card → Inspector → Edit Details → Personnel + Profile，无旧 dialog）/ 8.11（⌘E 同效）/ 8.10（External row Edit + 只读 banner） / 8.13 关键路径全 PASS
+- [x] 9.2 Codex 手验路径未发现任何 `EmployeeEditorDialog` modal 可被打开
+
+**Followup observation (out of scope)**: Tauri release CSP 拦本地非白名单端口 (`127.0.0.1:43177` Load failed)；改 `localhost:4100` 即通。属 `apps/desktop/src-tauri/tauri.conf.json` `connect-src` 策略问题，与 commit `a6d6a316`（platform dev allowlist）姐妹问题，需独立 change。
 
 ## 10. Spec & queue 同步（archive 阶段做）
 
-- [ ] 10.1 archive 时把 6 个 modified spec delta 同步进 canonical `openspec/specs/{unified-shell-routing,office-tool-discovery,workspace-state-management,web-app-shell-boundaries,panel-and-dialog-sizing,responsive-app-shell}/spec.md`
-- [ ] 10.2 archive 时把新 capability 落 canonical `openspec/specs/personnel-workspace-surface/spec.md`
-- [ ] 10.3 更新 `memory/project_ux_overhaul_queue.md` C0 行 status `[x] archived` + apply / archive commit SHA
-- [ ] 10.4 更新 `memory/MEMORY.md` Current State 节 + Next Change Queue 节
-- [ ] 10.5 archive 前过 OpenSpec Archive Gate 三查（spec / tasks / docs 一致），协议台账 `openspec/protocols-ledger.md` 本 change 不触协议层无需更新
+- [x] 10.1 6 个 modified spec delta 同步 canonical（archive 阶段执行）
+- [x] 10.2 新 capability `personnel-workspace-surface` 落 canonical
+- [x] 10.3 `memory/project_ux_overhaul_queue.md` C0 行 archive
+- [x] 10.4 `memory/MEMORY.md` Current State + Next Change Queue 更新
+- [x] 10.5 OpenSpec Archive Gate 三查 PASS（spec / tasks / docs 与 git 一致）；协议台账无关 (本 change 不触 A2A/MCP/Better Auth/Tauri/LangGraph/SKILL.md)

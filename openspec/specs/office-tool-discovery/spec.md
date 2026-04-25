@@ -2,21 +2,21 @@
 
 ## Purpose
 
-The Office workspace cleanly distinguishes peer workspace navigation (Office, SOPs, Market, Activity, Settings) from Office-scoped tools (Studio, Dashboard, Kanban, Add Employee). Office tools have visible entry points in the Header in addition to keyboard shortcuts, expose their open state, and collapse cleanly outside Office. The Office right panel prioritizes the task input; first-run guidance never floats over task controls or the central scene. Employee Inspector anchors to its selected employee rather than floating ambiguously between rail and scene.
+The Office workspace cleanly distinguishes peer workspace navigation (Office, SOPs, Market, Personnel, Activity, Settings) from Office-scoped tools (Studio, Dashboard, Kanban, Add Employee). Office tools have visible entry points in the Header in addition to keyboard shortcuts, expose their open state, and collapse cleanly outside Office. The Office right panel prioritizes the task input; first-run guidance never floats over task controls or the central scene. Employee Inspector anchors to its selected employee rather than floating ambiguously between rail and scene.
 
 ## Requirements
 
 ### Requirement: Office tools are visible and distinct from peer workspaces
-The Header SHALL distinguish peer workspace navigation from Office-scoped tools. Peer workspaces are Office, SOPs, Market, Activity, and Settings. Office-scoped tools include Studio, Dashboard, Kanban, and Add Employee.
+The Header SHALL distinguish peer workspace navigation from Office-scoped tools. Peer workspaces are Office, SOPs, Market, Personnel, Activity, and Settings. Office-scoped tools include Studio, Dashboard, Kanban, and Add Employee.
 
 #### Scenario: Office header shows workspace and tool groups
 - **WHEN** `activeWorkspace` is `'office'`
-- **THEN** Header shows peer workspace navigation
+- **THEN** Header shows peer workspace navigation including Personnel
 - **AND** Header shows visible Office tool entries for Studio, Dashboard, Kanban, and Add Employee
 
 #### Scenario: Non-office header keeps workspace navigation focused
 - **WHEN** `activeWorkspace` is not `'office'`
-- **THEN** Header shows peer workspace navigation and current workspace context
+- **THEN** Header shows peer workspace navigation (six peers) and current workspace context
 - **AND** Office-scoped tools are hidden or grouped behind a clear return-to-Office affordance
 
 ### Requirement: Dashboard and Kanban have visible entry points
@@ -63,12 +63,17 @@ Employee Inspector SHALL either anchor near the selected employee or render as a
 - **AND** closing the inspector returns the Office view to the previous task context without changing workspace
 
 ### Requirement: Header selected state is unique to peer workspace navigation
-The Header SHALL render the active peer workspace as the only "selected chip" style indicator. Office-scoped tools that expose an active panel state (Dashboard, Kanban) SHALL use a visually weaker indicator than peer workspace selection so users can distinguish workspace navigation from panel toggles.
+The Header SHALL render the active peer workspace as the only "selected chip" style indicator. Office-scoped tools that expose an active panel state (Dashboard, Kanban) SHALL use a visually weaker indicator than peer workspace selection so users can distinguish workspace navigation from panel toggles. The Personnel peer SHALL share the same chip style as the other five peers when active.
 
 #### Scenario: Peer workspace selected uses chip style
 - **WHEN** a peer workspace is the active workspace in Office
 - **THEN** its nav entry SHALL render with a filled chip style (border + background + highlighted text) and `aria-current="page"`
 - **AND** no Office-scoped tool entry SHALL render the same filled chip style at the same time
+
+#### Scenario: Personnel peer selected uses chip style
+- **WHEN** `activeWorkspace === 'personnel'`
+- **THEN** the Personnel nav entry SHALL render with the same filled chip style and `aria-current="page"` used by the other peers
+- **AND** the chip style SHALL NOT differ from Office, SOPs, Market, Activity, or Settings selection
 
 #### Scenario: Office tool active uses subordinate indicator
 - **WHEN** an Office tool with `isActive=true` (Dashboard or Kanban panel open) is rendered in the Office tool group

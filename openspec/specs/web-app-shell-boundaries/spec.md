@@ -91,11 +91,16 @@ The render branches for `activeOverlay === 'employee-creator' | 'office-editor' 
 - **THEN** the component SHALL NOT declare `useState` / `useEffect`; it accepts props and returns JSX only (Suspense wrappers are permitted)
 
 ### Requirement: Global dialogs host is a single component
-The render branches for `InstallDialog`, `EmployeeEditorDialog`, `CompanyEditor`, `KeyboardShortcutsDialog`, and both `CompanyCreationWizard` modes (`populate-existing` + `create-new`) SHALL live in `apps/web/src/components/app-shell/AppGlobalDialogs.tsx`. `App.tsx` SHALL NOT contain these JSX branches.
+The render branches for `InstallDialog`, `CompanyEditor`, `KeyboardShortcutsDialog`, and both `CompanyCreationWizard` modes (`populate-existing` + `create-new`) SHALL live in `apps/web/src/components/app-shell/AppGlobalDialogs.tsx`. `App.tsx` SHALL NOT contain these JSX branches. `EmployeeEditorDialog` SHALL NOT be rendered from this file because the dialog has been removed in favor of the Personnel workspace.
 
 #### Scenario: Dialog branches moved
-- **WHEN** grepping `apps/web/src/App.tsx` for `<InstallDialog` / `<EmployeeEditorDialog` / `<CompanyCreationWizard`
+- **WHEN** grepping `apps/web/src/App.tsx` for `<InstallDialog` / `<CompanyCreationWizard`
 - **THEN** zero matches exist — they live in `AppGlobalDialogs.tsx`
+
+#### Scenario: EmployeeEditorDialog branch removed
+- **WHEN** grepping `apps/web/src/components/app-shell/AppGlobalDialogs.tsx` for `EmployeeEditorDialog`
+- **THEN** zero matches exist
+- **AND** the file SHALL NOT accept an `employeeEditor` prop or any equivalent dialog-state input
 
 #### Scenario: Wizard dual-mode branch preserved
 - **WHEN** `isOffice && activeOverlay === null`
