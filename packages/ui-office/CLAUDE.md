@@ -25,6 +25,7 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - 新增 prefab 必须在 `prefab-spatial.ts` SPATIAL_SPECS 补数据
 - Settings: `SettingsWorkspaceSurface.tsx` 拆出 primitives + ProviderTab + RuntimeTab。`SettingsPage` 用 capture-phase Escape handler 调 `controller.requestDismiss()` 拦截未保存更改。保存 runtimePolicy 必须含 `toolPermissions`。reinit 超时用独立 effect（只依赖 `isReinitializing`），版本检测 effect 独立（依赖 `runtimeVersion`），不要合并
 - Studio: 保存错误用 `useToasts` + `<ToastBanner>`, 不要写内联 error banner
+- Studio 编辑层级 = Plot → Zone → Asset 显式三态，唯一真相在 `useStudioHierarchyLevel()` (`StudioState.tsx`)，从 `selectedZoneId / selectedInstanceId / isEditingZone` 派生。`PlotZoneBreadcrumb` 三段 + `StudioPalette` 三态分支 + `StudioProperties` 顶部锚行都消费同一 hook。Esc 在 `StudioPage` 顶层 handler 单层退栈：placement active → cancel；Asset → Zone (exitEditZone)；Zone → Plot (unfocusZone)；Plot 不消费。`exitEditZone` 现在会清 `focusedZoneId`（保留 `selectedZoneId`），别再恢复"全清"旧语义。PlotSize 持久化只走 `localStorage`（key `offisim:studio:plot-size:<companyId|create>`，`CREATE_PLOT_KEY` 常量在 `studio-plot-size-storage.ts`），**不要落 DB 列**；create→edit 自动迁移由 `resetForCompany` 触发。
 - Install: `startRegistryInstall` 开头有 `txnIdRef.current` 并发守卫，不要删除
 - SOP: `handleRun` 执行前校验 role_slug 存在性, 缺失角色时 warning toast
 - UI 文案密度: 副标题仅在标题本身有歧义时使用。删除营销文案、不要重复展示同一信息

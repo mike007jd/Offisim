@@ -124,7 +124,7 @@
 - [x] 10.2 协议台账无关此 change（不涉及 A2A / MCP / Tauri / Better Auth / SKILL.md / agentskills.io），跳过
 - [x] 10.3 canonical spec sync：把 `openspec/changes/studio-plot-zone-hierarchy/specs/studio-plot-zone-hierarchy/spec.md` 内容落到 `openspec/specs/studio-plot-zone-hierarchy/spec.md`（archive 步骤会做，本任务只是确认 8 requirement 全保留）
   - 8 requirements 已确认：层级状态机 / breadcrumb / Esc 退栈 / PlotSize 持久化 / Palette 三态 / Properties 锚 / no-modify-zone-edit-or-3d
-- [ ] 10.4 CLAUDE.md "Workspace IA" 节 / Studio gotchas 是否需要补一行 "Studio editing has explicit Plot → Zone → Asset hierarchy with breadcrumb + Esc stack pop, PlotSize is localStorage-only" — 视情况决定（不强制）
-  - 留 archive 阶段决定（不阻塞 apply）
-- [ ] 10.5 写 archive 时 update memory：MEMORY.md "刚 archived" 段加 D1 entry + commit SHA
-  - archive 阶段执行
+- [x] 10.4 CLAUDE.md "Workspace IA" 节 / Studio gotchas 是否需要补一行 "Studio editing has explicit Plot → Zone → Asset hierarchy with breadcrumb + Esc stack pop, PlotSize is localStorage-only" — 视情况决定（不强制）
+  - `packages/ui-office/CLAUDE.md` "UI / Scene / 3D" 节加一行 Studio gotcha（hierarchy 三态 + Esc 单层退栈 + exitEditZone 改判 + PlotSize localStorage SSOT + 不落 DB）
+- [x] 10.5 写 archive 时 update memory：MEMORY.md "刚 archived" 段加 D1 entry + commit SHA
+  - 已加 `刚 archived 2026-04-26` D1 entry（apply commit `ed33fe37` + simplify commit `ed82d61e`）
