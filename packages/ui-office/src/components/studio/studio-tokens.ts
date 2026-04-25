@@ -276,3 +276,18 @@ export function valueStyle(): React.CSSProperties {
     color: STUDIO_COLORS.textPrimary,
   };
 }
+
+export function inputStyle(focused: boolean): React.CSSProperties {
+  return {
+    height: 32,
+    padding: `0 ${SP.sm}px`,
+    background: focused ? STUDIO_COLORS.surface1 : 'transparent',
+    border: `1px solid ${focused ? STUDIO_COLORS.borderActive : STUDIO_COLORS.borderSubtle}`,
+    borderRadius: LAYOUT.buttonRadius,
+    color: STUDIO_COLORS.textPrimary,
+    fontSize: FONT.md,
+    fontFamily: FONT.family,
+    outline: 'none',
+    transition: 'background 0.1s, border-color 0.1s',
+  };
+}

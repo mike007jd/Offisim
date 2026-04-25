@@ -3,9 +3,7 @@
 ## Purpose
 
 `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` owns the Settings workspace controller — the React hook `useSettingsWorkspaceController` that glues provider-product selection, access mode, advanced routing, runtime-policy state, save/load/reinit lifecycle, and dirty-tracking into a single controller surface consumed by `SettingsPage` / `SettingsContentArea` / `SettingsProviderTab` / `SettingsRuntimeTab` / `SettingsTabNav` — plus the `SettingsWorkspaceSurface` JSX component used by overlay mode. Pre-refactor (Round 2, 2026-04-18) it was a 624-NBNC double-export file that stacked 24 `useState` hooks, a 140-line `isActive`-driven load effect, a 120-line async `handleSave`, two independent reinit effects, plus three formatter helpers and three parser helpers into a single function scope. This spec locks the post-refactor decomposition so future provider-product or runtime-policy edits touch one sibling hook, not the 600-line monolith, and prevents the two reinit effects from being merged again.
-
 ## Requirements
-
 ### Requirement: SettingsWorkspaceSurface barrel is thin
 
 `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` SHALL contain no more than 180 non-blank, non-comment lines. The barrel SHALL retain its existing public exports:
@@ -188,3 +186,24 @@ The control SHALL respect `availableEngineAdapters` from `OffisimRuntimeContext`
 #### Scenario: Default control omits Inherit option
 - **WHEN** the control renders for any policy state
 - **THEN** the control SHALL NOT offer an `Inherit` option
+
+### Requirement: Company-level model defaults SHALL be owned exclusively by Settings → Runtime via runtimePolicy
+
+Company-level defaults for `model`, `temperature`, and `maxTokens` (the values consumed by `ModelResolver` at runtime) SHALL be owned exclusively by `runtimePolicy.modelPolicy`, configured through Settings → Runtime tab. No other UI surface in the application SHALL provide an editor that writes equivalent fields to a parallel store.
+
+In particular, no code SHALL write `defaultModel`, `defaultTemperature`, or `defaultMaxTokens` keys into `officeLayouts.layout_json.policy` or any other location that is not `runtimePolicy.modelPolicy`. Legacy data on disk MAY exist but SHALL NOT be surfaced to users via any editor.
+
+The `personnel-runtime-engine-binding` capability remains the SSOT for company-level employee runtime defaults (provider gateway vs trusted engine), exposed alongside the model defaults inside the same Runtime tab.
+
+#### Scenario: No parallel write path for default model fields
+- **WHEN** grepping `packages/ui-office/src/**/*.{ts,tsx}` (excluding `dist/` and tests) for assignments to `defaultModel:`, `defaultTemperature:`, or `defaultMaxTokens:` as part of an object passed to a repository write
+- **THEN** zero matches exist outside of `controller/useSettingsRuntimePolicy.ts` or other Settings → Runtime sibling hooks
+
+#### Scenario: ModelResolver consumes runtimePolicy only
+- **WHEN** grepping `apps/web/src/lib/browser-runtime.ts` and `apps/web/src/lib/tauri-runtime.ts` for `new ModelResolver(`
+- **THEN** every call site passes `runtimePolicy` (the `RuntimePolicyConfig` from Settings) as the first argument
+
+#### Scenario: PolicyEditor component does not exist
+- **WHEN** running `ls packages/ui-office/src/components/company/PolicyEditor.tsx`
+- **THEN** the command exits with a non-zero status (no such file)
+

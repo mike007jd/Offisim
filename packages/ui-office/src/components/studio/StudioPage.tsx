@@ -28,6 +28,7 @@ import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import { PlotZoneBreadcrumb } from './PlotZoneBreadcrumb.js';
 import { CREATE_PLOT_KEY, readStoredPlotSize } from './studio-plot-size-storage.js';
 import { StudioCanvas } from './StudioCanvas.js';
+import { StudioCompanyIdentity, STUDIO_IDENTITY_HEIGHT } from './StudioCompanyIdentity.js';
 import { StudioGhost } from './StudioGhost.js';
 import { StudioPalette } from './StudioPalette.js';
 import { StudioPlacedPrefabs } from './StudioPlacedPrefabs.js';
@@ -39,6 +40,7 @@ import { StudioZoneGhost } from './StudioZoneGhost.js';
 import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
 
 const BREADCRUMB_HEIGHT = 32;
+const TOP_CHROME_HEIGHT = LAYOUT.toolbarHeight + STUDIO_IDENTITY_HEIGHT + BREADCRUMB_HEIGHT;
 
 // -- Props --------------------------------------------------------------------
 
@@ -70,7 +72,7 @@ const ROOT_STYLE: React.CSSProperties = {
 
 const CANVAS_CONTAINER: React.CSSProperties = {
   position: 'absolute',
-  top: LAYOUT.toolbarHeight + BREADCRUMB_HEIGHT,
+  top: TOP_CHROME_HEIGHT,
   left: LAYOUT.paletteWidth,
   right: LAYOUT.propertiesWidth,
   bottom: LAYOUT.bottomBarHeight,
@@ -490,6 +492,13 @@ export function StudioPage(props: StudioPageProps) {
       <StudioToolbar onSave={handleSave} onBack={onBack} saving={saving} saveFlash={saveFlash} />
 
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+
+      <StudioCompanyIdentity
+        mode={mode}
+        companyId={companyId}
+        repos={repos}
+        onError={(message) => addToast(message, 'error')}
+      />
 
       {/* Hierarchy breadcrumb (Plot · Zone · Asset) */}
       <PlotZoneBreadcrumb />

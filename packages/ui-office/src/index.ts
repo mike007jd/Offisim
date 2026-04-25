@@ -1,11 +1,10 @@
 // Components
-// Note: CompanyCreationWizard, CompanyEditor, DashboardOverlay, EmployeeCreatorOverlay,
-// InstallDialog, OfficeEditorOverlay, SettingsDialog are intentionally NOT exported from
-// the barrel — they are lazy-loaded via subpath exports (e.g. @offisim/ui-office/wizard).
+// Note: CompanyCreationWizard, DashboardOverlay, EmployeeCreatorOverlay, InstallDialog,
+// OfficeEditorOverlay, SettingsDialog are intentionally NOT exported from the barrel —
+// they are lazy-loaded via subpath exports (e.g. @offisim/ui-office/wizard).
 export * from './components/ErrorBoundary.js';
 export { CompanyProvider, useCompany } from './components/company/CompanyContext.js';
 export { CompanySelectionPage } from './components/company/CompanySelectionPage.js';
-export * from './components/company/PolicyEditor.js';
 export * from './components/agents/AgentCard.js';
 export * from './components/agents/AgentPanel.js';
 export * from './components/agents/EmployeeInspector.js';
@@ -86,7 +85,6 @@ export * from './components/events/ActivityLogPage.js';
 
 // Hooks
 export * from './hooks/use-reduced-motion.js';
-export * from './hooks/useCompanyEditor.js';
 export * from './hooks/useCompanyCreation.js';
 export * from './hooks/useCompanyPreview.js';
 export * from './hooks/useCompanyZones.js';
@@ -125,6 +123,7 @@ export * from './lib/provider-product-taxonomy.js';
 export * from './lib/provider-config.js';
 export * from './lib/export-to-manifest.js';
 export * from './lib/vault-export.js';
+export { parseCompanyDescription, updateCompanyIdentity } from './lib/company-identity.js';
 
 // Runtime
 export * from './runtime/offisim-runtime-context.js';

@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@offisim/ui-core';
-import { ArrowLeft, Building2, ChevronDown, MoreHorizontal, Pencil } from 'lucide-react';
+import { ArrowLeft, Building2, ChevronDown, MoreHorizontal } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
@@ -35,7 +35,6 @@ interface HeaderProps {
   companyName?: string;
   onOpenSettings: () => void;
   onOpenCompanySelect?: () => void;
-  onOpenCompanyEditor?: () => void;
   onFileImport: (file: File) => void;
   notificationSlot?: ReactNode;
   projectSlot?: ReactNode;
@@ -57,7 +56,6 @@ export function Header({
   companyName,
   onOpenSettings,
   onOpenCompanySelect,
-  onOpenCompanyEditor,
   onFileImport,
   notificationSlot,
   projectSlot,
@@ -106,34 +104,18 @@ export function Header({
         )}
 
         {isOffice && onOpenCompanySelect && (
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={onOpenCompanySelect}
-              className="flex h-8 min-w-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 transition-colors hover:border-white/20 hover:bg-white/10"
-              title="Switch Company"
-            >
-              <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-400" />
-              <span className="max-w-[140px] truncate text-xs font-medium text-slate-200">
-                {companyName || 'Select Company'}
-              </span>
-              <ChevronDown className="h-3 w-3 shrink-0 text-slate-500" />
-            </button>
-            {onOpenCompanyEditor && (
-              <>
-                <div className="h-5 w-px bg-white/10" />
-                <button
-                  type="button"
-                  onClick={onOpenCompanyEditor}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/8 transition-colors hover:bg-white/10"
-                  title="Company Settings"
-                  aria-label="Company Settings"
-                >
-                  <Pencil className="h-3 w-3 text-slate-500 hover:text-violet-400" />
-                </button>
-              </>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={onOpenCompanySelect}
+            className="flex h-8 min-w-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 transition-colors hover:border-white/20 hover:bg-white/10"
+            title="Switch Company"
+          >
+            <Building2 className="h-3.5 w-3.5 shrink-0 text-violet-400" />
+            <span className="max-w-[140px] truncate text-xs font-medium text-slate-200">
+              {companyName || 'Select Company'}
+            </span>
+            <ChevronDown className="h-3 w-3 shrink-0 text-slate-500" />
+          </button>
         )}
 
         {isOffice && <div className="hidden h-5 w-px bg-white/10 sm:block" />}

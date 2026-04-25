@@ -48,10 +48,6 @@ function createUiOfficeAliases() {
       replacement: path.resolve(uiOfficeSrc, 'components/office/OfficeEditorOverlay.tsx'),
     },
     {
-      find: /^@offisim\/ui-office\/company-editor$/,
-      replacement: path.resolve(uiOfficeSrc, 'components/company/CompanyEditor.tsx'),
-    },
-    {
       find: /^@offisim\/ui-office\/install$/,
       replacement: path.resolve(uiOfficeSrc, 'components/install/InstallDialog.tsx'),
     },

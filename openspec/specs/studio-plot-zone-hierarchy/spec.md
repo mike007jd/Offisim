@@ -3,9 +3,7 @@
 ## Purpose
 
 Studio editing exposes a fixed three-level stack — Plot → Zone → Asset — so users always know "where they are" without inferring from camera focus or palette mode flips. The level is a pure derivation of `useStudioStore` state (`selectedZoneId`, `selectedInstanceId`, `isEditingZone`); a `PlotZoneBreadcrumb` component renders the stack and routes click-segments back up the hierarchy; a single Escape handler in `StudioPage` pops one level at a time with deterministic precedence over ghost placement and the global modal stack; `StudioPalette` switches its presentation by hierarchy level (Plot / Zone share the two-tab layout; zone-edit forces the assets tab and filters prefabs by the active zone's `allowedCategories`); `StudioProperties` carries a one-line hierarchy anchor row at the very top of its scroll container. PlotSize selection is persisted per-company in `localStorage` (`offisim:studio:plot-size:<companyId|create>`) — no DB column, no migration, with a one-shot `:create` → `:<newCompanyId>` migration when create mode resolves to a real company. The contract explicitly does NOT modify 3D rendering (mesh / lighting / materials remain B1 scope) or the existing Zustand action signatures except that `exitEditZone`'s side effect was tightened to clear `focusedZoneId` so Zone level is byte-equivalent to canvas-click selection. The Asset-level interaction surface (zone-edit prefab selection / drag / rotation / deletion / illegal-placement ghost coloring / edge-rebound logic) is formalized in the sibling `studio-asset-edit-contract` capability; this hierarchy contract remains the SSOT for level resolution that the asset-edit contract consumes.
-
 ## Requirements
-
 ### Requirement: Studio editing surface SHALL expose a fixed Plot → Zone → Asset hierarchy
 
 The Studio editor SHALL treat its editing context as a three-level stack:
@@ -254,3 +252,25 @@ The Asset-level interaction surface — prefab instance selection / drag / rotat
 #### Scenario: 3D scene rendering is byte-equivalent
 - **WHEN** PlotSize, breadcrumb, and palette filter changes are applied
 - **THEN** the 3D scene mesh / lighting / materials produced by `StudioCanvas` SHALL render identically to the pre-change baseline (no new Three.js nodes, no material parameter changes)
+
+### Requirement: Studio top chrome SHALL host the company identity editor
+
+The Studio top chrome (the toolbar band rendered by `StudioToolbar` and/or a thin band rendered between `StudioToolbar` and `PlotZoneBreadcrumb`) SHALL host the inline company name and description editor defined by the `studio-company-identity-editing` capability. The identity editor SHALL be rendered above `PlotZoneBreadcrumb` (so the breadcrumb still segments Plot · Zone · Asset directly above the canvas) and SHALL NOT shift the breadcrumb's vertical position relative to the canvas in a way that breaks `BREADCRUMB_HEIGHT` assumptions used for canvas top-offset (`StudioPage.tsx` `top: LAYOUT.toolbarHeight + BREADCRUMB_HEIGHT` constant) — if the identity band needs additional vertical space, the canvas top-offset constant SHALL be updated to account for it.
+
+The identity editor SHALL NOT appear in `mode === 'create'` description form (description is locked until first save) but the name input SHALL be present so create-mode users can pre-set the name; the existing `CompanyNameModal` flow remains the canonical confirmation step on first save.
+
+The identity editor SHALL NOT consume the Escape key — the existing Escape cascade (placement → asset → zone → plot) SHALL continue to be the only Escape handler in Studio.
+
+#### Scenario: Identity editor renders inside Studio top chrome
+- **WHEN** Studio renders in `mode === 'edit'` with a real `companyId`
+- **THEN** an inline name input and a description textarea are present in Studio's top chrome (above `PlotZoneBreadcrumb` and below `StudioToolbar`'s tools row, or inside `StudioToolbar`)
+
+#### Scenario: Breadcrumb position remains directly above canvas
+- **WHEN** the identity editor is rendered
+- **THEN** `PlotZoneBreadcrumb` is positioned immediately above the canvas (no other interactive surface between them)
+- **AND** the canvas top offset constant accounts for the identity band's height (no visual overlap of canvas and breadcrumb)
+
+#### Scenario: Escape behavior is unchanged
+- **WHEN** the user presses Escape while focused inside the identity editor or with the identity editor visible
+- **THEN** the Studio Escape cascade behaves exactly per the existing `studio-plot-zone-hierarchy` Escape requirements (placement → asset → zone → plot); the identity editor does NOT intercept Escape
+

@@ -49,7 +49,6 @@ export interface AppMainShellProps {
   activeCompanyId: string | null;
   sceneInteractive: boolean;
   agents: React.ComponentProps<typeof AgentPanel>['agents'];
-  onOpenCompanyEditor: () => void;
   onFileImport: (file: File) => void;
   projects: React.ComponentProps<typeof ProjectSelector>['projects'];
   activeProjectId: React.ComponentProps<typeof ProjectSelector>['activeProjectId'];
@@ -90,7 +89,6 @@ export function AppMainShell(props: AppMainShellProps) {
     activeCompanyId,
     sceneInteractive,
     agents,
-    onOpenCompanyEditor,
     onFileImport,
     projects,
     activeProjectId,
@@ -149,7 +147,6 @@ export function AppMainShell(props: AppMainShellProps) {
           companyName={activeCompanyName}
           onOpenSettings={handleOpenSettings}
           onOpenCompanySelect={onOpenCompanySelect}
-          onOpenCompanyEditor={onOpenCompanyEditor}
           onFileImport={onFileImport}
           notificationSlot={
             <NotificationCenter

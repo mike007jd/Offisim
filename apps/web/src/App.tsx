@@ -7,7 +7,6 @@ import {
   loadProviderConfig,
   useAgentStates,
   useCompany,
-  useCompanyEditor,
   useDeepLinkInstall,
   useFirstRunGuidance,
   useInstallFlow,
@@ -74,7 +73,6 @@ export function App({ onCompanySwitch }: AppProps) {
     dismissUnfinishedThreads,
     resumeThread,
   } = useOffisimRuntime();
-  const companyEditor = useCompanyEditor();
   const installFlow = useInstallFlow();
   const routeToPersonnel = useMemo(
     () => createRouteToPersonnel({ setActiveWorkspace, updateWorkspaceState }),
@@ -172,7 +170,6 @@ export function App({ onCompanySwitch }: AppProps) {
     officeState.kanbanOpen ||
     officeState.marketplaceListingId !== null ||
     installFlow.isOpen ||
-    companyEditor.isOpen ||
     shortcutHelpOpen ||
     companyWizardMode !== null;
 
@@ -266,7 +263,6 @@ export function App({ onCompanySwitch }: AppProps) {
             activeCompanyId={activeCompanyId}
             sceneInteractive={overlay.activeOverlay === null}
             agents={agents}
-            onOpenCompanyEditor={companyEditor.open}
             onFileImport={(file) => installFlow.startFileImport(file)}
             projects={projects}
             activeProjectId={activeProjectId}
@@ -320,8 +316,6 @@ export function App({ onCompanySwitch }: AppProps) {
 
         <AppGlobalDialogs
           installFlow={installFlow}
-          companyEditor={companyEditor}
-          openOfficeEditor={overlay.openOfficeEditor}
           shortcutHelpOpen={shortcutHelpOpen}
           setShortcutHelpOpen={setShortcutHelpOpen}
           isOffice={isOffice}

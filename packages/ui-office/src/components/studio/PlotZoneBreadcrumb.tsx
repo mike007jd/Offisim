@@ -7,13 +7,14 @@
 import { getBuiltinPrefab } from '@offisim/renderer';
 import { useMemo } from 'react';
 import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
+import { STUDIO_IDENTITY_HEIGHT } from './StudioCompanyIdentity.js';
 import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
 
 const SEPARATOR_CHAR = '›';
 
 const CONTAINER_STYLE: React.CSSProperties = {
   position: 'absolute',
-  top: LAYOUT.toolbarHeight,
+  top: LAYOUT.toolbarHeight + STUDIO_IDENTITY_HEIGHT,
   left: LAYOUT.paletteWidth,
   right: LAYOUT.propertiesWidth,
   height: 32,

@@ -32,10 +32,6 @@
       "types": "./dist/components/office/OfficeEditorOverlay.d.ts",
       "default": "./dist/components/office/OfficeEditorOverlay.js"
     },
-    "./company-editor": {
-      "types": "./dist/components/company/CompanyEditor.d.ts",
-      "default": "./dist/components/company/CompanyEditor.js"
-    },
     "./install": {
       "types": "./dist/components/install/InstallDialog.d.ts",
       "default": "./dist/components/install/InstallDialog.js"

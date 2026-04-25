@@ -1,28 +1,18 @@
-import {
-  KeyboardShortcutsDialog,
-  type useCompanyEditor,
-  type useInstallFlow,
-} from '@offisim/ui-office/web';
+import { KeyboardShortcutsDialog, type useInstallFlow } from '@offisim/ui-office/web';
 import React, { Suspense } from 'react';
 import type { OverlayKey } from '../../lib/app-view-layout';
 
 const CompanyCreationWizard = React.lazy(() =>
   import('@offisim/ui-office/wizard').then((m) => ({ default: m.CompanyCreationWizard })),
 );
-const CompanyEditor = React.lazy(() =>
-  import('@offisim/ui-office/company-editor').then((m) => ({ default: m.CompanyEditor })),
-);
 const InstallDialog = React.lazy(() =>
   import('@offisim/ui-office/install').then((m) => ({ default: m.InstallDialog })),
 );
 
 type InstallFlowLike = ReturnType<typeof useInstallFlow>;
-type CompanyEditorLike = ReturnType<typeof useCompanyEditor>;
 
 export interface AppGlobalDialogsProps {
   installFlow: InstallFlowLike;
-  companyEditor: CompanyEditorLike;
-  openOfficeEditor: () => void;
   shortcutHelpOpen: boolean;
   setShortcutHelpOpen: (next: boolean) => void;
   isOffice: boolean;
@@ -37,8 +27,6 @@ export interface AppGlobalDialogsProps {
 export function AppGlobalDialogs(props: AppGlobalDialogsProps) {
   const {
     installFlow,
-    companyEditor,
-    openOfficeEditor,
     shortcutHelpOpen,
     setShortcutHelpOpen,
     isOffice,
@@ -54,9 +42,6 @@ export function AppGlobalDialogs(props: AppGlobalDialogsProps) {
     <>
       <Suspense fallback={null}>
         <InstallDialog {...installFlow} />
-      </Suspense>
-      <Suspense fallback={null}>
-        <CompanyEditor {...companyEditor} onOpenOfficeEditor={openOfficeEditor} />
       </Suspense>
       <KeyboardShortcutsDialog open={shortcutHelpOpen} onOpenChange={setShortcutHelpOpen} />
       {isOffice && activeOverlay === null && (

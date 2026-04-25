@@ -1,9 +1,10 @@
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import type { CompanyRow } from '@offisim/core/browser';
 import type { PrefabInstanceRow, ZoneRow } from '@offisim/shared-types';
-import { Archive, ArrowRight, Building2, FolderPlus, Layers3, Users } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Archive, ArrowRight, Building2, FolderPlus, Layers3, Pencil, Users } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyPreview } from '../../hooks/useCompanyPreview.js';
+import { updateCompanyIdentity } from '../../lib/company-identity.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import { useCompany } from './CompanyContext.js';
 
@@ -250,8 +251,9 @@ export function CompanySelectionPage({
   onCreateNew,
   onArchiveCompany,
 }: CompanySelectionPageProps) {
-  const { companies, activeCompanyId } = useCompany();
+  const { companies, activeCompanyId, refreshCompanies } = useCompany();
   const { repos } = useOffisimRuntime();
+  const [renamingCompanyId, setRenamingCompanyId] = useState<string | null>(null);
   const visibleCompanies = useMemo(
     () => companies.filter((company) => company.status !== 'archived'),
     [companies],
@@ -310,43 +312,27 @@ export function CompanySelectionPage({
               };
               const isPreview = company.company_id === selectedCompany?.company_id;
               const isActive = company.company_id === activeCompanyId;
+              const isRenaming = company.company_id === renamingCompanyId;
               return (
-                <button
+                <CompanyRow
                   key={company.company_id || `company:${company.name}:${index}`}
-                  type="button"
-                  onClick={() => onPreviewCompany(company.company_id)}
-                  className={`w-full rounded-xl border p-3 text-left transition lg:p-4 ${
-                    isPreview
-                      ? 'border-blue-400/40 bg-blue-500/10 shadow-[0_0_0_1px_rgba(96,165,250,0.2)]'
-                      : 'border-white/8 bg-white/[0.03] hover:border-white/14 hover:bg-white/[0.05]'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-base font-semibold text-white">
-                        {company.name}
-                      </div>
-                      <div className="mt-1 text-xs uppercase tracking-wider text-slate-500">
-                        {company.template_label ?? 'Custom Layout'}
-                      </div>
-                    </div>
-                    {isActive && (
-                      <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-                        Active
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-3 flex items-center gap-4 text-xs text-slate-400 lg:mt-4">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5" />
-                      {summary.employeeCount}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Layers3 className="h-3.5 w-3.5" />
-                      {summary.projectCount}
-                    </span>
-                  </div>
-                </button>
+                  company={company}
+                  summary={summary}
+                  isPreview={isPreview}
+                  isActive={isActive}
+                  isRenaming={isRenaming}
+                  onPreview={() => onPreviewCompany(company.company_id)}
+                  onStartRename={() => setRenamingCompanyId(company.company_id)}
+                  onCommitRename={async (nextName) => {
+                    setRenamingCompanyId(null);
+                    if (!repos) return;
+                    const trimmed = nextName.trim();
+                    if (!trimmed || trimmed === company.name) return;
+                    await updateCompanyIdentity(repos, company.company_id, { name: trimmed });
+                    refreshCompanies();
+                  }}
+                  onCancelRename={() => setRenamingCompanyId(null)}
+                />
               );
             })
           )}
@@ -454,6 +440,127 @@ export function CompanySelectionPage({
           </aside>
         </div>
       </main>
+    </div>
+  );
+}
+
+interface CompanyRowProps {
+  company: CompanyRow;
+  summary: CompanySummary;
+  isPreview: boolean;
+  isActive: boolean;
+  isRenaming: boolean;
+  onPreview: () => void;
+  onStartRename: () => void;
+  onCommitRename: (nextName: string) => void | Promise<void>;
+  onCancelRename: () => void;
+}
+
+function CompanyRow({
+  company,
+  summary,
+  isPreview,
+  isActive,
+  isRenaming,
+  onPreview,
+  onStartRename,
+  onCommitRename,
+  onCancelRename,
+}: CompanyRowProps) {
+  const [draftName, setDraftName] = useState(company.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isRenaming) {
+      setDraftName(company.name);
+      requestAnimationFrame(() => {
+        inputRef.current?.select();
+      });
+    }
+  }, [isRenaming, company.name]);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => {
+        if (!isRenaming) onPreview();
+      }}
+      onKeyDown={(e) => {
+        if (isRenaming) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onPreview();
+        }
+      }}
+      className={`group w-full rounded-xl border p-3 text-left transition lg:p-4 ${
+        isPreview
+          ? 'border-blue-400/40 bg-blue-500/10 shadow-[0_0_0_1px_rgba(96,165,250,0.2)]'
+          : 'border-white/8 bg-white/[0.03] hover:border-white/14 hover:bg-white/[0.05]'
+      } ${isRenaming ? 'cursor-default' : 'cursor-pointer'}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {isRenaming ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void onCommitRename(draftName);
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  onCancelRename();
+                }
+              }}
+              onBlur={() => void onCommitRename(draftName)}
+              className="w-full rounded-md border border-blue-400/40 bg-slate-950/80 px-2 py-1 text-base font-semibold text-white outline-none focus:border-blue-300/70"
+              aria-label={`Rename ${company.name}`}
+            />
+          ) : (
+            <div className="truncate text-base font-semibold text-white">{company.name}</div>
+          )}
+          <div className="mt-1 text-xs uppercase tracking-wider text-slate-500">
+            {company.template_label ?? 'Custom Layout'}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {!isRenaming && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartRename();
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-white/8 text-slate-400 opacity-0 transition hover:bg-white/10 hover:text-white group-hover:opacity-100 focus:opacity-100"
+              title="Rename company"
+              aria-label={`Rename ${company.name}`}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {isActive && (
+            <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+              Active
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-4 text-xs text-slate-400 lg:mt-4">
+        <span className="inline-flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5" />
+          {summary.employeeCount}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <Layers3 className="h-3.5 w-3.5" />
+          {summary.projectCount}
+        </span>
+      </div>
     </div>
   );
 }
