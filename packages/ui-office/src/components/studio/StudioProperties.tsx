@@ -21,7 +21,7 @@ import {
 } from '@offisim/shared-types';
 import { BoxSelect, Lock, MapPin, RotateCw, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
-import { useStudioStore } from './StudioState.js';
+import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
 import {
   FONT,
   LAYOUT,
@@ -178,6 +178,11 @@ function StudioPropertiesEmptyState() {
 }
 
 export function StudioProperties() {
+  // Hierarchy anchor
+  const level = useStudioHierarchyLevel();
+  const plotSize = useStudioStore((s) => s.plotSize);
+  const isEditingZone = useStudioStore((s) => s.isEditingZone);
+
   // Zone selection
   const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
   const updateZoneLabel = useStudioStore((s) => s.updateZoneLabel);
@@ -222,9 +227,33 @@ export function StudioProperties() {
   const showInstance = Boolean(!showZone && instance && definition);
   const showEmpty = !showZone && !showInstance;
 
+  let anchorText = `Plot · ${plotSize.name}`;
+  if (level === 'asset' && instance && definition) {
+    anchorText = `Asset · ${definition.name}`;
+  } else if (level === 'asset' && isEditingZone && selectedZone) {
+    anchorText = `Zone · ${selectedZone.label} · editing`;
+  } else if (level === 'zone' && selectedZone) {
+    anchorText = `Zone · ${selectedZone.label}`;
+  }
+
   return (
     <div style={panelStyle('right')}>
       <div style={sectionHeaderStyle()}>Properties</div>
+
+      {/* Hierarchy anchor row */}
+      <div
+        style={{
+          padding: `${SP.xs}px ${SP.md}px`,
+          fontSize: FONT.xs,
+          color: STUDIO_COLORS.textTertiary,
+          borderBottom: `1px solid ${STUDIO_COLORS.borderSubtle}`,
+          fontFamily: FONT.family,
+          letterSpacing: 0.3,
+          flexShrink: 0,
+        }}
+      >
+        {anchorText}
+      </div>
 
       {/* Empty state */}
       {showEmpty && <StudioPropertiesEmptyState />}

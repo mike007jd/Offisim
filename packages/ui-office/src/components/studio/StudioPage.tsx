@@ -25,6 +25,7 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveZonesToDb } from '../../lib/zone-persistence.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { PlotZoneBreadcrumb } from './PlotZoneBreadcrumb.js';
 import { StudioCanvas } from './StudioCanvas.js';
 import { StudioGhost } from './StudioGhost.js';
 import { StudioPalette } from './StudioPalette.js';
@@ -35,6 +36,8 @@ import { useStudioStore } from './StudioState.js';
 import { StudioToolbar } from './StudioToolbar.js';
 import { StudioZoneGhost } from './StudioZoneGhost.js';
 import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
+
+const BREADCRUMB_HEIGHT = 32;
 
 // -- Props --------------------------------------------------------------------
 
@@ -66,7 +69,7 @@ const ROOT_STYLE: React.CSSProperties = {
 
 const CANVAS_CONTAINER: React.CSSProperties = {
   position: 'absolute',
-  top: LAYOUT.toolbarHeight,
+  top: LAYOUT.toolbarHeight + BREADCRUMB_HEIGHT,
   left: LAYOUT.paletteWidth,
   right: LAYOUT.propertiesWidth,
   bottom: LAYOUT.bottomBarHeight,
@@ -235,6 +238,9 @@ export function StudioPage(props: StudioPageProps) {
   useEffect(() => {
     if (companyId) {
       useStudioStore.getState().resetForCompany(companyId);
+    } else {
+      // Create mode: hydrate plotSize from `:create` storage (no resetForCompany call).
+      useStudioStore.getState().hydratePlotSize('create');
     }
   }, [companyId]);
 
@@ -415,19 +421,39 @@ export function StudioPage(props: StudioPageProps) {
         case 'Backspace':
           store.deleteSelected();
           break;
-        case 'Escape':
-          if (store.isEditingZone) store.exitEditZone();
-          else if (store.focusedZoneId) store.unfocusZone();
-          else if (store.placingZonePreset) store.cancelZonePlacement();
-          else if (store.placingPrefab) store.cancelPlacement();
-          else if (store.selectedZoneId) store.selectZone(null);
-          else if (store.selectedInstanceId) store.selectInstance(null);
-          else if (useStudioStore.getState().dirty) {
-            if (!window.confirm('You have unsaved changes. Discard and leave?')) break;
-            useStudioStore.getState().markClean();
-            onBack();
+        case 'Escape': {
+          // Higher precedence: cancel ghost placement before any level pop.
+          if (store.placingZonePreset) {
+            store.cancelZonePlacement();
+            e.preventDefault();
+            e.stopPropagation();
+            break;
           }
+          if (store.placingPrefab) {
+            store.cancelPlacement();
+            e.preventDefault();
+            e.stopPropagation();
+            break;
+          }
+          // Level pop: Asset → Zone → Plot. Plot level does not consume.
+          if (store.isEditingZone || store.selectedInstanceId) {
+            // Asset level. exitEditZone() preserves selectedZoneId so we land on Zone level.
+            // Even when isEditingZone is false (instance-only Asset), exitEditZone clears
+            // selectedInstanceId and isEditingZone safely.
+            store.exitEditZone();
+            e.preventDefault();
+            e.stopPropagation();
+            break;
+          }
+          if (store.selectedZoneId) {
+            store.clearSelection();
+            e.preventDefault();
+            e.stopPropagation();
+            break;
+          }
+          // Plot level: do not consume. Let event bubble.
           break;
+        }
         // Number keys 1-7: focus zones by sort order
         case '1':
         case '2':
@@ -466,6 +492,9 @@ export function StudioPage(props: StudioPageProps) {
       <StudioToolbar onSave={handleSave} onBack={onBack} saving={saving} saveFlash={saveFlash} />
 
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Hierarchy breadcrumb (Plot · Zone · Asset) */}
+      <PlotZoneBreadcrumb />
 
       {/* Left palette: prefab catalog */}
       <StudioPalette />

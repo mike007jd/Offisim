@@ -78,11 +78,12 @@ export function StudioPalette() {
     if (isEditingZone) setActiveTab('assets');
   }, [isEditingZone]);
 
-  // Filter categories when in Edit Zone mode
+  // Filter categories when in Edit Zone mode by allowedCategories.
+  // D6 fallback: empty / undefined allowedCategories → show all (no empty-state).
   const visibleCategories = useMemo(() => {
     if (!isEditingZone || !focusedZone) return CATEGORIES;
     if (focusedZone.allowedCategories.length === 0) return CATEGORIES;
-    const allowed = new Set([...focusedZone.allowedCategories, 'decorative' as const]);
+    const allowed = new Set<SemanticCategory>(focusedZone.allowedCategories);
     return CATEGORIES.filter((cat) => allowed.has(cat.id));
   }, [isEditingZone, focusedZone]);
 
@@ -116,7 +117,7 @@ export function StudioPalette() {
             : 'Zones'}
       </div>
 
-      {/* Tab bar — hide Zones tab in Edit Zone mode */}
+      {/* Tab bar — Zones tab disabled in Edit Zone mode */}
       <div
         style={{
           display: 'flex',
@@ -124,13 +125,19 @@ export function StudioPalette() {
           flexShrink: 0,
         }}
       >
-        {(['assets', ...(isEditingZone ? [] : (['zones'] as const))] as const).map((tab) => {
+        {(['assets', 'zones'] as const).map((tab) => {
           const isActive = activeTab === tab;
+          const isZonesDisabled = isEditingZone && tab === 'zones';
           return (
             <button
               key={tab}
               type="button"
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                if (isZonesDisabled) return;
+                setActiveTab(tab);
+              }}
+              disabled={isZonesDisabled}
+              title={isZonesDisabled ? 'Available outside zone edit' : undefined}
               style={{
                 flex: 1,
                 padding: `${SP.sm}px ${SP.md}px`,
@@ -139,10 +146,15 @@ export function StudioPalette() {
                 borderBottom: isActive
                   ? `2px solid ${STUDIO_COLORS.accent}`
                   : '2px solid transparent',
-                cursor: 'pointer',
+                cursor: isZonesDisabled ? 'not-allowed' : 'pointer',
                 fontSize: FONT.sm,
                 fontWeight: isActive ? FONT.semibold : FONT.normal,
-                color: isActive ? STUDIO_COLORS.textPrimary : STUDIO_COLORS.textTertiary,
+                color: isZonesDisabled
+                  ? STUDIO_COLORS.textDisabled
+                  : isActive
+                    ? STUDIO_COLORS.textPrimary
+                    : STUDIO_COLORS.textTertiary,
+                opacity: isZonesDisabled ? 0.55 : 1,
                 fontFamily: FONT.family,
                 letterSpacing: 0.3,
                 transition: 'color 0.12s, border-color 0.12s',
@@ -158,6 +170,22 @@ export function StudioPalette() {
       {/* Tab content */}
       {activeTab === 'assets' ? (
         <div style={LIST_STYLE}>
+          {isEditingZone &&
+            focusedZone &&
+            focusedZone.allowedCategories.length > 0 &&
+            visibleCategories.every((cat) => (grouped.get(cat.id)?.length ?? 0) === 0) && (
+              <div
+                style={{
+                  padding: `${SP.lg}px ${SP.md}px`,
+                  fontSize: FONT.sm,
+                  color: STUDIO_COLORS.textTertiary,
+                  textAlign: 'center',
+                  fontFamily: FONT.family,
+                }}
+              >
+                No prefabs allowed in this zone
+              </div>
+            )}
           {visibleCategories.map((cat) => {
             const items = grouped.get(cat.id) ?? [];
             const isCollapsed = collapsed[cat.id] ?? false;

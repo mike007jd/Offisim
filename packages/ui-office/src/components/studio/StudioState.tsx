@@ -2,6 +2,11 @@ import type { PrefabDefinition, Zone, ZonePreset } from '@offisim/shared-types';
 import { findOverlaps, isRequiredArchetype, resolveZoneForPosition } from '@offisim/shared-types';
 import { create } from 'zustand';
 import { rotateLocalPoint } from '../../lib/prefab-spatial.js';
+import {
+  migrateCreatePlotSize,
+  readStoredPlotSize,
+  writeStoredPlotSize,
+} from './studio-plot-size-storage.js';
 
 const ROTATIONS: ReadonlyArray<0 | 90 | 180 | 270> = [0, 90, 180, 270];
 
@@ -62,6 +67,8 @@ export interface StudioStore {
   resetForCompany: (companyId: string) => void;
   setTool: (tool: StudioTool) => void;
   setPlotSize: (size: PlotSize) => void;
+  /** Hydrate plotSize from localStorage for the given key (companyId or 'create'). Does not mark dirty. */
+  hydratePlotSize: (companyIdOrCreate: string) => void;
   startPlacement: (def: PrefabDefinition) => void;
   cancelPlacement: () => void;
   rotateGhost: () => void;
@@ -87,8 +94,10 @@ export interface StudioStore {
   unfocusZone: () => void;
   /** Enter Edit Zone mode — focuses zone and restricts interaction to its contents. */
   enterEditZone: (zoneId: string) => void;
-  /** Exit Edit Zone mode — returns to overview with all zones interactive. */
+  /** Exit Edit Zone mode — pops Asset → Zone level (preserves selectedZoneId, clears instance/edit flag). */
   exitEditZone: () => void;
+  /** Pop hierarchy stack to Plot level — clears zone focus, selection, and edit flag. */
+  clearSelection: () => void;
   /** Select a zone for the properties panel. Clears selectedInstanceId. */
   selectZone: (zoneId: string | null) => void;
   /** Enter zone placement mode with the given preset. */
@@ -148,10 +157,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   resetForCompany: (companyId) => {
     if (get().companyId === companyId) return;
+    migrateCreatePlotSize(companyId);
+    const stored = readStoredPlotSize(companyId);
     set({
       companyId,
       tool: 'select',
-      plotSize: DEFAULT_PLOT_SIZE,
+      plotSize: stored ?? DEFAULT_PLOT_SIZE,
       placingPrefab: null,
       ghostRotation: 0,
       selectedInstanceId: null,
@@ -172,7 +183,18 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     if (current.tool === tool && current.placingPrefab === placingPrefab) return;
     set({ tool, placingPrefab });
   },
-  setPlotSize: (plotSize) => set({ plotSize, dirty: true }),
+  setPlotSize: (plotSize) => {
+    const { companyId } = get();
+    writeStoredPlotSize(companyId ?? 'create', plotSize);
+    set({ plotSize, dirty: true });
+  },
+
+  hydratePlotSize: (companyIdOrCreate) => {
+    const stored = readStoredPlotSize(companyIdOrCreate);
+    if (!stored) return;
+    if (get().plotSize.name === stored.name) return;
+    set({ plotSize: stored });
+  },
 
   startPlacement: (def) =>
     set({
@@ -356,11 +378,11 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }),
   exitEditZone: () =>
     set({
-      focusedZoneId: null,
-      selectedZoneId: null,
       selectedInstanceId: null,
       isEditingZone: false,
     }),
+
+  clearSelection: () => get().unfocusZone(),
 
   selectZone: (zoneId) => set({ selectedZoneId: zoneId, selectedInstanceId: null }),
 
@@ -482,3 +504,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   markClean: () => set({ dirty: false }),
 }));
+
+export type StudioHierarchyLevel = 'plot' | 'zone' | 'asset';
+
+/** Resolve the active editing level from store state — pure derivation, single SSOT. */
+export function useStudioHierarchyLevel(): StudioHierarchyLevel {
+  return useStudioStore((s) => {
+    if (s.isEditingZone || s.selectedInstanceId) return 'asset';
+    if (s.selectedZoneId) return 'zone';
+    return 'plot';
+  });
+}
