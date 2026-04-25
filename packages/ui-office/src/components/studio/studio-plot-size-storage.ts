@@ -7,6 +7,9 @@ import { PLOT_SIZES, type PlotSize } from './StudioState.js';
 
 const PLOT_SIZE_STORAGE_KEY_PREFIX = 'offisim:studio:plot-size:';
 
+/** Sentinel used as the storage key suffix when no companyId exists yet (create mode). */
+export const CREATE_PLOT_KEY = 'create';
+
 export function plotSizeStorageKey(companyIdOrCreate: string): string {
   return `${PLOT_SIZE_STORAGE_KEY_PREFIX}${companyIdOrCreate}`;
 }
@@ -34,7 +37,7 @@ export function writeStoredPlotSize(companyIdOrCreate: string, size: PlotSize): 
 export function migrateCreatePlotSize(newCompanyId: string): void {
   if (typeof window === 'undefined') return;
   try {
-    const createKey = plotSizeStorageKey('create');
+    const createKey = plotSizeStorageKey(CREATE_PLOT_KEY);
     const value = window.localStorage.getItem(createKey);
     if (!value) return;
     window.localStorage.setItem(plotSizeStorageKey(newCompanyId), value);

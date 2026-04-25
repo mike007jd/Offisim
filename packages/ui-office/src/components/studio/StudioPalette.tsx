@@ -78,8 +78,8 @@ export function StudioPalette() {
     if (isEditingZone) setActiveTab('assets');
   }, [isEditingZone]);
 
-  // Filter categories when in Edit Zone mode by allowedCategories.
-  // D6 fallback: empty / undefined allowedCategories → show all (no empty-state).
+  // Filter categories when in Edit Zone mode by allowedCategories. Empty / undefined
+  // allowedCategories means "no constraint", so show all categories without an empty state.
   const visibleCategories = useMemo(() => {
     if (!isEditingZone || !focusedZone) return CATEGORIES;
     if (focusedZone.allowedCategories.length === 0) return CATEGORIES;

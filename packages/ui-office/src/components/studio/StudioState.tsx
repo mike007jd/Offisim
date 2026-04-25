@@ -3,6 +3,7 @@ import { findOverlaps, isRequiredArchetype, resolveZoneForPosition } from '@offi
 import { create } from 'zustand';
 import { rotateLocalPoint } from '../../lib/prefab-spatial.js';
 import {
+  CREATE_PLOT_KEY,
   migrateCreatePlotSize,
   readStoredPlotSize,
   writeStoredPlotSize,
@@ -67,8 +68,6 @@ export interface StudioStore {
   resetForCompany: (companyId: string) => void;
   setTool: (tool: StudioTool) => void;
   setPlotSize: (size: PlotSize) => void;
-  /** Hydrate plotSize from localStorage for the given key (companyId or 'create'). Does not mark dirty. */
-  hydratePlotSize: (companyIdOrCreate: string) => void;
   startPlacement: (def: PrefabDefinition) => void;
   cancelPlacement: () => void;
   rotateGhost: () => void;
@@ -94,10 +93,8 @@ export interface StudioStore {
   unfocusZone: () => void;
   /** Enter Edit Zone mode — focuses zone and restricts interaction to its contents. */
   enterEditZone: (zoneId: string) => void;
-  /** Exit Edit Zone mode — pops Asset → Zone level (preserves selectedZoneId, clears instance/edit flag). */
+  /** Exit Edit Zone mode — pops Asset → Zone level (preserves selectedZoneId, clears focus/instance/edit flag). */
   exitEditZone: () => void;
-  /** Pop hierarchy stack to Plot level — clears zone focus, selection, and edit flag. */
-  clearSelection: () => void;
   /** Select a zone for the properties panel. Clears selectedInstanceId. */
   selectZone: (zoneId: string | null) => void;
   /** Enter zone placement mode with the given preset. */
@@ -184,16 +181,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     set({ tool, placingPrefab });
   },
   setPlotSize: (plotSize) => {
-    const { companyId } = get();
-    writeStoredPlotSize(companyId ?? 'create', plotSize);
+    const state = get();
+    if (state.plotSize.name === plotSize.name) return;
+    writeStoredPlotSize(state.companyId ?? CREATE_PLOT_KEY, plotSize);
     set({ plotSize, dirty: true });
-  },
-
-  hydratePlotSize: (companyIdOrCreate) => {
-    const stored = readStoredPlotSize(companyIdOrCreate);
-    if (!stored) return;
-    if (get().plotSize.name === stored.name) return;
-    set({ plotSize: stored });
   },
 
   startPlacement: (def) =>
@@ -378,11 +369,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }),
   exitEditZone: () =>
     set({
+      focusedZoneId: null,
       selectedInstanceId: null,
       isEditingZone: false,
     }),
-
-  clearSelection: () => get().unfocusZone(),
 
   selectZone: (zoneId) => set({ selectedZoneId: zoneId, selectedInstanceId: null }),
 

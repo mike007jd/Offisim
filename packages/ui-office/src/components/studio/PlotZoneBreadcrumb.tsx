@@ -9,7 +9,7 @@ import { useMemo } from 'react';
 import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
 import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
 
-const SEPARATOR_CHAR = '›'; // ›
+const SEPARATOR_CHAR = '›';
 
 const CONTAINER_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -82,35 +82,29 @@ export function PlotZoneBreadcrumb() {
   const level = useStudioHierarchyLevel();
   const plotSize = useStudioStore((s) => s.plotSize);
   const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
-  const selectedInstanceId = useStudioStore((s) => s.selectedInstanceId);
   const isEditingZone = useStudioStore((s) => s.isEditingZone);
+  // Resolve instance via store-side selector so re-renders only trigger when
+  // the selected instance itself changes — not on every drag-frame `instances`
+  // array swap from updatePosition.
+  const instance = useStudioStore((s) =>
+    s.selectedInstanceId ? (s.instances.find((i) => i.id === s.selectedInstanceId) ?? null) : null,
+  );
   const zones = useStudioStore((s) => s.zones);
-  const instances = useStudioStore((s) => s.instances);
   const exitEditZone = useStudioStore((s) => s.exitEditZone);
   const selectInstance = useStudioStore((s) => s.selectInstance);
-  const clearSelection = useStudioStore((s) => s.clearSelection);
+  const unfocusZone = useStudioStore((s) => s.unfocusZone);
 
   const zoneLabel = useMemo(() => {
-    if (selectedZoneId) {
-      return zones.find((z) => z.zoneId === selectedZoneId)?.label ?? null;
-    }
-    // Asset-via-instance fallback: derive zone from the selected instance's zoneId.
-    if (selectedInstanceId) {
-      const inst = instances.find((i) => i.id === selectedInstanceId);
-      if (inst) return zones.find((z) => z.zoneId === inst.zoneId)?.label ?? null;
-    }
-    return null;
-  }, [zones, selectedZoneId, selectedInstanceId, instances]);
+    const zoneId = selectedZoneId ?? instance?.zoneId ?? null;
+    if (!zoneId) return null;
+    return zones.find((z) => z.zoneId === zoneId)?.label ?? null;
+  }, [zones, selectedZoneId, instance]);
 
   const assetLabel = useMemo(() => {
-    if (selectedInstanceId) {
-      const inst = instances.find((i) => i.id === selectedInstanceId);
-      const def = inst ? getBuiltinPrefab(inst.prefabId) : undefined;
-      return def?.name ?? 'Asset';
-    }
+    if (instance) return getBuiltinPrefab(instance.prefabId)?.name ?? 'Asset';
     if (isEditingZone && zoneLabel) return `${zoneLabel} · editing`;
     return null;
-  }, [selectedInstanceId, instances, isEditingZone, zoneLabel]);
+  }, [instance, isEditingZone, zoneLabel]);
 
   const handleClickZone = () => {
     selectInstance(null);
@@ -122,7 +116,7 @@ export function PlotZoneBreadcrumb() {
       <Segment
         label={`Plot · ${plotSize.name}`}
         active={level === 'plot'}
-        onClick={level === 'plot' ? undefined : clearSelection}
+        onClick={level === 'plot' ? undefined : unfocusZone}
       />
       {zoneLabel && (
         <>

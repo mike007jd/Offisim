@@ -26,6 +26,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveZonesToDb } from '../../lib/zone-persistence.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import { PlotZoneBreadcrumb } from './PlotZoneBreadcrumb.js';
+import { CREATE_PLOT_KEY, readStoredPlotSize } from './studio-plot-size-storage.js';
 import { StudioCanvas } from './StudioCanvas.js';
 import { StudioGhost } from './StudioGhost.js';
 import { StudioPalette } from './StudioPalette.js';
@@ -239,8 +240,9 @@ export function StudioPage(props: StudioPageProps) {
     if (companyId) {
       useStudioStore.getState().resetForCompany(companyId);
     } else {
-      // Create mode: hydrate plotSize from `:create` storage (no resetForCompany call).
-      useStudioStore.getState().hydratePlotSize('create');
+      // Create mode has no resetForCompany trigger; pull stored plotSize directly.
+      const stored = readStoredPlotSize(CREATE_PLOT_KEY);
+      if (stored) useStudioStore.setState({ plotSize: stored });
     }
   }, [companyId]);
 
@@ -437,21 +439,17 @@ export function StudioPage(props: StudioPageProps) {
           }
           // Level pop: Asset → Zone → Plot. Plot level does not consume.
           if (store.isEditingZone || store.selectedInstanceId) {
-            // Asset level. exitEditZone() preserves selectedZoneId so we land on Zone level.
-            // Even when isEditingZone is false (instance-only Asset), exitEditZone clears
-            // selectedInstanceId and isEditingZone safely.
             store.exitEditZone();
             e.preventDefault();
             e.stopPropagation();
             break;
           }
           if (store.selectedZoneId) {
-            store.clearSelection();
+            store.unfocusZone();
             e.preventDefault();
             e.stopPropagation();
             break;
           }
-          // Plot level: do not consume. Let event bubble.
           break;
         }
         // Number keys 1-7: focus zones by sort order
