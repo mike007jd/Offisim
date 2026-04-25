@@ -196,12 +196,12 @@ export function EmployeeEditorDialog({
         if (!open) close();
       }}
     >
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-lg flex flex-col min-h-[clamp(360px,60vh,720px)] max-h-[min(720px,92vh)]">
         <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="profile" className="mt-2 flex-1 flex flex-col min-h-0">
+        <Tabs defaultValue="profile" className="mt-2 flex flex-col flex-1 min-h-0">
           <TabsList className="w-full">
             <TabsTrigger value="profile" className="flex-1">
               Profile
@@ -225,7 +225,7 @@ export function EmployeeEditorDialog({
           </TabsList>
 
           {/* Profile Tab */}
-          <TabsContent value="profile" className="flex-1 overflow-y-auto min-h-0">
+          <TabsContent value="profile" className="flex-1 min-h-0 overflow-y-auto">
             <div className="flex flex-col gap-4 pt-2">
               <div>
                 <label htmlFor="editor-name" className="text-sm text-slate-400 mb-1 block">
@@ -326,7 +326,7 @@ export function EmployeeEditorDialog({
           </TabsContent>
 
           {/* Persona Tab */}
-          <TabsContent value="persona" className="flex-1 overflow-y-auto min-h-0">
+          <TabsContent value="persona" className="flex-1 min-h-0 overflow-y-auto">
             <div className="flex flex-col gap-4 pt-2">
               <div>
                 <label htmlFor="editor-expertise" className="text-sm text-slate-400 mb-1 block">
@@ -463,7 +463,7 @@ export function EmployeeEditorDialog({
           </TabsContent>
 
           {/* Config Tab */}
-          <TabsContent value="config" className="flex-1 overflow-y-auto min-h-0">
+          <TabsContent value="config" className="flex-1 min-h-0 overflow-y-auto">
             <div className="flex flex-col gap-4 pt-2">
               {/* Provider selector */}
               <div>
@@ -583,14 +583,14 @@ export function EmployeeEditorDialog({
           </TabsContent>
 
           {isEditMode && employeeId && activeCompanyId && (
-            <TabsContent value="memory" className="flex-1 overflow-y-auto min-h-0">
+            <TabsContent value="memory" className="flex-1 min-h-0 overflow-y-auto">
               <MemoryPanel employeeId={employeeId} companyId={activeCompanyId} />
             </TabsContent>
           )}
 
           {/* History Tab (edit mode only) */}
           {isEditMode && employeeId && (
-            <TabsContent value="history" className="flex-1 overflow-y-auto min-h-0">
+            <TabsContent value="history" className="flex-1 min-h-0 overflow-y-auto">
               <VersionHistoryTab
                 employeeId={employeeId}
                 forkOrigin={

@@ -126,7 +126,7 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
               className,
             )}
           >
-            <div className="flex max-h-[calc(100vh-4rem)] flex-col">
+            <div className="flex min-h-[clamp(360px,60vh,720px)] max-h-[min(720px,92vh)] flex-col">
               {(title || description || showCloseButton) && (
                 <div className="flex items-start justify-between gap-4 border-b border-white/5 px-5 pb-3 pt-5">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">

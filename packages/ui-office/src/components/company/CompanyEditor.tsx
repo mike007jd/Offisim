@@ -165,26 +165,10 @@ export function CompanyEditor({
             <div className="grid gap-6 xl:grid-cols-[320px,minmax(0,1fr)]">
               <SurfaceCard
                 eyebrow="Identity"
-                title="Studio identity"
-                description="Keep the company profile tight and specific. This feeds the rest of the workspace without pulling you back into the old retro settings aesthetic."
+                title={company?.name || 'Untitled company'}
+                description="Naming, positioning, and defaults stay aligned with the active studio profile. Zone layout editing stays explicit — select a zone first, then enter its edit mode."
               >
-                <div className="space-y-3 text-sm text-slate-300">
-                  <div className="rounded-[20px] border border-cyan-400/15 bg-cyan-400/10 px-4 py-4">
-                    <p className="font-semibold text-white">
-                      {company?.name || 'Untitled company'}
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-slate-300">
-                      Naming, positioning, and defaults stay aligned with the active studio profile.
-                    </p>
-                  </div>
-                  <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Workflow</p>
-                    <p className="mt-2 text-sm text-slate-300">
-                      Zone layout editing stays explicit. Select a zone first, then enter its edit
-                      mode.
-                    </p>
-                  </div>
-                </div>
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Active studio</p>
               </SurfaceCard>
 
               <SurfaceCard
@@ -221,16 +205,10 @@ export function CompanyEditor({
           )}
 
           {activeTab === 'zones' && (
-            <SurfaceCard
-              eyebrow="Layout"
-              title="Zone Layout"
-              description="Zone placement and furniture editing now live inside the dedicated studio workflow. This panel stays as the launch and summary surface."
-            >
-              <ZoneSummaryTab
-                zoneLayoutMap={zoneLayoutMap}
-                onOpenOfficeEditor={onOpenOfficeEditor}
-              />
-            </SurfaceCard>
+            <ZoneSummaryTab
+              zoneLayoutMap={zoneLayoutMap}
+              onOpenOfficeEditor={onOpenOfficeEditor}
+            />
           )}
 
           {activeTab === 'defaults' && (

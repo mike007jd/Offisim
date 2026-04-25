@@ -20,7 +20,13 @@ interface Props {
   mode?: 'create-new' | 'populate-existing';
   companyId?: string | null;
   onComplete?: (companyId: string) => void;
-  onCreateYourOwn?: (companyId: string) => void;
+  /**
+   * Activate + open Studio in edit mode for a freshly created custom company.
+   * Returning a Promise lets the wizard await the full sequence and surface
+   * any failure inline before closing. Throwing or rejecting keeps the wizard
+   * open so the user can retry.
+   */
+  onCreateYourOwn?: (companyId: string) => void | Promise<void>;
   /** Optional dismiss callback. When provided, enables Escape-to-close and a back button. */
   onDismiss?: () => void;
 }
@@ -55,6 +61,8 @@ export function CompanyCreationWizard({
 
   const prevStepRef = useRef(step);
   const [infoTab, setInfoTab] = useState<'team' | 'workflows'>('team');
+  const [openStudioError, setOpenStudioError] = useState<string | null>(null);
+  const [openingStudio, setOpeningStudio] = useState(false);
 
   useEffect(() => {
     if (prevStepRef.current === 'creating' && step === 'ready') {
@@ -85,9 +93,11 @@ export function CompanyCreationWizard({
   // while the create promise is in flight.
   const wizardStackId = 'company-creation-wizard';
   useRegisterModal(onDismiss ? wizardStackId : null, 'overlay');
-  useTopmostEscape(onDismiss && !isCreating ? wizardStackId : null, () => onDismiss?.(), {
-    enabled: Boolean(onDismiss) && !isCreating,
-  });
+  useTopmostEscape(
+    onDismiss && !isCreating && !openingStudio ? wizardStackId : null,
+    () => onDismiss?.(),
+    { enabled: Boolean(onDismiss) && !isCreating && !openingStudio },
+  );
 
   const currentTemplateIdx = useMemo(
     () => templates.findIndex((template) => template.id === selectedTemplateId),
@@ -123,9 +133,19 @@ export function CompanyCreationWizard({
     }
 
     if (isCreateYourOwn) {
+      // Open Studio Editor: atomic create → activate → open Studio in edit mode.
+      // Any step failing keeps the wizard open with an inline error.
+      setOpenStudioError(null);
       const newCompanyId = await createCustomCompany();
-      if (newCompanyId) {
-        onCreateYourOwn?.(newCompanyId);
+      if (!newCompanyId) return;
+      if (!onCreateYourOwn) return;
+      setOpeningStudio(true);
+      try {
+        await onCreateYourOwn(newCompanyId);
+      } catch (err) {
+        setOpenStudioError(err instanceof Error ? err.message : 'Failed to open Studio editor');
+      } finally {
+        setOpeningStudio(false);
       }
       return;
     }
@@ -176,18 +196,6 @@ export function CompanyCreationWizard({
           backgroundSize: '24px 24px',
         }}
       />
-
-      {onDismiss && !isCreating && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Back"
-          className="absolute left-4 top-4 z-20 flex h-9 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 text-xs font-mono uppercase tracking-wider text-slate-400 transition-colors hover:border-white/20 hover:text-white"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back
-        </button>
-      )}
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {selected && meta ? (
@@ -349,6 +357,18 @@ export function CompanyCreationWizard({
           <BuildingAnimation />
         ) : (
           <div className="mx-auto flex max-w-3xl flex-col items-stretch gap-3 lg:flex-row lg:items-end lg:gap-4">
+            {onDismiss && (
+              <button
+                type="button"
+                onClick={onDismiss}
+                disabled={isCreating || openingStudio}
+                aria-label="Back"
+                className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 text-xs font-mono uppercase tracking-wider text-slate-400 transition-colors hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 lg:self-end"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Back
+              </button>
+            )}
             <div className="flex-1">
               <label
                 htmlFor="company-name"
@@ -370,15 +390,19 @@ export function CompanyCreationWizard({
               onClick={() => {
                 void handlePrimaryAction();
               }}
-              disabled={primaryDisabled}
+              disabled={primaryDisabled || openingStudio}
               className="w-full shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-3 text-sm font-semibold text-white transition-all hover:from-blue-500 hover:to-blue-400 disabled:cursor-not-allowed disabled:opacity-30 lg:w-auto lg:px-8"
               style={
-                (isCreateYourOwn || runtimeReady) && selectedTemplateId
+                (isCreateYourOwn || runtimeReady) && selectedTemplateId && !openingStudio
                   ? { animation: 'wiz-cta-pulse 3s ease-in-out infinite' }
                   : undefined
               }
             >
-              {isCreateYourOwn ? (
+              {openingStudio ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Opening Studio...
+                </span>
+              ) : isCreateYourOwn ? (
                 'Open Studio Editor'
               ) : shouldRetryRuntime ? (
                 'Retry Runtime'
@@ -392,8 +416,10 @@ export function CompanyCreationWizard({
             </button>
           </div>
         )}
-        {displayedError && (
-          <p className="mt-2 text-center text-xs text-red-400">{displayedError}</p>
+        {(displayedError || openStudioError) && (
+          <p className="mt-2 text-center text-xs text-red-400">
+            {openStudioError ?? displayedError}
+          </p>
         )}
       </div>
     </div>

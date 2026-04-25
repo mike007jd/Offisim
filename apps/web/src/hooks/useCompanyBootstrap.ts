@@ -4,6 +4,14 @@ import { useEffect } from 'react';
 import type { UpdateWorkspaceStateFn } from '../components/workspaces/types';
 import type { OverlayKey } from '../lib/app-view-layout';
 
+/**
+ * Marker key used by `useCompanyLifecycle.handleCreateYourOwn` to bridge the
+ * "Open Studio Editor" intent across the runtime re-mount that company
+ * activation triggers via the `<OffisimRuntimeProvider key={companyId}>`
+ * pattern in `main.tsx`. The marker is set synchronously inside the wizard's
+ * single async sequence and read once on the new App mount; it is NOT a
+ * generic state-watching effect chain.
+ */
 export const PENDING_VIEW_KEY = 'offisim:pending-view';
 
 type PrimeEventBus = Parameters<typeof primeEventLogStore>[0];
@@ -39,14 +47,26 @@ export function useCompanyBootstrap(deps: CompanyBootstrapDeps): void {
     setPortalPreviewCompanyId,
   } = deps;
 
-  // Company switch → reset overlay
+  // Company switch → reset overlay default. If the wizard signalled a
+  // post-activation intent via `PENDING_VIEW_KEY`, honour it on the freshly
+  // mounted App tree (the `<OffisimRuntimeProvider key={companyId}>` in
+  // `main.tsx` forces a re-mount on company switch, so the wizard's direct
+  // setActiveOverlay call cannot survive). Reading the marker once on mount
+  // is not a state-watching effect chain — it consumes a one-shot intent.
   useEffect(() => {
-    if (activeCompanyId) {
-      setActiveOverlay(null);
-    } else {
+    if (!activeCompanyId) {
       setActiveOverlay('company-select');
+      return;
     }
-  }, [activeCompanyId, setActiveOverlay]);
+    const pendingView = sessionStorage.getItem(PENDING_VIEW_KEY);
+    if (pendingView === 'studio-edit') {
+      sessionStorage.removeItem(PENDING_VIEW_KEY);
+      updateWorkspaceState('office', (prev) => ({ ...prev, studioMode: 'edit' as const }));
+      setActiveOverlay('studio');
+      return;
+    }
+    setActiveOverlay((prev) => (prev === 'company-select' ? null : prev));
+  }, [activeCompanyId, setActiveOverlay, updateWorkspaceState]);
 
   // Template load for active company
   useEffect(() => {
@@ -74,17 +94,6 @@ export function useCompanyBootstrap(deps: CompanyBootstrapDeps): void {
       setPortalPreviewCompanyId(activeCompanyId);
     }
   }, [activeCompanyId, portalPreviewCompanyId, setPortalPreviewCompanyId]);
-
-  // PENDING_VIEW_KEY studio-edit handover
-  useEffect(() => {
-    if (!activeCompanyId) return;
-    const pendingView = sessionStorage.getItem(PENDING_VIEW_KEY);
-    if (pendingView === 'studio-edit') {
-      sessionStorage.removeItem(PENDING_VIEW_KEY);
-      updateWorkspaceState('office', (prev) => ({ ...prev, studioMode: 'edit' as const }));
-      setActiveOverlay('studio');
-    }
-  }, [activeCompanyId, updateWorkspaceState, setActiveOverlay]);
 
   // Event log prime / dispose
   useEffect(() => {

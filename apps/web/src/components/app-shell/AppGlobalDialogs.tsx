@@ -34,7 +34,7 @@ export interface AppGlobalDialogsProps {
   activeCompanyId: string | null;
   companyWizardMode: 'create-new' | null;
   onWizardComplete: (newCompanyId?: string) => void;
-  onCreateYourOwn: (newCompanyId: string) => void;
+  onCreateYourOwn: (newCompanyId: string) => void | Promise<void>;
   onDismissWizard: () => void;
 }
 
