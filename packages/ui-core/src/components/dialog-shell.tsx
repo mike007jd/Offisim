@@ -20,6 +20,21 @@ const SIZE_CLASS: Record<DialogSize, string> = {
   full: 'max-w-[min(960px,calc(100vw-2rem))]',
 };
 
+/**
+ * Canonical sizing for modal dialogs. Apply to the inner flex column so the
+ * dialog's outer height never collapses below a readable floor and never
+ * exceeds the viewport. Pair with `DIALOG_TABS_ROOT_CLASS` +
+ * `DIALOG_TABS_CONTENT_CLASS` when the dialog body holds Radix Tabs.
+ */
+export const DIALOG_SIZING_CLASS =
+  'min-h-[clamp(360px,60vh,720px)] max-h-[min(720px,92vh)]';
+
+/** Tabs.Root inside a sized dialog: flex column, fills, allows children to shrink. */
+export const DIALOG_TABS_ROOT_CLASS = 'flex flex-col flex-1 min-h-0';
+
+/** Tabs.Content inside a sized dialog: own internal scroll, never the dialog. */
+export const DIALOG_TABS_CONTENT_CLASS = 'flex-1 min-h-0 overflow-y-auto';
+
 export interface DialogShellProps {
   /** Controlled open state. */
   open: boolean;
@@ -126,7 +141,7 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
               className,
             )}
           >
-            <div className="flex min-h-[clamp(360px,60vh,720px)] max-h-[min(720px,92vh)] flex-col">
+            <div className={cn('flex flex-col', DIALOG_SIZING_CLASS)}>
               {(title || description || showCloseButton) && (
                 <div className="flex items-start justify-between gap-4 border-b border-white/5 px-5 pb-3 pt-5">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">

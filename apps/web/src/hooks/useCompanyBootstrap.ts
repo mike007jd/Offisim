@@ -4,14 +4,9 @@ import { useEffect } from 'react';
 import type { UpdateWorkspaceStateFn } from '../components/workspaces/types';
 import type { OverlayKey } from '../lib/app-view-layout';
 
-/**
- * Marker key used by `useCompanyLifecycle.handleCreateYourOwn` to bridge the
- * "Open Studio Editor" intent across the runtime re-mount that company
- * activation triggers via the `<OffisimRuntimeProvider key={companyId}>`
- * pattern in `main.tsx`. The marker is set synchronously inside the wizard's
- * single async sequence and read once on the new App mount; it is NOT a
- * generic state-watching effect chain.
- */
+// One-shot intent marker bridging the "Open Studio Editor" flow across the
+// runtime re-mount that `<OffisimRuntimeProvider key={companyId}>` forces on
+// company switch. Consumed once on the new App mount, then cleared.
 export const PENDING_VIEW_KEY = 'offisim:pending-view';
 
 type PrimeEventBus = Parameters<typeof primeEventLogStore>[0];
@@ -47,12 +42,6 @@ export function useCompanyBootstrap(deps: CompanyBootstrapDeps): void {
     setPortalPreviewCompanyId,
   } = deps;
 
-  // Company switch → reset overlay default. If the wizard signalled a
-  // post-activation intent via `PENDING_VIEW_KEY`, honour it on the freshly
-  // mounted App tree (the `<OffisimRuntimeProvider key={companyId}>` in
-  // `main.tsx` forces a re-mount on company switch, so the wizard's direct
-  // setActiveOverlay call cannot survive). Reading the marker once on mount
-  // is not a state-watching effect chain — it consumes a one-shot intent.
   useEffect(() => {
     if (!activeCompanyId) {
       setActiveOverlay('company-select');

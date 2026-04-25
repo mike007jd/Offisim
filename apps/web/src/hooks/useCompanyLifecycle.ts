@@ -202,22 +202,16 @@ export function useCompanyLifecycle(deps: CompanyLifecycleDeps): CompanyLifecycl
 
   const handleCreateYourOwn = useCallback(
     async (newCompanyId: string) => {
-      // Single async sequence for the wizard's "Open Studio Editor" action:
-      //   1. createCustomCompany already ran in the wizard (returned id)
-      //   2. set the studio-edit intent marker for the post-remount handoff
-      //   3. activate the freshly created company (switchCompany triggers a
-      //      <OffisimRuntimeProvider key={companyId}> re-mount in main.tsx —
-      //      the marker is the only reliable bridge across that re-mount)
-      //   4. close the wizard
-      // The new App tree mounts and `useCompanyBootstrap` consumes the
-      // marker, opening Studio in edit mode. This is a single user action
-      // with sequential setState — not a state-watching effect chain.
+      // Marker before switchCompany: switchCompany triggers
+      // <OffisimRuntimeProvider key={companyId}> re-mount in main.tsx, so a
+      // direct openStudio() setState would land on the soon-to-unmount tree.
+      // The new tree's useCompanyBootstrap consumes this marker once.
       setPortalPreviewCompanyId(newCompanyId);
       sessionStorage.setItem(PENDING_VIEW_KEY, 'studio-edit');
       switchCompany(newCompanyId);
       onCompanySwitch(newCompanyId);
       setCompanyWizardMode(null);
-      await refreshCompanies();
+      void refreshCompanies();
     },
     [
       refreshCompanies,

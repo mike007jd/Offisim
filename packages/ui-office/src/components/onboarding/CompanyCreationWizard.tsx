@@ -20,12 +20,7 @@ interface Props {
   mode?: 'create-new' | 'populate-existing';
   companyId?: string | null;
   onComplete?: (companyId: string) => void;
-  /**
-   * Activate + open Studio in edit mode for a freshly created custom company.
-   * Returning a Promise lets the wizard await the full sequence and surface
-   * any failure inline before closing. Throwing or rejecting keeps the wizard
-   * open so the user can retry.
-   */
+  /** Activate + open Studio in edit mode. Throwing keeps the wizard open. */
   onCreateYourOwn?: (companyId: string) => void | Promise<void>;
   /** Optional dismiss callback. When provided, enables Escape-to-close and a back button. */
   onDismiss?: () => void;
@@ -133,8 +128,6 @@ export function CompanyCreationWizard({
     }
 
     if (isCreateYourOwn) {
-      // Open Studio Editor: atomic create → activate → open Studio in edit mode.
-      // Any step failing keeps the wizard open with an inline error.
       setOpenStudioError(null);
       const newCompanyId = await createCustomCompany();
       if (!newCompanyId) return;
@@ -185,6 +178,7 @@ export function CompanyCreationWizard({
   const zoneSummary = selected && !isCreateYourOwn ? getTemplateZoneSummary(selected) : [];
   const primaryDisabled =
     !selectedTemplateId || (!isCreateYourOwn && !runtimeReady) || !companyName.trim();
+  const visibleError = openStudioError ?? displayedError;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-surface">
@@ -416,11 +410,7 @@ export function CompanyCreationWizard({
             </button>
           </div>
         )}
-        {(displayedError || openStudioError) && (
-          <p className="mt-2 text-center text-xs text-red-400">
-            {openStudioError ?? displayedError}
-          </p>
-        )}
+        {visibleError && <p className="mt-2 text-center text-xs text-red-400">{visibleError}</p>}
       </div>
     </div>
   );
