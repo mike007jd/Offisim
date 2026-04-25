@@ -1,5 +1,10 @@
-import { EmployeeVersionService, handleSkillInstallTool } from '@offisim/core/browser';
+import {
+  EmployeeVersionService,
+  handleSkillInstallTool,
+  runtimeBindingsEqual,
+} from '@offisim/core/browser';
 import type { NotificationBridge } from '@offisim/core/dist/services/notification-bridge.js';
+import { ENGINE_IDS, type EmployeeRuntimeBinding, type EngineId } from '@offisim/shared-types';
 import {
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
@@ -24,6 +29,23 @@ import { useRuntimeMeetingBridge } from './useRuntimeMeetingBridge';
 
 export type { UnfinishedThread };
 
+function deriveAvailableEngineAdapters(
+  registry: { get(id: EngineId): unknown } | undefined,
+): ReadonlySet<EngineId> {
+  if (!registry) return new Set<EngineId>();
+  const present: EngineId[] = [];
+  for (const id of ENGINE_IDS) {
+    if (registry.get(id)) present.push(id);
+  }
+  return new Set(present);
+}
+
+function setsEqual<T>(a: ReadonlySet<T>, b: ReadonlySet<T>): boolean {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+
 interface Props {
   companyId: string;
   children: React.ReactNode;
@@ -31,6 +53,8 @@ interface Props {
 
 export function OffisimRuntimeProvider({ companyId, children }: Props) {
   const notificationBridgeRef = useRef<NotificationBridge | null>(null);
+  const lastAdaptersRef = useRef<ReadonlySet<EngineId>>(new Set<EngineId>());
+  const lastCompanyDefaultRef = useRef<EmployeeRuntimeBinding | null>(null);
 
   const {
     eventBus,
@@ -151,6 +175,15 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
           }),
       };
     }
+    const nextAdapters = deriveAvailableEngineAdapters(runtime?.runtimeCtx?.engineAdapters);
+    if (!setsEqual(lastAdaptersRef.current, nextAdapters)) {
+      lastAdaptersRef.current = nextAdapters;
+    }
+    const rawCompanyDefault = runtime?.runtimeCtx?.runtimePolicy?.employeeRuntimeDefault ?? null;
+    if (!runtimeBindingsEqual(lastCompanyDefaultRef.current, rawCompanyDefault)) {
+      lastCompanyDefaultRef.current = rawCompanyDefault;
+    }
+
     return {
       eventBus,
       sceneIntentBus,
@@ -202,6 +235,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       exportVaultSnapshotZip: undefined,
       listRecentDeliverables,
       loadDeliverableContent,
+      availableEngineAdapters: lastAdaptersRef.current,
+      companyEmployeeRuntimeDefault: lastCompanyDefaultRef.current,
     };
   }, [
     isInitializing,

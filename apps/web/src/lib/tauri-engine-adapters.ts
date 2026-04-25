@@ -25,9 +25,15 @@ interface TauriEngineAdapterOptions {
 
 export interface TauriEngineAdapterRegistryOptions {
   /**
-   * Preview-only bridge that routes engine IDs through provider sidecars.
-   * Disabled by default because those hosts do not expose runtime activity
-   * events, tool execution, approvals, or internal handoffs yet.
+   * Register the Claude / Codex sidecar engine adapters in trusted desktop
+   * runtime. Default `false` so the registry can still be constructed empty
+   * (e.g. for harness or stricter "verified-engine-only" modes that gate on
+   * tool-execution telemetry parity, which the sidecars do not yet expose).
+   *
+   * When `true`, callers SHOULD surface a "preview · limited tool telemetry"
+   * disclosure on UI surfaces that resolve to engine mode — the adapters work
+   * for streaming text and reasoning but lack tool-started / tool-completed
+   * events and engine handoff proposals.
    */
   readonly enableProviderHostPreviewAdapters?: boolean;
 }
@@ -205,7 +211,9 @@ abstract class BaseTauriEngineAdapter implements EngineAdapter {
 export class TauriCodexEngineAdapter extends BaseTauriEngineAdapter {
   readonly engineId = 'codex-engine' as const;
 
-  constructor(options: Omit<TauriEngineAdapterOptions, 'command' | 'abortCommand' | 'requestPrefix'> = {}) {
+  constructor(
+    options: Omit<TauriEngineAdapterOptions, 'command' | 'abortCommand' | 'requestPrefix'> = {},
+  ) {
     super({
       ...options,
       command: 'codex_agent_execute',
@@ -218,7 +226,9 @@ export class TauriCodexEngineAdapter extends BaseTauriEngineAdapter {
 export class TauriClaudeEngineAdapter extends BaseTauriEngineAdapter {
   readonly engineId = 'claude-engine' as const;
 
-  constructor(options: Omit<TauriEngineAdapterOptions, 'command' | 'abortCommand' | 'requestPrefix'> = {}) {
+  constructor(
+    options: Omit<TauriEngineAdapterOptions, 'command' | 'abortCommand' | 'requestPrefix'> = {},
+  ) {
     super({
       ...options,
       command: 'claude_agent_execute',

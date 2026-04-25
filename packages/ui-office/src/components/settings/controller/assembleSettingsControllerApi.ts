@@ -1,9 +1,12 @@
-import { resolveAvailableExecutionLanes, resolveProviderConfig } from '../../../lib/provider-config';
+import {
+  resolveAvailableExecutionLanes,
+  resolveProviderConfig,
+} from '../../../lib/provider-config';
 import type { Density } from '../../../theme';
 import {
   getAvailableProviderPresets,
-  getProviderProductAccess,
   getProviderPreset,
+  getProviderProductAccess,
   listProviderVariantsForProduct,
 } from '../provider-presets';
 import {
@@ -68,10 +71,8 @@ export function assembleSettingsControllerApi({
     model: provider.model || selectedVariant?.defaultModel || 'pending-model',
     ...(parsedDefaultHeaders ? { defaultHeaders: parsedDefaultHeaders } : {}),
   });
-  const verifiedExecutionLanes =
-    selectedVariant?.supportedExecutionLanes ??
-    selectedAccess?.supportedExecutionLanes ??
-    ['gateway'];
+  const verifiedExecutionLanes = selectedVariant?.supportedExecutionLanes ??
+    selectedAccess?.supportedExecutionLanes ?? ['gateway'];
   const supportedExecutionLanes = resolveAvailableExecutionLanes(
     verifiedExecutionLanes,
     runtimePolicy.executionMode,
@@ -82,7 +83,10 @@ export function assembleSettingsControllerApi({
     provider.accessMode === 'api-key' && !provider.apiKey && !provider.hasStoredSecret;
   const isMissingRequiredEndpoint = requiresEndpoint && !provider.endpointOverride.trim();
   const effectiveEndpoint =
-    provider.endpointOverride || resolvedSelection?.transport.baseURL || selectedVariant?.baseURL || '';
+    provider.endpointOverride ||
+    resolvedSelection?.transport.baseURL ||
+    selectedVariant?.baseURL ||
+    '';
   const isSaveDisabled =
     save.isSaving ||
     save.isReinitializing ||
@@ -140,6 +144,8 @@ export function assembleSettingsControllerApi({
     setDensity,
     setEndpointOverride: provider.setEndpointOverride,
     setExecutionLane: provider.setExecutionLane,
+    employeeRuntimeDefault: runtimePolicy.employeeRuntimeDefault,
+    setEmployeeRuntimeDefault: runtimePolicy.setEmployeeRuntimeDefault,
     setExecutionMode: runtimePolicy.setExecutionMode,
     setGitAutoCommit: runtimePolicy.setGitAutoCommit,
     setMemoryConfidenceThreshold: runtimePolicy.setMemoryConfidenceThreshold,

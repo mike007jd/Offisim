@@ -160,6 +160,7 @@ export type {
   RuntimeToolPermissionsPolicy,
   RuntimeToolSearchPolicy,
 } from './models.js';
+export { ENGINE_IDS } from './models.js';
 
 export type { SopStep, SopDefinition } from './sop.js';
 

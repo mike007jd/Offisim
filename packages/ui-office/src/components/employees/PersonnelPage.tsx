@@ -241,7 +241,7 @@ export function PersonnelPage({ sessionState, onSessionStateChange }: PersonnelP
               <AppearanceTab editor={editor} />
             </TabsContent>
             <TabsContent value="runtime" className="m-0 flex min-h-0 flex-1 flex-col">
-              <RuntimeTab />
+              {selectedEmployee ? <RuntimeTab editor={editor} /> : <EmptyTabPlaceholder />}
             </TabsContent>
             <TabsContent value="skills" className="m-0 flex min-h-0 flex-1 flex-col">
               <SkillsTab companyId={activeCompanyId} employeeId={sessionState.selectedEmployeeId} />

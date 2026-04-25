@@ -8,7 +8,13 @@ import type {
   ToolTelemetryService,
 } from '@offisim/core/browser';
 import type { InstallService } from '@offisim/install-core';
-import type { InteractionMode, InteractionRequest, RuntimeEvent } from '@offisim/shared-types';
+import type {
+  EmployeeRuntimeBinding,
+  EngineId,
+  InteractionMode,
+  InteractionRequest,
+  RuntimeEvent,
+} from '@offisim/shared-types';
 import { createContext, useContext } from 'react';
 import type { DeliverableHookRow } from '../lib/deliverable-artifacts.js';
 import type { SceneIntentBus } from './scene-intents.js';
@@ -129,6 +135,17 @@ export interface OffisimRuntimeValue {
   mountVaultDirectory?: (handle?: FileSystemDirectoryHandle) => Promise<VaultDirectoryStatus>;
   unmountVaultDirectory?: () => Promise<VaultDirectoryStatus>;
   exportVaultSnapshotZip?: () => Promise<void>;
+  /**
+   * Engine adapter IDs registered in the active runtime. Empty in browser; trusted
+   * desktop runtime publishes the IDs whose adapter is reachable. UI binding
+   * surfaces gate engine choices on this set rather than branching on platform.
+   */
+  availableEngineAdapters: ReadonlySet<EngineId>;
+  /**
+   * Company-level employee runtime default surfaced from the active runtime
+   * policy. `null` when the policy omits it (resolver falls through to provider).
+   */
+  companyEmployeeRuntimeDefault: EmployeeRuntimeBinding | null;
 }
 
 export const OffisimRuntimeContext = createContext<OffisimRuntimeValue | null>(null);
@@ -137,6 +154,29 @@ export function useOffisimRuntime(): OffisimRuntimeValue {
   const ctx = useContext(OffisimRuntimeContext);
   if (!ctx) throw new Error('useOffisimRuntime must be used within <OffisimRuntimeProvider>');
   return ctx;
+}
+
+export const EMPTY_ENGINE_ADAPTERS: ReadonlySet<EngineId> = Object.freeze(new Set<EngineId>());
+
+/**
+ * Available engine adapter IDs in the current runtime. Safe to call before
+ * the runtime is ready — returns an empty set instead of throwing. The
+ * provider keeps the underlying Set referentially stable across runtime
+ * recomputes when the adapter list is unchanged, so no `useMemo` wrapper is
+ * needed here.
+ */
+export function useAvailableEngineAdapters(): ReadonlySet<EngineId> {
+  const ctx = useContext(OffisimRuntimeContext);
+  return ctx?.availableEngineAdapters ?? EMPTY_ENGINE_ADAPTERS;
+}
+
+/**
+ * Company-level employee runtime default. `null` when the runtime is not yet
+ * ready or the policy omits the field.
+ */
+export function useCompanyEmployeeRuntimeDefault(): EmployeeRuntimeBinding | null {
+  const ctx = useContext(OffisimRuntimeContext);
+  return ctx?.companyEmployeeRuntimeDefault ?? null;
 }
 
 // ---------------------------------------------------------------------------

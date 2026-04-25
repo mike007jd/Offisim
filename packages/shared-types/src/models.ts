@@ -51,7 +51,8 @@ export type LlmExecutionLane =
   | 'openai-agents-sdk';
 
 /** External runtime engines that can execute a single Offisim-dispatched employee task. */
-export type EngineId = 'codex-engine' | 'claude-engine';
+export const ENGINE_IDS = ['codex-engine', 'claude-engine'] as const;
+export type EngineId = (typeof ENGINE_IDS)[number];
 
 /**
  * Per-employee runtime binding. Provider mode keeps the Offisim-owned

@@ -207,7 +207,11 @@ export { RecordedSystemLlmCaller } from './llm/recorded-system-caller.js';
 export type { SystemLlmCallerDeps } from './llm/recorded-system-caller.js';
 
 // --- Runtime Engines ---
-export { resolveEmployeeRuntimeBinding } from './engine/runtime-binding.js';
+export {
+  resolveEmployeeRuntimeBinding,
+  resolveRuntimeBindingFromInput,
+  runtimeBindingsEqual,
+} from './engine/runtime-binding.js';
 
 // --- Middleware ---
 export { LlmMiddlewareChain } from './middleware/chain.js';

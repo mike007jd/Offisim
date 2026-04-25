@@ -231,7 +231,11 @@ export {
   interactionModeChanged,
 } from './events/event-factories.js';
 
-export { resolveEmployeeRuntimeBinding } from './engine/runtime-binding.js';
+export {
+  resolveEmployeeRuntimeBinding,
+  resolveRuntimeBindingFromInput,
+  runtimeBindingsEqual,
+} from './engine/runtime-binding.js';
 
 // --- Memory Repositories (browser-safe, no Drizzle/sqlite) ---
 export {

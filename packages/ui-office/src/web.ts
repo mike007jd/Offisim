@@ -79,6 +79,9 @@ export {
   type VaultDirectoryStatus,
   type OffisimRuntimeStatusValue,
   type OffisimRuntimeValue,
+  EMPTY_ENGINE_ADAPTERS,
+  useAvailableEngineAdapters,
+  useCompanyEmployeeRuntimeDefault,
   useOffisimRuntime,
 } from './runtime/offisim-runtime-context.js';
 export { SceneCeremonyProvider } from './runtime/scene-ceremony-context.js';

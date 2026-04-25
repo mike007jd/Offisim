@@ -1,10 +1,15 @@
-import type { EmployeeRuntimeBinding, EngineId, RuntimePolicyConfig } from '@offisim/shared-types';
+import {
+  ENGINE_IDS,
+  type EmployeeRuntimeBinding,
+  type EngineId,
+  type RuntimePolicyConfig,
+} from '@offisim/shared-types';
 import type { EmployeeRow } from '../runtime/repositories.js';
 
 const PROVIDER_RUNTIME_BINDING: EmployeeRuntimeBinding = { mode: 'provider' };
 
 function isEngineId(value: unknown): value is EngineId {
-  return value === 'codex-engine' || value === 'claude-engine';
+  return typeof value === 'string' && (ENGINE_IDS as readonly string[]).includes(value);
 }
 
 function parseRuntimeBinding(raw: unknown): EmployeeRuntimeBinding | undefined {
@@ -41,4 +46,32 @@ export function resolveEmployeeRuntimeBinding(
     parseRuntimeBinding(runtimePolicy?.employeeRuntimeDefault) ??
     PROVIDER_RUNTIME_BINDING
   );
+}
+
+/**
+ * Parsed-input variant for callers (UI form state) that already hold a
+ * `EmployeeRuntimeBinding | null` and don't need the JSON-string parse path.
+ * Same precedence: external → provider; override; company default; provider.
+ */
+export function resolveRuntimeBindingFromInput(
+  input: { binding: EmployeeRuntimeBinding | null; isExternal: boolean },
+  runtimePolicy: Pick<RuntimePolicyConfig, 'employeeRuntimeDefault'> | null | undefined,
+): EmployeeRuntimeBinding {
+  if (input.isExternal) return PROVIDER_RUNTIME_BINDING;
+  return input.binding ?? runtimePolicy?.employeeRuntimeDefault ?? PROVIDER_RUNTIME_BINDING;
+}
+
+/**
+ * Structural equality for `EmployeeRuntimeBinding | null`. Handy when comparing
+ * form / context values where reference identity is unstable.
+ */
+export function runtimeBindingsEqual(
+  a: EmployeeRuntimeBinding | null | undefined,
+  b: EmployeeRuntimeBinding | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.mode !== b.mode) return false;
+  if (a.mode === 'engine' && b.mode === 'engine') return a.engineId === b.engineId;
+  return true;
 }

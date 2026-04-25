@@ -1,11 +1,12 @@
 import { InMemoryEventBus } from '@offisim/core/browser';
 import {
   CompanyProvider,
+  EMPTY_ENGINE_ADAPTERS,
   InMemorySceneIntentBus,
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
-  type VaultDirectoryStatus,
   type OffisimRuntimeValue,
+  type VaultDirectoryStatus,
   isTauri,
 } from '@offisim/ui-office/web';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -148,6 +149,8 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
       mountVaultDirectory: undefined,
       unmountVaultDirectory: undefined,
       exportVaultSnapshotZip: undefined,
+      availableEngineAdapters: EMPTY_ENGINE_ADAPTERS,
+      companyEmployeeRuntimeDefault: null,
     }),
     [error, runtime],
   );

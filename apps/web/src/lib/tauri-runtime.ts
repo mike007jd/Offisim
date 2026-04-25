@@ -46,9 +46,9 @@ import type { InteractionMode } from '@offisim/shared-types';
 import {
   getInstallEnvironmentForExecutionMode,
   getTrustedHostProductStatus,
+  resolveEffectiveRuntimePolicy,
   resolveProviderConfig,
   resolveProviderHostAvailability,
-  resolveEffectiveRuntimePolicy,
 } from '@offisim/ui-office/web';
 import type { ProviderConfig, ResolvedProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
@@ -386,7 +386,7 @@ export async function createTauriRuntime(
     sessionCostTracker,
     toolTelemetryService,
     fileHistoryService,
-    engineAdapters: createTauriEngineAdapterRegistry(),
+    engineAdapters: createTauriEngineAdapterRegistry({ enableProviderHostPreviewAdapters: true }),
     interactionService,
     ...(skillLoader ? { skillLoader } : {}),
     skillStagingManager,

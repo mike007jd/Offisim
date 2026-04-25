@@ -8,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@offisim/ui-core';
-import { Bot, BrainCircuit, Cpu, Workflow } from 'lucide-react';
+import { Bot, BrainCircuit, Cpu, Server, Workflow } from 'lucide-react';
+import { RuntimeBindingControl } from '../runtime/RuntimeBindingControl.js';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 import { VaultDirectorySection } from './VaultDirectorySection';
 import { SectionLabel, SurfaceCard, surfaceInputProps } from './settings-primitives';
@@ -20,6 +21,7 @@ interface SettingsRuntimeTabProps {
 export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
   const {
     density,
+    employeeRuntimeDefault,
     executionMode,
     gitAutoCommit,
     handleSave,
@@ -34,6 +36,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
     saveError,
     selectedProduct,
     setDensity,
+    setEmployeeRuntimeDefault,
     setExecutionMode,
     setGitAutoCommit,
     setMemoryConfidenceThreshold,
@@ -270,6 +273,18 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
               {isSaving ? 'Saving…' : 'Save runtime orchestration'}
             </Button>
           </div>
+        </SurfaceCard>
+
+        <SurfaceCard
+          title="Default employee runtime"
+          description="Used when an employee picks 'Inherit company default' on their Runtime tab."
+          icon={<Server className="h-5 w-5" />}
+        >
+          <RuntimeBindingControl
+            scope="company"
+            value={employeeRuntimeDefault ?? null}
+            onChange={(next) => setEmployeeRuntimeDefault(next ?? undefined)}
+          />
         </SurfaceCard>
 
         <VaultDirectorySection notify={controller.notify} />
