@@ -80,9 +80,15 @@ importers:
       '@offisim/asset-schema':
         specifier: workspace:*
         version: link:../../packages/asset-schema
+      '@offisim/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@offisim/db-platform':
         specifier: workspace:*
         version: link:../../packages/db-platform
+      '@offisim/renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderer
       '@offisim/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -92,6 +98,9 @@ importers:
       drizzle-orm:
         specifier: ^0.45.1
         version: 0.45.1(@types/better-sqlite3@7.6.13)(better-sqlite3@12.6.2)(gel@2.2.0)(kysely@0.28.12)(postgres@3.4.8)
+      fflate:
+        specifier: ^0.8.2
+        version: 0.8.2
       hono:
         specifier: ^4.7.0
         version: 4.12.5

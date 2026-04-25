@@ -16,6 +16,7 @@ import { HTTPException } from 'hono/http-exception';
 import { requireAuth } from '../middleware/auth.js';
 import { installRateLimit } from '../middleware/rate-limit.js';
 import { InstallReceiptSchema } from '../schemas/index.js';
+import { getSeededArtifact } from '../seed/artifact-store.js';
 import type { PlatformEnv } from '../types.js';
 
 const installRoute = new Hono<PlatformEnv>();
@@ -136,6 +137,38 @@ installRoute.get('/download/:versionId', async (c) => {
     artifact_url: version.artifact_url,
     artifact_sha256: version.artifact_sha256,
     artifact_size_bytes: version.artifact_size_bytes,
+  });
+});
+
+/**
+ * GET /v1/install/artifacts/:versionId — Serve in-memory seeded artifact bytes.
+ *
+ * Offisim official listings are materialized as `.offisimpkg` zip bytes at
+ * platform boot and kept in an in-memory store (see `seed/artifact-store.ts`).
+ * This route streams those bytes so the Market install flow can fetch them
+ * without any external hosting. Returns 404 for versions that were not
+ * seeded (e.g. user-published listings — they should use their own external
+ * `artifact_url`).
+ */
+installRoute.get('/artifacts/:versionId', (c) => {
+  const versionId = c.req.param('versionId');
+  const artifact = getSeededArtifact(versionId);
+  if (!artifact) {
+    return c.json(
+      { error: { code: 'NOT_FOUND', message: 'No seeded artifact for this version' } },
+      404,
+    );
+  }
+  // Cast to Uint8Array<ArrayBuffer> — WHATWG Response accepts Uint8Array at
+  // runtime; the DOM typings in Node's lib.d.ts don't expose BodyInit.
+  const body = artifact.bytes as unknown as ReadableStream | ArrayBuffer;
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': String(artifact.size),
+      'Cache-Control': 'no-store',
+    },
   });
 });
 

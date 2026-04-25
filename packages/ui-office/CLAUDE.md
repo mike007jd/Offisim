@@ -8,7 +8,7 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - 不要绕过 `useWorkspaceBackNavigation` 直接操作 history
 - `MarketplaceDetailOverlay` 仅保留给 deep-link install, 其余走 workspace page
 - `RegistryClient.hasAuthToken`: 调用认证端点（`/me`, `/drafts`）前必须检查, 无 token 时跳过请求
-- `INSTALLABLE_KINDS` (marketplace-meta.tsx): `['employee', 'skill']`。Skill 是一等可装实体，走 SKILL.md 开放标准；DB 索引在 `skills` 表（`company` / `employee` 两层 scope），磁盘源真相在 vault。`KIND_FILTERS` 三项 `all`/`employee`/`skill`。`PublishDialog` 的 skill publish / install 主路径已落地；剩余是 upload affordance、Claude/Codex sync UX、evidence 收口，不要再按“schema 未落地”理解它
+- `INSTALLABLE_KINDS` (marketplace-meta.tsx): `['employee', 'skill']`。Skill 是一等可装实体，走 SKILL.md 开放标准；DB 索引在 `skills` 表（`company` / `employee` 两层 scope），磁盘源真相在 vault。`KIND_FILTERS` 已扩到 7 项（`all` / `employee` / `skill` / `sop` / `company_template` / `office_layout` / `prefab`）以配合 platform boot-time official seed 在 Market 展示全部 AssetKind；但 **`INSTALLABLE_KINDS` 仍只含 `employee` + `skill`**，其余 4 类在详情页走 `INSTALLABLE_KINDS.has(detail.kind)` gate，不渲染 install 按钮。新 kind 在 install pipeline 没接通前不要加进 `INSTALLABLE_KINDS`。`PublishDialog` 的 skill publish / install 主路径已落地；剩余是 upload affordance、Claude/Codex sync UX、evidence 收口，不要再按"schema 未落地"理解它
 - `SkillBindingList` 已从单-skill 卡片改为多-skill 列表（`useSkillsForEmployee(companyId, employeeId)` 订阅 `skill.*` 事件前缀）；`SkillInspectorPanel` 是只读 SKILL.md body 预览；编辑能力属 T2.7
 - `onSessionStateChange` 签名是 `(updater: (prev: T) => T) => void`, useCallback deps 只需 `[onSessionStateChange]`
 - `OffisimRuntimeProvider` init 异步, 依赖就绪的 useEffect 必须 deps 含 `version`, 不要用 `isInitializing`。**原因**: runtime 拆双 Context, `version` 是 bump 计数器, 不放 deps 闭包会陈旧

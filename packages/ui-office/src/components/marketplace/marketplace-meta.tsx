@@ -18,6 +18,10 @@ export const KIND_FILTERS: Array<{ value: AssetKind | 'all'; label: string }> = 
   { value: 'all', label: 'All' },
   { value: 'employee', label: 'Employees' },
   { value: 'skill', label: 'Skills' },
+  { value: 'sop', label: 'SOPs' },
+  { value: 'company_template', label: 'Templates' },
+  { value: 'office_layout', label: 'Layouts' },
+  { value: 'prefab', label: 'Prefabs' },
 ];
 
 export const SORT_OPTIONS = ['relevance', 'newest', 'rating', 'installs'] as const;
