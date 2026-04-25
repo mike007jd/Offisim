@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@offisim/ui-core';
 import { cn } from '@offisim/ui-core';
 import type { AvatarAppearance } from '../../hooks/useEmployeeEditor';
-import { OUTFIT_COLORS_NUMERIC, OUTFIT_LABELS } from '../../lib/avatar-seed';
+import { OUTFIT_COLORS_NUMERIC, OUTFIT_LABELS, numericToHex } from '../../lib/avatar-seed';
 
 interface AvatarCustomizerProps {
   config: AvatarAppearance;
@@ -51,10 +51,6 @@ const GENDER_OPTIONS = [
   { value: 'feminine', label: 'Fem' },
 ] as const;
 
-function hexToCSS(n: number): string {
-  return `#${n.toString(16).padStart(6, '0')}`;
-}
-
 interface SwatchRowProps {
   label: string;
   options: { value: number; label: string }[];
@@ -75,7 +71,7 @@ function SwatchRow({ label, options, selected, onSelect }: SwatchRowProps) {
             onClick={() => onSelect(opt.value)}
             className="w-6 h-6 rounded-full border-2 transition-all shrink-0"
             style={{
-              backgroundColor: hexToCSS(opt.value),
+              backgroundColor: numericToHex(opt.value),
               borderColor: selected === opt.value ? '#ffffff' : 'transparent',
               boxShadow: selected === opt.value ? '0 0 0 1px rgba(255,255,255,0.3)' : 'none',
             }}
@@ -115,12 +111,17 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
         onSelect={(v) => set('clothingColor', v)}
       />
 
-      <SwatchRow
-        label="Clothing accent"
-        options={CLOTHING_COLORS}
-        selected={config.clothingAccent}
-        onSelect={(v) => set('clothingAccent', v)}
-      />
+      <div>
+        <SwatchRow
+          label="Clothing accent"
+          options={CLOTHING_COLORS}
+          selected={config.clothingAccent}
+          onSelect={(v) => set('clothingAccent', v)}
+        />
+        <p className="mt-1 text-[10px] text-slate-500">
+          Saved with the employee — visible trim arrives in an upcoming art pass.
+        </p>
+      </div>
 
       {/* Gender presentation toggle */}
       <div>

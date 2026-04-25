@@ -18,7 +18,6 @@ import type { UseEmployeeEditorReturn } from '../../../hooks/useEmployeeEditor';
 import { buildSystemPrompt } from '../../../lib/build-system-prompt';
 import { ROLE_OPTIONS } from '../../../lib/roles';
 import { useCompany } from '../../company/CompanyContext.js';
-import { AvatarCustomizer } from '../AvatarCustomizer';
 import { SkillBindingList } from '../SkillBindingList';
 import { ToolPermissionEditor } from '../ToolPermissionEditor';
 
@@ -222,24 +221,6 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   : 'No workstation assigned — no MCP tools accessible'}
               </p>
             </div>
-            {formData.isExternal ? (
-              <div
-                data-testid="external-avatar-disabled"
-                className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/5 p-3"
-              >
-                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-300">
-                  Appearance
-                </p>
-                <p className="text-xs text-slate-400">
-                  This employee uses its brand's built-in avatar and cannot be customized.
-                </p>
-              </div>
-            ) : (
-              <AvatarCustomizer
-                config={formData.appearance}
-                onChange={(cfg) => updateField('appearance', cfg)}
-              />
-            )}
           </section>
 
           {/* Persona */}

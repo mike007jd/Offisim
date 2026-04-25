@@ -4,6 +4,7 @@
  * between an internal and external employee never cross-contaminates the
  * decoded image.
  */
+import type { EmployeeAppearance } from '@offisim/shared-types';
 import { lookupExternalBrand } from '../../lib/brand-registry';
 import { createOffisimAvatar } from '../../lib/avatar-seed';
 
@@ -34,7 +35,13 @@ class LRUCache<V> {
   }
 }
 
-const dicebearKey = (seed: string, companyId: string) => `${companyId}:dicebear:${seed}`;
+function appearanceFingerprint(appearance?: EmployeeAppearance | null): string {
+  if (!appearance) return 'none';
+  return `${appearance.skinColor}-${appearance.hairColor}-${appearance.clothingColor}-${appearance.hairStyle}`;
+}
+
+const dicebearKey = (seed: string, companyId: string, appearance?: EmployeeAppearance | null) =>
+  `${companyId}:dicebear:${seed}:${appearanceFingerprint(appearance)}`;
 const brandCacheKey = (brandKey: string, companyId: string) => `${companyId}:brand:${brandKey}`;
 
 const uriCache = new LRUCache<string>();
@@ -56,26 +63,35 @@ function loadCachedImage(
 }
 
 /** Get a DiceBear avataaars data URI, using the LRU cache. */
-export function getAvatarUri(seed: string, companyId: string): string {
-  const key = dicebearKey(seed, companyId);
+export function getAvatarUri(
+  seed: string,
+  companyId: string,
+  appearance?: EmployeeAppearance | null,
+): string {
+  const key = dicebearKey(seed, companyId, appearance);
   const cached = uriCache.get(key);
   if (cached) return cached;
-  const uri = createOffisimAvatar(seed, 64);
+  const uri = createOffisimAvatar(seed, 64, appearance ?? undefined);
   uriCache.set(key, uri);
   return uri;
 }
 
 /**
- * Get a ready-to-draw `HTMLImageElement` for (seed, companyId). Returns
- * `null` while the image is decoding; `onReady` fires once the URI decodes
- * so callers can request a redraw.
+ * Get a ready-to-draw `HTMLImageElement` for (seed, companyId, appearance).
+ * Returns `null` while the image is decoding; `onReady` fires once the URI
+ * decodes so callers can request a redraw.
  */
 export function getAvatarImage(
   seed: string,
   companyId: string,
+  appearance: EmployeeAppearance | null | undefined,
   onReady?: () => void,
 ): HTMLImageElement | null {
-  return loadCachedImage(dicebearKey(seed, companyId), () => getAvatarUri(seed, companyId), onReady);
+  return loadCachedImage(
+    dicebearKey(seed, companyId, appearance),
+    () => getAvatarUri(seed, companyId, appearance),
+    onReady,
+  );
 }
 
 /**

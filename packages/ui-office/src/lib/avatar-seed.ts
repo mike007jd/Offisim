@@ -1,5 +1,6 @@
 import { avataaars } from '@dicebear/collection';
 import { createAvatar } from '@dicebear/core';
+import type { EmployeeAppearance } from '@offisim/shared-types';
 import { parseEmployeePersona } from '@offisim/shared-types';
 
 // Tuple SSOT — add/reorder entries here; derived arrays stay index-aligned structurally.
@@ -56,15 +57,74 @@ export function skinToneFromSeed(seed: string): string {
   return SKIN_TONES[hashSeed(`skin:${seed}`) % SKIN_TONES.length] ?? '#fce7f3';
 }
 
+export function numericToHex(n: number): string {
+  return `#${(n & 0xffffff).toString(16).padStart(6, '0')}`;
+}
+
+export function resolveOutfitColor(
+  seed: string,
+  appearance?: EmployeeAppearance | null,
+): string {
+  if (appearance && typeof appearance.clothingColor === 'number') {
+    return numericToHex(appearance.clothingColor);
+  }
+  return outfitColorFromSeed(seed);
+}
+
+export function resolveSkinTone(seed: string, appearance?: EmployeeAppearance | null): string {
+  if (appearance && typeof appearance.skinColor === 'number') {
+    return numericToHex(appearance.skinColor);
+  }
+  return skinToneFromSeed(seed);
+}
+
 /**
- * Build a DiceBear avataaars avatar with shirt color locked to `outfitColorFromSeed(seed)`,
- * so 2D cartoon heads stay byte-equivalent to 3D block-figure body color for the same seed.
- * Use this instead of calling `createAvatar(avataaars, ...)` directly.
+ * Maps Offisim `hairStyle` enum to a `@dicebear/avataaars` v9 `top` token.
+ * `bald` is rendered via `topProbability: 0` at config-build time; the token
+ * here is just a placeholder so the field is always populated.
  */
-export function createOffisimAvatar(seed: string, size: number): string {
+export const HAIR_STYLE_TO_AVATAARS_TOP = {
+  short: 'shortFlat',
+  long: 'straight01',
+  ponytail: 'bun',
+  curly: 'shortCurly',
+  bald: 'shortFlat',
+  bob: 'bob',
+  spiky: 'frizzle',
+  braids: 'fro',
+} as const;
+
+/**
+ * Build a DiceBear avataaars avatar. When `appearance` is omitted, behavior is
+ * byte-equivalent to the legacy seed-only path (shirt locked to
+ * `outfitColorFromSeed(seed)` so 2D cartoon stays byte-equal to 3D body).
+ * When provided, skin / hair / clothes / top are sourced from `appearance`,
+ * falling back to seed only for axes the customizer doesn't cover (eyes,
+ * mouth, accessories, …) so the same employee remains visually consistent.
+ */
+export function createOffisimAvatar(
+  seed: string,
+  size: number,
+  appearance?: EmployeeAppearance | null,
+): string {
+  if (!appearance) {
+    return createAvatar(avataaars, {
+      seed,
+      size,
+      clothesColor: [outfitColorFromSeed(seed).slice(1)],
+    }).toDataUri();
+  }
+  const topToken =
+    HAIR_STYLE_TO_AVATAARS_TOP[appearance.hairStyle as keyof typeof HAIR_STYLE_TO_AVATAARS_TOP] ??
+    'shortFlat';
+  const isBald = appearance.hairStyle === 'bald';
   return createAvatar(avataaars, {
     seed,
     size,
-    clothesColor: [outfitColorFromSeed(seed).slice(1)],
+    clothesColor: [numericToHex(appearance.clothingColor).slice(1)],
+    skinColor: [numericToHex(appearance.skinColor).slice(1)],
+    hairColor: [numericToHex(appearance.hairColor).slice(1)],
+    top: [topToken],
+    ...(isBald ? { topProbability: 0 } : {}),
   }).toDataUri();
 }

@@ -21,11 +21,12 @@ import { useCompany } from '../company/CompanyContext.js';
 import type { Zone3D } from './office3d-shared.js';
 import { resolveEmployeeSceneZoneId } from './office3d-shared.js';
 
-import { outfitColorFromSeed, resolveAvatarSeed, skinToneFromSeed } from '../../lib/avatar-seed.js';
+import { resolveOutfitColor, resolveSkinTone } from '../../lib/avatar-seed.js';
 import { type BrandVariant, resolveBrand } from '../../lib/brand-registry.js';
 import {
   CodexBody,
   CustomBody,
+  DefaultBlockBody,
   HermesBody,
   OpenClawBody,
 } from './office3d-brand-variants.js';
@@ -66,7 +67,7 @@ export function usePlacedEmployees(
       const zoneId = agent.state === 'idle' ? restZoneId : resolveEmployeeSceneZoneId(agent, zones);
       const zoneBucket = zoneEmployees.get(zoneId);
       if (zoneBucket) {
-        zoneBucket.push({ id, agent, globalIndex: globalIdx, seed: resolveAvatarSeed(agent) });
+        zoneBucket.push({ id, agent, globalIndex: globalIdx, seed: agent.avatarSeed });
       }
       globalIdx++;
     }
@@ -157,34 +158,7 @@ function LowPolyCharacter({
   if (variant === 'default') {
     return (
       <group ref={groupRef}>
-        <mesh ref={limbRefs?.leftLeg} position={[-0.12, 0.25, 0]} castShadow>
-          <boxGeometry args={[0.12, 0.5, 0.12]} />
-          <meshStandardMaterial color="#0f172a" />
-        </mesh>
-        <mesh ref={limbRefs?.rightLeg} position={[0.12, 0.25, 0]} castShadow>
-          <boxGeometry args={[0.12, 0.5, 0.12]} />
-          <meshStandardMaterial color="#0f172a" />
-        </mesh>
-        <mesh position={[0, 0.75, 0]} castShadow>
-          <boxGeometry args={[0.36, 0.5, 0.2]} />
-          <meshStandardMaterial color={outfitColor} roughness={0.7} />
-        </mesh>
-        <mesh ref={limbRefs?.leftArm} position={[-0.25, 0.75, 0]} castShadow>
-          <boxGeometry args={[0.1, 0.45, 0.1]} />
-          <meshStandardMaterial color={skinTone} roughness={0.4} />
-        </mesh>
-        <mesh ref={limbRefs?.rightArm} position={[0.25, 0.75, 0]} castShadow>
-          <boxGeometry args={[0.1, 0.45, 0.1]} />
-          <meshStandardMaterial color={skinTone} roughness={0.4} />
-        </mesh>
-        <mesh position={[0, 1.25, 0]} castShadow>
-          <boxGeometry args={[0.3, 0.3, 0.3]} />
-          <meshStandardMaterial color={skinTone} roughness={0.4} />
-        </mesh>
-        <mesh position={[0, 1.48, 0]} castShadow>
-          <boxGeometry args={[0.32, 0.16, 0.32]} />
-          <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
-        </mesh>
+        <DefaultBlockBody limbRefs={limbRefs} outfitColor={outfitColor} skinTone={skinTone} />
         <mesh ref={ringRef} position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.4, 0.55, 32]} />
           <meshBasicMaterial ref={ringMatRef} transparent opacity={0} toneMapped={false} />
@@ -329,8 +303,8 @@ export function EmployeeMarker({
 }) {
   const sc = useSceneColors();
   const brand = resolveBrand(emp.agent);
-  const outfit = outfitColorFromSeed(emp.seed);
-  const skin = skinToneFromSeed(emp.seed);
+  const outfit = resolveOutfitColor(emp.seed, emp.agent.appearance);
+  const skin = resolveSkinTone(emp.seed, emp.agent.appearance);
 
   const leftLegRef = useRef<THREE.Mesh>(null);
   const rightLegRef = useRef<THREE.Mesh>(null);

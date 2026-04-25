@@ -14,6 +14,46 @@ interface BrandBodyProps {
   limbRefs?: CharacterLimbRefs;
 }
 
+interface DefaultBlockBodyProps extends BrandBodyProps {
+  outfitColor?: string;
+  skinTone?: string;
+}
+
+export function DefaultBlockBody({ limbRefs, outfitColor, skinTone }: DefaultBlockBodyProps) {
+  return (
+    <>
+      <mesh ref={limbRefs?.leftLeg} position={[-0.12, 0.25, 0]} castShadow>
+        <boxGeometry args={[0.12, 0.5, 0.12]} />
+        <meshStandardMaterial color="#0f172a" />
+      </mesh>
+      <mesh ref={limbRefs?.rightLeg} position={[0.12, 0.25, 0]} castShadow>
+        <boxGeometry args={[0.12, 0.5, 0.12]} />
+        <meshStandardMaterial color="#0f172a" />
+      </mesh>
+      <mesh position={[0, 0.75, 0]} castShadow>
+        <boxGeometry args={[0.36, 0.5, 0.2]} />
+        <meshStandardMaterial color={outfitColor} roughness={0.7} />
+      </mesh>
+      <mesh ref={limbRefs?.leftArm} position={[-0.25, 0.75, 0]} castShadow>
+        <boxGeometry args={[0.1, 0.45, 0.1]} />
+        <meshStandardMaterial color={skinTone} roughness={0.4} />
+      </mesh>
+      <mesh ref={limbRefs?.rightArm} position={[0.25, 0.75, 0]} castShadow>
+        <boxGeometry args={[0.1, 0.45, 0.1]} />
+        <meshStandardMaterial color={skinTone} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 1.25, 0]} castShadow>
+        <boxGeometry args={[0.3, 0.3, 0.3]} />
+        <meshStandardMaterial color={skinTone} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 1.48, 0]} castShadow>
+        <boxGeometry args={[0.32, 0.16, 0.32]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
+      </mesh>
+    </>
+  );
+}
+
 export function HermesBody({ limbRefs }: BrandBodyProps) {
   const skin = '#f5d0c5';
   const outfit = '#4f46e5';

@@ -238,7 +238,7 @@ export function PersonnelPage({ sessionState, onSessionStateChange }: PersonnelP
               {selectedEmployee ? <ProfileTab editor={editor} /> : <EmptyTabPlaceholder />}
             </TabsContent>
             <TabsContent value="appearance" className="m-0 flex min-h-0 flex-1 flex-col">
-              <AppearanceTab />
+              <AppearanceTab editor={editor} />
             </TabsContent>
             <TabsContent value="runtime" className="m-0 flex min-h-0 flex-1 flex-col">
               <RuntimeTab />

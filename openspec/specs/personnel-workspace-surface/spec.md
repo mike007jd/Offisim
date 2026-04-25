@@ -4,7 +4,6 @@
 
 Personnel is a sixth peer-level workspace addressable by `WorkspaceKey === 'personnel'`. It replaces the legacy `EmployeeEditorDialog` with a three-pane page (employee list rail / detail+preview / 6-tab inspector) that hosts every cross-surface "edit employee" entry and gives future appearance / runtime / skills / memory work a real container instead of a modal. All "edit employee" surfaces — Office Roster (via `EmployeeInspector`), Office keyboard shortcut, Settings → External Employees row — route through a single `routeToPersonnel(employeeId, tab?)` helper that atomically switches `activeWorkspace` to `'personnel'` and writes `selectedEmployeeId` + `activeEmployeeTab` into `WorkspaceSessionState.personnel`. Profile tab carries the prior dialog form intact so users keep edit capability in the C0 → C1 window; Appearance / Runtime / Skills land as labeled placeholder shells; Memory / History reuse the existing `MemoryPanel` and `VersionHistoryTab` primitives. `EmployeeEditorDialog` is removed and `useRegisterModal('employee-editor', ...)` no longer fires.
 ## Requirements
-
 ### Requirement: Personnel is a peer workspace
 Personnel SHALL be a first-class peer-level workspace addressable by `WorkspaceKey === 'personnel'`. It SHALL render through the single `AppLayout` shell as `centerContent`, with `agentPanel`, `sceneCanvas`, `chatDrawer`, and `eventLog` set to `null`. There SHALL be exactly six peer-level workspaces — `office | sops | market | personnel | activity-log | settings` — in this canonical order.
 
@@ -98,7 +97,8 @@ Every UI surface that exposes "Edit employee" or "Open employee details" SHALL r
 - **THEN** `tryWorkspaceInternalBack` SHALL return `[false, _]` and workspace-level history SHALL pop
 
 ### Requirement: Profile tab carries forward existing edit content
-The `Profile` tab SHALL be functional in this change: it SHALL render the form fields that were previously hosted by `EmployeeEditorDialog` (identity, role, instructions, persona, model preference, tool permissions, workstation, memory snapshot, history list) so users retain end-to-end edit capability. The tab SHALL save through the existing `useEmployeeEditor` `save()` and `updateField()` API. Splitting Profile into more focused tabs (Appearance, Runtime, Skills) is deferred to subsequent changes.
+
+The `Profile` tab SHALL render the form fields that were previously hosted by `EmployeeEditorDialog` *except for appearance editing*: identity (name / role / status / workstation assignment), persona (expertise, style, communication frequency, risk preference, decision style, custom instructions), config (provider / model / temperature / max tokens / skill bindings / tool permissions), and the system-prompt preview disclosure. The tab SHALL save through the existing `useEmployeeEditor` `save()` and `updateField()` API. Appearance editing has moved to the `Appearance` tab.
 
 #### Scenario: Saving from Profile tab persists employee changes
 - **WHEN** the user changes the role in the Profile tab and clicks Save
@@ -111,18 +111,15 @@ The `Profile` tab SHALL be functional in this change: it SHALL render the form f
 - **THEN** an inline confirm affordance SHALL appear inside the Profile tab content
 - **AND** no separate dialog modal SHALL open
 
-#### Scenario: External employee Profile tab keeps read-only banner
-- **WHEN** the selected employee has `is_external === 1`
-- **THEN** the Profile tab SHALL render the existing read-only banner indicating brand-managed avatar
-- **AND** appearance fields SHALL be disabled
+#### Scenario: Profile tab does not host AvatarCustomizer
+- **WHEN** the Profile tab renders for either an internal or external employee
+- **THEN** no `AvatarCustomizer` component SHALL render inside the Profile tab
+- **AND** no `data-testid="external-avatar-disabled"` banner SHALL render inside the Profile tab
+- **AND** the user SHALL find appearance controls in the `Appearance` tab instead
 
 ### Requirement: Appearance, Runtime, Skills tabs are placeholder shells
-The `Appearance`, `Runtime`, and `Skills` tabs SHALL render in this change as labelled placeholder shells that announce their planned capability. They SHALL NOT include forms, controls, or edits; their content is delivered by follow-up changes (`personnel-appearance-live-preview`, `personnel-runtime-engine-binding`, future skills binding work). The tab triggers SHALL be visible and selectable so the IA shell is verifiable.
 
-#### Scenario: Appearance tab renders placeholder copy
-- **WHEN** the user activates the Appearance tab
-- **THEN** the tab content SHALL render a heading "Appearance" with a one-line description and a status note that live preview ships in a follow-up change
-- **AND** SHALL NOT render avatar editor controls
+The `Runtime` and `Skills` tabs SHALL render in this change as labelled placeholder shells that announce their planned capability. They SHALL NOT include forms, controls, or edits; their content is delivered by follow-up changes (`personnel-runtime-engine-binding`, future skills binding work). The tab triggers SHALL be visible and selectable so the IA shell is verifiable. The `Appearance` tab is no longer a placeholder shell — see capability `personnel-appearance-live-preview`.
 
 #### Scenario: Runtime tab renders placeholder copy
 - **WHEN** the user activates the Runtime tab
@@ -132,6 +129,11 @@ The `Appearance`, `Runtime`, and `Skills` tabs SHALL render in this change as la
 - **WHEN** the user activates the Skills tab
 - **THEN** the tab content SHALL render a heading "Skills" with a status note that the in-Personnel skills experience is pending
 - **AND** the existing `SkillBindingList` MAY be rendered as read-only context but SHALL NOT support edits
+
+#### Scenario: Appearance tab is no longer a placeholder
+- **WHEN** the user activates the Appearance tab
+- **THEN** the tab content SHALL render the live customizer + preview surface defined in capability `personnel-appearance-live-preview`
+- **AND** SHALL NOT render the `PlaceholderTab` shell
 
 ### Requirement: Memory and History tabs preserve existing content
 The `Memory` and `History` tabs SHALL render the same content the dialog previously rendered for those sections. No new editing behavior is introduced in this change.
@@ -158,3 +160,4 @@ The `Memory` and `History` tabs SHALL render the same content the dialog previou
 #### Scenario: useRegisterModal not called for employee-editor
 - **WHEN** auditing the codebase for `useRegisterModal('employee-editor', ...)`
 - **THEN** zero matches exist
+

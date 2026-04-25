@@ -4,7 +4,6 @@ import type { MutableRefObject } from 'react';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import { usePrefabInstances } from '../../hooks/usePrefabInstances.js';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
-import { resolveAvatarSeed } from '../../lib/avatar-seed.js';
 import {
   DEFAULT_BUBBLE_TEXT,
   getPhaseColor,
@@ -72,7 +71,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     const restId = restZone?.zoneId ?? UNASSIGNED_ZONE_ID;
     for (const [empId, agent] of agents) {
       const zoneId = agent.state === 'idle' ? restId : resolveZone(agent);
-      map.get(zoneId)?.push({ agent, seed: resolveAvatarSeed(agent), empId });
+      map.get(zoneId)?.push({ agent, seed: agent.avatarSeed, empId });
     }
     return map;
   }, [agents, zones, resolveZone]);
@@ -127,10 +126,14 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
   }, [needsRedrawRef]);
 
   const loadAvatar = useCallback(
-    (agent: Pick<AgentState, 'isExternal' | 'brandKey'>, seed: string, cId: string) =>
+    (
+      agent: Pick<AgentState, 'isExternal' | 'brandKey' | 'appearance'>,
+      seed: string,
+      cId: string,
+    ) =>
       agent.isExternal
         ? getBrandAvatarImage(agent.brandKey, cId, triggerRedraw)
-        : getAvatarImage(seed, cId, triggerRedraw),
+        : getAvatarImage(seed, cId, agent.appearance, triggerRedraw),
     [triggerRedraw],
   );
 
@@ -251,7 +254,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     for (const [empId, pos] of employeeCeremonyPositions) {
       const agent = agents.get(empId);
       if (!agent) continue;
-      push({ empId, x: pos.x, y: pos.y, agent, seed: resolveAvatarSeed(agent) });
+      push({ empId, x: pos.x, y: pos.y, agent, seed: agent.avatarSeed });
     }
     return result;
   }, [

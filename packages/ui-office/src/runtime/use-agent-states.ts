@@ -1,4 +1,5 @@
 import type {
+  EmployeeAppearance,
   EmployeeCreatedPayload,
   EmployeeDeletedPayload,
   EmployeeStatePayload,
@@ -9,7 +10,25 @@ import type {
   TaskAssignmentDispatchedPayload,
   TaskSubtaskProgressPayload,
 } from '@offisim/shared-types';
+import { parseEmployeePersona } from '@offisim/shared-types';
 import { useEffect, useRef, useState } from 'react';
+
+function appearanceEqual(
+  a: EmployeeAppearance | null,
+  b: EmployeeAppearance | null,
+): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return (
+    a.skinColor === b.skinColor &&
+    a.hairColor === b.hairColor &&
+    a.hairStyle === b.hairStyle &&
+    a.clothingColor === b.clothingColor &&
+    a.clothingAccent === b.clothingAccent &&
+    a.bodyType === b.bodyType &&
+    a.gender === b.gender
+  );
+}
 import { useCompany } from '../components/company/CompanyContext.js';
 import { useOffisimRuntime } from './offisim-runtime-context';
 
@@ -38,6 +57,9 @@ export interface AgentState {
   subTasks?: SubTaskInfo[];
   isExternal: boolean;
   brandKey: string | null;
+  appearance: EmployeeAppearance | null;
+  /** Pre-resolved seed (`persona.avatarSeed ?? name`) so renderers don't re-parse persona. */
+  avatarSeed: string;
 }
 
 type WorkstationEventPayload =
@@ -54,6 +76,7 @@ function buildAgentStateMap(
     workstation_id: string | null;
     is_external?: number;
     brand_key?: string | null;
+    persona_json?: string | null;
   }>,
   prev?: Map<string, AgentState>,
 ): Map<string, AgentState> {
@@ -63,6 +86,7 @@ function buildAgentStateMap(
   for (const row of employees) {
     if (row.company_id !== companyId) continue;
     const previous = prev?.get(row.employee_id);
+    const persona = parseEmployeePersona(row.persona_json ?? null);
     next.set(row.employee_id, {
       name: row.name,
       role: row.role_slug ?? 'developer',
@@ -73,6 +97,8 @@ function buildAgentStateMap(
       subTasks: previous?.subTasks,
       isExternal: row.is_external === 1,
       brandKey: row.brand_key ?? null,
+      appearance: persona.appearance ?? null,
+      avatarSeed: persona.avatarSeed ?? row.name,
     });
   }
   return next;
@@ -152,6 +178,8 @@ export function useAgentStates(): Map<string, AgentState> {
             workstationId: null,
             isExternal: false,
             brandKey: null,
+            appearance: null,
+            avatarSeed: name,
           });
           return next;
         });
@@ -162,13 +190,18 @@ export function useAgentStates(): Map<string, AgentState> {
           const nextIsExternal = row.is_external === 1;
           const nextBrandKey = row.brand_key ?? null;
           const nextWorkstationId = row.workstation_id ?? null;
+          const persona = parseEmployeePersona(row.persona_json ?? null);
+          const nextAppearance = persona.appearance ?? null;
+          const nextAvatarSeed = persona.avatarSeed ?? row.name;
           setAgents((prev) => {
             const existing = prev.get(employeeId);
             if (!existing) return prev;
             if (
               existing.isExternal === nextIsExternal &&
               existing.brandKey === nextBrandKey &&
-              existing.workstationId === nextWorkstationId
+              existing.workstationId === nextWorkstationId &&
+              existing.avatarSeed === nextAvatarSeed &&
+              appearanceEqual(existing.appearance, nextAppearance)
             ) {
               return prev;
             }
@@ -178,6 +211,8 @@ export function useAgentStates(): Map<string, AgentState> {
               isExternal: nextIsExternal,
               brandKey: nextBrandKey,
               workstationId: nextWorkstationId,
+              appearance: nextAppearance,
+              avatarSeed: nextAvatarSeed,
             });
             return next;
           });
@@ -206,19 +241,44 @@ export function useAgentStates(): Map<string, AgentState> {
       },
     );
 
-    // Employee updated — update name/role, keep current state
+    // The event payload only carries name/role; refetch the row so appearance
+    // (saved in persona_json) flows through.
     const unsubUpdated = eventBus.on(
       'employee.updated',
       (event: RuntimeEvent<EmployeeUpdatedPayload>) => {
         const { employeeId, name, roleSlug } = event.payload;
         setAgents((prev) => {
           const existing = prev.get(employeeId);
-          // Skip if unchanged — prevents unnecessary Map recreation
-          if (existing && existing.name === name && existing.role === roleSlug) return prev;
           if (!existing) return prev;
+          if (existing.name === name && existing.role === roleSlug) return prev;
           const next = new Map(prev);
           next.set(employeeId, { ...existing, name, role: roleSlug });
           return next;
+        });
+        const repos = reposRef.current;
+        if (!repos) return;
+        void repos.employees.findById(employeeId).then((row) => {
+          if (!row) return;
+          const persona = parseEmployeePersona(row.persona_json ?? null);
+          const nextAppearance = persona.appearance ?? null;
+          const nextAvatarSeed = persona.avatarSeed ?? row.name;
+          setAgents((prev) => {
+            const existing = prev.get(employeeId);
+            if (!existing) return prev;
+            if (
+              existing.avatarSeed === nextAvatarSeed &&
+              appearanceEqual(existing.appearance, nextAppearance)
+            ) {
+              return prev;
+            }
+            const next = new Map(prev);
+            next.set(employeeId, {
+              ...existing,
+              appearance: nextAppearance,
+              avatarSeed: nextAvatarSeed,
+            });
+            return next;
+          });
         });
       },
     );
