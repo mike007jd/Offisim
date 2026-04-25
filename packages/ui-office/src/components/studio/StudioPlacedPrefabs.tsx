@@ -201,8 +201,12 @@ export function StudioPlacedPrefabs() {
   // TransformControls mode from studio tool
   const transformMode: 'translate' | 'rotate' = tool === 'rotate' ? 'rotate' : 'translate';
 
-  // Whether TransformControls should be active
-  const transformEnabled = selectedInstance != null && (tool === 'move' || tool === 'rotate');
+  // Whether TransformControls should be active.
+  // `select` enables translate too — spec Requirement 3 explicitly allows drag under
+  // `tool === 'move' || tool === 'select'`, and the default tool after `enterEditZone` is
+  // `select`, so withholding TC there forces the user to a redundant Move-tool click.
+  const transformEnabled =
+    selectedInstance != null && (tool === 'select' || tool === 'move' || tool === 'rotate');
 
   // Stable select callback for memoized items
   const handleSelect = useCallback(
