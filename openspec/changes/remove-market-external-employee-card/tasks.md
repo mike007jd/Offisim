@@ -39,6 +39,6 @@
 ## 6. Commit & ready for archive
 
 - [x] 6.1 `git status` 确认 diff = MarketPage 改动 + MarketExternalAgentCard.tsx 删除 + spec 修订 + release desktop CORS 修复 + change 文件夹
-- [ ] 6.2 commit follow repo style（一次 commit 收口）；message body 写 "为什么"（Q1 决策、业务边界）不写"做了啥"
+- [x] 6.2 commit follow repo style（一次 commit 收口）；message body 写 "为什么"（Q1 决策、业务边界）不写"做了啥" —— commit `fa06e1aa Remove market external employee entry` 含 MarketPage 改 + MarketExternalAgentCard.tsx 删 + spec 修订 + platform CORS dev origin 补丁 + change 文件夹
 - [ ] 6.3 archive gate 三查：spec 一致 / tasks 一致 / 文档注释一致；A2A 协议台账行无变化（本 change 不动协议），无需更新 ledger
 - [ ] 6.4 `/opsx:archive remove-market-external-employee-card` 同步 canonical
