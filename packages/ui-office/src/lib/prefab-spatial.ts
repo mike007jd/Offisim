@@ -85,9 +85,78 @@ export function toWorldFootprint(
 
 /**
  * AABB overlap test on the XZ plane (strict inequality — touching edges do NOT overlap).
+ * Contrast `footprintInsideRect` below, which uses inclusive-edge containment.
  */
 export function footprintsOverlap(a: WorldFootprint, b: WorldFootprint): boolean {
   return Math.abs(a.cx - b.cx) < a.halfW + b.halfW && Math.abs(a.cz - b.cz) < a.halfD + b.halfD;
+}
+
+export interface FootprintRect {
+  cx: number;
+  cz: number;
+  halfW: number;
+  halfD: number;
+}
+
+/** Bridge from the `{cx, cz, w, d}` zone shape (ZoneRect) to the half-extent shape used here. */
+export function zoneToFootprintRect(zone: {
+  cx: number;
+  cz: number;
+  w: number;
+  d: number;
+}): FootprintRect {
+  return { cx: zone.cx, cz: zone.cz, halfW: zone.w / 2, halfD: zone.d / 2 };
+}
+
+/** Return [width, depth] after applying rotation (swap dimensions for 90/270). */
+export function getRotatedSize(w: number, d: number, rotation: number): [number, number] {
+  return rotation % 180 === 0 ? [w, d] : [d, w];
+}
+
+/**
+ * Resolve a world-space footprint from a prefab id; falls back to `gridSize × 0.9` when no
+ * spatial spec is registered (legacy prefabs without footprint metadata).
+ */
+export function resolveWorldFootprint(
+  prefabId: string,
+  gridSize: readonly [number, number],
+  position: readonly [number, number],
+  rotation: 0 | 90 | 180 | 270,
+): WorldFootprint {
+  const spec = getSpatialSpec(prefabId);
+  if (spec) return toWorldFootprint(spec.footprint, position, rotation);
+  const [rw, rd] = getRotatedSize(gridSize[0], gridSize[1], rotation);
+  return { cx: position[0], cz: position[1], halfW: rw * 0.9, halfD: rd * 0.9 };
+}
+
+/**
+ * Clamp a footprint's center so its AABB fits inside `rect`. When the footprint is larger than
+ * `rect` on an axis, the clamp pins the center to the `rect`'s low-edge bound (max wins) and the
+ * footprint visibly overflows on the high side — accepted per design D3.
+ */
+export function clampFootprintToRect(
+  footprint: WorldFootprint,
+  rect: FootprintRect,
+): { cx: number; cz: number } {
+  const cx = Math.max(
+    rect.cx - rect.halfW + footprint.halfW,
+    Math.min(rect.cx + rect.halfW - footprint.halfW, footprint.cx),
+  );
+  const cz = Math.max(
+    rect.cz - rect.halfD + footprint.halfD,
+    Math.min(rect.cz + rect.halfD - footprint.halfD, footprint.cz),
+  );
+  return { cx, cz };
+}
+
+/** True iff `footprint`'s AABB lies fully inside `rect` (touching edges count as inside). */
+export function footprintInsideRect(footprint: WorldFootprint, rect: FootprintRect): boolean {
+  return (
+    footprint.cx - footprint.halfW >= rect.cx - rect.halfW &&
+    footprint.cx + footprint.halfW <= rect.cx + rect.halfW &&
+    footprint.cz - footprint.halfD >= rect.cz - rect.halfD &&
+    footprint.cz + footprint.halfD <= rect.cz + rect.halfD
+  );
 }
 
 // ---------------------------------------------------------------------------

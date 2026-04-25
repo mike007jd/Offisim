@@ -11,6 +11,12 @@ import { Html, TransformControls } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import {
+  clampFootprintToRect,
+  getSpatialSpec,
+  toWorldFootprint,
+  zoneToFootprintRect,
+} from '../../lib/prefab-spatial.js';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
 import { type PlacedInstance, useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
@@ -83,7 +89,7 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       gl.domElement.style.cursor = 'pointer';
       invalidate();
     },
-    [gl, invalidate],
+    [instance.zoneId, gl, invalidate],
   );
 
   const handlePointerOut = useCallback(
@@ -153,6 +159,11 @@ export function StudioPlacedPrefabs() {
   const selectInstance = useStudioStore((s) => s.selectInstance);
 
   const { invalidate } = useThree();
+  // OrbitControls reference (set by `makeDefault` on the StudioCanvas <OrbitControls>); we
+  // explicitly toggle `enabled` during gizmo drag so a missed handle never lets orbit hijack
+  // the pointer mid-translate. drei's auto-disable should cover this, but smaller prefabs have
+  // tight gizmo handles and the explicit toggle is defensive.
+  const orbitControls = useThree((s) => s.controls) as { enabled: boolean } | null;
 
   // Highlight ring geometry + material (disposed on unmount)
   const highlightRingGeo = useMemo(() => {
@@ -209,15 +220,30 @@ export function StudioPlacedPrefabs() {
     if (transformMode === 'translate') {
       // Read world position from the group (re-use pre-allocated vector)
       group.getWorldPosition(_pos);
+
+      const state = useStudioStore.getState();
+      const inst = state.instances.find((i) => i.id === selectedId);
+      const def = inst ? getBuiltinPrefab(inst.prefabId) : null;
+
+      // Zone-edit clamp: pin footprint inside focused zone every frame so the gizmo can never
+      // escape. Skip updateZoneId re-resolution — clamp guarantees same-zone.
+      if (state.isEditingZone && state.focusedZoneId && inst) {
+        const focusedZone = state.zones.find((z) => z.zoneId === state.focusedZoneId);
+        const spec = getSpatialSpec(inst.prefabId);
+        if (focusedZone && spec) {
+          const ghostFp = toWorldFootprint(spec.footprint, [_pos.x, _pos.z], inst.rotation);
+          const clamped = clampFootprintToRect(ghostFp, zoneToFootprintRect(focusedZone));
+          _pos.x = clamped.cx;
+          _pos.z = clamped.cz;
+          group.position.set(clamped.cx, _pos.y, clamped.cz);
+        }
+      }
+
       updatePosition(selectedId, [_pos.x, _pos.y, _pos.z]);
 
-      // Re-resolve zone assignment (trigger point 2: drag)
-      const inst = useStudioStore.getState().instances.find((i) => i.id === selectedId);
-      const def = inst ? getBuiltinPrefab(inst.prefabId) : null;
-      if (def) {
-        const { zones } = useStudioStore.getState();
-        const match = resolveZoneForPosition(_pos.x, _pos.z, def.category, zones);
-        if (inst && match.zoneId !== inst.zoneId) {
+      if (!state.isEditingZone && def && inst) {
+        const match = resolveZoneForPosition(_pos.x, _pos.z, def.category, state.zones);
+        if (match.zoneId !== inst.zoneId) {
           useStudioStore.getState().updateZoneId(selectedId, match.zoneId);
         }
       }
@@ -305,7 +331,7 @@ export function StudioPlacedPrefabs() {
           enabled={transformEnabled && isEditingZone}
           visible={transformEnabled && isEditingZone}
           mode={transformMode}
-          size={1.25}
+          size={2}
           translationSnap={0.5}
           rotationSnap={Math.PI / 2}
           showX={true}
@@ -313,6 +339,12 @@ export function StudioPlacedPrefabs() {
           showZ={true}
           space="world"
           onObjectChange={handleObjectChange}
+          onMouseDown={() => {
+            if (orbitControls) orbitControls.enabled = false;
+          }}
+          onMouseUp={() => {
+            if (orbitControls) orbitControls.enabled = true;
+          }}
         />
       )}
     </>

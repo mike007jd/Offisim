@@ -2,10 +2,14 @@
  * StudioGhost -- Ghost preview with placement validation feedback.
  *
  * Shows a semi-transparent prefab following the mouse during placement.
- * Green ground indicator = valid placement.
- * Red ground indicator = overlapping with existing prefab (blocked).
+ * Ground indicator turns red whenever placement is blocked.
  *
- * Collision detection uses AABB overlap on grid-snapped positions.
+ * Validity is multi-reason (`overlap` / `outside-zone` / `category-not-allowed`); the size label
+ * surfaces the priority reason text when blocked, falling back to `{w}x{d}` when valid.
+ *
+ * In zone-edit mode the ghost group additionally clamps its visual position to the focused zone's
+ * AABB so it never escapes — the underlying `outside-zone` reason still fires so click placement
+ * no-ops at the edge.
  *
  * Material strategy (Skill §11):
  *   Two pre-built MeshStandardMaterial instances (valid/blocked).
@@ -17,11 +21,18 @@
  */
 
 import { getBuiltinPrefab } from '@offisim/renderer';
+import type { SemanticCategory, Zone } from '@offisim/shared-types';
 import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { footprintsOverlap, getSpatialSpec, toWorldFootprint } from '../../lib/prefab-spatial.js';
+import {
+  clampFootprintToRect,
+  footprintInsideRect,
+  footprintsOverlap,
+  resolveWorldFootprint,
+  zoneToFootprintRect,
+} from '../../lib/prefab-spatial.js';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
 import { useStudioStore } from './StudioState.js';
 import { STUDIO_COLORS } from './studio-tokens.js';
@@ -32,61 +43,85 @@ function snap(v: number, grid: number): number {
 
 const SNAP = 0.5;
 
-/**
- * Return [width, depth] after applying rotation (swap dimensions for 90/270).
- */
-function getRotatedSize(w: number, d: number, rotation: number): [number, number] {
-  return rotation % 180 === 0 ? [w, d] : [d, w];
+export type PlacementInvalidReason = 'outside-zone' | 'category-not-allowed' | 'overlap';
+
+// Display priority — first match drives the size-label text.
+const REASON_PRIORITY: readonly PlacementInvalidReason[] = [
+  'outside-zone',
+  'category-not-allowed',
+  'overlap',
+];
+
+interface ValidationResult {
+  blocked: boolean;
+  reasons: PlacementInvalidReason[];
+}
+
+function priorityReason(reasons: PlacementInvalidReason[]): PlacementInvalidReason | null {
+  for (const r of REASON_PRIORITY) {
+    if (reasons.includes(r)) return r;
+  }
+  return null;
+}
+
+function reasonText(reason: PlacementInvalidReason, zoneLabel: string): string {
+  switch (reason) {
+    case 'outside-zone':
+      return `Outside ${zoneLabel}`;
+    case 'category-not-allowed':
+      return `Not allowed in ${zoneLabel}`;
+    case 'overlap':
+      return 'Overlapping';
+  }
 }
 
 /**
- * Check if a new prefab at [x, z] with given grid size and rotation overlaps any existing instance.
- * Uses prefab footprint (with padding) when available, falls back to gridSize-based AABB.
+ * Compute placement validity at unclamped (x, z). `outside-zone` and `category-not-allowed` only
+ * apply in zone-edit mode against the focused zone; `overlap` always applies.
  */
-function checkOverlap(
+function validatePlacement(
   x: number,
   z: number,
   ghostPrefabId: string,
-  gridW: number,
-  gridD: number,
-  ghostRotation: number,
+  ghostCategory: SemanticCategory | undefined,
+  ghostGridSize: readonly [number, number],
+  ghostRotation: 0 | 90 | 180 | 270,
   instances: { position: [number, number, number]; rotation: number; prefabId: string }[],
-): boolean {
-  const ghostSpec = getSpatialSpec(ghostPrefabId);
-  const ghostFp = ghostSpec
-    ? toWorldFootprint(ghostSpec.footprint, [x, z], ghostRotation as 0 | 90 | 180 | 270)
-    : {
-        cx: x,
-        cz: z,
-        halfW: getRotatedSize(gridW, gridD, ghostRotation)[0] * 0.9,
-        halfD: getRotatedSize(gridW, gridD, ghostRotation)[1] * 0.9,
-      };
+  isEditingZone: boolean,
+  focusedZone: Zone | null,
+): ValidationResult {
+  const reasons: PlacementInvalidReason[] = [];
+  const ghostFp = resolveWorldFootprint(ghostPrefabId, ghostGridSize, [x, z], ghostRotation);
 
   for (const inst of instances) {
-    const instSpec = getSpatialSpec(inst.prefabId);
     const def = getBuiltinPrefab(inst.prefabId);
-    if (!def && !instSpec) continue;
-
-    const instFp = instSpec
-      ? toWorldFootprint(
-          instSpec.footprint,
-          [inst.position[0], inst.position[2]],
-          inst.rotation as 0 | 90 | 180 | 270,
-        )
-      : {
-          cx: inst.position[0],
-          cz: inst.position[2],
-          // biome-ignore lint/style/noNonNullAssertion: early continue guarantees def or instSpec is defined
-          halfW: getRotatedSize(def!.gridSize[0], def!.gridSize[1], inst.rotation)[0] * 0.9,
-          // biome-ignore lint/style/noNonNullAssertion: early continue guarantees def or instSpec is defined
-          halfD: getRotatedSize(def!.gridSize[0], def!.gridSize[1], inst.rotation)[1] * 0.9,
-        };
-
+    if (!def) continue;
+    const instFp = resolveWorldFootprint(
+      inst.prefabId,
+      def.gridSize,
+      [inst.position[0], inst.position[2]],
+      inst.rotation as 0 | 90 | 180 | 270,
+    );
     if (footprintsOverlap(ghostFp, instFp)) {
-      return true;
+      reasons.push('overlap');
+      break;
     }
   }
-  return false;
+
+  if (isEditingZone && focusedZone) {
+    if (!footprintInsideRect(ghostFp, zoneToFootprintRect(focusedZone))) {
+      reasons.push('outside-zone');
+    }
+    if (
+      ghostCategory &&
+      focusedZone.allowedCategories.length > 0 &&
+      !focusedZone.allowedCategories.includes(ghostCategory)
+    ) {
+      reasons.push('category-not-allowed');
+    }
+  }
+
+  return { blocked: reasons.length > 0, reasons };
 }
 
 export function StudioGhost() {
@@ -95,8 +130,12 @@ export function StudioGhost() {
   const ringRef = useRef<THREE.Mesh | null>(null);
   const filledPlaneMatRef = useRef<THREE.MeshBasicMaterial | null>(null);
   const wireMatRef = useRef<THREE.LineBasicMaterial | null>(null);
+  const labelDivRef = useRef<HTMLDivElement | null>(null);
   const blockedRef = useRef(false);
   const prevBlockedRef = useRef(false);
+  const blockedReasonRef = useRef<PlacementInvalidReason | null>(null);
+  const prevReasonRef = useRef<PlacementInvalidReason | null>(null);
+  const focusedZoneLabelRef = useRef('');
   const { invalidate } = useThree();
 
   const placingPrefab = useStudioStore((s) => s.placingPrefab);
@@ -105,7 +144,7 @@ export function StudioGhost() {
   const placeInstance = useStudioStore((s) => s.placeInstance);
   const cancelPlacement = useStudioStore((s) => s.cancelPlacement);
   const gridSnap = useStudioStore((s) => s.gridSnap);
-  // instances is read via getState() in event handlers to avoid stale closure (PERF-4)
+  // Read instances/zones/edit-flags via getState() in event handlers to dodge stale closure (PERF-4).
 
   const halfW = plotSize.width / 2;
   const halfD = plotSize.depth / 2;
@@ -150,9 +189,10 @@ export function StudioGhost() {
   // On placingPrefab change: traverse ghost children and assign validMat
   useEffect(() => {
     if (!placingPrefab || !groupRef.current) return;
-    // Reset blocked tracking so the useFrame swap fires on first real check
     prevBlockedRef.current = false;
     blockedRef.current = false;
+    prevReasonRef.current = null;
+    blockedReasonRef.current = null;
 
     // Small delay to let Prefab3D mount its meshes
     const raf = requestAnimationFrame(() => {
@@ -207,51 +247,19 @@ export function StudioGhost() {
     mat.opacity = 0.5 + Math.sin(t * 4) * 0.15;
   });
 
-  // ── Material swap useFrame (only on blocked state change) ────────
-  useFrame(() => {
-    if (!placingPrefab || !groupRef.current) return;
-    const isBlocked = blockedRef.current;
-    if (isBlocked === prevBlockedRef.current) return; // no change, skip
-    prevBlockedRef.current = isBlocked;
-
-    // Swap ghost mesh materials
-    const mat = isBlocked ? blockedMat : validMat;
-    groupRef.current.traverse((child) => {
-      if (child instanceof THREE.Mesh) child.material = mat;
-    });
-
-    // Swap ring color
-    if (ringRef.current) {
-      const ringMat = ringRef.current.material as THREE.MeshBasicMaterial;
-      ringMat.color.set(isBlocked ? STUDIO_COLORS.ghostBlocked : STUDIO_COLORS.ghostValid);
-    }
-
-    // Swap footprint filled plane color
-    if (filledPlaneMatRef.current) {
-      filledPlaneMatRef.current.color.set(
-        isBlocked ? STUDIO_COLORS.ghostBlocked : STUDIO_COLORS.ghostValid,
-      );
-    }
-
-    // Swap footprint wireframe border color
-    if (wireMatRef.current) {
-      wireMatRef.current.color.set(
-        isBlocked ? STUDIO_COLORS.ghostBlocked : STUDIO_COLORS.ghostValid,
-      );
-    }
-  });
-
   // ── Memoized footprint edge geometry (Skill §7: no inline THREE objects) ──
   // Must be before any conditional return to satisfy React hooks rules.
   const gridW = placingPrefab?.gridSize[0] ?? 1;
   const gridD = placingPrefab?.gridSize[1] ?? 1;
-  const ghostSpec = getSpatialSpec(placingPrefab?.prefabId ?? '');
-  const fpVisualW = ghostSpec
-    ? (ghostSpec.footprint.halfW + ghostSpec.footprint.padding) * 2
-    : gridW * 2.5;
-  const fpVisualD = ghostSpec
-    ? (ghostSpec.footprint.halfD + ghostSpec.footprint.padding) * 2
-    : gridD * 2.5;
+  const ghostSpec = useMemo(
+    () =>
+      placingPrefab
+        ? resolveWorldFootprint(placingPrefab.prefabId, placingPrefab.gridSize, [0, 0], 0)
+        : null,
+    [placingPrefab],
+  );
+  const fpVisualW = ghostSpec ? ghostSpec.halfW * 2 : gridW * 2.5;
+  const fpVisualD = ghostSpec ? ghostSpec.halfD * 2 : gridD * 2.5;
   const footprintEdgeGeo = useMemo(
     () => new THREE.EdgesGeometry(new THREE.PlaneGeometry(fpVisualW, fpVisualD)),
     [fpVisualW, fpVisualD],
@@ -263,7 +271,81 @@ export function StudioGhost() {
     [footprintEdgeGeo],
   );
 
+  // ── Material + label swap useFrame: material on blocked-flip, label on reason-flip. ────
+  useFrame(() => {
+    if (!placingPrefab || !groupRef.current) return;
+    const isBlocked = blockedRef.current;
+    const reason = blockedReasonRef.current;
+    const blockedChanged = isBlocked !== prevBlockedRef.current;
+    const reasonChanged = reason !== prevReasonRef.current;
+    if (!blockedChanged && !reasonChanged) return;
+
+    if (blockedChanged) {
+      const mat = isBlocked ? blockedMat : validMat;
+      groupRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh) child.material = mat;
+      });
+
+      if (ringRef.current) {
+        const ringMat = ringRef.current.material as THREE.MeshBasicMaterial;
+        ringMat.color.set(isBlocked ? STUDIO_COLORS.ghostBlocked : STUDIO_COLORS.ghostValid);
+      }
+      if (filledPlaneMatRef.current) {
+        filledPlaneMatRef.current.color.set(
+          isBlocked ? STUDIO_COLORS.ghostBlocked : STUDIO_COLORS.ghostValid,
+        );
+      }
+      if (wireMatRef.current) {
+        wireMatRef.current.color.set(
+          isBlocked ? STUDIO_COLORS.ghostBlocked : STUDIO_COLORS.ghostValid,
+        );
+      }
+    }
+
+    if (labelDivRef.current && (blockedChanged || reasonChanged)) {
+      // Imperative DOM write — avoids React re-render per pointer move.
+      // Only `textContent` and `color` are swapped; the border stays at the muted-success tone so
+      // we don't fight React's shorthand/longhand reconciliation on a JSX-owned style prop.
+      if (isBlocked && reason) {
+        labelDivRef.current.textContent = reasonText(reason, focusedZoneLabelRef.current);
+        labelDivRef.current.style.color = STUDIO_COLORS.error;
+      } else {
+        labelDivRef.current.textContent = `${gridW}x${gridD}`;
+        labelDivRef.current.style.color = STUDIO_COLORS.success;
+      }
+    }
+
+    prevBlockedRef.current = isBlocked;
+    prevReasonRef.current = reason;
+  });
+
   if (!placingPrefab) return null;
+
+  /**
+   * Snap + plot-clamp the raw cursor point and resolve the focused zone.
+   * Returns the unclamped (x, z) for validation/placement plus the focused zone (or null).
+   */
+  function resolvePoint(point: THREE.Vector3) {
+    let x = gridSnap ? snap(point.x, SNAP) : point.x;
+    let z = gridSnap ? snap(point.z, SNAP) : point.z;
+    x = Math.max(-halfW, Math.min(halfW, x));
+    z = Math.max(-halfD, Math.min(halfD, z));
+
+    const {
+      ghostRotation: curGhostRotation,
+      instances: currentInstances,
+      placingPrefab: curPlacing,
+      isEditingZone,
+      focusedZoneId,
+      zones,
+    } = useStudioStore.getState();
+    const focusedZone =
+      isEditingZone && focusedZoneId
+        ? (zones.find((zone) => zone.zoneId === focusedZoneId) ?? null)
+        : null;
+
+    return { x, z, curGhostRotation, currentInstances, curPlacing, isEditingZone, focusedZone };
+  }
 
   return (
     <>
@@ -275,31 +357,47 @@ export function StudioGhost() {
         position={[0, 0, 0]}
         onPointerMove={(e) => {
           e.stopPropagation();
-          const pos = e.point;
-          let x = gridSnap ? snap(pos.x, SNAP) : pos.x;
-          let z = gridSnap ? snap(pos.z, SNAP) : pos.z;
-          x = Math.max(-halfW, Math.min(halfW, x));
-          z = Math.max(-halfD, Math.min(halfD, z));
-
-          // Check collision (rotation-aware) — read from getState() to avoid stale closure (PERF-4)
           const {
-            ghostRotation: curGhostRotation,
-            instances: currentInstances,
-            placingPrefab: curPlacing,
-          } = useStudioStore.getState();
-          const isBlocked = checkOverlap(
+            x,
+            z,
+            curGhostRotation,
+            currentInstances,
+            curPlacing,
+            isEditingZone,
+            focusedZone,
+          } = resolvePoint(e.point);
+          focusedZoneLabelRef.current = focusedZone?.label ?? '';
+
+          // Validate against unclamped (x, z) so outside-zone still fires at the edge.
+          const result = validatePlacement(
             x,
             z,
             curPlacing?.prefabId ?? '',
-            gridW,
-            gridD,
+            curPlacing?.category,
+            curPlacing?.gridSize ?? [1, 1],
             curGhostRotation,
             currentInstances,
+            isEditingZone,
+            focusedZone,
           );
-          blockedRef.current = isBlocked;
+          blockedRef.current = result.blocked;
+          blockedReasonRef.current = priorityReason(result.reasons);
 
           if (groupRef.current) {
-            groupRef.current.position.set(x, 0, z);
+            // Visual clamp: in zone-edit, pin the ghost group to the focused zone AABB so it can
+            // never escape. The underlying `outside-zone` reason stays red so click no-ops at the edge.
+            if (focusedZone) {
+              const ghostFp = resolveWorldFootprint(
+                curPlacing?.prefabId ?? '',
+                curPlacing?.gridSize ?? [1, 1],
+                [x, z],
+                curGhostRotation,
+              );
+              const clamped = clampFootprintToRect(ghostFp, zoneToFootprintRect(focusedZone));
+              groupRef.current.position.set(clamped.cx, 0, clamped.cz);
+            } else {
+              groupRef.current.position.set(x, 0, z);
+            }
             groupRef.current.rotation.y = (curGhostRotation * Math.PI) / 180;
             groupRef.current.visible = true;
           }
@@ -307,31 +405,28 @@ export function StudioGhost() {
         }}
         onClick={(e) => {
           e.stopPropagation();
-          const pos = e.point;
-          let x = gridSnap ? snap(pos.x, SNAP) : pos.x;
-          let z = gridSnap ? snap(pos.z, SNAP) : pos.z;
-          x = Math.max(-halfW, Math.min(halfW, x));
-          z = Math.max(-halfD, Math.min(halfD, z));
-
-          // Block placement if overlapping (rotation-aware) — read from getState() (PERF-4)
           const {
-            ghostRotation: curGhostRotation,
-            instances: currentInstances,
-            placingPrefab: curPlacing,
-          } = useStudioStore.getState();
-          if (
-            checkOverlap(
-              x,
-              z,
-              curPlacing?.prefabId ?? '',
-              gridW,
-              gridD,
-              curGhostRotation,
-              currentInstances,
-            )
-          ) {
-            return; // don't place
-          }
+            x,
+            z,
+            curGhostRotation,
+            currentInstances,
+            curPlacing,
+            isEditingZone,
+            focusedZone,
+          } = resolvePoint(e.point);
+
+          const result = validatePlacement(
+            x,
+            z,
+            curPlacing?.prefabId ?? '',
+            curPlacing?.category,
+            curPlacing?.gridSize ?? [1, 1],
+            curGhostRotation,
+            currentInstances,
+            isEditingZone,
+            focusedZone,
+          );
+          if (result.blocked) return;
 
           placeInstance([x, 0, z]);
           invalidate();
@@ -386,7 +481,7 @@ export function StudioGhost() {
           />
         </lineSegments>
 
-        {/* Size label (e.g., "2x2") */}
+        {/* Size / reason label — text + color toggled imperatively in useFrame. */}
         <Html
           position={[0, 0.5, 0]}
           center
@@ -396,6 +491,7 @@ export function StudioGhost() {
           }}
         >
           <div
+            ref={labelDivRef}
             style={{
               background: 'rgba(0,0,0,0.7)',
               color: STUDIO_COLORS.success,
