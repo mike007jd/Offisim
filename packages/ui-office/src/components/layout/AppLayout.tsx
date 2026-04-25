@@ -180,16 +180,11 @@ export function AppLayout({
 
     if (mode === 'mobile') {
       setLeftOpen(false);
-      // Mobile collapses regardless of stored preference (no horizontal room).
+      // Mobile collapses regardless of stored preference — no horizontal room.
       setRightOpenInternal(false);
-    } else if (mode === 'tablet') {
-      setLeftOpen(true);
-      const stored = readStoredRightOpen();
-      setRightOpenInternal(stored ?? true);
     } else {
       setLeftOpen(true);
-      const stored = readStoredRightOpen();
-      setRightOpenInternal(stored ?? true);
+      setRightOpenInternal(readStoredRightOpen() ?? true);
     }
     prevModeRef.current = mode;
   }, [isNarrow, isTablet]);

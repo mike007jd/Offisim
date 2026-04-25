@@ -17,7 +17,6 @@ import {
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContentForConversation } from '../../runtime/use-streaming-content';
-import type { EmptyStateWelcome, StarterPrompt } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
 import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
@@ -27,7 +26,10 @@ import { StreamingBubble } from './StreamingBubble';
 import { SystemMessageFeed } from './SystemMessageFeed';
 import { type ChatMessage, getConversationKey, useChatSessionStore } from './chat-session-store';
 
-const NoMessageArea = () => <div className="flex-1 min-h-0" aria-hidden="true" />;
+interface StarterPrompt {
+  label: string;
+  text: string;
+}
 
 const MeetingPanel = lazy(() =>
   import('../office/MeetingPanel').then((module) => ({ default: module.MeetingPanel })),
@@ -56,8 +58,6 @@ interface ChatPanelProps {
   activeProject?: ProjectRow | null;
   /** Called when the user sends a message (provides the raw text for Kanban board etc.) */
   onUserMessage?: (text: string) => void;
-  /** First-run welcome card (boss greeting) shown in the chat empty state. */
-  onboardingWelcome?: EmptyStateWelcome;
   /** Template-aware starter prompts for the chat empty state. */
   onboardingStarterPrompts?: readonly StarterPrompt[];
   compact?: boolean;
@@ -516,10 +516,7 @@ export function ChatPanel({
                 </p>
               </div>
             ) : (
-              // Team-chat empty state: leave whitespace, let ChatInput own focus.
-              // onboardingWelcome is no longer rendered here; starter prompts move
-              // to an inline chip row above ChatInput (see input region below).
-              <NoMessageArea />
+              <div className="flex-1 min-h-0" aria-hidden="true" />
             )
           ) : (
             <ScrollArea className="flex-1 min-h-0">

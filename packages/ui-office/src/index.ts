@@ -43,7 +43,6 @@ export * from './components/employees/interview-steps/NameStep.js';
 export * from './components/employees/interview-steps/PreviewStep.js';
 export * from './components/employees/interview-steps/RoleStep.js';
 export * from './components/employees/interview-steps/StyleStep.js';
-export * from './components/error/EmptyState.js';
 export * from './components/error/ErrorBanner.js';
 export * from './components/events/EventFilters.js';
 export * from './components/events/EventItem.js';

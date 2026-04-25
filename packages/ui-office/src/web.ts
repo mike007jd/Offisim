@@ -15,7 +15,6 @@ export { ProjectSelector } from './components/project/ProjectSelector.js';
 export { ResumeBar } from './components/project/ResumeBar.js';
 export { KeyboardShortcutsDialog } from './components/shared/KeyboardShortcutsDialog.js';
 export { WorkspacePageShell } from './components/workspace/WorkspacePageShell.js';
-export type { EmptyStateWelcome, StarterPrompt } from './components/error/EmptyState.js';
 export type { MarketSortOption } from './components/marketplace/marketplace-meta.js';
 export type { MarketSessionState } from './components/marketplace/MarketPage.js';
 export { ActivityLogPage } from './components/events/ActivityLogPage.js';

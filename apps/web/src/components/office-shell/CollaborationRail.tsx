@@ -1,12 +1,10 @@
 import type { ProjectRow } from '@offisim/shared-types';
-import type { EmptyStateWelcome } from '@offisim/ui-office';
 import { ChatDrawer, ChatPanel, RightSidebar } from '@offisim/ui-office/web';
 import type { StarterPrompt } from '../../lib/onboarding-prompts';
 
 interface CollaborationRailProps {
   activeProject: ProjectRow | null;
   chatOnboardingStarterPrompts?: readonly StarterPrompt[];
-  chatOnboardingWelcome?: EmptyStateWelcome;
   chatOpenToken: number;
   focusOutputsToken: number;
   onOpenOfficeEditor: () => void;
@@ -23,7 +21,6 @@ interface CollaborationRailProps {
 function renderChatPanel({
   activeProject,
   chatOnboardingStarterPrompts,
-  chatOnboardingWelcome,
   onOpenOfficeEditor,
   onOpenSettings,
   onOpenStudio,
@@ -56,7 +53,6 @@ function renderChatPanel({
       onOpenStudio={onOpenStudio}
       activeProject={activeProject}
       onUserMessage={onUserMessage}
-      onboardingWelcome={chatOnboardingWelcome}
       onboardingStarterPrompts={chatOnboardingStarterPrompts}
       showPipelineProgress={showPipelineProgress}
       showMeetingPanel={showMeetingPanel}

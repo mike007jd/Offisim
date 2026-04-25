@@ -29,7 +29,7 @@ import { useCompanyLifecycle } from './hooks/useCompanyLifecycle';
 import { useOfficeStateBindings } from './hooks/useOfficeStateBindings';
 import { useOverlayState } from './hooks/useOverlayState';
 import { getOnboardingCopy } from './lib/onboarding-prompts';
-import { markAccount, useCompanyOnboardingState } from './lib/onboarding-store';
+import { markAccount } from './lib/onboarding-store';
 
 interface AppProps {
   onCompanySwitch: (id: string | null) => void;
@@ -162,11 +162,7 @@ export function App({ onCompanySwitch }: AppProps) {
     ? (agents.get(officeState.selectedEmployeeId)?.name ?? null)
     : null;
 
-  const activeCompanyOnboarding = useCompanyOnboardingState(activeCompanyId);
   const onboardingCopy = useMemo(() => getOnboardingCopy(activeTemplateId), [activeTemplateId]);
-  const chatOnboardingWelcome = activeCompanyOnboarding.first_task_sent
-    ? undefined
-    : onboardingCopy.welcome;
 
   const anyOverlayOpen =
     officeState.dashboardOpen ||
@@ -182,7 +178,6 @@ export function App({ onCompanySwitch }: AppProps) {
     () => ({
       activeProject,
       chatOnboardingStarterPrompts: onboardingCopy.starterPrompts,
-      chatOnboardingWelcome,
       chatOpenToken: officeBindings.chatOpenToken,
       focusOutputsToken: officeBindings.focusOutputsToken,
       onOpenOfficeEditor: overlay.openOfficeEditor,
@@ -197,7 +192,6 @@ export function App({ onCompanySwitch }: AppProps) {
     }),
     [
       activeProject,
-      chatOnboardingWelcome,
       handleOpenSettings,
       lifecycle.handleOpenStudio,
       officeBindings.chatOpenToken,
