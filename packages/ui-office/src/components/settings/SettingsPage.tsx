@@ -14,6 +14,7 @@ interface SettingsPageProps {
   onSave: Parameters<typeof useSettingsWorkspaceController>[0]['onSave'];
   onSaveSuccess?: () => void;
   onToast?: Parameters<typeof useSettingsWorkspaceController>[0]['onToast'];
+  onEditExternalEmployee?: (employeeId: string) => void;
 }
 
 export function SettingsPage({
@@ -23,6 +24,7 @@ export function SettingsPage({
   onSave,
   onSaveSuccess,
   onToast,
+  onEditExternalEmployee,
 }: SettingsPageProps) {
   const controller = useSettingsWorkspaceController({
     isActive: true,
@@ -57,7 +59,11 @@ export function SettingsPage({
         activeTab={sessionState.activeTab}
         onTabChange={(tab) => onSessionStateChange((prev) => ({ ...prev, activeTab: tab }))}
       />
-      <SettingsContentArea activeTab={sessionState.activeTab} controller={controller} />
+      <SettingsContentArea
+        activeTab={sessionState.activeTab}
+        controller={controller}
+        onEditExternalEmployee={onEditExternalEmployee}
+      />
     </div>
   );
 }

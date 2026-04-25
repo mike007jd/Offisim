@@ -8,9 +8,14 @@ import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface'
 interface SettingsContentAreaProps {
   activeTab: SettingsTab;
   controller: ReturnType<typeof useSettingsWorkspaceController>;
+  onEditExternalEmployee?: (employeeId: string) => void;
 }
 
-export function SettingsContentArea({ activeTab, controller }: SettingsContentAreaProps) {
+export function SettingsContentArea({
+  activeTab,
+  controller,
+  onEditExternalEmployee,
+}: SettingsContentAreaProps) {
   const { handleSave, hasUnsavedChanges, isSaveDisabled, isSaving, saveError } = controller;
   const showSaveBar = activeTab !== 'external';
 
@@ -29,7 +34,9 @@ export function SettingsContentArea({ activeTab, controller }: SettingsContentAr
           {activeTab === 'provider' && <SettingsProviderTab controller={controller} />}
           {activeTab === 'runtime' && <SettingsRuntimeTab controller={controller} />}
           {activeTab === 'mcp' && <McpConfigPanel />}
-          {activeTab === 'external' && <SettingsExternalTab />}
+          {activeTab === 'external' && (
+            <SettingsExternalTab onEditEmployee={onEditExternalEmployee} />
+          )}
         </div>
       </div>
 

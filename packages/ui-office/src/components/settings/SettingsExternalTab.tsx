@@ -5,7 +5,7 @@ import {
   employeeUpdated,
 } from '@offisim/core/browser';
 import { Button, Input, ToastBanner, useToasts } from '@offisim/ui-core';
-import { Loader2, Plug, RefreshCw, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Plug, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AgentCardDiscoveryError,
@@ -26,7 +26,12 @@ function parseAgentCard(raw: string | null): A2AAgentCard | null {
   }
 }
 
-export function SettingsExternalTab() {
+export interface SettingsExternalTabProps {
+  /** Route to Personnel and edit this employee (Profile tab). */
+  onEditEmployee?: (employeeId: string) => void;
+}
+
+export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps = {}) {
   const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const { toasts, addToast, dismissToast } = useToasts();
@@ -217,6 +222,17 @@ export function SettingsExternalTab() {
                   )}
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
+                  {onEditEmployee && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onEditEmployee(row.employee_id)}
+                      disabled={isBusy}
+                      className="gap-1.5 text-xs"
+                    >
+                      <Pencil className="h-3 w-3" /> Edit
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"

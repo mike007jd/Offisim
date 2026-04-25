@@ -9,7 +9,6 @@ import {
   useCompany,
   useCompanyEditor,
   useDeepLinkInstall,
-  useEmployeeEditor,
   useFirstRunGuidance,
   useInstallFlow,
   useOffisimRuntime,
@@ -30,6 +29,7 @@ import { useOfficeStateBindings } from './hooks/useOfficeStateBindings';
 import { useOverlayState } from './hooks/useOverlayState';
 import { getOnboardingCopy } from './lib/onboarding-prompts';
 import { markAccount } from './lib/onboarding-store';
+import { createRouteToPersonnel } from './lib/personnel-routing';
 
 interface AppProps {
   onCompanySwitch: (id: string | null) => void;
@@ -75,8 +75,11 @@ export function App({ onCompanySwitch }: AppProps) {
     resumeThread,
   } = useOffisimRuntime();
   const companyEditor = useCompanyEditor();
-  const employeeEditor = useEmployeeEditor();
   const installFlow = useInstallFlow();
+  const routeToPersonnel = useMemo(
+    () => createRouteToPersonnel({ setActiveWorkspace, updateWorkspaceState }),
+    [setActiveWorkspace, updateWorkspaceState],
+  );
   const { toasts, addToast, dismissToast } = useToasts();
   const { toasts: guidanceToasts, dismissToast: dismissGuidanceToast } = useFirstRunGuidance();
   const agents = useAgentStates();
@@ -131,7 +134,7 @@ export function App({ onCompanySwitch }: AppProps) {
     closeOverlay: overlay.closeOverlay,
     goBack,
     setShortcutHelpOpen,
-    employeeEditor,
+    routeToPersonnel,
     handleToggleDashboard: officeBindings.handleToggleDashboard,
     handleToggleKanban: officeBindings.handleToggleKanban,
     updateWorkspaceState,
@@ -168,7 +171,6 @@ export function App({ onCompanySwitch }: AppProps) {
     officeState.dashboardOpen ||
     officeState.kanbanOpen ||
     officeState.marketplaceListingId !== null ||
-    employeeEditor.isOpen ||
     installFlow.isOpen ||
     companyEditor.isOpen ||
     shortcutHelpOpen ||
@@ -290,21 +292,24 @@ export function App({ onCompanySwitch }: AppProps) {
             onFocusEmployee={onFocusEmployeeFromNotifications}
             onStartMarketInstall={installFlow.startRegistryInstall}
             addToast={addToast}
+            onEditExternalEmployee={(id) => routeToPersonnel(id, 'profile')}
           />
         )}
 
-        <EmployeeInspector
-          employeeId={officeState.selectedEmployeeId}
-          companyId={activeCompanyId ?? ''}
-          agents={agents}
-          leftOffset={officeState.leftPanelWidth}
-          onClose={() => officeBindings.handleSelectEmployee(null)}
-          onOpenEditor={(id) => void employeeEditor.openForEdit(id)}
-          onStartChat={(id) => {
-            officeBindings.handleSelectEmployee(id);
-            officeBindings.bumpChatOpenToken();
-          }}
-        />
+        {isOffice && (
+          <EmployeeInspector
+            employeeId={officeState.selectedEmployeeId}
+            companyId={activeCompanyId ?? ''}
+            agents={agents}
+            leftOffset={officeState.leftPanelWidth}
+            onClose={() => officeBindings.handleSelectEmployee(null)}
+            onOpenEditor={(id) => routeToPersonnel(id, 'profile')}
+            onStartChat={(id) => {
+              officeBindings.handleSelectEmployee(id);
+              officeBindings.bumpChatOpenToken();
+            }}
+          />
+        )}
 
         <OnboardingController
           activeCompanyId={activeCompanyId}
@@ -315,7 +320,6 @@ export function App({ onCompanySwitch }: AppProps) {
 
         <AppGlobalDialogs
           installFlow={installFlow}
-          employeeEditor={employeeEditor}
           companyEditor={companyEditor}
           openOfficeEditor={overlay.openOfficeEditor}
           shortcutHelpOpen={shortcutHelpOpen}

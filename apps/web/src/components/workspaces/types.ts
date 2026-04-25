@@ -1,13 +1,20 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import type React from 'react';
 
-import type { MarketSortOption, ProviderConfig } from '@offisim/ui-office/web';
+import type {
+  MarketSortOption,
+  PersonnelSessionState,
+  PersonnelTabId,
+  ProviderConfig,
+} from '@offisim/ui-office/web';
+
+export type { PersonnelSessionState, PersonnelTabId };
 
 // ---------------------------------------------------------------------------
 // Workspace Keys
 // ---------------------------------------------------------------------------
 
-export type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log' | 'settings';
+export type WorkspaceKey = 'office' | 'sops' | 'market' | 'personnel' | 'activity-log' | 'settings';
 
 // ---------------------------------------------------------------------------
 // Per-Workspace Session State
@@ -54,6 +61,7 @@ export type WorkspaceSessionState = {
   office: OfficeSessionState;
   sops: SopSessionState;
   market: MarketSessionState;
+  personnel: PersonnelSessionState;
   activityLog: ActivityLogSessionState;
   settings: SettingsSessionState;
 };
@@ -136,6 +144,7 @@ export type SessionStateKeyMap = {
   office: 'office';
   sops: 'sops';
   market: 'market';
+  personnel: 'personnel';
   'activity-log': 'activityLog';
   settings: 'settings';
 };
@@ -144,6 +153,7 @@ export const SESSION_KEY: SessionStateKeyMap = {
   office: 'office',
   sops: 'sops',
   market: 'market',
+  personnel: 'personnel',
   'activity-log': 'activityLog',
   settings: 'settings',
 };
@@ -175,6 +185,7 @@ export interface WorkspaceRouterProps {
     onSave: (config: ProviderConfig) => void;
     onSaveSuccess?: () => void;
     onToast?: (message: string, variant?: 'info' | 'success' | 'error') => void;
+    onEditExternalEmployee?: (employeeId: string) => void;
   };
   children?: React.ReactNode;
 }
@@ -224,11 +235,19 @@ export function createDefaultActivityLogState(): ActivityLogSessionState {
   };
 }
 
+export function createDefaultPersonnelState(): PersonnelSessionState {
+  return {
+    selectedEmployeeId: null,
+    activeEmployeeTab: 'profile',
+  };
+}
+
 export function createDefaultSessionState(): WorkspaceSessionState {
   return {
     office: createDefaultOfficeState(),
     sops: createDefaultSopState(),
     market: createDefaultMarketState(),
+    personnel: createDefaultPersonnelState(),
     activityLog: createDefaultActivityLogState(),
     settings: { activeTab: 'provider' },
   };

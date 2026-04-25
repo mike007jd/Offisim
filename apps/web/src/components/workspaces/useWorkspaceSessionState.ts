@@ -87,6 +87,17 @@ export function tryWorkspaceInternalBack(
       return [false, sessionState];
     }
 
+    case 'personnel': {
+      const p = sessionState.personnel;
+      if (p.activeEmployeeTab !== 'profile') {
+        return [true, { ...sessionState, personnel: { ...p, activeEmployeeTab: 'profile' } }];
+      }
+      if (p.selectedEmployeeId !== null) {
+        return [true, { ...sessionState, personnel: { ...p, selectedEmployeeId: null } }];
+      }
+      return [false, sessionState];
+    }
+
     case 'settings':
     default:
       return [false, sessionState];
@@ -159,7 +170,12 @@ export function useWorkspaceSessionState() {
 
       if (prev.activeWorkspace === 'office') {
         const o = nextSessionState.office;
-        if (o.studioMode !== null || o.dashboardOpen || o.kanbanOpen || o.marketplaceListingId !== null) {
+        if (
+          o.studioMode !== null ||
+          o.dashboardOpen ||
+          o.kanbanOpen ||
+          o.marketplaceListingId !== null
+        ) {
           nextSessionState = {
             ...nextSessionState,
             office: {

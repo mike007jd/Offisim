@@ -2,7 +2,7 @@ import type { EmployeeFormData } from '../hooks/useEmployeeEditor';
 
 /**
  * Build a system prompt from employee form data.
- * Used by the System Prompt Preview in EmployeeEditorDialog.
+ * Used by the System Prompt Preview in the Personnel Profile tab.
  */
 export function buildSystemPrompt(form: EmployeeFormData): string {
   const lines: string[] = [

@@ -2,6 +2,7 @@ import { getTopmostModalId, isAnyModalOpen } from '@offisim/ui-core';
 import { useEffect } from 'react';
 import type { OfficeSessionState, UpdateWorkspaceStateFn } from '../components/workspaces/types';
 import type { OverlayKey } from '../lib/app-view-layout';
+import type { RouteToPersonnelFn } from '../lib/personnel-routing';
 
 export interface AppKeyboardShortcutsDeps {
   isOffice: boolean;
@@ -10,9 +11,7 @@ export interface AppKeyboardShortcutsDeps {
   closeOverlay: () => void;
   goBack: () => void;
   setShortcutHelpOpen: (updater: boolean | ((prev: boolean) => boolean)) => void;
-  employeeEditor: {
-    openForEdit: (id: string) => Promise<void> | void;
-  };
+  routeToPersonnel: RouteToPersonnelFn;
   handleToggleDashboard: () => void;
   handleToggleKanban: () => void;
   updateWorkspaceState: UpdateWorkspaceStateFn;
@@ -26,7 +25,7 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     closeOverlay,
     goBack,
     setShortcutHelpOpen,
-    employeeEditor,
+    routeToPersonnel,
     handleToggleDashboard,
     handleToggleKanban,
     updateWorkspaceState,
@@ -97,7 +96,7 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
         if (!isOffice) return;
         if (!officeState.selectedEmployeeId) return;
         e.preventDefault();
-        void employeeEditor.openForEdit(officeState.selectedEmployeeId);
+        routeToPersonnel(officeState.selectedEmployeeId, 'profile');
         return;
       }
 
@@ -118,7 +117,7 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     activeOverlay,
     closeOverlay,
     isOffice,
-    employeeEditor,
+    routeToPersonnel,
     goBack,
     handleToggleDashboard,
     handleToggleKanban,

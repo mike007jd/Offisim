@@ -8,10 +8,10 @@ import {
 import type { EmployeeRuntimeBinding, RoleSlug } from '@offisim/shared-types';
 import type { CommunicationFrequency, DecisionStyle, RiskPreference } from '@offisim/shared-types';
 import { parseEmployeeConfig, parseEmployeePersona } from '@offisim/shared-types';
+import type { SkillMetadata } from '@offisim/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
-import type { SkillMetadata } from '@offisim/shared-types';
 
 export interface AvatarAppearance {
   skinColor: number;
@@ -184,7 +184,7 @@ export interface UseEmployeeEditorReturn {
   sourcePackageId: string | null;
   setFormData: (data: EmployeeFormData) => void;
   updateField: <K extends keyof EmployeeFormData>(key: K, value: EmployeeFormData[K]) => void;
-  openForEdit: (id: string) => Promise<void>;
+  openForEdit: (id: string, preloaded?: EmployeeRow | null) => Promise<void>;
   openForCreate: () => void;
   save: () => Promise<void>;
   requestDelete: () => void;
@@ -227,9 +227,9 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
   );
 
   const openForEdit = useCallback(
-    async (id: string) => {
+    async (id: string, preloaded?: EmployeeRow | null) => {
       if (!repos) return;
-      const row = await repos.employees.findById(id);
+      const row = preloaded ?? (await repos.employees.findById(id));
       if (!row) return;
       const data = rowToFormData(row);
       setEmployeeId(id);
@@ -426,9 +426,10 @@ export function useSkillsForEmployee(
     };
     void load();
     const bus = runtime?.eventBus;
-    if (!bus) return () => {
-      cancelled = true;
-    };
+    if (!bus)
+      return () => {
+        cancelled = true;
+      };
     const unsubscribe = bus.on('skill.', () => {
       void load();
     });

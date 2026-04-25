@@ -31,6 +31,7 @@ const OfficeSceneSurface = React.lazy(() =>
 const WORKSPACE_TITLES: Record<string, string> = {
   sops: 'SOPs',
   market: 'Market',
+  personnel: 'Personnel',
   'activity-log': 'Activity Log',
   settings: 'Settings',
 };
@@ -74,6 +75,7 @@ export interface AppMainShellProps {
   onFocusEmployee: (id: string) => void;
   onStartMarketInstall: (listingId: string, version: string) => void;
   addToast: (message: string, variant?: ToastVariant) => void;
+  onEditExternalEmployee: (employeeId: string) => void;
 }
 
 export function AppMainShell(props: AppMainShellProps) {
@@ -114,6 +116,7 @@ export function AppMainShell(props: AppMainShellProps) {
     onFocusEmployee,
     onStartMarketInstall,
     addToast,
+    onEditExternalEmployee,
   } = props;
 
   const officeToolItems = useMemo(
@@ -224,6 +227,7 @@ export function AppMainShell(props: AppMainShellProps) {
               onSave: onSaveConfig,
               onSaveSuccess: () => addToast('Provider configuration saved', 'success'),
               onToast: (message, variant = 'info') => addToast(message, variant),
+              onEditExternalEmployee,
             }}
           />
         ) : undefined

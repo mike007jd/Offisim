@@ -3,6 +3,7 @@ import React, { Suspense, useCallback } from 'react';
 import type {
   ActivityLogSessionState,
   MarketSessionState,
+  PersonnelSessionState,
   SettingsSessionState,
   SopSessionState,
   WorkspaceKey,
@@ -64,6 +65,8 @@ const ActivityLogPage = React.lazy(() => import('./lazy-wrappers/ActivityLogPage
 
 const SettingsPage = React.lazy(() => import('./lazy-wrappers/SettingsPage'));
 
+const PersonnelPage = React.lazy(() => import('./lazy-wrappers/PersonnelPage'));
+
 // ---------------------------------------------------------------------------
 // WorkspaceRouter
 // ---------------------------------------------------------------------------
@@ -114,6 +117,11 @@ export function WorkspaceRouter({
       updateWorkspaceState('settings', updater),
     [updateWorkspaceState],
   );
+  const handlePersonnelChange = useCallback(
+    (updater: (prev: PersonnelSessionState) => PersonnelSessionState) =>
+      updateWorkspaceState('personnel', updater),
+    [updateWorkspaceState],
+  );
 
   return (
     <>
@@ -145,6 +153,13 @@ export function WorkspaceRouter({
           />
         )}
 
+        {activeWorkspace === 'personnel' && (
+          <PersonnelPage
+            sessionState={sessionState.personnel}
+            onSessionStateChange={handlePersonnelChange}
+          />
+        )}
+
         {activeWorkspace === 'activity-log' && (
           <ActivityLogPage
             sessionState={sessionState.activityLog}
@@ -160,6 +175,7 @@ export function WorkspaceRouter({
             onSave={settingsPageProps?.onSave ?? NOOP}
             onSaveSuccess={settingsPageProps?.onSaveSuccess}
             onToast={settingsPageProps?.onToast}
+            onEditExternalEmployee={settingsPageProps?.onEditExternalEmployee}
           />
         )}
       </Suspense>

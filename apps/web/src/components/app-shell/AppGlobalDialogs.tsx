@@ -1,8 +1,6 @@
 import {
-  EmployeeEditorDialog,
   KeyboardShortcutsDialog,
   type useCompanyEditor,
-  type useEmployeeEditor,
   type useInstallFlow,
 } from '@offisim/ui-office/web';
 import React, { Suspense } from 'react';
@@ -19,12 +17,10 @@ const InstallDialog = React.lazy(() =>
 );
 
 type InstallFlowLike = ReturnType<typeof useInstallFlow>;
-type EmployeeEditorLike = ReturnType<typeof useEmployeeEditor>;
 type CompanyEditorLike = ReturnType<typeof useCompanyEditor>;
 
 export interface AppGlobalDialogsProps {
   installFlow: InstallFlowLike;
-  employeeEditor: EmployeeEditorLike;
   companyEditor: CompanyEditorLike;
   openOfficeEditor: () => void;
   shortcutHelpOpen: boolean;
@@ -41,7 +37,6 @@ export interface AppGlobalDialogsProps {
 export function AppGlobalDialogs(props: AppGlobalDialogsProps) {
   const {
     installFlow,
-    employeeEditor,
     companyEditor,
     openOfficeEditor,
     shortcutHelpOpen,
@@ -60,7 +55,6 @@ export function AppGlobalDialogs(props: AppGlobalDialogsProps) {
       <Suspense fallback={null}>
         <InstallDialog {...installFlow} />
       </Suspense>
-      <EmployeeEditorDialog {...employeeEditor} />
       <Suspense fallback={null}>
         <CompanyEditor {...companyEditor} onOpenOfficeEditor={openOfficeEditor} />
       </Suspense>

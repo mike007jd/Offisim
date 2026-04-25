@@ -5,7 +5,11 @@ export { ChatDrawer } from './components/chat/ChatDrawer.js';
 export { ChatPanel } from './components/chat/ChatPanel.js';
 export { CompanyProvider, useCompany } from './components/company/CompanyContext.js';
 export { CompanySelectionPage } from './components/company/CompanySelectionPage.js';
-export { EmployeeEditorDialog } from './components/employees/EmployeeEditorDialog.js';
+export {
+  PersonnelPage,
+  type PersonnelSessionState,
+  type PersonnelTabId,
+} from './components/employees/PersonnelPage.js';
 export { AppLayout } from './components/layout/AppLayout.js';
 export { Header } from './components/layout/Header.js';
 export { RightSidebar } from './components/layout/RightSidebar.js';

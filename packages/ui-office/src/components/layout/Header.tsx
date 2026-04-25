@@ -9,7 +9,7 @@ import { ArrowLeft, Building2, ChevronDown, MoreHorizontal, Pencil } from 'lucid
 import type { ComponentType, ReactNode } from 'react';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 
-type WorkspaceKey = 'office' | 'sops' | 'market' | 'activity-log' | 'settings';
+type WorkspaceKey = 'office' | 'sops' | 'market' | 'personnel' | 'activity-log' | 'settings';
 
 type HeaderIcon = ComponentType<{ className?: string }>;
 

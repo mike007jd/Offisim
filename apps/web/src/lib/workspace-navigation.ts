@@ -7,6 +7,7 @@ import {
   Settings as SettingsIcon,
   Store,
   Trello,
+  Users,
   Workflow,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -48,6 +49,7 @@ export const PEER_WORKSPACE_ITEMS: ReadonlyArray<PeerWorkspaceNavItem> = [
   { key: 'office', label: 'Office', icon: Building2 },
   { key: 'sops', label: 'SOPs', icon: Workflow },
   { key: 'market', label: 'Market', icon: Store },
+  { key: 'personnel', label: 'Personnel', icon: Users },
   { key: 'activity-log', label: 'Activity', icon: Activity },
   { key: 'settings', label: 'Settings', icon: SettingsIcon },
 ];

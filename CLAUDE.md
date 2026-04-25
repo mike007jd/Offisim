@@ -84,18 +84,19 @@ catalog/
 
 ## Workspace IA
 
-5 个 peer-level workspace, 统一走 `AppLayout`。Office 时 side panel 全挂，非 Office 时 side panel 传 null、center 走 `WorkspaceRouter`。Header 按 `activeWorkspace` 自适应。
+6 个 peer-level workspace, 统一走 `AppLayout`。Office 时 side panel 全挂，非 Office 时 side panel 传 null、center 走 `WorkspaceRouter`。Header 按 `activeWorkspace` 自适应。
 
 | Workspace | Key | 描述 |
 |-----------|-----|------|
 | Office | `office` | 3D/2D 办公场景, AppLayout 全 slot |
 | SOPs | `sops` | sidebar(SOP list) + DAG canvas(Bezier, drag-to-connect) + NL command bar |
 | Market | `market` | explore(card grid + detail) / manage(installed + published) |
+| Personnel | `personnel` | 员工列表 + 详情 + 6 tab inspector (Profile/Appearance/Runtime/Skills/Memory/History) |
 | Activity Log | `activity-log` | 时间线 + 过滤器 + 事件详情 |
 | Settings | `settings` | Provider/Runtime/MCP 配置 |
 
-- `WorkspaceKey` = `'office' | 'sops' | 'market' | 'activity-log' | 'settings'`
-- `OverlayKey` = `'employee-creator' | 'office-editor' | 'company-select' | 'studio'`（正交于 workspace）
+- `WorkspaceKey` = `'office' | 'sops' | 'market' | 'personnel' | 'activity-log' | 'settings'`
+- `OverlayKey` = `'employee-creator' | 'office-editor' | 'company-select' | 'studio'`（正交于 workspace；员工 edit 不再走 overlay，统一路由 Personnel）
 - `useWorkspaceSessionState`: updater `(prev: T) => T`, `updateWorkspaceState(key, updater)` 唯一写入路径
 - `useWorkspaceBackNavigation`: 浏览器 history 集成, 先 unwind 内部状态再切 workspace
 - 响应式: `computeLayoutTier()` → desktop(>1280) / tablet(769-1280) / narrow(≤768)
@@ -107,6 +108,8 @@ catalog/
 | Web SPA | `apps/web/src/App.tsx` | Root, workspace routing, runtime init |
 | View types | `apps/web/src/lib/app-view-layout.ts` | OverlayKey, OfficeViewMode 类型 |
 | Workspace types | `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state, layout tier |
+| Personnel page | `packages/ui-office/src/components/employees/PersonnelPage.tsx` | List + detail + 6-tab inspector (employee edit lives here) |
+| Personnel routing | `apps/web/src/lib/personnel-routing.ts` | `routeToPersonnel(id, tab)` — single entry for cross-surface employee edit |
 | LangGraph kernel | `packages/core/src/graph/` | Boss/manager/employee nodes |
 | Runtime bridge | `packages/ui-office/src/runtime/offisim-runtime-context.tsx` | React↔core |
 | Scene orchestrator | `packages/ui-office/src/hooks/useSceneOrchestrator.ts` | 3D ceremony + movement |
