@@ -193,25 +193,21 @@ export function App() {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--surface)] text-[var(--text-primary-val)]">
+    <div className="grid h-screen grid-rows-[auto_auto_auto_minmax(0,1fr)] bg-[var(--surface)] text-[var(--text-primary-val)]">
       {/* Header */}
-      <div className="flex items-center px-4 py-3 border-b border-[var(--border-val)]">
+      <div className="flex items-center min-w-0 px-4 py-3 border-b border-[var(--border-val)]">
         <h1 className="text-sm font-semibold tracking-wide uppercase text-[var(--text-secondary-val)]">
           Offisim Launcher
         </h1>
       </div>
 
-      {/* Launch Panel */}
-      <div className="px-4 py-4">
+      {/* Control region: LaunchPanel + StatusBar share one auto row */}
+      <div className="flex flex-col gap-3 min-w-0 px-4 py-3">
         <LaunchPanel
           activeMode={status.active_mode}
           launching={launching}
           onLaunch={handleLaunch}
         />
-      </div>
-
-      {/* Status Bar */}
-      <div className="px-4 pb-3">
         <StatusBar
           status={status}
           onStop={handleStop}
@@ -221,22 +217,23 @@ export function App() {
         />
       </div>
 
-      {/* Error Banner */}
-      {error && (
-        <div className="mx-4 mb-3 px-3 py-2 rounded bg-[var(--error-val)]/15 border border-[var(--error-val)]/30 text-[var(--error-val)] text-xs font-mono">
-          {error}
-        </div>
-      )}
-
-      {status.database.status === 'unreachable' && (
-        <div className="mx-4 mb-3 px-3 py-2 rounded bg-[var(--warning-val)]/10 border border-[var(--warning-val)]/30 text-[var(--warning-val)] text-xs">
-          {status.database.message}. Platform-backed features stay unavailable until Postgres is
-          running.
-        </div>
-      )}
+      {/* Banner stack — collapses to 0 when both banners are absent */}
+      <div className="flex flex-col gap-2 min-w-0 px-4">
+        {error && (
+          <div className="px-3 py-2 rounded bg-[var(--error-val)]/15 border border-[var(--error-val)]/30 text-[var(--error-val)] text-xs font-mono">
+            {error}
+          </div>
+        )}
+        {status.database.status === 'unreachable' && (
+          <div className="px-3 py-2 rounded bg-[var(--warning-val)]/10 border border-[var(--warning-val)]/30 text-[var(--warning-val)] text-xs">
+            {status.database.message}. Platform-backed features stay unavailable until Postgres is
+            running.
+          </div>
+        )}
+      </div>
 
       {/* Log Viewer — fills remaining space */}
-      <div className="flex-1 min-h-0 px-4 pb-4">
+      <div className="min-h-0 h-full px-4 pb-4">
         <LogViewer logs={logs} />
       </div>
     </div>

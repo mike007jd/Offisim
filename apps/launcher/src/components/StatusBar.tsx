@@ -37,9 +37,9 @@ export function StatusBar({
   const hasActiveMode = status.active_mode !== null;
 
   return (
-    <div className="flex items-center gap-4 text-xs font-mono">
-      {/* Process indicators */}
-      <div className="flex items-center gap-4 flex-1">
+    <div className="flex flex-col gap-2 text-xs font-mono">
+      {/* Indicator region */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <DatabaseIndicator database={status.database} />
         <ProcessIndicator label="Platform" info={platform} />
         <ProcessIndicator label="Frontend" info={frontend} />
@@ -67,8 +67,8 @@ export function StatusBar({
         )}
       </div>
 
-      {/* Action buttons */}
-      <div className="flex items-center gap-2">
+      {/* Action region — always rendered to keep layout cadence even when empty */}
+      <div className="flex flex-wrap items-center gap-2">
         {hasActiveMode && (
           <button
             type="button"

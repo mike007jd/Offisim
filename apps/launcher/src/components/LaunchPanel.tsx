@@ -35,9 +35,10 @@ const MODES: Array<{
 
 export function LaunchPanel({ activeMode, launching, onLaunch }: LaunchPanelProps) {
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {MODES.map(({ mode, label, description, icon: Icon }) => {
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+      {MODES.map(({ mode, label, description, icon: Icon }, index) => {
         const isActive = activeMode === mode;
+        const isLast = index === MODES.length - 1;
         return (
           <button
             key={mode}
@@ -45,7 +46,8 @@ export function LaunchPanel({ activeMode, launching, onLaunch }: LaunchPanelProp
             onClick={() => onLaunch(mode)}
             disabled={launching}
             className={`
-              flex flex-col items-center gap-2 px-4 py-4 rounded-lg border transition-all
+              flex flex-col items-center gap-2 min-w-0 px-4 py-4 rounded-lg border transition-all
+              ${isLast ? 'sm:col-span-2 md:col-span-1' : ''}
               ${
                 isActive
                   ? 'border-[var(--accent-val)] bg-[var(--accent-val)]/10 text-[var(--accent-val)]'
@@ -56,7 +58,9 @@ export function LaunchPanel({ activeMode, launching, onLaunch }: LaunchPanelProp
           >
             <Icon size={24} />
             <span className="text-sm font-medium">{label}</span>
-            <span className="text-xs text-[var(--text-muted-val)]">{description}</span>
+            <span className="truncate w-full text-center text-xs text-[var(--text-muted-val)]">
+              {description}
+            </span>
           </button>
         );
       })}
