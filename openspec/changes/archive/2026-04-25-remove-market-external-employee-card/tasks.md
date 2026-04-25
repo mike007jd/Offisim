@@ -20,7 +20,7 @@
 - [x] 3.1 编辑 `openspec/specs/external-employee-install/spec.md`：删除 "Requirement: Market workspace exposes discovery entry for external A2A agents" 整段（含 3 个 scenario）
 - [x] 3.2 同文件 Purpose 段中提及 "Market / Settings user-facing install surface" 字样改为 "Settings user-facing install surface"，并把 "discovery entry card" 字样去掉（保留 Dialog / discovery / brand inference / Settings tab / persistence 描述）
 - [x] 3.3 验 `openspec validate external-employee-install` PASS
-- [ ] 3.4 同步检查 `MEMORY.md` Open Issues / queue 文件 `project_ux_overhaul_queue.md` 是否需更新 F1 status 到 archived（archive 阶段做，apply 阶段不动）
+- [x] 3.4 同步检查 `MEMORY.md` Open Issues / queue 文件 `project_ux_overhaul_queue.md` 是否需更新 F1 status 到 archived —— MEMORY.md 加 "刚 archived" 段 + 主计划 propose 顺序 F1 划掉；queue F1 段标 archived + 推荐顺序 #6 改 archived、#7 标 next；spec home 行加 F1 archive 痕迹
 
 ## 4. Live verify (web)
 
@@ -40,5 +40,5 @@
 
 - [x] 6.1 `git status` 确认 diff = MarketPage 改动 + MarketExternalAgentCard.tsx 删除 + spec 修订 + release desktop CORS 修复 + change 文件夹
 - [x] 6.2 commit follow repo style（一次 commit 收口）；message body 写 "为什么"（Q1 决策、业务边界）不写"做了啥" —— commit `fa06e1aa Remove market external employee entry` 含 MarketPage 改 + MarketExternalAgentCard.tsx 删 + spec 修订 + platform CORS dev origin 补丁 + change 文件夹
-- [ ] 6.3 archive gate 三查：spec 一致 / tasks 一致 / 文档注释一致；A2A 协议台账行无变化（本 change 不动协议），无需更新 ledger
-- [ ] 6.4 `/opsx:archive remove-market-external-employee-card` 同步 canonical
+- [x] 6.3 archive gate 三查：spec ✅（canonical 在 apply 阶段已 sync 删 Requirement #1）/ tasks ✅（未勾 4.5/4.6 已注 follow-up reason）/ 文档 ✅（MEMORY.md + queue 更新）；A2A 协议台账行无变化（本 change 不动协议），无需更新 ledger
+- [x] 6.4 `/opsx:archive remove-market-external-employee-card` 同步 canonical（在 apply 阶段已同步，archive 仅 mv 文件夹）
