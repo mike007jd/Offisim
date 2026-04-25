@@ -17,7 +17,7 @@ import {
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContentForConversation } from '../../runtime/use-streaming-content';
-import { EmptyState, type EmptyStateWelcome, type StarterPrompt } from '../error/EmptyState';
+import type { EmptyStateWelcome, StarterPrompt } from '../error/EmptyState';
 import { ErrorBanner } from '../error/ErrorBanner';
 import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
@@ -26,6 +26,8 @@ import { MessageBubble } from './MessageBubble';
 import { StreamingBubble } from './StreamingBubble';
 import { SystemMessageFeed } from './SystemMessageFeed';
 import { type ChatMessage, getConversationKey, useChatSessionStore } from './chat-session-store';
+
+const NoMessageArea = () => <div className="flex-1 min-h-0" aria-hidden="true" />;
 
 const MeetingPanel = lazy(() =>
   import('../office/MeetingPanel').then((module) => ({ default: module.MeetingPanel })),
@@ -85,7 +87,10 @@ function resolveInteractionTargetEmployeeId(
   request: InteractionRequest | null | undefined,
 ): string | null {
   if (!request) return null;
-  if (request.kind === 'skill_install_confirm' && request.context?.type === 'skill_install_confirm') {
+  if (
+    request.kind === 'skill_install_confirm' &&
+    request.context?.type === 'skill_install_confirm'
+  ) {
     return request.context.resolvedEmployeeId ?? null;
   }
   return request.employeeId ?? null;
@@ -110,7 +115,6 @@ export function ChatPanel({
   onOpenStudio,
   activeProject,
   onUserMessage,
-  onboardingWelcome,
   onboardingStarterPrompts,
   compact = false,
   showPipelineProgress = true,
@@ -512,12 +516,10 @@ export function ChatPanel({
                 </p>
               </div>
             ) : (
-              <EmptyState
-                isConfigured={isReady}
-                onSendPrompt={handleSend}
-                welcome={onboardingWelcome}
-                starterPrompts={onboardingStarterPrompts}
-              />
+              // Team-chat empty state: leave whitespace, let ChatInput own focus.
+              // onboardingWelcome is no longer rendered here; starter prompts move
+              // to an inline chip row above ChatInput (see input region below).
+              <NoMessageArea />
             )
           ) : (
             <ScrollArea className="flex-1 min-h-0">
@@ -600,6 +602,31 @@ export function ChatPanel({
           </Suspense>
         </div>
       )}
+
+      {/* Starter prompt chip row — only when team-chat is empty and prompts are provided */}
+      {showEmpty &&
+        !isDirectChat &&
+        !isRunning &&
+        isReady &&
+        onboardingStarterPrompts &&
+        onboardingStarterPrompts.length > 0 && (
+          <div
+            className="shrink-0 flex flex-wrap gap-2 px-3 pb-2"
+            data-testid="chat-starter-chip-row"
+          >
+            {onboardingStarterPrompts.slice(0, 3).map(({ label, text }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => handleSend(text)}
+                className="text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300 hover:text-blue-300 hover:border-blue-500/30 transition-colors"
+                data-onboarding-starter-prompt={label}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
       {/* Input */}
       <div className="shrink-0">

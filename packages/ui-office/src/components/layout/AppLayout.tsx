@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface AppLayoutProps {
   header: ReactNode;
@@ -93,6 +93,26 @@ const TABLET_BREAKPOINT = '(max-width: 1280px)';
 const LEFT_PANEL_WIDTH = 280;
 const RIGHT_PANEL_WIDTH = 440;
 const COLLAPSED_PANEL_WIDTH = 44;
+const RIGHT_RAIL_STORAGE_KEY = 'offisim-rightrail-open';
+
+function readStoredRightOpen(): boolean | null {
+  try {
+    const saved = localStorage.getItem(RIGHT_RAIL_STORAGE_KEY);
+    if (saved === 'true') return true;
+    if (saved === 'false') return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredRightOpen(next: boolean): void {
+  try {
+    localStorage.setItem(RIGHT_RAIL_STORAGE_KEY, String(next));
+  } catch {
+    // ignore storage errors (private mode, sandboxed webview, disabled storage)
+  }
+}
 
 /* ── Main layout ── */
 
@@ -116,7 +136,16 @@ export function AppLayout({
   const [isNarrow, setIsNarrow] = useState(initNarrow);
   const [isTablet, setIsTablet] = useState(initTablet);
   const [leftOpen, setLeftOpen] = useState(() => !initNarrow);
-  const [rightOpen, setRightOpen] = useState(() => !initNarrow && !initTablet);
+  const [rightOpen, setRightOpenInternal] = useState(() => {
+    const stored = readStoredRightOpen();
+    if (stored !== null) return stored;
+    return !initNarrow;
+  });
+
+  const commitRightOpen = useCallback((next: boolean) => {
+    setRightOpenInternal(next);
+    writeStoredRightOpen(next);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -151,13 +180,16 @@ export function AppLayout({
 
     if (mode === 'mobile') {
       setLeftOpen(false);
-      setRightOpen(false);
+      // Mobile collapses regardless of stored preference (no horizontal room).
+      setRightOpenInternal(false);
     } else if (mode === 'tablet') {
       setLeftOpen(true);
-      setRightOpen(false);
+      const stored = readStoredRightOpen();
+      setRightOpenInternal(stored ?? true);
     } else {
       setLeftOpen(true);
-      setRightOpen(true);
+      const stored = readStoredRightOpen();
+      setRightOpenInternal(stored ?? true);
     }
     prevModeRef.current = mode;
   }, [isNarrow, isTablet]);
@@ -166,9 +198,9 @@ export function AppLayout({
   // but only if the responsive tier permits (not narrow/mobile).
   useEffect(() => {
     if (requestRightExpandToken && !isNarrow && !rightOpen) {
-      setRightOpen(true);
+      commitRightOpen(true);
     }
-  }, [requestRightExpandToken, isNarrow, rightOpen]);
+  }, [requestRightExpandToken, isNarrow, rightOpen, commitRightOpen]);
 
   const layoutMetrics = useMemo(
     () => ({
@@ -273,7 +305,7 @@ export function AppLayout({
                   icon={LayoutDashboard}
                   label="Collaboration"
                   ariaLabel="Expand collaboration panel"
-                  onClick={() => setRightOpen(true)}
+                  onClick={() => commitRightOpen(true)}
                 />
               )}
             </div>
@@ -281,7 +313,7 @@ export function AppLayout({
               <PanelCollapseHandle
                 side="right"
                 label="Collapse collaboration panel"
-                onClick={() => setRightOpen(false)}
+                onClick={() => commitRightOpen(false)}
               />
             )}
           </div>
