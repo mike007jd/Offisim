@@ -2,30 +2,9 @@
 
 ## Purpose
 
-Provide the Market / Settings user-facing install surface that turns a live A2A v1.0 endpoint into a persisted external employee row. Covers the discovery entry card, 3-step install dialog, agent card discovery (`/.well-known/agent-card.json` fetch + schema + error classification), brand inference, persistence contract, and the Settings management tab (refresh / edit token / disconnect). Does NOT cover dispatch (`external-employee-a2a-dispatch`) or render branching (`external-employee-brand-avatars`), which remain their own capabilities.
+Provide the Settings user-facing install surface that turns a live A2A v1.0 endpoint into a persisted external employee row. Covers the 3-step install dialog, agent card discovery (`/.well-known/agent-card.json` fetch + schema + error classification), brand inference, persistence contract, and the Settings management tab (refresh / edit token / disconnect). Does NOT cover dispatch (`external-employee-a2a-dispatch`) or render branching (`external-employee-brand-avatars`), which remain their own capabilities.
 
 ## Requirements
-
-### Requirement: Market workspace exposes discovery entry for external A2A agents
-
-The Market workspace SHALL render a fixed "Connect external A2A agent" entry in Explore mode (not consuming registry listing slots) and, separately, an equivalent entry at the top of Manage → Installed tab. Clicking either entry SHALL open the External Employee Install Dialog. The entry MUST NOT modify `INSTALLABLE_KINDS` (which stays `['employee']`) nor pollute the registry `ListingSummary` schema.
-
-#### Scenario: Explore mode pinned discovery card
-
-- **WHEN** a user with a selected company navigates to Market → Explore
-- **THEN** the grid SHALL render a pinned "Connect external A2A agent" card above or at the start of the listing grid
-- **AND** clicking the card SHALL open the External Employee Install Dialog in step 1 (URL input)
-
-#### Scenario: Manage → Installed entry
-
-- **WHEN** the user is on Market → Manage with `manageTab === 'installed'`
-- **THEN** the installed-items area SHALL render an "Add external A2A agent" action above the installed list
-- **AND** clicking the action SHALL open the same Install Dialog
-
-#### Scenario: No registry listing pollution
-
-- **WHEN** the pinned entry is rendered
-- **THEN** it MUST NOT appear in `useMarketplace().results`, MUST NOT count toward `hasMore` / `isLoading`, and MUST NOT be treated as a registry asset
 
 ### Requirement: Install Dialog drives a 3-step agent card discovery → preview → confirm flow
 

@@ -3,14 +3,10 @@ import { ToastBanner, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useListingDetail } from '../../hooks/useListingDetail.js';
 import { useMarketplace } from '../../hooks/useMarketplace.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
-import { useCompany } from '../company/CompanyContext.js';
-import { ExternalEmployeeInstallDialog } from '../employees/ExternalEmployeeInstallDialog.js';
 import { MarketCardGrid } from './MarketCardGrid.js';
 import { MarketDetailView } from './MarketDetailView.js';
 import { MarketEmptyState } from './MarketEmptyState.js';
 import { MarketErrorState } from './MarketErrorState.js';
-import { MarketExternalAgentCard } from './MarketExternalAgentCard.js';
 import { MarketFilterBar } from './MarketFilterBar.js';
 import { MarketManageView } from './MarketManageView.js';
 import { PublishDialog } from './PublishDialog.js';
@@ -40,9 +36,6 @@ export function MarketPage({
 }: MarketPageProps) {
   const { toasts, addToast, dismissToast } = useToasts();
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  const [externalInstallOpen, setExternalInstallOpen] = useState(false);
-  const { repos, eventBus } = useOffisimRuntime();
-  const { activeCompanyId } = useCompany();
 
   // 7.2 — useMarketplace integration
   const {
@@ -218,56 +211,28 @@ export function MarketPage({
 
         {/* Explore: Card grid */}
         {sessionState.mode === 'explore' && !showDetail && !showError && !showEmpty && (
-          <div className="flex flex-col gap-4">
-            <div className="px-4 pt-4">
-              <MarketExternalAgentCard
-                variant="grid"
-                onClick={() => setExternalInstallOpen(true)}
-              />
-            </div>
-            <MarketCardGrid
-              results={results}
-              isLoading={isLoading}
-              isLoadingMore={isLoadingMore}
-              hasMore={hasMore}
-              onSelectListing={handleSelectListing}
-              onLoadMore={loadMore}
-            />
-          </div>
+          <MarketCardGrid
+            results={results}
+            isLoading={isLoading}
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
+            onSelectListing={handleSelectListing}
+            onLoadMore={loadMore}
+          />
         )}
 
         {/* Manage mode */}
         {sessionState.mode === 'manage' && (
-          <>
-            {sessionState.manageTab === 'installed' && (
-              <div className="px-4 pt-3">
-                <MarketExternalAgentCard
-                  variant="row"
-                  onClick={() => setExternalInstallOpen(true)}
-                />
-              </div>
-            )}
-            <MarketManageView
-              manageTab={sessionState.manageTab}
-              onStartInstall={handleInstall}
-              onGoToExplore={handleGoToExplore}
-            />
-          </>
+          <MarketManageView
+            manageTab={sessionState.manageTab}
+            onStartInstall={handleInstall}
+            onGoToExplore={handleGoToExplore}
+          />
         )}
       </div>
 
       {/* 7.5 — PublishDialog */}
       <PublishDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen} />
-
-      <ExternalEmployeeInstallDialog
-        open={externalInstallOpen}
-        onClose={() => setExternalInstallOpen(false)}
-        activeCompanyId={activeCompanyId}
-        repos={repos}
-        eventBus={eventBus}
-        onInstalled={(row) => addToast(`Connected ${row.name}`, 'success')}
-        onToast={(message, variant) => addToast(message, variant)}
-      />
     </div>
   );
 }

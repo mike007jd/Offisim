@@ -4,6 +4,7 @@ export const DEV_DEFAULT_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5176',
   'http://localhost:1420',
+  'tauri://localhost',
 ];
 
 interface StartupConfigInput {
