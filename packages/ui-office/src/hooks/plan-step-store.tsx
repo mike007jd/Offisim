@@ -7,7 +7,15 @@ import type {
   TaskAssignmentPayload,
   TaskStatePayload,
 } from '@offisim/shared-types';
-import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 import { useAgentStates } from '../runtime/use-agent-states';
 
@@ -29,7 +37,7 @@ export interface TaskInfo {
 export interface PlanStep {
   stepIndex: number;
   description: string;
-  status: 'pending' | 'active' | 'completed';
+  status: 'pending' | 'active' | 'completed' | 'failed';
   tasks: TaskInfo[];
 }
 
@@ -72,6 +80,31 @@ function findTask(steps: PlanStep[], taskRunId: string): [number, number] {
     }
   }
   return [-1, -1];
+}
+
+const NON_TERMINAL_TASK_STATES = new Set(['planned', 'queued', 'running']);
+const TERMINAL_FAILURE_TASK_STATES = new Set(['failed', 'cancelled']);
+
+/**
+ * Derive a step's status from its task statuses.
+ *
+ * A step rolls up to 'failed' ONLY when (a) it is not 'active',
+ * (b) at least one task is in a terminal-failure state, (c) no task is
+ * in a non-terminal state, and (d) no task has reached 'completed'.
+ *
+ * 'completed' steps are owned by `plan.step.completed`; once a step has
+ * reached 'completed' the rollup MUST NOT regress it to 'failed' even if
+ * some of its tasks ended in cancel/fail (mixed-terminal completion).
+ */
+function rollupStepStatus(step: PlanStep): PlanStep['status'] {
+  if (step.status === 'active' || step.status === 'completed') return step.status;
+  let hasTerminalFailure = false;
+  for (const task of step.tasks) {
+    if (NON_TERMINAL_TASK_STATES.has(task.status)) return 'pending';
+    if (task.status === 'completed') return 'pending';
+    if (TERMINAL_FAILURE_TASK_STATES.has(task.status)) hasTerminalFailure = true;
+  }
+  return hasTerminalFailure ? 'failed' : step.status;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,7 +172,9 @@ export function PlanStepStoreProvider({ children }: { children: ReactNode }) {
           tasks: s.tasks.map((t) => ({
             taskRunId: t.taskRunId,
             employeeId: t.employeeId ?? null,
-            employeeName: t.employeeId ? (agentsRef.current?.get(t.employeeId)?.name ?? null) : null,
+            employeeName: t.employeeId
+              ? (agentsRef.current?.get(t.employeeId)?.name ?? null)
+              : null,
             assigneeKind: t.assigneeKind,
             assigneeName:
               t.assigneeName ??
@@ -174,9 +209,15 @@ export function PlanStepStoreProvider({ children }: { children: ReactNode }) {
         const { stepIndex } = e.payload;
         update((prev) => ({
           ...prev,
-          steps: prev.steps.map((s) =>
-            s.stepIndex === stepIndex ? { ...s, status: 'completed' as const } : s,
-          ),
+          steps: prev.steps.map((s) => {
+            if (s.stepIndex !== stepIndex) return s;
+            const completed: PlanStep = { ...s, status: 'completed' };
+            // Per-spec: completion of a non-failed step short-circuits the
+            // rollup; a step that completed with mixed terminal outcomes
+            // does NOT regress to 'failed'. `rollupStepStatus` honors this
+            // because it returns the existing status when it is 'completed'.
+            return { ...completed, status: rollupStepStatus(completed) };
+          }),
         }));
       },
     );
@@ -196,6 +237,7 @@ export function PlanStepStoreProvider({ children }: { children: ReactNode }) {
 
         const existingStep = si >= 0 ? steps[si] : undefined;
         const existingTask = existingStep && ti >= 0 ? existingStep.tasks[ti] : undefined;
+        let touchedStepIndex = si;
 
         if (existingStep && existingTask) {
           const nextEmployeeId = employeeId ?? existingTask.employeeId;
@@ -238,6 +280,20 @@ export function PlanStepStoreProvider({ children }: { children: ReactNode }) {
             } else {
               targetStep.tasks.push(newTask);
             }
+            touchedStepIndex = targetIdx;
+          }
+        }
+
+        // Roll the touched step's status up from its task statuses.
+        // Single subscriber rule: this runs inside the existing handler; no
+        // new event subscription is opened.
+        if (touchedStepIndex >= 0) {
+          const touched = steps[touchedStepIndex];
+          if (touched) {
+            const next = rollupStepStatus(touched);
+            if (next !== touched.status) {
+              steps[touchedStepIndex] = { ...touched, status: next };
+            }
           }
         }
         return { ...prev, steps };
@@ -261,7 +317,10 @@ export function PlanStepStoreProvider({ children }: { children: ReactNode }) {
                 : assignTask.assigneeName;
             assignStep.tasks[ti] = {
               ...assignTask,
-              employeeId: action === 'assigned' ? (employeeId ?? assignTask.employeeId) : assignTask.employeeId,
+              employeeId:
+                action === 'assigned'
+                  ? (employeeId ?? assignTask.employeeId)
+                  : assignTask.employeeId,
               employeeName:
                 action === 'assigned' && employeeId
                   ? (agentsRef.current?.get(employeeId)?.name ?? resolvedName ?? null)
@@ -295,9 +354,5 @@ export function PlanStepStoreProvider({ children }: { children: ReactNode }) {
     stats: calcStats(state.steps),
   };
 
-  return (
-    <PlanStepStoreContext.Provider value={value}>
-      {children}
-    </PlanStepStoreContext.Provider>
-  );
+  return <PlanStepStoreContext.Provider value={value}>{children}</PlanStepStoreContext.Provider>;
 }

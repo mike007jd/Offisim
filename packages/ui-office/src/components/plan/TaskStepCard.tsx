@@ -7,12 +7,14 @@ import { TaskItem } from './TaskItem';
 // Step status → dot colour
 // ---------------------------------------------------------------------------
 
-function statusColor(status: 'pending' | 'active' | 'completed'): string {
+function statusColor(status: 'pending' | 'active' | 'completed' | 'failed'): string {
   switch (status) {
     case 'completed':
       return 'bg-success';
     case 'active':
       return 'bg-koi';
+    case 'failed':
+      return 'bg-red-400';
     default:
       return 'bg-shell/40';
   }

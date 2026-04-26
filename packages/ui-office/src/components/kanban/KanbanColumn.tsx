@@ -6,12 +6,16 @@ import { KanbanCard } from './KanbanCard';
 // Column status → header accent
 // ---------------------------------------------------------------------------
 
-function columnAccent(status: 'pending' | 'active' | 'completed' | 'requirements'): string {
+function columnAccent(
+  status: 'pending' | 'active' | 'completed' | 'failed' | 'requirements',
+): string {
   switch (status) {
     case 'completed':
       return 'border-t-green-400/60';
     case 'active':
       return 'border-t-blue-400/60';
+    case 'failed':
+      return 'border-t-red-400/60';
     case 'requirements':
       return 'border-t-amber-400/60';
     default:
@@ -35,7 +39,7 @@ export interface KanbanColumnProps {
   /** Step index for display. null for special columns */
   stepIndex: number | null;
   /** Column status for accent color */
-  status: 'pending' | 'active' | 'completed' | 'requirements';
+  status: 'pending' | 'active' | 'completed' | 'failed' | 'requirements';
   /** Tasks to render as cards */
   tasks: TaskInfo[];
   /** Called when a card is clicked */

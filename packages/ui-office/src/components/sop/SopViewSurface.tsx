@@ -6,7 +6,7 @@ import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
 import { useSops } from '../../hooks/useSops';
 import { parseSopDefinition } from '../../lib/sop-utils';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
-import { useCompany } from '../company/CompanyContext';
+import { useAgentStates } from '../../runtime/use-agent-states';
 import type { StepFormValues } from './SopAddStepPopover';
 import { SopAddStepPopover } from './SopAddStepPopover';
 import { SopDagCanvas } from './SopDagCanvas';
@@ -17,6 +17,7 @@ import { SopInspectorPanel } from './SopInspectorPanel';
 import { SopLibraryBar } from './SopLibraryBar';
 import { SopNlCommandBar } from './SopNlCommandBar';
 import { SopNodeContextMenu } from './SopNodeContextMenu';
+import { SopRunProgressStrip } from './SopRunProgressStrip';
 import { SopSidebar } from './SopSidebar';
 import { formatModifyCommand, formatRunCommand, formatStepClickPrefill } from './sop-commands';
 import {
@@ -85,7 +86,6 @@ function validateNoCycles(def: SopDefinition): boolean {
 export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSurfaceProps) {
   const { sops, loading, deleteSop, refreshSops } = useSops();
   const { sendMessage, repos } = useOffisimRuntime();
-  const { activeCompanyId } = useCompany();
   const { toasts, addToast, dismissToast } = useToasts();
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -134,6 +134,24 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
 
   // Step IDs for index mapping
   const stepIds = useMemo(() => definition?.steps.map((s) => s.step_id) ?? [], [definition]);
+
+  // Persistent missing-role surface (replaces handleRun one-shot toast).
+  // `useAgentStates` is already the live SSOT (subscribes to employee.*),
+  // so the chip updates reactively as employees come and go.
+  const agents = useAgentStates();
+  const presentRoleSlugs = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of agents.values()) set.add(a.role);
+    return set;
+  }, [agents]);
+  const missingRoleSet = useMemo(() => {
+    if (!definition) return new Set<string>();
+    const missing = new Set<string>();
+    for (const s of definition.steps) {
+      if (s.role_slug && !presentRoleSlugs.has(s.role_slug)) missing.add(s.role_slug);
+    }
+    return missing;
+  }, [definition, presentRoleSlugs]);
 
   // --- Deleted SOP recovery ---
   // Only fire "deleted" after observing the id existing in sops — guards
@@ -210,22 +228,14 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
     [onSessionStateChange],
   );
 
-  const handleRun = useCallback(async () => {
-    if (!selectedSop || !definition || !repos || !activeCompanyId) return;
-    const employees = await repos.employees.findByCompany(activeCompanyId);
-    const employeeRoles = new Set(employees.map((e) => e.role_slug));
-    const missingRoles = definition.steps
-      .map((s) => s.role_slug)
-      .filter((r) => r && !employeeRoles.has(r));
-    if (missingRoles.length > 0) {
-      const unique = [...new Set(missingRoles)];
-      addToast(
-        `Missing roles: ${unique.join(', ')}. Steps will fall back to any available employee.`,
-        'error',
-      );
-    }
+  const handleRun = useCallback(() => {
+    if (!selectedSop) return;
+    // Missing-role warnings are now a persistent on-graph chip + inspector
+    // row driven by `missingRoleSet`; the previous one-shot toast was racy
+    // (would disappear before the user could read it). Run dispatch path
+    // is unchanged — runtime fallback to any available employee preserved.
     void sendMessage(formatRunCommand(selectedSop.name));
-  }, [selectedSop, definition, repos, activeCompanyId, sendMessage, addToast]);
+  }, [selectedSop, sendMessage]);
 
   const handleDelete = useCallback(async () => {
     if (!selectedSop) return;
@@ -534,6 +544,10 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
           </div>
         )}
 
+        {selectedSop && definition && (
+          <SopRunProgressStrip definition={definition} sopTemplateId={selectedSop.sopTemplateId} />
+        )}
+
         {showEmpty ? (
           <SopEmptyState
             hasNoSops={sops.length === 0}
@@ -557,6 +571,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             onDoubleClickCanvas={handleDoubleClickCanvas}
             onDoubleClickNode={handleDoubleClickNode}
             canConnect={canConnect}
+            missingRoleSet={missingRoleSet}
           />
         )}
 
@@ -579,6 +594,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
           runtimeState={runtimeState}
           stepIds={stepIds}
           onSelectStep={handleStepClick}
+          missingRoleSet={missingRoleSet}
         />
       )}
 

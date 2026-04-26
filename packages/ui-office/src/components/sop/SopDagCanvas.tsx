@@ -53,6 +53,11 @@ export interface SopDagCanvasProps {
    * are accepted (legacy behavior).
    */
   canConnect?: (fromStepId: string, toStepId: string) => boolean;
+  /**
+   * Set of `role_slug` values that have no employee in the active company.
+   * Forwarded to each `SopDagNode` so the missing-role chip is reactive.
+   */
+  missingRoleSet?: ReadonlySet<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +122,7 @@ export function SopDagCanvas({
   onDoubleClickCanvas,
   onDoubleClickNode,
   canConnect,
+  missingRoleSet,
 }: SopDagCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -159,8 +165,16 @@ export function SopDagCanvas({
   }, [runtimeState, stepIds]);
 
   const getStatus = (stepId: string): SopStepStatus => statusMap.get(stepId) ?? 'pending';
-  const getEdgeStatus = (fromStepId: string): SopStepStatus =>
-    statusMap.get(fromStepId) ?? 'pending';
+  // Edge inherits its upstream step's status, with one exception: an edge whose
+  // upstream is 'failed' is short-circuited to 'failed' so the downstream stops
+  // animating and renders red. Implementation note: identical to passing
+  // `getStatus(fromStepId)` through, since the upstream failure case lands on
+  // 'failed' either way — the helper exists for spec readability.
+  const getEdgeStatus = (fromStepId: string): SopStepStatus => {
+    const upstream = statusMap.get(fromStepId) ?? 'pending';
+    if (upstream === 'failed') return 'failed';
+    return upstream;
+  };
 
   // --- Fit to view ---
   const fitToView = useCallback(() => {
@@ -248,52 +262,55 @@ export function SopDagCanvas({
     [editMode],
   );
 
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    const mode = modeRef.current;
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const mode = modeRef.current;
 
-    if (mode.type === 'connecting') {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const nextMousePos = {
-        x: (e.clientX - rect.left - translateRef.current.x) / scaleRef.current,
-        y: (e.clientY - rect.top - translateRef.current.y) / scaleRef.current,
-      };
-      setMousePos(nextMousePos);
-      const next = findInputPortAtPoint(layout.nodes, nextMousePos);
-      setHoveredInputStepId((prev) => (prev === next ? prev : next));
-      return;
-    }
+      if (mode.type === 'connecting') {
+        const el = containerRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const nextMousePos = {
+          x: (e.clientX - rect.left - translateRef.current.x) / scaleRef.current,
+          y: (e.clientY - rect.top - translateRef.current.y) / scaleRef.current,
+        };
+        setMousePos(nextMousePos);
+        const next = findInputPortAtPoint(layout.nodes, nextMousePos);
+        setHoveredInputStepId((prev) => (prev === next ? prev : next));
+        return;
+      }
 
-    if (mode.type === 'node-drag-pending') {
-      const dx = e.clientX - mode.startX;
-      const dy = e.clientY - mode.startY;
-      if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-        modeRef.current = { ...mode, type: 'node-dragging' };
-        // Compute offset in canvas coords
+      if (mode.type === 'node-drag-pending') {
+        const dx = e.clientX - mode.startX;
+        const dy = e.clientY - mode.startY;
+        if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+          modeRef.current = { ...mode, type: 'node-dragging' };
+          // Compute offset in canvas coords
+          const cdx = dx / scaleRef.current;
+          const cdy = dy / scaleRef.current;
+          setDragOffset({ stepId: mode.stepId, dx: cdx, dy: cdy });
+        }
+        return;
+      }
+
+      if (mode.type === 'node-dragging') {
+        const dx = e.clientX - mode.startX;
+        const dy = e.clientY - mode.startY;
         const cdx = dx / scaleRef.current;
         const cdy = dy / scaleRef.current;
         setDragOffset({ stepId: mode.stepId, dx: cdx, dy: cdy });
+        return;
       }
-      return;
-    }
 
-    if (mode.type === 'node-dragging') {
-      const dx = e.clientX - mode.startX;
-      const dy = e.clientY - mode.startY;
-      const cdx = dx / scaleRef.current;
-      const cdy = dy / scaleRef.current;
-      setDragOffset({ stepId: mode.stepId, dx: cdx, dy: cdy });
-      return;
-    }
-
-    if (mode.type === 'panning') {
-      const dx = e.clientX - mode.startX;
-      const dy = e.clientY - mode.startY;
-      setTranslate({ x: mode.startTx + dx, y: mode.startTy + dy });
-      return;
-    }
-  }, [layout.nodes]);
+      if (mode.type === 'panning') {
+        const dx = e.clientX - mode.startX;
+        const dy = e.clientY - mode.startY;
+        setTranslate({ x: mode.startTx + dx, y: mode.startTy + dy });
+        return;
+      }
+    },
+    [layout.nodes],
+  );
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
@@ -609,6 +626,7 @@ export function SopDagCanvas({
                   selected={selectedStepId === node.stepId}
                   editMode={editMode}
                   onStepClick={handleNodeClick}
+                  roleMissing={missingRoleSet?.has(node.step.role_slug) ?? false}
                 />
               </foreignObject>
             );

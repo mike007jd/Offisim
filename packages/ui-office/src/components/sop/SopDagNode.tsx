@@ -47,6 +47,8 @@ export interface SopDagNodeProps {
   selected: boolean;
   editMode?: boolean;
   onStepClick: (stepId: string) => void;
+  /** True when no employee in the active company has this step's role. */
+  roleMissing?: boolean;
 }
 
 export const SopDagNode = memo(function SopDagNode({
@@ -55,6 +57,7 @@ export const SopDagNode = memo(function SopDagNode({
   selected,
   editMode,
   onStepClick,
+  roleMissing,
 }: SopDagNodeProps) {
   const roleColor = getRoleColor(step.role_slug);
   const depsCount = step.dependencies.length;
@@ -81,6 +84,16 @@ export const SopDagNode = memo(function SopDagNode({
           {depsCount > 0 && (
             <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-700/60 text-slate-300">
               deps · {depsCount}
+            </span>
+          )}
+          {status === 'failed' && (
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/80 text-white font-semibold uppercase tracking-wide">
+              failed
+            </span>
+          )}
+          {roleMissing && (
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/40">
+              ⚠ no {step.role_slug}
             </span>
           )}
           <span
