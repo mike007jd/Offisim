@@ -69,6 +69,31 @@ export function getExecutionBatches(def: SopDefinition): SopStep[][] {
 }
 
 // ---------------------------------------------------------------------------
+// findInputPortAtPoint — circle hit-test for connection drops
+// ---------------------------------------------------------------------------
+//
+// Coordinate-based input-port resolver. Used by canvas pointer handlers as the
+// single source of truth for "which input port am I hovering" during a port
+// drag — SVG hit-areas alone miss releases that land 1–2 px outside the
+// rendered circle.
+
+export const PORT_HIT_RADIUS = 18;
+
+export function findInputPortAtPoint(
+  nodes: readonly DagNodeLayout[],
+  point: { x: number; y: number },
+  radius: number = PORT_HIT_RADIUS,
+): string | null {
+  const r2 = radius * radius;
+  for (const node of nodes) {
+    const dx = point.x - node.inputPort.x;
+    const dy = point.y - node.inputPort.y;
+    if (dx * dx + dy * dy <= r2) return node.stepId;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // wouldCreateCycle — pure check for live drag preview
 // ---------------------------------------------------------------------------
 //

@@ -3,7 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SopRuntimeStepState } from '../../hooks/useSopRuntimeState';
 import { SopDagEdge, buildBezierPath } from './SopDagEdge';
 import { SopDagNode } from './SopDagNode';
-import type { DagLayout, DagNodeLayout, SopStepStatus } from './sop-dag-layout';
+import {
+  type DagLayout,
+  type DagNodeLayout,
+  type SopStepStatus,
+  findInputPortAtPoint,
+} from './sop-dag-layout';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -12,6 +17,11 @@ import type { DagLayout, DagNodeLayout, SopStepStatus } from './sop-dag-layout';
 const DRAG_THRESHOLD = 5; // px radius before treating as drag
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2;
+
+const INPUT_PORT_STROKE = 'rgba(34,211,238,0.9)';
+const INPUT_PORT_REJECT_STROKE = 'rgba(248,113,113,0.95)';
+const OUTPUT_PORT_STROKE = 'rgba(251,191,36,0.95)';
+const PORT_FILL = 'rgba(15,23,42,0.98)';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -118,8 +128,6 @@ export function SopDagCanvas({
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Hovered input port during a port-drag — drives the red rejection color
-  // when the candidate dependency would create a cycle.
   const [hoveredInputStepId, setHoveredInputStepId] = useState<string | null>(null);
 
   // Node offset during drag (single-node, optimistic UI)
@@ -252,12 +260,8 @@ export function SopDagCanvas({
         y: (e.clientY - rect.top - translateRef.current.y) / scaleRef.current,
       };
       setMousePos(nextMousePos);
-      const hoveredNode = layout.nodes.find((node) => {
-        const dx = nextMousePos.x - node.inputPort.x;
-        const dy = nextMousePos.y - node.inputPort.y;
-        return Math.sqrt(dx * dx + dy * dy) <= 18;
-      });
-      setHoveredInputStepId(hoveredNode?.stepId ?? null);
+      const next = findInputPortAtPoint(layout.nodes, nextMousePos);
+      setHoveredInputStepId((prev) => (prev === next ? prev : next));
       return;
     }
 
@@ -340,13 +344,7 @@ export function SopDagCanvas({
           : null;
         const pointerTargetStepId =
           hoveredInputStepId ??
-          (pointerCanvasPos
-            ? layout.nodes.find((node) => {
-                const dx = pointerCanvasPos.x - node.inputPort.x;
-                const dy = pointerCanvasPos.y - node.inputPort.y;
-                return Math.sqrt(dx * dx + dy * dy) <= 18;
-              })?.stepId
-            : null);
+          (pointerCanvasPos ? findInputPortAtPoint(layout.nodes, pointerCanvasPos) : null);
         if (
           pointerTargetStepId &&
           pointerTargetStepId !== mode.fromStepId &&
@@ -419,13 +417,7 @@ export function SopDagCanvas({
         : null;
       const targetStepId =
         hoveredInputStepId ??
-        (pointerCanvasPos
-          ? layout.nodes.find((node) => {
-              const dx = pointerCanvasPos.x - node.inputPort.x;
-              const dy = pointerCanvasPos.y - node.inputPort.y;
-              return Math.sqrt(dx * dx + dy * dy) <= 18;
-            })?.stepId
-          : null);
+        (pointerCanvasPos ? findInputPortAtPoint(layout.nodes, pointerCanvasPos) : null);
 
       if (
         targetStepId &&
@@ -658,12 +650,14 @@ export function SopDagCanvas({
               connectingFrom !== node.stepId &&
               canConnect !== undefined &&
               !canConnect(connectingFrom, node.stepId);
-            const inputStroke = isHoveredRejection
-              ? 'rgba(248,113,113,0.95)'
-              : 'rgba(34,211,238,0.9)';
+            const inputStroke = isHoveredRejection ? INPUT_PORT_REJECT_STROKE : INPUT_PORT_STROKE;
             return (
               <g key={`${node.stepId}-ports`} className={portGroupClass}>
-                {/* Input port (connection target) */}
+                {/* Input port (connection target).
+                    Hover/release resolution is coordinate-based via
+                    findInputPortAtPoint — keep this group for visuals + a11y
+                    only, no SVG-level pointer hover/up handlers (would race
+                    the window-capture pointerup handler). */}
                 {/* biome-ignore lint/a11y/useSemanticElements: SVG group cannot be button */}
                 <g
                   role="button"
@@ -674,20 +668,6 @@ export function SopDagCanvas({
                     if (!portsInteractive) return;
                     e.preventDefault();
                     e.stopPropagation();
-                  }}
-                  onPointerUp={(e) => {
-                    if (!portsInteractive) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePortDrop(node.stepId);
-                  }}
-                  onPointerEnter={() => {
-                    if (!portsInteractive || connectingFrom === null) return;
-                    setHoveredInputStepId(node.stepId);
-                  }}
-                  onPointerLeave={() => {
-                    if (!portsInteractive) return;
-                    setHoveredInputStepId((prev) => (prev === node.stepId ? null : prev));
                   }}
                   onKeyDown={(e) =>
                     handlePortKeyDown(e, () => {
@@ -708,7 +688,7 @@ export function SopDagCanvas({
                     cx={ipx}
                     cy={ipy}
                     r={7}
-                    fill="rgba(15,23,42,0.98)"
+                    fill={PORT_FILL}
                     stroke={inputStroke}
                     strokeWidth={2.5}
                   />
@@ -745,8 +725,8 @@ export function SopDagCanvas({
                     cx={opx}
                     cy={opy}
                     r={7}
-                    fill="rgba(15,23,42,0.98)"
-                    stroke="rgba(251,191,36,0.95)"
+                    fill={PORT_FILL}
+                    stroke={OUTPUT_PORT_STROKE}
                     strokeWidth={2.5}
                   />
                 </g>
