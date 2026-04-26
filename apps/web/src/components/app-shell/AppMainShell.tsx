@@ -53,7 +53,8 @@ export interface AppMainShellProps {
   projects: React.ComponentProps<typeof ProjectSelector>['projects'];
   activeProjectId: React.ComponentProps<typeof ProjectSelector>['activeProjectId'];
   setActiveProjectId: React.ComponentProps<typeof ProjectSelector>['onSelect'];
-  createProject: React.ComponentProps<typeof ProjectSelector>['onCreateProject'];
+  onRequestCreateProject: () => void;
+  onRequestEditProject: React.ComponentProps<typeof ProjectSelector>['onRequestEditProject'];
   activeProjectStatus: React.ComponentProps<typeof StatusBar>['activeProjectStatus'];
   chatOpenToken: number;
   collaborationRailProps: CollaborationRailProps;
@@ -93,7 +94,8 @@ export function AppMainShell(props: AppMainShellProps) {
     projects,
     activeProjectId,
     setActiveProjectId,
-    createProject,
+    onRequestCreateProject,
+    onRequestEditProject,
     activeProjectStatus,
     chatOpenToken,
     collaborationRailProps,
@@ -159,7 +161,8 @@ export function AppMainShell(props: AppMainShellProps) {
               projects={projects}
               activeProjectId={activeProjectId}
               onSelect={setActiveProjectId}
-              onCreateProject={createProject}
+              onRequestCreate={onRequestCreateProject}
+              onRequestEditProject={onRequestEditProject}
             />
           }
           viewMode={officeState.viewMode}

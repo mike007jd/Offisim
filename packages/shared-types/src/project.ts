@@ -18,11 +18,17 @@ export interface ProjectRow {
   name: string;
   description: string | null;
   status: ProjectStatus;
+  workspace_root: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export type NewProject = Omit<ProjectRow, 'created_at' | 'updated_at'>;
+
+/** Patch shape for `ProjectRepository.update`. Explicit `null` unbinds. */
+export type ProjectUpdatePatch = Partial<
+  Pick<ProjectRow, 'name' | 'description' | 'status' | 'workspace_root'>
+>;
 
 export interface ProjectAssignmentRow {
   assignment_id: string;
@@ -33,3 +39,32 @@ export interface ProjectAssignmentRow {
 }
 
 export type NewProjectAssignment = Omit<ProjectAssignmentRow, 'assigned_at'>;
+
+/**
+ * Trim a nullable string and coerce empty / whitespace-only results to `null`.
+ * Used by Project create / edit flows to normalize description + workspace_root
+ * so the database never holds empty strings as "set" values.
+ */
+export function trimToNull(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+const HINT_TARGET_LENGTH = 32;
+const HINT_HEAD_TAIL = 14;
+
+/**
+ * Mid-truncated hint for a workspace_root path. Returns "No folder bound"
+ * when null/empty; preserves head + tail when path exceeds ~32 chars so the
+ * user can still see the leaf directory name.
+ */
+export function formatWorkspaceRootHint(root: string | null | undefined): string {
+  if (root == null) return 'No folder bound';
+  const trimmed = root.trim();
+  if (!trimmed) return 'No folder bound';
+  if (trimmed.length <= HINT_TARGET_LENGTH) return trimmed;
+  const head = trimmed.slice(0, HINT_HEAD_TAIL);
+  const tail = trimmed.slice(-HINT_HEAD_TAIL);
+  return `${head}…${tail}`;
+}

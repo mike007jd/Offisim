@@ -1,7 +1,9 @@
+import type { ProjectRow } from '@offisim/shared-types';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import {
   EmployeeInspector,
   ErrorBoundary,
+  ProjectCreateDialog,
   type ProviderConfig,
   ResumeBar,
   loadProviderConfig,
@@ -81,8 +83,42 @@ export function App({ onCompanySwitch }: AppProps) {
   const { toasts, addToast, dismissToast } = useToasts();
   const { toasts: guidanceToasts, dismissToast: dismissGuidanceToast } = useFirstRunGuidance();
   const agents = useAgentStates();
-  const { projects, activeProject, activeProjectId, setActiveProjectId, createProject } =
-    useProjects({ repos, companyId: activeCompanyId ?? '' });
+  const {
+    projects,
+    activeProject,
+    activeProjectId,
+    setActiveProjectId,
+    createProject,
+    updateProject,
+  } = useProjects({ repos, companyId: activeCompanyId ?? '' });
+
+  type ProjectDialogState = { mode: 'create' } | { mode: 'edit'; initial: ProjectRow } | null;
+  const [projectDialog, setProjectDialog] = useState<ProjectDialogState>(null);
+  const handleRequestCreateProject = useCallback(() => setProjectDialog({ mode: 'create' }), []);
+  const handleRequestEditProject = useCallback(
+    (project: ProjectRow) => setProjectDialog({ mode: 'edit', initial: project }),
+    [],
+  );
+  const handleProjectDialogCreate = useCallback(
+    async (input: { name: string; description: string | null; workspaceRoot: string | null }) =>
+      createProject({
+        name: input.name,
+        description: input.description,
+        workspaceRoot: input.workspaceRoot,
+      }),
+    [createProject],
+  );
+  const handleProjectDialogUpdate = useCallback(
+    async (
+      projectId: string,
+      patch: { name?: string; description?: string | null; workspace_root?: string | null },
+    ) => updateProject(projectId, patch),
+    [updateProject],
+  );
+  const handleProjectStripError = useCallback(
+    (message: string) => addToast(message, 'error'),
+    [addToast],
+  );
 
   const officeBindings = useOfficeStateBindings({ activeCompanyId, updateWorkspaceState });
 
@@ -186,12 +222,16 @@ export function App({ onCompanySwitch }: AppProps) {
       onToggleDashboard: officeBindings.handleToggleDashboard,
       onToggleKanban: officeBindings.handleToggleKanban,
       onUserMessage: officeBindings.handleUserMessage,
+      onRequestEditProject: handleRequestEditProject,
+      onProjectStripError: handleProjectStripError,
       selectedEmployeeId: officeState.selectedEmployeeId,
       selectedEmployeeName,
     }),
     [
       activeProject,
       handleOpenSettings,
+      handleProjectStripError,
+      handleRequestEditProject,
       lifecycle.handleOpenStudio,
       officeBindings.chatOpenToken,
       officeBindings.focusOutputsToken,
@@ -267,7 +307,8 @@ export function App({ onCompanySwitch }: AppProps) {
             projects={projects}
             activeProjectId={activeProjectId}
             setActiveProjectId={setActiveProjectId}
-            createProject={createProject}
+            onRequestCreateProject={handleRequestCreateProject}
+            onRequestEditProject={handleRequestEditProject}
             activeProjectStatus={activeProject?.status ?? null}
             chatOpenToken={officeBindings.chatOpenToken}
             collaborationRailProps={collaborationRailProps}
@@ -325,6 +366,18 @@ export function App({ onCompanySwitch }: AppProps) {
           onWizardComplete={lifecycle.handleWizardComplete}
           onCreateYourOwn={lifecycle.handleCreateYourOwn}
           onDismissWizard={() => setCompanyWizardMode(null)}
+        />
+
+        <ProjectCreateDialog
+          open={projectDialog !== null}
+          onOpenChange={(next) => {
+            if (!next) setProjectDialog(null);
+          }}
+          mode={projectDialog?.mode ?? 'create'}
+          initial={projectDialog?.mode === 'edit' ? projectDialog.initial : null}
+          onCreate={handleProjectDialogCreate}
+          onUpdate={handleProjectDialogUpdate}
+          onCreated={(project) => setActiveProjectId(project.project_id)}
         />
       </>
     </ErrorBoundary>

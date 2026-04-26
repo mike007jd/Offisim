@@ -273,6 +273,7 @@ export const projects = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     status: text('status').notNull().default('planning'),
+    workspace_root: text('workspace_root'),
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },

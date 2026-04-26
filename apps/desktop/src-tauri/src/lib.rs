@@ -213,6 +213,14 @@ fn migrations() -> Vec<Migration> {
             ),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 34,
+            description: "projects workspace root binding",
+            sql: include_str!(
+                "../../../../Docs/03_migrations/offisim_migrations_local_v0.1/034_projects_workspace_root.sql"
+            ),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -255,7 +263,9 @@ pub fn run() {
         )
         .plugin(tauri_plugin_cors_fetch::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(mcp_bridge::init())
         .setup(|app| {
             // Resolve the plaintext secret-file location once so non-command

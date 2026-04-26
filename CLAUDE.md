@@ -110,6 +110,9 @@ catalog/
 | Workspace types | `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state, layout tier |
 | Personnel page | `packages/ui-office/src/components/employees/PersonnelPage.tsx` | List + detail + 6-tab inspector (employee edit lives here) |
 | Personnel routing | `apps/web/src/lib/personnel-routing.ts` | `routeToPersonnel(id, tab)` — single entry for cross-surface employee edit |
+| Project create/edit | `packages/ui-office/src/components/project/ProjectCreateDialog.tsx` | Single dialog for both create + edit modes; opened from header selector + chat strip |
+| Project context strip | `packages/ui-office/src/components/project/ProjectContextStrip.tsx` | Strip at top of ChatPanel; `Project · {name} · {folder?}` + Open folder + Edit |
+| Folder picker bridge | `packages/ui-office/src/lib/folder-picker.ts` | `pickWorkspaceFolder` / `revealWorkspaceFolder` SSOT — Tauri dialog + opener plugins; web throws `FolderPickerUnavailableError` |
 | LangGraph kernel | `packages/core/src/graph/` | Boss/manager/employee nodes |
 | Runtime bridge | `packages/ui-office/src/runtime/offisim-runtime-context.tsx` | React↔core |
 | Scene orchestrator | `packages/ui-office/src/hooks/useSceneOrchestrator.ts` | 3D ceremony + movement |
@@ -158,6 +161,7 @@ catalog/
 - **仓库已无自动 gate**: 不再保留 husky / typecheck / test / smoke 自动校验链。验证统一走 live agent。
 - **2026-04-14 起自动测试策略作废**: 过去的 `vitest` / `playwright` / `__VAULT_SMOKE__` / auto-smoke 链已删除。以后遇到 runtime / UI / vault / Tauri 问题，直接 live agent 验证，不要重建自动 smoke。
 - **2D office 方向已改判并已完成主路径切换**: 旧 SVG 2D 路径已经删除。后续不要复活 SVG scene grammar；2D 场景主渲染保持 `canvas`, DOM 只保留文字/tooltip/panel/按钮等交互壳。
+- **Project = name + description + 可选 workspace_root + 专属 thread**：`projects.workspace_root` 是 nullable TEXT 列（migration 026 / desktop v34）。Tauri 端 `tauri-plugin-dialog` + `tauri-plugin-opener` 已注册，capabilities 含 `dialog:allow-open` / `opener:allow-reveal-item-in-dir` / `opener:allow-open-path`。folder picker SSOT 在 `packages/ui-office/src/lib/folder-picker.ts`（其他组件不直接 import `@tauri-apps/plugin-{dialog,opener}`）。Web 端 vite alias 把这两个 plugin stub 到 `apps/web/src/polyfills/` 下空函数，folder UI 走 disabled hint。`ProjectService.createProject` 改成对象参数 `{ name, description?, workspaceRoot? }`（不再 positional）；G2 IDE 文件树面板尚未交付，但绑定层已经打通。
 
 ## Ground Truth
 

@@ -1,11 +1,22 @@
-import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
-import { Archive, FolderOpen, Plus, X } from 'lucide-react';
+import {
+  type ProjectRow,
+  type ProjectStatus,
+  formatWorkspaceRootHint,
+} from '@offisim/shared-types';
+import { Archive, FolderOpen, Pencil, Plus, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useDeliverables } from '../../hooks/useDeliverables';
+import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 
 interface ProjectListPanelProps {
   projects: ProjectRow[];
   activeProjectId: string | null;
   onSelect: (projectId: string | null) => void;
   onClose: () => void;
+  /** Open ProjectCreateDialog in create mode. */
+  onRequestCreateProject?: () => void;
+  /** Open ProjectCreateDialog in edit mode for the given project. */
+  onRequestEditProject?: (project: ProjectRow) => void;
 }
 
 const STATUS_DOT: Record<ProjectStatus, string> = {
@@ -73,14 +84,77 @@ function ProjectCard({
           {project.description && (
             <p className="text-[11px] text-slate-500 truncate mt-0.5">{project.description}</p>
           )}
-          {project.thread_id && (
-            <p className="text-[10px] text-slate-700 font-mono mt-0.5 truncate">
-              thread: {project.thread_id.slice(0, 16)}…
-            </p>
-          )}
         </div>
       </div>
     </button>
+  );
+}
+
+function ProjectSelectedSummary({
+  project,
+  onRequestEdit,
+}: {
+  project: ProjectRow;
+  onRequestEdit?: (project: ProjectRow) => void;
+}) {
+  const { repos } = useOffisimRuntime();
+  const allDeliverables = useDeliverables();
+  const [taskCount, setTaskCount] = useState<number | null>(null);
+  const threadId = project.thread_id;
+
+  useEffect(() => {
+    if (!threadId || !repos?.taskRuns) {
+      setTaskCount(null);
+      return;
+    }
+    let cancelled = false;
+    void repos.taskRuns.findByThread(threadId).then((rows) => {
+      if (!cancelled) setTaskCount(rows.length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId, repos]);
+
+  const deliverableCount = useMemo(() => {
+    if (!threadId) return 0;
+    return allDeliverables.filter((d) => d.threadId === threadId).length;
+  }, [allDeliverables, threadId]);
+
+  return (
+    <div className="mt-2 px-3 py-2 rounded-lg border border-white/8 bg-white/3 flex flex-col gap-2 text-[11px] text-slate-400">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[10px] uppercase tracking-wider text-slate-600">
+          Workspace folder
+        </span>
+        <span
+          className={project.workspace_root ? 'text-slate-200' : 'text-slate-500'}
+          title={project.workspace_root ?? undefined}
+        >
+          {formatWorkspaceRootHint(project.workspace_root)}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 text-slate-400">
+        <span>
+          <span className="text-slate-200 font-medium">{taskCount ?? '—'}</span> tasks
+        </span>
+        <span>
+          <span className="text-slate-200 font-medium">{deliverableCount}</span> deliverables
+        </span>
+      </div>
+      {onRequestEdit && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => onRequestEdit(project)}
+            className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-slate-200 transition-colors hover:border-white/20 hover:bg-white/10"
+          >
+            <Pencil className="h-3 w-3" />
+            Edit project
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -89,6 +163,8 @@ export function ProjectListPanel({
   activeProjectId,
   onSelect,
   onClose,
+  onRequestCreateProject,
+  onRequestEditProject,
 }: ProjectListPanelProps) {
   const activeProjects = projects.filter((p) =>
     (['planning', 'active', 'paused'] as ProjectStatus[]).includes(p.status),
@@ -96,6 +172,8 @@ export function ProjectListPanel({
   const completedProjects = projects.filter((p) =>
     (['completed', 'archived'] as ProjectStatus[]).includes(p.status),
   );
+
+  const selectedProject = projects.find((p) => p.project_id === activeProjectId) ?? null;
 
   return (
     <div className="w-72 bg-zinc-900/95 backdrop-blur-sm border border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden">
@@ -120,7 +198,7 @@ export function ProjectListPanel({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1 max-h-80">
+      <div className="flex-1 overflow-y-auto p-2 space-y-1 max-h-96">
         {/* All / no project option */}
         <button
           type="button"
@@ -149,7 +227,6 @@ export function ProjectListPanel({
                 isSelected={p.project_id === activeProjectId}
                 onSelect={() => {
                   onSelect(p.project_id);
-                  onClose();
                 }}
               />
             ))}
@@ -169,7 +246,6 @@ export function ProjectListPanel({
                 isSelected={p.project_id === activeProjectId}
                 onSelect={() => {
                   onSelect(p.project_id);
-                  onClose();
                 }}
               />
             ))}
@@ -179,18 +255,38 @@ export function ProjectListPanel({
         {projects.length === 0 && (
           <div className="flex flex-col items-center justify-center py-6 text-slate-700">
             <FolderOpen className="h-6 w-6 mb-2 opacity-40" />
-            <p className="text-xs italic">No projects yet — send the boss a task to get started</p>
+            <p className="text-xs italic">No projects yet</p>
             <p className="text-[11px] mt-1 text-slate-800">
-              Offisim creates project threads automatically as needed.
+              Create one from the project picker in the header.
             </p>
           </div>
+        )}
+
+        {selectedProject && (
+          <ProjectSelectedSummary project={selectedProject} onRequestEdit={onRequestEditProject} />
         )}
       </div>
 
       {/* Footer hint */}
-      <div className="px-3 py-2 border-t border-white/5 flex items-center gap-1.5 text-[10px] text-slate-700">
-        <Plus className="h-3 w-3" />
-        <span>Tell the Boss to create a new project</span>
+      <div className="px-3 py-2 border-t border-white/5">
+        {onRequestCreateProject ? (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onRequestCreateProject();
+            }}
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-blue-400 transition-colors hover:bg-white/5"
+          >
+            <Plus className="h-3 w-3" />
+            <span>New project</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[10px] text-slate-700">
+            <Plus className="h-3 w-3" />
+            <span>Use the picker to create a new project</span>
+          </div>
+        )}
       </div>
     </div>
   );

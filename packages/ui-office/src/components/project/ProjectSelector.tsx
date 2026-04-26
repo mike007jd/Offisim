@@ -1,14 +1,7 @@
-import { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from '@offisim/shared-types';
 import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
-import { BriefcaseBusiness, ChevronDown, Plus } from 'lucide-react';
+import { BriefcaseBusiness, ChevronDown, FolderPlus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-
-interface ProjectSelectorProps {
-  projects: ProjectRow[];
-  activeProjectId: string | null;
-  onSelect: (projectId: string | null) => void;
-  onCreateProject?: (name: string) => Promise<ProjectRow>;
-}
+import { ProjectListPanel } from './ProjectListPanel.js';
 
 const STATUS_DOT: Record<ProjectStatus, string> = {
   planning: 'bg-blue-400',
@@ -18,28 +11,24 @@ const STATUS_DOT: Record<ProjectStatus, string> = {
   archived: 'bg-zinc-600',
 };
 
-const STATUS_LABEL: Record<ProjectStatus, string> = {
-  planning: 'Planning',
-  active: 'Active',
-  paused: 'Paused',
-  completed: 'Completed',
-  archived: 'Archived',
-};
-
-function StatusDot({ status }: { status: ProjectStatus }) {
-  return <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[status]}`} />;
+interface ProjectSelectorProps {
+  projects: ProjectRow[];
+  activeProjectId: string | null;
+  onSelect: (projectId: string | null) => void;
+  /** Open the ProjectCreateDialog in create mode. Selector itself doesn't own it. */
+  onRequestCreate?: () => void;
+  /** Open the ProjectCreateDialog in edit mode for the selected project. */
+  onRequestEditProject?: (project: ProjectRow) => void;
 }
 
 export function ProjectSelector({
   projects,
   activeProjectId,
   onSelect,
-  onCreateProject,
+  onRequestCreate,
+  onRequestEditProject,
 }: ProjectSelectorProps) {
   const [open, setOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Close on outside click
@@ -54,19 +43,14 @@ export function ProjectSelector({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  const activeProjects = projects.filter((p) =>
-    (ACTIVE_PROJECT_STATUSES as readonly string[]).includes(p.status),
-  );
-  const completedProjects = projects.filter((p) =>
-    (COMPLETED_PROJECT_STATUSES as readonly string[]).includes(p.status),
-  );
-
   const activeProject = projects.find((p) => p.project_id === activeProjectId) ?? null;
 
   function handleSelect(id: string | null) {
     onSelect(id);
     setOpen(false);
   }
+
+  const isEmpty = projects.length === 0;
 
   return (
     <div ref={ref} className="relative">
@@ -80,7 +64,9 @@ export function ProjectSelector({
         <BriefcaseBusiness className="h-3.5 w-3.5 flex-shrink-0 text-cyan-300/70" />
         {activeProject ? (
           <>
-            <StatusDot status={activeProject.status} />
+            <span
+              className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[activeProject.status]}`}
+            />
             <span className="max-w-[120px] truncate">{activeProject.name}</span>
           </>
         ) : (
@@ -93,143 +79,35 @@ export function ProjectSelector({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 min-w-[200px] bg-zinc-900 border border-white/10 rounded-lg shadow-2xl py-1 text-xs">
-          {/* All option */}
-          <button
-            type="button"
-            onClick={() => handleSelect(null)}
-            className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors ${
-              activeProjectId === null ? 'text-white' : 'text-slate-400'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-transparent border border-slate-600 flex-shrink-0" />
-            <span>All</span>
-            {activeProjectId === null && (
-              <span className="ml-auto text-[10px] text-slate-500">active</span>
-            )}
-          </button>
-
-          {/* Create new project */}
-          {onCreateProject && (
-            <>
-              <div className="h-px bg-white/5 my-1" />
-              {creating ? (
-                <form
-                  className="px-3 py-1.5 flex items-center gap-1.5"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const trimmed = newName.trim();
-                    if (!trimmed || submitting) return;
-                    setSubmitting(true);
-                    try {
-                      const project = await onCreateProject(trimmed);
-                      onSelect(project.project_id);
-                      setNewName('');
-                      setCreating(false);
-                      setOpen(false);
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Project name..."
-                    className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
-                    // biome-ignore lint/a11y/noAutofocus: intentional — focus the name input when opening the inline create form
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        setCreating(false);
-                        setNewName('');
-                      }
-                    }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!newName.trim() || submitting}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white disabled:opacity-30"
-                  >
-                    Create
-                  </button>
-                </form>
-              ) : (
+        <div className="absolute top-full mt-1 left-0 z-50 min-w-[220px] text-xs">
+          {isEmpty ? (
+            <div className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-3 shadow-2xl flex flex-col gap-2">
+              <p className="text-slate-400 leading-relaxed">
+                A project pairs a chat thread with an optional local workspace folder.
+              </p>
+              {onRequestCreate && (
                 <button
                   type="button"
-                  onClick={() => setCreating(true)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors text-blue-400"
+                  onClick={() => {
+                    setOpen(false);
+                    onRequestCreate();
+                  }}
+                  className="flex items-center justify-center gap-1.5 rounded-md border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-cyan-100 transition-colors hover:bg-cyan-500/25"
                 >
-                  <Plus className="h-3 w-3" />
-                  <span>New Project</span>
+                  <FolderPlus className="h-3.5 w-3.5" />
+                  Create your first project
                 </button>
               )}
-            </>
-          )}
-
-          {/* Active/planning/paused projects */}
-          {activeProjects.length > 0 && (
-            <>
-              <div className="h-px bg-white/5 my-1" />
-              <p className="px-3 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
-                Projects
-              </p>
-              {activeProjects.map((p) => (
-                <button
-                  key={p.project_id}
-                  type="button"
-                  onClick={() => handleSelect(p.project_id)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors ${
-                    p.project_id === activeProjectId ? 'text-white' : 'text-slate-300'
-                  }`}
-                >
-                  <StatusDot status={p.status} />
-                  <span className="truncate flex-1 text-left">{p.name}</span>
-                  <span
-                    className={`text-[10px] flex-shrink-0 ${
-                      p.status === 'active'
-                        ? 'text-emerald-600'
-                        : p.status === 'paused'
-                          ? 'text-amber-600'
-                          : 'text-blue-600'
-                    }`}
-                  >
-                    {STATUS_LABEL[p.status]}
-                  </span>
-                </button>
-              ))}
-            </>
-          )}
-
-          {/* Completed/archived projects */}
-          {completedProjects.length > 0 && (
-            <>
-              <div className="h-px bg-white/5 my-1" />
-              <p className="px-3 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
-                Completed
-              </p>
-              {completedProjects.map((p) => (
-                <button
-                  key={p.project_id}
-                  type="button"
-                  onClick={() => handleSelect(p.project_id)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors ${
-                    p.project_id === activeProjectId ? 'text-white' : 'text-slate-500'
-                  }`}
-                >
-                  <StatusDot status={p.status} />
-                  <span className="truncate flex-1 text-left">{p.name}</span>
-                  <span className="text-[10px] text-zinc-600 flex-shrink-0">
-                    {STATUS_LABEL[p.status]}
-                  </span>
-                </button>
-              ))}
-            </>
-          )}
-
-          {projects.length === 0 && (
-            <p className="px-3 py-2 text-slate-500 italic">No projects yet</p>
+            </div>
+          ) : (
+            <ProjectListPanel
+              projects={projects}
+              activeProjectId={activeProjectId}
+              onSelect={handleSelect}
+              onClose={() => setOpen(false)}
+              onRequestCreateProject={onRequestCreate}
+              onRequestEditProject={onRequestEditProject}
+            />
           )}
         </div>
       )}

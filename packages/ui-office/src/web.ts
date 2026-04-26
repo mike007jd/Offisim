@@ -15,6 +15,8 @@ export { Header } from './components/layout/Header.js';
 export { RightSidebar } from './components/layout/RightSidebar.js';
 export { StatusBar } from './components/layout/StatusBar.js';
 export { NotificationCenter } from './components/notifications/NotificationCenter.js';
+export { ProjectCreateDialog } from './components/project/ProjectCreateDialog.js';
+export type { ProjectCreateDialogCreateInput } from './components/project/ProjectCreateDialog.js';
 export { ProjectSelector } from './components/project/ProjectSelector.js';
 export { ResumeBar } from './components/project/ResumeBar.js';
 export { KeyboardShortcutsDialog } from './components/shared/KeyboardShortcutsDialog.js';

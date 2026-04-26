@@ -5,11 +5,9 @@ import type {
   ProjectAssignmentRow,
   ProjectRow,
   ProjectStatus,
+  ProjectUpdatePatch,
 } from '@offisim/shared-types';
-import type {
-  ProjectAssignmentRepository,
-  ProjectRepository,
-} from '../../repositories.js';
+import type { ProjectAssignmentRepository, ProjectRepository } from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 
 function cloneRows<T extends object>(rows: Iterable<T>): T[] {
@@ -63,10 +61,7 @@ export class MemoryProjectRepository implements ProjectRepository {
     }
   }
 
-  async update(
-    projectId: string,
-    patch: Partial<Pick<ProjectRow, 'name' | 'description' | 'status'>>,
-  ): Promise<void> {
+  async update(projectId: string, patch: ProjectUpdatePatch): Promise<void> {
     const row = this.store.get(projectId);
     if (row) {
       this.store.set(projectId, { ...row, ...patch, updated_at: new Date().toISOString() });

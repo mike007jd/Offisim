@@ -92,6 +92,14 @@ function createBrowserTauriAliases() {
       find: '@tauri-apps/plugin-sql',
       replacement: path.resolve(__dirname, 'src/polyfills/tauri-plugin-sql.ts'),
     },
+    {
+      find: '@tauri-apps/plugin-dialog',
+      replacement: path.resolve(__dirname, 'src/polyfills/tauri-plugin-dialog.ts'),
+    },
+    {
+      find: '@tauri-apps/plugin-opener',
+      replacement: path.resolve(__dirname, 'src/polyfills/tauri-plugin-opener.ts'),
+    },
   ];
 }
 
@@ -107,8 +115,10 @@ function createBrowserTauriAliases() {
 export default defineConfig(({ command, mode }) => {
   const isTauriFrontend = Boolean(process.env.TAURI_ENV_PLATFORM);
   const env = loadEnv(mode, repoRoot, '');
-  const minimaxApiKey = command === 'serve' ? (env.MINIMAX_API_KEY ?? env.VITE_MINIMAX_API_KEY ?? '') : '';
-  const minimaxBaseUrl = env.MINIMAX_BASE_URL ?? env.VITE_MINIMAX_BASE_URL ?? 'https://api.minimax.io/anthropic';
+  const minimaxApiKey =
+    command === 'serve' ? (env.MINIMAX_API_KEY ?? env.VITE_MINIMAX_API_KEY ?? '') : '';
+  const minimaxBaseUrl =
+    env.MINIMAX_BASE_URL ?? env.VITE_MINIMAX_BASE_URL ?? 'https://api.minimax.io/anthropic';
   const minimaxModel = env.MINIMAX_MODEL ?? env.VITE_MINIMAX_MODEL ?? 'MiniMax-M2.7';
 
   return {
@@ -259,7 +269,13 @@ export default defineConfig(({ command, mode }) => {
     },
     optimizeDeps: {
       include: ['@offisim/core', '@offisim/core/browser', '@offisim/shared-types'],
-      exclude: ['@tauri-apps/api', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-sql'],
+      exclude: [
+        '@tauri-apps/api',
+        '@tauri-apps/plugin-fs',
+        '@tauri-apps/plugin-sql',
+        '@tauri-apps/plugin-dialog',
+        '@tauri-apps/plugin-opener',
+      ],
       // Force re-bundle on every dev-server restart in serve mode. Workspace
       // deps (`@offisim/core`) are published as `dist/*` files; pnpm does not
       // bump package.json when the dist content changes, so Vite's default

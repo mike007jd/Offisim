@@ -195,10 +195,16 @@ export type {
   ProjectAssignmentRole,
   ProjectRow,
   NewProject,
+  ProjectUpdatePatch,
   ProjectAssignmentRow,
   NewProjectAssignment,
 } from './project.js';
-export { ACTIVE_PROJECT_STATUSES, COMPLETED_PROJECT_STATUSES } from './project.js';
+export {
+  ACTIVE_PROJECT_STATUSES,
+  COMPLETED_PROJECT_STATUSES,
+  formatWorkspaceRootHint,
+  trimToNull,
+} from './project.js';
 
 export type {
   ZoneKind,

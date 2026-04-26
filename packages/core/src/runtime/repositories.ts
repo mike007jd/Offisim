@@ -13,6 +13,7 @@ import type {
   ProjectAssignmentRow,
   ProjectRow,
   ProjectStatus,
+  ProjectUpdatePatch,
 } from '@offisim/shared-types';
 import type { AssetBindingRepository } from '../repos/asset-binding-repository.js';
 import type { InstallTransactionRepository } from '../repos/install-transaction-repository.js';
@@ -21,7 +22,14 @@ import type { InstalledPackageRepository } from '../repos/installed-package-repo
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 import type { ZoneRepository } from '../repos/zone-repository.js';
 
-export type { ProjectRow, NewProject, ProjectStatus, ProjectAssignmentRow, NewProjectAssignment };
+export type {
+  ProjectRow,
+  NewProject,
+  ProjectStatus,
+  ProjectUpdatePatch,
+  ProjectAssignmentRow,
+  NewProjectAssignment,
+};
 
 /** Row types — mirror db-local schema shapes */
 
@@ -811,10 +819,11 @@ export interface ProjectRepository {
   findByCompany(companyId: string): Promise<ProjectRow[]>;
   findActiveByCompany(companyId: string): Promise<ProjectRow[]>;
   updateStatus(projectId: string, status: ProjectStatus): Promise<void>;
-  update(
-    projectId: string,
-    patch: Partial<Pick<ProjectRow, 'name' | 'description' | 'status'>>,
-  ): Promise<void>;
+  /**
+   * Patch a project. Explicit `null` for `workspace_root` unbinds the folder.
+   * `description` accepts `string | null` for the same reason.
+   */
+  update(projectId: string, patch: ProjectUpdatePatch): Promise<void>;
   delete(projectId: string): Promise<void>;
 }
 
@@ -959,11 +968,7 @@ export interface SkillRepository {
   listByCompany(companyId: string): Promise<SkillRow[]>;
   listByCompanyScope(companyId: string): Promise<SkillRow[]>;
   listByEmployee(companyId: string, employeeId: string): Promise<SkillRow[]>;
-  findBySlug(
-    companyId: string,
-    employeeId: string | null,
-    slug: string,
-  ): Promise<SkillRow | null>;
+  findBySlug(companyId: string, employeeId: string | null, slug: string): Promise<SkillRow | null>;
 }
 
 // ---------------------------------------------------------------------------

@@ -40,3 +40,13 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 ## Prefab 双文件
 
 `renderer/prefab/builtin-catalog.ts` 是**目录定义**(190+ frozen 对象), `ui-office/lib/prefab-spatial.ts` 是**空间 spec** (footprint/anchor/rotation)。两者通过 prefabId 关联但互不依赖。新增 prefab 必须在两边各加一份。
+
+## Project (G1 — workspace_root binding)
+
+- **`packages/ui-office/src/lib/folder-picker.ts`** 是 Tauri-vs-browser 平台分支唯一抽象。`pickWorkspaceFolder()` 桌面调 `@tauri-apps/plugin-dialog` 的 `open({ directory: true })`，浏览器抛 `FolderPickerUnavailableError`；`revealWorkspaceFolder(path)` 桌面调 `@tauri-apps/plugin-opener` 的 `revealItemInDir`（fallback `openPath`），浏览器同样 throw。`isFolderPickerAvailable()` 走 `isTauri()`（reads `__TAURI_INTERNALS__`，**不**读 `window.__TAURI__`）。`packages/ui-office/src/components/project/**` 之外的组件**不要直接 import** `@tauri-apps/plugin-dialog` / `@tauri-apps/plugin-opener`。
+- **`ProjectCreateDialog.tsx`** 是 create + edit 同一个组件，`mode: 'create' | 'edit'` + 可选 `initial: ProjectRow`。复用 `dialog-shell` 的 `DIALOG_SIZING_CLASS` SSOT。Folder row 在桌面渲染 path display + Choose / Clear；浏览器渲染 disabled hint "Available on desktop"。空 name 禁用 CTA。父组件（App.tsx）持有 `projectDialog` state + 渲染 `<ProjectCreateDialog>`，selector / context strip 通过 `onRequestCreate` / `onRequestEdit` callback 触发。
+- **`ProjectContextStrip.tsx`** 在 ChatPanel 顶部、team / direct chat 都展示，`activeProject == null` 时返回 null（**零 DOM**，不留空 row）。`Project · {name} · {formatWorkspaceRootHint(workspace_root)}`，desktop + folder 绑定时显示 Open folder 按钮，永远显示 Edit 按钮。Open folder 失败由父层 toast 接 `onError`，文案 `Folder not found at <path>. Edit project to rebind.`。
+- **`useProjects.ts`** `createProject(input)` / `updateProject(projectId, patch)` 都是对象参数；不再有 positional `(name, description?)` 形式。trim + null coercion 内置。
+- **数据**：`projects.workspace_root` 是 nullable TEXT，三 backend repo（drizzle / memory / Tauri SQL）通过 Drizzle schema 自动写读；`ProjectUpdatePatch` 类型显式允许 `workspace_root: string | null`（null = unbind）。Migration `026_projects_workspace_root.sql` (db-local) + `034_projects_workspace_root.sql` (Docs/ canonical for desktop runtime) 同步存在；**改 lib.rs `migrations()` 时务必同步两份**。
+- **Tauri 端三件套（dialog / opener）已就位**：`Cargo.toml` `tauri-plugin-dialog = "2"` + `tauri-plugin-opener = "2"`；`lib.rs` `.plugin(...)` 已注册；`capabilities/default.json` 含 `dialog:default` + `dialog:allow-open` + `opener:default` + `opener:allow-reveal-item-in-dir` + `opener:allow-open-path`。少任意一项 desktop 静默 no-op，**改前先核对三处都在**（同 fs plugin 三件套 gotcha 同款翻车点）。
+- **Web vite stub**：`apps/web/src/polyfills/tauri-plugin-{dialog,opener}.ts` 是 noop 函数，vite alias + `optimizeDeps.exclude` 都已加；新增其他 Tauri plugin 时按同款补 stub，否则 web dev 动态 import 会 404。

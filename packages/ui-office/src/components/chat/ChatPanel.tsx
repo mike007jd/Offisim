@@ -1,6 +1,6 @@
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
-import { ArrowLeft, Folder } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
@@ -18,6 +18,7 @@ import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContentForConversation } from '../../runtime/use-streaming-content';
 import { ErrorBanner } from '../error/ErrorBanner';
+import { ProjectContextStrip } from '../project/ProjectContextStrip';
 import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
 import { InteractionPrompt } from './InteractionPrompt';
@@ -56,6 +57,10 @@ interface ChatPanelProps {
   onOpenStudio?: () => void;
   /** Active project — when set, all messages use the project's threadId. */
   activeProject?: ProjectRow | null;
+  /** Open ProjectCreateDialog in edit mode for the active project. */
+  onRequestEditProject?: (project: ProjectRow) => void;
+  /** Toast surface for project context strip errors (e.g. "Folder not found"). */
+  onProjectStripError?: (message: string) => void;
   /** Called when the user sends a message (provides the raw text for Kanban board etc.) */
   onUserMessage?: (text: string) => void;
   /** Template-aware starter prompts for the chat empty state. */
@@ -114,6 +119,8 @@ export function ChatPanel({
   onOpenEditor,
   onOpenStudio,
   activeProject,
+  onRequestEditProject,
+  onProjectStripError,
   onUserMessage,
   onboardingStarterPrompts,
   compact = false,
@@ -430,15 +437,13 @@ export function ChatPanel({
         </div>
       )}
 
-      {/* Project context banner — shown when a project is scoped */}
-      {activeProject && !isDirectChat && (
-        <div
-          className="flex items-center gap-1.5 border-b border-white/5 h-7 bg-white/2"
-          style={{ paddingInline: 'var(--sp-md)' }}
-        >
-          <Folder className="h-3 w-3 text-slate-500 flex-shrink-0" />
-          <span className="text-[11px] text-slate-500 truncate">{activeProject.name}</span>
-        </div>
+      {/* Project context strip — visible across team + direct chat sub-tabs. */}
+      {activeProject && onRequestEditProject && (
+        <ProjectContextStrip
+          activeProject={activeProject}
+          onRequestEdit={onRequestEditProject}
+          onError={onProjectStripError}
+        />
       )}
 
       {/* Direct chat header — single compact line */}

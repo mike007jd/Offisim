@@ -14,6 +14,10 @@ interface CollaborationRailProps {
   onToggleDashboard: () => void;
   onToggleKanban: () => void;
   onUserMessage: (text: string) => void;
+  /** Open ProjectCreateDialog in edit mode for the active project. */
+  onRequestEditProject?: (project: ProjectRow) => void;
+  /** Toast surface for ProjectContextStrip "folder not found" feedback. */
+  onProjectStripError?: (message: string) => void;
   selectedEmployeeId: string | null;
   selectedEmployeeName: string | null;
 }
@@ -28,6 +32,8 @@ function renderChatPanel({
   onToggleDashboard,
   onToggleKanban,
   onUserMessage,
+  onRequestEditProject,
+  onProjectStripError,
   selectedEmployeeId,
   selectedEmployeeName,
   compact,
@@ -52,6 +58,8 @@ function renderChatPanel({
       onOpenEditor={onOpenOfficeEditor}
       onOpenStudio={onOpenStudio}
       activeProject={activeProject}
+      onRequestEditProject={onRequestEditProject}
+      onProjectStripError={onProjectStripError}
       onUserMessage={onUserMessage}
       onboardingStarterPrompts={chatOnboardingStarterPrompts}
       showPipelineProgress={showPipelineProgress}
