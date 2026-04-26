@@ -1,21 +1,90 @@
 import type { RuntimeExecutionMode } from '@offisim/shared-types';
 import {
-  Button,
   Input,
+  SegmentedControl,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@offisim/ui-core';
-import { Bot, BrainCircuit, Cpu, Server, Workflow } from 'lucide-react';
 import { RuntimeBindingControl } from '../runtime/RuntimeBindingControl.js';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 import { VaultDirectorySection } from './VaultDirectorySection';
-import { SectionLabel, SurfaceCard, surfaceInputProps } from './settings-primitives';
+import { SectionLabel, SettingsSection, surfaceInputProps } from './settings-primitives';
 
 interface SettingsRuntimeTabProps {
   controller: ReturnType<typeof useSettingsWorkspaceController>;
+}
+
+const DENSITY_ITEMS = [
+  { value: 'compact', label: 'Compact' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'spacious', label: 'Spacious' },
+] as const;
+
+function BooleanSelect({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div>
+      <SectionLabel htmlFor={id}>{label}</SectionLabel>
+      <Select
+        value={value ? 'enabled' : 'disabled'}
+        onValueChange={(next) => onChange(next === 'enabled')}
+      >
+        <SelectTrigger id={id} className={surfaceInputProps()}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="enabled">Enabled</SelectItem>
+          <SelectItem value="disabled">Disabled</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function NumberField({
+  id,
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+}: {
+  id: string;
+  label: string;
+  value: string | number;
+  onChange: (next: string) => void;
+  min?: number;
+  max?: number;
+  step?: string;
+}) {
+  return (
+    <div>
+      <SectionLabel htmlFor={id}>{label}</SectionLabel>
+      <Input
+        id={id}
+        type="number"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        min={min}
+        max={max}
+        step={step}
+        className={surfaceInputProps()}
+      />
+    </div>
+  );
 }
 
 export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
@@ -24,17 +93,10 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
     employeeRuntimeDefault,
     executionMode,
     gitAutoCommit,
-    handleSave,
-    isSaveDisabled,
-    isSaving,
     memoryConfidenceThreshold,
     memoryEnabled,
     memoryInjectionEnabled,
     memoryMaxFacts,
-    model,
-    productId,
-    saveError,
-    selectedProduct,
     setDensity,
     setEmployeeRuntimeDefault,
     setExecutionMode,
@@ -54,241 +116,133 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
   } = controller;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[320px,minmax(0,1fr)]">
-      <div className="space-y-4">
-        <SurfaceCard title="Runtime orchestration" icon={<Workflow className="h-5 w-5" />}>
-          <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Bound model</p>
-            <p className="mt-2 font-mono text-sm text-cyan-100">{model || 'Unset'}</p>
-            <p className="mt-1 text-xs text-slate-400">
-              {selectedProduct?.displayName ?? productId}
-            </p>
+    <div className="space-y-6">
+      <SettingsSection title="Runtime defaults">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div>
+            <SectionLabel htmlFor="settings-execution-mode">Execution mode</SectionLabel>
+            <Select
+              value={executionMode}
+              onValueChange={(value) => setExecutionMode(value as RuntimeExecutionMode)}
+            >
+              <SelectTrigger id="settings-execution-mode" className={surfaceInputProps()}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="desktop-trusted">Desktop trusted</SelectItem>
+                <SelectItem value="browser-limited">Browser limited</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </SurfaceCard>
-      </div>
 
-      <div className="space-y-4">
-        <SurfaceCard title="Runtime controls" icon={<Cpu className="h-5 w-5" />}>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div>
-              <SectionLabel htmlFor="settings-execution-mode">Execution mode</SectionLabel>
-              <Select
-                value={executionMode}
-                onValueChange={(value) => setExecutionMode(value as RuntimeExecutionMode)}
-              >
-                <SelectTrigger id="settings-execution-mode" className={surfaceInputProps()}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto</SelectItem>
-                  <SelectItem value="desktop-trusted">Desktop trusted</SelectItem>
-                  <SelectItem value="browser-limited">Browser limited</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <BooleanSelect
+            id="settings-tool-search"
+            label="Tool search"
+            value={toolSearchEnabled}
+            onChange={setToolSearchEnabled}
+          />
 
-            <div>
-              <SectionLabel htmlFor="settings-tool-search">Tool search</SectionLabel>
-              <Select
-                value={toolSearchEnabled ? 'enabled' : 'disabled'}
-                onValueChange={(value) => setToolSearchEnabled(value === 'enabled')}
-              >
-                <SelectTrigger id="settings-tool-search" className={surfaceInputProps()}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="enabled">Enabled</SelectItem>
-                  <SelectItem value="disabled">Disabled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <BooleanSelect
+            id="settings-git-auto-commit"
+            label="Git auto-commit"
+            value={gitAutoCommit}
+            onChange={setGitAutoCommit}
+          />
 
-            <div>
-              <SectionLabel htmlFor="settings-git-auto-commit">Git auto-commit</SectionLabel>
-              <Select
-                value={gitAutoCommit ? 'enabled' : 'disabled'}
-                onValueChange={(value) => setGitAutoCommit(value === 'enabled')}
-              >
-                <SelectTrigger id="settings-git-auto-commit" className={surfaceInputProps()}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="enabled">Enabled</SelectItem>
-                  <SelectItem value="disabled">Disabled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="lg:col-span-2">
-              <SectionLabel htmlFor="settings-density-group">Display density</SectionLabel>
-              <div
-                id="settings-density-group"
-                className="grid gap-2 rounded-[20px] border border-white/10 bg-white/[0.04] p-2 md:grid-cols-3"
-              >
-                {[
-                  { value: 'compact', label: 'Compact' },
-                  { value: 'normal', label: 'Normal' },
-                  { value: 'spacious', label: 'Spacious' },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setDensity(option.value as typeof density)}
-                    className={`rounded-2xl px-4 py-3 text-sm transition ${
-                      density === option.value
-                        ? 'bg-cyan-400/15 text-cyan-100 ring-1 ring-cyan-300/30'
-                        : 'bg-transparent text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="md:col-span-2 xl:col-span-3">
+            <SectionLabel htmlFor="settings-density-group">Display density</SectionLabel>
+            <SegmentedControl
+              value={density}
+              onChange={(next) => setDensity(next as typeof density)}
+              items={[...DENSITY_ITEMS]}
+              ariaLabel="Display density"
+            />
           </div>
-        </SurfaceCard>
 
-        <SurfaceCard
-          title="Summarization"
-          description="Auto-compress long conversations."
-          icon={<BrainCircuit className="h-5 w-5" />}
-        >
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <SectionLabel htmlFor="runtime-summarization-enabled">Enabled</SectionLabel>
-              <Select
-                value={summarizationEnabled ? 'enabled' : 'disabled'}
-                onValueChange={(value) => setSummarizationEnabled(value === 'enabled')}
-              >
-                <SelectTrigger id="runtime-summarization-enabled" className={surfaceInputProps()}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="enabled">Enabled</SelectItem>
-                  <SelectItem value="disabled">Disabled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <SectionLabel htmlFor="runtime-summarization-trigger-tokens">
-                Trigger tokens
-              </SectionLabel>
-              <Input
-                id="runtime-summarization-trigger-tokens"
-                type="number"
-                value={summarizationTriggerTokens}
-                onChange={(event) => setSummarizationTriggerTokens(event.target.value)}
-                min={1}
-                className={surfaceInputProps()}
+          <div className="md:col-span-2 xl:col-span-2">
+            <SectionLabel htmlFor="settings-employee-runtime-default">
+              Default employee runtime
+            </SectionLabel>
+            <RuntimeBindingControl
+              scope="company"
+              value={employeeRuntimeDefault ?? null}
+              onChange={(next) => setEmployeeRuntimeDefault(next ?? undefined)}
+            />
+          </div>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="Conversation memory & summarization">
+        <div className="space-y-5">
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Memory
+            </h4>
+            <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <BooleanSelect
+                id="runtime-memory-enabled"
+                label="Enabled"
+                value={memoryEnabled}
+                onChange={setMemoryEnabled}
               />
-            </div>
-            <div>
-              <SectionLabel htmlFor="runtime-summarization-keep-recent">Keep recent</SectionLabel>
-              <Input
-                id="runtime-summarization-keep-recent"
-                type="number"
-                value={summarizationKeepRecentMessages}
-                onChange={(event) => setSummarizationKeepRecentMessages(event.target.value)}
-                min={0}
-                className={surfaceInputProps()}
+              <BooleanSelect
+                id="runtime-memory-injection-enabled"
+                label="Prompt injection"
+                value={memoryInjectionEnabled}
+                onChange={setMemoryInjectionEnabled}
               />
-            </div>
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard title="Memory" icon={<Bot className="h-5 w-5" />}>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <SectionLabel htmlFor="runtime-memory-enabled">Enabled</SectionLabel>
-              <Select
-                value={memoryEnabled ? 'enabled' : 'disabled'}
-                onValueChange={(value) => setMemoryEnabled(value === 'enabled')}
-              >
-                <SelectTrigger id="runtime-memory-enabled" className={surfaceInputProps()}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="enabled">Enabled</SelectItem>
-                  <SelectItem value="disabled">Disabled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <SectionLabel htmlFor="runtime-memory-injection-enabled">
-                Prompt injection
-              </SectionLabel>
-              <Select
-                value={memoryInjectionEnabled ? 'enabled' : 'disabled'}
-                onValueChange={(value) => setMemoryInjectionEnabled(value === 'enabled')}
-              >
-                <SelectTrigger
-                  id="runtime-memory-injection-enabled"
-                  className={surfaceInputProps()}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="enabled">Enabled</SelectItem>
-                  <SelectItem value="disabled">Disabled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <SectionLabel htmlFor="runtime-memory-max-facts">Max facts</SectionLabel>
-              <Input
+              <NumberField
                 id="runtime-memory-max-facts"
-                type="number"
+                label="Max facts"
                 value={memoryMaxFacts}
-                onChange={(event) => setMemoryMaxFacts(event.target.value)}
+                onChange={setMemoryMaxFacts}
                 min={1}
-                className={surfaceInputProps()}
               />
-            </div>
-            <div>
-              <SectionLabel htmlFor="runtime-memory-confidence-threshold">
-                Confidence threshold
-              </SectionLabel>
-              <Input
+              <NumberField
                 id="runtime-memory-confidence-threshold"
-                type="number"
+                label="Confidence threshold"
                 value={memoryConfidenceThreshold}
-                onChange={(event) => setMemoryConfidenceThreshold(event.target.value)}
+                onChange={setMemoryConfidenceThreshold}
                 min={0}
                 max={1}
                 step="0.1"
-                className={surfaceInputProps()}
               />
             </div>
           </div>
 
-          {saveError ? <p className="mt-4 text-sm text-red-400">{saveError}</p> : null}
-
-          <div className="mt-5 flex justify-end">
-            <Button
-              variant="secondary"
-              onClick={() => void handleSave()}
-              disabled={isSaveDisabled}
-              className="h-11 rounded-2xl border-emerald-400/40 bg-emerald-500/15 px-5 text-emerald-50 hover:border-emerald-300 hover:bg-emerald-500/25"
-            >
-              {isSaving ? 'Saving…' : 'Save runtime orchestration'}
-            </Button>
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Summarization
+            </h4>
+            <p className="mt-1 text-xs text-slate-500">Auto-compress long conversations.</p>
+            <div className="mt-3 grid gap-4 md:grid-cols-3">
+              <BooleanSelect
+                id="runtime-summarization-enabled"
+                label="Enabled"
+                value={summarizationEnabled}
+                onChange={setSummarizationEnabled}
+              />
+              <NumberField
+                id="runtime-summarization-trigger-tokens"
+                label="Trigger tokens"
+                value={summarizationTriggerTokens}
+                onChange={setSummarizationTriggerTokens}
+                min={1}
+              />
+              <NumberField
+                id="runtime-summarization-keep-recent"
+                label="Keep recent"
+                value={summarizationKeepRecentMessages}
+                onChange={setSummarizationKeepRecentMessages}
+                min={0}
+              />
+            </div>
           </div>
-        </SurfaceCard>
+        </div>
+      </SettingsSection>
 
-        <SurfaceCard
-          title="Default employee runtime"
-          description="Used when an employee picks 'Inherit company default' on their Runtime tab."
-          icon={<Server className="h-5 w-5" />}
-        >
-          <RuntimeBindingControl
-            scope="company"
-            value={employeeRuntimeDefault ?? null}
-            onChange={(next) => setEmployeeRuntimeDefault(next ?? undefined)}
-          />
-        </SurfaceCard>
-
-        <VaultDirectorySection notify={controller.notify} />
-      </div>
+      <VaultDirectorySection notify={controller.notify} />
     </div>
   );
 }

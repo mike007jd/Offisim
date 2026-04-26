@@ -136,7 +136,7 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
         icon={<FolderOpen className="h-5 w-5" />}
       >
         <div className="space-y-4">
-          <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
+          <div>
             <p className="text-sm text-slate-200">{statusText}</p>
             {desktopVaultRoot ? (
               <p className="mt-2 font-mono text-xs text-slate-400">{desktopVaultRoot}</p>
@@ -172,7 +172,7 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
       icon={<FolderOpen className="h-5 w-5" />}
     >
       <div className="space-y-4">
-        <div className="rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-4">
+        <div>
           <p className="text-sm text-slate-200">{statusText}</p>
           {status.root ? (
             <p className="mt-2 font-mono text-xs text-slate-400">{status.root}</p>

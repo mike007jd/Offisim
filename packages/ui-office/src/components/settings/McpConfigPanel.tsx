@@ -2,10 +2,6 @@ import type { McpServerConfig as CoreMcpServerConfig } from '@offisim/core/brows
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Input,
   Select,
   SelectContent,
@@ -13,7 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@offisim/ui-core';
-import { useCallback, useEffect, useState } from 'react';
+import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   listDesktopMcpServers,
   loadStoredBrowserMcpServers,
@@ -22,36 +19,24 @@ import {
 } from '../../lib/desktop-mcp-registry';
 import { isTauri } from '../../lib/env';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { SettingsSection } from './settings-primitives';
 
 type DesktopCoreMcpServerConfig = CoreMcpServerConfig & {
   registeredServerId?: string;
 };
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export type McpTransport = 'stdio' | 'sse';
 
 export interface McpServerConfig {
   serverId?: string;
-  /** Unique display name for this server */
   name: string;
-  /** Transport type */
   transport: McpTransport;
-  /** For stdio transport. */
   command?: string;
-  /** Extra stdio args. */
   args?: string[];
-  /** For SSE transport. */
   url?: string;
 }
 
 const STORAGE_KEY = 'offisim:mcp-servers';
-
-// ---------------------------------------------------------------------------
-// localStorage persistence
-// ---------------------------------------------------------------------------
 
 function loadMcpServers(): McpServerConfig[] {
   return loadStoredBrowserMcpServers().map((server) => ({
@@ -74,19 +59,6 @@ function parseArgs(raw: string): string[] {
     .filter(Boolean);
 }
 
-function resetFormState(setters: {
-  setName: (value: string) => void;
-  setCommand: (value: string) => void;
-  setArgsText: (value: string) => void;
-  setUrl: (value: string) => void;
-}) {
-  setters.setName('');
-  setters.setCommand('');
-  setters.setArgsText('');
-  setters.setUrl('');
-}
-
-/** Convert UI config to core McpServerConfig for the executor. */
 function toCoreConfig(cfg: McpServerConfig): CoreMcpServerConfig {
   return {
     name: cfg.name,
@@ -98,9 +70,9 @@ function toCoreConfig(cfg: McpServerConfig): CoreMcpServerConfig {
   } as DesktopCoreMcpServerConfig;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+function serverKey(server: McpServerConfig): string {
+  return server.serverId ?? `local:${server.name}`;
+}
 
 export function McpConfigPanel() {
   const { connectMcpServer, disconnectMcpServer, connectedMcpServers, isReady } =
@@ -108,7 +80,6 @@ export function McpConfigPanel() {
   const [servers, setServers] = useState<McpServerConfig[]>(loadMcpServers);
   const [connecting, setConnecting] = useState<string | null>(null);
 
-  // Form state
   const [name, setName] = useState('');
   const [transport, setTransport] = useState<McpTransport>('sse');
   const [command, setCommand] = useState('');
@@ -116,7 +87,6 @@ export function McpConfigPanel() {
   const [url, setUrl] = useState('');
   const [formError, setFormError] = useState('');
 
-  // Persist whenever servers change
   useEffect(() => {
     if (!isTauri()) saveMcpServers(servers);
   }, [servers]);
@@ -195,10 +165,8 @@ export function McpConfigPanel() {
       };
     }
 
-    // Save to list first
     setServers((prev) => [...prev, newConfig]);
 
-    // Try to connect immediately
     if (isReady) {
       setConnecting(trimmedName);
       try {
@@ -211,14 +179,15 @@ export function McpConfigPanel() {
       }
     }
 
-    // Reset form
-    resetFormState({ setName, setCommand, setArgsText, setUrl });
+    setName('');
+    setCommand('');
+    setArgsText('');
+    setUrl('');
   }, [name, transport, command, url, argsText, servers, isReady, connectMcpServer]);
 
   const handleRemove = useCallback(
     async (server: McpServerConfig) => {
       setServers((prev) => prev.filter((s) => s.name !== server.name));
-      // Disconnect from runtime
       try {
         await disconnectMcpServer(server.name);
       } catch {
@@ -250,79 +219,50 @@ export function McpConfigPanel() {
 
   const isConnected = (serverName: string): boolean => connectedMcpServers.has(serverName);
 
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Add server form */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Add MCP Server</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div>
-            <label htmlFor="mcp-server-name" className="text-xs text-shell mb-1 block">
-              Server Name
-            </label>
-            <Input
-              id="mcp-server-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. filesystem"
-              className="h-8 text-sm"
-            />
-          </div>
+  const grouped = useMemo(() => {
+    const map = new Map<McpTransport, McpServerConfig[]>();
+    for (const server of servers) {
+      const arr = map.get(server.transport);
+      if (arr) arr.push(server);
+      else map.set(server.transport, [server]);
+    }
+    return Array.from(map.entries());
+  }, [servers]);
 
+  return (
+    <div className="space-y-6">
+      <SettingsSection title="Add MCP server">
+        <div className="grid gap-3 md:grid-cols-[140px,1fr,1fr,auto] md:items-start">
           <div>
-            <label htmlFor="mcp-transport" className="text-xs text-shell mb-1 block">
-              Transport
-            </label>
             <Select value={transport} onValueChange={(v) => setTransport(v as McpTransport)}>
-              <SelectTrigger className="h-8 text-sm">
+              <SelectTrigger className="h-10 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="sse">SSE (browser-compatible)</SelectItem>
+                <SelectItem value="sse">SSE</SelectItem>
                 <SelectItem value="stdio" disabled={!isTauri()}>
-                  Stdio (Local){!isTauri() ? ' \u2014 Desktop only' : ''}
+                  Stdio{!isTauri() ? ' — Desktop only' : ''}
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
-
-          <div>
-            <label htmlFor="mcp-command" className="text-xs text-shell mb-1 block">
-              {transport === 'stdio' ? 'Command' : 'URL'}
-            </label>
-            <Input
-              id="mcp-command"
-              value={transport === 'stdio' ? command : url}
-              onChange={(e) => {
-                if (transport === 'stdio') setCommand(e.target.value);
-                else setUrl(e.target.value);
-              }}
-              placeholder={
-                transport === 'stdio' ? '/usr/local/bin/mcp-server' : 'http://localhost:3001/sse'
-              }
-              className="h-8 text-sm"
-            />
-          </div>
-
-          {transport === 'stdio' && (
-            <div>
-              <label htmlFor="mcp-args" className="text-xs text-shell mb-1 block">
-                Arguments (optional, one per line)
-              </label>
-              <Input
-                id="mcp-args"
-                value={argsText}
-                onChange={(e) => setArgsText(e.target.value)}
-                placeholder="--project&#10;/path/to/workspace"
-                className="h-8 text-sm"
-              />
-            </div>
-          )}
-
-          {formError && <p className="text-xs text-error">{formError}</p>}
-
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Server name"
+            className="h-10 text-sm"
+          />
+          <Input
+            value={transport === 'stdio' ? command : url}
+            onChange={(e) => {
+              if (transport === 'stdio') setCommand(e.target.value);
+              else setUrl(e.target.value);
+            }}
+            placeholder={
+              transport === 'stdio' ? '/usr/local/bin/mcp-server' : 'http://localhost:3001/sse'
+            }
+            className="h-10 text-sm"
+          />
           <Button
             onClick={handleAdd}
             size="sm"
@@ -332,93 +272,96 @@ export function McpConfigPanel() {
               (transport === 'stdio' ? !command.trim() : !url.trim()) ||
               connecting !== null
             }
-            className="self-end border-emerald-500/50 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25 hover:border-emerald-400"
+            className="h-10 border-emerald-500/50 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25 hover:border-emerald-400"
           >
-            {connecting ? 'Connecting…' : 'Add & Connect'}
+            <Plus className="h-3.5 w-3.5" />
+            {connecting ? 'Connecting…' : 'Add'}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+        {transport === 'stdio' && (
+          <Input
+            value={argsText}
+            onChange={(e) => setArgsText(e.target.value)}
+            placeholder="Arguments (one per line, optional)"
+            className="h-10 text-sm"
+          />
+        )}
+        {formError && <p className="text-xs text-error">{formError}</p>}
+      </SettingsSection>
 
-      {/* Server list */}
-      {servers.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Configured Servers ({servers.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="flex flex-col gap-2">
-              {servers.map((server) => (
-                <li
-                  key={server.name}
-                  className="flex items-center gap-2 border-2 border-ocean-light bg-ocean-deep px-3 py-2"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-sand truncate">{server.name}</span>
-                      <Badge
-                        variant={isConnected(server.name) ? 'success' : 'secondary'}
-                        className="text-[10px] px-1.5 py-0 shrink-0"
-                      >
-                        {connecting === server.name
-                          ? 'Connecting…'
-                          : isConnected(server.name)
-                            ? 'Connected'
-                            : 'Disconnected'}
-                      </Badge>
-                    </div>
-                    <p className="text-[11px] text-ocean-light truncate mt-0.5">
-                      <span className="font-mono">{server.transport}</span>
-                      {' \u2014 '}
-                      {server.transport === 'stdio'
-                        ? [server.command ?? '', ...(server.args ?? [])].filter(Boolean).join(' ')
-                        : (server.url ?? '')}
-                    </p>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    {!isConnected(server.name) && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleReconnect(server)}
-                        disabled={!isReady || connecting !== null}
-                        className="h-7 border-emerald-500/40 bg-emerald-500/12 px-2 text-[11px] text-emerald-100 hover:bg-emerald-500/22 hover:border-emerald-400"
-                      >
-                        Connect
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemove(server)}
-                      className="text-ocean-light hover:text-error h-7 px-2"
+      <SettingsSection title="Configured servers">
+        {servers.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            No MCP servers configured. Add one above to enable tool use.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {grouped.map(([groupTransport, groupServers]) => (
+              <div key={groupTransport} className="space-y-1.5">
+                <header className="text-[11px] uppercase tracking-wide text-white/55">
+                  {groupTransport.toUpperCase()} · {groupServers.length}
+                </header>
+                <ul className="space-y-1">
+                  {groupServers.map((server) => (
+                    <li
+                      key={serverKey(server)}
+                      className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-white/[0.04]"
                     >
-                      <svg
-                        aria-hidden="true"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 16 16"
-                        fill="currentColor"
-                        className="h-3.5 w-3.5"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11V3.25A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25zm2.25-.75a.75.75 0 0 0-.75.75V4h3V3.25a.75.75 0 0 0-.75-.75h-1.5zM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5A.75.75 0 0 1 9.95 6z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      {servers.length === 0 && (
-        <p className="text-xs text-ocean-light text-center py-4">
-          No MCP servers configured. Add one above to enable tool use.
-        </p>
-      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium text-slate-100">
+                            {server.name}
+                          </span>
+                          <Badge
+                            variant={isConnected(server.name) ? 'success' : 'secondary'}
+                            className="shrink-0 px-1.5 py-0 text-[10px]"
+                          >
+                            {connecting === server.name
+                              ? 'Connecting…'
+                              : isConnected(server.name)
+                                ? 'Connected'
+                                : 'Disconnected'}
+                          </Badge>
+                        </div>
+                        <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">
+                          {server.transport === 'stdio'
+                            ? [server.command ?? '', ...(server.args ?? [])]
+                                .filter(Boolean)
+                                .join(' ')
+                            : (server.url ?? '')}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {!isConnected(server.name) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReconnect(server)}
+                            disabled={!isReady || connecting !== null}
+                            title="Reconnect"
+                            className="h-7 w-7 p-0 text-slate-300 hover:text-emerald-200"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemove(server)}
+                          title="Delete server"
+                          className="h-7 w-7 p-0 text-slate-300 hover:text-error"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </SettingsSection>
     </div>
   );
 }

@@ -114,6 +114,7 @@ export function assembleSettingsControllerApi({
     hasStoredSecret: provider.hasStoredSecret,
     hasUnsavedChanges: dirty.hasUnsavedChanges,
     isHostResolvedProduct: provider.accessMode !== 'api-key',
+    isReinitializing: save.isReinitializing,
     isSaveDisabled,
     isSaving: save.isSaving || save.isReinitializing,
     isThinkingProvider: selectedVariant?.capabilities.thinking === true,

@@ -180,7 +180,7 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
       )}
 
       {!isLoading && rows.length === 0 && (
-        <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-10 text-center">
+        <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-6 py-10 text-center">
           <p className="text-sm font-semibold text-slate-200">No external employees yet</p>
           <p className="mt-1 text-xs text-slate-500">
             Connect an A2A endpoint to add a branded external employee.
@@ -197,7 +197,7 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
           return (
             <li
               key={row.employee_id}
-              className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+              className="rounded-lg border border-white/10 bg-white/[0.03] p-4"
             >
               <div className="flex items-start gap-3">
                 <img

@@ -1,5 +1,30 @@
 import type { ReactNode } from 'react';
 
+export function SettingsSection({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3 border-t border-white/5 pt-6 first:border-t-0 first:pt-0">
+      <header className="flex items-baseline justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-white/90">{title}</h3>
+          {description ? <p className="mt-1 text-xs text-white/55">{description}</p> : null}
+        </div>
+        {action}
+      </header>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
 export function SurfaceCard({
   title,
   description,
@@ -32,26 +57,6 @@ export function SurfaceCard({
       </div>
       {children}
     </section>
-  );
-}
-
-export function MetricCard({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">
-        {label}
-      </p>
-      <p className="mt-2 text-base font-semibold text-white">{value}</p>
-      <p className="mt-1 text-xs text-slate-400">{detail}</p>
-    </div>
   );
 }
 
