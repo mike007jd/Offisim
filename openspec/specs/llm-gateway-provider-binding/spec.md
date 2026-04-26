@@ -73,7 +73,7 @@ When `createGateway({ provider, baseURL, ... })` receives a non-empty `baseURL`,
 
 #### Scenario: MiniMax ProviderConfig never produces a request to api.openai.com
 
-- **WHEN** `ProviderConfig = { provider: 'anthropic', baseURL: 'https://api.minimax.io/anthropic', model: 'MiniMax-M2.7-highspeed', apiKey: '<minimax-key>' }`
+- **WHEN** `ProviderConfig = { provider: 'anthropic', baseURL: 'https://api.minimax.io/anthropic', model: 'MiniMax-M2.7', apiKey: '<minimax-key>' }`
 - **THEN** no HTTP request from any chat scope (direct / team / boss / manager / employee / system service) SHALL hit `api.openai.com`
 - **AND** every outbound LLM request URL SHALL start with `https://api.minimax.io/anthropic`
 

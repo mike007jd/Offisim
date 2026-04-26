@@ -151,9 +151,6 @@
       "models": {
         "MiniMax-M2.7": {
           "displayName": "MiniMax M2.7"
-        },
-        "MiniMax-M2.7-highspeed": {
-          "displayName": "MiniMax M2.7 Highspeed"
         }
       }
     },
@@ -171,9 +168,6 @@
       "models": {
         "MiniMax-M2.7": {
           "displayName": "MiniMax M2.7"
-        },
-        "MiniMax-M2.7-highspeed": {
-          "displayName": "MiniMax M2.7 Highspeed"
         }
       }
     },

@@ -7077,18 +7077,6 @@
             }
           }
         },
-        "MiniMax-M2.7-highspeed": {
-          "fields": {
-            "displayName": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "MiniMax M2.7 Highspeed"
-            }
-          }
-        },
         "speech-02-hd": {
           "fields": {
             "supportedEndpoints": {
@@ -7492,18 +7480,6 @@
                 "trustTier": "official"
               },
               "value": "MiniMax M2.7"
-            }
-          }
-        },
-        "MiniMax-M2.7-highspeed": {
-          "fields": {
-            "displayName": {
-              "provenance": {
-                "sourceId": "official-fixtures",
-                "sourceKind": "official-static",
-                "trustTier": "official"
-              },
-              "value": "MiniMax M2.7 Highspeed"
             }
           }
         },

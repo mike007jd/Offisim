@@ -158,7 +158,7 @@ function loadEnvBackedProviderConfig(): ProviderConfig | null {
   const apiKey = trimEnvString(import.meta.env.VITE_MINIMAX_API_KEY);
   if (!apiKey) return null;
 
-  const model = trimEnvString(import.meta.env.VITE_MINIMAX_MODEL) ?? 'MiniMax-M2.7-highspeed';
+  const model = trimEnvString(import.meta.env.VITE_MINIMAX_MODEL) ?? 'MiniMax-M2.7';
   const endpointOverride = trimEnvString(import.meta.env.VITE_MINIMAX_BASE_URL);
   const config: ProviderConfig = {
     productId: 'minimax',

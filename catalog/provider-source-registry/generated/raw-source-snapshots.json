@@ -8549,11 +8549,6 @@
               "fields": {
                 "displayName": "MiniMax M2.7"
               }
-            },
-            "MiniMax-M2.7-highspeed": {
-              "fields": {
-                "displayName": "MiniMax M2.7 Highspeed"
-              }
             }
           }
         },
@@ -8576,11 +8571,6 @@
             "MiniMax-M2.7": {
               "fields": {
                 "displayName": "MiniMax M2.7"
-              }
-            },
-            "MiniMax-M2.7-highspeed": {
-              "fields": {
-                "displayName": "MiniMax M2.7 Highspeed"
               }
             }
           }

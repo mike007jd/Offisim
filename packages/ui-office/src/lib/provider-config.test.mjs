@@ -19,7 +19,7 @@ test('minimax product resolves through the curated catalog variant and lane meta
     accessMode: 'api-key',
     executionLane: 'claude-agent-sdk',
     providerVariantId: 'minimax-intl-anthropic-coding',
-    model: 'MiniMax-M2.7-highspeed',
+    model: 'MiniMax-M2.7',
   });
 
   assert.ok(resolved);
@@ -27,7 +27,7 @@ test('minimax product resolves through the curated catalog variant and lane meta
   assert.equal(resolved.product.catalogSource, 'curated-catalog');
   assert.equal(resolved.variant?.providerVariantId, 'minimax-intl-anthropic-coding');
   assert.equal(resolved.variant?.catalogSource, 'curated-catalog');
-  assert.equal(resolved.variant?.modelDisplayNames['MiniMax-M2.7-highspeed'], 'MiniMax M2.7 Highspeed');
+  assert.equal(resolved.variant?.modelDisplayNames['MiniMax-M2.7'], 'MiniMax M2.7');
   assert.equal(resolved.transport.provider, 'anthropic');
   assert.equal(resolved.transport.baseURL, 'https://api.minimax.io/anthropic');
   assert.equal(resolved.executionLane, 'claude-agent-sdk');
@@ -94,7 +94,7 @@ test('legacy minimax config migrates into a product-centric record', () => {
     provider: 'anthropic',
     vendor: 'minimax',
     baseURL: 'https://api.minimax.io/anthropic',
-    model: 'MiniMax-M2.7-highspeed',
+    model: 'MiniMax-M2.7',
     apiKey: 'sk-minimax-test',
   });
 
