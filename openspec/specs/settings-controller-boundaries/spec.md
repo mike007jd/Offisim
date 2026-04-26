@@ -8,19 +8,21 @@
 
 `packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` SHALL contain no more than 180 non-blank, non-comment lines. The barrel SHALL retain its existing public exports:
 
-- `export type SettingsTab = 'provider' | 'runtime' | 'mcp';`
+- `export type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'external';`
 - `export function useSettingsWorkspaceController(options: SettingsWorkspaceControllerOptions): ReturnType<...>`
-- `export function SettingsWorkspaceSurface(props: SettingsWorkspaceSurfaceProps): JSX.Element`
 
-The barrel body SHALL NOT contain inline `useState<...>` declarations (except state local to the JSX component if any), inline `loadProviderConfig()` / `saveProviderConfig()` / `setRuntimeSecret()` / `clearRuntimeSecret()` / `getRuntimeSecretStatus()` calls, inline `JSON.parse` / `JSON.stringify` for the snapshot or save path, or inline `Number.parseInt` / `Number.parseFloat` parser helpers.
+The previously exported `SettingsWorkspaceSurface` React component (overlay-mode JSX) has been removed because the live Settings path is `SettingsPage` → `SettingsTabNav` + `SettingsContentArea` and the JSX component had no consumers. The file SHALL only export the `SettingsTab` type and the `useSettingsWorkspaceController` hook.
+
+The barrel body SHALL NOT contain inline `useState<...>` declarations, inline `loadProviderConfig()` / `saveProviderConfig()` / `setRuntimeSecret()` / `clearRuntimeSecret()` / `getRuntimeSecretStatus()` calls, inline `JSON.parse` / `JSON.stringify` for the snapshot or save path, or inline `Number.parseInt` / `Number.parseFloat` parser helpers.
 
 #### Scenario: Barrel file size gate
 - **WHEN** `grep -cvE '^\s*(//|$|/\*|\*)' packages/ui-office/src/components/settings/SettingsWorkspaceSurface.tsx` is run after refactor
 - **THEN** the non-blank, non-comment line count is at most 180
 
 #### Scenario: Public exports preserved
-- **WHEN** grepping for `^export (type SettingsTab|function useSettingsWorkspaceController|function SettingsWorkspaceSurface)` in `SettingsWorkspaceSurface.tsx`
-- **THEN** all three export statements are present
+- **WHEN** grepping for `^export (type SettingsTab|function useSettingsWorkspaceController)` in `SettingsWorkspaceSurface.tsx`
+- **THEN** both export statements are present
+- **AND** no `^export function SettingsWorkspaceSurface` declaration is present (the JSX component has been deleted)
 
 #### Scenario: No inline state or runtime side effects in barrel
 - **WHEN** grepping the barrel for `useState<`, `loadProviderConfig\(`, `saveProviderConfig\(`, `setRuntimeSecret\(`, `clearRuntimeSecret\(`, `getRuntimeSecretStatus\(`, `Number\.parseInt\(`, `Number\.parseFloat\(`
@@ -126,7 +128,7 @@ The capture mechanism that writes `loadedSnapshotRef` SHALL be driven by a `capt
 - Input `options: SettingsWorkspaceControllerOptions` with fields `isActive: boolean`, `closeOnSave?: boolean`, `onDismiss: () => void`, `onSave: (config: ProviderConfig) => void`, `onSaveSuccess?: () => void`, `onToast?: (message: string, variant?: 'info' | 'success' | 'error') => void`
 - Return object SHALL expose a product-centric controller API. The field list includes product-first selection fields such as `productId`, `accessMode`, `handleProductChange`, `handleAccessModeChange`, `providerVariantId`, `showEndpointOverride`, `showVariantSelector`, and the derived compatibility display fields still consumed by Settings UI.
 
-`isSaving` SHALL continue to be `isSaving || isReinitializing` (merged exposed flag).
+`isSaving` SHALL continue to be `isSaving || isReinitializing` (merged exposed flag). The controller SHALL additionally expose `isReinitializing` as a raw flag so the Settings sticky save bar can render the reinit-phase hint distinctly while keeping the merged `isSaving` for button gating.
 
 #### Scenario: Provider tab consumes product-first controller fields
 - **WHEN** `SettingsProviderTab` renders
