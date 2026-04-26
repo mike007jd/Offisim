@@ -13,6 +13,7 @@ import { SopDagCanvas } from './SopDagCanvas';
 import { SopEditorDialog } from './SopEditorDialog';
 import { SopEmptyState } from './SopEmptyState';
 import { SopImportDialog } from './SopImportDialog';
+import { SopInspectorPanel } from './SopInspectorPanel';
 import { SopLibraryBar } from './SopLibraryBar';
 import { SopNlCommandBar } from './SopNlCommandBar';
 import { SopNodeContextMenu } from './SopNodeContextMenu';
@@ -22,6 +23,7 @@ import {
   computeAutoLayoutPositions,
   computeDagLayout,
   getExecutionBatches,
+  wouldCreateCycle,
 } from './sop-dag-layout';
 
 // ---------------------------------------------------------------------------
@@ -468,6 +470,17 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
     [definition, updateDefinition],
   );
 
+  // Live cycle preview during port-drag. Shares `getExecutionBatches` with
+  // validateNoCycles, so the predicate matches the post-drop backstop.
+  const canConnect = useCallback(
+    (fromStepId: string, toStepId: string) => {
+      if (!definition) return false;
+      if (fromStepId === toStepId) return false;
+      return !wouldCreateCycle(definition, fromStepId, toStepId);
+    },
+    [definition],
+  );
+
   const showEmpty = !sessionState.selectedSopId || !layout;
 
   return (
@@ -543,6 +556,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             onContextMenu={handleContextMenu}
             onDoubleClickCanvas={handleDoubleClickCanvas}
             onDoubleClickNode={handleDoubleClickNode}
+            canConnect={canConnect}
           />
         )}
 
@@ -556,6 +570,17 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
           }
         />
       </div>
+
+      {/* Right inspector — mounted whenever a SOP is selected */}
+      {!showEmpty && (
+        <SopInspectorPanel
+          definition={definition}
+          selectedStepId={selectedStepId}
+          runtimeState={runtimeState}
+          stepIds={stepIds}
+          onSelectStep={handleStepClick}
+        />
+      )}
 
       <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={handleCreated} />
       <SopImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={handleCreated} />

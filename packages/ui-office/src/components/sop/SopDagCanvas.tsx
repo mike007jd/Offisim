@@ -37,6 +37,12 @@ export interface SopDagCanvasProps {
     screenY: number,
   ) => void;
   onDoubleClickNode?: (stepId: string, screenX: number, screenY: number) => void;
+  /**
+   * Predicate for live drag preview. Returns true when (fromId → toId) is a
+   * valid dependency (no cycle, no self). Optional — when omitted all drops
+   * are accepted (legacy behavior).
+   */
+  canConnect?: (fromStepId: string, toStepId: string) => boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +106,7 @@ export function SopDagCanvas({
   onContextMenu: onContextMenuProp,
   onDoubleClickCanvas,
   onDoubleClickNode,
+  canConnect,
 }: SopDagCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -110,6 +117,10 @@ export function SopDagCanvas({
   // Force re-render trigger for connecting line
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  // Hovered input port during a port-drag — drives the red rejection color
+  // when the candidate dependency would create a cycle.
+  const [hoveredInputStepId, setHoveredInputStepId] = useState<string | null>(null);
 
   // Node offset during drag (single-node, optimistic UI)
   const [dragOffset, setDragOffset] = useState<{
@@ -236,10 +247,17 @@ export function SopDagCanvas({
       const el = containerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      setMousePos({
+      const nextMousePos = {
         x: (e.clientX - rect.left - translateRef.current.x) / scaleRef.current,
         y: (e.clientY - rect.top - translateRef.current.y) / scaleRef.current,
+      };
+      setMousePos(nextMousePos);
+      const hoveredNode = layout.nodes.find((node) => {
+        const dx = nextMousePos.x - node.inputPort.x;
+        const dy = nextMousePos.y - node.inputPort.y;
+        return Math.sqrt(dx * dx + dy * dy) <= 18;
       });
+      setHoveredInputStepId(hoveredNode?.stepId ?? null);
       return;
     }
 
@@ -271,7 +289,7 @@ export function SopDagCanvas({
       setTranslate({ x: mode.startTx + dx, y: mode.startTy + dy });
       return;
     }
-  }, []);
+  }, [layout.nodes]);
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
@@ -313,12 +331,36 @@ export function SopDagCanvas({
       }
 
       if (mode.type === 'connecting') {
+        const rect = containerRef.current?.getBoundingClientRect();
+        const pointerCanvasPos = rect
+          ? {
+              x: (e.clientX - rect.left - translateRef.current.x) / scaleRef.current,
+              y: (e.clientY - rect.top - translateRef.current.y) / scaleRef.current,
+            }
+          : null;
+        const pointerTargetStepId =
+          hoveredInputStepId ??
+          (pointerCanvasPos
+            ? layout.nodes.find((node) => {
+                const dx = pointerCanvasPos.x - node.inputPort.x;
+                const dy = pointerCanvasPos.y - node.inputPort.y;
+                return Math.sqrt(dx * dx + dy * dy) <= 18;
+              })?.stepId
+            : null);
+        if (
+          pointerTargetStepId &&
+          pointerTargetStepId !== mode.fromStepId &&
+          (!canConnect || canConnect(mode.fromStepId, pointerTargetStepId))
+        ) {
+          onAddDependency?.(mode.fromStepId, pointerTargetStepId);
+        }
         setConnectingFrom(null);
+        setHoveredInputStepId(null);
         modeRef.current = { type: 'idle' };
         return;
       }
     },
-    [onMoveStep, onStepClick],
+    [onMoveStep, onStepClick, hoveredInputStepId, layout.nodes, canConnect, onAddDependency],
   );
 
   // --- Port drag start ---
@@ -330,16 +372,24 @@ export function SopDagCanvas({
   // --- Port drop (target node) ---
   const handlePortDrop = useCallback(
     (targetStepId: string) => {
-      if (!connectingFrom || connectingFrom === targetStepId) {
+      const resetState = () => {
         setConnectingFrom(null);
+        setHoveredInputStepId(null);
         modeRef.current = { type: 'idle' };
+      };
+      if (!connectingFrom || connectingFrom === targetStepId) {
+        resetState();
+        return;
+      }
+      // Live cycle highlight already messaged the user — silently abort.
+      if (canConnect && !canConnect(connectingFrom, targetStepId)) {
+        resetState();
         return;
       }
       onAddDependency?.(connectingFrom, targetStepId);
-      setConnectingFrom(null);
-      modeRef.current = { type: 'idle' };
+      resetState();
     },
-    [connectingFrom, onAddDependency],
+    [connectingFrom, canConnect, onAddDependency],
   );
 
   // --- Escape cancels connecting ---
@@ -348,12 +398,50 @@ export function SopDagCanvas({
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setConnectingFrom(null);
+        setHoveredInputStepId(null);
         modeRef.current = { type: 'idle' };
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [connectingFrom]);
+
+  useEffect(() => {
+    if (!connectingFrom) return;
+    const handleWindowPointerUp = (e: PointerEvent) => {
+      if (modeRef.current.type !== 'connecting') return;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const pointerCanvasPos = rect
+        ? {
+            x: (e.clientX - rect.left - translateRef.current.x) / scaleRef.current,
+            y: (e.clientY - rect.top - translateRef.current.y) / scaleRef.current,
+          }
+        : null;
+      const targetStepId =
+        hoveredInputStepId ??
+        (pointerCanvasPos
+          ? layout.nodes.find((node) => {
+              const dx = pointerCanvasPos.x - node.inputPort.x;
+              const dy = pointerCanvasPos.y - node.inputPort.y;
+              return Math.sqrt(dx * dx + dy * dy) <= 18;
+            })?.stepId
+          : null);
+
+      if (
+        targetStepId &&
+        targetStepId !== connectingFrom &&
+        (!canConnect || canConnect(connectingFrom, targetStepId))
+      ) {
+        onAddDependency?.(connectingFrom, targetStepId);
+      }
+      setConnectingFrom(null);
+      setHoveredInputStepId(null);
+      modeRef.current = { type: 'idle' };
+    };
+
+    window.addEventListener('pointerup', handleWindowPointerUp, true);
+    return () => window.removeEventListener('pointerup', handleWindowPointerUp, true);
+  }, [connectingFrom, hoveredInputStepId, layout.nodes, canConnect, onAddDependency]);
 
   // --- Node click handler with guard ---
   const handleNodeClick = useCallback(
@@ -552,93 +640,119 @@ export function SopDagCanvas({
                 />
               );
             })}
-          {/* Edit mode: port circles */}
-          {editMode &&
-            layout.nodes.map((node) => {
-              const pos = getNodePos(node);
-              const ipx = pos.x;
-              const ipy = pos.y + node.height / 2;
-              const opx = pos.x + node.width;
-              const opy = pos.y + node.height / 2;
-              return (
-                <g key={`${node.stepId}-ports`}>
-                  {/* Input port (connection target) */}
-                  {/* biome-ignore lint/a11y/useSemanticElements: SVG group cannot be button */}
-                  <g
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Connect dependency into ${node.step.label}`}
-                    className="cursor-crosshair"
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onPointerUp={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
+          {/* Port circles — always rendered, opacity-gated outside edit mode */}
+          {layout.nodes.map((node) => {
+            const pos = getNodePos(node);
+            const ipx = pos.x;
+            const ipy = pos.y + node.height / 2;
+            const opx = pos.x + node.width;
+            const opy = pos.y + node.height / 2;
+            const portsInteractive = editMode === true;
+            const portGroupClass = portsInteractive
+              ? 'opacity-100'
+              : 'opacity-40 pointer-events-none';
+            const isHoveredRejection =
+              portsInteractive &&
+              connectingFrom !== null &&
+              hoveredInputStepId === node.stepId &&
+              connectingFrom !== node.stepId &&
+              canConnect !== undefined &&
+              !canConnect(connectingFrom, node.stepId);
+            const inputStroke = isHoveredRejection
+              ? 'rgba(248,113,113,0.95)'
+              : 'rgba(34,211,238,0.9)';
+            return (
+              <g key={`${node.stepId}-ports`} className={portGroupClass}>
+                {/* Input port (connection target) */}
+                {/* biome-ignore lint/a11y/useSemanticElements: SVG group cannot be button */}
+                <g
+                  role="button"
+                  tabIndex={portsInteractive ? 0 : -1}
+                  aria-label={`Connect dependency into ${node.step.label}`}
+                  className={portsInteractive ? 'cursor-crosshair' : undefined}
+                  onPointerDown={(e) => {
+                    if (!portsInteractive) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onPointerUp={(e) => {
+                    if (!portsInteractive) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handlePortDrop(node.stepId);
+                  }}
+                  onPointerEnter={() => {
+                    if (!portsInteractive || connectingFrom === null) return;
+                    setHoveredInputStepId(node.stepId);
+                  }}
+                  onPointerLeave={() => {
+                    if (!portsInteractive) return;
+                    setHoveredInputStepId((prev) => (prev === node.stepId ? null : prev));
+                  }}
+                  onKeyDown={(e) =>
+                    handlePortKeyDown(e, () => {
+                      if (!portsInteractive) return;
                       handlePortDrop(node.stepId);
-                    }}
-                    onKeyDown={(e) =>
-                      handlePortKeyDown(e, () => {
-                        handlePortDrop(node.stepId);
-                      })
-                    }
-                  >
-                    <circle
-                      cx={ipx}
-                      cy={ipy}
-                      r={11}
-                      fill="transparent"
-                      stroke="transparent"
-                      strokeWidth={8}
-                    />
-                    <circle
-                      cx={ipx}
-                      cy={ipy}
-                      r={7}
-                      fill="rgba(15,23,42,0.98)"
-                      stroke="rgba(34,211,238,0.9)"
-                      strokeWidth={2.5}
-                    />
-                  </g>
-                  {/* Output port (connection source) */}
-                  {/* biome-ignore lint/a11y/useSemanticElements: SVG group cannot be button */}
-                  <g
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Create dependency from ${node.step.label}`}
-                    className="cursor-crosshair"
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handlePortDragStart(node.stepId);
-                    }}
-                    onKeyDown={(e) =>
-                      handlePortKeyDown(e, () => {
-                        handlePortDragStart(node.stepId);
-                      })
-                    }
-                  >
-                    <circle
-                      cx={opx}
-                      cy={opy}
-                      r={11}
-                      fill="transparent"
-                      stroke="transparent"
-                      strokeWidth={8}
-                    />
-                    <circle
-                      cx={opx}
-                      cy={opy}
-                      r={7}
-                      fill="rgba(15,23,42,0.98)"
-                      stroke="rgba(251,191,36,0.95)"
-                      strokeWidth={2.5}
-                    />
-                  </g>
+                    })
+                  }
+                >
+                  <circle
+                    cx={ipx}
+                    cy={ipy}
+                    r={11}
+                    fill="transparent"
+                    stroke="transparent"
+                    strokeWidth={8}
+                  />
+                  <circle
+                    cx={ipx}
+                    cy={ipy}
+                    r={7}
+                    fill="rgba(15,23,42,0.98)"
+                    stroke={inputStroke}
+                    strokeWidth={2.5}
+                  />
                 </g>
-              );
-            })}
+                {/* Output port (connection source) */}
+                {/* biome-ignore lint/a11y/useSemanticElements: SVG group cannot be button */}
+                <g
+                  role="button"
+                  tabIndex={portsInteractive ? 0 : -1}
+                  aria-label={`Create dependency from ${node.step.label}`}
+                  className={portsInteractive ? 'cursor-crosshair' : undefined}
+                  onPointerDown={(e) => {
+                    if (!portsInteractive) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handlePortDragStart(node.stepId);
+                  }}
+                  onKeyDown={(e) =>
+                    handlePortKeyDown(e, () => {
+                      if (!portsInteractive) return;
+                      handlePortDragStart(node.stepId);
+                    })
+                  }
+                >
+                  <circle
+                    cx={opx}
+                    cy={opy}
+                    r={11}
+                    fill="transparent"
+                    stroke="transparent"
+                    strokeWidth={8}
+                  />
+                  <circle
+                    cx={opx}
+                    cy={opy}
+                    r={7}
+                    fill="rgba(15,23,42,0.98)"
+                    stroke="rgba(251,191,36,0.95)"
+                    strokeWidth={2.5}
+                  />
+                </g>
+              </g>
+            );
+          })}
         </g>
       </svg>
 

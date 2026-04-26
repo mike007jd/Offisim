@@ -69,6 +69,34 @@ export function getExecutionBatches(def: SopDefinition): SopStep[][] {
 }
 
 // ---------------------------------------------------------------------------
+// wouldCreateCycle — pure check for live drag preview
+// ---------------------------------------------------------------------------
+//
+// Returns true when adding a `fromStepId → toStepId` dependency would break
+// topological ordering. Shares semantics with `validateNoCycles` in
+// SopViewSurface (both use getExecutionBatches as the cycle oracle).
+
+export function wouldCreateCycle(
+  definition: SopDefinition,
+  fromStepId: string,
+  toStepId: string,
+): boolean {
+  if (fromStepId === toStepId) return true;
+  const target = definition.steps.find((s) => s.step_id === toStepId);
+  if (!target) return false;
+  if (target.dependencies.includes(fromStepId)) return false;
+
+  const hypothetical: SopDefinition = {
+    ...definition,
+    steps: definition.steps.map((s) =>
+      s.step_id === toStepId ? { ...s, dependencies: [...s.dependencies, fromStepId] } : s,
+    ),
+  };
+  const batches = getExecutionBatches(hypothetical);
+  return batches.flat().length !== hypothetical.steps.length;
+}
+
+// ---------------------------------------------------------------------------
 // computeAutoLayoutPositions — returns a map of stepId → {x, y}
 // ---------------------------------------------------------------------------
 

@@ -23,11 +23,18 @@ function getRoleColor(roleSlug: string): string {
 // Status dot styles
 // ---------------------------------------------------------------------------
 
-const STATUS_DOT: Record<SopStepStatus, string> = {
+export const STATUS_DOT: Record<SopStepStatus, string> = {
   pending: 'bg-slate-500',
   active: 'bg-blue-400 animate-pulse',
   completed: 'bg-emerald-400',
   failed: 'bg-red-400',
+};
+
+export const STATUS_LABEL: Record<SopStepStatus, string> = {
+  pending: 'Pending',
+  active: 'Active',
+  completed: 'Completed',
+  failed: 'Failed',
 };
 
 // ---------------------------------------------------------------------------
@@ -50,6 +57,7 @@ export const SopDagNode = memo(function SopDagNode({
   onStepClick,
 }: SopDagNodeProps) {
   const roleColor = getRoleColor(step.role_slug);
+  const depsCount = step.dependencies.length;
 
   const borderClass = selected
     ? 'border-blue-400/60 shadow-lg shadow-blue-400/20'
@@ -66,10 +74,15 @@ export const SopDagNode = memo(function SopDagNode({
 
       {/* Content */}
       <div className="flex-1 min-w-0 p-3 flex flex-col gap-1.5">
-        {/* Top row: status dot + label + role badge */}
+        {/* Top row: status dot + label + deps chip + role badge */}
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
           <span className="text-sm font-semibold text-white truncate flex-1">{step.label}</span>
+          {depsCount > 0 && (
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-700/60 text-slate-300">
+              deps · {depsCount}
+            </span>
+          )}
           <span
             className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full text-white/80"
             style={{ backgroundColor: `${roleColor}33` }}
@@ -78,10 +91,13 @@ export const SopDagNode = memo(function SopDagNode({
           </span>
         </div>
 
-        {/* Instruction excerpt */}
-        <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed flex-1">
+        {/* Instruction excerpt — single line to make room for output_key subline */}
+        <p className="text-xs text-slate-400 line-clamp-1 leading-relaxed flex-1">
           {step.instruction}
         </p>
+
+        {/* Output key */}
+        <p className="font-mono text-[10px] text-slate-500 truncate">→ {step.output_key}</p>
       </div>
     </button>
   );
