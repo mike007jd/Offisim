@@ -156,6 +156,7 @@ export function createPermissionsTauriRepos(db: TauriDrizzleDb): PermissionsTaur
             lookup.policyHash
               ? eq(schema.toolPermissionApprovals.policy_hash, lookup.policyHash)
               : sql`1 = 1`,
+            sql`(${schema.toolPermissionApprovals.scope} = 'thread' OR ${schema.toolPermissionApprovals.consumed_at} IS NULL)`,
             sql`(${schema.toolPermissionApprovals.expires_at} IS NULL OR ${schema.toolPermissionApprovals.expires_at} > datetime('now'))`,
           ),
         )
@@ -175,7 +176,7 @@ export function createPermissionsTauriRepos(db: TauriDrizzleDb): PermissionsTaur
             lookup.policyHash
               ? eq(schema.toolPermissionApprovals.policy_hash, lookup.policyHash)
               : sql`1 = 1`,
-            sql`${schema.toolPermissionApprovals.consumed_at} IS NULL`,
+            sql`(${schema.toolPermissionApprovals.scope} = 'thread' OR ${schema.toolPermissionApprovals.consumed_at} IS NULL)`,
             sql`(${schema.toolPermissionApprovals.expires_at} IS NULL OR ${schema.toolPermissionApprovals.expires_at} > datetime('now'))`,
           ),
         )

@@ -469,7 +469,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
       scope,
       approved_by: `interaction:${scope}`,
       policy_hash: request.context.policyHash ?? 'default',
-      consumed_at: null,
+      consumed_at: scope === 'once' ? createdAt : null,
       created_at: createdAt,
       expires_at: null,
     });

@@ -2,7 +2,8 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../../events/event-factories.js';
 import type { OffisimGraphState } from '../../graph/state.js';
 import { getRuntime } from '../../utils/get-runtime.js';
-import type { LlmPlan, PmPreflightOutcome } from '../pm-planner-types.js';
+import type { PmPreflightOutcome } from '../pm-planner-types.js';
+import { parseReviewedPlanPayload } from './plan-review-payload.js';
 
 export async function runPmPreflight(
   state: OffisimGraphState,
@@ -25,7 +26,7 @@ export async function runPmPreflight(
       : null;
   const reviewedPlan =
     approvedToExecute && planReviewDecision?.reviewedPayload
-      ? (planReviewDecision.reviewedPayload as LlmPlan)
+      ? await parseReviewedPlanPayload(planReviewDecision.reviewedPayload)
       : null;
 
   const emptyPlan: Partial<OffisimGraphState> = {
@@ -43,6 +44,19 @@ export async function runPmPreflight(
         ...emptyPlan,
         pendingAssignments: [],
         completed: true,
+      },
+    };
+  }
+
+  if (approvedToExecute && !reviewedPlan) {
+    await repos.threads.updateStatus(threadId, 'cancelled');
+    return {
+      kind: 'short-circuit',
+      result: {
+        ...emptyPlan,
+        pendingAssignments: [],
+        completed: true,
+        interruptReason: 'Plan review approval payload was missing, invalid, or hash-mismatched.',
       },
     };
   }

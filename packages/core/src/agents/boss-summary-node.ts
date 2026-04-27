@@ -163,7 +163,10 @@ export async function bossSummaryNode(
 
   if (employeeResults.length === 0) {
     if (runtimeCtx) {
-      await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
+      const thread = await runtimeCtx.repos.threads.findById(state.threadId);
+      if (thread?.status !== 'cancelled') {
+        await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
+      }
     }
     return {
       completed: true,

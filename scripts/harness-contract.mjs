@@ -28,9 +28,15 @@ const core = await import(new URL('../packages/core/dist/index.js', import.meta.
 const graph = await import(
   new URL('../packages/core/dist/graph/main-graph.js', import.meta.url).href
 );
+const planReview = await import(
+  new URL('../packages/core/dist/agents/pm-planner/plan-review-payload.js', import.meta.url).href
+);
 const invariants = [
   await assertRuntimeDenyOverridesGrant(core),
+  await assertOnceApprovalIsConsumedOnce(core),
+  await assertThreadApprovalIsReusable(core),
   await assertPlanReviewCancelPersistsPayload(core),
+  await assertPlanReviewPayloadValidation(planReview),
   assertDagOutputAttribution(graph),
 ];
 
@@ -121,9 +127,14 @@ async function assertPlanReviewCancelPersistsPayload(core) {
     context: { type: 'plan_review', planId: 'plan-contract' },
     createdAt: 1,
   };
-  await service.request(request, { payload: { summary: 'contract plan', steps: [] } });
+  const payload = await planReview.buildPlanReviewPayload(makeContractPlan('contract plan'));
+  await service.request(request, { payload });
   const active = await repos.activeInteractions.findByThread('thread-contract');
   if (!active?.payload_json) throw new Error('plan review active payload was not persisted');
+  const activePayload = JSON.parse(active.payload_json);
+  if (activePayload.type !== 'plan_review_payload') {
+    throw new Error('plan review active payload was not enveloped');
+  }
   await service.resolve({
     interactionId: 'ix-contract',
     selectedOptionId: 'cancel',
@@ -136,6 +147,162 @@ async function assertPlanReviewCancelPersistsPayload(core) {
   const history = await repos.interactionHistory.listByThread('thread-contract');
   if (!history[0]?.payload_json) throw new Error('plan review history payload was not persisted');
   return { id: 'interaction.plan_review_cancel_payload', passed: true };
+}
+
+async function assertPlanReviewPayloadValidation(planReviewModule) {
+  const plan = makeContractPlan('hash checked plan');
+  const payload = await planReviewModule.buildPlanReviewPayload(plan);
+  const parsed = await planReviewModule.parseReviewedPlanPayload(payload);
+  if (!parsed || parsed.summary !== plan.summary) {
+    throw new Error('plan-review payload parser rejected valid payload');
+  }
+  const mutated = {
+    ...payload,
+    plan: {
+      ...payload.plan,
+      summary: 'mutated plan',
+    },
+  };
+  if (await planReviewModule.parseReviewedPlanPayload(mutated)) {
+    throw new Error('plan-review payload parser accepted hash mismatch');
+  }
+  if (await planReviewModule.parseReviewedPlanPayload({ type: 'plan_review_payload' })) {
+    throw new Error('plan-review payload parser accepted invalid shape');
+  }
+  return { id: 'interaction.plan_review_payload_validated', passed: true };
+}
+
+async function assertOnceApprovalIsConsumedOnce(core) {
+  const repos = core.createMemoryRepositories();
+  const engine = makeAskFirstTimePermissionEngine(core, repos);
+  const request = makeAskFirstTimePermissionRequest();
+
+  const initial = await engine.evaluate(request);
+  if (initial.behavior !== 'ask' || !initial.policyHash) {
+    throw new Error('permission-once-approval setup did not produce ask decision');
+  }
+
+  await repos.toolPermissionApprovals.create(
+    makeAskFirstTimeApproval({
+      approvalId: 'tpa-contract-once',
+      request,
+      policyHash: initial.policyHash,
+      scope: 'once',
+      approvedBy: 'interaction:once',
+    }),
+  );
+
+  const first = await engine.evaluate(request);
+  if (first.behavior !== 'allow' || first.approvedBy !== 'employee:ask_first_time:once') {
+    throw new Error('permission-once-approval did not allow first reuse');
+  }
+  const consumed = repos.toolPermissionApprovals
+    .snapshot()
+    .find((row) => row.approval_id === 'tpa-contract-once')?.consumed_at;
+  if (!consumed) {
+    throw new Error('permission-once-approval was not consumed');
+  }
+
+  const second = await engine.evaluate(request);
+  if (second.behavior !== 'ask') {
+    throw new Error('permission-once-approval was reused after consumption');
+  }
+
+  return { id: 'permission.once_approval_consumed_once', passed: true };
+}
+
+async function assertThreadApprovalIsReusable(core) {
+  const repos = core.createMemoryRepositories();
+  const engine = makeAskFirstTimePermissionEngine(core, repos);
+  const request = makeAskFirstTimePermissionRequest();
+
+  const initial = await engine.evaluate(request);
+  if (initial.behavior !== 'ask' || !initial.policyHash) {
+    throw new Error('permission-thread-approval setup did not produce ask decision');
+  }
+
+  await repos.toolPermissionApprovals.create(
+    makeAskFirstTimeApproval({
+      approvalId: 'tpa-contract-thread',
+      request,
+      policyHash: initial.policyHash,
+      scope: 'thread',
+      approvedBy: 'interaction:thread',
+    }),
+  );
+
+  const first = await engine.evaluate(request);
+  const second = await engine.evaluate(request);
+  if (
+    first.behavior !== 'allow' ||
+    second.behavior !== 'allow' ||
+    first.approvedBy !== 'employee:ask_first_time:thread' ||
+    second.approvedBy !== 'employee:ask_first_time:thread'
+  ) {
+    throw new Error('permission-thread-approval was not reusable');
+  }
+
+  return { id: 'permission.thread_approval_reused', passed: true };
+}
+
+function makeAskFirstTimePermissionEngine(core, repos) {
+  return new core.ToolPermissionEngine({
+    employees: repos.employees,
+    mcpAudit: repos.mcpAudit,
+    approvals: repos.toolPermissionApprovals,
+  });
+}
+
+function makeAskFirstTimePermissionRequest() {
+  return {
+    threadId: 'thread-contract',
+    serverName: 'filesystem',
+    toolName: 'write_file',
+    employeeId: 'emp-contract',
+    employeeConfigJson: JSON.stringify({
+      toolPermissionPolicy: {
+        defaultMode: 'ask_first_time',
+        overrides: [],
+      },
+    }),
+  };
+}
+
+function makeAskFirstTimeApproval({ approvalId, request, policyHash, scope, approvedBy }) {
+  return {
+    approval_id: approvalId,
+    thread_id: request.threadId,
+    company_id: 'company-contract',
+    employee_id: request.employeeId,
+    server_name: request.serverName,
+    tool_name: request.toolName,
+    scope,
+    approved_by: approvedBy,
+    policy_hash: policyHash,
+    consumed_at: null,
+    created_at: '2026-01-01T00:00:00.000Z',
+    expires_at: null,
+  };
+}
+
+function makeContractPlan(summary) {
+  return {
+    summary,
+    steps: [
+      {
+        stepIndex: 0,
+        description: 'Contract step',
+        tasks: [
+          {
+            taskType: 'general',
+            employeeId: 'emp-contract',
+            description: 'Contract task',
+            dependsOnStepOutput: false,
+          },
+        ],
+      },
+    ],
+  };
 }
 
 function assertDagOutputAttribution(graph) {

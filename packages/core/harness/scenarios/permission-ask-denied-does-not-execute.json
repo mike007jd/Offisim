@@ -1,4 +1,108 @@
 {
   "id": "permission-ask-denied-does-not-execute",
-  "category": "permission"
+  "category": "permission",
+  "entryMode": "boss_chat",
+  "interactionMode": "human_in_loop",
+  "seed": {
+    "company": { "companyId": "company-permission-denied", "name": "Permission Denied Co" },
+    "thread": { "threadId": "thread-permission-denied", "status": "running" },
+    "employees": [
+      {
+        "id": "emp-deny",
+        "name": "Dee",
+        "role": "engineer",
+        "config": {
+          "toolPermissionPolicy": {
+            "defaultMode": "ask_first_time",
+            "overrides": []
+          }
+        }
+      }
+    ],
+    "taskRuns": [
+      {
+        "id": "task-perm-denied",
+        "employeeId": "emp-deny",
+        "taskType": "general",
+        "input": { "description": "Try write_file and adapt if denied" }
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "write_file",
+      "description": "Write a file",
+      "parameters": { "type": "object", "properties": { "path": { "type": "string" } } }
+    }
+  ],
+  "llmTurns": [
+    {
+      "id": "employee-tool-request",
+      "content": "",
+      "toolCalls": [
+        { "id": "call-write-denied", "name": "write_file", "arguments": { "path": "blocked.txt" } }
+      ]
+    },
+    {
+      "id": "employee-denied-final",
+      "content": "DENIED_TOOL_HANDLED"
+    },
+    {
+      "id": "consolidator",
+      "content": "{\"memories\":[]}"
+    }
+  ],
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-permission-denied",
+      "threadId": "thread-permission-denied",
+      "companyId": "company-permission-denied",
+      "summary": "Permission denied plan",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Handle denied tool",
+          "tasks": [
+            {
+              "taskType": "general",
+              "employeeId": "emp-deny",
+              "assigneeKind": "employee",
+              "assigneeName": "Dee",
+              "description": "Try write_file and adapt if denied",
+              "dependsOnStepOutput": false,
+              "taskRunId": "task-perm-denied"
+            }
+          ]
+        }
+      ]
+    },
+    "pendingAssignments": [
+      {
+        "taskType": "general",
+        "employeeId": "emp-deny",
+        "assigneeKind": "employee",
+        "assigneeName": "Dee",
+        "taskRunId": "task-perm-denied",
+        "stepIndex": 0,
+        "inputJson": { "description": "Try write_file and adapt if denied", "stepIndex": 0 }
+      }
+    ],
+    "dispatchedStepIndices": [0]
+  },
+  "runs": [
+    {
+      "startAt": "employee",
+      "autoResolveInteractions": [{ "kind": "permission_request", "selectedOptionId": "reject" }]
+    }
+  ],
+  "assertions": [
+    {
+      "kind": "mcpAuditContains",
+      "toolName": "write_file",
+      "approvedBy": "interaction:reject",
+      "errorIncludes": "TOOL_PERMISSION_DENIED"
+    },
+    { "kind": "toolExecutions", "count": 0 },
+    { "kind": "finalOutputContains", "contains": "DENIED_TOOL_HANDLED" }
+  ]
 }

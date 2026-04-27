@@ -1,6 +1,7 @@
 import { PLAN_REVIEW_REQUIRED } from '@offisim/shared-types';
 import { generateId } from '../../utils/generate-id.js';
 import type { LlmPlan, PmPreflightReady } from '../pm-planner-types.js';
+import { buildPlanReviewPayload } from './plan-review-payload.js';
 
 function formatPlanReviewPrompt(plan: LlmPlan): string {
   const stepPreview = plan.steps
@@ -60,7 +61,7 @@ export async function awaitPlanReview(plan: LlmPlan, prep: PmPreflightReady): Pr
       },
       createdAt: Date.now(),
     },
-    { payload: plan },
+    { payload: await buildPlanReviewPayload(plan) },
   );
   throw new Error(PLAN_REVIEW_REQUIRED);
 }

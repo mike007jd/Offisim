@@ -1,4 +1,82 @@
 {
   "id": "dag-output-attribution",
-  "category": "graph"
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": { "companyId": "company-dag-output-attribution", "name": "DAG Harness Co" },
+    "thread": { "threadId": "thread-dag-output-attribution", "status": "running" },
+    "employees": [
+      { "id": "emp-a", "name": "Ada", "role": "engineer" },
+      { "id": "emp-b", "name": "Ben", "role": "designer" }
+    ]
+  },
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-dag",
+      "threadId": "thread-dag-output-attribution",
+      "companyId": "company-dag-output-attribution",
+      "summary": "Validate DAG output attribution",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Step A",
+          "tasks": [
+            {
+              "taskType": "general",
+              "employeeId": "emp-a",
+              "assigneeKind": "employee",
+              "assigneeName": "Ada",
+              "description": "Produce A",
+              "dependsOnStepOutput": false,
+              "taskRunId": "task-a"
+            }
+          ]
+        },
+        {
+          "stepIndex": 1,
+          "description": "Step B",
+          "tasks": [
+            {
+              "taskType": "general",
+              "employeeId": "emp-b",
+              "assigneeKind": "employee",
+              "assigneeName": "Ben",
+              "description": "Produce B",
+              "dependsOnStepOutput": false,
+              "taskRunId": "task-b"
+            }
+          ]
+        }
+      ]
+    },
+    "currentStepIndex": 0,
+    "dispatchedStepIndices": [0, 1],
+    "currentStepOutputs": [
+      {
+        "employeeId": "emp-a",
+        "employeeName": "Ada",
+        "sourceKind": "employee",
+        "roleSlug": "engineer",
+        "content": "A_OUTPUT",
+        "taskRunId": "task-a",
+        "stepIndex": 0
+      },
+      {
+        "employeeId": "emp-b",
+        "employeeName": "Ben",
+        "sourceKind": "employee",
+        "roleSlug": "designer",
+        "content": "B_OUTPUT",
+        "taskRunId": "task-b",
+        "stepIndex": 1
+      }
+    ]
+  },
+  "runs": [{ "startAt": "step_advance" }],
+  "assertions": [
+    { "kind": "stepContainsOnly", "stepIndex": 0, "contains": ["A_OUTPUT"] },
+    { "kind": "stepContainsOnly", "stepIndex": 1, "contains": ["B_OUTPUT"] },
+    { "kind": "noDuplicateStepOutputs" },
+    { "kind": "threadStatusIs", "status": "completed" }
+  ]
 }

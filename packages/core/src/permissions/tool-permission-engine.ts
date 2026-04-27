@@ -144,19 +144,25 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
       };
     }
 
-    const alreadyApproved = await this.deps.approvals.hasApproval({
+    const approval = await this.deps.approvals.findReusableApproval({
       threadId: request.threadId,
       employeeId: request.employeeId,
       serverName: request.serverName,
       toolName: request.toolName,
       policyHash,
     });
-    if (alreadyApproved) {
+    if (approval) {
+      if (approval.scope === 'once') {
+        await this.deps.approvals.consumeApproval(approval.approval_id, new Date().toISOString());
+      }
       return {
         behavior: 'allow',
         source: 'employee',
-        reason: 'Employee first-use approval was explicitly granted earlier in this thread.',
-        approvedBy: 'employee:ask_first_time:cached',
+        reason:
+          approval.scope === 'once'
+            ? 'Employee first-use approval was explicitly granted for this tool call.'
+            : 'Employee first-use approval was explicitly granted earlier in this thread.',
+        approvedBy: `employee:ask_first_time:${approval.scope}`,
         ...(employeeMatch.matchedPattern ? { matchedPattern: employeeMatch.matchedPattern } : {}),
         policyHash,
       };

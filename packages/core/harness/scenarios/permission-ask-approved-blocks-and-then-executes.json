@@ -1,4 +1,106 @@
 {
   "id": "permission-ask-approved-blocks-and-then-executes",
-  "category": "permission"
+  "category": "permission",
+  "entryMode": "boss_chat",
+  "interactionMode": "human_in_loop",
+  "seed": {
+    "company": { "companyId": "company-permission-approved", "name": "Permission Approved Co" },
+    "thread": { "threadId": "thread-permission-approved", "status": "running" },
+    "employees": [
+      {
+        "id": "emp-perm",
+        "name": "Pat",
+        "role": "engineer",
+        "config": {
+          "toolPermissionPolicy": {
+            "defaultMode": "ask_first_time",
+            "overrides": []
+          }
+        }
+      }
+    ],
+    "taskRuns": [
+      {
+        "id": "task-perm-approved",
+        "employeeId": "emp-perm",
+        "taskType": "general",
+        "input": { "description": "Use write_file with approval" }
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "write_file",
+      "description": "Write a file",
+      "parameters": { "type": "object", "properties": { "path": { "type": "string" } } }
+    }
+  ],
+  "llmTurns": [
+    {
+      "id": "employee-tool-request",
+      "content": "",
+      "toolCalls": [
+        { "id": "call-write-approved", "name": "write_file", "arguments": { "path": "out.txt" } }
+      ]
+    },
+    {
+      "id": "employee-final",
+      "content": "APPROVED_TOOL_OUTPUT"
+    },
+    {
+      "id": "consolidator",
+      "content": "{\"memories\":[]}"
+    }
+  ],
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-permission-approved",
+      "threadId": "thread-permission-approved",
+      "companyId": "company-permission-approved",
+      "summary": "Permission approved plan",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Use approved tool",
+          "tasks": [
+            {
+              "taskType": "general",
+              "employeeId": "emp-perm",
+              "assigneeKind": "employee",
+              "assigneeName": "Pat",
+              "description": "Use write_file with approval",
+              "dependsOnStepOutput": false,
+              "taskRunId": "task-perm-approved"
+            }
+          ]
+        }
+      ]
+    },
+    "pendingAssignments": [
+      {
+        "taskType": "general",
+        "employeeId": "emp-perm",
+        "assigneeKind": "employee",
+        "assigneeName": "Pat",
+        "taskRunId": "task-perm-approved",
+        "stepIndex": 0,
+        "inputJson": { "description": "Use write_file with approval", "stepIndex": 0 }
+      }
+    ],
+    "dispatchedStepIndices": [0]
+  },
+  "runs": [
+    {
+      "startAt": "employee",
+      "autoResolveInteractions": [
+        { "kind": "permission_request", "selectedOptionId": "approve_once" }
+      ]
+    }
+  ],
+  "assertions": [
+    { "kind": "mcpAuditContains", "toolName": "write_file", "approvedBy": "interaction:once" },
+    { "kind": "toolExecutions", "count": 1 },
+    { "kind": "toolPermissionApprovalConsumed", "scope": "once" },
+    { "kind": "finalOutputContains", "contains": "APPROVED_TOOL_OUTPUT" }
+  ]
 }

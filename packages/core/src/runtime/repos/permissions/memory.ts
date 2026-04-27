@@ -192,7 +192,7 @@ export class MemoryToolPermissionApprovalRepository implements ToolPermissionApp
 
   async hasApproval(lookup: ToolPermissionApprovalLookup): Promise<boolean> {
     const now = new Date().toISOString();
-    return [...this.rows.values()].some((row) => matchesApprovalLookup(row, lookup, now, false));
+    return [...this.rows.values()].some((row) => matchesApprovalLookup(row, lookup, now));
   }
 
   async consumeApproval(approvalId: string, consumedAt: string): Promise<void> {

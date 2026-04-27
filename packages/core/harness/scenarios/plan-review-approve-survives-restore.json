@@ -1,4 +1,56 @@
 {
   "id": "plan-review-approve-survives-restore",
-  "category": "interaction"
+  "category": "interaction",
+  "entryMode": "boss_chat",
+  "interactionMode": "human_in_loop",
+  "seed": {
+    "company": { "companyId": "company-plan-approve", "name": "Plan Approve Co" },
+    "thread": { "threadId": "thread-plan-approve", "status": "running" },
+    "employees": [{ "id": "emp-plan-approve", "name": "Ari", "role": "engineer" }]
+  },
+  "llmTurns": [
+    {
+      "id": "pm-plan",
+      "content": "{\"summary\":\"Approved restored plan\",\"steps\":[{\"stepIndex\":0,\"description\":\"Do approved work\",\"tasks\":[{\"taskType\":\"general\",\"employeeId\":\"emp-plan-approve\",\"description\":\"Do approved work\",\"dependsOnStepOutput\":false}]}]}"
+    },
+    {
+      "id": "employee-final",
+      "content": "APPROVED_RESTORED_PLAN_OUTPUT"
+    },
+    {
+      "id": "consolidator",
+      "content": "{\"memories\":[]}"
+    }
+  ],
+  "initialState": {
+    "managerDirective": {
+      "intent": "Plan approved work",
+      "recommendedEmployees": ["emp-plan-approve"]
+    }
+  },
+  "runs": [
+    {
+      "startAt": "pm_planner",
+      "expectError": "PLAN_REVIEW_REQUIRED",
+      "resolveAfterRun": [
+        {
+          "kind": "plan_review",
+          "selectedOptionId": "start_execution",
+          "restoreBeforeResolve": true
+        }
+      ]
+    },
+    { "startAt": "pm_planner" }
+  ],
+  "assertions": [
+    {
+      "kind": "interactionHistoryContains",
+      "interactionKind": "plan_review",
+      "selectedOptionId": "start_execution",
+      "status": "resolved",
+      "payloadType": "plan_review_payload"
+    },
+    { "kind": "finalOutputContains", "contains": "APPROVED_RESTORED_PLAN_OUTPUT" },
+    { "kind": "threadStatusIs", "status": "completed" }
+  ]
 }

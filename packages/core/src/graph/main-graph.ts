@@ -331,7 +331,47 @@ export function routeFromStepAdvance(state: OffisimGraphState): string {
 
 export interface BuildGraphOptions {
   checkpointer?: BaseCheckpointSaver;
+  /**
+   * Testing-only override used by deterministic harness scenarios to enter the
+   * compiled graph at a specific node. Production callers leave this unset.
+   */
+  startAt?: OffisimGraphStartNode;
 }
+
+export type OffisimGraphStartNode =
+  | 'boss'
+  | 'manager'
+  | 'pm_planner'
+  | 'step_dispatcher'
+  | 'employee'
+  | 'step_advance'
+  | 'boss_summary'
+  | 'employee_direct_setup'
+  | 'pm_heartbeat';
+
+const DEFAULT_START_NODES = [
+  'boss',
+  'employee_direct_setup',
+  'meeting_start',
+  'meeting_resume',
+  'meeting_end',
+  'pm_heartbeat',
+] as const;
+
+const HARNESS_START_NODES = [
+  'boss',
+  'manager',
+  'pm_planner',
+  'step_dispatcher',
+  'employee',
+  'step_advance',
+  'boss_summary',
+  'employee_direct_setup',
+  'meeting_start',
+  'meeting_resume',
+  'meeting_end',
+  'pm_heartbeat',
+] as const;
 
 /**
  * Build and compile the Offisim main StateGraph.
@@ -345,6 +385,8 @@ export interface BuildGraphOptions {
  */
 export function buildOffisimGraph(options?: BuildGraphOptions) {
   const checkpointer = options?.checkpointer ?? createMemoryCheckpointSaver();
+  const startRoute = options?.startAt ? () => options.startAt as OffisimGraphStartNode : routeFromStart;
+  const startNodes = options?.startAt ? HARNESS_START_NODES : DEFAULT_START_NODES;
 
   const graph = new StateGraph(OffisimGraphAnnotation)
     .addNode(
@@ -427,14 +469,7 @@ export function buildOffisimGraph(options?: BuildGraphOptions) {
       'meeting_inject',
       withNodeHooks('meeting_inject', (state, config) => meetingInjectNode(state, config)),
     )
-    .addConditionalEdges('__start__', routeFromStart, [
-      'boss',
-      'employee_direct_setup',
-      'meeting_start',
-      'meeting_resume',
-      'meeting_end',
-      'pm_heartbeat',
-    ])
+    .addConditionalEdges('__start__', startRoute, [...startNodes])
     .addConditionalEdges('boss', routeFromBoss, [
       'manager',
       'boss_summary',
