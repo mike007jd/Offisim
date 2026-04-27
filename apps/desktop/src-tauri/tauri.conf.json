@@ -13,6 +13,7 @@
     "windows": [
       {
         "title": "Offisim",
+        "create": false,
         "width": 1280,
         "height": 800,
         "minWidth": 1024,
@@ -20,10 +21,13 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https: wss: ipc: http://ipc.localhost http://localhost:4100; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https: wss: ipc: http://ipc.localhost http://localhost:4100 https://localhost:4100 tauri://localhost; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'"
     }
   },
   "plugins": {
+    "sql": {
+      "preload": ["sqlite:offisim.db"]
+    },
     "deep-link": {
       "mobile": [],
       "desktop": {

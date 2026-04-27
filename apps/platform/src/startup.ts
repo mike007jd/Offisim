@@ -1,8 +1,8 @@
 export const DEV_AUTH_SECRET = 'offisim-dev-secret-change-in-production';
 
-// `tauri://localhost` is the packaged Tauri 2 webview origin (release `.app`).
-// Only takes effect when platform runs in dev mode; production deployments must
-// list it explicitly in `CORS_ORIGINS` for desktop clients to reach the API.
+// Keep this dev CORS list aligned with the release `.app` CSP allowlist in
+// desktop-llm-credential-isolation: platform localhost:4100 + tauri://localhost
+// must work in both dev webview and packaged Tauri 2 release.
 export const DEV_DEFAULT_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5176',

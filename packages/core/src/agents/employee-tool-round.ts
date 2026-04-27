@@ -85,6 +85,7 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
           toolCall.arguments,
           runtimeCtx,
           employee.employee_id,
+          `${preflight.resolved.provider}/${preflight.resolved.model}`,
         );
         return { callId: toolCall.id, name: toolCall.name, result };
       }

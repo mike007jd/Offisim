@@ -71,13 +71,18 @@ export interface SkillInstallSourceFork {
   parentSkillId: string;
   parentVersion: string;
 }
+export interface SkillInstallSourceSelfAuthored {
+  kind: 'self-authored';
+  modelKey: string;
+}
 export type SkillInstallSource =
   | SkillInstallSourceMarketplace
   | SkillInstallSourceGit
   | SkillInstallSourceUpload
   | SkillInstallSourceClaudeCode
   | SkillInstallSourceCodex
-  | SkillInstallSourceFork;
+  | SkillInstallSourceFork
+  | SkillInstallSourceSelfAuthored;
 
 export interface SkillInstallAsset {
   relPath: string;
@@ -119,6 +124,16 @@ export class SkillInstallError extends Error {
   }
 }
 
+export class SkillScopeError extends Error {
+  readonly kind: 'self-authoring-requires-employee-scope';
+
+  constructor(kind: SkillScopeError['kind'], message: string) {
+    super(message);
+    this.name = 'SkillScopeError';
+    this.kind = kind;
+  }
+}
+
 export function encodeSkillSourceRef(source: SkillInstallSource): string {
   switch (source.kind) {
     case 'marketplace':
@@ -137,10 +152,13 @@ export function encodeSkillSourceRef(source: SkillInstallSource): string {
       return `codex:${source.path}`;
     case 'fork':
       return `company-skill:${source.parentSkillId}@${source.parentVersion}`;
+    case 'self-authored':
+      return `llm-author:${source.modelKey}`;
   }
 }
 
 function sourceKindForInsert(source: SkillInstallSource): SkillSourceKind {
+  if (source.kind === 'self-authored') return 'self-authored';
   return source.kind === 'fork' ? 'forked' : 'installed';
 }
 
@@ -254,9 +272,11 @@ export class SkillLoader {
    * Returns SKILL.md text + every file under `scripts/` / `references/` /
    * `assets/` (recursive) as UTF-8 strings. Missing subtrees are skipped.
    */
-  async readSkillDirectory(
-    skillId: string,
-  ): Promise<{ row: SkillRow; skillMd: string; assets: Array<{ relPath: string; content: string }> }> {
+  async readSkillDirectory(skillId: string): Promise<{
+    row: SkillRow;
+    skillMd: string;
+    assets: Array<{ relPath: string; content: string }>;
+  }> {
     const row = await this.skills.findById(skillId);
     if (!row) {
       throw new SkillAssetError('not-found', `Skill ${skillId} not found`, 'SKILL.md');
@@ -320,6 +340,12 @@ export class SkillLoader {
         'installSkill: source.kind="fork" requires scope="employee"',
       );
     }
+    if (args.scope === 'company' && args.source.kind === 'self-authored') {
+      throw new SkillScopeError(
+        'self-authoring-requires-employee-scope',
+        'installSkill: self-authored skills require scope="employee"',
+      );
+    }
 
     const assets = args.files.assets ?? [];
     for (const asset of assets) {
@@ -330,7 +356,8 @@ export class SkillLoader {
     const slug = args.slug ?? skillSlug(args.name, skillId);
     const sourceRef = encodeSkillSourceRef(args.source);
 
-    const scopeEmployeeId: string | null = args.scope === 'employee' ? args.employeeId! : null;
+    const scopeEmployeeId: string | null =
+      args.scope === 'employee' ? (args.employeeId ?? null) : null;
 
     const existingBySlug = await this.skills.findBySlug(args.companyId, scopeEmployeeId, slug);
     if (existingBySlug) {
@@ -339,24 +366,29 @@ export class SkillLoader {
       }
       throw new SkillInstallError(
         'slug-collision',
-        `Skill slug "${slug}" already exists in company ${args.companyId} (${args.scope} scope) ` +
-          `from a different source. Rename or uninstall the existing skill first.`,
+        `Skill slug "${slug}" already exists in company ${args.companyId} (${args.scope} scope) from a different source. Rename or uninstall the existing skill first.`,
       );
     }
 
     let empSlug: string | undefined;
     if (args.scope === 'employee') {
-      const employee = await this.employees.findById(args.employeeId!);
+      if (!scopeEmployeeId) {
+        throw new SkillInstallError(
+          'missing-target-employee',
+          'installSkill: scope="employee" requires employeeId',
+        );
+      }
+      const employee = await this.employees.findById(scopeEmployeeId);
       if (!employee) {
         throw new SkillInstallError(
           'target-employee-not-found',
-          `installSkill: employeeId ${args.employeeId} not found`,
+          `installSkill: employeeId ${scopeEmployeeId} not found`,
         );
       }
       if (employee.company_id !== args.companyId) {
         throw new SkillInstallError(
           'target-employee-not-found',
-          `installSkill: employeeId ${args.employeeId} does not belong to company ${args.companyId}`,
+          `installSkill: employeeId ${scopeEmployeeId} does not belong to company ${args.companyId}`,
         );
       }
       empSlug = employeeSlug(employee.name, employee.employee_id);
@@ -437,7 +469,7 @@ export class SkillLoader {
       );
     }
 
-    let parsed;
+    let parsed: ReturnType<typeof parseSkillMd>;
     try {
       const raw = await this.fs.readFile(row.vault_path);
       parsed = parseSkillMd(raw);
@@ -560,7 +592,11 @@ export function bumpPatch(version: string): string | null {
   const major = Number(match[1]);
   const minor = Number(match[2]);
   const patch = Number(match[3]);
-  if (!Number.isSafeInteger(major) || !Number.isSafeInteger(minor) || !Number.isSafeInteger(patch)) {
+  if (
+    !Number.isSafeInteger(major) ||
+    !Number.isSafeInteger(minor) ||
+    !Number.isSafeInteger(patch)
+  ) {
     return null;
   }
   return `${major}.${minor}.${patch + 1}`;

@@ -21,6 +21,14 @@ export interface ToolCallResult {
   readonly arguments: Record<string, unknown>;
 }
 
+export type LlmToolChoice =
+  | 'auto'
+  | 'none'
+  | {
+      readonly type: 'tool';
+      readonly name: string;
+    };
+
 export interface LlmUsage {
   readonly inputTokens: number;
   readonly outputTokens: number;
@@ -32,6 +40,7 @@ export interface LlmRequest {
   readonly temperature?: number;
   readonly maxTokens?: number;
   readonly tools?: readonly ToolDef[];
+  readonly toolChoice?: LlmToolChoice;
   /** AbortSignal for cancellation. */
   readonly signal?: AbortSignal;
   /** Request timeout in milliseconds. Default: 60000 for chat, 120000 for stream. */

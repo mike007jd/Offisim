@@ -1,16 +1,14 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { Command } from '@langchain/langgraph';
-import { Logger } from '../services/logger.js';
-
-const logger = new Logger('employee');
+import { resolveEmployeeRuntimeBinding } from '../engine/runtime-binding.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import type { LlmMessage } from '../llm/gateway.js';
+import { Logger } from '../services/logger.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
-import { resolveEmployeeRuntimeBinding } from '../engine/runtime-binding.js';
 import { runEmployeeA2A } from './employee-a2a-executor.js';
-import { runEmployeeEngine } from './employee-engine-executor.js';
 import { finalizeEmployeeSuccess } from './employee-completion.js';
+import { runEmployeeEngine } from './employee-engine-executor.js';
 import { finalizeEmployeeFailure } from './employee-error-finalize.js';
 import { executeHandoff } from './employee-handoff.js';
 import { attemptLocalRecovery } from './employee-local-recovery.js';
@@ -20,8 +18,11 @@ import { assemblePrompt } from './employee-prompt-assembly.js';
 import { assembleToolKit } from './employee-tool-kit.js';
 import { runToolRound } from './employee-tool-round.js';
 import { buildTurnRunner } from './employee-turn-runner.js';
+import { buildExplicitSkillToolResponse } from './explicit-skill-tool-call.js';
 
 export { extractUsedCitations } from './employee-completion.js';
+
+const logger = new Logger('employee');
 
 export async function employeeNode(
   state: OffisimGraphState,
@@ -93,20 +94,15 @@ export async function employeeNode(
 
   try {
     // Initial LLM call
-    let llmResponse = await runEmployeeTurn(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: taskDescription },
-      ],
-      { taskRunId },
-    );
-
     // Accumulate conversation history across tool-call rounds so later rounds
     // can see earlier tool results (fixes lost-context bug).
     const conversationHistory: LlmMessage[] = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: taskDescription },
     ];
+    let llmResponse =
+      buildExplicitSkillToolResponse(taskDescription, allTools) ??
+      (await runEmployeeTurn(conversationHistory, { taskRunId }));
 
     // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
     let workingHistory = conversationHistory;

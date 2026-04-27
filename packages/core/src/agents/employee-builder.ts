@@ -58,11 +58,27 @@ export function buildEmployeePrompt(
   lines.push(`Current task:\n${taskInput}`);
   lines.push('');
   lines.push('Execution rules:');
-  lines.push('- If the task asks for a file, code artifact, or document the user should take away, provide the complete artifact body instead of a summary.');
-  lines.push('- For a single-file artifact, put the full file contents in exactly one fenced code block using the correct language.');
-  lines.push('- If you know the filename, add a single line `Filename: <name>` immediately before the fenced code block.');
-  lines.push("- Do not say \"here's the file\" unless the full file content is actually present in your response.");
-  lines.push('- Keep explanation outside the artifact short and only include it when it materially helps the user use the result.');
+  lines.push(
+    '- If the task asks to create, install, fork, or edit a skill, or names a skill mutation tool such as `create_skill_from_scratch`, call the matching skill tool. Do not satisfy skill-mutation requests by attaching a generic SKILL.md deliverable.',
+  );
+  lines.push(
+    '- Tools provided in the current turn are available to you. If a matching tool is available, use it directly instead of saying the environment cannot call it.',
+  );
+  lines.push(
+    '- If the task asks for a file, code artifact, or document the user should take away, provide the complete artifact body instead of a summary.',
+  );
+  lines.push(
+    '- For a single-file artifact, put the full file contents in exactly one fenced code block using the correct language.',
+  );
+  lines.push(
+    '- If you know the filename, add a single line `Filename: <name>` immediately before the fenced code block.',
+  );
+  lines.push(
+    '- Do not say "here\'s the file" unless the full file content is actually present in your response.',
+  );
+  lines.push(
+    '- Keep explanation outside the artifact short and only include it when it materially helps the user use the result.',
+  );
 
   return lines.join('\n');
 }

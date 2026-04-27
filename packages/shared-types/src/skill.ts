@@ -1,6 +1,6 @@
 export type SkillScope = 'company' | 'employee';
 
-export type SkillSourceKind = 'authored' | 'installed' | 'forked' | 'synthesized';
+export type SkillSourceKind = 'authored' | 'installed' | 'forked' | 'synthesized' | 'self-authored';
 
 export interface SkillMetadata {
   id: string;

@@ -422,7 +422,12 @@ export type {
 export { CompositeToolExecutor } from './tools/composite-tool-executor.js';
 
 // --- Skills (two-tier: company-global + employee-specific) ---
-export { SkillLoader, SkillInstallError, encodeSkillSourceRef } from './skills/skill-loader.js';
+export {
+  SkillLoader,
+  SkillInstallError,
+  SkillScopeError,
+  encodeSkillSourceRef,
+} from './skills/skill-loader.js';
 export type {
   SkillLoaderDeps,
   InstallSkillArgs,
@@ -433,10 +438,20 @@ export type {
   SkillInstallSourceUpload,
   SkillInstallSourceClaudeCode,
   SkillInstallSourceCodex,
+  SkillInstallSourceSelfAuthored,
   SkillInstallSourceMarketplace,
 } from './skills/skill-loader.js';
-export { parseSkillMd, serializeSkillMd } from './skills/skill-md.js';
-export type { ParsedSkillMd, SerializeInput } from './skills/skill-md.js';
+export {
+  parseSkillMd,
+  parseSelfAuthoredSkillMd,
+  serializeSkillMd,
+  SkillFrontmatterError,
+} from './skills/skill-md.js';
+export type {
+  ParsedSkillMd,
+  SerializeInput,
+  SkillFrontmatterErrorReason,
+} from './skills/skill-md.js';
 export { skillSlug } from './skills/skill-slug.js';
 export { resolveSkillPath } from './skills/skill-path.js';
 export type { ResolveSkillPathArgs, ResolvedSkillPath } from './skills/skill-path.js';

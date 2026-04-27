@@ -36,15 +36,22 @@ function normalizeRetryableErrorMessage(message: string): string {
 
 function extractErrorHandlerMessage(messages: BaseMessage[] | undefined): string | null {
   if (!Array.isArray(messages)) return null;
-  const latestRetryableMessage = [...messages].reverse().find(
-    (message) =>
-      message?._getType() === 'ai' &&
-      typeof message.content === 'string' &&
-      message.content.startsWith('[Error Handler]'),
-  );
+  const latestRetryableMessage = [...messages]
+    .reverse()
+    .find(
+      (message) =>
+        message?._getType() === 'ai' &&
+        typeof message.content === 'string' &&
+        message.content.startsWith('[Error Handler]'),
+    );
   return latestRetryableMessage && typeof latestRetryableMessage.content === 'string'
     ? latestRetryableMessage.content
     : null;
+}
+
+function isRecursionLimitError(error: Error): boolean {
+  const text = `${error.name}: ${error.message}`.toLowerCase();
+  return text.includes('recursion') && text.includes('limit');
 }
 
 export interface SerializedExecutionState {
@@ -388,10 +395,14 @@ export class OrchestrationService {
     let llmCallCount = llmCallRepo ? (await llmCallRepo.findByThread(threadId)).length : 0;
     let mcpAuditCount = mcpAuditRepo ? (await mcpAuditRepo.listByThread(threadId)).length : 0;
     const nodeEnteredAt = new Map<string, number>();
+    let stepDispatcherEntryCount = 0;
     const unsubscribeNodeEntered = this.runtimeCtx.eventBus.on('graph.node.entered', (event) => {
       if (event.threadId !== threadId) return;
       if (typeof event.payload?.nodeName === 'string') {
         nodeEnteredAt.set(event.payload.nodeName, event.timestamp);
+        if (event.payload.nodeName === 'step_dispatcher') {
+          stepDispatcherEntryCount += 1;
+        }
       }
     });
 
@@ -450,6 +461,13 @@ export class OrchestrationService {
         return finalState as OffisimGraphState;
       }
       const original = error instanceof Error ? error : new Error(String(error));
+      if (isRecursionLimitError(original)) {
+        await this.emitDispatcherRecursionLimitDiagnostic(
+          threadId,
+          finalState as Partial<OffisimGraphState>,
+          stepDispatcherEntryCount,
+        );
+      }
       const contextMsg = lastNodeName
         ? `Graph execution failed in node "${lastNodeName}": ${original.message}`
         : `Graph execution failed: ${original.message}`;
@@ -535,6 +553,43 @@ export class OrchestrationService {
       handoffCount: 0,
       messages: restored.messages ?? [],
     };
+  }
+
+  private async emitDispatcherRecursionLimitDiagnostic(
+    threadId: string,
+    state: Partial<OffisimGraphState>,
+    recursionDepth: number,
+  ): Promise<void> {
+    const plan = state.taskPlan ?? null;
+    const completedSet = new Set(state.completedStepIndices ?? []);
+    const payload = {
+      planId: plan?.planId ?? null,
+      stepCount: plan?.steps.length ?? 0,
+      completedSteps: [...completedSet],
+      pendingSteps:
+        plan?.steps
+          .map((step) => step.stepIndex)
+          .filter((stepIndex) => !completedSet.has(stepIndex)) ?? [],
+      recursionDepth,
+    };
+    this.runtimeCtx.eventBus.emit({
+      type: 'sop.dispatcher.recursion_limit',
+      entityId: plan?.planId ?? threadId,
+      entityType: 'runtime',
+      companyId: this.runtimeCtx.companyId,
+      threadId,
+      timestamp: Date.now(),
+      payload,
+    });
+    await this.runtimeCtx.repos?.events?.insert({
+      event_id: `evt-${threadId}-dispatcher-recursion-${Date.now()}`,
+      company_id: this.runtimeCtx.companyId,
+      thread_id: threadId,
+      event_type: 'sop.dispatcher.recursion_limit',
+      severity: 'error',
+      payload_json: JSON.stringify(payload),
+      created_at: new Date().toISOString(),
+    });
   }
 
   private async checkWorkspaceStaleness(

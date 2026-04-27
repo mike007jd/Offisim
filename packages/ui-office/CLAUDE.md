@@ -33,6 +33,9 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - UI 文案密度: 副标题仅在标题本身有歧义时使用。删除营销文案、不要重复展示同一信息
 - Company 共享 primitive 在 `company-editor-primitives.tsx`, zone layout 在 `company-editor-layout.ts`
 - Chat 命令: `chat-commands.ts` 三类 (runtime/client/panel), 新增只加 `CHAT_COMMANDS`。@mention 不切 direct chat
+- Chat direct target SSOT：`ChatPanel` 里 direct chat 必须以 `selectedEmployeeId` 为唯一 dispatch target；缺失/错配要抛 `Direct chat target missing — selectedEmployeeId not propagated`，不要 fallback 到 active / first / boss employee。
+- Chat assistant commit SSOT：同一 `conversationKey + runId` 只能有一条 assistant message。streaming segment、abort/error、final response 都要收敛到 `finalizeAssistantMessage()`，不要在 UI 层靠隐藏重复气泡兜底。
+- `SkillInstallConfirmBubble` 支持 `action='install' | 'fork' | 'edit' | 'create'`；`create` 分支只预览 LLM 生成的完整 SKILL.md，不做 inline edit，frontmatter 错误只显示 reason + Retry/Cancel。
 - UI 全英文, 不要混入中文
 - `primeEventLogStore` 按 `EVENT_PREFIXES` 创建 per-prefix 订阅, cleanup 必须调 `disposeEventLogStore` (幂等)。`EVENT_PREFIXES` + `TYPE_PREFIX_MAP` 新增 filter 时同步
 - `useRegistryClient` baseUrl: localStorage → `VITE_PLATFORM_API_URL` → localhost:4100

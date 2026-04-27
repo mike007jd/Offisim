@@ -91,7 +91,7 @@ export function createMemoryRepositories(
   const projectsFamily = createProjectsMemoryRepos(snapshot);
   const agentEventsFamily = createAgentEventsMemoryRepos(snapshot);
   const deliverablesFamily = createDeliverablesMemoryRepos(snapshot, deliverableContentLoader);
-  const skillsFamily = createSkillsMemoryRepos();
+  const skillsFamily = createSkillsMemoryRepos(snapshot);
 
   const seed: MemoryRepositorySeed = {
     employees(rows) {
@@ -156,6 +156,7 @@ export function createMemoryRepositories(
         agentEvents: agentEventsFamily.agentEvents.snapshot(),
         recoveryKnowledge: agentEventsFamily.recoveryKnowledge.snapshot(),
         deliverables: deliverablesFamily.deliverables.snapshot(),
+        skills: skillsFamily.skills.snapshot(),
       };
     },
   };

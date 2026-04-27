@@ -44,6 +44,18 @@ export interface OffisimDebugBridge {
   ) => Promise<string | undefined>;
   /** Devtools helper for directly triggering install tools against the live runtime. */
   runSkillInstallTool?: (toolName: string, args?: Record<string, unknown>) => Promise<unknown>;
+  /** Devtools helper for fault-injection live verification of runtime send options. */
+  sendMessage?: (
+    text: string,
+    options?: {
+      targetEmployeeId?: string;
+      threadId?: string;
+      entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+      conversationKey?: string;
+    },
+  ) => Promise<string | undefined>;
+  /** Devtools helper for abort-path live verification. */
+  abortExecution?: () => void;
   sceneActions?: {
     moveEmployeeToMeeting?: (employeeId: string) => boolean;
     dispatchEmployeeToWorkspace?: (employeeId: string) => boolean;

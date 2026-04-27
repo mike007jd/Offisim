@@ -138,6 +138,7 @@ catalog/
 - Dev 端口锁定: web=5176, launcher=4200, platform=4100 (strictPort)
 - 修改 `shared-types` 后必须先 `pnpm --filter @offisim/shared-types build`
 - **验证命令按依赖顺序串行跑**: `shared-types -> ui-core -> core -> ui-office -> web`。不要并行跑 `core/ui-office/web`; `web build` 会读 `core/dist`，并行时容易拿到旧产物产生假失败/假通过。
+- **Tauri release CSP 与 platform dev origin 必须同步**: release `.app` 的 `connect-src` 至少包含 `http://localhost:4100` / `https://localhost:4100` / `tauri://localhost`，与 `apps/platform/src/startup.ts` 的 dev CORS 口径一起维护；不要为了过 CSP 放开任意 localhost 端口。
 - `tauri-repos.test.ts` 依赖 `@offisim/db-local` 构建产物
 - Linux/CI 必须 `--filter '!@offisim/desktop' --filter '!@offisim/launcher'` 跳过 Tauri
 - Three.js 非真实运行时对象可能不完整, 代码里要做 defensive cast / null guard, 不要假设测试环境会替你兜底

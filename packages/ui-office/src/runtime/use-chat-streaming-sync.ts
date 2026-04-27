@@ -15,10 +15,18 @@ const VISIBLE_STREAMING_NODES = new Set(['boss', 'boss_summary', 'employee', 'hr
  * Guards against double-commit: if the run was already terminated
  * (e.g., by execution.aborted arriving first), this is a no-op.
  */
-export function terminateRunWithError(): void {
+function terminateRun(status: 'failed' | 'interrupted'): void {
   const store = useChatSessionStore.getState();
   if (store.isActiveRunTerminated()) return;
-  store.terminateActiveRun({ status: 'failed' });
+  store.terminateActiveRun({ status });
+}
+
+export function terminateRunWithError(): void {
+  terminateRun('failed');
+}
+
+export function terminateRunAsInterrupted(): void {
+  terminateRun('interrupted');
 }
 
 export function useChatStreamingSync(eventBus: EventBus): void {
@@ -68,18 +76,23 @@ export function useChatStreamingSync(eventBus: EventBus): void {
         if (payload.status !== 'started' || payload.nodeName !== 'employee') {
           return;
         }
-        store.clearActiveRunStreamingContent();
+        store.commitToolCallCheckpoint();
       },
     );
 
+    const unsubInteractionRequested = eventBus.on('interaction.requested', () => {
+      useChatSessionStore.getState().commitToolCallCheckpoint();
+    });
+
     const unsubAborted = eventBus.on('execution.aborted', () => {
-      useChatSessionStore.getState().terminateActiveRun({ status: 'interrupted' });
+      terminateRunAsInterrupted();
     });
 
     return () => {
       unsubNodeEntered();
       unsubChunk();
       unsubTool();
+      unsubInteractionRequested();
       unsubAborted();
     };
   }, [eventBus]);

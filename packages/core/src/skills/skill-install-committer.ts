@@ -117,7 +117,11 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
         /* best-effort */
       }
     }
-    return { kind: 'installed', skillId: row.skill_id, wasExisting };
+    return {
+      kind: staged.action === 'create' ? 'created' : 'installed',
+      skillId: row.skill_id,
+      wasExisting,
+    };
   }
 
   private async commitEdit(

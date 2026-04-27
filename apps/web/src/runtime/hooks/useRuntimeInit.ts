@@ -1,14 +1,12 @@
 import {
   InMemoryEventBus,
-  TOOL_PERMISSION_REQUIRED,
   type McpServerConfig,
+  TOOL_PERMISSION_REQUIRED,
 } from '@offisim/core/browser';
 import { disposeRuntime } from '@offisim/core/dist/runtime/runtime-context.js';
 import type { NotificationBridge } from '@offisim/core/dist/services/notification-bridge.js';
-import {
-  AGENT_QUESTION_REQUIRED,
-  PLAN_REVIEW_REQUIRED,
-} from '@offisim/shared-types';
+import { AGENT_QUESTION_REQUIRED, PLAN_REVIEW_REQUIRED } from '@offisim/shared-types';
+import type { InteractionMode } from '@offisim/shared-types';
 import {
   type DeliverableHookRow,
   disposeEventLogStore,
@@ -16,10 +14,10 @@ import {
   loadProviderConfig,
   loadStoredBrowserMcpServers,
   mapDeliverableFullRowToHookRow,
+  terminateRunAsInterrupted,
   terminateRunWithError,
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
-import type { InteractionMode } from '@offisim/shared-types';
 import {
   type Dispatch,
   type MutableRefObject,
@@ -31,15 +29,15 @@ import {
 } from 'react';
 import type { RuntimeBundle } from '../../lib/browser-runtime';
 import {
-  loadBrowserRuntimeBootstrapState,
   type BrowserRuntimeBootstrapState,
+  loadBrowserRuntimeBootstrapState,
 } from '../../lib/browser-runtime-storage';
 import { listDesktopMcpServers } from '../../lib/desktop-mcp-registry';
 import { isNoCredentialError } from '../../lib/tauri-llm-fetch';
 import {
   type FailedRunState,
-  getFailedConversationKey,
   type LastFailedMessage,
+  getFailedConversationKey,
 } from '../last-failed-message';
 
 type DesktopMcpServerConfig = McpServerConfig & { registeredServerId?: string };
@@ -52,6 +50,16 @@ function isInteractionRequiredError(message: string): boolean {
   );
 }
 
+function isAbortLikeError(err: unknown, message: string): boolean {
+  return (
+    (err instanceof DOMException && err.name === 'AbortError') ||
+    (err instanceof Error && err.name === 'AbortError') ||
+    message === 'The operation was aborted.' ||
+    message === 'Request aborted' ||
+    message === 'Engine run aborted'
+  );
+}
+
 function parseExplicitUserMemory(text: string): string | null {
   const trimmed = text.trim();
   const prefixed = trimmed.match(/^remember(?:\s+this)?\s+user\s+(?:fact|preference)\s*:\s*(.+)$/i);
@@ -60,6 +68,9 @@ function parseExplicitUserMemory(text: string): string | null {
   if (rememberThat?.[1]) return `I ${rememberThat[1].trim()}`;
   return null;
 }
+
+const DIRECT_CHAT_TARGET_MISSING_ERROR =
+  'Direct chat target missing — selectedEmployeeId not propagated';
 
 async function buildRuntimeBundle(
   config: ProviderConfig | null,
@@ -220,16 +231,13 @@ export function useRuntimeInit({
     setFailedRunState(null);
   }, []);
 
-  const setRetryableFailedRun = useCallback(
-    (failedMessage: LastFailedMessage, message: string) => {
-      setFailedRunState({
-        ...failedMessage,
-        message,
-      });
-      setError(message);
-    },
-    [],
-  );
+  const setRetryableFailedRun = useCallback((failedMessage: LastFailedMessage, message: string) => {
+    setFailedRunState({
+      ...failedMessage,
+      message,
+    });
+    setError(message);
+  }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces fresh runtime; runtimeRef reads current
   const sendMessage = useCallback(
@@ -272,6 +280,9 @@ export function useRuntimeInit({
         }
         const entryMode =
           options?.entryMode ?? (options?.targetEmployeeId ? 'direct_chat' : 'boss_chat');
+        if (entryMode === 'direct_chat' && !options?.targetEmployeeId) {
+          throw new Error(DIRECT_CHAT_TARGET_MISSING_ERROR);
+        }
         const result = await runtime.orch.execute({
           entryMode,
           messages: [new HumanMessage(text)],
@@ -303,6 +314,11 @@ export function useRuntimeInit({
         };
         lastFailedMessageRef.current = nextFailedMessage;
         if (isInteractionRequiredError(message) && runtime?.interactionService?.getPending()) {
+          clearFailedRunError();
+          return undefined;
+        }
+        if (isAbortLikeError(err, message)) {
+          terminateRunAsInterrupted();
           clearFailedRunError();
           return undefined;
         }

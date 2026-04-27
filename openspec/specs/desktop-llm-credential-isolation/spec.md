@@ -3,9 +3,7 @@
 ## Purpose
 
 Defines the Tauri desktop credential-isolation contract for outbound LLM traffic. The webview must never receive provider secret bytes; Rust alone stores and reads the credential, injects it immediately before dispatch, and exposes only opaque status/set/clear commands to TypeScript. This spec also locks the Rust-side transport bridge shapes (`llm_fetch` for HTTP gateway traffic, `codex_agent_execute` for trusted Codex sidecars, and `claude_agent_execute` for trusted Claude sidecars) so desktop LLM behavior stays aligned with Offisim's runtime boundary while preserving the prompt-injection threat model.
-
 ## Requirements
-
 ### Requirement: Trusted hosts SHALL resolve credential strategy from product access mode
 
 On Tauri desktop, the trusted host SHALL resolve credential strategy from the selected product's `accessMode`.
@@ -144,3 +142,24 @@ The Rust side SHALL cancel the in-flight request via a per-request `tokio_util::
 - **WHEN** a `claude-agent-sdk` request is in flight and the caller aborts
 - **THEN** Rust receives `claude_agent_abort`, cancels the request token, and terminates the trusted host child process
 - **AND** the Channel emits no further `result` event after the abort
+
+### Requirement: Tauri release `.app` CSP SHALL allow platform endpoint origins
+
+The Tauri release `.app` Content-Security-Policy SHALL allow the same platform endpoint origins as `apps/platform/src/startup.ts` `DEV_DEFAULT_ORIGINS`. Specifically the CSP `connect-src` directive SHALL include:
+- `http://localhost:4100` (default platform dev API endpoint)
+- `tauri://localhost` (Tauri webview self-origin)
+- `https://localhost:4100` (TLS variant if enabled)
+
+Release-mode CSP SHALL NOT be stricter than dev-mode for these specific origins. The two MUST stay in sync — adding a new platform origin to dev allowlist requires the same addition to release CSP, enforced via spec scenario or a startup smoke check.
+
+If the user runs the desktop `.app` against a production platform endpoint (future), the CSP SHALL accept that origin via build-time env injection, not by relaxing the local-development allowlist.
+
+#### Scenario: Release `.app` reaches platform endpoint at localhost:4100
+
+- **WHEN** the user launches the release `.app` while `pnpm --filter @offisim/platform dev` is running on port 4100
+- **THEN** Market / Settings / external-employee install paths that fetch from `http://localhost:4100` succeed without CSP violation, matching dev `pnpm --filter @offisim/desktop dev` behavior
+
+#### Scenario: Non-allowlisted port is blocked
+
+- **WHEN** the release `.app` attempts to fetch from a non-allowlisted local port (e.g., `127.0.0.1:43177`)
+- **THEN** the request is blocked by CSP and the failure surfaces as a typed network error in the UI (not a silent stall)

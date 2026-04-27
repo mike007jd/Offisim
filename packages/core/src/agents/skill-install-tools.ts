@@ -1,5 +1,6 @@
 import type {
   InteractionRequest,
+  SkillFrontmatterErrorPayload,
   SkillInstallConfirmBodyDiff,
   SkillInstallConfirmParent,
   SkillInstallSourceKind,
@@ -7,7 +8,11 @@ import type {
 import type { ToolDef } from '../llm/gateway.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { SkillInstallSource } from '../skills/skill-loader.js';
-import { parseSkillMd } from '../skills/skill-md.js';
+import {
+  SkillFrontmatterError,
+  parseSelfAuthoredSkillMd,
+  parseSkillMd,
+} from '../skills/skill-md.js';
 import { resolveClaudeCodeSync } from '../skills/skill-source-resolvers/claude-code.js';
 import { resolveCodexSync } from '../skills/skill-source-resolvers/codex.js';
 import { resolveGitSource } from '../skills/skill-source-resolvers/git.js';
@@ -26,6 +31,7 @@ export const SKILL_INSTALL_TOOL_NAMES = [
   'sync_from_codex',
   'fork_skill',
   'edit_skill_body',
+  'create_skill_from_scratch',
 ] as const;
 export type SkillInstallToolName = (typeof SKILL_INSTALL_TOOL_NAMES)[number];
 
@@ -46,18 +52,17 @@ const TARGET_EMPLOYEE_PARAM = {
 export const SKILL_INSTALL_TOOL_DEFS: readonly ToolDef[] = Object.freeze([
   {
     name: 'install_skill_from_git',
-    description:
-      [
-        'Install a SKILL.md skill from a git repository. Always routes through a user confirmation preview — the tool itself never writes to disk.',
-        'COMMON CASE — user says "install <NAME> from github.com/<owner>/<repo>":',
-        '  • Pass `url = https://github.com/<owner>/<repo>` and `subpath = <NAME>`.',
-        '  • Do NOT put <NAME> into `ref`. `ref` is only for a git branch / tag / commit SHA (e.g. "main", "v1.2", "abc123").',
-        '  • Example: user says "装 do-research from github.com/anthropics/skills"',
-        '    → call `{ url: "https://github.com/anthropics/skills", subpath: "do-research" }`. NOT `{ url, ref: "do-research" }`.',
-        'If you call without `subpath` and the repo has multiple SKILL.md files, the tool returns',
-        '`{ kind: "skill-scanner-ambiguous", candidates: [{path: "<dir>/"}, …] }`. On that error you MUST retry the same tool',
-        'with `subpath` set to one of the candidate directory names (strip the trailing "/") — do NOT put the candidate name into `ref`.',
-      ].join('\n'),
+    description: [
+      'Install a SKILL.md skill from a git repository. Always routes through a user confirmation preview — the tool itself never writes to disk.',
+      'COMMON CASE — user says "install <NAME> from github.com/<owner>/<repo>":',
+      '  • Pass `url = https://github.com/<owner>/<repo>` and `subpath = <NAME>`.',
+      '  • Do NOT put <NAME> into `ref`. `ref` is only for a git branch / tag / commit SHA (e.g. "main", "v1.2", "abc123").',
+      '  • Example: user says "装 do-research from github.com/anthropics/skills"',
+      '    → call `{ url: "https://github.com/anthropics/skills", subpath: "do-research" }`. NOT `{ url, ref: "do-research" }`.',
+      'If you call without `subpath` and the repo has multiple SKILL.md files, the tool returns',
+      '`{ kind: "skill-scanner-ambiguous", candidates: [{path: "<dir>/"}, …] }`. On that error you MUST retry the same tool',
+      'with `subpath` set to one of the candidate directory names (strip the trailing "/") — do NOT put the candidate name into `ref`.',
+    ].join('\n'),
     parameters: {
       type: 'object',
       properties: {
@@ -84,12 +89,11 @@ export const SKILL_INSTALL_TOOL_DEFS: readonly ToolDef[] = Object.freeze([
   },
   {
     name: 'install_skill_from_upload',
-    description:
-      [
-        'Install a SKILL.md skill from a user-uploaded archive (zip / tar.gz) or a standalone SKILL.md. Always routes through a user confirmation preview.',
-        'If the archive contains multiple SKILL.md files under different directories, call without `subpath` first; the tool returns',
-        '`{ kind: "upload-multiple-skills", candidates: [{path: "<dir>/"}, …] }` and you MUST retry with `subpath` set to one of those directory names.',
-      ].join('\n'),
+    description: [
+      'Install a SKILL.md skill from a user-uploaded archive (zip / tar.gz) or a standalone SKILL.md. Always routes through a user confirmation preview.',
+      'If the archive contains multiple SKILL.md files under different directories, call without `subpath` first; the tool returns',
+      '`{ kind: "upload-multiple-skills", candidates: [{path: "<dir>/"}, …] }` and you MUST retry with `subpath` set to one of those directory names.',
+    ].join('\n'),
     parameters: {
       type: 'object',
       properties: {
@@ -140,14 +144,13 @@ export const SKILL_INSTALL_TOOL_DEFS: readonly ToolDef[] = Object.freeze([
   },
   {
     name: 'fork_skill',
-    description:
-      [
-        'Copy a COMPANY-scope skill into the calling employee\'s own employee-scope bucket.',
-        'Use when the user says "fork <skill> for me" / "make my own version of <skill>". After fork the employee can call `edit_skill_body` to customize the body.',
-        '`skillId` MUST reference an existing company-scope skill (look it up via the skills catalog in the system prompt).',
-        '`targetEmployeeId` is optional — when omitted the fork targets the calling employee. A non-empty value MUST equal the calling employee id; cross-employee forks are rejected with `cross-employee-forbidden`.',
-        'Always routes through a user confirmation preview — the tool itself never writes to disk.',
-      ].join('\n'),
+    description: [
+      "Copy a COMPANY-scope skill into the calling employee's own employee-scope bucket.",
+      'Use when the user says "fork <skill> for me" / "make my own version of <skill>". After fork the employee can call `edit_skill_body` to customize the body.',
+      '`skillId` MUST reference an existing company-scope skill (look it up via the skills catalog in the system prompt).',
+      '`targetEmployeeId` is optional — when omitted the fork targets the calling employee. A non-empty value MUST equal the calling employee id; cross-employee forks are rejected with `cross-employee-forbidden`.',
+      'Always routes through a user confirmation preview — the tool itself never writes to disk.',
+    ].join('\n'),
     parameters: {
       type: 'object',
       properties: {
@@ -167,13 +170,12 @@ export const SKILL_INSTALL_TOOL_DEFS: readonly ToolDef[] = Object.freeze([
   },
   {
     name: 'edit_skill_body',
-    description:
-      [
-        'Rewrite the BODY of one of YOUR OWN employee-scope skills. Frontmatter (name / description / allowedTools / license / version) is preserved automatically — do not put `---` frontmatter blocks in `newBody`.',
-        'Use when the user says "simplify my <skill>", "tighten <skill>", "add a rule to my <skill>", etc.',
-        '`skillId` MUST reference an EMPLOYEE-scope skill you own; editing company-scope or other employees\' skills is rejected (`company-scope-forbidden` / `not-skill-owner`).',
-        '`newBody` MUST be the full replacement body (≥ 10 bytes, ≤ 64 KiB, no frontmatter prefix). Always routes through a user confirmation preview with a side-by-side diff.',
-      ].join('\n'),
+    description: [
+      'Rewrite the BODY of one of YOUR OWN employee-scope skills. Frontmatter (name / description / allowedTools / license / version) is preserved automatically — do not put `---` frontmatter blocks in `newBody`.',
+      'Use when the user says "simplify my <skill>", "tighten <skill>", "add a rule to my <skill>", etc.',
+      "`skillId` MUST reference an EMPLOYEE-scope skill you own; editing company-scope or other employees' skills is rejected (`company-scope-forbidden` / `not-skill-owner`).",
+      '`newBody` MUST be the full replacement body (≥ 10 bytes, ≤ 64 KiB, no frontmatter prefix). Always routes through a user confirmation preview with a side-by-side diff.',
+    ].join('\n'),
     parameters: {
       type: 'object',
       properties: {
@@ -191,6 +193,29 @@ export const SKILL_INSTALL_TOOL_DEFS: readonly ToolDef[] = Object.freeze([
       required: ['skillId', 'newBody'],
     },
   },
+  {
+    name: 'create_skill_from_scratch',
+    description: [
+      'Create a new employee-scope skill from a full LLM-authored SKILL.md document. Always routes through a user confirmation preview — the tool itself never writes to disk.',
+      '`skillBody` MUST include the YAML frontmatter block and markdown body. Required frontmatter: name, description. Optional: allowedTools, license, version. Unknown fields and offisim.* private fields are rejected.',
+      '`targetEmployeeId` is optional. If provided, it MUST equal your own employee id; creating skills for a different employee is rejected.',
+    ].join('\n'),
+    parameters: {
+      type: 'object',
+      properties: {
+        skillBody: {
+          type: 'string',
+          description: 'Full SKILL.md text including frontmatter and markdown body.',
+        },
+        targetEmployeeId: {
+          type: 'string',
+          description:
+            'OPTIONAL. Leave blank to create for yourself. If provided, MUST equal your own employee id.',
+        },
+      },
+      required: ['skillBody'],
+    },
+  },
 ]);
 
 export function buildSkillInstallTools(): ToolDef[] {
@@ -205,6 +230,8 @@ interface CommonArgs {
   scope?: 'company' | 'employee';
   targetEmployeeId?: string;
 }
+
+type StagedSkillAction = 'install' | 'fork' | 'create';
 
 function validateScope(
   args: CommonArgs,
@@ -281,8 +308,8 @@ async function resolveTargetEmployee(
   const all = await ctx.repos.employees.findByCompany(ctx.companyId);
   const matches = all.filter((row) => row.name.trim().toLowerCase() === normalized);
   if (matches.length === 1) {
-    const only = matches[0]!;
-    return { ok: true, id: only.employee_id, name: only.name };
+    const [only] = matches;
+    if (only) return { ok: true, id: only.employee_id, name: only.name };
   }
   if (matches.length > 1) {
     return {
@@ -321,6 +348,37 @@ function logForkEditError(scope: string, err: unknown): void {
   }
 }
 
+function buildSkillInstallConfirmCopy(args: {
+  action: StagedSkillAction;
+  skillName: string;
+  scope: 'company' | 'employee';
+  targetLabel: string;
+  parent?: SkillInstallConfirmParent | undefined;
+}): { title: string; prompt: string; confirmLabel: string } {
+  switch (args.action) {
+    case 'create':
+      return {
+        title: `Create skill "${args.skillName}"?`,
+        prompt: `Confirm creation of "${args.skillName}" for ${args.targetLabel}.`,
+        confirmLabel: 'Create skill',
+      };
+    case 'fork':
+      return {
+        title: `Fork skill "${args.skillName}"?`,
+        prompt: `Confirm fork of "${args.parent?.name ?? args.skillName}@${args.parent?.version ?? ''} into ${args.targetLabel}.`,
+        confirmLabel: 'Fork',
+      };
+    case 'install':
+      return {
+        title: `Install skill "${args.skillName}"?`,
+        prompt: `Confirm installation of "${args.skillName}" into ${
+          args.scope === 'company' ? 'the whole company.' : `${args.targetLabel}.`
+        }`,
+        confirmLabel: 'Install',
+      };
+  }
+}
+
 async function stageAndEmit(args: {
   ctx: RuntimeContext;
   tree: VirtualTree;
@@ -331,9 +389,10 @@ async function stageAndEmit(args: {
   employeeName: string | null;
   tmpPath?: string | undefined;
   cleanup?: (() => Promise<void>) | undefined;
-  /** `'fork'` when copying a company-scope parent into an employee bucket; defaults to `'install'`. */
-  action?: 'install' | 'fork';
+  /** `'fork'` / `'create'` employee-scope mutations; defaults to `'install'`. */
+  action?: StagedSkillAction;
   parent?: SkillInstallConfirmParent;
+  modelKey?: string | undefined;
 }): Promise<
   | { status: 'pending-confirm'; interactionId: string; stagingRef: string }
   | { kind: string; message: string }
@@ -368,7 +427,7 @@ async function stageAndEmit(args: {
     logForkEditError('stageAndEmit/decode-skillmd', err);
     throw err;
   }
-  let parsed;
+  let parsed: ReturnType<typeof parseSkillMd>;
   try {
     parsed = parseSkillMd(skillMdText);
   } catch (err) {
@@ -379,8 +438,9 @@ async function stageAndEmit(args: {
     };
   }
 
-  const stagedAction: 'install' | 'fork' = args.action ?? (args.source.kind === 'fork' ? 'fork' : 'install');
-  let staged;
+  const stagedAction: StagedSkillAction =
+    args.action ?? (args.source.kind === 'fork' ? 'fork' : 'install');
+  let staged: { stagingRef: string };
   try {
     staged = stagingManager.put({
       action: stagedAction,
@@ -403,27 +463,25 @@ async function stageAndEmit(args: {
   }
 
   const sourceRefLabel = describeSource(args.source);
-  const isForkAction = stagedAction === 'fork';
+  const isCreateAction = stagedAction === 'create';
   const targetLabel = args.employeeName ?? 'the selected employee';
-  const title = isForkAction
-    ? `Fork skill "${parsed.name}"?`
-    : `Install skill "${parsed.name}"?`;
-  const prompt = isForkAction
-    ? `Confirm fork of "${args.parent?.name ?? parsed.name}@${args.parent?.version ?? ''} into ${targetLabel}.`
-    : `Confirm installation of "${parsed.name}" into ` +
-      (args.scope === 'company' ? 'the whole company.' : `${targetLabel}.`);
-  const confirmLabel = isForkAction ? 'Fork' : 'Install';
+  const copy = buildSkillInstallConfirmCopy({
+    action: stagedAction,
+    skillName: parsed.name,
+    scope: args.scope,
+    targetLabel,
+    parent: args.parent,
+  });
   const request: InteractionRequest = {
     interactionId: generateId('ix'),
     threadId: ctx.threadId,
     companyId: ctx.companyId,
     kind: 'skill_install_confirm',
-    severity:
-      parsed.allowedTools && parsed.allowedTools.some(isWideScopePattern) ? 'high' : 'normal',
-    title,
-    prompt,
+    severity: parsed.allowedTools?.some(isWideScopePattern) ? 'high' : 'normal',
+    title: copy.title,
+    prompt: copy.prompt,
     options: [
-      { id: 'confirm', label: confirmLabel },
+      { id: 'confirm', label: copy.confirmLabel },
       { id: 'cancel', label: 'Cancel' },
     ],
     allowFreeformResponse: false,
@@ -441,6 +499,7 @@ async function stageAndEmit(args: {
       resolvedEmployeeName: args.employeeName,
       assetPaths: scan.assetPaths,
       skillMdBody: parsed.body,
+      ...(isCreateAction ? { skillMdText, slug: parsed.name, modelKey: args.modelKey } : {}),
       action: stagedAction,
       ...(args.parent !== undefined ? { parent: args.parent } : {}),
     },
@@ -497,7 +556,7 @@ async function stageEditAndEmit(args: {
     };
   }
 
-  let staged;
+  let staged: { stagingRef: string };
   try {
     staged = stagingManager.put({
       action: 'edit',
@@ -559,6 +618,74 @@ async function stageEditAndEmit(args: {
   };
 }
 
+function toFrontmatterPayload(err: SkillFrontmatterError): SkillFrontmatterErrorPayload {
+  return {
+    reason: err.reason,
+    detail: err.detail,
+    ...(err.field !== undefined ? { field: err.field } : {}),
+  };
+}
+
+async function emitSelfAuthoringFrontmatterError(args: {
+  ctx: RuntimeContext;
+  skillBody: string;
+  employeeId: string;
+  employeeName: string | null;
+  modelKey: string;
+  error: SkillFrontmatterError;
+}): Promise<{ kind: string; message: string; reason: string; interactionId?: string }> {
+  const interactionService = args.ctx.interactionService;
+  if (!interactionService) {
+    return {
+      kind: 'skill-frontmatter-error',
+      reason: args.error.reason,
+      message: args.error.detail,
+    };
+  }
+
+  const request: InteractionRequest = {
+    interactionId: generateId('ix'),
+    threadId: args.ctx.threadId,
+    companyId: args.ctx.companyId,
+    kind: 'skill_install_confirm',
+    severity: 'normal',
+    title: 'Skill frontmatter needs revision',
+    prompt: args.error.detail,
+    options: [
+      { id: 'retry', label: 'Retry' },
+      { id: 'cancel', label: 'Cancel' },
+    ],
+    allowFreeformResponse: false,
+    requestedByNode: 'employee-node',
+    context: {
+      type: 'skill_install_confirm',
+      stagingRef: `invalid-${generateId('stg')}`,
+      skillName: 'Invalid SKILL.md',
+      skillDescription: 'The generated SKILL.md did not pass the self-authoring whitelist.',
+      allowedTools: [],
+      sourceKind: 'self-authored',
+      sourceRef: `llm-author:${args.modelKey}`,
+      resolvedScope: 'employee',
+      resolvedEmployeeId: args.employeeId,
+      resolvedEmployeeName: args.employeeName,
+      assetPaths: [],
+      skillMdBody: '',
+      skillMdText: args.skillBody,
+      modelKey: args.modelKey,
+      frontmatterError: toFrontmatterPayload(args.error),
+      action: 'create',
+    },
+    createdAt: Date.now(),
+  };
+  await interactionService.request(request);
+  return {
+    kind: 'skill-frontmatter-error',
+    reason: args.error.reason,
+    message: args.error.detail,
+    interactionId: request.interactionId,
+  };
+}
+
 function isWideScopePattern(pattern: string): boolean {
   return /^(bash|network|fs|exec)(:|\*)/iu.test(pattern);
 }
@@ -579,6 +706,8 @@ function describeSource(source: SkillInstallSource): string {
       return source.path;
     case 'fork':
       return `company-skill:${source.parentSkillId}@${source.parentVersion}`;
+    case 'self-authored':
+      return `llm-author:${source.modelKey}`;
   }
 }
 
@@ -603,9 +732,16 @@ export async function handleSkillInstallTool(
   rawArgs: Record<string, unknown>,
   ctx: RuntimeContext,
   callerEmployeeId: string,
+  callerModelKey = 'unknown/unknown',
 ): Promise<string> {
   try {
-    return await handleSkillInstallToolInner(toolName, rawArgs, ctx, callerEmployeeId);
+    return await handleSkillInstallToolInner(
+      toolName,
+      rawArgs,
+      ctx,
+      callerEmployeeId,
+      callerModelKey,
+    );
   } catch (err) {
     // Top-level catch so a T2.3 bug doesn't crash the tool-round promise. Stack
     // is dumped to DevTools for live-verify diagnosis; LLM receives a
@@ -623,6 +759,7 @@ async function handleSkillInstallToolInner(
   rawArgs: Record<string, unknown>,
   ctx: RuntimeContext,
   callerEmployeeId: string,
+  callerModelKey: string,
 ): Promise<string> {
   // Fork / edit have their own dispatch — no install environment required.
   if (toolName === 'fork_skill') {
@@ -630,6 +767,9 @@ async function handleSkillInstallToolInner(
   }
   if (toolName === 'edit_skill_body') {
     return handleEditSkillBody(rawArgs, ctx, callerEmployeeId);
+  }
+  if (toolName === 'create_skill_from_scratch') {
+    return handleCreateSkillFromScratch(rawArgs, ctx, callerEmployeeId, callerModelKey);
   }
 
   const env = ctx.skillInstallEnvironment;
@@ -652,9 +792,10 @@ async function handleSkillInstallToolInner(
       const url = String(rawArgs.url ?? '');
       if (!url) return JSON.stringify({ kind: 'missing-argument', message: 'url is required.' });
       const ref = typeof rawArgs.ref === 'string' ? rawArgs.ref : undefined;
-      const subpath = typeof rawArgs.subpath === 'string' && rawArgs.subpath.length > 0
-        ? rawArgs.subpath
-        : undefined;
+      const subpath =
+        typeof rawArgs.subpath === 'string' && rawArgs.subpath.length > 0
+          ? rawArgs.subpath
+          : undefined;
       const result = await resolveGitSource(
         { url, ref, subpath },
         {
@@ -665,6 +806,8 @@ async function handleSkillInstallToolInner(
         },
       );
       if (isResolverError(result)) return JSON.stringify(result);
+      const tmpPath = result.tmpPath;
+      const gitFs = env.gitFs;
       const staged = await stageAndEmit({
         ctx,
         tree: result.tree,
@@ -678,10 +821,8 @@ async function handleSkillInstallToolInner(
         scope: commonCheck.scope,
         employeeId: resolvedEmployeeId,
         employeeName: target.name,
-        ...(result.tmpPath !== undefined ? { tmpPath: result.tmpPath } : {}),
-        ...(result.tmpPath !== undefined && env.gitFs
-          ? { cleanup: () => env.gitFs!.cleanup(result.tmpPath!) }
-          : {}),
+        ...(tmpPath !== undefined ? { tmpPath } : {}),
+        ...(tmpPath !== undefined && gitFs ? { cleanup: () => gitFs.cleanup(tmpPath) } : {}),
       });
       return JSON.stringify(staged);
     }
@@ -703,9 +844,10 @@ async function handleSkillInstallToolInner(
           message: `Upload ref "${fileRef}" not found.`,
         });
       }
-      const subpath = typeof rawArgs.subpath === 'string' && rawArgs.subpath.length > 0
-        ? rawArgs.subpath
-        : undefined;
+      const subpath =
+        typeof rawArgs.subpath === 'string' && rawArgs.subpath.length > 0
+          ? rawArgs.subpath
+          : undefined;
       const result = resolveUploadSource({
         filename: payload.filename,
         bytes: payload.bytes,
@@ -770,6 +912,7 @@ async function handleSkillInstallToolInner(
 const MAX_EDIT_BODY_BYTES = 64 * 1024;
 const MIN_EDIT_BODY_BYTES = 10;
 const BODY_PREVIEW_LIMIT = 160;
+const MAX_CREATE_SKILL_BYTES = 96 * 1024;
 
 /**
  * Truncate to at most `limit` UTF-16 code units with a trailing ellipsis when
@@ -785,6 +928,85 @@ function encodedByteLength(text: string): number {
     return new TextEncoder().encode(text).length;
   }
   return text.length;
+}
+
+async function handleCreateSkillFromScratch(
+  rawArgs: Record<string, unknown>,
+  ctx: RuntimeContext,
+  callerEmployeeId: string,
+  modelKey: string,
+): Promise<string> {
+  const skillBody = typeof rawArgs.skillBody === 'string' ? rawArgs.skillBody : '';
+  if (!skillBody.trim()) {
+    return JSON.stringify({ kind: 'missing-argument', message: 'skillBody is required.' });
+  }
+  if (encodedByteLength(skillBody) > MAX_CREATE_SKILL_BYTES) {
+    return JSON.stringify({
+      kind: 'skill-body-too-large',
+      message: `skillBody must be ≤ ${MAX_CREATE_SKILL_BYTES} bytes.`,
+    });
+  }
+
+  const targetEmployeeIdRaw =
+    typeof rawArgs.targetEmployeeId === 'string' ? rawArgs.targetEmployeeId.trim() : '';
+  if (targetEmployeeIdRaw && targetEmployeeIdRaw !== callerEmployeeId) {
+    return JSON.stringify({
+      kind: 'target-employee-mismatch',
+      message: 'Skill author must match the active chat employee',
+    });
+  }
+
+  const employeeRow = await ctx.repos.employees.findById(callerEmployeeId).catch(() => null);
+  if (!employeeRow || employeeRow.company_id !== ctx.companyId) {
+    return JSON.stringify({
+      kind: 'target-employee-not-found',
+      message: `Employee ${callerEmployeeId} not found in company ${ctx.companyId}.`,
+    });
+  }
+
+  try {
+    parseSelfAuthoredSkillMd(skillBody);
+  } catch (err) {
+    const frontmatterError =
+      err instanceof SkillFrontmatterError
+        ? err
+        : new SkillFrontmatterError(
+            'invalid-yaml',
+            err instanceof Error ? err.message : String(err),
+          );
+    const emitted = await emitSelfAuthoringFrontmatterError({
+      ctx,
+      skillBody,
+      employeeId: employeeRow.employee_id,
+      employeeName: employeeRow.name,
+      modelKey,
+      error: frontmatterError,
+    });
+    return JSON.stringify(emitted);
+  }
+
+  const tree: VirtualTree = {
+    files: [{ path: 'SKILL.md', content: new TextEncoder().encode(skillBody) }],
+  };
+  const scan: ScannedSkill = {
+    root: '',
+    skillMdPath: 'SKILL.md',
+    assetPaths: [],
+  };
+
+  return JSON.stringify(
+    await stageAndEmit({
+      ctx,
+      tree,
+      scan,
+      source: { kind: 'self-authored', modelKey },
+      scope: 'employee',
+      employeeId: employeeRow.employee_id,
+      employeeName: employeeRow.name,
+      action: 'create',
+      modelKey,
+    }),
+  );
 }
 
 async function handleForkSkill(
@@ -815,7 +1037,7 @@ async function handleForkSkill(
     });
   }
 
-  let parentRow;
+  let parentRow: Awaited<ReturnType<typeof skillsRepo.findById>>;
   try {
     parentRow = await skillsRepo.findById(skillId);
   } catch (err) {
@@ -840,7 +1062,7 @@ async function handleForkSkill(
     });
   }
 
-  let bundle;
+  let bundle: Awaited<ReturnType<typeof skillLoader.readSkillDirectory>>;
   try {
     bundle = await skillLoader.readSkillDirectory(skillId);
   } catch (err) {
@@ -875,7 +1097,7 @@ async function handleForkSkill(
     throw err;
   }
 
-  let targetEmployeeRow;
+  let targetEmployeeRow: Awaited<ReturnType<typeof ctx.repos.employees.findById>>;
   try {
     targetEmployeeRow = await ctx.repos.employees.findById(callerEmployeeId);
   } catch (err) {
@@ -945,11 +1167,12 @@ async function handleEditSkillBody(
     return JSON.stringify({
       kind: 'invalid-new-body',
       reason: 'frontmatter-in-body',
-      message: 'newBody must not begin with a `---` frontmatter block; frontmatter is preserved automatically.',
+      message:
+        'newBody must not begin with a `---` frontmatter block; frontmatter is preserved automatically.',
     });
   }
 
-  let row;
+  let row: Awaited<ReturnType<typeof skillsRepo.findById>>;
   try {
     row = await skillsRepo.findById(skillId);
   } catch (err) {
@@ -993,7 +1216,7 @@ async function handleEditSkillBody(
     });
   }
 
-  let employeeRow;
+  let employeeRow: Awaited<ReturnType<typeof ctx.repos.employees.findById>>;
   try {
     employeeRow = await ctx.repos.employees.findById(callerEmployeeId);
   } catch (err) {

@@ -357,9 +357,18 @@ async fn do_execute<R: tauri::Runtime>(
         ))
     })?;
 
-    let stdin = take_child_pipe(child.stdin.take(), "Trusted Codex lane host is missing stdin")?;
-    let stdout = take_child_pipe(child.stdout.take(), "Trusted Codex lane host is missing stdout")?;
-    let stderr = take_child_pipe(child.stderr.take(), "Trusted Codex lane host is missing stderr")?;
+    let stdin = take_child_pipe(
+        child.stdin.take(),
+        "Trusted Codex lane host is missing stdin",
+    )?;
+    let stdout = take_child_pipe(
+        child.stdout.take(),
+        "Trusted Codex lane host is missing stdout",
+    )?;
+    let stderr = take_child_pipe(
+        child.stderr.take(),
+        "Trusted Codex lane host is missing stderr",
+    )?;
 
     let payload_json = serde_json::to_vec(&payload)
         .map_err(|e| HostError::Request(format!("Serialize trusted host payload: {e}")))?;

@@ -132,11 +132,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     [isRunning, version],
   );
 
-  const shouldExposeDebugBridge =
-    import.meta.env.DEV ||
-    (typeof window !== 'undefined' &&
-      typeof (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !==
-        'undefined');
+  const shouldExposeDebugBridge = import.meta.env.DEV;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: version forces reinit; runtimeRef reads current
   const value = useMemo<OffisimRuntimeValue>(() => {
@@ -163,6 +159,8 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
             return raw;
           }
         },
+        sendMessage,
+        abortExecution,
         getSceneState:
           existingGetSceneState ??
           (() => {
@@ -223,14 +221,14 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       respondToInteraction,
       desktopVaultRoot: runtime?.desktopVaultRoot ?? null,
       getVaultDirectoryStatus: runtime?.browserVault
-        ? () => runtime.browserVault!.getStatus() as Promise<VaultDirectoryStatus>
+        ? () => runtime.browserVault?.getStatus() as Promise<VaultDirectoryStatus>
         : undefined,
       mountVaultDirectory: runtime?.browserVault
         ? (handle?: FileSystemDirectoryHandle) =>
-            runtime.browserVault!.mount(handle) as Promise<VaultDirectoryStatus>
+            runtime.browserVault?.mount(handle) as Promise<VaultDirectoryStatus>
         : undefined,
       unmountVaultDirectory: runtime?.browserVault
-        ? () => runtime.browserVault!.unmount() as Promise<VaultDirectoryStatus>
+        ? () => runtime.browserVault?.unmount() as Promise<VaultDirectoryStatus>
         : undefined,
       exportVaultSnapshotZip: undefined,
       listRecentDeliverables,

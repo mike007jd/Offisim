@@ -25,6 +25,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - `companies.default_model_policy_json` 实际存公司描述, 字段名误导但不可重命名
 - Role 统一 `RoleSlug` branded type (shared-types/roles.ts)
 - `getExecutionBatches()` 是 `SopService.getExecutionOrder()` 本地副本, 两处必须同步
+- `step_dispatcher` / `step_advance` 终态必须共同认 `areAllPlanStepsTerminal()`；所有 step terminal 后只能进 `boss_summary`，不能再在 dispatcher/advance 间自循环。未来若又撞 LangGraph recursion limit，先看 `sop.dispatcher.recursion_limit` runtime event payload。
 - `PlanCreatedPayload.sopTemplateId` 贯穿 core→UI, 新增字段注意链路完整性
 - Marketplace 安装：employee 已物化；skill 作为一等 asset（T2.1 `add-skills-foundation-two-tier-schema`）schema + SkillLoader + 两层 scope + publish/install/fork/edit 主路径已落地；剩余主要是 UX 和 evidence 收口。sop / company_template / office_layout / prefab 仍未完成。Skill 不再嵌入 `employee.config_json.runtimeSkill`（该字段已删）
 - `GitAutoCommitService` 桌面端专用, 浏览器 no-op
@@ -51,6 +52,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - 旧 `runtimeSkill` 迁移：`migrateRuntimeSkills()` 扫全员 `config_json.runtimeSkill` → 生成员工 scope SKILL.md + 插 row（`source_kind='synthesized'`, `source_ref='legacy:runtimeSkill'`），strip 原字段。Guard 在 `settings.skills_migration_v1_done`（`settings` key-value 表也是 025 加的）
 - 员工 prompt 装配：`employee-prompt-assembly.ts` 在 skillLoader 可用时注入 `## Available skills` 块（description 截 200 UTF-16）；列表空则整段不输出。**本次不注册 `activate_skill` 工具**（纯 tier-1 informational）
 - `employee-tool-kit.ts` 在 `skillStagingManager` + `skillLoader` 可用时注册 skill install/fork/edit 工具；skills 本体仍通过 prompt 的 `## Available skills` 暴露，不走 activation tool
+- `create_skill_from_scratch` 是 self-authoring 唯一入口：LLM 产完整 SKILL.md → `parseSelfAuthoredSkillMd` 白名单 → staging preview (`action='create'`) → `SkillInstallCommitter` → employee-scope vault + `skills.source_kind='self-authored'` / `source_ref='llm-author:<modelKey>'`。self-authored 禁 company scope。
 - **Fork + edit API（T2.3）**：
   - `installSkill` 加 `source: { kind: 'fork', parentSkillId, parentVersion }` 变体 — 同 `installSkill` 入口，`scope='company' + source.kind='fork'` 会抛 `scope-target-conflict`（spec skill-fork-and-edit scenario 2）；`source_kind='forked'` + `source_ref='company-skill:<pid>@<pver>'`
   - `readSkillDirectory(skillId)` 批量读 SKILL.md + `scripts/`/`references/`/`assets/` 全树（深度遍历），fork 用来 snapshot parent

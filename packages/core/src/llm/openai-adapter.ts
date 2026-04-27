@@ -54,6 +54,17 @@ function mapToolDefs(
   }));
 }
 
+function mapToolChoice(
+  choice: LlmRequest['toolChoice'],
+): OpenAI.Chat.Completions.ChatCompletionToolChoiceOption | undefined {
+  if (!choice) return undefined;
+  if (choice === 'auto' || choice === 'none') return choice;
+  return {
+    type: 'function',
+    function: { name: choice.name },
+  };
+}
+
 /**
  * Convert our LlmMessage[] to OpenAI's message format.
  * Handles assistant tool_calls and tool result messages properly.
@@ -145,6 +156,7 @@ export class OpenAiAdapter implements LlmGateway {
           temperature: request.temperature,
           messages: mapMessages(request.messages),
           tools: mapToolDefs(request.tools),
+          tool_choice: mapToolChoice(request.toolChoice),
         },
         { signal: request.signal, timeout: request.timeoutMs ?? 60_000 },
       );
@@ -173,6 +185,7 @@ export class OpenAiAdapter implements LlmGateway {
           temperature: request.temperature,
           messages: mapMessages(request.messages),
           tools: mapToolDefs(request.tools),
+          tool_choice: mapToolChoice(request.toolChoice),
           stream: true,
           // stream_options.include_usage is an OpenAI extension;
           // not all compat endpoints support it. When omitted, usage will be undefined.

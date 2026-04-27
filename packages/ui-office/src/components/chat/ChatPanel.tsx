@@ -72,6 +72,9 @@ interface ChatPanelProps {
 }
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
+const DIRECT_CHAT_TARGET_MISSING_ERROR =
+  'Direct chat target missing — selectedEmployeeId not propagated';
+
 function genMsgId(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? `msg-${crypto.randomUUID()}`
@@ -99,6 +102,17 @@ function resolveInteractionTargetEmployeeId(
     return request.context.resolvedEmployeeId ?? null;
   }
   return request.employeeId ?? null;
+}
+
+function resolveDirectChatTarget(
+  selectedEmployeeId: string | null | undefined,
+  candidateTargetEmployeeId: string | null | undefined,
+): string | null {
+  if (!selectedEmployeeId) return candidateTargetEmployeeId ?? null;
+  if (candidateTargetEmployeeId !== selectedEmployeeId) {
+    throw new Error(DIRECT_CHAT_TARGET_MISSING_ERROR);
+  }
+  return selectedEmployeeId;
 }
 
 /**
@@ -263,9 +277,12 @@ export function ChatPanel({
     }
   }, [messages, streamContent, streamReasoning, getScrollViewport]);
 
-  function addMessage(targetEmployeeId: string | null, msg: ChatMessage) {
-    appendMessage(getScopedConversationKey(activeThreadId, targetEmployeeId), msg);
-  }
+  const addMessage = useCallback(
+    (targetEmployeeId: string | null, msg: ChatMessage) => {
+      appendMessage(getScopedConversationKey(activeThreadId, targetEmployeeId), msg);
+    },
+    [activeThreadId, appendMessage],
+  );
 
   async function handleInteractionRespond(
     selectedOptionId: string,
@@ -273,8 +290,10 @@ export function ChatPanel({
   ): Promise<void> {
     const pending = pendingInteraction;
     if (!pending || !respondToInteraction) return;
-    const interactionTarget =
-      resolveInteractionTargetEmployeeId(pending) ?? interactionTargetRef.current ?? targetKey;
+    const interactionTarget = resolveDirectChatTarget(
+      selectedEmployeeId,
+      resolveInteractionTargetEmployeeId(pending) ?? interactionTargetRef.current ?? targetKey,
+    );
 
     const trimmedResponse = freeformResponse?.trim();
     if (pending.kind === 'agent_question' && selectedOptionId !== 'cancel' && trimmedResponse) {
@@ -286,42 +305,55 @@ export function ChatPanel({
     finalizeActiveRun(response);
   }
 
-  async function handleSend(
-    text: string,
-    options?: { entryMode?: 'boss_chat' | 'direct_chat' | 'meeting' },
-  ) {
-    // Notify parent of user message (only for team chat, not direct employee chat)
-    if (!selectedEmployeeId) {
-      onUserMessage?.(text);
-    }
+  const handleSend = useCallback(
+    async (text: string, options?: { entryMode?: 'boss_chat' | 'direct_chat' | 'meeting' }) => {
+      // Notify parent of user message (only for team chat, not direct employee chat)
+      if (!selectedEmployeeId) {
+        onUserMessage?.(text);
+      }
 
-    // Extract @mention hints — if exactly one mention and no explicit target, use as hint
-    const mentionHints = agents ? extractMentionHints(text, agents) : [];
-    const atFragments = extractAtFragments(text);
-    if (atFragments.length > 0 && mentionHints.length === 0) {
-      addMessage(targetKey, {
-        id: genMsgId(),
-        role: 'system',
-        content: `No employee matches: @${atFragments.join(', @')}. Check the name and try again.`,
+      // Extract @mention hints — if exactly one mention and no explicit target, use as hint
+      const mentionHints = agents ? extractMentionHints(text, agents) : [];
+      const atFragments = extractAtFragments(text);
+      if (atFragments.length > 0 && mentionHints.length === 0) {
+        addMessage(targetKey, {
+          id: genMsgId(),
+          role: 'system',
+          content: `No employee matches: @${atFragments.join(', @')}. Check the name and try again.`,
+        });
+      }
+      const targetHint =
+        mentionHints.length === 1 && !selectedEmployeeId ? mentionHints[0]?.employeeId : undefined;
+      const resolvedTargetEmployeeId = resolveDirectChatTarget(
+        selectedEmployeeId,
+        selectedEmployeeId ?? targetHint ?? null,
+      );
+      const runConversationTarget = selectedEmployeeId ? resolvedTargetEmployeeId : targetKey;
+      const runConversationKey = getScopedConversationKey(activeThreadId, runConversationTarget);
+
+      addMessage(runConversationTarget ?? null, { id: genMsgId(), role: 'user', content: text });
+      startRun(runConversationKey);
+
+      const response = await sendMessage(text, {
+        entryMode: options?.entryMode,
+        targetEmployeeId: resolvedTargetEmployeeId ?? undefined,
+        threadId: activeThreadId ?? undefined,
+        conversationKey: runConversationKey,
       });
-    }
-    const targetHint =
-      mentionHints.length === 1 && !selectedEmployeeId ? mentionHints[0]?.employeeId : undefined;
-    const resolvedTargetEmployeeId = selectedEmployeeId ?? targetHint ?? null;
-    const runConversationTarget = selectedEmployeeId ? resolvedTargetEmployeeId : targetKey;
-    const runConversationKey = getScopedConversationKey(activeThreadId, runConversationTarget);
-
-    addMessage(runConversationTarget ?? null, { id: genMsgId(), role: 'user', content: text });
-    startRun(runConversationKey);
-
-    const response = await sendMessage(text, {
-      entryMode: options?.entryMode,
-      targetEmployeeId: resolvedTargetEmployeeId ?? undefined,
-      threadId: activeThreadId ?? undefined,
-      conversationKey: runConversationKey,
-    });
-    finalizeActiveRun(response);
-  }
+      finalizeActiveRun(response);
+    },
+    [
+      activeThreadId,
+      addMessage,
+      agents,
+      finalizeActiveRun,
+      onUserMessage,
+      selectedEmployeeId,
+      sendMessage,
+      startRun,
+      targetKey,
+    ],
+  );
 
   async function handleRetry() {
     if (!failedConversationKey) return;
@@ -355,7 +387,6 @@ export function ChatPanel({
   }
 
   // ── Unified command executor (replaces old handleSlashCommand) ──
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleSend is render-scoped; context builders use stable refs
   const executeCommand = useCallback(
     (command: ChatCommand, args: string) => {
       if (command.type === 'runtime') {
@@ -394,6 +425,8 @@ export function ChatPanel({
       onOpenEditor,
       onOpenStudio,
       clearAllConversations,
+      addMessage,
+      handleSend,
     ],
   );
 

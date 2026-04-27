@@ -166,7 +166,9 @@ fn claude_local_auth_paths() -> Vec<PathBuf> {
 }
 
 fn has_non_empty_file(path: &Path) -> bool {
-    fs::metadata(path).map(|meta| meta.is_file() && meta.len() > 2).unwrap_or(false)
+    fs::metadata(path)
+        .map(|meta| meta.is_file() && meta.len() > 2)
+        .unwrap_or(false)
 }
 
 fn codex_auth_paths() -> Vec<PathBuf> {

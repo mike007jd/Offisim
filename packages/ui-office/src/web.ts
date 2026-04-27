@@ -90,5 +90,9 @@ export { SceneCeremonyProvider } from './runtime/scene-ceremony-context.js';
 export { SceneIntentDispatcher } from './runtime/scene-intent-dispatcher.js';
 export { InMemorySceneIntentBus } from './runtime/scene-intents.js';
 export { useAgentStates } from './runtime/use-agent-states.js';
-export { terminateRunWithError, useChatStreamingSync } from './runtime/use-chat-streaming-sync.js';
+export {
+  terminateRunAsInterrupted,
+  terminateRunWithError,
+  useChatStreamingSync,
+} from './runtime/use-chat-streaming-sync.js';
 export { ThemeProvider, type Theme, useTheme } from './theme/index.js';

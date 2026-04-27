@@ -82,6 +82,7 @@ export type EventFamily =
   | 'workspace.staleness.detected'
   | 'execution.resumed'
   | 'execution.aborted'
+  | 'sop.dispatcher.recursion_limit'
   | 'interaction.requested'
   | 'interaction.restored'
   | 'interaction.resolved'

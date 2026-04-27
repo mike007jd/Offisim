@@ -43,10 +43,16 @@ export interface AgentQuestionInteractionContext {
   readonly questionKey?: string | null;
 }
 
-export type SkillInstallSourceKind = 'git' | 'upload' | 'claude-code' | 'codex' | 'fork';
+export type SkillInstallSourceKind =
+  | 'git'
+  | 'upload'
+  | 'claude-code'
+  | 'codex'
+  | 'fork'
+  | 'self-authored';
 
-/** Three-way discriminator: install / fork / edit. Absent value = legacy install. */
-export type SkillMutationAction = 'install' | 'fork' | 'edit';
+/** Mutation discriminator. Absent value = legacy install. */
+export type SkillMutationAction = 'install' | 'fork' | 'edit' | 'create';
 
 export interface SkillInstallConfirmParent {
   readonly skillId: string;
@@ -58,6 +64,18 @@ export interface SkillInstallConfirmParent {
 export interface SkillInstallConfirmBodyDiff {
   readonly oldPreview: string;
   readonly newPreview: string;
+}
+
+export type SkillFrontmatterErrorReason =
+  | 'missing-required'
+  | 'forbidden-namespace'
+  | 'unknown-field'
+  | 'invalid-yaml';
+
+export interface SkillFrontmatterErrorPayload {
+  readonly reason: SkillFrontmatterErrorReason;
+  readonly detail: string;
+  readonly field?: string;
 }
 
 export interface SkillInstallConfirmInteractionContext {
@@ -73,6 +91,11 @@ export interface SkillInstallConfirmInteractionContext {
   readonly resolvedEmployeeName?: string | null;
   readonly assetPaths: readonly string[];
   readonly skillMdBody?: string;
+  /** Full SKILL.md text. Used by self-authoring create previews. */
+  readonly skillMdText?: string;
+  readonly slug?: string;
+  readonly modelKey?: string;
+  readonly frontmatterError?: SkillFrontmatterErrorPayload;
   /**
    * install | fork | edit discriminator. Optional for backwards-compat with
    * T2.2 callers that only produced install requests; consumers SHALL treat

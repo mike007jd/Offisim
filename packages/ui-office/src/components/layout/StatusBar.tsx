@@ -1,5 +1,5 @@
 import { Button } from '@offisim/ui-core';
-import { Activity, Cpu, Database, Zap } from 'lucide-react';
+import { Activity, Cpu, Database, Square, Zap } from 'lucide-react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
@@ -39,7 +39,8 @@ interface StatusBarProps {
 }
 
 export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
-  const { error, interactionMode, setInteractionMode, pendingInteraction } = useOffisimRuntime();
+  const { abortExecution, error, interactionMode, setInteractionMode, pendingInteraction } =
+    useOffisimRuntime();
   const { isRunning } = useOffisimRuntimeStatus();
   const metrics = useDashboardMetrics();
   const { stage: pipelineStage } = usePipelineStage();
@@ -78,11 +79,7 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
                 className={`font-black ${runStatus === 'running' ? 'text-emerald-500/90 tracking-[0.12em]' : runStatus === 'error' ? 'text-red-500/90 tracking-[0.12em]' : 'text-slate-400 tracking-[0.08em]'}`}
                 title={`Runtime status: ${runStatus}`}
               >
-                {runStatus === 'running'
-                  ? 'Running'
-                  : runStatus === 'error'
-                    ? 'Error'
-                    : 'Ready'}
+                {runStatus === 'running' ? 'Running' : runStatus === 'error' ? 'Error' : 'Ready'}
               </span>
             </>
           )}
@@ -156,6 +153,19 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
           >
             LAT: {(metrics.elapsedMs / 1000).toFixed(1)}s
           </span>
+        )}
+        {isRunning && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 gap-1 px-2 text-[10px] text-slate-400 hover:bg-red-400/10 hover:text-red-300"
+            onClick={abortExecution}
+            title="Stop execution"
+          >
+            <Square className="h-2.5 w-2.5 fill-current" />
+            Stop
+          </Button>
         )}
         <div className="w-px h-3 bg-white/10" />
         {setInteractionMode && (

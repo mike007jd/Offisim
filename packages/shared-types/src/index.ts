@@ -125,6 +125,8 @@ export type {
   SkillMutationAction,
   SkillInstallConfirmParent,
   SkillInstallConfirmBodyDiff,
+  SkillFrontmatterErrorReason,
+  SkillFrontmatterErrorPayload,
   SkillInstallConfirmInteractionContext,
   InteractionContext,
   InteractionRequest,

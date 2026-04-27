@@ -269,9 +269,7 @@ async fn do_execute<R: tauri::Runtime>(
     on_event: &Channel<ClaudeAgentHostEvent>,
     token: CancellationToken,
 ) -> Result<(), HostError> {
-    let credential_mode = req
-        .credential_mode
-        .unwrap_or(ClaudeCredentialMode::ApiKey);
+    let credential_mode = req.credential_mode.unwrap_or(ClaudeCredentialMode::ApiKey);
     let secret = if credential_mode == ClaudeCredentialMode::ApiKey {
         Some(
             runtime_secrets::read_secret_raw()

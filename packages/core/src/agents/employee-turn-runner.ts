@@ -1,11 +1,8 @@
 import type { ResolvedModel } from '@offisim/shared-types';
-import type { LlmMessage, LlmResponse, ToolDef } from '../llm/gateway.js';
-import {
-  forwardStreamChunks,
-  recordedLlmCall,
-  recordedLlmStream,
-} from '../llm/recorded-call.js';
+import type { LlmMessage, LlmResponse, LlmToolChoice, ToolDef } from '../llm/gateway.js';
+import { forwardStreamChunks, recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { SKILL_INSTALL_TOOL_NAMES } from './skill-install-tools.js';
 
 export type TurnRunner = (
   messages: LlmMessage[],
@@ -19,6 +16,24 @@ export interface TurnRunnerDeps {
   readonly allTools: ToolDef[];
   readonly streamEnabled: boolean;
   readonly signal: AbortSignal | undefined;
+}
+
+function resolveForcedSkillToolChoice(
+  messages: readonly LlmMessage[],
+  allTools: readonly ToolDef[],
+): LlmToolChoice | undefined {
+  if (messages.some((message) => message.role === 'tool')) return undefined;
+
+  const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+  const userText = lastUserMessage?.content ?? '';
+  if (!userText) return undefined;
+
+  const availableToolNames = new Set(allTools.map((tool) => tool.name));
+  const requestedToolName = SKILL_INSTALL_TOOL_NAMES.find(
+    (toolName) => availableToolNames.has(toolName) && userText.includes(toolName),
+  );
+
+  return requestedToolName ? { type: 'tool', name: requestedToolName } : undefined;
 }
 
 /**
@@ -36,6 +51,7 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
       temperature: resolved.temperature,
       maxTokens: resolved.maxTokens,
       tools: allTools.length > 0 ? allTools : undefined,
+      toolChoice: resolveForcedSkillToolChoice(messages, allTools),
       signal,
     };
 

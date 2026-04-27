@@ -48,13 +48,17 @@ export interface InteractionPendingStore {
 
 export type SkillInstallConfirmOutcome =
   | { kind: 'installed'; skillId: string; wasExisting: boolean }
+  | { kind: 'created'; skillId: string; wasExisting: boolean }
   | { kind: 'edited'; skillId: string }
   | { kind: 'cancelled' }
   | { kind: 'staging-expired' }
   | { kind: 'error'; errorKind: string; message: string };
 
 export interface SkillInstallConfirmHandler {
-  handle(request: InteractionRequest, response: InteractionResponse): Promise<SkillInstallConfirmOutcome>;
+  handle(
+    request: InteractionRequest,
+    response: InteractionResponse,
+  ): Promise<SkillInstallConfirmOutcome>;
 }
 
 export interface InteractionResolveResult {
@@ -317,7 +321,10 @@ export class InteractionService implements ToolPermissionGrantResolver {
     request: InteractionRequest,
     response: InteractionResponse,
   ): Promise<SkillInstallConfirmOutcome | null> {
-    if (request.kind !== 'skill_install_confirm' || request.context?.type !== 'skill_install_confirm') {
+    if (
+      request.kind !== 'skill_install_confirm' ||
+      request.context?.type !== 'skill_install_confirm'
+    ) {
       return null;
     }
     const handler = this.deps.skillInstallConfirmHandler;

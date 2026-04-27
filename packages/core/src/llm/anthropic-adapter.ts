@@ -38,6 +38,12 @@ function mapToolDefs(tools?: readonly ToolDef[]): Anthropic.Tool[] | undefined {
   }));
 }
 
+function mapToolChoice(choice: LlmRequest['toolChoice']): Anthropic.ToolChoice | undefined {
+  if (!choice) return undefined;
+  if (choice === 'auto' || choice === 'none') return { type: choice };
+  return { type: 'tool', name: choice.name };
+}
+
 /**
  * Convert our LlmMessage[] to Anthropic's message format.
  * Handles assistant tool_use and tool result messages properly.
@@ -165,7 +171,7 @@ export class AnthropicAdapter implements LlmGateway {
       dangerouslyAllowBrowser: options?.dangerouslyAllowBrowser,
       // Transport precedence: injected fetch > third-party CORS shim > SDK default.
       ...(hasInjectedFetch
-        ? { fetch: options!.fetch }
+        ? { fetch: options?.fetch }
         : isThirdParty
           ? { fetch: createCorsCleanFetch() }
           : {}),
@@ -195,6 +201,7 @@ export class AnthropicAdapter implements LlmGateway {
           system: systemText || undefined,
           messages: mapMessages(request.messages),
           tools: mapToolDefs(request.tools),
+          ...(request.toolChoice ? { tool_choice: mapToolChoice(request.toolChoice) } : {}),
         },
         { signal: request.signal, timeout: request.timeoutMs ?? 60_000 },
       );
@@ -235,6 +242,7 @@ export class AnthropicAdapter implements LlmGateway {
           system: systemText || undefined,
           messages: mapMessages(request.messages),
           tools: mapToolDefs(request.tools),
+          ...(request.toolChoice ? { tool_choice: mapToolChoice(request.toolChoice) } : {}),
           stream: true,
         },
         { signal: request.signal, timeout: request.timeoutMs ?? 120_000 },

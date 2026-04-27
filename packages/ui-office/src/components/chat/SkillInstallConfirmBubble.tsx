@@ -53,13 +53,13 @@ function describeSource(
       return `Codex · ${ref}`;
     case 'fork':
       return `Fork · ${ref}`;
+    case 'self-authored':
+      return `Self-authored · ${ref}`;
   }
 }
 
 function resolveEmployeeLabel(context: SkillInstallConfirmInteractionContext): string {
-  return (
-    context.resolvedEmployeeName ?? context.resolvedEmployeeId ?? 'the selected employee'
-  );
+  return context.resolvedEmployeeName ?? context.resolvedEmployeeId ?? 'the selected employee';
 }
 
 function headerTitle(
@@ -72,6 +72,8 @@ function headerTitle(
       return `Fork skill · ${context.parent?.name ?? skillName}`;
     case 'edit':
       return `Edit skill · ${skillName}`;
+    case 'create':
+      return `Create new skill from ${resolveEmployeeLabel(context)}`;
     case 'install':
       return `Install skill · ${skillName}`;
   }
@@ -89,6 +91,8 @@ function confirmStateLabel(
       return { label: 'Confirm fork', variant: 'secondary' };
     case 'edit':
       return { label: 'Confirm edit', variant: 'secondary' };
+    case 'create':
+      return { label: 'Create skill', variant: 'secondary' };
     case 'install':
       return { label: 'Confirm install', variant: 'secondary' };
   }
@@ -103,10 +107,14 @@ export function SkillInstallConfirmBubble({
   const [showFullBody, setShowFullBody] = useState(false);
   const [pendingOption, setPendingOption] = useState<string | null>(null);
   const partitioned = useMemo(() => partitionAssets(context.assetPaths), [context.assetPaths]);
-  const body = context.skillMdBody ?? '';
+  const body =
+    context.action === 'create' ? (context.skillMdText ?? '') : (context.skillMdBody ?? '');
+  const bodyLineCount = useMemo(() => body.split('\n').length, [body]);
+  const shouldClampBody = bodyLineCount > 6;
   const hasWideScopeTool = context.allowedTools.some(isWideScope);
   const action: SkillMutationAction = context.action ?? 'install';
   const badge = confirmStateLabel(action, hasWideScopeTool);
+  const hasFrontmatterError = action === 'create' && context.frontmatterError !== undefined;
 
   async function handle(optionId: string) {
     setPendingOption(optionId);
@@ -132,7 +140,7 @@ export function SkillInstallConfirmBubble({
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
         {employeeName && <span className="text-xs text-slate-400">From: {employeeName}</span>}
-        {action !== 'edit' && (
+        {action !== 'edit' && action !== 'create' && (
           <p className="whitespace-pre-wrap text-xs text-slate-300">{context.skillDescription}</p>
         )}
       </CardHeader>
@@ -171,7 +179,7 @@ export function SkillInstallConfirmBubble({
           </section>
         )}
 
-        {action === 'install' && (
+        {(action === 'install' || action === 'create') && (
           <section className="space-y-1.5">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               Permissions
@@ -180,19 +188,22 @@ export function SkillInstallConfirmBubble({
               <p className="text-xs text-slate-500">No tools declared.</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
-                {context.allowedTools.map((tool) => (
-                  <span
-                    key={tool}
-                    className={
-                      isWideScope(tool)
-                        ? 'rounded-md border border-rose-500/50 bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-200'
-                        : 'rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-200'
-                    }
-                    data-wide-scope={isWideScope(tool) ? 'true' : 'false'}
-                  >
-                    {tool}
-                  </span>
-                ))}
+                {context.allowedTools.map((tool) => {
+                  const wideScope = isWideScope(tool);
+                  return (
+                    <span
+                      key={tool}
+                      className={
+                        wideScope
+                          ? 'rounded-md border border-rose-500/50 bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-200'
+                          : 'rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-200'
+                      }
+                      data-wide-scope={wideScope ? 'true' : 'false'}
+                    >
+                      {tool}
+                    </span>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -206,6 +217,18 @@ export function SkillInstallConfirmBubble({
             <p className="break-all text-xs text-slate-200">
               {describeSource(context.sourceKind, context.sourceRef)}
             </p>
+          </section>
+        )}
+
+        {action === 'create' && (
+          <section className="space-y-1.5">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Attribution
+            </div>
+            <p className="break-all text-xs text-slate-200">
+              Authored by {context.modelKey ?? context.sourceRef}
+            </p>
+            {context.slug && <p className="text-[11px] text-slate-500">Slug: {context.slug}</p>}
           </section>
         )}
 
@@ -232,7 +255,21 @@ export function SkillInstallConfirmBubble({
             </section>
           )}
 
-        {action === 'install' && body.length > 0 && (
+        {hasFrontmatterError && context.frontmatterError && (
+          <section className="space-y-1.5 rounded-md border border-rose-500/40 bg-rose-500/10 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-rose-200">
+              Frontmatter error
+            </div>
+            <p className="text-xs text-rose-100">{context.frontmatterError.detail}</p>
+            {context.frontmatterError.field && (
+              <p className="font-mono text-[11px] text-rose-200">
+                {context.frontmatterError.reason}: {context.frontmatterError.field}
+              </p>
+            )}
+          </section>
+        )}
+
+        {(action === 'install' || action === 'create') && body.length > 0 && (
           <section className="space-y-1.5">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               SKILL.md preview
@@ -245,11 +282,11 @@ export function SkillInstallConfirmBubble({
               }
             >
               {body}
-              {!showFullBody && body.split('\n').length > 6 && (
+              {!showFullBody && shouldClampBody && (
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/80 to-transparent" />
               )}
             </div>
-            {body.split('\n').length > 6 && (
+            {shouldClampBody && (
               <button
                 type="button"
                 onClick={() => setShowFullBody((s) => !s)}
@@ -268,7 +305,7 @@ export function SkillInstallConfirmBubble({
               type="button"
               size="sm"
               variant={option.id === 'cancel' ? 'outline' : 'secondary'}
-              disabled={pendingOption !== null}
+              disabled={pendingOption !== null || (hasFrontmatterError && option.id === 'confirm')}
               onClick={() => handle(option.id)}
             >
               {pendingOption === option.id ? 'Working…' : option.label}

@@ -15,6 +15,8 @@ export interface ChatMessage {
   reasoning?: string;
   /** Unix ms when the message was appended/committed. Used to correlate with deliverable events. */
   createdAt?: number;
+  /** Internal assistant-turn key. All streaming/final commits for one run converge here. */
+  runId?: string;
 }
 
 export interface ChatStreamingState {
@@ -31,6 +33,7 @@ interface ChatConversationState {
 }
 
 interface ActiveChatRunState {
+  runId: string;
   conversationKey: string;
   startedAt: number;
   /** Set to true when the run has been terminated (abort/error). Prevents double-commit. */
@@ -50,6 +53,7 @@ interface ChatSessionStore {
     channel?: 'content' | 'reasoning',
   ) => void;
   commitSpeakerSegment: (options?: { status?: MessageStatus }) => void;
+  commitToolCallCheckpoint: () => void;
   terminateActiveRun: (options: { status: 'failed' | 'interrupted' }) => void;
   clearActiveRunStreamingContent: () => void;
   finalizeActiveRun: (finalContent?: string) => void;
@@ -72,6 +76,82 @@ function genAssistantMessageId(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? `assistant-${crypto.randomUUID()}`
     : `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function genRunId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? `run-${crypto.randomUUID()}`
+    : `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function mergeDistinctText(
+  existing: string | undefined,
+  incoming: string | undefined,
+  mode: 'append' | 'replace' = 'append',
+): string | undefined {
+  const normalizedIncoming = incoming?.trim();
+  if (!normalizedIncoming) return existing;
+  if (mode === 'replace') return normalizedIncoming;
+  const normalizedExisting = existing?.trim();
+  if (!normalizedExisting) return normalizedIncoming;
+  if (
+    normalizedExisting === normalizedIncoming ||
+    normalizedExisting.includes(normalizedIncoming)
+  ) {
+    return normalizedExisting;
+  }
+  return `${normalizedExisting}\n\n${normalizedIncoming}`;
+}
+
+function finalizeAssistantMessage(
+  messages: ChatMessage[],
+  runId: string,
+  payload: {
+    content: string;
+    status: MessageStatus;
+    nodeName?: string | null;
+    reasoning?: string | undefined;
+  },
+  mode: 'append' | 'replace',
+): ChatMessage[] {
+  const sanitizedContent = stripLegacySpeakerPrefix(payload.content);
+  if (!sanitizedContent.trim()) return messages;
+  const existingIndex = messages.findIndex(
+    (message) => message.role === 'assistant' && message.runId === runId,
+  );
+  if (existingIndex === -1) {
+    return [
+      ...messages,
+      {
+        id: genAssistantMessageId(),
+        role: 'assistant',
+        content: sanitizedContent.trim(),
+        status: payload.status,
+        nodeName: payload.nodeName,
+        reasoning: payload.reasoning || undefined,
+        createdAt: Date.now(),
+        runId,
+      },
+    ];
+  }
+
+  const next = [...messages];
+  const existing = next[existingIndex];
+  if (!existing) return messages;
+  next[existingIndex] = {
+    ...existing,
+    content: mergeDistinctText(existing.content, sanitizedContent, mode) ?? '',
+    status: payload.status,
+    nodeName: payload.nodeName ?? existing.nodeName,
+    reasoning: mergeDistinctText(existing.reasoning, payload.reasoning),
+  };
+  return next;
+}
+
+function terminalContentForStatus(status: 'failed' | 'interrupted'): string {
+  return status === 'interrupted'
+    ? 'Run interrupted before final response.'
+    : 'Run failed before final response.';
 }
 
 function createEmptyStreamingState(nodeName: string | null = null): ChatStreamingState {
@@ -113,7 +193,12 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
     set((state) => {
       const conversation = ensureConversation(state.conversations, conversationKey);
       return {
-        activeRun: { conversationKey, startedAt: Date.now(), isTerminated: false },
+        activeRun: {
+          runId: genRunId(),
+          conversationKey,
+          startedAt: Date.now(),
+          isTerminated: false,
+        },
         conversations: {
           ...state.conversations,
           [conversationKey]: {
@@ -173,18 +258,13 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const previous = conversation.streaming ?? createEmptyStreamingState(nodeName);
       const shouldReset = previous.nodeName !== nodeName;
-      const nextContent =
-        channel === 'reasoning'
-          ? shouldReset
-            ? ''
-            : previous.content
-          : `${shouldReset ? '' : previous.content}${content}`;
-      const nextReasoning =
-        channel === 'reasoning'
-          ? `${shouldReset ? '' : previous.reasoning}${content}`
-          : shouldReset
-            ? ''
-            : previous.reasoning;
+      let nextContent = shouldReset ? '' : previous.content;
+      let nextReasoning = shouldReset ? '' : previous.reasoning;
+      if (channel === 'reasoning') {
+        nextReasoning += content;
+      } else {
+        nextContent += content;
+      }
       return {
         conversations: {
           ...state.conversations,
@@ -208,26 +288,65 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const streaming = conversation.streaming;
       if (!streaming || !streaming.content.trim()) return state;
-      const sanitizedContent = stripLegacySpeakerPrefix(streaming.content);
-      const committedMessage: ChatMessage = {
-        id: genAssistantMessageId(),
-        role: 'assistant',
-        content: sanitizedContent,
-        status: options?.status ?? 'completed',
-        nodeName: streaming.nodeName,
-        reasoning: streaming.reasoning || undefined,
-        createdAt: Date.now(),
-      };
       return {
         conversations: {
           ...state.conversations,
           [activeRun.conversationKey]: {
             ...conversation,
-            messages: [...conversation.messages, committedMessage],
+            messages: finalizeAssistantMessage(
+              conversation.messages,
+              activeRun.runId,
+              {
+                content: streaming.content,
+                status: options?.status ?? 'completed',
+                nodeName: streaming.nodeName,
+                reasoning: streaming.reasoning || undefined,
+              },
+              'append',
+            ),
             streaming: {
               ...streaming,
               content: '',
               reasoning: '',
+              updatedAt: Date.now(),
+            },
+          },
+        },
+      };
+    }),
+  commitToolCallCheckpoint: () =>
+    set((state) => {
+      const activeRun = state.activeRun;
+      if (!activeRun || activeRun.isTerminated) return state;
+      const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
+      const streaming = conversation.streaming;
+      if (!streaming) return state;
+      const content = streaming.content.trim();
+      const reasoning = streaming.reasoning.trim();
+      const hasVisibleProgress = content.length > 0 || reasoning.length > 0;
+      return {
+        conversations: {
+          ...state.conversations,
+          [activeRun.conversationKey]: {
+            ...conversation,
+            messages: hasVisibleProgress
+              ? finalizeAssistantMessage(
+                  conversation.messages,
+                  activeRun.runId,
+                  {
+                    content: content || 'Waiting for your input to continue.',
+                    status: 'completed',
+                    nodeName: streaming.nodeName,
+                    reasoning: streaming.reasoning || undefined,
+                  },
+                  'append',
+                )
+              : conversation.messages,
+            streaming: {
+              ...streaming,
+              content: '',
+              reasoning: '',
+              isStreaming: false,
               updatedAt: Date.now(),
             },
           },
@@ -241,23 +360,23 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const streaming = conversation.streaming;
       const content = streaming?.content.trim() ?? '';
-      const sanitizedContent =
-        content.length > 0 ? stripLegacySpeakerPrefix(streaming!.content) : '';
-      const newMessages =
-        content.length > 0
-          ? [
-              ...conversation.messages,
-              {
-                id: genAssistantMessageId(),
-                role: 'assistant' as const,
-                content: sanitizedContent,
-                status: options.status,
-                nodeName: streaming!.nodeName,
-                reasoning: streaming!.reasoning || undefined,
-                createdAt: Date.now(),
-              },
-            ]
-          : conversation.messages;
+      const reasoning = streaming?.reasoning.trim() ?? '';
+      const hasVisibleProgress = content.length > 0 || reasoning.length > 0;
+      const shouldCommitTerminalMessage =
+        !!streaming && (hasVisibleProgress || options.status === 'interrupted');
+      const newMessages = shouldCommitTerminalMessage
+        ? finalizeAssistantMessage(
+            conversation.messages,
+            activeRun.runId,
+            {
+              content: content || terminalContentForStatus(options.status),
+              status: options.status,
+              nodeName: streaming.nodeName,
+              reasoning: streaming.reasoning || undefined,
+            },
+            'append',
+          )
+        : conversation.messages;
       return {
         activeRun: null,
         conversations: {
@@ -308,20 +427,17 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
           ...state.conversations,
           [activeRun.conversationKey]: {
             ...conversation,
-            messages: resolvedContent
-              ? [
-                  ...conversation.messages,
-                  {
-                    id: genAssistantMessageId(),
-                    role: 'assistant',
-                    content: resolvedContent,
-                    status: 'completed',
-                    nodeName: streaming?.nodeName,
-                    reasoning: streaming?.reasoning || undefined,
-                    createdAt: Date.now(),
-                  },
-                ]
-              : conversation.messages,
+            messages: finalizeAssistantMessage(
+              conversation.messages,
+              activeRun.runId,
+              {
+                content: resolvedContent,
+                status: 'completed',
+                nodeName: streaming?.nodeName,
+                reasoning: streaming?.reasoning || undefined,
+              },
+              'replace',
+            ),
             streaming: null,
           },
         },

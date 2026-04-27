@@ -18,10 +18,10 @@ export interface StagedSkillBase {
 export interface StagedSkillInstall extends StagedSkillBase {
   /**
    * `'install'` for the four T2.2 import tools; `'fork'` for a company-scope
-   * skill being copied into an employee bucket. Both share the install-tree
-   * shape because fork is a byte-identical copy from the parent.
+   * skill being copied into an employee bucket; `'create'` for LLM-authored
+   * employee-scope skills. All share the install-tree shape.
    */
-  action: 'install' | 'fork';
+  action: 'install' | 'fork' | 'create';
   /** Virtual tree captured from a resolver; asset bytes live here. */
   tree: VirtualTree;
   /** Scanner output locating SKILL.md + asset paths relative to `tree`. */

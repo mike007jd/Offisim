@@ -27,6 +27,7 @@ import type {
   ProjectRow,
   RackRow,
   RecoveryKnowledgeRow,
+  SkillRow,
   SlotRow,
   SopTemplateRow,
   TaskRunRow,
@@ -74,4 +75,5 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   agentEvents: AgentEventRow[];
   recoveryKnowledge: RecoveryKnowledgeRow[];
   deliverables: DeliverableSummaryRow[];
+  skills: SkillRow[];
 }

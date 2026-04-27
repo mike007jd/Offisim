@@ -137,7 +137,16 @@ export function routeFromPm(state: OffisimGraphState): string {
 }
 
 /** @internal — exported for testing */
+export function areAllPlanStepsTerminal(state: OffisimGraphState): boolean {
+  const plan = state.taskPlan;
+  if (!plan || plan.steps.length === 0) return true;
+  const completed = new Set(state.completedStepIndices ?? []);
+  return plan.steps.every((step) => completed.has(step.stepIndex));
+}
+
+/** @internal — exported for testing */
 export function routeFromStepDispatcher(state: OffisimGraphState): string {
+  if (areAllPlanStepsTerminal(state)) return 'boss_summary';
   return state.pendingAssignments.length > 0 ? 'employee' : 'step_advance';
 }
 
@@ -154,11 +163,8 @@ export function routeFromEmployee(state: OffisimGraphState): string {
   const plan = state.taskPlan;
   if (!plan) return 'boss_summary';
 
-  const completedCount = (state.completedStepIndices ?? []).length;
-  const totalSteps = plan.steps.length;
-
   // All steps completed → summarise.
-  if (completedCount >= totalSteps) {
+  if (areAllPlanStepsTerminal(state)) {
     return 'boss_summary';
   }
 
@@ -199,9 +205,17 @@ async function stepAdvanceNode(
   // Steps dispatched in this batch = dispatched but not yet in completedStepIndices
   const newlyCompletedIndices = dispatched.filter((i) => !alreadyCompleted.has(i));
 
-  // If no dispatched steps to advance (edge case), use currentStepIndex as fallback
-  const stepsToComplete =
-    newlyCompletedIndices.length > 0 ? newlyCompletedIndices : [state.currentStepIndex];
+  if (newlyCompletedIndices.length === 0) {
+    return {
+      currentStepOutputs: [],
+      interruptReason:
+        state.taskPlan && !areAllPlanStepsTerminal(state)
+          ? 'SOP dispatcher could not advance: no newly dispatched steps and plan still has pending steps'
+          : state.interruptReason,
+    };
+  }
+
+  const stepsToComplete = newlyCompletedIndices;
 
   // Group currentStepOutputs by step: each assignment.inputJson carries stepIndex.
   // For legacy plans, all outputs belong to currentStepIndex.
@@ -295,6 +309,9 @@ async function stepAdvanceNode(
  */
 /** @internal — exported for testing */
 export function routeFromStepAdvance(state: OffisimGraphState): string {
+  if (state.interruptReason) return 'error_handler';
+  if (areAllPlanStepsTerminal(state)) return 'boss_summary';
+
   // Check if any recent employee output signals a replan need
   const outputs =
     state.currentStepOutputs.length > 0
@@ -425,14 +442,23 @@ export function buildOffisimGraph(options?: BuildGraphOptions) {
     ])
     .addConditionalEdges('manager', routeFromManager, ['pm_planner', 'hr'])
     .addConditionalEdges('pm_planner', routeFromPm, ['step_dispatcher', 'boss_summary'])
-    .addConditionalEdges('step_dispatcher', routeFromStepDispatcher, ['employee', 'step_advance'])
+    .addConditionalEdges('step_dispatcher', routeFromStepDispatcher, [
+      'employee',
+      'step_advance',
+      'boss_summary',
+    ])
     .addConditionalEdges('employee', routeFromEmployee, [
       'employee',
       'step_advance',
       'boss_summary',
       'error_handler',
     ])
-    .addConditionalEdges('step_advance', routeFromStepAdvance, ['step_dispatcher', 'pm_replan'])
+    .addConditionalEdges('step_advance', routeFromStepAdvance, [
+      'step_dispatcher',
+      'pm_replan',
+      'boss_summary',
+      'error_handler',
+    ])
     .addEdge('pm_replan', 'step_dispatcher')
     .addEdge('pm_heartbeat', END)
     .addEdge('employee_direct_setup', 'employee')

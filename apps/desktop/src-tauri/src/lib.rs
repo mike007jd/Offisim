@@ -7,7 +7,21 @@ mod local_paths;
 mod mcp_bridge;
 mod runtime_secrets;
 
+use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
+
+fn create_main_window<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> tauri::Result<tauri::WebviewWindow<R>> {
+    tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+        .title("Offisim")
+        .inner_size(1280.0, 800.0)
+        .min_inner_size(1024.0, 700.0)
+        .visible(true)
+        .focused(true)
+        .center()
+        .build()
+}
 
 fn migrations() -> Vec<Migration> {
     vec![
@@ -221,7 +235,30 @@ fn migrations() -> Vec<Migration> {
             ),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 35,
+            description: "skills self-authored source kind",
+            sql: include_str!(
+                "../../../../Docs/03_migrations/offisim_migrations_local_v0.1/035_skills_self_authored_source_kind.sql"
+            ),
+            kind: MigrationKind::Up,
+        },
     ]
+}
+
+fn restore_main_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
+    let window = match app.get_webview_window("main") {
+        Some(window) => window,
+        None => create_main_window(app)?,
+    };
+    restore_main_window(&window);
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -234,12 +271,8 @@ pub fn run() {
         // the shared appDataDir) and the second window hangs with a black
         // webview. The callback focuses the existing window instead.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            use tauri::Manager;
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+            let _ = ensure_main_window(app);
         }))
         .invoke_handler(tauri::generate_handler![
             runtime_secrets::runtime_secret_status,
@@ -267,11 +300,28 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(mcp_bridge::init())
+        .on_page_load(|webview, payload| {
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                let window = webview.window();
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        })
         .setup(|app| {
             // Resolve the plaintext secret-file location once so non-command
             // callers (llm_transport) can read without an AppHandle.
+            app.set_activation_policy(tauri::ActivationPolicy::Regular);
             runtime_secrets::init_storage(app.handle())
                 .map_err(|e| format!("runtime_secrets init: {e}"))?;
+
+            // macOS state restoration can relaunch the process without an
+            // accessibility-visible main window after a previous close. Bring
+            // the configured window back explicitly so release desktop live
+            // verification and normal relaunches land on the usable app.
+            {
+                ensure_main_window(app.handle()).map_err(|e| format!("main window init: {e}"))?;
+            }
 
             // Open devtools on launch. Gated only by the OFFISIM_DESKTOP_DEVTOOLS
             // env var at startup so live verify from release .app bundles can

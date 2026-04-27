@@ -5,6 +5,7 @@ import type {
   SkillRepository,
   SkillUpdate,
 } from '../../repositories.js';
+import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 import { assertSkillScopeConsistency } from './shared.js';
 
 function cloneRow(row: SkillRow): SkillRow {
@@ -99,6 +100,10 @@ export interface SkillsMemoryRepos {
   settings: MemorySettingsRepository;
 }
 
-export function createSkillsMemoryRepos(): SkillsMemoryRepos {
-  return { skills: new MemorySkillRepository(), settings: new MemorySettingsRepository() };
+export function createSkillsMemoryRepos(
+  snapshot?: Partial<MemoryRepositoriesSnapshot>,
+): SkillsMemoryRepos {
+  const skills = new MemorySkillRepository();
+  if (snapshot?.skills) skills.seed(snapshot.skills);
+  return { skills, settings: new MemorySettingsRepository() };
 }

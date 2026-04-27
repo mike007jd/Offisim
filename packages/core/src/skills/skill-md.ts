@@ -20,6 +20,26 @@ export interface ParsedSkillMd {
   body: string;
 }
 
+export type SkillFrontmatterErrorReason =
+  | 'missing-required'
+  | 'forbidden-namespace'
+  | 'unknown-field'
+  | 'invalid-yaml';
+
+export class SkillFrontmatterError extends Error {
+  readonly reason: SkillFrontmatterErrorReason;
+  readonly detail: string;
+  readonly field: string | undefined;
+
+  constructor(reason: SkillFrontmatterErrorReason, detail: string, field?: string) {
+    super(detail);
+    this.name = 'SkillFrontmatterError';
+    this.reason = reason;
+    this.detail = detail;
+    this.field = field;
+  }
+}
+
 export interface SerializeInput {
   name: string;
   description: string;
@@ -121,6 +141,56 @@ export function parseSkillMd(raw: string): ParsedSkillMd {
   }
 
   return { name, description, allowedTools, license, version, unknownFields, body };
+}
+
+function mapParseError(err: unknown): SkillFrontmatterError {
+  if (err instanceof SkillFrontmatterError) return err;
+  if (err instanceof SkillMdParseError) {
+    switch (err.kind) {
+      case 'missing-required-field':
+      case 'missing-frontmatter':
+        return new SkillFrontmatterError('missing-required', err.message, err.field);
+      case 'private-namespace-forbidden':
+        return new SkillFrontmatterError('forbidden-namespace', err.message, err.field);
+      case 'invalid-frontmatter-yaml':
+      case 'invalid-field-type':
+        return new SkillFrontmatterError('invalid-yaml', err.message, err.field);
+    }
+  }
+  return new SkillFrontmatterError(
+    'invalid-yaml',
+    err instanceof Error ? err.message : String(err),
+  );
+}
+
+export function parseSelfAuthoredSkillMd(raw: string): ParsedSkillMd {
+  let parsed: ParsedSkillMd;
+  try {
+    parsed = parseSkillMd(raw);
+  } catch (err) {
+    throw mapParseError(err);
+  }
+
+  const unknownKey = Object.keys(parsed.unknownFields)[0];
+  if (unknownKey) {
+    throw new SkillFrontmatterError(
+      unknownKey.startsWith('offisim.') ? 'forbidden-namespace' : 'unknown-field',
+      unknownKey.startsWith('offisim.')
+        ? `Forbidden namespace: ${unknownKey}`
+        : `Unknown frontmatter field: ${unknownKey}`,
+      unknownKey,
+    );
+  }
+
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(parsed.name)) {
+    throw new SkillFrontmatterError(
+      'invalid-yaml',
+      'SKILL.md field "name" must be kebab-case',
+      'name',
+    );
+  }
+
+  return parsed;
 }
 
 /**

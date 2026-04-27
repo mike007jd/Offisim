@@ -23,7 +23,14 @@ export function coerceSkillScope(value: string): SkillScope {
 }
 
 export function coerceSkillSourceKind(value: string): SkillSourceKind {
-  if (value === 'installed' || value === 'forked' || value === 'synthesized') return value;
+  if (
+    value === 'installed' ||
+    value === 'forked' ||
+    value === 'synthesized' ||
+    value === 'self-authored'
+  ) {
+    return value;
+  }
   return 'authored';
 }
 
