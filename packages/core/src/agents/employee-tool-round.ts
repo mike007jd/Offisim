@@ -1,8 +1,9 @@
 import type { OffisimGraphState } from '../graph/state.js';
-import type { LlmMessage, LlmResponse } from '../llm/gateway.js';
+import type { LlmMessage, LlmResponse, ToolCallResult } from '../llm/gateway.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import { Logger } from '../services/logger.js';
+import { runToolCallsInBatches } from '../tools/tool-orchestrator.js';
 import { generateId } from '../utils/generate-id.js';
 import { MEMORY_TOOL_NAMES, handleMemoryTool } from './employee-memory-tools.js';
 import { MAX_CONTEXT_MESSAGES } from './employee-node-constants.js';
@@ -33,6 +34,7 @@ export interface ToolRoundContext {
   readonly runtimeCtx: RuntimeContext;
   readonly state: OffisimGraphState;
   readonly allowedMcpToolNames: Set<string>;
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -52,7 +54,7 @@ export interface ToolRoundContext {
  *      `history.length > MAX_CONTEXT_MESSAGES + 1` (keep first + last MAX_CONTEXT_MESSAGES).
  */
 export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutcome> {
-  const { llmResponse, conversationHistory, preflight, runtimeCtx, state, allowedMcpToolNames } =
+  const { llmResponse, conversationHistory, preflight, runtimeCtx, allowedMcpToolNames, signal } =
     ctx;
   const { employee, taskRunId } = preflight;
   const { toolExecutor, workstationToolResolver, memoryService, companyId, threadId } = runtimeCtx;
@@ -62,8 +64,10 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
     return { kind: 'handoff', args: handoffCall.arguments as unknown as HandoffArgs };
   }
 
-  const settled = await Promise.allSettled(
-    llmResponse.toolCalls.map(async (toolCall) => {
+  const settled = await runToolCallsInBatches({
+    calls: llmResponse.toolCalls,
+    isConcurrencySafe: isConcurrencySafeToolCall,
+    execute: async (toolCall) => {
       if (
         memoryService &&
         MEMORY_TOOL_NAMES.includes(toolCall.name as (typeof MEMORY_TOOL_NAMES)[number])
@@ -112,11 +116,12 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
         nodeName: 'employee',
         employeeId: employee.employee_id,
         taskRunId: taskRunId ?? undefined,
-        stepIndex: state.currentStepIndex,
+        stepIndex: preflight.stepIndex,
+        signal,
       });
       return { callId: toolCall.id, name: toolCall.name, result };
-    }),
-  );
+    },
+  });
 
   // Unwrap settled results — failed tools get an error string (not a crash).
   const toolResults = settled.map((s, i) => {
@@ -163,4 +168,10 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
       : nextHistory;
 
   return { kind: 'continue', nextHistory: trimmedHistory };
+}
+
+const CONCURRENCY_SAFE_TOOL_NAMES = new Set<string>(['read_file', 'web_search', 'recall']);
+
+function isConcurrencySafeToolCall(toolCall: ToolCallResult): boolean {
+  return CONCURRENCY_SAFE_TOOL_NAMES.has(toolCall.name);
 }

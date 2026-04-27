@@ -16,6 +16,7 @@ export interface PreflightResult {
   readonly employee: EmployeeRow;
   readonly company: CompanyRow;
   readonly taskRunId: string | undefined;
+  readonly stepIndex: number;
   readonly taskLabel: string;
   readonly totalAssignments: number;
   readonly completedSoFar: number;
@@ -56,9 +57,12 @@ export async function runPreflight(
 
   const isDirectChatTask = assignment.taskType === 'direct_chat';
 
-  const taskRunId = (assignment.inputJson as Record<string, unknown>).taskRunId as
-    | string
-    | undefined;
+  const taskRunId =
+    assignment.taskRunId ??
+    ((assignment.inputJson as Record<string, unknown>).taskRunId as string | undefined);
+  const stepIndexRaw =
+    assignment.stepIndex ?? (assignment.inputJson as Record<string, unknown>).stepIndex;
+  const stepIndex = typeof stepIndexRaw === 'number' ? stepIndexRaw : state.currentStepIndex;
 
   const employee = await repos.employees.findById(assignment.employeeId).catch(() => null);
   if (!employee) {
@@ -144,6 +148,7 @@ export async function runPreflight(
       employee,
       company,
       taskRunId,
+      stepIndex,
       taskLabel,
       totalAssignments,
       completedSoFar,

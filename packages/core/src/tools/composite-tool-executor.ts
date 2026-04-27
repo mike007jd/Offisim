@@ -49,4 +49,12 @@ export class CompositeToolExecutor implements ToolExecutor {
     const deduped = mcpDefs.filter((d) => !builtinNames.has(d.name));
     return [...builtinDefs, ...deduped];
   }
+
+  getServerForTool(toolName: string): string | undefined {
+    if (this.builtinTools.has(toolName)) return 'builtin';
+    const resolver = (this.mcpExecutor as unknown as Record<string, unknown>).getServerForTool;
+    return typeof resolver === 'function'
+      ? (resolver as (name: string) => string | undefined).call(this.mcpExecutor, toolName)
+      : undefined;
+  }
 }

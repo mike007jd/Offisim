@@ -18,6 +18,7 @@ export async function runPmPreflight(
   const interactionMode = interactionService?.getMode() ?? 'boss_proxy';
   const planReviewDecision = interactionService?.consumePlanReviewDecision(threadId) ?? null;
   const approvedToExecute = planReviewDecision?.selectedOptionId === 'start_execution';
+  const cancelled = planReviewDecision?.selectedOptionId === 'cancel';
   const planRevisionNote =
     planReviewDecision?.selectedOptionId === 'revise_plan'
       ? planReviewDecision.freeformResponse?.trim() || 'Revise the plan before execution.'
@@ -33,6 +34,18 @@ export async function runPmPreflight(
     stepResults: [],
     currentStepOutputs: [],
   };
+
+  if (cancelled) {
+    await repos.threads.updateStatus(threadId, 'cancelled');
+    return {
+      kind: 'short-circuit',
+      result: {
+        ...emptyPlan,
+        pendingAssignments: [],
+        completed: true,
+      },
+    };
+  }
 
   if (!directive || directive.recommendedEmployees.length === 0) {
     return { kind: 'short-circuit', result: emptyPlan };

@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "permission-runtime-deny-overrides-thread-grant",
+      "category": "permission",
+      "invariants": ["permission.runtime_deny_absolute", "permission.grant_not_consumed_by_deny"]
+    },
+    {
+      "id": "permission-ask-approved-blocks-and-then-executes",
+      "category": "permission",
+      "invariants": ["permission.ask_blocks", "tool.executes_after_approval"]
+    },
+    {
+      "id": "permission-ask-denied-does-not-execute",
+      "category": "permission",
+      "invariants": ["permission.deny_returns_denied", "tool.not_executed"]
+    },
+    {
+      "id": "plan-review-cancel-terminates",
+      "category": "interaction",
+      "invariants": ["interaction.cancel_terminal", "graph.no_employee_after_cancel"]
+    },
+    {
+      "id": "plan-review-approve-survives-restore",
+      "category": "interaction",
+      "invariants": ["interaction.payload_persisted", "plan.reviewed_payload_restored"]
+    },
+    {
+      "id": "dag-output-attribution",
+      "category": "graph",
+      "invariants": ["graph.step_outputs_grouped_by_step_index", "graph.no_duplicate_step_outputs"]
+    },
+    {
+      "id": "recorded-stream-tool-call-replay",
+      "category": "llm-recording",
+      "invariants": ["llm.stream_tool_calls_recorded", "llm.replay_reproduces_tool_calls"]
+    },
+    {
+      "id": "stream-nonstream-middleware-parity",
+      "category": "llm-recording",
+      "invariants": ["llm.middleware_after_visible_in_stream", "llm.stream_nonstream_parity"]
+    }
+  ]
+}

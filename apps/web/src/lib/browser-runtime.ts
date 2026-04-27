@@ -55,9 +55,9 @@ import type { InteractionMode } from '@offisim/shared-types';
 import {
   DEFAULT_EXECUTION_LANE,
   getInstallEnvironmentForExecutionMode,
+  resolveEffectiveRuntimePolicy,
   resolveProviderConfig,
   resolveProviderHostAvailability,
-  resolveEffectiveRuntimePolicy,
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
@@ -296,6 +296,7 @@ export async function createBrowserRuntime(
     threadRepo: repos.threads,
     activeRepo: repos.activeInteractions,
     historyRepo: repos.interactionHistory,
+    permissionApprovals: repos.toolPermissionApprovals,
     hookRegistry,
     ...(skillInstallCommitter ? { skillInstallConfirmHandler: skillInstallCommitter } : {}),
   });
@@ -310,6 +311,7 @@ export async function createBrowserRuntime(
     new ToolPermissionEngine({
       employees: repos.employees,
       mcpAudit: repos.mcpAudit,
+      approvals: repos.toolPermissionApprovals,
       runtimePolicy,
       grants: interactionService,
     }),
@@ -468,6 +470,7 @@ export async function createBrowserRuntimeReposOnly(
     threadRepo: repos.threads,
     activeRepo: repos.activeInteractions,
     historyRepo: repos.interactionHistory,
+    permissionApprovals: repos.toolPermissionApprovals,
     hookRegistry,
   });
   await interactionService.restore();

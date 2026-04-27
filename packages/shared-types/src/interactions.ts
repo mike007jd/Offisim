@@ -31,6 +31,7 @@ export interface PermissionInteractionContext {
   readonly serverName: string;
   readonly toolName: string;
   readonly employeeId?: string | null;
+  readonly policyHash?: string;
 }
 
 export interface PlanReviewInteractionContext {

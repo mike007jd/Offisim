@@ -61,6 +61,7 @@ export {
   MemoryMcpAuditRepository,
   MemoryRackRepository,
   MemorySlotRepository,
+  MemoryToolPermissionApprovalRepository,
   MemoryWorkstationRackRepository,
 } from './repos/permissions/memory.js';
 export {
@@ -141,6 +142,7 @@ export function createMemoryRepositories(
         slots: permissionsFamily.slots.snapshot(),
         workstationRacks: permissionsFamily.workstationRacks.snapshot(),
         mcpAudit: permissionsFamily.mcpAudit.snapshot(),
+        toolPermissionApprovals: permissionsFamily.toolPermissionApprovals.snapshot(),
         memories: memorySystemFamily.memories.snapshot(),
         userPreferences: memorySystemFamily.userPreferences.snapshot(),
         nodeSummaries: memorySystemFamily.nodeSummaries.snapshot(),

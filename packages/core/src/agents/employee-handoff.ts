@@ -12,6 +12,7 @@ export interface ExecuteHandoffContext {
   readonly remaining: PendingAssignment[];
   readonly employee: EmployeeRow;
   readonly taskRunId: string | undefined;
+  readonly stepIndex: number;
   readonly runtimeCtx: RuntimeContext;
   readonly companyId: string;
   readonly threadId: string;
@@ -33,7 +34,7 @@ export async function executeHandoff(
   args: HandoffArgs,
   ctx: ExecuteHandoffContext,
 ): Promise<Command | null> {
-  const { state, remaining, employee, taskRunId, runtimeCtx, companyId, threadId } = ctx;
+  const { state, remaining, employee, taskRunId, stepIndex, runtimeCtx, companyId, threadId } = ctx;
   const { repos, eventBus } = runtimeCtx;
 
   const targetEmp = await repos.employees.findById(args.targetEmployeeId).catch(() => null);
@@ -106,8 +107,9 @@ export async function executeHandoff(
             description: args.remainingWork,
             priorWork: args.completedWork,
             handoffReason: args.reason,
-            taskRunId: newTaskRunId,
           },
+          taskRunId: newTaskRunId,
+          stepIndex,
         },
         ...remaining,
       ],
@@ -121,6 +123,7 @@ export async function executeHandoff(
           roleSlug: employee.role_slug,
           content: args.completedWork,
           taskRunId: taskRunId ?? '',
+          stepIndex,
         },
       ],
     },

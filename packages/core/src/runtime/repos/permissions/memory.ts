@@ -4,11 +4,15 @@ import type {
   NewMcpAudit,
   NewRack,
   NewSlot,
+  NewToolPermissionApproval,
   NewWorkstationRack,
   RackRepository,
   RackRow,
   SlotRepository,
   SlotRow,
+  ToolPermissionApprovalLookup,
+  ToolPermissionApprovalRepository,
+  ToolPermissionApprovalRow,
   WorkstationRackRepository,
   WorkstationRackRow,
 } from '../../repositories.js';
@@ -160,11 +164,71 @@ export class MemoryMcpAuditRepository implements McpAuditRepository {
   }
 }
 
+export class MemoryToolPermissionApprovalRepository implements ToolPermissionApprovalRepository {
+  private readonly rows = new Map<string, ToolPermissionApprovalRow>();
+
+  constructor(initialRows?: Iterable<ToolPermissionApprovalRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.rows.set(row.approval_id, { ...row });
+    }
+  }
+
+  async create(approval: NewToolPermissionApproval): Promise<ToolPermissionApprovalRow> {
+    const row = { ...approval };
+    this.rows.set(row.approval_id, row);
+    return row;
+  }
+
+  async findReusableApproval(
+    lookup: ToolPermissionApprovalLookup,
+  ): Promise<ToolPermissionApprovalRow | null> {
+    const now = new Date().toISOString();
+    const candidates = [...this.rows.values()]
+      .filter((row) => matchesApprovalLookup(row, lookup, now))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return candidates[0] ?? null;
+  }
+
+  async hasApproval(lookup: ToolPermissionApprovalLookup): Promise<boolean> {
+    const now = new Date().toISOString();
+    return [...this.rows.values()].some((row) => matchesApprovalLookup(row, lookup, now, false));
+  }
+
+  async consumeApproval(approvalId: string, consumedAt: string): Promise<void> {
+    const row = this.rows.get(approvalId);
+    if (!row || row.scope !== 'once' || row.consumed_at) return;
+    this.rows.set(approvalId, { ...row, consumed_at: consumedAt });
+  }
+
+  snapshot(): ToolPermissionApprovalRow[] {
+    return cloneRows(this.rows.values());
+  }
+}
+
+function matchesApprovalLookup(
+  row: ToolPermissionApprovalRow,
+  lookup: ToolPermissionApprovalLookup,
+  now: string,
+  requireReusable = true,
+): boolean {
+  return (
+    row.thread_id === lookup.threadId &&
+    row.server_name === lookup.serverName &&
+    row.tool_name === lookup.toolName &&
+    (row.employee_id ?? null) === (lookup.employeeId ?? null) &&
+    (!lookup.policyHash || row.policy_hash === lookup.policyHash) &&
+    (!requireReusable || row.scope === 'thread' || row.consumed_at === null) &&
+    (!row.expires_at || row.expires_at > now)
+  );
+}
+
 export interface PermissionsMemoryRepos {
   racks: MemoryRackRepository;
   slots: MemorySlotRepository;
   workstationRacks: MemoryWorkstationRackRepository;
   mcpAudit: MemoryMcpAuditRepository;
+  toolPermissionApprovals: MemoryToolPermissionApprovalRepository;
 }
 
 export function createPermissionsMemoryRepos(
@@ -174,5 +238,8 @@ export function createPermissionsMemoryRepos(
   const slots = new MemorySlotRepository(snapshot?.slots);
   const workstationRacks = new MemoryWorkstationRackRepository(snapshot?.workstationRacks);
   const mcpAudit = new MemoryMcpAuditRepository(snapshot?.mcpAudit);
-  return { racks, slots, workstationRacks, mcpAudit };
+  const toolPermissionApprovals = new MemoryToolPermissionApprovalRepository(
+    snapshot?.toolPermissionApprovals,
+  );
+  return { racks, slots, workstationRacks, mcpAudit, toolPermissionApprovals };
 }

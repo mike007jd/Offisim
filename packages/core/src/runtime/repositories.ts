@@ -157,7 +157,13 @@ export interface LlmCallRow {
   input_tokens: number;
   output_tokens: number;
   usage_raw_json: string | null;
+  request_json: string | null;
   response_json: string | null;
+  tool_calls_json: string | null;
+  prompt_hash: string | null;
+  tools_hash: string | null;
+  response_hash: string | null;
+  recording_mode: string | null;
   latency_ms: number | null;
   error_code: string | null;
   created_at: string;
@@ -459,6 +465,42 @@ export interface McpAuditRepository {
   ): Promise<boolean>;
 }
 
+export type ToolPermissionApprovalScope = 'once' | 'thread';
+
+export interface ToolPermissionApprovalRow {
+  approval_id: string;
+  thread_id: string;
+  company_id: string;
+  employee_id: string | null;
+  server_name: string;
+  tool_name: string;
+  scope: ToolPermissionApprovalScope;
+  approved_by: string;
+  policy_hash: string;
+  consumed_at: string | null;
+  created_at: string;
+  expires_at: string | null;
+}
+
+export type NewToolPermissionApproval = ToolPermissionApprovalRow;
+
+export interface ToolPermissionApprovalLookup {
+  threadId: string;
+  serverName: string;
+  toolName: string;
+  employeeId?: string | null;
+  policyHash?: string;
+}
+
+export interface ToolPermissionApprovalRepository {
+  create(approval: NewToolPermissionApproval): Promise<ToolPermissionApprovalRow>;
+  hasApproval(lookup: ToolPermissionApprovalLookup): Promise<boolean>;
+  findReusableApproval(
+    lookup: ToolPermissionApprovalLookup,
+  ): Promise<ToolPermissionApprovalRow | null>;
+  consumeApproval(approvalId: string, consumedAt: string): Promise<void>;
+}
+
 // ---------------------------------------------------------------------------
 // Node summaries
 // ---------------------------------------------------------------------------
@@ -530,6 +572,7 @@ export interface InteractionActiveRow {
   kind: InteractionKind;
   interaction_mode: InteractionMode;
   request_json: string;
+  payload_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -554,6 +597,7 @@ export interface InteractionHistoryRow {
   freeform_response: string | null;
   request_json: string;
   response_json: string | null;
+  payload_json: string | null;
   created_at: string;
   resolved_at: string;
 }
@@ -1019,6 +1063,7 @@ export interface RuntimeRepositories {
   assetBindings: AssetBindingRepository;
   memories: MemoryRepository;
   mcpAudit: McpAuditRepository;
+  toolPermissionApprovals: ToolPermissionApprovalRepository;
   nodeSummaries: NodeSummaryRepository;
   compactSummaries: CompactSummaryRepository;
   activeInteractions: ActiveInteractionRepository;

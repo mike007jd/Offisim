@@ -10,6 +10,8 @@ export interface PendingAssignment {
   assigneeKind?: AssignmentTargetKind;
   assigneeName?: string;
   inputJson: Record<string, unknown>;
+  taskRunId?: string;
+  stepIndex?: number;
 }
 
 export interface PlanTask {
@@ -64,6 +66,7 @@ export interface StepTaskOutput {
   roleSlug: RoleSlug;
   content: string;
   taskRunId: string;
+  stepIndex: number;
   artifact?:
     | {
         kind: 'file';

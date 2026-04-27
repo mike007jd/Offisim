@@ -95,6 +95,7 @@ export function createConversationsDrizzleRepos(db: Db): ConversationsDrizzleRep
             kind: row.kind,
             interaction_mode: row.interaction_mode,
             request_json: row.request_json,
+            payload_json: row.payload_json,
             created_at: row.created_at,
             updated_at: row.updated_at,
           },

@@ -1,11 +1,8 @@
 import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-types';
-import type { EventBus } from '../events/event-bus.js';
 import type { EngineAdapterRegistry } from '../engine/engine-adapter.js';
+import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
 import type { LlmGateway } from '../llm/gateway.js';
-import type { SkillInstallEnvironment } from '../skills/skill-install-environment.js';
-import type { SkillLoader } from '../skills/skill-loader.js';
-import type { SkillStagingManager } from '../skills/skill-staging.js';
 import type { ModelRegistry } from '../llm/model-registry.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
@@ -15,6 +12,9 @@ import type { InteractionService } from '../services/interaction-service.js';
 import type { MemoryService } from '../services/memory-service.js';
 import type { ToolTelemetryService } from '../services/tool-telemetry-service.js';
 import type { WorkstationToolResolver } from '../services/workstation-tool-resolver.js';
+import type { SkillInstallEnvironment } from '../skills/skill-install-environment.js';
+import type { SkillLoader } from '../skills/skill-loader.js';
+import type { SkillStagingManager } from '../skills/skill-staging.js';
 import { HookRegistry } from './hook-registry.js';
 import type { RuntimeRepositories } from './repositories.js';
 import { Scratchpad } from './scratchpad.js';
@@ -33,6 +33,20 @@ export interface MeetingInterruptBox {
 export interface InteractionBox {
   pending: InteractionRequest | null;
 }
+
+export interface RuntimeDeterminism {
+  nowMs(): number;
+  nowIso(): string;
+  id(prefix: string): string;
+  uuid(): string;
+}
+
+export const defaultDeterminism: RuntimeDeterminism = {
+  nowMs: () => Date.now(),
+  nowIso: () => new Date().toISOString(),
+  id: (prefix) => `${prefix}-${crypto.randomUUID()}`,
+  uuid: () => crypto.randomUUID(),
+};
 
 export interface RuntimeContext {
   readonly repos: RuntimeRepositories;
@@ -80,6 +94,7 @@ export interface RuntimeContext {
    * desktop-only paths gracefully return `not-supported-in-web`.
    */
   readonly skillInstallEnvironment?: SkillInstallEnvironment;
+  readonly determinism: RuntimeDeterminism;
 }
 
 export interface DisposableRuntime {
@@ -130,13 +145,16 @@ export function createRuntimeContext(deps: {
   skillLoader?: SkillLoader;
   skillStagingManager?: SkillStagingManager;
   skillInstallEnvironment?: SkillInstallEnvironment;
+  determinism?: RuntimeDeterminism;
 }): RuntimeContext {
-  const { meetingInterruptBox, interactionBox, hookRegistry, scratchpad, ...rest } = deps;
+  const { meetingInterruptBox, interactionBox, hookRegistry, scratchpad, determinism, ...rest } =
+    deps;
   return Object.freeze({
     ...rest,
     meetingInterruptBox: meetingInterruptBox ?? { pending: null },
     interactionBox: interactionBox ?? { pending: null },
     hookRegistry: hookRegistry ?? new HookRegistry(),
     scratchpad: scratchpad ?? new Scratchpad(),
+    determinism: determinism ?? defaultDeterminism,
   });
 }

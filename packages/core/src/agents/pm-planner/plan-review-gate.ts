@@ -33,32 +33,34 @@ export async function awaitPlanReview(plan: LlmPlan, prep: PmPreflightReady): Pr
   if (interactionMode !== 'human_in_loop') return;
   if (approvedToExecute) return;
 
-  interactionService.rememberPlanReviewPayload(runtimeCtx.threadId, plan);
-  await interactionService.request({
-    interactionId: generateId('ix'),
-    threadId: runtimeCtx.threadId,
-    companyId: runtimeCtx.companyId,
-    kind: 'plan_review',
-    severity: 'normal',
-    title: 'Review plan before execution',
-    prompt: formatPlanReviewPrompt(plan),
-    options: [
-      { id: 'start_execution', label: 'Start execution', recommended: true },
-      { id: 'revise_plan', label: 'Revise plan' },
-      { id: 'cancel', label: 'Cancel' },
-    ],
-    recommendation: {
-      optionId: 'start_execution',
-      reason: buildPlanReviewReason(plan, planRevisionNote),
+  await interactionService.request(
+    {
+      interactionId: generateId('ix'),
+      threadId: runtimeCtx.threadId,
+      companyId: runtimeCtx.companyId,
+      kind: 'plan_review',
+      severity: 'normal',
+      title: 'Review plan before execution',
+      prompt: formatPlanReviewPrompt(plan),
+      options: [
+        { id: 'start_execution', label: 'Start execution', recommended: true },
+        { id: 'revise_plan', label: 'Revise plan' },
+        { id: 'cancel', label: 'Cancel' },
+      ],
+      recommendation: {
+        optionId: 'start_execution',
+        reason: buildPlanReviewReason(plan, planRevisionNote),
+      },
+      allowFreeformResponse: true,
+      placeholder: 'Tell Offisim what to change in the plan',
+      requestedByNode: 'pm_planner',
+      context: {
+        type: 'plan_review',
+        planId: null,
+      },
+      createdAt: Date.now(),
     },
-    allowFreeformResponse: true,
-    placeholder: 'Tell Offisim what to change in the plan',
-    requestedByNode: 'pm_planner',
-    context: {
-      type: 'plan_review',
-      planId: null,
-    },
-    createdAt: Date.now(),
-  });
+    { payload: plan },
+  );
   throw new Error(PLAN_REVIEW_REQUIRED);
 }

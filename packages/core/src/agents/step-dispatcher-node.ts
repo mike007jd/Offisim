@@ -71,9 +71,10 @@ export async function stepDispatcherNode(
       return deps.every((dep) => completedSteps.has(dep));
     }
     // Implicit sequential: every step before this one must be complete.
-    return step.stepIndex === 0
-      ? true
-      : Array.from({ length: step.stepIndex }, (_, i) => i).every((i) => completedSteps.has(i));
+    for (let i = 0; i < step.stepIndex; i++) {
+      if (!completedSteps.has(i)) return false;
+    }
+    return true;
   }
 
   const readySteps = plan.steps.filter(isReady);
@@ -140,8 +141,10 @@ export async function stepDispatcherNode(
       }
 
       // Emit dispatched event for scene choreography
-      const emp = await repos.employees.findById(task.employeeId).catch(() => null);
-      const assigneeName = task.assigneeName ?? emp?.name ?? task.employeeId;
+      const assigneeName =
+        task.assigneeName ??
+        (await repos.employees.findById(task.employeeId).catch(() => null))?.name ??
+        task.employeeId;
       eventBus.emit(
         taskAssignmentDispatched(
           companyId,
@@ -169,11 +172,11 @@ export async function stepDispatcherNode(
         employeeId: task.employeeId,
         assigneeKind: 'employee',
         assigneeName,
+        taskRunId: taskRunId ?? undefined,
+        stepIndex: stepIdx,
         inputJson: {
           description,
           requiredSkills: task.requiredSkills,
-          taskRunId: taskRunId ?? undefined,
-          stepIndex: stepIdx,
         },
       });
       await runtimeCtx.hookRegistry.emit('task.assigned', {

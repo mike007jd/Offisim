@@ -7,9 +7,12 @@ import type {
   NewMcpAudit,
   NewRack,
   NewSlot,
+  NewToolPermissionApproval,
   RackRow,
   RuntimeRepositories,
   SlotRow,
+  ToolPermissionApprovalRepository,
+  ToolPermissionApprovalRow,
   WorkstationRackRow,
 } from '../../repositories.js';
 
@@ -24,6 +27,7 @@ export interface PermissionsDrizzleRepos {
   slots: RuntimeRepositories['slots'];
   workstationRacks: RuntimeRepositories['workstationRacks'];
   mcpAudit: McpAuditRepository;
+  toolPermissionApprovals: ToolPermissionApprovalRepository;
 }
 
 export function createPermissionsDrizzleRepos(db: Db): PermissionsDrizzleRepos {
@@ -144,5 +148,72 @@ export function createPermissionsDrizzleRepos(db: Db): PermissionsDrizzleRepos {
     },
   };
 
-  return { racks, slots, workstationRacks, mcpAudit };
+  const toolPermissionApprovals: ToolPermissionApprovalRepository = {
+    async create(approval: NewToolPermissionApproval) {
+      db.insert(schema.toolPermissionApprovals).values(approval).run();
+      return approval as ToolPermissionApprovalRow;
+    },
+    async hasApproval(lookup) {
+      const rows = db
+        .select({ approval_id: schema.toolPermissionApprovals.approval_id })
+        .from(schema.toolPermissionApprovals)
+        .where(
+          and(
+            eq(schema.toolPermissionApprovals.thread_id, lookup.threadId),
+            approvalEmployeeCondition(lookup.employeeId),
+            eq(schema.toolPermissionApprovals.server_name, lookup.serverName),
+            eq(schema.toolPermissionApprovals.tool_name, lookup.toolName),
+            lookup.policyHash
+              ? eq(schema.toolPermissionApprovals.policy_hash, lookup.policyHash)
+              : sql`1 = 1`,
+            sql`(${schema.toolPermissionApprovals.expires_at} IS NULL OR ${schema.toolPermissionApprovals.expires_at} > datetime('now'))`,
+          ),
+        )
+        .limit(1)
+        .all();
+      return rows.length > 0;
+    },
+    async findReusableApproval(lookup) {
+      const rows = db
+        .select()
+        .from(schema.toolPermissionApprovals)
+        .where(
+          and(
+            eq(schema.toolPermissionApprovals.thread_id, lookup.threadId),
+            approvalEmployeeCondition(lookup.employeeId),
+            eq(schema.toolPermissionApprovals.server_name, lookup.serverName),
+            eq(schema.toolPermissionApprovals.tool_name, lookup.toolName),
+            lookup.policyHash
+              ? eq(schema.toolPermissionApprovals.policy_hash, lookup.policyHash)
+              : sql`1 = 1`,
+            sql`${schema.toolPermissionApprovals.consumed_at} IS NULL`,
+            sql`(${schema.toolPermissionApprovals.expires_at} IS NULL OR ${schema.toolPermissionApprovals.expires_at} > datetime('now'))`,
+          ),
+        )
+        .orderBy(sql`${schema.toolPermissionApprovals.created_at} DESC`)
+        .limit(1)
+        .all();
+      return (rows[0] as ToolPermissionApprovalRow | undefined) ?? null;
+    },
+    async consumeApproval(approvalId, consumedAt) {
+      db.update(schema.toolPermissionApprovals)
+        .set({ consumed_at: consumedAt })
+        .where(
+          and(
+            eq(schema.toolPermissionApprovals.approval_id, approvalId),
+            eq(schema.toolPermissionApprovals.scope, 'once'),
+            sql`${schema.toolPermissionApprovals.consumed_at} IS NULL`,
+          ),
+        )
+        .run();
+    },
+  };
+
+  return { racks, slots, workstationRacks, mcpAudit, toolPermissionApprovals };
+}
+
+function approvalEmployeeCondition(employeeId: string | null | undefined) {
+  return employeeId == null
+    ? sql`${schema.toolPermissionApprovals.employee_id} IS NULL`
+    : eq(schema.toolPermissionApprovals.employee_id, employeeId);
 }

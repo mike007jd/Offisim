@@ -270,6 +270,7 @@ export async function finalizeEmployeeSuccess(
     roleSlug: employee.role_slug,
     content: llmResponse.content,
     taskRunId: taskRunId ?? '',
+    stepIndex: preflight.stepIndex,
     artifact: materializedDeliverable
       ? {
           kind: 'file' as const,

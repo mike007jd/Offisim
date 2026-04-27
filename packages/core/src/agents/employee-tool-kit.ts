@@ -1,6 +1,8 @@
 import type { OffisimGraphState } from '../graph/state.js';
 import type { ToolDef } from '../llm/gateway.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import type { ToolExecutor } from '../runtime/tool-executor.js';
+import { type DroppedTool, buildToolPool } from '../tools/tool-pool-builder.js';
 import { buildMemoryTools } from './employee-memory-tools.js';
 import { MAX_HANDOFF_COUNT } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
@@ -11,6 +13,8 @@ export interface ToolKit {
   readonly mcpTools: ToolDef[];
   readonly allTools: ToolDef[];
   readonly allowedMcpToolNames: Set<string>;
+  readonly deniedTools: readonly DroppedTool[];
+  readonly toolsHash: string;
 }
 
 /**
@@ -80,8 +84,30 @@ export async function assembleToolKit(
   const mcpTools = workstationToolResolver
     ? await workstationToolResolver.resolveForEmployee(companyId, employee.employee_id)
     : await toolExecutor.listAvailable(companyId);
-  const allowedMcpToolNames = new Set(mcpTools.map((t) => t.name));
-  const allTools = [...virtualTools, ...mcpTools];
+  const pool = await buildToolPool({
+    virtualTools,
+    mcpTools,
+    runtimePolicy: runtimeCtx.runtimePolicy,
+    serverForTool: serverResolverFromExecutor(toolExecutor),
+  });
+  const allowedMcpToolNames = new Set(pool.mcpTools.map((t) => t.name));
 
-  return { virtualTools, mcpTools, allTools, allowedMcpToolNames };
+  return {
+    virtualTools: pool.virtualTools,
+    mcpTools: pool.mcpTools,
+    allTools: pool.llmTools,
+    allowedMcpToolNames,
+    deniedTools: pool.deniedTools,
+    toolsHash: pool.toolsHash,
+  };
+}
+
+function serverResolverFromExecutor(
+  toolExecutor: ToolExecutor,
+): ((toolName: string) => string | undefined) | undefined {
+  const maybeResolver = (toolExecutor as unknown as Record<string, unknown>).getServerForTool;
+  return typeof maybeResolver === 'function'
+    ? (toolName) =>
+        (maybeResolver as (name: string) => string | undefined).call(toolExecutor, toolName)
+    : undefined;
 }

@@ -12,6 +12,8 @@ export interface ToolCallRequest {
   readonly taskRunId?: string;
   /** The plan step that initiated this tool call, when available. */
   readonly stepIndex?: number;
+  /** Abort signal for tool waits, subprocesses, and permission prompts. */
+  readonly signal?: AbortSignal;
 }
 
 export interface ToolCallResponse {

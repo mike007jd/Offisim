@@ -217,29 +217,11 @@ async function stepAdvanceNode(
 
   const stepsToComplete = newlyCompletedIndices;
 
-  // Group currentStepOutputs by step: each assignment.inputJson carries stepIndex.
-  // For legacy plans, all outputs belong to currentStepIndex.
-  const outputsByStep = new Map<number, typeof state.currentStepOutputs>();
-  for (const stepIdx of stepsToComplete) {
-    outputsByStep.set(stepIdx, []);
-  }
-  // Distribute outputs — all go to the batch since they're from the same dispatch round
-  // For the single-step case (legacy), all go to stepsToComplete[0].
-  if (stepsToComplete.length === 1) {
-    const onlyStep = stepsToComplete[0];
-    if (onlyStep === undefined) {
-      throw new Error('Expected one step to complete when distributing outputs');
-    }
-    outputsByStep.set(onlyStep, [...state.currentStepOutputs]);
-  } else {
-    // Multi-step batch: split outputs by looking at task run IDs across the plan
-    // For now, assign all outputs to a combined list (outputs are ordered by task completion)
-    // Each step gets a proportional slice — or we can store all outputs under the primary step.
-    // Simple approach: accumulate all outputs under each completed step (they share context).
-    for (const stepIdx of stepsToComplete) {
-      outputsByStep.set(stepIdx, [...state.currentStepOutputs]);
-    }
-  }
+  const outputsByStep = groupCurrentStepOutputsByStep(
+    state.currentStepOutputs,
+    stepsToComplete,
+    state.currentStepIndex,
+  );
 
   const newStepResults = [...state.stepResults];
   const newCompletedIndices = [...(state.completedStepIndices ?? [])];
@@ -299,6 +281,26 @@ async function stepAdvanceNode(
     currentStepOutputs: [],
     completedStepIndices: newCompletedIndices,
   };
+}
+
+export function groupCurrentStepOutputsByStep(
+  outputs: readonly OffisimGraphState['currentStepOutputs'][number][],
+  stepsToComplete: readonly number[],
+  fallbackStep: number,
+): Map<number, OffisimGraphState['currentStepOutputs']> {
+  const outputsByStep = new Map<number, OffisimGraphState['currentStepOutputs']>();
+  for (const stepIdx of stepsToComplete) {
+    outputsByStep.set(stepIdx, []);
+  }
+  const fallback = stepsToComplete[0] ?? fallbackStep;
+  for (const output of outputs) {
+    const stepIdx =
+      typeof output.stepIndex === 'number' && outputsByStep.has(output.stepIndex)
+        ? output.stepIndex
+        : fallback;
+    outputsByStep.set(stepIdx, [...(outputsByStep.get(stepIdx) ?? []), output]);
+  }
+  return outputsByStep;
 }
 
 /**

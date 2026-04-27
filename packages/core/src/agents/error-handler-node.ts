@@ -50,7 +50,8 @@ export async function errorHandlerNode(
   if (runtimeCtx && state.pendingAssignments.length > 0) {
     const { repos, eventBus, companyId } = runtimeCtx;
     for (const assignment of state.pendingAssignments) {
-      const taskRunId = assignment.inputJson?.taskRunId as string | undefined;
+      const taskRunId =
+        assignment.taskRunId ?? (assignment.inputJson?.taskRunId as string | undefined);
       if (taskRunId) {
         await repos.taskRuns.updateStatus(taskRunId, 'cancelled');
         eventBus.emit(

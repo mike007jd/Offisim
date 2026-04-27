@@ -117,6 +117,7 @@ export async function employeeNode(
         runtimeCtx,
         state,
         allowedMcpToolNames,
+        signal: getConfigSignal(config),
       });
 
       if (outcome.kind === 'handoff') {
@@ -125,6 +126,7 @@ export async function employeeNode(
           remaining,
           employee,
           taskRunId,
+          stepIndex: preflightOutcome.preflight.stepIndex,
           runtimeCtx,
           companyId,
           threadId,

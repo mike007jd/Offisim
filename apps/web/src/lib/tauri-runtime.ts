@@ -304,6 +304,7 @@ export async function createTauriRuntime(
     threadRepo: repos.threads,
     activeRepo: repos.activeInteractions,
     historyRepo: repos.interactionHistory,
+    permissionApprovals: repos.toolPermissionApprovals,
     hookRegistry,
     ...(skillInstallCommitter ? { skillInstallConfirmHandler: skillInstallCommitter } : {}),
   });
@@ -319,6 +320,7 @@ export async function createTauriRuntime(
     new ToolPermissionEngine({
       employees: repos.employees,
       mcpAudit: repos.mcpAudit,
+      approvals: repos.toolPermissionApprovals,
       runtimePolicy,
       grants: interactionService,
     }),

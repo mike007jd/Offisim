@@ -17,6 +17,7 @@ import type {
   InteractionHistoryRepository,
   InteractionHistoryStatus,
   ThreadRepository,
+  ToolPermissionApprovalRepository,
 } from '../runtime/repositories.js';
 import { generateId } from '../utils/generate-id.js';
 
@@ -68,6 +69,11 @@ export interface InteractionResolveResult {
 
 export interface InteractionWaitOptions {
   readonly signal?: AbortSignal;
+  readonly payload?: unknown;
+}
+
+export interface InteractionRequestOptions {
+  readonly payload?: unknown;
 }
 
 interface InteractionResolutionWaiter {
@@ -82,7 +88,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
   private readonly onceGrants = new Map<string, number>();
   private readonly threadGrants = new Set<string>();
   private readonly sessionGrants = new Set<string>();
-  private readonly planReviewPayloads = new Map<string, unknown>();
+  private readonly activePayloads = new Map<string, unknown>();
   private readonly planReviewDecisions = new Map<string, PlanReviewDecision>();
   private resolutionWaiter: InteractionResolutionWaiter | null = null;
 
@@ -96,6 +102,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
       readonly threadRepo?: Pick<ThreadRepository, 'findById' | 'updateInteractionMode'>;
       readonly activeRepo?: ActiveInteractionRepository;
       readonly historyRepo?: InteractionHistoryRepository;
+      readonly permissionApprovals: ToolPermissionApprovalRepository;
       readonly loadMode?: () => Promise<InteractionMode | null>;
       readonly hookRegistry?: HookRegistry;
       /** Async handler that commits or discards a skill install based on the user's decision. */
@@ -123,6 +130,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     try {
       const request = JSON.parse(activeRow.request_json) as InteractionRequest;
       this.hydratePending(request);
+      this.hydratePayload(request, activeRow.payload_json);
       this.deps.eventBus.emit(
         interactionRestored(this.deps.companyId, this.deps.threadId, request),
       );
@@ -157,6 +165,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     this.syncPendingStore();
     await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
     await this.persistHistory(pending, null, 'cancelled');
+    this.clearPayload(pending);
     this.rejectResolutionWaiter(
       pending.interactionId,
       new Error('Interaction request was cancelled before it was resolved.'),
@@ -164,16 +173,21 @@ export class InteractionService implements ToolPermissionGrantResolver {
     return pending;
   }
 
-  async request(request: InteractionRequest): Promise<InteractionRequest> {
+  async request(
+    request: InteractionRequest,
+    options: InteractionRequestOptions = {},
+  ): Promise<InteractionRequest> {
     const replaced = this.pending;
     if (replaced) {
       await this.persistHistory(replaced, null, 'superseded');
+      this.clearPayload(replaced);
       this.rejectResolutionWaiter(
         replaced.interactionId,
         new Error('Interaction request was superseded before it was resolved.'),
       );
     }
     this.pending = request;
+    this.setPayload(request, options.payload);
     this.syncPendingStore();
     await this.deps.activeRepo?.upsert({
       thread_id: this.deps.threadId,
@@ -182,6 +196,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
       kind: request.kind,
       interaction_mode: this.threadMode,
       request_json: JSON.stringify(request),
+      payload_json: options.payload === undefined ? null : JSON.stringify(options.payload),
       created_at: new Date(request.createdAt).toISOString(),
       updated_at: new Date().toISOString(),
     });
@@ -207,7 +222,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
 
     const response = this.waitForResolution(request.interactionId, options.signal);
     try {
-      await this.request(request);
+      await this.request(request, { payload: options.payload });
     } catch (err) {
       this.rejectResolutionWaiter(
         request.interactionId,
@@ -224,11 +239,13 @@ export class InteractionService implements ToolPermissionGrantResolver {
     if (!pending || pending.interactionId !== response.interactionId) return null;
 
     this.pending = null;
+    const payload = this.getPayload(pending);
     this.syncPendingStore();
     await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
-    await this.persistHistory(pending, response, 'resolved');
-    this.applyGrants(pending, response);
-    this.applyPlanReviewDecision(pending, response);
+    await this.persistHistory(pending, response, 'resolved', payload);
+    await this.applyGrants(pending, response);
+    this.applyPlanReviewDecision(pending, response, payload);
+    this.clearPayload(pending);
     const skillInstallOutcome = await this.applySkillInstallConfirm(pending, response);
     await this.deps.hookRegistry?.emit('interaction.resolved', {
       interactionId: pending.interactionId,
@@ -312,9 +329,11 @@ export class InteractionService implements ToolPermissionGrantResolver {
     const pending = this.pending;
     if (!pending || pending.interactionId !== interactionId) return;
     this.pending = null;
+    const payload = this.getPayload(pending);
     this.syncPendingStore();
     await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
-    await this.persistHistory(pending, null, 'cancelled');
+    await this.persistHistory(pending, null, 'cancelled', payload);
+    this.clearPayload(pending);
   }
 
   private async applySkillInstallConfirm(
@@ -369,16 +388,14 @@ export class InteractionService implements ToolPermissionGrantResolver {
     const decision = this.planReviewDecisions.get(threadId) ?? null;
     if (decision) {
       this.planReviewDecisions.delete(threadId);
-      this.planReviewPayloads.delete(threadId);
     }
     return decision;
   }
 
-  rememberPlanReviewPayload(threadId: string, payload: unknown): void {
-    this.planReviewPayloads.set(threadId, payload);
-  }
-
-  private applyGrants(request: InteractionRequest, response: InteractionResponse): void {
+  private async applyGrants(
+    request: InteractionRequest,
+    response: InteractionResponse,
+  ): Promise<void> {
     if (request.kind !== 'permission_request' || request.context?.type !== 'permission_request') {
       return;
     }
@@ -399,10 +416,12 @@ export class InteractionService implements ToolPermissionGrantResolver {
 
     if (scope === 'once') {
       this.onceGrants.set(key, (this.onceGrants.get(key) ?? 0) + 1);
+      await this.persistPermissionApproval(request, scope);
       return;
     }
     if (scope === 'thread') {
       this.threadGrants.add(key);
+      await this.persistPermissionApproval(request, scope);
       return;
     }
     this.sessionGrants.add(key);
@@ -411,19 +430,48 @@ export class InteractionService implements ToolPermissionGrantResolver {
   private applyPlanReviewDecision(
     request: InteractionRequest,
     response: InteractionResponse,
+    payload: unknown,
   ): void {
     if (request.kind !== 'plan_review' || request.context?.type !== 'plan_review') {
       return;
     }
     if (response.selectedOptionId === 'cancel') {
-      this.planReviewDecisions.delete(request.threadId);
+      this.planReviewDecisions.set(request.threadId, {
+        selectedOptionId: 'cancel',
+        freeformResponse: response.freeformResponse,
+        respondedAt: response.respondedAt,
+      });
       return;
     }
     this.planReviewDecisions.set(request.threadId, {
       selectedOptionId: response.selectedOptionId,
       freeformResponse: response.freeformResponse,
       respondedAt: response.respondedAt,
-      reviewedPayload: this.planReviewPayloads.get(request.threadId),
+      reviewedPayload: payload,
+    });
+  }
+
+  private async persistPermissionApproval(
+    request: InteractionRequest,
+    scope: 'once' | 'thread',
+  ): Promise<void> {
+    if (request.kind !== 'permission_request' || request.context?.type !== 'permission_request') {
+      return;
+    }
+    const createdAt = new Date().toISOString();
+    await this.deps.permissionApprovals.create({
+      approval_id: generateId('tpa'),
+      thread_id: request.threadId,
+      company_id: request.companyId,
+      employee_id: request.context.employeeId ?? null,
+      server_name: request.context.serverName,
+      tool_name: request.context.toolName,
+      scope,
+      approved_by: `interaction:${scope}`,
+      policy_hash: request.context.policyHash ?? 'default',
+      consumed_at: null,
+      created_at: createdAt,
+      expires_at: null,
     });
   }
 
@@ -443,6 +491,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     request: InteractionRequest,
     response: InteractionResponse | null,
     status: InteractionHistoryStatus,
+    payload: unknown = this.getPayload(request),
   ): Promise<void> {
     await this.deps.historyRepo?.create({
       history_id: generateId('ixh'),
@@ -456,8 +505,34 @@ export class InteractionService implements ToolPermissionGrantResolver {
       freeform_response: response?.freeformResponse ?? null,
       request_json: JSON.stringify(request),
       response_json: response ? JSON.stringify(response) : null,
+      payload_json: payload === undefined ? null : JSON.stringify(payload),
       created_at: new Date(request.createdAt).toISOString(),
       resolved_at: new Date(response?.respondedAt ?? Date.now()).toISOString(),
     });
+  }
+
+  private setPayload(request: InteractionRequest, payload: unknown): void {
+    if (payload === undefined) return;
+    this.activePayloads.set(request.interactionId, payload);
+  }
+
+  private hydratePayload(request: InteractionRequest, payloadJson: string | null): void {
+    if (!payloadJson) return;
+    try {
+      this.setPayload(request, JSON.parse(payloadJson));
+    } catch {
+      this.clearPayload(request);
+    }
+  }
+
+  private getPayload(request: InteractionRequest): unknown {
+    if (this.activePayloads.has(request.interactionId)) {
+      return this.activePayloads.get(request.interactionId);
+    }
+    return undefined;
+  }
+
+  private clearPayload(request: InteractionRequest): void {
+    this.activePayloads.delete(request.interactionId);
   }
 }

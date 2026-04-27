@@ -39,6 +39,10 @@ export class AuditingToolExecutor implements ToolExecutor {
     return this.inner.listAvailable(companyId);
   }
 
+  getServerForTool(toolName: string): string | undefined {
+    return this.resolveServerName(toolName);
+  }
+
   async execute(call: ToolCallRequest): Promise<ToolCallResponse> {
     const auditId = generateId('ma');
     const startedAt = Date.now();
@@ -63,6 +67,7 @@ export class AuditingToolExecutor implements ToolExecutor {
     );
 
     try {
+      let approvedBy = 'auto';
       if (this.permissionAuthorizer) {
         const decision = await this.permissionAuthorizer.evaluate({
           threadId: this.threadId,
@@ -70,12 +75,8 @@ export class AuditingToolExecutor implements ToolExecutor {
           toolName: call.name,
           employeeId: call.employeeId,
         });
-        if (decision.behavior !== 'allow') {
-          if (decision.behavior === 'ask' && this.interactionService) {
-            await this.interactionService.request(
-              this.buildPermissionInteractionRequest(call, serverName, decision.reason),
-            );
-          }
+        approvedBy = decision.approvedBy;
+        if (decision.behavior === 'deny') {
           const response = this.buildPermissionResponse(decision.behavior, decision.reason);
           const completedAt = Date.now();
           const latencyMs = completedAt - startedAt;
@@ -85,10 +86,103 @@ export class AuditingToolExecutor implements ToolExecutor {
             serverName,
             response,
             latencyMs,
-            approvedBy: decision.approvedBy,
+            approvedBy,
           });
           this.emitToolResult(call, serverName, response, startedAt, completedAt, concurrentWith);
           return response;
+        }
+        if (decision.behavior === 'ask') {
+          if (this.interactionService?.getMode() === 'human_in_loop') {
+            const resolved = await this.interactionService.requestAndWait(
+              this.buildPermissionInteractionRequest(
+                call,
+                serverName,
+                decision.reason,
+                decision.policyHash,
+              ),
+              { signal: call.signal },
+            );
+
+            if (resolved.selectedOptionId === 'reject') {
+              const response = this.buildPermissionResponse(
+                'deny',
+                'Denied by user approval prompt.',
+              );
+              const completedAt = Date.now();
+              const latencyMs = completedAt - startedAt;
+              await this.writeAudit({
+                auditId,
+                call,
+                serverName,
+                response,
+                latencyMs,
+                approvedBy: 'interaction:reject',
+              });
+              this.emitToolResult(
+                call,
+                serverName,
+                response,
+                startedAt,
+                completedAt,
+                concurrentWith,
+              );
+              return response;
+            }
+
+            const afterGrant = await this.permissionAuthorizer.evaluate({
+              threadId: this.threadId,
+              serverName,
+              toolName: call.name,
+              employeeId: call.employeeId,
+            });
+            approvedBy = afterGrant.approvedBy;
+            if (afterGrant.behavior !== 'allow') {
+              const response = this.buildPermissionResponse(afterGrant.behavior, afterGrant.reason);
+              const completedAt = Date.now();
+              const latencyMs = completedAt - startedAt;
+              await this.writeAudit({
+                auditId,
+                call,
+                serverName,
+                response,
+                latencyMs,
+                approvedBy,
+              });
+              this.emitToolResult(
+                call,
+                serverName,
+                response,
+                startedAt,
+                completedAt,
+                concurrentWith,
+              );
+              return response;
+            }
+          } else {
+            if (this.interactionService) {
+              await this.interactionService.request(
+                this.buildPermissionInteractionRequest(
+                  call,
+                  serverName,
+                  decision.reason,
+                  decision.policyHash,
+                ),
+              );
+            }
+            const response = this.buildPermissionResponse(decision.behavior, decision.reason);
+            const completedAt = Date.now();
+            const latencyMs = completedAt - startedAt;
+            await this.writeAudit({
+              auditId,
+              call,
+              serverName,
+              response,
+              latencyMs,
+              approvedBy,
+            });
+            this.emitToolResult(call, serverName, response, startedAt, completedAt, concurrentWith);
+            return response;
+          }
         }
       }
 
@@ -102,7 +196,7 @@ export class AuditingToolExecutor implements ToolExecutor {
         serverName,
         response,
         latencyMs,
-        approvedBy: 'auto',
+        approvedBy,
       });
       this.emitToolResult(call, serverName, response, startedAt, completedAt, concurrentWith);
 
@@ -160,6 +254,7 @@ export class AuditingToolExecutor implements ToolExecutor {
     call: ToolCallRequest,
     serverName: string,
     reason: string,
+    policyHash?: string,
   ): InteractionRequest {
     const severity = this.classifyPermissionSeverity(call.name);
     return {
@@ -204,6 +299,7 @@ export class AuditingToolExecutor implements ToolExecutor {
         serverName,
         toolName: call.name,
         employeeId: call.employeeId ?? null,
+        ...(policyHash ? { policyHash } : {}),
       },
       createdAt: Date.now(),
     };

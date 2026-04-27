@@ -462,7 +462,13 @@ export const llmCalls = sqliteTable(
     input_tokens: integer('input_tokens').notNull(),
     output_tokens: integer('output_tokens').notNull(),
     usage_raw_json: text('usage_raw_json'),
+    request_json: text('request_json'),
     response_json: text('response_json'),
+    tool_calls_json: text('tool_calls_json'),
+    prompt_hash: text('prompt_hash'),
+    tools_hash: text('tools_hash'),
+    response_hash: text('response_hash'),
+    recording_mode: text('recording_mode'),
     latency_ms: integer('latency_ms'),
     error_code: text('error_code'),
     created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
@@ -589,6 +595,38 @@ export const mcpAuditLog = sqliteTable(
   ],
 );
 
+export const toolPermissionApprovals = sqliteTable(
+  'tool_permission_approvals',
+  {
+    approval_id: text('approval_id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => graphThreads.thread_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    employee_id: text('employee_id'),
+    server_name: text('server_name').notNull(),
+    tool_name: text('tool_name').notNull(),
+    scope: text('scope').notNull(),
+    approved_by: text('approved_by').notNull(),
+    policy_hash: text('policy_hash').notNull(),
+    consumed_at: text('consumed_at'),
+    created_at: text('created_at').notNull(),
+    expires_at: text('expires_at'),
+  },
+  (table) => [
+    index('idx_tool_perm_approval_lookup').on(
+      table.thread_id,
+      table.employee_id,
+      table.server_name,
+      table.tool_name,
+      table.policy_hash,
+    ),
+    index('idx_tool_perm_approval_company').on(table.company_id, table.created_at),
+  ],
+);
+
 // ---------------------------------------------------------------------------
 // 008 — Node summary ledger
 // ---------------------------------------------------------------------------
@@ -664,6 +702,7 @@ export const activeThreadInteractions = sqliteTable(
     kind: text('kind').notNull(),
     interaction_mode: text('interaction_mode').notNull(),
     request_json: text('request_json').notNull(),
+    payload_json: text('payload_json'),
     created_at: text('created_at').notNull(),
     updated_at: text('updated_at').notNull(),
   },
@@ -691,6 +730,7 @@ export const interactionHistory = sqliteTable(
     freeform_response: text('freeform_response'),
     request_json: text('request_json').notNull(),
     response_json: text('response_json'),
+    payload_json: text('payload_json'),
     created_at: text('created_at').notNull(),
     resolved_at: text('resolved_at').notNull(),
   },

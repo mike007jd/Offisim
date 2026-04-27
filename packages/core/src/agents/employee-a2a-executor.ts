@@ -51,7 +51,7 @@ function extractOutput(task: A2ATask): A2AOutput {
         mimeType: part.mediaType ?? null,
       };
     }
-    if (part.text && part.text.trim()) {
+    if (part.text?.trim()) {
       return {
         content: part.text,
         fileName: part.filename ?? null,
@@ -163,8 +163,15 @@ export async function runEmployeeA2A(
   runtimeCtx: RuntimeContext,
   preflight: PreflightResult,
 ): Promise<Partial<OffisimGraphState>> {
-  const { employee, remaining, taskRunId, taskDescription, completedSoFar, totalAssignments, taskLabel } =
-    preflight;
+  const {
+    employee,
+    remaining,
+    taskRunId,
+    taskDescription,
+    completedSoFar,
+    totalAssignments,
+    taskLabel,
+  } = preflight;
   const { eventBus, companyId, threadId } = runtimeCtx;
   const peer = peerFromEmployee(employee);
 
@@ -256,14 +263,7 @@ export async function runEmployeeA2A(
 
   emitProgress(runtimeCtx, employee, completedSoFar, totalAssignments, taskLabel, 'done', threadId);
   eventBus.emit(
-    employeeStateChanged(
-      companyId,
-      employee.employee_id,
-      'executing',
-      'idle',
-      threadId,
-      taskRunId,
-    ),
+    employeeStateChanged(companyId, employee.employee_id, 'executing', 'idle', threadId, taskRunId),
   );
 
   if (normalizedArtifact) {
@@ -315,6 +315,7 @@ export async function runEmployeeA2A(
         roleSlug: employee.role_slug,
         content: output.content,
         taskRunId: taskRunId ?? '',
+        stepIndex: preflight.stepIndex,
         artifact: normalizedArtifact
           ? {
               kind: 'file',
