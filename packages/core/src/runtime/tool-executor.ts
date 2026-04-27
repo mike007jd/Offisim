@@ -12,6 +12,8 @@ export interface ToolCallRequest {
   readonly taskRunId?: string;
   /** The plan step that initiated this tool call, when available. */
   readonly stepIndex?: number;
+  /** Preloaded employee config from the current turn, avoids repeated employee reads. */
+  readonly employeeConfigJson?: string | null;
   /** Abort signal for tool waits, subprocesses, and permission prompts. */
   readonly signal?: AbortSignal;
 }

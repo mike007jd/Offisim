@@ -27,6 +27,15 @@ const EMPTY_REPLAY_FIELDS = {
   response_hash: null,
 } as const;
 
+const EMPTY_REPLAY_VALUES = {
+  requestJson: null,
+  responseJson: null,
+  toolCallsJson: null,
+  promptHash: null,
+  toolsHash: null,
+  responseHash: null,
+} as const;
+
 /**
  * Build an `onChunk` callback for `recordedLlmStream` that forwards reasoning and/or
  * content deltas onto the runtime eventBus as `llm.stream.chunk` events. Set
@@ -318,12 +327,12 @@ export async function recordedLlmStream(
 }
 
 interface ReplayFields {
-  requestJson: string;
-  responseJson: string;
-  toolCallsJson: string;
-  promptHash: string;
-  toolsHash: string;
-  responseHash: string;
+  requestJson: string | null;
+  responseJson: string | null;
+  toolCallsJson: string | null;
+  promptHash: string | null;
+  toolsHash: string | null;
+  responseHash: string | null;
   recordingMode: string;
 }
 
@@ -332,6 +341,10 @@ async function buildReplayFields(
   request: LlmRequest,
   response: LlmResponse,
 ): Promise<ReplayFields> {
+  const mode = recordingMode(ctx);
+  if (mode === 'metadata') {
+    return { ...EMPTY_REPLAY_VALUES, recordingMode: mode };
+  }
   const redactedRequest = redactLlmRequest(request);
   const redactedResponse = redactLlmResponse(response);
   const { promptHash, toolsHash } = await replayRequestHashes(request);
@@ -343,7 +356,7 @@ async function buildReplayFields(
     promptHash,
     toolsHash,
     responseHash,
-    recordingMode: recordingMode(ctx),
+    recordingMode: mode,
   };
 }
 
@@ -378,5 +391,5 @@ function redactLlmResponse(response: LlmResponse): LlmResponse {
 
 function recordingMode(ctx: RuntimeContext): string {
   const policy = ctx.runtimePolicy as { recording?: { mode?: string } } | undefined;
-  return policy?.recording?.mode ?? 'metadata';
+  return policy?.recording?.mode ?? 'replay';
 }

@@ -115,6 +115,7 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
         arguments: toolCall.arguments,
         nodeName: 'employee',
         employeeId: employee.employee_id,
+        employeeConfigJson: employee.config_json,
         taskRunId: taskRunId ?? undefined,
         stepIndex: preflight.stepIndex,
         signal,
