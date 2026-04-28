@@ -194,12 +194,12 @@
 
 ### 3.8 Platform `/sessions/:id/mode` route + Tauri command
 
-- [ ] 3.8.1 新建 `apps/platform/src/routes/sessions.ts`:
+- [x] 3.8.1 新建 `apps/platform/src/routes/sessions.ts`:
   - `PATCH /api/sessions/:id/mode` — body zod `{ mode: 4-value-enum }`,update meeting_sessions row (column `interaction_mode`,Phase B.9 加),return `{ ok: true, mode }`
   - `GET /api/sessions/:id` — return current session row 含 mode
-- [ ] 3.8.2 在 `apps/platform/src/app.ts` 挂载
-- [ ] 3.8.3 `apps/desktop/src-tauri/src/` 加 Tauri command `set_session_mode(id, mode)` + `get_session(id)`
-- [ ] 3.8.4 commit `feat(platform): /sessions/:id/mode route + Tauri command`
+- [x] 3.8.2 在 `apps/platform/src/app.ts` 挂载
+- [x] 3.8.3 `apps/desktop/src-tauri/src/` 加 Tauri command `set_session_mode(id, mode)` + `get_session(id)`
+- [x] 3.8.4 commit `feat(platform): /sessions/:id/mode route + Tauri command`
 
 ### 3.9 Persist interactionMode on meeting_sessions
 

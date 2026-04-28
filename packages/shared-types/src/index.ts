@@ -136,6 +136,8 @@ export {
   DEFAULT_INTERACTION_MODE,
   INTERACTION_MODE_DESCRIPTION,
   INTERACTION_MODE_LABEL,
+  INTERACTION_MODES,
+  isInteractionMode,
 } from './interactions.js';
 export { AGENT_QUESTION_REQUIRED, PLAN_REVIEW_REQUIRED } from './interactions.js';
 export type { KanbanOrigin, KanbanState } from './kanban.js';

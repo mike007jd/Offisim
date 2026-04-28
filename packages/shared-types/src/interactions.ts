@@ -1,5 +1,12 @@
 export type InteractionMode = 'boss_proxy' | 'human_in_loop' | 'direct_to_employee' | 'yolo';
 
+export const INTERACTION_MODES = [
+  'boss_proxy',
+  'human_in_loop',
+  'direct_to_employee',
+  'yolo',
+] as const;
+
 export const DEFAULT_INTERACTION_MODE: InteractionMode = 'boss_proxy';
 
 export const INTERACTION_MODE_LABEL: Record<InteractionMode, string> = {
@@ -15,6 +22,10 @@ export const INTERACTION_MODE_DESCRIPTION: Record<InteractionMode, string> = {
   direct_to_employee: 'Work enters the planner and employee loop without boss ceremony.',
   yolo: 'A single autonomous YOLO Master owns the task end to end.',
 };
+
+export function isInteractionMode(value: string): value is InteractionMode {
+  return (INTERACTION_MODES as readonly string[]).includes(value);
+}
 
 export type InteractionKind =
   | 'permission_request'

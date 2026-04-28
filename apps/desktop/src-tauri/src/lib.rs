@@ -7,6 +7,7 @@ mod local_paths;
 mod mcp_bridge;
 mod resume;
 mod runtime_secrets;
+mod sessions;
 mod sidecar_stderr;
 
 use tauri::Manager;
@@ -315,6 +316,8 @@ pub fn run() {
             local_paths::open_local_path,
             local_paths::save_deliverable_to_local,
             resume::resume_conversation,
+            sessions::get_session,
+            sessions::set_session_mode,
         ])
         .plugin(
             tauri_plugin_sql::Builder::default()
