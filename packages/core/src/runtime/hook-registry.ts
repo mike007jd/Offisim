@@ -2,9 +2,18 @@ export type HookEvent =
   | 'graph.node.before'
   | 'graph.node.after'
   | 'task.assigned'
+  | 'task.completion.verifying'
   | 'task.completed'
   | 'interaction.created'
   | 'interaction.resolved';
+
+export interface TaskCompletionVerifyingPayload {
+  taskRunId: string;
+  employeeId: string;
+  recentToolResults: ReadonlyArray<{ toolName: string; success: boolean; bytes: number }>;
+  allow: () => void;
+  block: (reason: string) => void;
+}
 
 export interface HookDefinition {
   event: HookEvent;

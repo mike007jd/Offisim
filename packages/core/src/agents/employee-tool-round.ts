@@ -1,5 +1,6 @@
 import type { OffisimGraphState } from '../graph/state.js';
 import type { LlmMessage, LlmResponse, ToolCallResult } from '../llm/gateway.js';
+import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { WORKSTATION_ACCESS_DENIED } from '../runtime/tool-executor.js';
 import { Logger } from '../services/logger.js';
@@ -25,7 +26,7 @@ export interface HandoffArgs {
 
 export type ToolRoundOutcome =
   | { kind: 'handoff'; args: HandoffArgs }
-  | { kind: 'continue'; nextHistory: LlmMessage[] };
+  | { kind: 'continue'; nextHistory: LlmMessage[]; recentToolResults: RecentToolResult[] };
 
 export interface ToolRoundContext {
   readonly llmResponse: LlmResponse;
@@ -168,11 +169,37 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
       ? [firstMessage, ...nextHistory.slice(-MAX_CONTEXT_MESSAGES)]
       : nextHistory;
 
-  return { kind: 'continue', nextHistory: trimmedHistory };
+  return {
+    kind: 'continue',
+    nextHistory: trimmedHistory,
+    recentToolResults: toolResults.map((result) => ({
+      toolName: result.name,
+      success: toolResultSucceeded(result.result),
+      bytes: toolResultBytes(result.result),
+    })),
+  };
 }
 
 const CONCURRENCY_SAFE_TOOL_NAMES = new Set<string>(['read_file', 'web_search', 'recall']);
 
 function isConcurrencySafeToolCall(toolCall: ToolCallResult): boolean {
   return CONCURRENCY_SAFE_TOOL_NAMES.has(toolCall.name);
+}
+
+const textEncoder = new TextEncoder();
+
+function toolResultText(result: unknown): string {
+  if (typeof result === 'string') return result;
+  return JSON.stringify(result) ?? String(result);
+}
+
+function toolResultBytes(result: unknown): number {
+  return textEncoder.encode(toolResultText(result)).byteLength;
+}
+
+function toolResultSucceeded(result: unknown): boolean {
+  if (result && typeof result === 'object' && 'success' in result) {
+    return (result as { success?: unknown }).success === true;
+  }
+  return !(typeof result === 'string' && result.startsWith('Tool execution failed:'));
 }

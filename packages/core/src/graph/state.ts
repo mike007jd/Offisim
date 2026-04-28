@@ -1,6 +1,7 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import { Annotation, messagesStateReducer } from '@langchain/langgraph';
 import type { RoleSlug } from '@offisim/shared-types';
+import type { RecentToolResult } from '../runtime/completion-verifier.js';
 
 export type AssignmentTargetKind = 'employee';
 
@@ -211,6 +212,11 @@ export const OffisimGraphAnnotation = Annotation.Root({
     default: () => [],
   }),
   currentStepOutputs: Annotation<StepTaskOutput[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
+
+  recentToolResults: Annotation<RecentToolResult[]>({
     reducer: (_prev, next) => next,
     default: () => [],
   }),

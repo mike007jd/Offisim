@@ -3,6 +3,7 @@ import type { Command } from '@langchain/langgraph';
 import { resolveEmployeeRuntimeBinding } from '../engine/runtime-binding.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import type { LlmMessage } from '../llm/gateway.js';
+import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import { Logger } from '../services/logger.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
@@ -22,6 +23,14 @@ import { buildTurnRunner } from './employee-turn-runner.js';
 export { extractUsedCitations } from './employee-completion.js';
 
 const logger = new Logger('employee');
+const MAX_RECENT_TOOL_RESULTS = 32;
+
+function appendRecentToolResults(
+  existing: readonly RecentToolResult[],
+  next: readonly RecentToolResult[],
+): RecentToolResult[] {
+  return [...existing, ...next].slice(-MAX_RECENT_TOOL_RESULTS);
+}
 
 export async function employeeNode(
   state: OffisimGraphState,
@@ -90,6 +99,7 @@ export async function employeeNode(
   // Hoisted out of try scope so the recovery catch handler can report the
   // tool round count reached before the failure.
   let round = 0;
+  let recentToolResults = state.recentToolResults ?? [];
 
   try {
     // Initial LLM call
@@ -138,6 +148,7 @@ export async function employeeNode(
       }
 
       workingHistory = outcome.nextHistory;
+      recentToolResults = appendRecentToolResults(recentToolResults, outcome.recentToolResults);
       llmResponse = await runEmployeeTurn(workingHistory, { taskRunId });
     }
 
@@ -147,7 +158,7 @@ export async function employeeNode(
 
     return await finalizeEmployeeSuccess({
       runtimeCtx,
-      state,
+      state: { ...state, recentToolResults },
       preflight: preflightOutcome.preflight,
       llmResponse,
       citationMap,
@@ -173,7 +184,7 @@ export async function employeeNode(
     if (recovered) {
       return await finalizeEmployeeSuccess({
         runtimeCtx,
-        state,
+        state: { ...state, recentToolResults },
         preflight: preflightOutcome.preflight,
         llmResponse: recovered,
         citationMap,

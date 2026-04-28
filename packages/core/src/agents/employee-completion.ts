@@ -1,4 +1,5 @@
 import { AIMessage } from '@langchain/core/messages';
+import type { TaskState } from '@offisim/shared-types';
 import {
   deliverableCreated,
   employeeStateChanged,
@@ -8,6 +9,8 @@ import {
 } from '../events/event-factories.js';
 import type { CitationRef, OffisimGraphState } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
+import { type VerifyOutcome, verifyCompletion } from '../runtime/completion-verifier.js';
+import type { TaskCompletionVerifyingPayload } from '../runtime/hook-registry.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { Logger } from '../services/logger.js';
@@ -22,6 +25,35 @@ import { TASK_TYPE_HANDOFF_CONTINUATION } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
 
 const logger = new Logger('employee-completion');
+
+async function verifyTaskCompletion(input: {
+  runtimeCtx: RuntimeContext;
+  taskRunId: string;
+  employeeId: string;
+  state: OffisimGraphState;
+}): Promise<VerifyOutcome> {
+  const { runtimeCtx, taskRunId, employeeId, state } = input;
+  const defaultOutcome = verifyCompletion({
+    recentToolResults: state.recentToolResults ?? [],
+  });
+  let hookOutcome: VerifyOutcome | null = null;
+  const payload: TaskCompletionVerifyingPayload = {
+    taskRunId,
+    employeeId,
+    recentToolResults: state.recentToolResults ?? [],
+    allow: () => {
+      hookOutcome = { ok: true };
+    },
+    block: (reason) => {
+      hookOutcome = { ok: false, reason };
+    },
+  };
+  await runtimeCtx.hookRegistry.emit(
+    'task.completion.verifying',
+    payload as unknown as Record<string, unknown>,
+  );
+  return hookOutcome ?? defaultOutcome;
+}
 
 /**
  * Extract [N] citation references from an LLM response and map them
@@ -97,29 +129,40 @@ export async function finalizeEmployeeSuccess(
   } = preflight;
   const { repos, eventBus, companyId, threadId, memoryService, scratchpad } = runtimeCtx;
 
-  const materializedDeliverable =
-    ctx.materializedDeliverableOverride ??
-    (await materializeFileDeliverableIfNeeded(
-      runtimeCtx,
-      taskDescription,
-      employee,
-      llmResponse,
-      {
-        model: resolved.model,
-        provider: resolved.provider,
-        temperature: resolved.temperature,
-        maxTokens: resolved.maxTokens,
-        signal,
-      },
-      taskRunId,
-    ));
+  const completionOutcome = taskRunId
+    ? await verifyTaskCompletion({
+        runtimeCtx,
+        taskRunId,
+        employeeId: employee.employee_id,
+        state,
+      })
+    : ({ ok: true } as const);
+  const nextTaskState: TaskState = completionOutcome.ok ? 'completed' : 'review_ready';
+
+  const materializedDeliverable = completionOutcome.ok
+    ? (ctx.materializedDeliverableOverride ??
+      (await materializeFileDeliverableIfNeeded(
+        runtimeCtx,
+        taskDescription,
+        employee,
+        llmResponse,
+        {
+          model: resolved.model,
+          provider: resolved.provider,
+          temperature: resolved.temperature,
+          maxTokens: resolved.maxTokens,
+          signal,
+        },
+        taskRunId,
+      )))
+    : null;
 
   // Recovery path emits hookRegistry.emit INSIDE the taskRun update block
   // (pre-refactor order). Normal path fires it later, after appendAgentEvent.
   if (taskRunId) {
     await repos.taskRuns.updateStatus(
       taskRunId,
-      'completed',
+      nextTaskState,
       JSON.stringify({ content: llmResponse.content }),
     );
     eventBus.emit(
@@ -127,7 +170,7 @@ export async function finalizeEmployeeSuccess(
         companyId,
         taskRunId,
         'running',
-        'completed',
+        nextTaskState,
         threadId,
         employee.employee_id,
         'employee',
@@ -141,7 +184,7 @@ export async function finalizeEmployeeSuccess(
         assigneeName: employee.name,
       }),
     );
-    if (source === 'recovery') {
+    if (source === 'recovery' && completionOutcome.ok) {
       await runtimeCtx.hookRegistry.emit('task.completed', {
         threadId,
         companyId,
@@ -158,9 +201,9 @@ export async function finalizeEmployeeSuccess(
       employee.employee_id,
       completedSoFar,
       taskLabel,
-      'done',
+      completionOutcome.ok ? 'done' : 'failed',
       totalAssignments,
-      completedSoFar + 1,
+      completionOutcome.ok ? completedSoFar + 1 : completedSoFar,
       threadId,
       { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
     ),
@@ -172,7 +215,7 @@ export async function finalizeEmployeeSuccess(
 
   // reflectAndRemember runs only for normal path (recovery skipped — preserves
   // pre-refactor behavior where reflection was tied to happy-path only).
-  if (source === 'normal' && memoryService) {
+  if (completionOutcome.ok && source === 'normal' && memoryService) {
     const skipReflection =
       isDirectChatTask || assignment.taskType === TASK_TYPE_HANDOFF_CONTINUATION;
     try {
@@ -193,7 +236,20 @@ export async function finalizeEmployeeSuccess(
 
   const usedCitations = extractUsedCitations(llmResponse.content, citationMap);
 
-  if (source === 'normal') {
+  if (!completionOutcome.ok) {
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: `employee:${employee.employee_id}`,
+      eventType: 'action',
+      payload: {
+        kind: 'completion-blocked',
+        taskRunId,
+        employeeName: employee.name,
+        reason: completionOutcome.reason,
+      },
+    });
+  } else if (source === 'normal') {
     await appendAgentEvent(runtimeCtx, {
       projectId: state.projectId,
       threadId: state.threadId,
@@ -288,5 +344,6 @@ export async function finalizeEmployeeSuccess(
     pendingAssignments: remaining,
     messages: [new AIMessage({ content: llmResponse.content })],
     currentStepOutputs: [...state.currentStepOutputs, stepOutputEntry],
+    recentToolResults: state.recentToolResults ?? [],
   };
 }

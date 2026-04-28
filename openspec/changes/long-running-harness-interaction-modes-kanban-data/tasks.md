@@ -71,27 +71,27 @@
 
 ### 2.4 completion-verifier hook
 
-- [ ] 2.4.1 在 `packages/core/src/runtime/hook-registry.ts` 扩 `HookEvent` union,加 `'task.completion.verifying'`
-- [ ] 2.4.2 在同文件 export `interface TaskCompletionVerifyingPayload`:
+- [x] 2.4.1 在 `packages/core/src/runtime/hook-registry.ts` 扩 `HookEvent` union,加 `'task.completion.verifying'`
+- [x] 2.4.2 在同文件 export `interface TaskCompletionVerifyingPayload`:
   - `taskRunId: string`
   - `employeeId: string`
   - `recentToolResults: ReadonlyArray<{ toolName: string; success: boolean; bytes: number }>`
   - `allow: () => void`
   - `block: (reason: string) => void`
-- [ ] 2.4.3 新建 `packages/core/src/runtime/completion-verifier.ts`,导出 `verifyCompletion(input, opts): VerifyOutcome`:
+- [x] 2.4.3 新建 `packages/core/src/runtime/completion-verifier.ts`,导出 `verifyCompletion(input, opts): VerifyOutcome`:
   - `opts.evidenceTools: readonly string[]` (默认 `['pnpm-test', 'pnpm-typecheck', 'pnpm-lint', 'harness-contract']`)
   - `opts.windowSize: number` (默认 12)
   - return `{ ok: true } | { ok: false; reason: string }`
-- [ ] 2.4.4 新建 `completion-verifier.test.mjs`,3 个 case:
+- [x] 2.4.4 新建 `completion-verifier.test.mjs`,3 个 case:
   - case A: 无 evidence tool 调用 → blocked
   - case B: pnpm-test success 在 window 内 → allowed
   - case C: pnpm-test failed → blocked
-- [ ] 2.4.5 `node --test` 全绿
-- [ ] 2.4.6 在 `packages/core/src/agents/employee-completion.ts` 找到转 `done` 的代码点,在 emit `taskStateChanged({ next: 'completed' })` 之前 emit `task.completion.verifying` hook,默认 hook 跑 `verifyCompletion`,无 evidence 则 `nextState = 'review'` + appendAgentEvent `{ kind: 'completion-blocked', reason }`
-- [ ] 2.4.7 在 `packages/core/src/agents/employee-tool-round.ts` 每次 tool 调用结束后,把 `{ toolName, success, bytes }` push 到 `state.recentToolResults` (新加 field 到 `OffisimGraphState`,环形 buffer 保留最近 32 条)
-- [ ] 2.4.8 `packages/core/src/graph/state.ts` 加 `recentToolResults?: ReadonlyArray<{ toolName: string; success: boolean; bytes: number }>` 字段
-- [ ] 2.4.9 `pnpm typecheck && pnpm lint && pnpm harness:contract` 全绿;简化审查;commit
-- [ ] 2.4.10 `git commit -m "feat(runtime): require verification evidence before task.completed transition"`
+- [x] 2.4.5 `node --test` 全绿
+- [x] 2.4.6 在 `packages/core/src/agents/employee-completion.ts` 找到转 `done` 的代码点,在 emit `taskStateChanged({ next: 'completed' })` 之前 emit `task.completion.verifying` hook,默认 hook 跑 `verifyCompletion`,无 evidence 则 `nextState = 'review'` + appendAgentEvent `{ kind: 'completion-blocked', reason }`
+- [x] 2.4.7 在 `packages/core/src/agents/employee-tool-round.ts` 每次 tool 调用结束后,把 `{ toolName, success, bytes }` push 到 `state.recentToolResults` (新加 field 到 `OffisimGraphState`,环形 buffer 保留最近 32 条)
+- [x] 2.4.8 `packages/core/src/graph/state.ts` 加 `recentToolResults?: ReadonlyArray<{ toolName: string; success: boolean; bytes: number }>` 字段
+- [x] 2.4.9 `pnpm typecheck && pnpm lint && pnpm harness:contract` 全绿;简化审查;commit
+- [x] 2.4.10 `git commit -m "feat(runtime): require verification evidence before task.completed transition"`
 
 ### 2.5 ResumeCoordinator + platform / Tauri resume route
 
