@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyPreview } from '../../hooks/useCompanyPreview.js';
 import { updateCompanyIdentity } from '../../lib/company-identity.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { CompanyCreationWizard } from '../onboarding/CompanyCreationWizard.js';
 import { useCompany } from './CompanyContext.js';
 
 interface CompanySelectionPageProps {
@@ -248,12 +249,12 @@ export function CompanySelectionPage({
   previewCompanyId,
   onPreviewCompany,
   onEnterCompany,
-  onCreateNew,
   onArchiveCompany,
 }: CompanySelectionPageProps) {
   const { companies, activeCompanyId, refreshCompanies } = useCompany();
   const { repos } = useOffisimRuntime();
   const [renamingCompanyId, setRenamingCompanyId] = useState<string | null>(null);
+  const [creatingNew, setCreatingNew] = useState(false);
   const visibleCompanies = useMemo(
     () => companies.filter((company) => company.status !== 'archived'),
     [companies],
@@ -283,6 +284,17 @@ export function CompanySelectionPage({
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#07101d] text-white lg:flex-row">
+      {creatingNew && (
+        <CompanyCreationWizard
+          mode="create-new"
+          onComplete={(newCompanyId) => {
+            void refreshCompanies();
+            setCreatingNew(false);
+            onEnterCompany(newCompanyId);
+          }}
+          onDismiss={() => setCreatingNew(false)}
+        />
+      )}
       <aside className="flex shrink-0 flex-col border-white/8 bg-black/20 p-5 lg:w-[320px] lg:border-r">
         <div className="mb-4 flex items-center justify-between lg:mb-5">
           <div>
@@ -291,7 +303,7 @@ export function CompanySelectionPage({
           </div>
           <button
             type="button"
-            onClick={onCreateNew}
+            onClick={() => setCreatingNew(true)}
             className="inline-flex items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-200 transition hover:border-blue-300/50 hover:bg-blue-500/15"
           >
             <FolderPlus className="h-4 w-4" />

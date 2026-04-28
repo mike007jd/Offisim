@@ -305,7 +305,10 @@ export function App({ onCompanySwitch }: AppProps) {
           portalPreviewCompanyId={portalPreviewCompanyId}
           setPortalPreviewCompanyId={setPortalPreviewCompanyId}
           onEnterCompany={lifecycle.handleSelectCompany}
-          onCreateNew={() => setCompanyWizardMode('create-new')}
+          onCreateNew={() => {
+            overlay.closeOverlay();
+            setCompanyWizardMode('create-new');
+          }}
           onArchiveCompany={lifecycle.handleArchiveCompany}
           officeState={officeState}
           activeCompanyId={activeCompanyId}

@@ -381,7 +381,7 @@
 每项必须用 `pnpm dev` + 真实浏览器手测,不依赖任何自动化测试。观察符合预期才打勾。
 
 - [ ] 6.3.1 全新 install:`rm -rf node_modules dist && pnpm install && pnpm dev` 启动干净,无 console 错误
-- [ ] 6.3.2 创建新 company (用 ai-startup template),company 创建后 employee 列表中可见 YOLO Master 头像 (机械风,kelp-green clothing accent)
+- [x] 6.3.2 创建新 company (用 ai-startup template),company 创建后 employee 列表中可见 YOLO Master 头像 (机械风,kelp-green clothing accent)
 - [ ] 6.3.3 切到 SOP (boss_proxy) 模式,提"build a counter component with tests",观察 boss → manager → planner → employee 链路全走完;kanban (⌘J) 打开,看到 ≥3 张 `pm-planner` origin 卡片,执行后转 `done`,观察 chat 中 employee 在 `done` 之前跑过 `pnpm test` 并通过
 - [ ] 6.3.4 切到 Direct (direct_to_employee) 模式,在员工面板点一个 employee,提同样需求,观察 boss/manager/HR 节点不出现,直接 employee 自己拆 todo 卡 (origin=`employee`)
 - [ ] 6.3.5 切到 YOLO 模式,提同样需求,观察 yolo-master 节点接管,无其他角色出现;long-running 任务跑过 30+ turn 仍稳定,context 大小波动不超过限制
@@ -390,6 +390,13 @@
 - [ ] 6.3.8 看板点 ✕ 关闭,3D 帧率恢复
 - [ ] 6.3.9 ESC 在不同 overlay 上分别测,关闭顺序与 `unified-shell-routing` spec 锁定的行为一致(无 regression)
 - [ ] 6.3.10 用 `todo_update` 把一张卡转 `blocked` 加 reason,观察看板上该卡显示 ⛔ + reason 文本
+
+> 2026-04-28 live blocker: web runtime successfully created `RC1 AI Startup Live 1777384564685`
+> from `ai-startup` and displayed 7 employees including YOLO Master. SOP live task then reached
+> Boss -> Employee, but employee tool pool exposed only skill/memory tools, not file write/read or
+> command execution. The employee explicitly reported it could not create files or run `npm/pnpm test`;
+> therefore 6.3.3-6.3.10 and 6.4 remain unclosed until a trusted file/command tool surface is provided
+> or the checklist is scoped to desktop/MCP-equipped runtimes.
 
 ### 6.4 Product live runtime closure (Tauri release `.app`)
 
