@@ -261,6 +261,14 @@ fn migrations() -> Vec<Migration> {
             ),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 38,
+            description: "kanban cards",
+            sql: include_str!(
+                "../../../../Docs/03_migrations/offisim_migrations_local_v0.1/038_kanban_cards.sql"
+            ),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

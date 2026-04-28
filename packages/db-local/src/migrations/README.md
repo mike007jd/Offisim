@@ -30,5 +30,11 @@ Apply in lexical order:
 22. `022_fix_mcp_audit_fk.sql`
 23. `023_deliverables.sql`
 24. `024_employees_external_a2a.sql`
+25. `025_skills_table.sql`
+26. `026_projects_workspace_root.sql`
+27. `027_skills_self_authored_source_kind.sql`
+28. `028_deterministic_harness_foundation.sql`
+29. `029_tool_permission_approval_company_lookup.sql`
+30. `030_kanban_cards.sql`
 
 These migrations target SQLite and reflect the current package-local runtime model.

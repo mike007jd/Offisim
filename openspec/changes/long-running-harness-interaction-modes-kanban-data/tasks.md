@@ -234,7 +234,7 @@
 
 ### 5.1 kanban_cards table + migration
 
-- [ ] 5.1.1 在 1.5 步拿到的 next migration number,新建 `packages/db-local/src/migrations/0XX_kanban_cards.sql`:
+- [x] 5.1.1 在 1.5 步拿到的 next migration number,新建 `packages/db-local/src/migrations/0XX_kanban_cards.sql`:
   ```sql
   CREATE TABLE IF NOT EXISTS kanban_cards (
     id TEXT PRIMARY KEY,
@@ -257,9 +257,9 @@
   CREATE INDEX IF NOT EXISTS idx_kanban_assignee ON kanban_cards(assigned_employee_id, state);
   CREATE INDEX IF NOT EXISTS idx_kanban_task_run ON kanban_cards(task_run_id);
   ```
-- [ ] 5.1.2 `packages/db-local/src/schema.ts` 加 `kanbanCards` table 定义,`state` enum / `origin` enum 通过 `text(...)` + 约束在应用层(SQLite 不支持 enum)
-- [ ] 5.1.3 跑 db-local migration 验证不破坏现有 company / project
-- [ ] 5.1.4 commit `feat(db-local): kanban_cards table with project FK and state machine`
+- [x] 5.1.2 `packages/db-local/src/schema.ts` 加 `kanbanCards` table 定义,`state` enum / `origin` enum 通过 `text(...)` + 约束在应用层(SQLite 不支持 enum)
+- [x] 5.1.3 跑 db-local migration 验证不破坏现有 company / project
+- [x] 5.1.4 commit `feat(db-local): kanban_cards table with project FK and state machine`
 
 ### 5.2 KanbanRepo + RuntimeContext wiring
 

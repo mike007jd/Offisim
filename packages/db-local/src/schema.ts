@@ -304,6 +304,40 @@ export const projectAssignments = sqliteTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// 030 — Kanban cards
+// ---------------------------------------------------------------------------
+
+export const kanbanCards = sqliteTable(
+  'kanban_cards',
+  {
+    id: text('id').primaryKey(),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.project_id, { onDelete: 'cascade' }),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    note: text('note').notNull().default(''),
+    state: text('state').notNull().default('todo'),
+    origin: text('origin').notNull(),
+    created_by_employee_id: text('created_by_employee_id'),
+    assigned_employee_id: text('assigned_employee_id'),
+    parent_card_id: text('parent_card_id'),
+    blocked_reason: text('blocked_reason'),
+    task_run_id: text('task_run_id'),
+    sort_order: integer('sort_order').notNull().default(0),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_kanban_project_state').on(table.project_id, table.state),
+    index('idx_kanban_assignee').on(table.assigned_employee_id, table.state),
+    index('idx_kanban_task_run').on(table.task_run_id),
+  ],
+);
+
 export const graphCheckpoints = sqliteTable(
   'graph_checkpoints',
   {
