@@ -1,0 +1,14 @@
+{
+  "id": "yolo-mode-skips-boss-chain",
+  "category": "interaction-modes",
+  "entryMode": "boss_chat",
+  "interactionMode": "yolo",
+  "seed": {
+    "company": { "companyId": "company-yolo-mode-skips-boss-chain", "name": "YOLO Harness Co" },
+    "thread": { "threadId": "thread-yolo-mode-skips-boss-chain", "status": "running" },
+    "employees": [{ "id": "emp-yolo", "name": "YOLO Master", "role": "yolo_master" }]
+  },
+  "initialState": {},
+  "runs": [{ "expectError": "FakeGateway exhausted" }],
+  "assertions": [{ "kind": "firstGraphNodeIs", "nodeName": "yolo-master" }]
+}

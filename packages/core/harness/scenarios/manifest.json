@@ -61,6 +61,16 @@
       "id": "skill-create-real-tool-call",
       "category": "skill-install",
       "invariants": ["skill.create_requires_real_llm_tool_call", "skill.create_preview_interaction"]
+    },
+    {
+      "id": "yolo-mode-skips-boss-chain",
+      "category": "interaction-modes",
+      "invariants": ["graph.first_node_yolo_master"]
+    },
+    {
+      "id": "direct-mode-skips-boss-chain",
+      "category": "interaction-modes",
+      "invariants": ["graph.first_node_pm_planner"]
     }
   ]
 }

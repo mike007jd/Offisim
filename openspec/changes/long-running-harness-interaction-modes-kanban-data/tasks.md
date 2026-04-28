@@ -221,10 +221,10 @@
 
 ### 3.11 Phase B harness scenario + checkpoint tag
 
-- [ ] 3.11.1 新建 `packages/core/harness/scenarios/yolo-mode-skips-boss-chain.json` — fixture conversation interactionMode='yolo',invariant:trace 中第一个执行节点是 `yolo-master` 而非 `boss`
-- [ ] 3.11.2 新建 `packages/core/harness/scenarios/direct-mode-skips-boss-chain.json` — interactionMode='direct_to_employee',invariant:trace 中第一个执行节点是 `pm-planner` 而非 `boss`
-- [ ] 3.11.3 `pnpm harness:contract && pnpm harness:replay` 全绿
-- [ ] 3.11.4 `git tag -a phase-b-interaction-modes -m "Phase B: 4-value InteractionMode + YOLO Master + mode-aware graph router"`
+- [x] 3.11.1 新建 `packages/core/harness/scenarios/yolo-mode-skips-boss-chain.json` — fixture conversation interactionMode='yolo',invariant:trace 中第一个执行节点是 `yolo-master` 而非 `boss`
+- [x] 3.11.2 新建 `packages/core/harness/scenarios/direct-mode-skips-boss-chain.json` — interactionMode='direct_to_employee',invariant:trace 中第一个执行节点是 `pm-planner` 而非 `boss`
+- [x] 3.11.3 `pnpm harness:contract && pnpm harness:replay` 全绿
+- [x] 3.11.4 `git tag -a phase-b-interaction-modes -m "Phase B: 4-value InteractionMode + YOLO Master + mode-aware graph router"`
 
 ## 4. (Pause Phase B,Pivot to Phase C 5.1 + 5.2)
 

@@ -7,11 +7,13 @@ export const SCENARIOS_DIR = resolve(ROOT, 'packages/core/harness/scenarios');
 
 export const REPLAY_SCENARIO_IDS = [
   'dag-output-attribution',
+  'direct-mode-skips-boss-chain',
   'permission-ask-approved-blocks-and-then-executes',
   'permission-ask-denied-does-not-execute',
   'plan-review-cancel-terminates',
   'plan-review-approve-survives-restore',
   'skill-create-real-tool-call',
+  'yolo-mode-skips-boss-chain',
 ];
 
 export function loadHarnessScenarios(ids = REPLAY_SCENARIO_IDS) {

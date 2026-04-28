@@ -1,5 +1,6 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { Command } from '@langchain/langgraph';
+import { graphNodeEntered } from '../events/event-factories.js';
 import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { employeeNode } from './employee-node.js';
@@ -17,6 +18,7 @@ export async function yoloMasterNode(
   config: RunnableConfig,
 ): Promise<Partial<OffisimGraphState> | Command> {
   const runtimeCtx = getRuntime(config, 'yolo-master');
+  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'yolo-master'));
   const [yolo] = await runtimeCtx.repos.employees.findByRole(
     runtimeCtx.companyId,
     YOLO_MASTER_ROLE_SLUG,

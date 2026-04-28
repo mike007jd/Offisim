@@ -1,3 +1,4 @@
+import type { RuntimeEvent } from '@offisim/shared-types';
 import type { OffisimGraphState } from '../graph/state.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
 import type { ScenarioAssertionReport } from './trace-recorder.js';
@@ -26,6 +27,7 @@ export type ScenarioAssertion =
     }
   | { readonly kind: 'toolExecutions'; readonly count: number }
   | { readonly kind: 'llmCalls'; readonly count: number }
+  | { readonly kind: 'firstGraphNodeIs'; readonly nodeName: string }
   | { readonly kind: 'toolPermissionApprovalConsumed'; readonly scope: 'once' | 'thread' }
   | { readonly kind: 'finalOutputContains'; readonly contains: string }
   | { readonly kind: 'interruptReasonIncludes'; readonly contains: string };
@@ -36,6 +38,7 @@ export interface ScenarioAssertionContext {
   readonly repos: RuntimeRepositories & { snapshot?: () => unknown };
   readonly threadId: string;
   readonly toolExecutions: readonly unknown[];
+  readonly events: readonly RuntimeEvent[];
 }
 
 export async function evaluateScenarioAssertions(
@@ -79,12 +82,25 @@ async function evaluateAssertion(
       return assertToolExecutions(ctx.toolExecutions, assertion.count);
     case 'llmCalls':
       return assertLlmCalls(ctx.repos, ctx.threadId, assertion.count);
+    case 'firstGraphNodeIs':
+      return assertFirstGraphNode(ctx.events, assertion.nodeName);
     case 'toolPermissionApprovalConsumed':
       return assertToolPermissionApprovalConsumed(ctx.repos, ctx.threadId, assertion.scope);
     case 'finalOutputContains':
       return assertFinalOutputContains(ctx.finalState, assertion.contains);
     case 'interruptReasonIncludes':
       return assertInterruptReasonIncludes(ctx.finalState, assertion.contains);
+  }
+}
+
+function assertFirstGraphNode(events: readonly RuntimeEvent[], expected: string): void {
+  const first = events.find((event) => event.type === 'graph.node.entered');
+  const actual =
+    first?.payload && typeof first.payload === 'object'
+      ? (first.payload as Record<string, unknown>).nodeName
+      : undefined;
+  if (actual !== expected) {
+    throw new Error(`Expected first graph node ${expected}, got ${String(actual ?? '<none>')}`);
   }
 }
 

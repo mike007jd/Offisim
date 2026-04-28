@@ -103,7 +103,7 @@ interface ScenarioInitialState {
 }
 
 interface ScenarioRun {
-  readonly startAt: OffisimGraphStartNode;
+  readonly startAt?: OffisimGraphStartNode;
   readonly expectError?: string;
   readonly autoResolveInteractions?: readonly ScenarioInteractionResolution[];
   readonly resolveAfterRun?: readonly ScenarioInteractionResolution[];
@@ -170,7 +170,7 @@ export async function runDeterministicScenario(
       );
       const graph = buildOffisimGraph({
         checkpointer: createMemoryCheckpointSaver(),
-        startAt: run.startAt,
+        ...(run.startAt ? { startAt: run.startAt } : {}),
       });
       try {
         finalState = await graph.invoke(finalState, {
@@ -212,6 +212,7 @@ export async function runDeterministicScenario(
       repos,
       threadId,
       toolExecutions: toolExecutor.executions,
+      events: trace.events,
     });
     const passed = assertions.every((assertion) => assertion.passed);
     return trace.report({
