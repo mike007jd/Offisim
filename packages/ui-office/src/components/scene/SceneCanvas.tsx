@@ -61,6 +61,7 @@ interface SceneCanvasProps {
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
   onFallbackTo2D?: (error: Error) => void;
+  renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
 }
 
 export function SceneCanvas({
@@ -73,6 +74,7 @@ export function SceneCanvas({
   onSelectEmployee,
   onDeselectEmployee,
   onFallbackTo2D,
+  renderEmployeeBadge,
 }: SceneCanvasProps) {
   const ceremony = useSceneCeremony() ?? IDLE_CEREMONY;
   useScene(reducedMotion);
@@ -158,6 +160,7 @@ export function SceneCanvas({
                   selectedEmployeeId={selectedEmployeeId}
                   onSelectEmployee={onSelectEmployee}
                   onDeselectEmployee={onDeselectEmployee}
+                  renderEmployeeBadge={renderEmployeeBadge}
                 />
               </Suspense>
             )}

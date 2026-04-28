@@ -58,6 +58,7 @@ interface Office3DViewProps {
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
+  renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
 }
 
 interface Office3DSceneData {
@@ -108,6 +109,7 @@ interface Office3DViewInnerProps {
   ui: Office3DSceneUiState;
   controls: Office3DSceneControls;
   actions: Office3DSceneActions;
+  renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
 }
 
 export default function Office3DView({
@@ -118,6 +120,7 @@ export default function Office3DView({
   selectedEmployeeId: externalSelectedId = null,
   onSelectEmployee,
   onDeselectEmployee,
+  renderEmployeeBadge,
 }: Office3DViewProps) {
   const agents = useAgentStates();
   const { eventBus, sceneIntentBus } = useOffisimRuntime();
@@ -426,10 +429,24 @@ export default function Office3DView({
     handleDragCancel,
   };
 
-  return <Office3DViewInner scene={scene} ui={ui} controls={controls} actions={actions} />;
+  return (
+    <Office3DViewInner
+      scene={scene}
+      ui={ui}
+      controls={controls}
+      actions={actions}
+      renderEmployeeBadge={renderEmployeeBadge}
+    />
+  );
 }
 
-function Office3DViewInner({ scene, ui, controls, actions }: Office3DViewInnerProps) {
+function Office3DViewInner({
+  scene,
+  ui,
+  controls,
+  actions,
+  renderEmployeeBadge,
+}: Office3DViewInnerProps) {
   const { agents, placed, zones3D, hasPrefabData, prefabInstances, zoneActivity, ceremony } = scene;
   const {
     selectedEmployeeId,
@@ -504,6 +521,7 @@ function Office3DViewInner({ scene, ui, controls, actions }: Office3DViewInnerPr
           dragState={dragState}
           handleSelectEmployee={handleSelectEmployee}
           handleEmployeeDragStart={handleEmployeeDragStart}
+          renderEmployeeBadge={renderEmployeeBadge}
         />
 
         <Office3DMeetingLayer ceremony={ceremony} />

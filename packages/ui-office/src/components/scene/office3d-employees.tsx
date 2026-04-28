@@ -1,5 +1,6 @@
 import type { Zone } from '@offisim/shared-types';
 import { Html } from '@react-three/drei';
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import type * as THREE from 'three';
 import { useAgentAnimation } from '../../hooks/useAgentAnimation.js';
@@ -291,6 +292,7 @@ export function EmployeeMarker({
   isSelected,
   isDragSource,
   taskDesc,
+  badge,
   onSelect,
   onDragStart,
 }: {
@@ -298,6 +300,7 @@ export function EmployeeMarker({
   isSelected: boolean;
   isDragSource?: boolean;
   taskDesc?: string;
+  badge?: ReactNode;
   onSelect: (id: string) => void;
   onDragStart?: (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => void;
 }) {
@@ -411,6 +414,11 @@ export function EmployeeMarker({
               </div>
             </Html>
           </>
+        )}
+        {badge && (
+          <Html position={[0.48, 2.05, 0]} center style={{ pointerEvents: 'none' }}>
+            {badge}
+          </Html>
         )}
         {brand.kind === 'internal' ? (
           <LowPolyCharacter

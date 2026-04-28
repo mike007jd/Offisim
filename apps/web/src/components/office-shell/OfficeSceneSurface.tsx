@@ -9,6 +9,7 @@ import {
   useSceneOrchestrator,
 } from '@offisim/ui-office/web';
 import React, { Suspense, useCallback, useMemo } from 'react';
+import { EmployeeBadgeOverlay } from './EmployeeBadgeOverlay';
 
 const SceneCanvas = React.lazy<
   React.ComponentType<{
@@ -21,6 +22,7 @@ const SceneCanvas = React.lazy<
     onSelectEmployee?: (id: string | null) => void;
     onDeselectEmployee?: () => void;
     onFallbackTo2D?: () => void;
+    renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
   }>
 >(() =>
   import('@offisim/ui-office/scene').then((module) => ({
@@ -73,6 +75,10 @@ export function OfficeSceneSurface({
 }: OfficeSceneSurfaceProps) {
   const reducedMotion = useReducedMotion();
   const handleDeselectEmployee = useCallback(() => onSelectEmployee(null), [onSelectEmployee]);
+  const renderEmployeeBadge = useCallback(
+    (employeeId: string) => <EmployeeBadgeOverlay employeeId={employeeId} />,
+    [],
+  );
 
   return (
     <div className="h-full w-full" data-onboarding-target="scene-surface">
@@ -88,6 +94,7 @@ export function OfficeSceneSurface({
             onSelectEmployee={onSelectEmployee}
             onDeselectEmployee={handleDeselectEmployee}
             onFallbackTo2D={onSceneFallbackTo2D}
+            renderEmployeeBadge={renderEmployeeBadge}
           />
         </Suspense>
       </CeremonyHost>

@@ -118,6 +118,7 @@ export function Office3DEmployeeLayer({
   dragState,
   handleSelectEmployee,
   handleEmployeeDragStart,
+  renderEmployeeBadge,
 }: {
   placed: PlacedEmployee[];
   selectedEmployeeId: string | null;
@@ -129,6 +130,7 @@ export function Office3DEmployeeLayer({
     agent: AgentState,
     e: React.PointerEvent<Element>,
   ) => void;
+  renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
 }) {
   return (
     <>
@@ -140,6 +142,7 @@ export function Office3DEmployeeLayer({
           isDragSource={isDragging && dragState?.employeeId === employee.id}
           onSelect={handleSelectEmployee}
           onDragStart={handleEmployeeDragStart}
+          badge={renderEmployeeBadge?.(employee.id)}
         />
       ))}
     </>

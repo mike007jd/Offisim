@@ -346,9 +346,9 @@
 
 ### 5.9 Employee 头顶 cards-in-progress 徽标
 
-- [ ] 5.9.1 新建 `apps/web/src/components/office-shell/EmployeeBadgeOverlay.tsx`,接 `employeeId`,内部 fetch `/api/employees/:id/kanban-count` (web) / Tauri command (desktop),count > 0 时渲染圆形徽章 (kelp-green 背景,white text)
-- [ ] 5.9.2 `OfficeSceneSurface.tsx` 在每个员工 3D label 渲染处挂 `<EmployeeBadgeOverlay employeeId={...} />`
-- [ ] 5.9.3 commit `feat(web): per-employee kanban-count badge in office`
+- [x] 5.9.1 新建 `apps/web/src/components/office-shell/EmployeeBadgeOverlay.tsx`,接 `employeeId`,内部 fetch `/api/employees/:id/kanban-count` (web) / Tauri command (desktop),count > 0 时渲染圆形徽章 (kelp-green 背景,white text)
+- [x] 5.9.2 `OfficeSceneSurface.tsx` 在每个员工 3D label 渲染处挂 `<EmployeeBadgeOverlay employeeId={...} />`
+- [x] 5.9.3 commit `feat(web): per-employee kanban-count badge in office`
 
 ### 5.10 Phase C harness scenario + checkpoint tag
 
