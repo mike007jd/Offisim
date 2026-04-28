@@ -212,6 +212,18 @@ export { replayRequestHashes } from './llm/replay-request-hashes.js';
 export type { ReplayRequestHashes } from './llm/replay-request-hashes.js';
 export { RecordedSystemLlmCaller } from './llm/recorded-system-caller.js';
 export type { SystemLlmCallerDeps } from './llm/recorded-system-caller.js';
+export { microCompactMessages } from './services/conversation-budget/micro-compact.js';
+export type {
+  MicroCompactOptions,
+  MicroCompactResult,
+} from './services/conversation-budget/micro-compact.js';
+export { verifyCompletion } from './runtime/completion-verifier.js';
+export type {
+  RecentToolResult,
+  VerifyCompletionInput,
+  VerifyCompletionOptions,
+  VerifyOutcome,
+} from './runtime/completion-verifier.js';
 
 // --- Runtime Engines ---
 export {

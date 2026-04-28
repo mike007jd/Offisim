@@ -111,11 +111,11 @@
 
 ### 2.6 Phase A harness scenario + checkpoint tag
 
-- [ ] 2.6.1 新建 `packages/core/harness/scenarios/long-running-microcompact-triggers.json` — fixture 长 messages array,含 3 个 100KB tool result;invariant: micro-compact pass 后 final non-system tokens ≤ 80k 且 marker 出现 3 次;`manifest.json` 加 entry
-- [ ] 2.6.2 新建 `packages/core/harness/scenarios/completion-verifier-blocks-without-evidence.json` — invariant: employee-completion 在缺 evidence 时落 `review` 而非 `completed`,且 emit `completion-blocked` event
-- [ ] 2.6.3 `pnpm harness:contract && pnpm harness:replay` 全绿
-- [ ] 2.6.4 `pnpm typecheck && pnpm lint` 全绿
-- [ ] 2.6.5 `git tag -a phase-a-long-running-runtime -m "Phase A: micro-compact, rolling journal, fork-sub-context, completion verifier, resume coordinator"`
+- [x] 2.6.1 新建 `packages/core/harness/scenarios/long-running-microcompact-triggers.json` — fixture 长 messages array,含 3 个 100KB tool result;invariant: micro-compact pass 后 final non-system tokens ≤ 80k 且 marker 出现 3 次;`manifest.json` 加 entry
+- [x] 2.6.2 新建 `packages/core/harness/scenarios/completion-verifier-blocks-without-evidence.json` — invariant: employee-completion 在缺 evidence 时落 `review` 而非 `completed`,且 emit `completion-blocked` event
+- [x] 2.6.3 `pnpm harness:contract && pnpm harness:replay` 全绿
+- [x] 2.6.4 `pnpm typecheck && pnpm lint` 全绿
+- [x] 2.6.5 `git tag -a phase-a-long-running-runtime -m "Phase A: micro-compact, rolling journal, fork-sub-context, completion verifier, resume coordinator"`
 
 ## 3. Phase B — interaction-modes
 

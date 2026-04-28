@@ -31,12 +31,21 @@ const graph = await import(
 const planReview = await import(
   new URL('../packages/core/dist/agents/pm-planner/plan-review-payload.js', import.meta.url).href
 );
+const microCompact = await import(
+  new URL('../packages/core/dist/services/conversation-budget/micro-compact.js', import.meta.url)
+    .href
+);
+const completionVerifier = await import(
+  new URL('../packages/core/dist/runtime/completion-verifier.js', import.meta.url).href
+);
 const invariants = [
   await assertRuntimeDenyOverridesGrant(core),
   await assertOnceApprovalIsConsumedOnce(core),
   await assertThreadApprovalIsReusable(core),
   await assertPlanReviewCancelPersistsPayload(core),
   await assertPlanReviewPayloadValidation(planReview),
+  assertLongRunningMicroCompactScenario(microCompact),
+  assertCompletionVerifierScenario(completionVerifier),
   assertDagOutputAttribution(graph),
 ];
 
@@ -68,6 +77,54 @@ function assertSameList(left, right, leftName, rightName) {
       `${leftName} do not match ${rightName}\n${leftName}: ${left.join(', ')}\n${rightName}: ${right.join(', ')}`,
     );
   }
+}
+
+function readScenario(id) {
+  return JSON.parse(readFileSync(resolve(SCENARIOS_DIR, `${id}.json`), 'utf8'));
+}
+
+function assertLongRunningMicroCompactScenario(microCompact) {
+  const scenario = readScenario('long-running-microcompact-triggers');
+  const fixture = scenario.fixture;
+  const messages = Array.from({ length: fixture.toolResultCount }, (_, index) => ({
+    role: 'tool',
+    content: `${String(index).repeat(fixture.toolResultBytes)}`,
+    toolCallId: `tool-${index}`,
+  }));
+  const result = microCompact.microCompactMessages(messages, {
+    maxToolResultBytes: fixture.maxToolResultBytes,
+    snippetBytes: fixture.snippetBytes,
+    preserveLastN: fixture.preserveLastN,
+  });
+  const joined = result.messages.map((message) => message.content).join('\n');
+  const markerCount = (joined.match(/\[microcompacted \d+ bytes\]/gu) ?? []).length;
+  const finalBytes = new TextEncoder().encode(joined).byteLength;
+  if (markerCount !== fixture.toolResultCount) {
+    throw new Error(
+      `micro-compact marker count mismatch: expected ${fixture.toolResultCount}, got ${markerCount}`,
+    );
+  }
+  if (finalBytes > fixture.maxFinalNonSystemBytes) {
+    throw new Error(`micro-compact final bytes exceeded limit: ${finalBytes}`);
+  }
+  return { id: 'long_running.microcompact_triggers', passed: true };
+}
+
+function assertCompletionVerifierScenario(completionVerifier) {
+  const scenario = readScenario('completion-verifier-blocks-without-evidence');
+  const outcome = completionVerifier.verifyCompletion({
+    recentToolResults: scenario.fixture.recentToolResults,
+  });
+  if (outcome.ok) {
+    throw new Error('completion verifier allowed completion without evidence');
+  }
+  if (scenario.fixture.expectedState !== 'review_ready') {
+    throw new Error(`unexpected blocked state fixture: ${scenario.fixture.expectedState}`);
+  }
+  if (scenario.fixture.expectedEventKind !== 'completion-blocked') {
+    throw new Error(`unexpected blocked event fixture: ${scenario.fixture.expectedEventKind}`);
+  }
+  return { id: 'completion.verifier_blocks_without_evidence', passed: true };
 }
 
 async function assertRuntimeDenyOverridesGrant(core) {

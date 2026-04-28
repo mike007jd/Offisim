@@ -42,6 +42,22 @@
       "invariants": ["llm.middleware_after_visible_in_stream", "llm.stream_nonstream_parity"]
     },
     {
+      "id": "long-running-microcompact-triggers",
+      "category": "long-running-runtime",
+      "invariants": [
+        "long_running.microcompact_marker_count",
+        "long_running.final_non_system_bytes_under_80k"
+      ]
+    },
+    {
+      "id": "completion-verifier-blocks-without-evidence",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.verifier_blocks_without_evidence",
+        "completion.blocked_event_kind"
+      ]
+    },
+    {
       "id": "skill-create-real-tool-call",
       "category": "skill-install",
       "invariants": ["skill.create_requires_real_llm_tool_call", "skill.create_preview_interaction"]
