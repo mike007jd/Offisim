@@ -293,16 +293,16 @@
 
 ### 5.5 Platform / Tauri kanban CRUD + SSE
 
-- [ ] 5.5.1 新建 `apps/platform/src/routes/kanban.ts`:
+- [x] 5.5.1 新建 `apps/platform/src/routes/kanban.ts`:
   - `GET /api/projects/:projectId/kanban` — return `{ cards: KanbanCardRow[] }`
   - `POST /api/projects/:projectId/kanban` — body zod (title / note / origin / assignedEmployeeId),return `{ card }`
   - `PATCH /api/kanban/:id` — body zod (state / blockedReason),return `{ card }`
   - `GET /api/projects/:projectId/kanban/stream` — SSE,subscribe eventBus,filter `kind === 'kanban' && card.projectId === param`
   - `GET /api/employees/:employeeId/kanban-count` — return `{ count }` 用于员工头顶徽标
-- [ ] 5.5.2 在 `apps/platform/src/app.ts` 挂载
-- [ ] 5.5.3 `apps/desktop/src-tauri/src/` 加 Tauri command:`list_kanban_cards(projectId)` / `create_kanban_card(input)` / `transition_kanban_card(id, next, reason?)` / `count_kanban_for_employee(employeeId)`;Tauri event channel `kanban://updates/:projectId` 替代 SSE
-- [ ] 5.5.4 smoke test:`pnpm dev:all`,curl `POST /api/projects/<id>/kanban` 创建一张卡,`GET` 看到,`PATCH` 改 state,SSE 收到 update 事件
-- [ ] 5.5.5 commit `feat(platform): kanban CRUD + SSE + employee count`
+- [x] 5.5.2 在 `apps/platform/src/app.ts` 挂载
+- [x] 5.5.3 `apps/desktop/src-tauri/src/` 加 Tauri command:`list_kanban_cards(projectId)` / `create_kanban_card(input)` / `transition_kanban_card(id, next, reason?)` / `count_kanban_for_employee(employeeId)`;Tauri event channel `kanban://updates/:projectId` 替代 SSE
+- [x] 5.5.4 smoke test:`pnpm dev:all`,curl `POST /api/projects/<id>/kanban` 创建一张卡,`GET` 看到,`PATCH` 改 state,SSE 收到 update 事件
+- [x] 5.5.5 commit `feat(platform): kanban CRUD + SSE + employee count`
 
 ### 5.6 useKanbanStream hook (web + desktop)
 

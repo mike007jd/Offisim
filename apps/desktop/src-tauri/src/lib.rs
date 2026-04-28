@@ -2,6 +2,7 @@ mod claude_agent_host;
 mod codex_agent_host;
 mod deep_link;
 mod git;
+mod kanban;
 mod llm_transport;
 mod local_paths;
 mod mcp_bridge;
@@ -326,6 +327,10 @@ pub fn run() {
             resume::resume_conversation,
             sessions::get_session,
             sessions::set_session_mode,
+            kanban::list_kanban_cards,
+            kanban::create_kanban_card,
+            kanban::transition_kanban_card,
+            kanban::count_kanban_for_employee,
         ])
         .plugin(
             tauri_plugin_sql::Builder::default()
