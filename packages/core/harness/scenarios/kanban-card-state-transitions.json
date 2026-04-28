@@ -1,0 +1,79 @@
+{
+  "id": "kanban-card-state-transitions",
+  "category": "kanban",
+  "entryMode": "boss_chat",
+  "interactionMode": "boss_proxy",
+  "seed": {
+    "company": {
+      "companyId": "company-kanban-state-transitions",
+      "name": "Kanban Harness Co"
+    },
+    "thread": {
+      "threadId": "thread-kanban-state-transitions",
+      "status": "running",
+      "projectId": "project-kanban-state-transitions"
+    },
+    "projects": [
+      {
+        "id": "project-kanban-state-transitions",
+        "name": "Kanban State Transition Project"
+      }
+    ],
+    "employees": [
+      { "id": "emp-kanban-a", "name": "Ada", "role": "engineer" },
+      { "id": "emp-kanban-b", "name": "Bea", "role": "designer" },
+      { "id": "emp-kanban-c", "name": "Cy", "role": "qa" }
+    ]
+  },
+  "llmTurns": [
+    {
+      "id": "pm-plan-five-cards",
+      "content": "{\"summary\":\"Kanban state transition plan\",\"steps\":[{\"stepIndex\":0,\"description\":\"Build the data model\",\"dependsOnSteps\":[],\"tasks\":[{\"taskType\":\"implementation\",\"employeeId\":\"emp-kanban-a\",\"description\":\"Build the kanban table model\",\"dependsOnStepOutput\":false}]},{\"stepIndex\":1,\"description\":\"Wire the board stream\",\"dependsOnSteps\":[],\"tasks\":[{\"taskType\":\"implementation\",\"employeeId\":\"emp-kanban-b\",\"description\":\"Wire the kanban live stream\",\"dependsOnStepOutput\":false}]},{\"stepIndex\":2,\"description\":\"Verify the board state\",\"dependsOnSteps\":[],\"tasks\":[{\"taskType\":\"verification\",\"employeeId\":\"emp-kanban-c\",\"description\":\"Verify the board card state transitions\",\"dependsOnStepOutput\":false}]},{\"stepIndex\":3,\"description\":\"Document follow-up one\",\"dependsOnSteps\":[99],\"tasks\":[{\"taskType\":\"documentation\",\"employeeId\":\"emp-kanban-a\",\"description\":\"Document the remaining rollout note\",\"dependsOnStepOutput\":false}]},{\"stepIndex\":4,\"description\":\"Document follow-up two\",\"dependsOnSteps\":[99],\"tasks\":[{\"taskType\":\"documentation\",\"employeeId\":\"emp-kanban-b\",\"description\":\"Document the remaining support note\",\"dependsOnStepOutput\":false}]}]}"
+    },
+    {
+      "id": "employee-a-done",
+      "content": "KANBAN_TASK_A_DONE"
+    },
+    {
+      "id": "employee-b-done",
+      "content": "KANBAN_TASK_B_DONE"
+    },
+    {
+      "id": "employee-c-done",
+      "content": "KANBAN_TASK_C_DONE"
+    }
+  ],
+  "initialState": {
+    "projectId": "project-kanban-state-transitions",
+    "managerDirective": {
+      "intent": "Exercise kanban card state transitions",
+      "recommendedEmployees": ["emp-kanban-a", "emp-kanban-b", "emp-kanban-c"]
+    },
+    "recentToolResults": [
+      { "toolName": "harness-contract", "success": true, "bytes": 1024 }
+    ]
+  },
+  "runs": [{ "startAt": "pm_planner" }],
+  "assertions": [
+    {
+      "kind": "kanbanCards",
+      "projectId": "project-kanban-state-transitions",
+      "count": 5,
+      "origin": "pm-planner",
+      "states": { "todo": 2, "done": 3 }
+    },
+    {
+      "kind": "kanbanEventSequence",
+      "sequence": [
+        "created:todo",
+        "created:todo",
+        "created:todo",
+        "created:todo",
+        "created:todo",
+        "transitioned:done",
+        "transitioned:done",
+        "transitioned:done"
+      ]
+    }
+  ]
+}

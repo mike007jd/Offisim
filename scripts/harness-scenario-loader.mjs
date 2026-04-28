@@ -8,6 +8,7 @@ export const SCENARIOS_DIR = resolve(ROOT, 'packages/core/harness/scenarios');
 export const REPLAY_SCENARIO_IDS = [
   'dag-output-attribution',
   'direct-mode-skips-boss-chain',
+  'kanban-card-state-transitions',
   'permission-ask-approved-blocks-and-then-executes',
   'permission-ask-denied-does-not-execute',
   'plan-review-cancel-terminates',

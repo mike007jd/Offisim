@@ -35,6 +35,10 @@ export type ScenarioAssertion =
       readonly origin?: KanbanOrigin;
       readonly states?: Partial<Record<KanbanState, number>>;
     }
+  | {
+      readonly kind: 'kanbanEventSequence';
+      readonly sequence: readonly string[];
+    }
   | { readonly kind: 'toolPermissionApprovalConsumed'; readonly scope: 'once' | 'thread' }
   | { readonly kind: 'finalOutputContains'; readonly contains: string }
   | { readonly kind: 'interruptReasonIncludes'; readonly contains: string };
@@ -93,6 +97,8 @@ async function evaluateAssertion(
       return assertFirstGraphNode(ctx.events, assertion.nodeName);
     case 'kanbanCards':
       return assertKanbanCards(ctx.repos, assertion);
+    case 'kanbanEventSequence':
+      return assertKanbanEventSequence(ctx.events, assertion.sequence);
     case 'toolPermissionApprovalConsumed':
       return assertToolPermissionApprovalConsumed(ctx.repos, ctx.threadId, assertion.scope);
     case 'finalOutputContains':
@@ -119,6 +125,33 @@ async function assertKanbanCards(
     if (actual !== expected) {
       throw new Error(`Expected ${expected} kanban cards in ${state}, got ${actual}`);
     }
+  }
+}
+
+function assertKanbanEventSequence(
+  events: readonly RuntimeEvent[],
+  expected: readonly string[],
+): void {
+  const actual = events
+    .map((event) => {
+      const payload = event.payload;
+      if (!payload || typeof payload !== 'object') return null;
+      const record = payload as {
+        kind?: unknown;
+        op?: unknown;
+        card?: { state?: unknown };
+      };
+      if (record.kind !== 'kanban' || typeof record.op !== 'string') return null;
+      return `${record.op}:${String(record.card?.state ?? '<missing>')}`;
+    })
+    .filter((entry): entry is string => entry !== null);
+  if (
+    actual.length !== expected.length ||
+    expected.some((entry, index) => actual[index] !== entry)
+  ) {
+    throw new Error(
+      `Kanban event sequence mismatch. expected=${expected.join(',')} actual=${actual.join(',')}`,
+    );
   }
 }
 

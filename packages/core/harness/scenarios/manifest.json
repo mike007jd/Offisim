@@ -71,6 +71,16 @@
       "id": "direct-mode-skips-boss-chain",
       "category": "interaction-modes",
       "invariants": ["graph.first_node_pm_planner"]
+    },
+    {
+      "id": "kanban-card-state-transitions",
+      "category": "kanban",
+      "invariants": [
+        "kanban.pm_planner_writes_5_cards",
+        "kanban.employee_completes_3_cards",
+        "kanban.remaining_2_stay_todo",
+        "kanban.event_order_matches"
+      ]
     }
   ]
 }

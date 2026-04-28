@@ -352,9 +352,9 @@
 
 ### 5.10 Phase C harness scenario + checkpoint tag
 
-- [ ] 5.10.1 新建 `packages/core/harness/scenarios/kanban-card-state-transitions.json` — invariant:`pm-planner` 写 5 张卡,employee 完成 3 张,余下 2 张依然 `todo`;event sequence 按时序匹配
-- [ ] 5.10.2 `pnpm harness:contract && pnpm harness:replay` 全绿
-- [ ] 5.10.3 `git tag -a phase-c-kanban-data-pipeline -m "Phase C: kanban_cards table, repo, planner/employee writes, KanbanOverlay live"`
+- [x] 5.10.1 新建 `packages/core/harness/scenarios/kanban-card-state-transitions.json` — invariant:`pm-planner` 写 5 张卡,employee 完成 3 张,余下 2 张依然 `todo`;event sequence 按时序匹配
+- [x] 5.10.2 `pnpm harness:contract && pnpm harness:replay` 全绿
+- [x] 5.10.3 `git tag -a phase-c-kanban-data-pipeline -m "Phase C: kanban_cards table, repo, planner/employee writes, KanbanOverlay live"`
 
 ## 6. Phase D — Integration / RC / Live runtime closure
 

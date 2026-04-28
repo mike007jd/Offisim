@@ -109,6 +109,7 @@ interface ScenarioInitialState {
   readonly taskPlan?: TaskPlan;
   readonly pendingAssignments?: readonly PendingAssignment[];
   readonly currentStepOutputs?: readonly StepTaskOutput[];
+  readonly recentToolResults?: OffisimGraphState['recentToolResults'];
   readonly dispatchedStepIndices?: readonly number[];
   readonly completedStepIndices?: readonly number[];
   readonly currentStepIndex?: number;
@@ -140,7 +141,7 @@ export async function runDeterministicScenario(
   scenario: DeterministicScenario,
 ): Promise<ScenarioTraceReport> {
   const eventBus = new InMemoryEventBus();
-  const repos = createMemoryRepositories();
+  const repos = createMemoryRepositories(undefined, undefined, eventBus);
   const companyId = scenario.seed.company?.companyId ?? `company-${scenario.id}`;
   const threadId = scenario.seed.thread?.threadId ?? `thread-${scenario.id}`;
   const trace = new TraceRecorder(eventBus);
@@ -407,6 +408,7 @@ function buildInitialState(
     taskPlan: scenario.initialState.taskPlan ?? null,
     pendingAssignments: [...(scenario.initialState.pendingAssignments ?? [])],
     currentStepOutputs: [...(scenario.initialState.currentStepOutputs ?? [])],
+    recentToolResults: [...(scenario.initialState.recentToolResults ?? [])],
     dispatchedStepIndices: [...(scenario.initialState.dispatchedStepIndices ?? [])],
     completedStepIndices: [...(scenario.initialState.completedStepIndices ?? [])],
     currentStepIndex: scenario.initialState.currentStepIndex ?? 0,
