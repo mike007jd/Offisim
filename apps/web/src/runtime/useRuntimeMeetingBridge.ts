@@ -1,7 +1,7 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
-import { useEffect, type MutableRefObject } from 'react';
 import type { InMemoryEventBus } from '@offisim/core/browser';
 import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
+import type { RuntimeEvent } from '@offisim/shared-types';
+import { type MutableRefObject, useEffect } from 'react';
 import type { RuntimeBundle } from '../lib/browser-runtime';
 
 async function loadHumanMessage() {
@@ -22,7 +22,6 @@ export function useRuntimeMeetingBridge(opts: {
   const { eventBus, runtimeRef, setIsRunning, setError } = opts;
 
   useEffect(() => {
-
     async function runPausedMeetingAction(
       meetingId: string,
       action: (
@@ -62,12 +61,9 @@ export function useRuntimeMeetingBridge(opts: {
       if (!meetingId) return;
 
       void (async () => {
-        await runPausedMeetingAction(
-          meetingId,
-          async (orch, threadId, HumanMessage) => {
-            await orch.resumeMeeting(meetingId, [new HumanMessage('Resume meeting')], threadId);
-          },
-        );
+        await runPausedMeetingAction(meetingId, async (orch, threadId, HumanMessage) => {
+          await orch.resumeMeeting(meetingId, [new HumanMessage('Resume meeting')], threadId);
+        });
       })();
     });
 
@@ -82,16 +78,9 @@ export function useRuntimeMeetingBridge(opts: {
         if (!meeting) return;
 
         if (meeting.status === 'paused') {
-          await runPausedMeetingAction(
-            meetingId,
-            async (nextOrch, threadId, HumanMessage) => {
-              await nextOrch.endPausedMeeting(
-                meetingId,
-                [new HumanMessage('End meeting')],
-                threadId,
-              );
-            },
-          );
+          await runPausedMeetingAction(meetingId, async (nextOrch, threadId, HumanMessage) => {
+            await nextOrch.endPausedMeeting(meetingId, [new HumanMessage('End meeting')], threadId);
+          });
           return;
         }
 

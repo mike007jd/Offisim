@@ -8,10 +8,7 @@ function unavailable(): never {
 // getting minified to `invoke()` with all arguments stripped). Keep args
 // named and referenced so their values are considered live.
 
-export async function invoke<T>(
-  cmd?: string,
-  args?: Record<string, unknown>,
-): Promise<T> {
+export async function invoke<T>(cmd?: string, args?: Record<string, unknown>): Promise<T> {
   void cmd;
   void args;
   return unavailable();

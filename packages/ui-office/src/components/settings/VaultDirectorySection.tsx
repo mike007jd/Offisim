@@ -2,11 +2,14 @@ import { pickBrowserVaultDirectory } from '@offisim/core/browser';
 import { Button } from '@offisim/ui-core';
 import { FolderOpen, Link2Off, PackageOpen } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useCompany } from '../company/CompanyContext';
 import { openDesktopLocalPath } from '../../lib/desktop-local-paths';
-import { exportVaultSnapshotZip } from '../../lib/vault-export';
 import { isTauri } from '../../lib/env';
-import { type VaultDirectoryStatus, useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { exportVaultSnapshotZip } from '../../lib/vault-export';
+import {
+  type VaultDirectoryStatus,
+  useOffisimRuntime,
+} from '../../runtime/offisim-runtime-context';
+import { useCompany } from '../company/CompanyContext';
 import { SurfaceCard } from './settings-primitives';
 
 interface VaultDirectorySectionProps {
@@ -108,20 +111,20 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
         ? status.errorMessage
           ? `Live sync failed for ${status.directoryName ?? 'the selected directory'}: ${status.errorMessage}`
           : `Live sync failed for ${status.directoryName ?? 'the selected directory'}.`
-      : status.mode === 'needs-permission'
-        ? `Saved handle found for ${status.directoryName}. Re-mount to renew permission.`
-        : status.supported
-          ? 'Live sync is currently off. Mount a local directory to mirror the vault.'
-          : UNSUPPORTED_MESSAGE;
+        : status.mode === 'needs-permission'
+          ? `Saved handle found for ${status.directoryName}. Re-mount to renew permission.`
+          : status.supported
+            ? 'Live sync is currently off. Mount a local directory to mirror the vault.'
+            : UNSUPPORTED_MESSAGE;
 
   const mountLabel =
     status.mode === 'needs-permission'
       ? 'Reconnect directory'
       : status.mode === 'error'
         ? 'Retry mount'
-      : busy === 'mount'
-        ? 'Mounting…'
-        : 'Mount directory';
+        : busy === 'mount'
+          ? 'Mounting…'
+          : 'Mount directory';
 
   if (desktopMode) {
     const desktopVaultRoot = runtime.desktopVaultRoot ?? null;
@@ -196,12 +199,7 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
               </Button>
             </>
           ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleExport}
-            disabled={busy !== null}
-          >
+          <Button type="button" variant="secondary" onClick={handleExport} disabled={busy !== null}>
             <PackageOpen className="mr-2 h-4 w-4" />
             {busy === 'export' ? 'Exporting…' : 'Export zip'}
           </Button>

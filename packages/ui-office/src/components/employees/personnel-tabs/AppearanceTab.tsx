@@ -2,11 +2,8 @@ import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import type { UseEmployeeEditorReturn } from '../../../hooks/useEmployeeEditor';
-import { lookupExternalBrand, type BrandVariant } from '../../../lib/brand-registry';
 import { resolveOutfitColor, resolveSkinTone } from '../../../lib/avatar-seed';
-import { AvatarCustomizer } from '../AvatarCustomizer';
-import { BrandAvatar2D } from '../../shared/BrandAvatar2D';
-import { DicebearAvatar } from '../../shared/DicebearAvatar';
+import { type BrandVariant, lookupExternalBrand } from '../../../lib/brand-registry';
 import {
   CodexBody,
   CustomBody,
@@ -14,6 +11,9 @@ import {
   HermesBody,
   OpenClawBody,
 } from '../../scene/office3d-brand-variants';
+import { BrandAvatar2D } from '../../shared/BrandAvatar2D';
+import { DicebearAvatar } from '../../shared/DicebearAvatar';
+import { AvatarCustomizer } from '../AvatarCustomizer';
 import { TabSelectionEmpty } from './shared';
 
 interface AppearanceTabProps {
@@ -105,7 +105,9 @@ function Preview3DCanvas({
   outfitColor: string;
   skinTone: string;
 }) {
-  const variant: BrandVariant = isExternal ? lookupExternalBrand(brandKey).asset3dVariant : 'default';
+  const variant: BrandVariant = isExternal
+    ? lookupExternalBrand(brandKey).asset3dVariant
+    : 'default';
   return (
     <Canvas
       shadows

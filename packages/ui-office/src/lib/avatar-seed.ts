@@ -18,7 +18,7 @@ const OUTFIT_PALETTE = [
 export const OUTFIT_COLORS: readonly string[] = OUTFIT_PALETTE.map(([hex]) => hex);
 
 export const OUTFIT_COLORS_NUMERIC: readonly number[] = OUTFIT_PALETTE.map(([hex]) =>
-  parseInt(hex.slice(1), 16),
+  Number.parseInt(hex.slice(1), 16),
 );
 
 export const OUTFIT_LABELS: readonly string[] = OUTFIT_PALETTE.map(([, label]) => label);
@@ -61,10 +61,7 @@ export function numericToHex(n: number): string {
   return `#${(n & 0xffffff).toString(16).padStart(6, '0')}`;
 }
 
-export function resolveOutfitColor(
-  seed: string,
-  appearance?: EmployeeAppearance | null,
-): string {
+export function resolveOutfitColor(seed: string, appearance?: EmployeeAppearance | null): string {
   if (appearance && typeof appearance.clothingColor === 'number') {
     return numericToHex(appearance.clothingColor);
   }

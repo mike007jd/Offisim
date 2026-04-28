@@ -61,9 +61,7 @@ export const employeeSeed: OfficialSeedPayload = {
   filesystem_scope: 'workspace',
   network_scope: 'none',
   tags: ['employee', 'marketing', 'official'],
-  previews: [
-    { kind: 'hero', url: heroDataUri, alt_text: 'Sample marketing strategist avatar' },
-  ],
+  previews: [{ kind: 'hero', url: heroDataUri, alt_text: 'Sample marketing strategist avatar' }],
   package_id: PACKAGE_ID,
   asset_id: ASSET_ID,
   assetFiles: {

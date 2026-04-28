@@ -82,4 +82,3 @@ export function prefabColor(category: SemanticCategory): string {
   };
   return colors[category] ?? '#64748b';
 }
-

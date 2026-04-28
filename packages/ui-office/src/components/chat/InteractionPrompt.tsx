@@ -35,7 +35,10 @@ function renderBody(
   employeeName: string | null | undefined,
   onRespond: (selectedOptionId: string, freeformResponse?: string) => Promise<void> | void,
 ) {
-  if (request.kind === 'skill_install_confirm' && request.context?.type === 'skill_install_confirm') {
+  if (
+    request.kind === 'skill_install_confirm' &&
+    request.context?.type === 'skill_install_confirm'
+  ) {
     return (
       <SkillInstallConfirmBubble
         request={request}

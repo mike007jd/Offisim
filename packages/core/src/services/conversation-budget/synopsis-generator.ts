@@ -114,9 +114,7 @@ export class SynopsisGenerator {
       }
     }
     if (!summary) {
-      return existing
-        ? { synopsis: existing, summarySource: 'heuristic', failureStreak }
-        : null;
+      return existing ? { synopsis: existing, summarySource: 'heuristic', failureStreak } : null;
     }
 
     const synopsis: ThreadSynopsisRecord = {

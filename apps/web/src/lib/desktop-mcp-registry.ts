@@ -28,7 +28,9 @@ export async function listDesktopMcpServers(): Promise<DesktopMcpServerRecord[]>
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('not allowed by ACL')) {
-      console.warn('[Offisim] Desktop MCP registry unavailable in this build; skipping auto-connect.');
+      console.warn(
+        '[Offisim] Desktop MCP registry unavailable in this build; skipping auto-connect.',
+      );
       return [];
     }
     throw err;

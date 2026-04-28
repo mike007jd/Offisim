@@ -9,4 +9,3 @@ export function parseSopDefinition(json: string): SopDefinition | null {
     return null;
   }
 }
-

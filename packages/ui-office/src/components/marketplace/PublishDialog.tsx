@@ -139,6 +139,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   // Reset source selection + form defaults whenever kind flips so the
   // employee-shape defaults don't leak into a skill publish.
   useEffect(() => {
+    void kind;
     if (!open) return;
     setSelectedSourceId('');
   }, [kind, open]);

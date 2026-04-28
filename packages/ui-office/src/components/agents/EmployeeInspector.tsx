@@ -278,12 +278,12 @@ export function EmployeeInspector({
   }
 
   return (
-    // biome-ignore lint/a11y/useSemanticElements: floating inspector is a popover anchored to rail, not a modal dialog
     <div
       ref={panelRef}
       className="fixed top-16 z-50 w-80 max-w-[min(22rem,calc(100vw-2rem))]"
       style={{ left: `${leftOffset}px` }}
       data-testid="employee-inspector"
+      // biome-ignore lint/a11y/useSemanticElements: floating inspector is a popover anchored to rail, not a modal dialog
       role="dialog"
       aria-label={`Inspecting ${agent.name}`}
     >

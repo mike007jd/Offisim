@@ -3,11 +3,11 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { SettingsRepository, SkillRepository, SkillUpdate } from '../../repositories.js';
 import {
+  type SkillDbRow,
   assertSkillScopeConsistency,
   buildSkillUpdateValues,
   rowToSkill,
   skillToDbRow,
-  type SkillDbRow,
 } from './shared.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
@@ -40,7 +40,11 @@ export function createSkillsDrizzleRepos(db: Db): SkillsDrizzleRepos {
       return first ? rowToSkill(first) : null;
     },
     async listByCompany(companyId) {
-      const rows = db.select().from(schema.skills).where(eq(schema.skills.company_id, companyId)).all();
+      const rows = db
+        .select()
+        .from(schema.skills)
+        .where(eq(schema.skills.company_id, companyId))
+        .all();
       return rows.map((r) => rowToSkill(r as SkillDbRow));
     },
     async listByCompanyScope(companyId) {

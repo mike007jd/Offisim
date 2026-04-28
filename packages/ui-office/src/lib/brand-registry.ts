@@ -7,13 +7,7 @@
  * through to the `custom` entry so render paths never throw.
  */
 
-import {
-  CODEX_SVG,
-  CUSTOM_SVG,
-  HERMES_SVG,
-  OPENCLAW_SVG,
-  svgToDataUri,
-} from './brand-svg-sources';
+import { CODEX_SVG, CUSTOM_SVG, HERMES_SVG, OPENCLAW_SVG, svgToDataUri } from './brand-svg-sources';
 
 export type BrandVariant = 'default' | 'hermes' | 'openclaw' | 'codex' | 'custom';
 
@@ -66,9 +60,7 @@ export const REGISTRY: Record<ExternalBrandVariant, BrandEntry> = {
   custom: CUSTOM_BRAND,
 };
 
-export type BrandResolution =
-  | { kind: 'internal' }
-  | { kind: 'external'; entry: BrandEntry };
+export type BrandResolution = { kind: 'internal' } | { kind: 'external'; entry: BrandEntry };
 
 /**
  * Resolves a brand entry for render-layer branching. Accepts either the
@@ -80,8 +72,7 @@ export function resolveBrand(
     | { is_external: number; brand_key: string | null }
     | { isExternal: boolean; brandKey: string | null },
 ): BrandResolution {
-  const isExternal =
-    'isExternal' in employee ? employee.isExternal : employee.is_external === 1;
+  const isExternal = 'isExternal' in employee ? employee.isExternal : employee.is_external === 1;
   if (!isExternal) return { kind: 'internal' };
   const key = 'brandKey' in employee ? employee.brandKey : employee.brand_key;
   return { kind: 'external', entry: lookupExternalBrand(key) };

@@ -1,14 +1,14 @@
 import type { SettingsRepository, SkillRepository, SkillUpdate } from '@offisim/core/browser';
-import * as schema from '@offisim/db-local';
-import { and, eq, isNull } from 'drizzle-orm';
-import type { TauriDrizzleDb } from '../tauri-drizzle';
 import {
+  type SkillDbRow,
   assertSkillScopeConsistency,
   buildSkillUpdateValues,
   rowToSkill,
   skillToDbRow,
-  type SkillDbRow,
 } from '@offisim/core/dist/runtime/repos/skills/shared.js';
+import * as schema from '@offisim/db-local';
+import { and, eq, isNull } from 'drizzle-orm';
+import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 export interface SkillsTauriRepos {
   skills: SkillRepository;

@@ -392,20 +392,19 @@ function reduceChatSession(
       const hasVisibleProgress = content.length > 0 || reasoning.length > 0;
       const shouldCommitTerminalMessage =
         !!streaming && (hasVisibleProgress || action.status === 'interrupted');
-      const newMessages =
-        shouldCommitTerminalMessage
-          ? finalizeAssistantMessage(
-              conversation.messages,
-              activeRun.runId,
-              {
-                content: content || terminalContentForStatus(action.status),
-                status: action.status,
-                nodeName: streaming.nodeName,
-                reasoning: streaming.reasoning || undefined,
-              },
-              'append',
-            )
-          : conversation.messages;
+      const newMessages = shouldCommitTerminalMessage
+        ? finalizeAssistantMessage(
+            conversation.messages,
+            activeRun.runId,
+            {
+              content: content || terminalContentForStatus(action.status),
+              status: action.status,
+              nodeName: streaming.nodeName,
+              reasoning: streaming.reasoning || undefined,
+            },
+            'append',
+          )
+        : conversation.messages;
       return {
         activeRun: null,
         conversations: {

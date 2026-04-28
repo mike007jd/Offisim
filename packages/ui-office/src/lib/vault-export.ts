@@ -1,10 +1,10 @@
 import {
+  type RuntimeRepositories,
   employeeSlug,
   renderEmployeeMd,
   renderMemoryMd,
   renderRelationshipsMd,
   renderSoulMd,
-  type RuntimeRepositories,
 } from '@offisim/core/browser';
 import { zipSync } from 'fflate';
 

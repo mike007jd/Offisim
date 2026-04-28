@@ -1,6 +1,10 @@
 import type { EventBus } from '@offisim/core/browser';
+import type {
+  DeliverableCreatedPayload,
+  RuntimeEvent,
+  VaultSyncFailedPayload,
+} from '@offisim/shared-types';
 import type { ToastVariant } from '@offisim/ui-core';
-import type { DeliverableCreatedPayload, RuntimeEvent, VaultSyncFailedPayload } from '@offisim/shared-types';
 import { useEffect } from 'react';
 import { markCompany } from '../lib/onboarding-store';
 
@@ -25,7 +29,11 @@ function formatDeliverableToastTitle(
   if (DELIVERABLE_FILE_NAME_RE.test(cleaned)) {
     return `${cleaned} ready`;
   }
-  if (cleaned.startsWith('```') || /^<!doctype html/i.test(cleaned) || /^<html[\s>]/i.test(cleaned)) {
+  if (
+    cleaned.startsWith('```') ||
+    /^<!doctype html/i.test(cleaned) ||
+    /^<html[\s>]/i.test(cleaned)
+  ) {
     return DEFAULT_DELIVERABLE_TITLE;
   }
   if (!cleaned) return DEFAULT_DELIVERABLE_TITLE;

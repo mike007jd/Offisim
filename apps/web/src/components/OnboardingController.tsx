@@ -15,10 +15,7 @@ interface OnboardingControllerProps {
   directChatActive: boolean;
 }
 
-type HintSlot =
-  | 'provider_configured'
-  | 'first_task_sent'
-  | 'first_deliverable_seen';
+type HintSlot = 'provider_configured' | 'first_task_sent' | 'first_deliverable_seen';
 
 interface HintDescriptor {
   slot: HintSlot;
@@ -59,7 +56,12 @@ function pickActiveHint(
       dismiss: () => markCompany(companyId, 'first_task_sent'),
     };
   }
-  if (company.first_task_sent && !company.first_deliverable_seen && companyId && !directChatActive) {
+  if (
+    company.first_task_sent &&
+    !company.first_deliverable_seen &&
+    companyId &&
+    !directChatActive
+  ) {
     return {
       slot: 'first_deliverable_seen',
       selector: '[data-onboarding-target="tasks-tab"]',

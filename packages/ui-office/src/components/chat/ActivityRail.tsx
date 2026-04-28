@@ -60,7 +60,9 @@ export function ActivityRail({
             </span>
           )}
         </div>
-        {latestEntry && <p className="mt-2 truncate text-[11px] text-slate-400">{latestEntry.label}</p>}
+        {latestEntry && (
+          <p className="mt-2 truncate text-[11px] text-slate-400">{latestEntry.label}</p>
+        )}
       </div>
     );
   }

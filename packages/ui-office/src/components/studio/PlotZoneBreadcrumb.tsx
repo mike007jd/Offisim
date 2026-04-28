@@ -6,8 +6,8 @@
 
 import { getBuiltinPrefab } from '@offisim/renderer';
 import { useMemo } from 'react';
-import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
 import { STUDIO_IDENTITY_HEIGHT } from './StudioCompanyIdentity.js';
+import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
 import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
 
 const SEPARATOR_CHAR = '›';
@@ -47,9 +47,7 @@ function Segment({ label, active, onClick }: SegmentProps) {
     fontFamily: FONT.family,
     color: active ? STUDIO_COLORS.textPrimary : STUDIO_COLORS.textTertiary,
     opacity: active ? 1 : 0.7,
-    borderBottom: active
-      ? `2px solid ${STUDIO_COLORS.accent}`
-      : '2px solid transparent',
+    borderBottom: active ? `2px solid ${STUDIO_COLORS.accent}` : '2px solid transparent',
     lineHeight: 1.4,
   };
 

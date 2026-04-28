@@ -1,8 +1,10 @@
 import type { InteractionRequest } from '@offisim/shared-types';
-import type { OffisimGraphState } from '../graph/state.js';
-import type { LlmResponse } from '../llm/gateway.js';
-import type { RuntimeContext } from '../runtime/runtime-context.js';
-import { generateId } from '../utils/generate-id.js';
+import type {
+  EngineArtifact,
+  EngineProposal,
+  RuntimeActivityEvent,
+} from '../engine/engine-types.js';
+import type { EmployeeRuntimeBinding } from '../engine/engine-types.js';
 import {
   engineActivity,
   engineProposalCreated,
@@ -11,11 +13,13 @@ import {
   llmUsageRecorded,
   toolExecutionTelemetry,
 } from '../events/event-factories.js';
-import type { EngineArtifact, EngineProposal, RuntimeActivityEvent } from '../engine/engine-types.js';
-import type { EmployeeRuntimeBinding } from '../engine/engine-types.js';
+import type { OffisimGraphState } from '../graph/state.js';
+import type { LlmResponse } from '../llm/gateway.js';
+import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { generateId } from '../utils/generate-id.js';
 import { finalizeEmployeeSuccess } from './employee-completion.js';
-import { finalizeEmployeeFailure } from './employee-error-finalize.js';
 import type { MaterializedEmployeeDeliverable } from './employee-deliverables.js';
+import { finalizeEmployeeFailure } from './employee-error-finalize.js';
 import type { PreflightResult } from './employee-preflight.js';
 
 interface ToolTiming {
@@ -121,7 +125,13 @@ async function mapEngineEvent(
     case 'text_delta':
       if (event.content) {
         eventBus.emit(
-          llmStreamChunk(companyId, threadId, 'employee', event.content, event.channel ?? 'content'),
+          llmStreamChunk(
+            companyId,
+            threadId,
+            'employee',
+            event.content,
+            event.channel ?? 'content',
+          ),
         );
       }
       return null;

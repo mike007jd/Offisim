@@ -53,7 +53,9 @@ function resolveCodexExecutable() {
   if (process.platform === 'darwin') {
     const appCandidates = [
       '/Applications/Codex.app/Contents/Resources/codex',
-      process.env.HOME ? join(process.env.HOME, 'Applications/Codex.app/Contents/Resources/codex') : null,
+      process.env.HOME
+        ? join(process.env.HOME, 'Applications/Codex.app/Contents/Resources/codex')
+        : null,
     ].filter(Boolean);
     for (const candidate of appCandidates) {
       if (candidate && existsSync(candidate)) {
@@ -126,7 +128,7 @@ function buildPrompt(messages) {
 
 function buildDeveloperInstructions(messages, tools) {
   const sections = [
-    'You are Offisim\'s trusted Codex local-auth bridge.',
+    "You are Offisim's trusted Codex local-auth bridge.",
     'Return exactly one plain assistant reply.',
     'Do not invoke tools, do not execute commands, and do not read or modify local files.',
     'Do not ask for approvals or mention that tools were withheld.',
@@ -236,7 +238,7 @@ function createJsonRpcClient(child) {
 
   const reader = createInterface({
     input: child.stdout,
-    crlfDelay: Infinity,
+    crlfDelay: Number.POSITIVE_INFINITY,
   });
 
   const closeError = (message) => {
@@ -255,7 +257,9 @@ function createJsonRpcClient(child) {
 
   child.once('exit', (code, signal) => {
     if (closed) return;
-    closeError(unexpectedExitMessage(Buffer.concat(stderrChunks).toString('utf8').trim(), code, signal));
+    closeError(
+      unexpectedExitMessage(Buffer.concat(stderrChunks).toString('utf8').trim(), code, signal),
+    );
   });
 
   function sendRaw(payload) {
@@ -324,7 +328,9 @@ async function runCodexTurn(payload) {
 
   let timeout = null;
   const timeoutMs =
-    typeof request.timeoutMs === 'number' && Number.isFinite(request.timeoutMs) && request.timeoutMs > 0
+    typeof request.timeoutMs === 'number' &&
+    Number.isFinite(request.timeoutMs) &&
+    request.timeoutMs > 0
       ? request.timeoutMs
       : null;
 
@@ -391,9 +397,12 @@ async function runCodexTurn(payload) {
         switch (message?.method) {
           case 'error':
             rejectOnce(
-              Object.assign(new Error(message.params?.message ?? 'Codex app-server reported an error.'), {
-                code: 'upstream',
-              }),
+              Object.assign(
+                new Error(message.params?.message ?? 'Codex app-server reported an error.'),
+                {
+                  code: 'upstream',
+                },
+              ),
             );
             break;
           case 'item/agentMessage/delta':
@@ -406,7 +415,10 @@ async function runCodexTurn(payload) {
               break;
             }
 
-            if (message.params?.item?.type === 'agentMessage' && typeof message.params.item.text === 'string') {
+            if (
+              message.params?.item?.type === 'agentMessage' &&
+              typeof message.params.item.text === 'string'
+            ) {
               finalText = message.params.item.text;
             }
 

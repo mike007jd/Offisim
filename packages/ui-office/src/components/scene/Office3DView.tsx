@@ -379,7 +379,7 @@ export default function Office3DView({
         };
       }
     };
-  }, [activeCompanyId, placed, seatRegistry, zones]);
+  }, [activeCompanyId, armDebugMotion, placed, seatRegistry, zones]);
 
   const scene: Office3DSceneData = {
     agents,

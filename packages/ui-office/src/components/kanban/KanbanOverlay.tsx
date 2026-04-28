@@ -55,12 +55,12 @@ export function KanbanOverlay({ open, onClose, requestText }: KanbanOverlayProps
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Escape handled by useTopmostEscape; backdrop click is a mouse affordance only
-    // biome-ignore lint/a11y/useSemanticElements: <dialog> can't host this fixed full-screen overlay layout
     <div
       ref={overlayRef}
       className="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm"
       style={overlayStyle}
       onClick={handleBackdropClick}
+      // biome-ignore lint/a11y/useSemanticElements: <dialog> can't host this fixed full-screen overlay layout
       role="dialog"
       aria-modal="true"
       aria-label="Project board"

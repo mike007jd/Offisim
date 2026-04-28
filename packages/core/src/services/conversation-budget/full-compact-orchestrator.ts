@@ -88,11 +88,13 @@ export class FullCompactOrchestrator {
     const failureStreak = this.fullCompactFailureStreaks.get(ctx.threadId) ?? 0;
     const fallbackSynopsis =
       priorSynopsis ??
-      (await this.synopsisGenerator.generate(ctx, {
-        nonSystemMessages,
-        existing: existingSynopsis,
-        options,
-      }))?.synopsis ??
+      (
+        await this.synopsisGenerator.generate(ctx, {
+          nonSystemMessages,
+          existing: existingSynopsis,
+          options,
+        })
+      )?.synopsis ??
       null;
     const nextFailureStreak = circuitOpen ? failureStreak : failureStreak + 1;
     this.fullCompactFailureStreaks.set(ctx.threadId, nextFailureStreak);
@@ -268,9 +270,9 @@ export class FullCompactOrchestrator {
     );
     const compactVersion = Math.max(
       priorCompactVersion > 0 ? priorCompactVersion + 1 : 1,
-      (
-        await ctx.repos.compactSummaries.listByThread(ctx.threadId, { limit: 50 })
-      ).filter((row) => row.compact_kind === 'full_thread').length + 1,
+      (await ctx.repos.compactSummaries.listByThread(ctx.threadId, { limit: 50 })).filter(
+        (row) => row.compact_kind === 'full_thread',
+      ).length + 1,
     );
     const tokenCount = cachedTokenCount ?? estimateTokens(nonSystemMessages);
     const baseline: CompactBaselineState = {

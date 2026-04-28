@@ -1,5 +1,5 @@
 import type { RuntimeRepositories } from '@offisim/core/browser';
-import type { CompanyRow } from '@offisim/core/browser';
+import type { CompanyRow as CompanyRecord } from '@offisim/core/browser';
 import type { PrefabInstanceRow, ZoneRow } from '@offisim/shared-types';
 import { Archive, ArrowRight, Building2, FolderPlus, Layers3, Pencil, Users } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -36,7 +36,7 @@ function formatUpdatedAt(updatedAt: string): string {
 
 function useCompanySummaries(
   repos: RuntimeRepositories | null,
-  companies: CompanyRow[],
+  companies: CompanyRecord[],
 ): Record<string, CompanySummary> {
   const [summaries, setSummaries] = useState<Record<string, CompanySummary>>({});
 
@@ -82,7 +82,7 @@ function CompanyPortalPreview({
   prefabs,
   loading,
 }: {
-  company: CompanyRow | null;
+  company: CompanyRecord | null;
   zones: ZoneRow[];
   prefabs: PrefabInstanceRow[];
   loading: boolean;
@@ -445,7 +445,7 @@ export function CompanySelectionPage({
 }
 
 interface CompanyRowProps {
-  company: CompanyRow;
+  company: CompanyRecord;
   summary: CompanySummary;
   isPreview: boolean;
   isActive: boolean;
@@ -481,6 +481,7 @@ function CompanyRow({
 
   return (
     <div
+      // biome-ignore lint/a11y/useSemanticElements: card contains nested actions, so a native button would create invalid nested controls
       role="button"
       tabIndex={0}
       onClick={() => {

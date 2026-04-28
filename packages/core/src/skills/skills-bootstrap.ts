@@ -143,7 +143,7 @@ async function migrateEmployee(
   await skills.insert(row);
 
   const parsed = parseLegacyConfig(employee.config_json) ?? {};
-  delete parsed.runtimeSkill;
+  parsed.runtimeSkill = undefined;
   const nextConfigJson = Object.keys(parsed).length > 0 ? JSON.stringify(parsed) : null;
   await employees.update(employee.employee_id, { config_json: nextConfigJson });
 }

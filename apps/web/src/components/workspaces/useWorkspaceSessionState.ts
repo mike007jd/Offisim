@@ -97,8 +97,6 @@ export function tryWorkspaceInternalBack(
       }
       return [false, sessionState];
     }
-
-    case 'settings':
     default:
       return [false, sessionState];
   }

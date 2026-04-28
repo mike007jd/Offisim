@@ -41,8 +41,7 @@ export const prefabSeed: OfficialSeedPayload = {
   title: 'Desk Essentials Prefab Pack',
   summary:
     'Single-entry prefab pack wrapping the built-in Standard Workstation (desk + monitor + chair) for preview in Market.',
-  description:
-    `Wraps '${workstation.prefabId}' — the canonical ${workstation.name.toLowerCase()} — into a Market-visible prefab pack. Preview-only today: prefab install / copy-into-library is not yet implemented.`,
+  description: `Wraps '${workstation.prefabId}' — the canonical ${workstation.name.toLowerCase()} — into a Market-visible prefab pack. Preview-only today: prefab install / copy-into-library is not yet implemented.`,
   version: '1.0.0',
   runtime_range: '>=0.1 <2.0',
   schema_version: '2026-03',

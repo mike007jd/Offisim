@@ -40,11 +40,7 @@ export class MemoryToolCallRepository implements ToolCallRepository {
     return row;
   }
 
-  async updateResult(
-    id: string,
-    status: string,
-    responseJson: string | null,
-  ): Promise<void> {
+  async updateResult(id: string, status: string, responseJson: string | null): Promise<void> {
     const row = this.rows.get(id);
     if (row) {
       this.rows.set(id, { ...row, status, response_json: responseJson, finished_at: now() });
@@ -99,11 +95,7 @@ export class MemoryMeetingRepository implements MeetingRepository {
     return this.rows.get(id) ?? null;
   }
 
-  async updateStatus(
-    id: string,
-    status: string,
-    summaryJson?: string | null,
-  ): Promise<void> {
+  async updateStatus(id: string, status: string, summaryJson?: string | null): Promise<void> {
     const row = this.rows.get(id);
     if (row) {
       this.rows.set(id, {

@@ -18,6 +18,14 @@ import type {
 } from '@offisim/shared-types';
 import { isTauri } from './env';
 import {
+  type ProviderCapabilities,
+  type ProviderCompatibility,
+  type ProviderProductAccessDefinition,
+  type ProviderProductDefinition,
+  type ProviderRegion,
+  type ProviderSurface,
+  type ProviderVariantDefinition,
+  type ProviderVendor,
   findProviderProductIdByLegacyRoute,
   getDefaultProviderAccessMode,
   getDefaultProviderVariantId,
@@ -28,14 +36,6 @@ import {
   isProviderCompatibility,
   isProviderProductAccessMode,
   isProviderProductId,
-  type ProviderCapabilities,
-  type ProviderCompatibility,
-  type ProviderProductAccessDefinition,
-  type ProviderProductDefinition,
-  type ProviderRegion,
-  type ProviderSurface,
-  type ProviderVariantDefinition,
-  type ProviderVendor,
 } from './provider-product-taxonomy';
 
 export type {
@@ -485,9 +485,7 @@ export function buildRuntimeModelPolicy(config: ProviderConfig): ModelPolicyConf
   return normalizeRuntimePolicy(config.runtimePolicy, resolved.provider, config.model).modelPolicy;
 }
 
-export function resolveProviderConfig(
-  config: ProviderConfig,
-): ResolvedProviderConfig | null {
+export function resolveProviderConfig(config: ProviderConfig): ResolvedProviderConfig | null {
   const product = getProviderProduct(config.productId);
   if (!product) return null;
 
@@ -590,7 +588,9 @@ export function resolveProviderHostAvailability(
 }
 
 function isInvalidResolvedConfig(resolved: ResolvedProviderConfig | null): boolean {
-  return resolved?.availability.available === false && resolved.availability.code === 'invalid-config';
+  return (
+    resolved?.availability.available === false && resolved.availability.code === 'invalid-config'
+  );
 }
 
 function getBrowserAvailableExecutionLanes(

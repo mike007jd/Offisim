@@ -16,7 +16,6 @@ export interface ToolbarProps extends HTMLAttributes<HTMLDivElement> {
  */
 export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
   ({ className, density = 'default', surface = false, ...props }, ref) => (
-    // biome-ignore lint/a11y/useFocusableInteractive: Toolbar focusability comes from its button children, not the container
     <div
       ref={ref}
       role="toolbar"
@@ -41,13 +40,7 @@ ToolbarGroup.displayName = 'ToolbarGroup';
 
 export const ToolbarSeparator = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      role="separator"
-      aria-orientation="vertical"
-      className={cn('mx-1 h-5 w-px bg-white/10', className)}
-      {...props}
-    />
+    <div ref={ref} aria-hidden className={cn('mx-1 h-5 w-px bg-white/10', className)} {...props} />
   ),
 );
 ToolbarSeparator.displayName = 'ToolbarSeparator';

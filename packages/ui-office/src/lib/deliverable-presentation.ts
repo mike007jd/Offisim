@@ -44,4 +44,3 @@ export function formatDeliverableBytes(bytes: number): string {
   const gb = mb / 1024;
   return `${gb.toFixed(1)} GB`;
 }
-

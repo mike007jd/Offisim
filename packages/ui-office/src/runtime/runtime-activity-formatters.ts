@@ -132,10 +132,7 @@ export function interactionRequestedLabel(kind: InteractionKind): string {
   }
 }
 
-export function interactionResolvedLabel(
-  kind: InteractionKind,
-  selectedOptionId: string,
-): string {
+export function interactionResolvedLabel(kind: InteractionKind, selectedOptionId: string): string {
   const action = selectedOptionId.replaceAll('_', ' ');
   switch (kind) {
     case 'permission_request':

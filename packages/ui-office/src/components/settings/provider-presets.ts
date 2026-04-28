@@ -3,6 +3,8 @@ import type { ProviderConfig } from '../../lib/provider-config';
 import {
   DEFAULT_PROVIDER_PRODUCT_ID,
   PROVIDER_PRODUCTS,
+  type ProviderProductDefinition,
+  type ProviderVariantDefinition,
   findProviderProductIdByLegacyRoute,
   findProviderProductIdByVariantId,
   getAvailableProviderProducts,
@@ -15,8 +17,6 @@ import {
   getProviderVariant,
   getSupportedExecutionLanesForProduct,
   listProviderVariantsForProduct,
-  type ProviderProductDefinition,
-  type ProviderVariantDefinition,
 } from '../../lib/provider-product-taxonomy';
 
 export type ProviderPreset = ProviderProductDefinition;

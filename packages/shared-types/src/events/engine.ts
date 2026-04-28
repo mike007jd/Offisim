@@ -1,12 +1,6 @@
 import type { EngineId } from '../models.js';
 
-export type EngineActivityKind =
-  | 'run'
-  | 'subagent'
-  | 'tool'
-  | 'artifact'
-  | 'approval'
-  | 'proposal';
+export type EngineActivityKind = 'run' | 'subagent' | 'tool' | 'artifact' | 'approval' | 'proposal';
 
 export type EngineActivityStatus =
   | 'started'

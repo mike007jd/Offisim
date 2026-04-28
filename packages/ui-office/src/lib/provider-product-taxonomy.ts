@@ -7,7 +7,9 @@ import type {
   ProviderProductId,
   ResolvedProviderVariant,
 } from '@offisim/shared-types';
-import curatedCatalog from '../../../../catalog/provider-source-registry/generated/curated-catalog.json' with { type: 'json' };
+import curatedCatalog from '../../../../catalog/provider-source-registry/generated/curated-catalog.json' with {
+  type: 'json',
+};
 
 export type ProviderVendor =
   | 'offisim'
@@ -637,7 +639,8 @@ export const PROVIDER_PRODUCTS: Readonly<Record<ProviderProductId, ProviderProdu
       {
         accessMode: 'api-key',
         label: 'API key',
-        description: 'Local OpenAI-compatible endpoint with the conventional LM Studio placeholder key.',
+        description:
+          'Local OpenAI-compatible endpoint with the conventional LM Studio placeholder key.',
         authStrategy: 'api-key',
         defaultVariantId: 'lmstudio',
         variantIds: ['lmstudio'],
@@ -888,8 +891,7 @@ function buildCuratedProviderVariants(): Record<string, ProviderVariantDefinitio
           defaultModel: entry.defaultModel ?? modelIds[0],
           supportedExecutionLanes: dedupeExecutionLanes(
             CURATED_VARIANT_LANES[providerVariantId] ??
-              entry.executionLaneHints?.productExposed ??
-              [DEFAULT_EXECUTION_LANE],
+              entry.executionLaneHints?.productExposed ?? [DEFAULT_EXECUTION_LANE],
           ),
           modelIds,
           authMode: mapCatalogAuthMode(entry.authMode),

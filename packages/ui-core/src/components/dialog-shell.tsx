@@ -26,8 +26,7 @@ const SIZE_CLASS: Record<DialogSize, string> = {
  * exceeds the viewport. Pair with `DIALOG_TABS_ROOT_CLASS` +
  * `DIALOG_TABS_CONTENT_CLASS` when the dialog body holds Radix Tabs.
  */
-export const DIALOG_SIZING_CLASS =
-  'min-h-[clamp(360px,60vh,720px)] max-h-[min(720px,92vh)]';
+export const DIALOG_SIZING_CLASS = 'min-h-[clamp(360px,60vh,720px)] max-h-[min(720px,92vh)]';
 
 /** Tabs.Root inside a sized dialog: flex column, fills, allows children to shrink. */
 export const DIALOG_TABS_ROOT_CLASS = 'flex flex-col flex-1 min-h-0';

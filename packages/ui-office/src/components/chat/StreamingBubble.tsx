@@ -40,9 +40,7 @@ export function StreamingBubble({
           {label}
         </span>
       )}
-      {reasoning && (
-        <ReasoningRegion reasoning={reasoning} hasContent={!!content} />
-      )}
+      {reasoning && <ReasoningRegion reasoning={reasoning} hasContent={!!content} />}
       {(content || showPlaceholder) && (
         <div className="max-w-[94%] border-l-2 border-blue-400/30 bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap rounded-xl">
           {content ? (

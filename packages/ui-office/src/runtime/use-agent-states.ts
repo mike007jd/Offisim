@@ -13,10 +13,7 @@ import type {
 import { parseEmployeePersona } from '@offisim/shared-types';
 import { useEffect, useRef, useState } from 'react';
 
-function appearanceEqual(
-  a: EmployeeAppearance | null,
-  b: EmployeeAppearance | null,
-): boolean {
+function appearanceEqual(a: EmployeeAppearance | null, b: EmployeeAppearance | null): boolean {
   if (a === b) return true;
   if (a === null || b === null) return false;
   return (

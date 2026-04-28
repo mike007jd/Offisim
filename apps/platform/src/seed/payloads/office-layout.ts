@@ -48,7 +48,7 @@ export const officeLayoutSeed: OfficialSeedPayload = {
   summary:
     'Default prefab placements for a department / meeting / rest / server zone combination — pulled from the runtime default-zone catalog.',
   description:
-    'Four-zone layout pack derived from `@offisim/renderer`\'s built-in default placements (4-desk department, 4-seat meeting, rest area, 3-rack server room). Preview-only in the Market today; layout packs do not yet have an install pipeline and are applied automatically by the zone creator.',
+    "Four-zone layout pack derived from `@offisim/renderer`'s built-in default placements (4-desk department, 4-seat meeting, rest area, 3-rack server room). Preview-only in the Market today; layout packs do not yet have an install pipeline and are applied automatically by the zone creator.",
   version: '1.0.0',
   runtime_range: '>=0.1 <2.0',
   schema_version: '2026-03',

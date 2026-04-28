@@ -46,12 +46,7 @@ export function useSettingsWorkspaceController({
         runtimePolicy.executionMode,
         { tauri: IS_DESKTOP },
       ),
-    [
-      selectedProduct,
-      provider.accessMode,
-      provider.providerVariantId,
-      runtimePolicy.executionMode,
-    ],
+    [selectedProduct, provider.accessMode, provider.providerVariantId, runtimePolicy.executionMode],
   );
 
   useEffect(() => {

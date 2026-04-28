@@ -60,8 +60,7 @@ export async function fetchGithubTarball(
   ref?: string,
 ): Promise<Uint8Array> {
   const isDev = Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
-  const proxyOrigin =
-    isDev && typeof window !== 'undefined' ? window.location.origin : undefined;
+  const proxyOrigin = isDev && typeof window !== 'undefined' ? window.location.origin : undefined;
   const request = buildGithubTarballRequest(owner, repo, ref, { proxyOrigin });
   const resp = await fetch(request.url, request.init);
   if (!resp.ok) {

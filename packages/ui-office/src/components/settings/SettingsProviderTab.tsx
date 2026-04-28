@@ -11,7 +11,12 @@ import {
 import { isTauri } from '../../lib/env';
 import { isLlmExecutionLane } from '../../lib/provider-config';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
-import { SectionLabel, SettingsSection, SurfaceCard, surfaceInputProps } from './settings-primitives';
+import {
+  SectionLabel,
+  SettingsSection,
+  SurfaceCard,
+  surfaceInputProps,
+} from './settings-primitives';
 
 const IS_DESKTOP = isTauri();
 const EXECUTION_LANE_LABELS = {
@@ -74,7 +79,12 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
       : selectedProduct?.productId === 'minimax'
         ? 'sk-cp-...'
         : 'sk-...';
-  const routeSummary = [selectedAccess?.label, selectedCompatibility, selectedSurface, selectedRegion]
+  const routeSummary = [
+    selectedAccess?.label,
+    selectedCompatibility,
+    selectedSurface,
+    selectedRegion,
+  ]
     .filter(Boolean)
     .join(' • ');
 

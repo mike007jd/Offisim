@@ -3,6 +3,17 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { MarketListingCard } from './MarketListingCard.js';
 
+const SKELETON_CARD_KEYS = [
+  'skeleton-0',
+  'skeleton-1',
+  'skeleton-2',
+  'skeleton-3',
+  'skeleton-4',
+  'skeleton-5',
+  'skeleton-6',
+  'skeleton-7',
+] as const;
+
 export interface MarketCardGridProps {
   readonly results: ListingSummary[];
   readonly isLoading: boolean;
@@ -65,8 +76,8 @@ export function MarketCardGrid({
   if (isLoading) {
     return (
       <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5 p-6">
-        {Array.from({ length: 8 }, (_, i) => (
-          <SkeletonCard key={`skeleton-${i}`} />
+        {SKELETON_CARD_KEYS.map((key) => (
+          <SkeletonCard key={key} />
         ))}
       </div>
     );

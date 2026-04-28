@@ -120,11 +120,11 @@ export function resolveUploadSource(
       const dirs = firstLevelDirs(tree);
       return {
         kind: 'upload-subpath-not-found',
-        message:
-          `Subpath "${input.subpath}" not found in "${filename}". ` +
-          (dirs.length > 0
+        message: `Subpath "${input.subpath}" not found in "${filename}". ${
+          dirs.length > 0
             ? `Retry install_skill_from_upload with subpath=<one of: ${dirs.map((d) => `"${d}"`).join(', ')}>.`
-            : 'No candidate directories available.'),
+            : 'No candidate directories available.'
+        }`,
         sourceRef: filename,
         candidates: dirs.map((name) => ({ path: `${name}/` })),
       };
@@ -156,8 +156,6 @@ export function resolveUploadSource(
     }
     return scan;
   }
-  const sourceRef = input.subpath
-    ? `upload:${filename}#${input.subpath}`
-    : `upload:${filename}`;
+  const sourceRef = input.subpath ? `upload:${filename}#${input.subpath}` : `upload:${filename}`;
   return { tree, scan, sourceRef };
 }

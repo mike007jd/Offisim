@@ -21,9 +21,9 @@ export interface BrowserVaultHandleStore {
   clear(): Promise<void>;
 }
 
-type FileSystemPermissionMethod = (
-  descriptor?: { mode?: 'read' | 'readwrite' },
-) => Promise<PermissionState>;
+type FileSystemPermissionMethod = (descriptor?: {
+  mode?: 'read' | 'readwrite';
+}) => Promise<PermissionState>;
 
 type BrowserDirectoryHandle = FileSystemDirectoryHandle & {
   values?: () => AsyncIterable<{ name: string }>;
@@ -33,7 +33,9 @@ type BrowserDirectoryHandle = FileSystemDirectoryHandle & {
 
 type WindowWithDirectoryPicker = Window &
   typeof globalThis & {
-    showDirectoryPicker?: (options?: { mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
+    showDirectoryPicker?: (options?: {
+      mode?: 'read' | 'readwrite';
+    }) => Promise<FileSystemDirectoryHandle>;
   };
 
 function splitRelPath(relPath: string): string[] {
@@ -47,7 +49,9 @@ function isDirectoryHandle(value: unknown): value is FileSystemDirectoryHandle {
   return !!value && typeof value === 'object' && 'kind' in value && value.kind === 'directory';
 }
 
-function idbSupported(factory: IDBFactory | undefined = globalThis.indexedDB): factory is IDBFactory {
+function idbSupported(
+  factory: IDBFactory | undefined = globalThis.indexedDB,
+): factory is IDBFactory {
   return typeof factory !== 'undefined';
 }
 
@@ -168,7 +172,11 @@ export async function acquireOpfsRootHandle(): Promise<FileSystemDirectoryHandle
   if (!opfsSupported()) {
     throw new Error('OPFS is not available in this browser.');
   }
-  return (navigator as NavigatorWithStorage).storage!.getDirectory!();
+  const getDirectory = (navigator as NavigatorWithStorage).storage?.getDirectory;
+  if (!getDirectory) {
+    throw new Error('OPFS is not available in this browser.');
+  }
+  return getDirectory.call((navigator as NavigatorWithStorage).storage);
 }
 
 function directoryPickerSupported(): boolean {
@@ -183,12 +191,13 @@ export function browserFsAccessSupported(): boolean {
 }
 
 export async function pickBrowserVaultDirectory(): Promise<FileSystemDirectoryHandle> {
-  if (!directoryPickerSupported()) {
+  const showDirectoryPicker = (window as WindowWithDirectoryPicker).showDirectoryPicker;
+  if (!showDirectoryPicker) {
     throw new Error(
       'Your browser does not support the directory picker. Use `navigator.storage.getDirectory()` for an OPFS-backed vault instead.',
     );
   }
-  return (window as WindowWithDirectoryPicker).showDirectoryPicker!({ mode: 'readwrite' });
+  return showDirectoryPicker.call(window, { mode: 'readwrite' });
 }
 
 /**
@@ -245,7 +254,8 @@ export class BrowserFsAccessFileSystem implements VaultFileSystem {
     if (!name) {
       throw new Error(`Invalid vault path: ${relPath}`);
     }
-    const parent = parts.length > 0 ? await this.resolveDirectory(parts.join('/'), options) : this.rootHandle;
+    const parent =
+      parts.length > 0 ? await this.resolveDirectory(parts.join('/'), options) : this.rootHandle;
     return { parent, name };
   }
 

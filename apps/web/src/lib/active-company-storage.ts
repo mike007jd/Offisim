@@ -34,9 +34,7 @@ function isTauriHost(): boolean {
   );
 }
 
-export function readStoredActiveCompany(
-  storage: StorageLike = window.localStorage,
-): string | null {
+export function readStoredActiveCompany(storage: StorageLike = window.localStorage): string | null {
   const stored = storage.getItem(ACTIVE_COMPANY_STORAGE_KEY);
   return stored && stored.length > 0 ? stored : null;
 }

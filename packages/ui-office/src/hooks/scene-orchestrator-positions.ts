@@ -1,8 +1,5 @@
-import { isInsideZone, type Zone } from '@offisim/shared-types';
-import {
-  type SeatRegistry,
-  computeWorkspaceFallbackSeatPosition,
-} from '../lib/seat-registry';
+import { type Zone, isInsideZone } from '@offisim/shared-types';
+import { type SeatRegistry, computeWorkspaceFallbackSeatPosition } from '../lib/seat-registry';
 
 const MTG_RADIUS = 2.5;
 const MTG_RING_SPACING = 1.2;

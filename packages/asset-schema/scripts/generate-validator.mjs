@@ -62,8 +62,7 @@ if (ucs2RequirePattern.test(code)) {
 const strayRequire = code.match(/require\(["'][^"']+["']\)/);
 if (strayRequire) {
   throw new Error(
-    `[asset-schema] generated validator still contains require(): ${strayRequire[0]}. ` +
-      `Inline the helper in generate-validator.mjs before the bundle pulls Ajv in.`,
+    `[asset-schema] generated validator still contains require(): ${strayRequire[0]}. Inline the helper in generate-validator.mjs before the bundle pulls Ajv in.`,
   );
 }
 

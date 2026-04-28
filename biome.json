@@ -38,6 +38,16 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", ".turbo", ".next", "target", "*.sql", "*.json"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      ".turbo",
+      ".next",
+      "target",
+      "*.sql",
+      "*.json",
+      "openspec/changes/archive",
+      "packages/asset-schema/src/schema/manifest-validator.generated.js"
+    ]
   }
 }

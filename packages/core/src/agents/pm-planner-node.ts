@@ -1,9 +1,10 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { OffisimGraphState } from '../graph/state.js';
-import { runPmPreflight } from './pm-planner/preflight.js';
+import type { LlmPlan } from './pm-planner-types.js';
 import { buildLlmPlanFallback, parsePmPlan } from './pm-planner/plan-parser.js';
 import { persistLlmPlanAsTaskPlan } from './pm-planner/plan-persistence.js';
 import { awaitPlanReview } from './pm-planner/plan-review-gate.js';
+import { runPmPreflight } from './pm-planner/preflight.js';
 import { PM_SYSTEM_PROMPT, generatePmLlmContent } from './pm-planner/prompt-assembly.js';
 import {
   findEmployeeForRole,
@@ -12,7 +13,6 @@ import {
   tryBuildExplicitSopPlan,
   tryBuildSopPlan,
 } from './pm-planner/sop-matching.js';
-import type { LlmPlan } from './pm-planner-types.js';
 
 export type { LlmPlanStep } from './pm-planner-types.js';
 export {

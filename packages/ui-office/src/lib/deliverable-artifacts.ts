@@ -131,7 +131,6 @@ function mimeFromExtension(extension: string): string {
       return 'text/yaml';
     case 'xml':
       return 'application/xml';
-    case 'txt':
     default:
       return 'text/plain';
   }

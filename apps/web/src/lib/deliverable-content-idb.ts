@@ -78,9 +78,7 @@ export async function deleteDeliverableContent(
 
 export async function listDeliverableContentKeys(db: IDBDatabase): Promise<string[]> {
   const tx = db.transaction(STORE_NAME, 'readonly');
-  const keys = await idbRequestToPromise<IDBValidKey[]>(
-    tx.objectStore(STORE_NAME).getAllKeys(),
-  );
+  const keys = await idbRequestToPromise<IDBValidKey[]>(tx.objectStore(STORE_NAME).getAllKeys());
   await idbTransactionDone(tx);
   return keys.filter((k): k is string => typeof k === 'string');
 }

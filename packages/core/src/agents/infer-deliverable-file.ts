@@ -133,7 +133,9 @@ export function inferDeliverableFile(
   if (!trimmed) return null;
 
   const explicitFileName =
-    getExplicitFileNameHint(trimmed) ?? getInlineFileNameMention(trimmed) ?? getInlineFileNameMention(title);
+    getExplicitFileNameHint(trimmed) ??
+    getInlineFileNameMention(trimmed) ??
+    getInlineFileNameMention(title);
   const explicitExtension =
     getExplicitExtensionFromTitle(explicitFileName ?? title) ??
     getExplicitExtensionFromTitle(title);

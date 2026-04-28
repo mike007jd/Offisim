@@ -169,14 +169,46 @@ test('runEmployeeEngine maps engine activity to Offisim events without creating 
   assert.deepEqual(update.pendingAssignments, []);
   assert.equal(update.currentStepOutputs[0].content, 'Engine finished.');
 
-  assert.equal(emitted.some((event) => event.type === 'llm.stream.chunk' && event.payload.content.includes('Working')), true);
-  assert.equal(emitted.some((event) => event.type === 'llm.stream.chunk' && event.payload.channel === 'reasoning'), true);
-  assert.equal(emitted.some((event) => event.type === 'tool.execution.telemetry' && event.payload.status === 'started'), true);
-  assert.equal(emitted.some((event) => event.type === 'tool.execution.telemetry' && event.payload.status === 'completed'), true);
-  assert.equal(emitted.some((event) => event.type === 'engine.activity' && event.payload.kind === 'subagent'), true);
-  assert.equal(emitted.some((event) => event.type === 'engine.proposal.created'), true);
-  assert.equal(emitted.some((event) => event.type === 'deliverable.created'), true);
-  assert.equal(emitted.some((event) => event.type.startsWith('handoff.')), false);
+  assert.equal(
+    emitted.some(
+      (event) => event.type === 'llm.stream.chunk' && event.payload.content.includes('Working'),
+    ),
+    true,
+  );
+  assert.equal(
+    emitted.some(
+      (event) => event.type === 'llm.stream.chunk' && event.payload.channel === 'reasoning',
+    ),
+    true,
+  );
+  assert.equal(
+    emitted.some(
+      (event) => event.type === 'tool.execution.telemetry' && event.payload.status === 'started',
+    ),
+    true,
+  );
+  assert.equal(
+    emitted.some(
+      (event) => event.type === 'tool.execution.telemetry' && event.payload.status === 'completed',
+    ),
+    true,
+  );
+  assert.equal(
+    emitted.some((event) => event.type === 'engine.activity' && event.payload.kind === 'subagent'),
+    true,
+  );
+  assert.equal(
+    emitted.some((event) => event.type === 'engine.proposal.created'),
+    true,
+  );
+  assert.equal(
+    emitted.some((event) => event.type === 'deliverable.created'),
+    true,
+  );
+  assert.equal(
+    emitted.some((event) => event.type.startsWith('handoff.')),
+    false,
+  );
 });
 
 test('runEmployeeEngine waits for engine approval before finalizing', async () => {

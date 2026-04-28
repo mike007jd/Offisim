@@ -1,4 +1,5 @@
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
+import type { VaultDirectoryStatus as BrowserVaultDirectoryStatus } from '@offisim/ui-office/web';
 import {
   BrowserFsAccessFileSystem,
   acquireOpfsRootHandle,
@@ -10,7 +11,6 @@ import {
   queryBrowserVaultPermission,
   requestBrowserVaultPermission,
 } from '../../../../packages/core/src/vault/browser-fs';
-import type { VaultDirectoryStatus as BrowserVaultDirectoryStatus } from '@offisim/ui-office/web';
 import type { VaultActivation } from './vault-activation';
 import { activateVaultSync } from './vault-activation';
 

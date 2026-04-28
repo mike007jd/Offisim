@@ -39,6 +39,7 @@ export function useUnfinishedThreadDetection({
   const [unfinishedThreads, setUnfinishedThreads] = useState<UnfinishedThread[]>([]);
 
   useEffect(() => {
+    void version;
     if (detectionDoneRef.current) return;
     if (!runtime?.repos) return;
     detectionDoneRef.current = true;

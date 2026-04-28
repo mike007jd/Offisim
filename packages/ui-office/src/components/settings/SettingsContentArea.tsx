@@ -16,14 +16,8 @@ export function SettingsContentArea({
   controller,
   onEditExternalEmployee,
 }: SettingsContentAreaProps) {
-  const {
-    handleSave,
-    hasUnsavedChanges,
-    isReinitializing,
-    isSaveDisabled,
-    isSaving,
-    saveError,
-  } = controller;
+  const { handleSave, hasUnsavedChanges, isReinitializing, isSaveDisabled, isSaving, saveError } =
+    controller;
   const showSaveBar = activeTab !== 'external';
   // controller.isSaving is already (save.isSaving || save.isReinitializing); isReinitializing is
   // exposed only so the hint line can call out the reinit phase distinctly.

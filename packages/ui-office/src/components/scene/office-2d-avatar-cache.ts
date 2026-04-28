@@ -5,8 +5,8 @@
  * decoded image.
  */
 import type { EmployeeAppearance } from '@offisim/shared-types';
-import { lookupExternalBrand } from '../../lib/brand-registry';
 import { createOffisimAvatar } from '../../lib/avatar-seed';
+import { lookupExternalBrand } from '../../lib/brand-registry';
 
 const MAX_CACHE_SIZE = 100;
 

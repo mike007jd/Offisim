@@ -1,5 +1,5 @@
-import { countDuplicateRowsByKey, toRecordRows } from './trace-row-utils.js';
 import type { ScenarioTraceReport } from './trace-recorder.js';
+import { countDuplicateRowsByKey, toRecordRows } from './trace-row-utils.js';
 
 export interface RuntimeLeakSummary {
   readonly activeInteractionsLeaked: number;
@@ -18,8 +18,7 @@ export function summarizeRuntimeLeaks(reports: readonly ScenarioTraceReport[]): 
       return {
         activeInteractionsLeaked: acc.activeInteractionsLeaked + activeInteractions.length,
         pendingAssignmentsLeaked: acc.pendingAssignmentsLeaked + pendingAssignments.length,
-        duplicateTaskRuns:
-          acc.duplicateTaskRuns + countDuplicateRowsByKey(taskRuns, 'task_run_id'),
+        duplicateTaskRuns: acc.duplicateTaskRuns + countDuplicateRowsByKey(taskRuns, 'task_run_id'),
         duplicateToolCalls:
           acc.duplicateToolCalls + countDuplicateRowsByKey(mcpAudit, 'tool_call_id'),
       };

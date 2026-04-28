@@ -385,7 +385,9 @@ const HARNESS_START_NODES = [
  */
 export function buildOffisimGraph(options?: BuildGraphOptions) {
   const checkpointer = options?.checkpointer ?? createMemoryCheckpointSaver();
-  const startRoute = options?.startAt ? () => options.startAt as OffisimGraphStartNode : routeFromStart;
+  const startRoute = options?.startAt
+    ? () => options.startAt as OffisimGraphStartNode
+    : routeFromStart;
   const startNodes = options?.startAt ? HARNESS_START_NODES : DEFAULT_START_NODES;
 
   const graph = new StateGraph(OffisimGraphAnnotation)

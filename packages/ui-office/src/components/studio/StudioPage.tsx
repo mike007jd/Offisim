@@ -26,9 +26,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveZonesToDb } from '../../lib/zone-persistence.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import { PlotZoneBreadcrumb } from './PlotZoneBreadcrumb.js';
-import { CREATE_PLOT_KEY, readStoredPlotSize } from './studio-plot-size-storage.js';
 import { StudioCanvas } from './StudioCanvas.js';
-import { StudioCompanyIdentity, STUDIO_IDENTITY_HEIGHT } from './StudioCompanyIdentity.js';
+import { STUDIO_IDENTITY_HEIGHT, StudioCompanyIdentity } from './StudioCompanyIdentity.js';
 import { StudioGhost } from './StudioGhost.js';
 import { StudioPalette } from './StudioPalette.js';
 import { StudioPlacedPrefabs } from './StudioPlacedPrefabs.js';
@@ -37,6 +36,7 @@ import { StudioProperties } from './StudioProperties.js';
 import { useStudioStore } from './StudioState.js';
 import { StudioToolbar } from './StudioToolbar.js';
 import { StudioZoneGhost } from './StudioZoneGhost.js';
+import { CREATE_PLOT_KEY, readStoredPlotSize } from './studio-plot-size-storage.js';
 import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
 
 const BREADCRUMB_HEIGHT = 32;
@@ -482,7 +482,7 @@ export function StudioPage(props: StudioPageProps) {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSave, onBack]);
+  }, [handleSave]);
 
   // -- Render -----------------------------------------------------------------
 

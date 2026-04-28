@@ -35,8 +35,10 @@ const EXPORT_FORMATS: { value: ExportFormat; label: string }[] = [
 
 const COMPACT_ACTION_CLASS = 'h-6 px-2 text-[10px] text-slate-300 hover:text-pearl';
 const FULL_ACTION_CLASS = 'h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl';
-const SOP_DEFAULT_CLASS = 'h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400 disabled:opacity-50';
-const SOP_PROMOTED_CLASS = 'h-6 px-2 text-[10px] bg-emerald-600/80 hover:bg-emerald-500 text-white animate-pulse';
+const SOP_DEFAULT_CLASS =
+  'h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400 disabled:opacity-50';
+const SOP_PROMOTED_CLASS =
+  'h-6 px-2 text-[10px] bg-emerald-600/80 hover:bg-emerald-500 text-white animate-pulse';
 
 function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -258,7 +260,16 @@ function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps)
     } finally {
       setExporting(false);
     }
-  }, [content, fileName, mimeType, isFileArtifact, item.title, item.contributingEmployees, item.createdAt, selectedFormat]);
+  }, [
+    content,
+    fileName,
+    mimeType,
+    isFileArtifact,
+    item.title,
+    item.contributingEmployees,
+    item.createdAt,
+    selectedFormat,
+  ]);
 
   const handleSaveLocal = useCallback(async () => {
     if (!desktopMode || !desktopVaultRoot || !fileName) return;

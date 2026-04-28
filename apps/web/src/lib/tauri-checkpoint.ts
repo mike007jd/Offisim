@@ -395,10 +395,7 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       const rowParams = serialized[row];
       if (rowParams) flatParams.push(...rowParams);
     }
-    const sql =
-      `INSERT OR REPLACE INTO writes ` +
-      `(thread_id, checkpoint_ns, checkpoint_id, task_id, idx, channel, type, value) ` +
-      `VALUES ${valuesClauses.join(', ')}`;
+    const sql = `INSERT OR REPLACE INTO writes (thread_id, checkpoint_ns, checkpoint_id, task_id, idx, channel, type, value) VALUES ${valuesClauses.join(', ')}`;
 
     await runWithCheckpointWriteLock(async () => {
       const db = await getTauriDb();

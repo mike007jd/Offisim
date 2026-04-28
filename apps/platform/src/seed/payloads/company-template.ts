@@ -25,8 +25,7 @@ export const companyTemplateSeed: OfficialSeedPayload = {
   title: 'Agency Lite Company Template',
   summary:
     'Five-seat freelancer / small studio layout with the account, creative, copy, QA, and producer roles pre-wired.',
-  description:
-    `Full ProcessTemplate adapted from the built-in 'agency-lite' company template: ${agencyLiteTemplate.employees.length} employees, ${agencyLiteTemplate.sops.length} SOPs, plus the agency zone layout. Preview-only in the Market — company templates are created through the first-run wizard today.`,
+  description: `Full ProcessTemplate adapted from the built-in 'agency-lite' company template: ${agencyLiteTemplate.employees.length} employees, ${agencyLiteTemplate.sops.length} SOPs, plus the agency zone layout. Preview-only in the Market — company templates are created through the first-run wizard today.`,
   version: '1.0.0',
   runtime_range: '>=0.1 <2.0',
   schema_version: '2026-03',

@@ -22,9 +22,12 @@ test('parseEmployeeConfig accepts an engine runtime binding override', () => {
 });
 
 test('parseEmployeeConfig accepts provider runtime binding and ignores invalid engines', () => {
-  assert.deepEqual(parseEmployeeConfig(JSON.stringify({ runtimeBinding: { mode: 'provider' } })).runtimeBinding, {
-    mode: 'provider',
-  });
+  assert.deepEqual(
+    parseEmployeeConfig(JSON.stringify({ runtimeBinding: { mode: 'provider' } })).runtimeBinding,
+    {
+      mode: 'provider',
+    },
+  );
 
   assert.equal(
     parseEmployeeConfig(

@@ -9,10 +9,7 @@ import type {
 } from '@offisim/shared-types';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import type {
-  ProjectAssignmentRepository,
-  ProjectRepository,
-} from '../../repositories.js';
+import type { ProjectAssignmentRepository, ProjectRepository } from '../../repositories.js';
 
 type Db = BetterSQLite3Database<typeof schema>;
 

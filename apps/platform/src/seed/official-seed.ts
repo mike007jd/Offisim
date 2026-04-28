@@ -180,10 +180,7 @@ async function insertOneListing(
  * continues. The caller still sees successful startup even when the DB is
  * transiently unavailable.
  */
-export async function seedOfficialResources(
-  db: PlatformDb,
-  options: SeedOptions,
-): Promise<void> {
+export async function seedOfficialResources(db: PlatformDb, options: SeedOptions): Promise<void> {
   const baseUrl = options.baseUrl.replace(/\/+$/, '');
   try {
     const built = buildAll();

@@ -1,3 +1,4 @@
+import { matchCostRate } from '../../../utils/glob-match.js';
 import type {
   LlmCallRepository,
   LlmCallRow,
@@ -6,7 +7,6 @@ import type {
   NewLlmCall,
   NewModelCostRate,
 } from '../../repositories.js';
-import { matchCostRate } from '../../../utils/glob-match.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 
 function cloneRows<T extends object>(rows: Iterable<T>): T[] {

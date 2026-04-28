@@ -208,7 +208,13 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
 
   const employeeRenderData: ReadonlyArray<EmployeeRenderData> = useMemo(() => {
     const result: EmployeeRenderData[] = [];
-    const push = (entry: { empId: string; x: number; y: number; agent: AgentState; seed: string }) => {
+    const push = (entry: {
+      empId: string;
+      x: number;
+      y: number;
+      agent: AgentState;
+      seed: string;
+    }) => {
       const { agent } = entry;
       result.push({
         employeeId: entry.empId,

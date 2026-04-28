@@ -194,11 +194,16 @@ export function useSettingsSaveOrchestrator({
         return;
       }
       if (!resolved.availability.available) {
-        setSaveError(resolved.availability.message ?? 'The selected provider configuration is invalid.');
+        setSaveError(
+          resolved.availability.message ?? 'The selected provider configuration is invalid.',
+        );
         return;
       }
 
-      const runtimePolicyConfig = runtimePolicy.buildRuntimePolicy(resolved.provider, provider.model);
+      const runtimePolicyConfig = runtimePolicy.buildRuntimePolicy(
+        resolved.provider,
+        provider.model,
+      );
       const config: ProviderConfig = {
         ...draftConfig,
         runtimePolicy: runtimePolicyConfig,

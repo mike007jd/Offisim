@@ -150,8 +150,7 @@ async function runToolCallsCase(options) {
     messages: [
       {
         role: 'user',
-        content:
-          'Call the echo_status tool exactly once with status "edge-tool-ok", then stop.',
+        content: 'Call the echo_status tool exactly once with status "edge-tool-ok", then stop.',
       },
     ],
     tools: [TOOL_CASE_DEF],
@@ -244,14 +243,16 @@ async function runCancellationCase(level, options, abortAfterMs) {
 async function runQueueDepthCase(options, iterations, concurrency) {
   const runtime = await createRuntimeHarness(options);
   try {
-    const tasks = Array.from({ length: iterations }, (_, index) => async () =>
-      runRuntimeRequest(
-        {
-          ...options,
-          message: buildMessageCase('long', options.message, index),
-        },
-        runtime,
-      ),
+    const tasks = Array.from(
+      { length: iterations },
+      (_, index) => async () =>
+        runRuntimeRequest(
+          {
+            ...options,
+            message: buildMessageCase('long', options.message, index),
+          },
+          runtime,
+        ),
     );
     const results = await runWithConcurrency(tasks, concurrency);
     const summary = summarizeResults(results);
@@ -321,10 +322,7 @@ async function main() {
   const options = resolveCommonOptions(args);
   const level = trimString(args.level || process.env.HARNESS_LEVEL || 'runtime') || 'runtime';
   const cases = parseCaseList(args.cases || process.env.HARNESS_EDGE_CASES || 'all');
-  const timeoutMs = parseInteger(
-    args['edge-timeout-ms'] || process.env.HARNESS_EDGE_TIMEOUT_MS,
-    5,
-  );
+  const timeoutMs = parseInteger(args['edge-timeout-ms'] || process.env.HARNESS_EDGE_TIMEOUT_MS, 5);
   const abortAfterMs = parseInteger(
     args['abort-after-ms'] || process.env.HARNESS_ABORT_AFTER_MS,
     25,
@@ -378,9 +376,7 @@ async function main() {
   const summary = {
     requested: results.length,
     passed: results.filter((result) => result.pass === true).length,
-    failed: results.filter(
-      (result) => result.skipped !== true && result.pass !== true,
-    ).length,
+    failed: results.filter((result) => result.skipped !== true && result.pass !== true).length,
     skipped: results.filter((result) => result.skipped === true).length,
   };
 

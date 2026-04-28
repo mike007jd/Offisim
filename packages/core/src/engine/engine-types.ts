@@ -1,8 +1,4 @@
-import type {
-  EmployeeRuntimeBinding,
-  EngineId,
-  EngineProposalKind,
-} from '@offisim/shared-types';
+import type { EmployeeRuntimeBinding, EngineId, EngineProposalKind } from '@offisim/shared-types';
 import type { PendingAssignment } from '../graph/state.js';
 
 export type { EmployeeRuntimeBinding, EngineId, EngineProposalKind };

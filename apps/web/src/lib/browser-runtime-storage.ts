@@ -130,10 +130,7 @@ export function createDeliverableContentBridge({
       void dbPromise.then((db) => {
         if (!db) return;
         return putDeliverableContent(db, row.deliverable_id, row.content).catch((err) => {
-          console.error(
-            `[deliverable-content-idb] failed to write ${row.deliverable_id}`,
-            err,
-          );
+          console.error(`[deliverable-content-idb] failed to write ${row.deliverable_id}`, err);
         });
       });
     },

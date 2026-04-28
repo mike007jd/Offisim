@@ -1,6 +1,6 @@
 import type { InMemoryEventBus } from '@offisim/core/browser';
 import { NotificationBridge } from '@offisim/core/dist/services/notification-bridge.js';
-import { useEffect, type MutableRefObject } from 'react';
+import { type MutableRefObject, useEffect } from 'react';
 
 export function useNotificationBridge({
   eventBus,

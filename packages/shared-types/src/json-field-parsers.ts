@@ -1,6 +1,6 @@
+import type { EmployeeRuntimeBinding, EngineId } from './models.js';
 import type { CommunicationFrequency, DecisionStyle, RiskPreference } from './persona.js';
 import type { PrefabBinding } from './prefab.js';
-import type { EmployeeRuntimeBinding, EngineId } from './models.js';
 
 export interface EmployeeAppearance {
   skinColor: number;

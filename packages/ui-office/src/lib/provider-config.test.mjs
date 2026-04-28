@@ -47,10 +47,7 @@ test('qwen model studio requires an explicit endpoint override', () => {
   assert.equal(resolved.variant?.providerVariantId, 'qwen-model-studio-manual');
   assert.equal(resolved.availability.available, false);
   assert.equal(resolved.availability.code, 'invalid-config');
-  assert.match(
-    resolved.availability.message ?? '',
-    /requires an explicit endpoint override/i,
-  );
+  assert.match(resolved.availability.message ?? '', /requires an explicit endpoint override/i);
 });
 
 test('product-centric local-auth config loads without apiKey or baseURL and then fails closed on unsupported hosts', () => {

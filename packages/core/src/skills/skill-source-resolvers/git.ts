@@ -192,10 +192,7 @@ export async function resolveGitSource(
     // error so the model retries with `subpath` instead of a second bad ref.
     return {
       kind: 'git-ref-not-found',
-      message:
-        `Git ref "${input.ref}" not found in ${gh.owner}/${gh.repo}. ` +
-        `If you meant a directory inside the repo (e.g. the skill name for a monorepo), ` +
-        `retry install_skill_from_git with subpath="${input.ref}" and DROP the ref parameter.`,
+      message: `Git ref "${input.ref}" not found in ${gh.owner}/${gh.repo}. If you meant a directory inside the repo (e.g. the skill name for a monorepo), retry install_skill_from_git with subpath="${input.ref}" and DROP the ref parameter.`,
       sourceRef: input.url,
     };
   }
@@ -248,11 +245,11 @@ function applySubpath(
     const dirs = firstLevelDirs(tree);
     return {
       kind: 'git-subpath-not-found',
-      message:
-        `Subpath "${subpath}" not found in repository. ` +
-        (dirs.length > 0
+      message: `Subpath "${subpath}" not found in repository. ${
+        dirs.length > 0
           ? `Retry with one of these directory names as subpath: ${dirs.map((d) => `"${d}"`).join(', ')}.`
-          : 'No candidate directories available.'),
+          : 'No candidate directories available.'
+      }`,
       sourceRef,
       candidates: dirs.map((name) => ({ path: `${name}/` })),
     };
@@ -275,9 +272,6 @@ function enrichAmbiguous(err: SkillResolverError, tree: VirtualTree): SkillResol
       : firstLevelDirs(tree);
   if (dirs.length === 0) return err;
   const candidates = dirs.map((name) => ({ path: `${name}/` }));
-  const message =
-    `Multiple SKILL.md files found. Retry install_skill_from_git with the same url AND ` +
-    `subpath=<one of: ${dirs.map((d) => `"${d}"`).join(', ')}>. ` +
-    `Do NOT put these directory names into ref.`;
+  const message = `Multiple SKILL.md files found. Retry install_skill_from_git with the same url AND subpath=<one of: ${dirs.map((d) => `"${d}"`).join(', ')}>. Do NOT put these directory names into ref.`;
   return { ...err, candidates, message };
 }

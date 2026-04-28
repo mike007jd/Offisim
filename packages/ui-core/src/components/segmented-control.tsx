@@ -43,6 +43,7 @@ export function SegmentedControl<V extends string>({
         return (
           <button
             key={item.value}
+            // biome-ignore lint/a11y/useSemanticElements: button styling and keyboard behavior are handled by the parent radiogroup pattern
             type="button"
             role="radio"
             aria-checked={selected}

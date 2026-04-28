@@ -1,4 +1,3 @@
-import * as schema from '@offisim/db-local';
 import type {
   CheckpointRepository,
   CompanyRepository,
@@ -15,6 +14,7 @@ import type {
   TaskRunRow,
   ThreadRepository,
 } from '@offisim/core';
+import * as schema from '@offisim/db-local';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 

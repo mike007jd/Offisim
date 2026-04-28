@@ -72,15 +72,11 @@ if ((!existsSync(outDir) || hasMissingExportOutput(cwd)) && existsSync(buildInfo
   rmSync(buildInfo, { force: true });
 }
 
-const result = spawnSync(
-  'tsc',
-  ['--project', options.project, ...options.extra],
-  {
-    cwd,
-    stdio: 'inherit',
-    env: process.env,
-  },
-);
+const result = spawnSync('tsc', ['--project', options.project, ...options.extra], {
+  cwd,
+  stdio: 'inherit',
+  env: process.env,
+});
 
 if (typeof result.status === 'number') {
   process.exit(result.status);
