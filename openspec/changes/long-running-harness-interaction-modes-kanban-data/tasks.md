@@ -20,21 +20,21 @@
 
 ### 2.1 micro-compact tool-result truncator
 
-- [ ] 2.1.1 新建 `packages/core/src/services/conversation-budget/micro-compact.ts`,导出 `microCompactMessages(messages, opts): MicroCompactResult` 纯函数。签名:
+- [x] 2.1.1 新建 `packages/core/src/services/conversation-budget/micro-compact.ts`,导出 `microCompactMessages(messages, opts): MicroCompactResult` 纯函数。签名:
   - `opts.maxToolResultBytes: number` (默认 8000)
   - `opts.snippetBytes: number` (默认 400)
   - `opts.preserveLastN?: number` (默认 1 — 保护最近 N 个 tool result 不裁)
   - return `{ messages, compacted, bytesSaved }`
-- [ ] 2.1.2 实现:遍历 messages,对每条 `role === 'tool'` 的 message,若 `content.length > maxToolResultBytes` 且不在 `preserveLastN` 范围内,替换为 `head + '\n\n[microcompacted ${origBytes} bytes]\n\n' + tail` (head = `slice(0, snippetBytes)`,tail = `slice(-snippetBytes)`)
-- [ ] 2.1.3 新建 `packages/core/src/services/conversation-budget/micro-compact.test.mjs` (`node --test` 风格),3 个 case:
+- [x] 2.1.2 实现:遍历 messages,对每条 `role === 'tool'` 的 message,若 `content.length > maxToolResultBytes` 且不在 `preserveLastN` 范围内,替换为 `head + '\n\n[microcompacted ${origBytes} bytes]\n\n' + tail` (head = `slice(0, snippetBytes)`,tail = `slice(-snippetBytes)`)
+- [x] 2.1.3 新建 `packages/core/src/services/conversation-budget/micro-compact.test.mjs` (`node --test` 风格),3 个 case:
   - case A: 大 tool result 被替换,marker 含 origBytes
   - case B: 小 tool result 不变
   - case C:`preserveLastN: 1` 时最近 1 个 tool 不裁
-- [ ] 2.1.4 `node --test packages/core/src/services/conversation-budget/micro-compact.test.mjs` 全绿
-- [ ] 2.1.5 把 micro-compact 接进 `ConversationBudgetService.prepareRequest`:在现有 full-compact orchestrator 之前加 micro-compact pass。**不要 inline 实现进 barrel** — 调用 sibling 函数,匹配 `conversation-budget-service-boundaries` 的 ≤180 NBNC 不变量
-- [ ] 2.1.6 `pnpm typecheck && pnpm lint` 全绿
-- [ ] 2.1.7 简化审查 (按 design.md 列的 8 条 checklist 走);commit
-- [ ] 2.1.8 `git commit -m "feat(core): add micro-compact tool-result truncator and wire into budget service"`
+- [x] 2.1.4 `node --test packages/core/src/services/conversation-budget/micro-compact.test.mjs` 全绿
+- [x] 2.1.5 把 micro-compact 接进 `ConversationBudgetService.prepareRequest`:在现有 full-compact orchestrator 之前加 micro-compact pass。**不要 inline 实现进 barrel** — 调用 sibling 函数,匹配 `conversation-budget-service-boundaries` 的 ≤180 NBNC 不变量
+- [x] 2.1.6 `pnpm typecheck && pnpm lint` 全绿
+- [x] 2.1.7 简化审查 (按 design.md 列的 8 条 checklist 走);commit
+- [x] 2.1.8 `git commit -m "feat(core): add micro-compact tool-result truncator and wire into budget service"`
 
 ### 2.2 rolling journal with anchor user objective
 

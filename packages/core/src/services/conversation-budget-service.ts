@@ -1,10 +1,11 @@
 import type { CompactBaselineState } from '../graph/state.js';
 import { parseCompactBaseline } from '../graph/state.js';
 import type { LlmRequest } from '../llm/gateway.js';
-import { compactToolResultMessages, pruneLlmMessages } from '../llm/prune-messages.js';
+import { pruneLlmMessages } from '../llm/prune-messages.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { FullCompactOrchestrator } from './conversation-budget/full-compact-orchestrator.js';
 import { buildRequestMessages, estimateTokens } from './conversation-budget/message-utils.js';
+import { microCompactMessages } from './conversation-budget/micro-compact.js';
 import type { ConversationBudgetServiceOptions } from './conversation-budget/options-resolver.js';
 import { resolveOptions } from './conversation-budget/options-resolver.js';
 import { SynopsisGenerator } from './conversation-budget/synopsis-generator.js';
@@ -24,7 +25,7 @@ export class ConversationBudgetService {
     let compactBaseline: CompactBaselineState | null = parseCompactBaseline(
       thread?.compact_baseline_json ?? null,
     );
-    const compactedMessages = compactToolResultMessages(request.messages, options);
+    const compactedMessages = microCompactMessages(request.messages).messages;
     const systemMessages = compactedMessages.filter((message) => message.role === 'system');
     const rawNonSystemMessages = compactedMessages.filter((message) => message.role !== 'system');
     let nonSystemMessages = compactBaseline
