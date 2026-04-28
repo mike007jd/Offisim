@@ -486,6 +486,7 @@ export type NewToolPermissionApproval = ToolPermissionApprovalRow;
 
 export interface ToolPermissionApprovalLookup {
   threadId: string;
+  companyId: string;
   serverName: string;
   toolName: string;
   employeeId?: string | null;

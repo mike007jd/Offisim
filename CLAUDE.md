@@ -57,10 +57,11 @@ catalog/
 
 ## Validation Policy
 
-- **仓库已移除自动化测试**。不要再引入 vitest / playwright / smoke / AI test / `test` 脚本。
-- **验证统一用 live agent 手测**：真实浏览器 / 真实桌面 runtime / 真实用户流，边操作边观察，不靠自动断言自证。
-- 绿 typecheck / build 只代表代码能编，不代表功能完成。功能完成必须有 live runtime 证据。
-- 若需要记录验证结果，把步骤、观察、截图/日志写进 memory 或 handoff；不要回补自动测试。
+- **仓库已移除产品级自动化测试**。不要再引入 vitest / playwright / 旧 smoke / AI test / 普通 `test` 脚本来当 product 验收。
+- **deterministic harness 例外**（2026-04-28 起）：`packages/core/harness/scenarios/` + `packages/core/src/testing/` + `scripts/harness-{contract,replay,provider-adapter}.mjs` 是允许的"确定性回放证明"层。定位是 graph / runtime / permission / plan-review 等不变量的 replay 资产，由 fake/replay gateway 喂确定性输入、对 trace 做 invariant 断言；它**不是** product 验收，也**不替代** live agent 手测。新增 scenario / invariant 走这条；不要把它扩成 vitest/playwright 风格的 product e2e。
+- **验证统一用 live agent 手测**（功能验收）：真实浏览器 / 真实桌面 runtime / 真实用户流，边操作边观察，不靠自动断言自证。
+- 绿 typecheck / build / harness contract 只代表代码能编 + graph 不变量没破，不代表功能完成。功能完成必须有 live runtime 证据。
+- 若需要记录验证结果，把步骤、观察、截图/日志写进 memory 或 handoff；不要回补 product 自动测试。
 - **验证层级不能越界**：web 页面问题只用浏览器层工具（snapshot / screenshot / console / network）。不要为 web 流程调用 AppleScript、系统级前台切换或原生窗口自动化。AppleScript 只允许用于 Tauri / macOS 原生壳验证。
 
 ## Product Closure Bar
@@ -159,8 +160,9 @@ catalog/
 - **`isTauri()` 统一认 `__TAURI_INTERNALS__`**: Tauri 2 默认 `withGlobalTauri:false` 不注入 `__TAURI__`。新代码不要再依赖 `window.__TAURI__`
 - **8 阶段 ceremony**: idle → gathering → analyzing → planning → dispatching → working → reporting → dismissing
 - **doc-engine 的 xlsx** 走 `package.json` 里的 `"xlsx": "https://cdn.sheetjs.com/..tgz"` (install-time 拉, 非 npm registry) — SheetJS 许可原因
-- **仓库已无自动 gate**: 不再保留 husky / typecheck / test / smoke 自动校验链。验证统一走 live agent。
-- **2026-04-14 起自动测试策略作废**: 过去的 `vitest` / `playwright` / `__VAULT_SMOKE__` / auto-smoke 链已删除。以后遇到 runtime / UI / vault / Tauri 问题，直接 live agent 验证，不要重建自动 smoke。
+- **仓库已无产品级自动 gate**: 不再保留 husky / 产品 typecheck / 产品 test / 旧 smoke 自动校验链。产品验收走 live agent。
+- **2026-04-14 起产品自动测试策略作废**: 过去的 `vitest` / `playwright` / `__VAULT_SMOKE__` / auto-smoke 链已删除。runtime / UI / vault / Tauri 问题走 live agent，不要重建那一套。
+- **2026-04-28 起 deterministic harness 是允许形态**: `packages/core/harness/scenarios/*.json` + `packages/core/src/testing/{scenario-runner,invariant-assertions,fake-gateway,replay-gateway,trace-recorder}` + `scripts/harness-{contract,replay,provider-adapter}.mjs`。新增 graph / permission / plan-review / DAG / LLM record-replay 不变量走这条。生产 hash/canonical helper 在 `packages/core/src/utils/`，`testing/canonical-json` 和 `testing/hash` 只保留兼容 re-export；删 testing 文件夹时不要误删生产 util。
 - **2D office 方向已改判并已完成主路径切换**: 旧 SVG 2D 路径已经删除。后续不要复活 SVG scene grammar；2D 场景主渲染保持 `canvas`, DOM 只保留文字/tooltip/panel/按钮等交互壳。
 - **Project = name + description + 可选 workspace_root + 专属 thread**：`projects.workspace_root` 是 nullable TEXT 列（migration 026 / desktop v34）。Tauri 端 `tauri-plugin-dialog` + `tauri-plugin-opener` 已注册，capabilities 含 `dialog:allow-open` / `opener:allow-reveal-item-in-dir` / `opener:allow-open-path`。folder picker SSOT 在 `packages/ui-office/src/lib/folder-picker.ts`（其他组件不直接 import `@tauri-apps/plugin-{dialog,opener}`）。Web 端 vite alias 把这两个 plugin stub 到 `apps/web/src/polyfills/` 下空函数，folder UI 走 disabled hint。`ProjectService.createProject` 改成对象参数 `{ name, description?, workspaceRoot? }`（不再 positional）；G2 IDE 文件树面板尚未交付，但绑定层已经打通。
 

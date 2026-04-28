@@ -22,6 +22,7 @@ import {
   isResolverError,
 } from '../skills/skill-source-resolvers/types.js';
 import { resolveUploadSource } from '../skills/skill-source-resolvers/upload.js';
+import { byteLength } from '../utils/byte-length.js';
 import { generateId } from '../utils/generate-id.js';
 
 export const SKILL_INSTALL_TOOL_NAMES = [
@@ -923,13 +924,6 @@ function trimPreview(text: string, limit: number): string {
   return `${text.slice(0, limit - 1)}…`;
 }
 
-function encodedByteLength(text: string): number {
-  if (typeof TextEncoder !== 'undefined') {
-    return new TextEncoder().encode(text).length;
-  }
-  return text.length;
-}
-
 async function handleCreateSkillFromScratch(
   rawArgs: Record<string, unknown>,
   ctx: RuntimeContext,
@@ -940,7 +934,7 @@ async function handleCreateSkillFromScratch(
   if (!skillBody.trim()) {
     return JSON.stringify({ kind: 'missing-argument', message: 'skillBody is required.' });
   }
-  if (encodedByteLength(skillBody) > MAX_CREATE_SKILL_BYTES) {
+  if (byteLength(skillBody) > MAX_CREATE_SKILL_BYTES) {
     return JSON.stringify({
       kind: 'skill-body-too-large',
       message: `skillBody must be ≤ ${MAX_CREATE_SKILL_BYTES} bytes.`,
@@ -1148,7 +1142,7 @@ async function handleEditSkillBody(
   }
   const newBody = typeof rawArgs.newBody === 'string' ? rawArgs.newBody : '';
 
-  const byteLen = encodedByteLength(newBody);
+  const byteLen = byteLength(newBody);
   if (byteLen < MIN_EDIT_BODY_BYTES) {
     return JSON.stringify({
       kind: 'invalid-new-body',

@@ -150,6 +150,7 @@ export function createPermissionsTauriRepos(db: TauriDrizzleDb): PermissionsTaur
         .where(
           and(
             eq(schema.toolPermissionApprovals.thread_id, lookup.threadId),
+            eq(schema.toolPermissionApprovals.company_id, lookup.companyId),
             approvalEmployeeCondition(lookup.employeeId),
             eq(schema.toolPermissionApprovals.server_name, lookup.serverName),
             eq(schema.toolPermissionApprovals.tool_name, lookup.toolName),
@@ -170,6 +171,7 @@ export function createPermissionsTauriRepos(db: TauriDrizzleDb): PermissionsTaur
         .where(
           and(
             eq(schema.toolPermissionApprovals.thread_id, lookup.threadId),
+            eq(schema.toolPermissionApprovals.company_id, lookup.companyId),
             approvalEmployeeCondition(lookup.employeeId),
             eq(schema.toolPermissionApprovals.server_name, lookup.serverName),
             eq(schema.toolPermissionApprovals.tool_name, lookup.toolName),

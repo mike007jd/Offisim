@@ -7,9 +7,9 @@ import type {
   ToolPermissionApprovalRepository,
 } from '../runtime/repositories.js';
 import type { ToolPermissionGrantResolver } from '../services/interaction-service.js';
-import { canonicalJson } from '../testing/canonical-json.js';
-import { sha256Text } from '../testing/hash.js';
+import { canonicalJson } from '../utils/canonical-json.js';
 import { globToRegex } from '../utils/glob-match.js';
+import { sha256Text } from '../utils/hash.js';
 
 export interface ToolPermissionDecision {
   readonly behavior: RuntimeToolPermissionBehavior;
@@ -33,6 +33,7 @@ export interface ToolPermissionAuthorizer {
 }
 
 interface ToolPermissionEngineDeps {
+  readonly companyId: string;
   readonly employees: EmployeeRepository;
   readonly mcpAudit: McpAuditRepository;
   readonly approvals: ToolPermissionApprovalRepository;
@@ -146,6 +147,7 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
 
     const approval = await this.deps.approvals.findReusableApproval({
       threadId: request.threadId,
+      companyId: this.deps.companyId,
       employeeId: request.employeeId,
       serverName: request.serverName,
       toolName: request.toolName,

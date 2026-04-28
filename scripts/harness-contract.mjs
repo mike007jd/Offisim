@@ -74,6 +74,7 @@ async function assertRuntimeDenyOverridesGrant(core) {
   const repos = core.createMemoryRepositories();
   let grantConsumed = false;
   const engine = new core.ToolPermissionEngine({
+    companyId: 'company-contract',
     employees: repos.employees,
     mcpAudit: repos.mcpAudit,
     approvals: repos.toolPermissionApprovals,
@@ -247,6 +248,7 @@ async function assertThreadApprovalIsReusable(core) {
 
 function makeAskFirstTimePermissionEngine(core, repos) {
   return new core.ToolPermissionEngine({
+    companyId: 'company-contract',
     employees: repos.employees,
     mcpAudit: repos.mcpAudit,
     approvals: repos.toolPermissionApprovals,

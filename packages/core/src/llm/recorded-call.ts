@@ -7,9 +7,9 @@ import {
 import type { LlmCallContext, LlmCallMeta } from '../middleware/types.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { Logger } from '../services/logger.js';
-import { canonicalJson } from '../testing/canonical-json.js';
-import { sha256Text } from '../testing/hash.js';
-import { replayRequestHashes } from '../testing/replay-gateway.js';
+import { canonicalJson } from '../utils/canonical-json.js';
+import { sha256Text } from '../utils/hash.js';
+import { replayRequestHashes } from './replay-request-hashes.js';
 
 const logger = new Logger('llm');
 import type { LlmRequest, LlmResponse, LlmStreamChunk, ToolDef } from './gateway.js';
@@ -390,6 +390,5 @@ function redactLlmResponse(response: LlmResponse): LlmResponse {
 }
 
 function recordingMode(ctx: RuntimeContext): string {
-  const policy = ctx.runtimePolicy as { recording?: { mode?: string } } | undefined;
-  return policy?.recording?.mode ?? 'replay';
+  return ctx.runtimePolicy?.recording?.mode ?? 'metadata';
 }

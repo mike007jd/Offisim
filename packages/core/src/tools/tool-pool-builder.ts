@@ -1,8 +1,8 @@
 import type { RuntimePolicyConfig } from '@offisim/shared-types';
 import type { ToolDef } from '../llm/gateway.js';
-import { canonicalJson } from '../testing/canonical-json.js';
-import { sha256Text } from '../testing/hash.js';
+import { canonicalJson } from '../utils/canonical-json.js';
 import { globToRegex } from '../utils/glob-match.js';
+import { sha256Text } from '../utils/hash.js';
 
 export interface DroppedTool {
   readonly name: string;

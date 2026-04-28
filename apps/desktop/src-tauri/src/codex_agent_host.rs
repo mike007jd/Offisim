@@ -11,6 +11,8 @@ use tokio::process::{Child, Command};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
+use crate::sidecar_stderr::sanitized_stderr;
+
 const ENV_WHITELIST: &[&str] = &[
     "PATH",
     "HOME",
@@ -284,15 +286,15 @@ fn parse_sidecar_response(
 ) -> Result<serde_json::Value, HostError> {
     let stdout_text = String::from_utf8(stdout_bytes)
         .map_err(|e| HostError::Protocol(format!("Trusted host stdout was not UTF-8: {e}")))?;
-    let stderr_text = String::from_utf8_lossy(&stderr_bytes).trim().to_string();
+    let stderr_text = sanitized_stderr(&stderr_bytes);
 
     let envelope: SidecarEnvelope = serde_json::from_str(&stdout_text).map_err(|e| {
         HostError::Protocol(format!(
             "Trusted host returned invalid JSON: {e}. stderr: {}",
-            if stderr_text.is_empty() {
-                "(empty)".into()
+            if let Some(stderr) = stderr_text.as_deref() {
+                stderr.to_string()
             } else {
-                stderr_text.clone()
+                "(empty)".into()
             }
         ))
     })?;
@@ -300,8 +302,8 @@ fn parse_sidecar_response(
     if !status.success() || !envelope.ok {
         if let Some(error) = envelope.error {
             let mut message = error.message;
-            if !stderr_text.is_empty() {
-                message = format!("{message} (stderr: {stderr_text})");
+            if let Some(stderr) = stderr_text.as_deref() {
+                message = format!("{message} (stderr: {stderr})");
             }
             return Err(HostError::Upstream {
                 code: error.code,
@@ -311,11 +313,10 @@ fn parse_sidecar_response(
 
         return Err(HostError::Upstream {
             code: Some("upstream".into()),
-            message: if stderr_text.is_empty() {
-                format!("Trusted Codex lane host exited with status {status}")
-            } else {
-                format!("Trusted Codex lane host failed: {stderr_text}")
-            },
+            message: stderr_text
+                .as_deref()
+                .map(|stderr| format!("Trusted Codex lane host failed: {stderr}"))
+                .unwrap_or_else(|| format!("Trusted Codex lane host exited with status {status}")),
         });
     }
 

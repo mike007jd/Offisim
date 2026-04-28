@@ -318,6 +318,7 @@ export async function createTauriRuntime(
     companyId,
     threadId,
     new ToolPermissionEngine({
+      companyId,
       employees: repos.employees,
       mcpAudit: repos.mcpAudit,
       approvals: repos.toolPermissionApprovals,

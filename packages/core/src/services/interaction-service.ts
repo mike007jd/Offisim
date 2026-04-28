@@ -415,13 +415,13 @@ export class InteractionService implements ToolPermissionGrantResolver {
     });
 
     if (scope === 'once') {
-      this.onceGrants.set(key, (this.onceGrants.get(key) ?? 0) + 1);
       await this.persistPermissionApproval(request, scope);
+      this.onceGrants.set(key, (this.onceGrants.get(key) ?? 0) + 1);
       return;
     }
     if (scope === 'thread') {
-      this.threadGrants.add(key);
       await this.persistPermissionApproval(request, scope);
+      this.threadGrants.add(key);
       return;
     }
     this.sessionGrants.add(key);

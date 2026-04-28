@@ -6,6 +6,7 @@ mod llm_transport;
 mod local_paths;
 mod mcp_bridge;
 mod runtime_secrets;
+mod sidecar_stderr;
 
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
@@ -240,6 +241,14 @@ fn migrations() -> Vec<Migration> {
             description: "skills self-authored source kind",
             sql: include_str!(
                 "../../../../Docs/03_migrations/offisim_migrations_local_v0.1/035_skills_self_authored_source_kind.sql"
+            ),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 36,
+            description: "deterministic harness foundation",
+            sql: include_str!(
+                "../../../../Docs/03_migrations/offisim_migrations_local_v0.1/036_deterministic_harness_foundation.sql"
             ),
             kind: MigrationKind::Up,
         },

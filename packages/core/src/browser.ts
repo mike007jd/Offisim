@@ -298,6 +298,8 @@ export {
 export type { DeliverablePersistenceServiceOptions } from './services/deliverable-persistence-service.js';
 export { coerceDeliverableKind } from './runtime/repositories.js';
 export { byteLength, clampUtf8 } from './utils/byte-length.js';
+export { canonicalJson } from './utils/canonical-json.js';
+export { sha256Text } from './utils/hash.js';
 export { idbRequestToPromise, idbTransactionDone } from './utils/idb-promise.js';
 export { InteractionService } from './services/interaction-service.js';
 export { AgentContextPackService } from './services/agent-context-pack-service.js';

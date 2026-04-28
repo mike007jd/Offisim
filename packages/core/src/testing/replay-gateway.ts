@@ -1,18 +1,14 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { LlmGateway, LlmRequest, LlmResponse, LlmStreamChunk } from '../llm/gateway.js';
+import { type ReplayRequestHashes, replayRequestHashes } from '../llm/replay-request-hashes.js';
 import type { LlmCallRow } from '../runtime/repositories.js';
-import { canonicalJson } from './canonical-json.js';
-import { sha256Text } from './hash.js';
+
+export { replayRequestHashes, type ReplayRequestHashes } from '../llm/replay-request-hashes.js';
 
 export interface ReplayFixture {
   readonly key: string;
   readonly response: LlmResponse;
-}
-
-export interface ReplayRequestHashes {
-  readonly promptHash: string;
-  readonly toolsHash: string;
 }
 
 export class ReplayGateway implements LlmGateway {
@@ -84,26 +80,8 @@ export async function fixtureKey(request: LlmRequest): Promise<string> {
   return fixtureKeyFromHashes(await replayRequestHashes(request));
 }
 
-export async function replayRequestHashes(request: LlmRequest): Promise<ReplayRequestHashes> {
-  const redacted = replayRequestInput(request);
-  return {
-    promptHash: await sha256Text(canonicalJson(redacted.messages)),
-    toolsHash: await sha256Text(canonicalJson(redacted.tools ?? [])),
-  };
-}
-
 export function fixtureKeyFromHashes(hashes: ReplayRequestHashes): string {
   return `${hashes.promptHash}@${hashes.toolsHash}`;
-}
-
-function replayRequestInput(request: LlmRequest): {
-  readonly messages: LlmRequest['messages'];
-  readonly tools?: LlmRequest['tools'];
-} {
-  return {
-    messages: request.messages,
-    ...(request.tools !== undefined ? { tools: request.tools } : {}),
-  };
 }
 
 function sanitizeFixtureKey(key: string): string {

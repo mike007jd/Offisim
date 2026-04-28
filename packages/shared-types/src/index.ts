@@ -155,6 +155,8 @@ export type {
   RuntimeExecutionMode,
   RuntimeMemoryPolicy,
   RuntimePolicyConfig,
+  RuntimeRecordingMode,
+  RuntimeRecordingPolicy,
   ResolvedModel,
   RuntimeSummarizationPolicy,
   RuntimeToolPermissionBehavior,

@@ -1,24 +1,26 @@
-import { type RoleSlug, type RuntimePolicyConfig } from '@offisim/shared-types';
-import { AuditingToolExecutor } from '../mcp/auditing-tool-executor.js';
-import { ToolPermissionEngine } from '../permissions/tool-permission-engine.js';
-import { buildOffisimGraph, type OffisimGraphStartNode } from '../graph/main-graph.js';
-import type { OffisimGraphState, PendingAssignment, StepTaskOutput, TaskPlan } from '../graph/state.js';
-import type { LlmResponse, ToolDef } from '../llm/gateway.js';
-import { ModelResolver } from '../llm/model-resolver.js';
-import { createMemoryCheckpointSaver } from '../graph/checkpoint-saver.js';
+import type { RoleSlug, RuntimePolicyConfig } from '@offisim/shared-types';
 import { InMemoryEventBus } from '../events/event-bus.js';
 import type { EventBus } from '../events/event-bus.js';
+import { createMemoryCheckpointSaver } from '../graph/checkpoint-saver.js';
+import { type OffisimGraphStartNode, buildOffisimGraph } from '../graph/main-graph.js';
+import type {
+  OffisimGraphState,
+  PendingAssignment,
+  StepTaskOutput,
+  TaskPlan,
+} from '../graph/state.js';
+import type { LlmResponse, ToolDef } from '../llm/gateway.js';
+import { ModelResolver } from '../llm/model-resolver.js';
+import { AuditingToolExecutor } from '../mcp/auditing-tool-executor.js';
+import { ToolPermissionEngine } from '../permissions/tool-permission-engine.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
+import { type RuntimeContext, createRuntimeContext } from '../runtime/runtime-context.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
-import { createRuntimeContext, type RuntimeContext } from '../runtime/runtime-context.js';
 import { InteractionService } from '../services/interaction-service.js';
-import { FakeGateway, fakeResponse, type FakeGatewayTurn } from './fake-gateway.js';
-import {
-  evaluateScenarioAssertions,
-  type ScenarioAssertion,
-} from './invariant-assertions.js';
-import { TraceRecorder, type ScenarioTraceReport } from './trace-recorder.js';
+import { FakeGateway, type FakeGatewayTurn, fakeResponse } from './fake-gateway.js';
+import { type ScenarioAssertion, evaluateScenarioAssertions } from './invariant-assertions.js';
+import { type ScenarioTraceReport, TraceRecorder } from './trace-recorder.js';
 
 const HARNESS_RUNTIME_POLICY = {
   executionMode: 'desktop-trusted',
@@ -35,6 +37,7 @@ const HARNESS_RUNTIME_POLICY = {
   memory: { enabled: false, injectionEnabled: false, maxFacts: 0, factConfidenceThreshold: 1 },
   toolSearch: { enabled: false },
   toolPermissions: { enabled: true, defaultBehavior: 'allow', rules: [] },
+  recording: { mode: 'replay' },
 } satisfies RuntimePolicyConfig;
 
 export interface DeterministicScenario {
@@ -196,7 +199,14 @@ export async function runDeterministicScenario(
       toolExecutions: toolExecutor.executions,
     });
     const passed = assertions.every((assertion) => assertion.passed);
-    return trace.report({ scenarioId: scenario.id, passed, assertions, repos, threadId, finalState });
+    return trace.report({
+      scenarioId: scenario.id,
+      passed,
+      assertions,
+      repos,
+      threadId,
+      finalState,
+    });
   } finally {
     trace.stop();
     gateway.dispose();
@@ -213,6 +223,7 @@ function createScenarioRuntime(params: {
   readonly interactionService: InteractionService;
 }): RuntimeContext {
   const authorizer = new ToolPermissionEngine({
+    companyId: params.companyId,
     employees: params.repos.employees,
     mcpAudit: params.repos.mcpAudit,
     approvals: params.repos.toolPermissionApprovals,

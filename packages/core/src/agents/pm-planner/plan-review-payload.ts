@@ -1,5 +1,5 @@
-import { canonicalJson } from '../../testing/canonical-json.js';
-import { sha256Text } from '../../testing/hash.js';
+import { canonicalJson } from '../../utils/canonical-json.js';
+import { sha256Text } from '../../utils/hash.js';
 import type { LlmPlan } from '../pm-planner-types.js';
 
 export interface PlanReviewPayload {

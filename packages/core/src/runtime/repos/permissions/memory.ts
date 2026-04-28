@@ -214,6 +214,7 @@ function matchesApprovalLookup(
 ): boolean {
   return (
     row.thread_id === lookup.threadId &&
+    row.company_id === lookup.companyId &&
     row.server_name === lookup.serverName &&
     row.tool_name === lookup.toolName &&
     (row.employee_id ?? null) === (lookup.employeeId ?? null) &&

@@ -116,6 +116,12 @@ export interface RuntimeToolPermissionsPolicy {
   readonly rules: ReadonlyArray<RuntimeToolPermissionRule>;
 }
 
+export type RuntimeRecordingMode = 'metadata' | 'replay';
+
+export interface RuntimeRecordingPolicy {
+  readonly mode: RuntimeRecordingMode;
+}
+
 /** Unified runtime policy stored alongside the provider configuration. */
 export interface RuntimePolicyConfig {
   readonly executionMode: RuntimeExecutionMode;
@@ -124,6 +130,7 @@ export interface RuntimePolicyConfig {
   readonly memory: RuntimeMemoryPolicy;
   readonly toolSearch: RuntimeToolSearchPolicy;
   readonly toolPermissions: RuntimeToolPermissionsPolicy;
+  readonly recording?: RuntimeRecordingPolicy;
   /** Company default for local employees; employee config overrides this. */
   readonly employeeRuntimeDefault?: EmployeeRuntimeBinding;
   /** Auto-commit file changes after each plan step (desktop only). */
