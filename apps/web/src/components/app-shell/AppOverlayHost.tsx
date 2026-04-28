@@ -3,6 +3,7 @@ import type { RoleSlug } from '@offisim/shared-types';
 import { CompanySelectionPage } from '@offisim/ui-office/web';
 import React, { Suspense } from 'react';
 import type { OverlayKey } from '../../lib/app-view-layout';
+import { useKanbanStream } from '../../runtime/useKanbanStream';
 import type { OfficeSessionState, UpdateWorkspaceStateFn } from '../workspaces/types';
 
 const EmployeeCreatorOverlay = React.lazy(() =>
@@ -42,6 +43,7 @@ export interface AppOverlayHostProps {
   onArchiveCompany: (id: string) => Promise<void>;
   officeState: OfficeSessionState;
   activeCompanyId: string | null;
+  activeProjectId: string | null;
   repos: RuntimeRepositories | null;
   activeThreadId: string | null;
   onStudioCompanyCreated: (id: string) => void;
@@ -63,6 +65,7 @@ export function AppOverlayHost(props: AppOverlayHostProps) {
     onArchiveCompany,
     officeState,
     activeCompanyId,
+    activeProjectId,
     repos,
     activeThreadId,
     onStudioCompanyCreated,
@@ -72,6 +75,7 @@ export function AppOverlayHost(props: AppOverlayHostProps) {
     installFlow,
     lastUserRequest,
   } = props;
+  const kanban = useKanbanStream(officeState.kanbanOpen ? activeProjectId : null);
 
   return (
     <>
@@ -136,6 +140,9 @@ export function AppOverlayHost(props: AppOverlayHostProps) {
             open={officeState.kanbanOpen}
             onClose={() => updateOfficeState((prev) => ({ ...prev, kanbanOpen: false }))}
             requestText={lastUserRequest ?? undefined}
+            cards={kanban.cards}
+            onMove={kanban.move}
+            onCreate={kanban.create}
           />
         </Suspense>
       )}

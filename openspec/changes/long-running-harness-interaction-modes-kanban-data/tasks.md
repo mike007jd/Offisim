@@ -316,12 +316,12 @@
 
 ### 5.7 KanbanOverlay 接数据 + 视觉对齐海洋赛博风
 
-- [ ] 5.7.1 `packages/ui-office/src/components/kanban/KanbanOverlay.tsx` props 加(只增不改):
+- [x] 5.7.1 `packages/ui-office/src/components/kanban/KanbanOverlay.tsx` props 加(只增不改):
   - `cards?: KanbanCard[]` (旧 caller 不传时 fallback 到 stub,保持向后兼容)
   - `onMove?: (id: string, next: KanbanState) => Promise<void>`
   - `onCreate?: (input: { title: string; note?: string }) => Promise<void>`
-- [ ] 5.7.2 `KanbanBoard.tsx` 接 `cards` + `onMove` + `onCreate`,5 列布局 (todo / doing / blocked / review / done)
-- [ ] 5.7.3 视觉对齐:
+- [x] 5.7.2 `KanbanBoard.tsx` 接 `cards` + `onMove` + `onCreate`,5 列布局 (todo / doing / blocked / review / done)
+- [x] 5.7.3 视觉对齐:
   - overlay container 用 `.glass-panel` + bottom-corners-only border-radius;height 65%,from top(below nav)
   - top seam: 2px linear-gradient `var(--color-sea-blue) → var(--color-kelp-green) → var(--color-sea-blue)` + box-shadow 蓝光晕
   - close button: `.cyber-button`,小变体
@@ -333,9 +333,9 @@
     - `human` → `var(--color-foam)`
   - blocked banner: `var(--color-warning)` + 表情符号 ⛔
   - 间距全部用 `--sp-*` token (`p-sp-lg`、`gap-sp-md` 等),禁用 raw `p-3` / `gap-2`
-- [ ] 5.7.4 `apps/web/src/components/app-shell/AppOverlayHost.tsx` 当前已 lazy load `KanbanOverlay`,改成接 `useKanbanStream(activeProjectId)` 的 cards / onMove / onCreate
-- [ ] 5.7.5 desktop 同样改在对应 overlay host
-- [ ] 5.7.6 简化审查;commit `feat(ui-office): KanbanOverlay accepts cards/onMove/onCreate; visual alignment to ocean cyber DNA`
+- [x] 5.7.4 `apps/web/src/components/app-shell/AppOverlayHost.tsx` 当前已 lazy load `KanbanOverlay`,改成接 `useKanbanStream(activeProjectId)` 的 cards / onMove / onCreate
+- [x] 5.7.5 desktop 同样改在对应 overlay host
+- [x] 5.7.6 简化审查;commit `feat(ui-office): KanbanOverlay accepts cards/onMove/onCreate; visual alignment to ocean cyber DNA`
 
 ### 5.8 OfficeSceneSurface paused prop 性能保护
 

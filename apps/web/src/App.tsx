@@ -309,6 +309,7 @@ export function App({ onCompanySwitch }: AppProps) {
           onArchiveCompany={lifecycle.handleArchiveCompany}
           officeState={officeState}
           activeCompanyId={activeCompanyId}
+          activeProjectId={activeProjectId}
           repos={repos}
           activeThreadId={activeProject?.thread_id ?? null}
           onStudioCompanyCreated={lifecycle.handleStudioCompanyCreated}

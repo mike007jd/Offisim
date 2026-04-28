@@ -1,5 +1,6 @@
+import type { KanbanOrigin, KanbanState as SharedKanbanState } from '@offisim/shared-types';
 import { cn } from '@offisim/ui-core';
-import { useCallback, useRef } from 'react';
+import { type FormEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
@@ -14,13 +15,71 @@ export interface KanbanBoardProps {
   agents?: Map<string, { name: string }>;
   /** Summary text override (e.g. user's original request) */
   requestText?: string;
+  cards?: KanbanCardData[];
+  onMove?: (id: string, next: KanbanState) => Promise<void>;
+  onCreate?: (input: CreateKanbanInput) => Promise<void>;
 }
+
+export type KanbanState = SharedKanbanState;
+
+export interface KanbanCardData {
+  id: string;
+  projectId: string;
+  companyId: string;
+  title: string;
+  note: string;
+  state: KanbanState;
+  origin: KanbanOrigin;
+  createdByEmployeeId: string | null;
+  assignedEmployeeId: string | null;
+  parentCardId: string | null;
+  blockedReason: string | null;
+  taskRunId: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateKanbanInput {
+  title: string;
+  note?: string | null;
+  origin?: KanbanOrigin;
+  assignedEmployeeId?: string | null;
+  createdByEmployeeId?: string | null;
+}
+
+const KANBAN_STATES: KanbanState[] = ['todo', 'doing', 'blocked', 'review', 'done'];
+
+const KANBAN_LABELS: Record<KanbanState, string> = {
+  todo: 'Todo',
+  doing: 'Doing',
+  blocked: 'Blocked',
+  review: 'Review',
+  done: 'Done',
+};
+
+const ORIGIN_COLOR: Record<KanbanOrigin, string> = {
+  'pm-planner': 'var(--color-sea-blue)',
+  employee: 'var(--color-kelp-green)',
+  manager: 'var(--color-coral-orange)',
+  human: 'var(--color-foam)',
+};
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
+export function KanbanBoard({ agents, requestText, cards, onMove, onCreate }: KanbanBoardProps) {
+  if (cards) {
+    return <LiveKanbanBoard cards={cards} onMove={onMove} onCreate={onCreate} />;
+  }
+  return <PlanKanbanBoard agents={agents} requestText={requestText} />;
+}
+
+function PlanKanbanBoard({
+  agents,
+  requestText,
+}: Pick<KanbanBoardProps, 'agents' | 'requestText'>) {
   const dashboard = useTaskDashboard(agents);
   const { getTaskCost } = useDashboardMetrics();
   const { eventBus } = useOffisimRuntime();
@@ -199,4 +258,214 @@ export function KanbanBoard({ agents, requestText }: KanbanBoardProps) {
       </div>
     </div>
   );
+}
+
+function LiveKanbanBoard({
+  cards,
+  onMove,
+  onCreate,
+}: {
+  cards: KanbanCardData[];
+  onMove?: (id: string, next: KanbanState) => Promise<void>;
+  onCreate?: (input: CreateKanbanInput) => Promise<void>;
+}) {
+  const [title, setTitle] = useState('');
+  const [note, setNote] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const grouped = useMemo(() => groupCards(cards), [cards]);
+
+  const handleCreate = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const trimmed = title.trim();
+      if (!trimmed || !onCreate) return;
+      setCreating(true);
+      try {
+        await onCreate({ title: trimmed, note: note.trim() || null, origin: 'human' });
+        setTitle('');
+        setNote('');
+      } finally {
+        setCreating(false);
+      }
+    },
+    [note, onCreate, title],
+  );
+
+  const handleMove = useCallback(
+    async (card: KanbanCardData, next: KanbanState) => {
+      if (!onMove || card.state === next) return;
+      setBusyId(card.id);
+      try {
+        await onMove(card.id, next);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [onMove],
+  );
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <form
+        className="flex shrink-0 items-end border-b border-white/[0.06]"
+        style={{
+          columnGap: 'var(--sp-md)',
+          paddingInline: 'var(--sp-lg)',
+          paddingBlock: 'var(--sp-md)',
+        }}
+        onSubmit={handleCreate}
+      >
+        <label className="min-w-0 flex-1">
+          <span className="sr-only">Card title</span>
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Add a card"
+            className="h-9 w-full border border-white/[0.08] bg-black/30 text-sm text-[color:var(--color-text-primary)] outline-none placeholder:text-slate-500 focus:border-[color:var(--color-sea-blue)]"
+            style={{ borderRadius: '8px', paddingInline: 'var(--sp-md)' }}
+          />
+        </label>
+        <label className="hidden min-w-0 flex-1 md:block">
+          <span className="sr-only">Card note</span>
+          <input
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Note"
+            className="h-9 w-full border border-white/[0.08] bg-black/30 text-sm text-[color:var(--color-text-primary)] outline-none placeholder:text-slate-500 focus:border-[color:var(--color-sea-blue)]"
+            style={{ borderRadius: '8px', paddingInline: 'var(--sp-md)' }}
+          />
+        </label>
+        <button
+          type="submit"
+          className="cyber-button shrink-0"
+          style={{ height: '36px', borderRadius: '8px', paddingInline: 'var(--sp-md)' }}
+          disabled={!onCreate || creating || title.trim().length === 0}
+        >
+          Add
+        </button>
+      </form>
+
+      <div
+        className="grid min-h-0 flex-1 overflow-x-auto custom-scrollbar"
+        style={{
+          gridTemplateColumns: 'repeat(5, minmax(220px, 1fr))',
+          columnGap: 'var(--sp-md)',
+          padding: 'var(--sp-lg)',
+        }}
+      >
+        {KANBAN_STATES.map((state) => (
+          <section
+            key={state}
+            className="flex min-h-0 flex-col overflow-hidden border border-white/[0.08]"
+            style={{
+              borderRadius: '8px',
+              background: 'var(--color-glass-bg, var(--glass-bg))',
+            }}
+          >
+            <header
+              className="flex items-center justify-between border-b border-white/[0.06]"
+              style={{ paddingInline: 'var(--sp-md)', paddingBlock: 'var(--sp-sm)' }}
+            >
+              <span className="text-xs font-bold text-[color:var(--color-text-primary)]">
+                {KANBAN_LABELS[state]}
+              </span>
+              <span className="font-mono text-[10px] text-slate-500">{grouped[state].length}</span>
+            </header>
+            <div
+              className="min-h-0 flex-1 overflow-y-auto custom-scrollbar"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--sp-sm)',
+                padding: 'var(--sp-sm)',
+              }}
+            >
+              {grouped[state].map((card) => (
+                <LiveKanbanCard
+                  key={card.id}
+                  card={card}
+                  busy={busyId === card.id}
+                  onMove={handleMove}
+                />
+              ))}
+              {grouped[state].length === 0 && (
+                <div className="flex flex-1 items-center justify-center text-[10px] text-slate-500">
+                  No cards
+                </div>
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LiveKanbanCard({
+  card,
+  busy,
+  onMove,
+}: {
+  card: KanbanCardData;
+  busy: boolean;
+  onMove: (card: KanbanCardData, next: KanbanState) => Promise<void>;
+}) {
+  return (
+    <article className="glass-panel-sm" style={{ borderRadius: '8px', padding: 'var(--sp-md)' }}>
+      <div className="flex items-start justify-between" style={{ columnGap: 'var(--sp-sm)' }}>
+        <h3 className="min-w-0 flex-1 text-xs font-semibold text-[color:var(--color-text-primary)]">
+          {card.title}
+        </h3>
+        <span
+          className="shrink-0 rounded-full text-[10px] font-bold uppercase"
+          style={{
+            color: ORIGIN_COLOR[card.origin],
+            border: `1px solid ${ORIGIN_COLOR[card.origin]}`,
+            paddingInline: 'var(--sp-xs)',
+          }}
+        >
+          {card.origin}
+        </span>
+      </div>
+      {card.note && <p className="mt-2 text-[11px] leading-relaxed text-slate-400">{card.note}</p>}
+      {card.blockedReason && (
+        <div
+          className="mt-2 text-[11px] font-medium"
+          style={{
+            color: 'var(--color-warning)',
+            borderRadius: '8px',
+            padding: 'var(--sp-xs) var(--sp-sm)',
+            background: 'color-mix(in srgb, var(--color-warning) 14%, transparent)',
+          }}
+        >
+          ⛔ {card.blockedReason}
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap" style={{ gap: 'var(--sp-xs)' }}>
+        {KANBAN_STATES.filter((state) => state !== card.state).map((state) => (
+          <button
+            key={state}
+            type="button"
+            className="border border-white/[0.08] text-[10px] text-slate-400 hover:border-[color:var(--color-sea-blue)] hover:text-[color:var(--color-sea-blue)] disabled:opacity-40"
+            style={{ borderRadius: '8px', padding: 'var(--sp-xs) var(--sp-sm)' }}
+            disabled={busy}
+            onClick={() => void onMove(card, state)}
+          >
+            {KANBAN_LABELS[state]}
+          </button>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function groupCards(cards: KanbanCardData[]): Record<KanbanState, KanbanCardData[]> {
+  return {
+    todo: cards.filter((card) => card.state === 'todo'),
+    doing: cards.filter((card) => card.state === 'doing'),
+    blocked: cards.filter((card) => card.state === 'blocked'),
+    review: cards.filter((card) => card.state === 'review'),
+    done: cards.filter((card) => card.state === 'done'),
+  };
 }
