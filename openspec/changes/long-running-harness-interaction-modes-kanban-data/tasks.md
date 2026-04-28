@@ -306,13 +306,13 @@
 
 ### 5.6 useKanbanStream hook (web + desktop)
 
-- [ ] 5.6.1 新建 `apps/web/src/runtime/useKanbanStream.ts`:
+- [x] 5.6.1 新建 `apps/web/src/runtime/useKanbanStream.ts`:
   - `useKanbanStream(projectId): { cards: KanbanCard[]; move(id, next): Promise<void>; create(input): Promise<void> }`
   - 初始 `fetch('/api/projects/:id/kanban')`,然后 `EventSource('/api/projects/:id/kanban/stream')` 增量更新
   - hook 内部用 reducer 维护 cards array
-- [ ] 5.6.2 desktop 等价 hook 在 `apps/desktop/src-tauri-binding/` (或现有 binding 位置) 用 `invoke()` + `listen('kanban://updates/:projectId')`,API 形状与 web 一致
-- [ ] 5.6.3 `apps/web/src/components/workspaces/kanban/types.ts` (新建) 导出 `KanbanCard` type,从 shared-types 或本地定义
-- [ ] 5.6.4 commit `feat(web,desktop): useKanbanStream hook`
+- [x] 5.6.2 desktop 等价 hook 在 `apps/desktop/src-tauri-binding/` (或现有 binding 位置) 用 `invoke()` + `listen('kanban://updates/:projectId')`,API 形状与 web 一致
+- [x] 5.6.3 `apps/web/src/components/workspaces/kanban/types.ts` (新建) 导出 `KanbanCard` type,从 shared-types 或本地定义
+- [x] 5.6.4 commit `feat(web,desktop): useKanbanStream hook`
 
 ### 5.7 KanbanOverlay 接数据 + 视觉对齐海洋赛博风
 
