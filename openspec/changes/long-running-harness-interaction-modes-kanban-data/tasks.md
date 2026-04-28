@@ -167,10 +167,10 @@
 
 ### 3.5 Seed YOLO Master into 5 company templates
 
-- [ ] 3.5.1 在 `packages/core/src/templates/agency-lite.ts` 末尾 `employees` array append `YOLO_MASTER_EMPLOYEE`
-- [ ] 3.5.2 同操作 `ai-startup.ts`、`content-studio.ts`、`product-team.ts`、`rd-company.ts`
-- [ ] 3.5.3 新建 `packages/core/src/templates/templates.test.mjs`,scenario: `listTemplates().every(t => t.employees.find(e => e.role_slug === 'yolo_master'))`
-- [ ] 3.5.4 `node --test` 全绿;commit `feat(templates): seed YOLO Master in all 5 company templates`
+- [x] 3.5.1 在 `packages/core/src/templates/agency-lite.ts` 末尾 `employees` array append `YOLO_MASTER_EMPLOYEE`
+- [x] 3.5.2 同操作 `ai-startup.ts`、`content-studio.ts`、`product-team.ts`、`rd-company.ts`
+- [x] 3.5.3 新建 `packages/core/src/templates/templates.test.mjs`,scenario: `listTemplates().every(t => t.employees.find(e => e.role_slug === 'yolo_master'))`
+- [x] 3.5.4 `node --test` 全绿;commit `feat(templates): seed YOLO Master in all 5 company templates`
 
 ### 3.6 Idempotent ensure for existing companies
 

@@ -1,4 +1,5 @@
 import { createZoneBlueprint } from '@offisim/shared-types';
+import { YOLO_MASTER_EMPLOYEE } from '../agents/yolo-master-persona.js';
 import type { CompanyTemplate } from './index.js';
 
 /**
@@ -132,6 +133,7 @@ export const contentStudioTemplate: CompanyTemplate = {
         maxTokens: 4096,
       }),
     },
+    YOLO_MASTER_EMPLOYEE,
   ],
   sops: [
     {
