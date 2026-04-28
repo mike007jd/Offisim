@@ -25,6 +25,7 @@ export type ScenarioAssertion =
       readonly errorIncludes?: string;
     }
   | { readonly kind: 'toolExecutions'; readonly count: number }
+  | { readonly kind: 'llmCalls'; readonly count: number }
   | { readonly kind: 'toolPermissionApprovalConsumed'; readonly scope: 'once' | 'thread' }
   | { readonly kind: 'finalOutputContains'; readonly contains: string }
   | { readonly kind: 'interruptReasonIncludes'; readonly contains: string };
@@ -76,6 +77,8 @@ async function evaluateAssertion(
       return assertMcpAudit(ctx.repos, ctx.threadId, assertion);
     case 'toolExecutions':
       return assertToolExecutions(ctx.toolExecutions, assertion.count);
+    case 'llmCalls':
+      return assertLlmCalls(ctx.repos, ctx.threadId, assertion.count);
     case 'toolPermissionApprovalConsumed':
       return assertToolPermissionApprovalConsumed(ctx.repos, ctx.threadId, assertion.scope);
     case 'finalOutputContains':
@@ -94,7 +97,10 @@ function assertStepContainsOnly(
   const contents = result.outputs.map((output) => output.content);
   const expected = [...assertion.contains].sort();
   const actual = [...contents].sort();
-  if (expected.length !== actual.length || expected.some((value, index) => value !== actual[index])) {
+  if (
+    expected.length !== actual.length ||
+    expected.some((value, index) => value !== actual[index])
+  ) {
     throw new Error(
       `Step ${assertion.stepIndex} outputs mismatch. expected=${expected.join(',')} actual=${actual.join(',')}`,
     );
@@ -108,7 +114,9 @@ function assertNoDuplicateStepOutputs(finalState: Partial<OffisimGraphState>): v
       const key = `${output.taskRunId}:${output.content}`;
       const previous = seen.get(key);
       if (previous !== undefined) {
-        throw new Error(`Output "${output.content}" appears in both step ${previous} and ${result.stepIndex}`);
+        throw new Error(
+          `Output "${output.content}" appears in both step ${previous} and ${result.stepIndex}`,
+        );
       }
       seen.set(key, result.stepIndex);
     }
@@ -134,11 +142,12 @@ async function assertInteractionHistory(
   const rows = await repos.interactionHistory.listByThread(threadId);
   const found = rows.find((row) => {
     if (row.kind !== assertion.interactionKind) return false;
-    if (assertion.selectedOptionId && row.selected_option_id !== assertion.selectedOptionId) return false;
+    if (assertion.selectedOptionId && row.selected_option_id !== assertion.selectedOptionId)
+      return false;
     if (assertion.status && row.status !== assertion.status) return false;
     if (assertion.payloadType) {
-      const payload = parseJson(row.payload_json);
-      if (!payload || (payload as { type?: unknown }).type !== assertion.payloadType) return false;
+      const payloadType = extractInteractionPayloadType(row);
+      if (payloadType !== assertion.payloadType) return false;
     }
     return true;
   });
@@ -174,6 +183,17 @@ function assertToolExecutions(toolExecutions: readonly unknown[], expected: numb
   }
 }
 
+async function assertLlmCalls(
+  repos: RuntimeRepositories,
+  threadId: string,
+  expected: number,
+): Promise<void> {
+  const calls = await repos.llmCalls.findByThread(threadId);
+  if (calls.length !== expected) {
+    throw new Error(`Expected ${expected} LLM calls, got ${calls.length}`);
+  }
+}
+
 function assertToolPermissionApprovalConsumed(
   repos: RuntimeRepositories & { snapshot?: () => unknown },
   threadId: string,
@@ -191,7 +211,11 @@ function assertToolPermissionApprovalConsumed(
 function assertFinalOutputContains(finalState: Partial<OffisimGraphState>, contains: string): void {
   const contents = (finalState.currentStepOutputs ?? [])
     .map((output) => output.content)
-    .concat((finalState.stepResults ?? []).flatMap((step) => step.outputs.map((output) => output.content)));
+    .concat(
+      (finalState.stepResults ?? []).flatMap((step) =>
+        step.outputs.map((output) => output.content),
+      ),
+    );
   if (!contents.some((content) => content.includes(contains))) {
     throw new Error(`Final outputs do not contain "${contains}"`);
   }
@@ -213,4 +237,19 @@ function parseJson(raw: string | null): unknown {
   } catch {
     return null;
   }
+}
+
+function extractInteractionPayloadType(row: {
+  payload_json: string | null;
+  request_json: string | null;
+}): unknown {
+  const payload = parseJson(row.payload_json);
+  if (payload && typeof payload === 'object') {
+    return (payload as { type?: unknown }).type;
+  }
+  const request = parseJson(row.request_json);
+  if (!request || typeof request !== 'object') return undefined;
+  const context = (request as { context?: unknown }).context;
+  if (!context || typeof context !== 'object') return undefined;
+  return (context as { type?: unknown }).type;
 }

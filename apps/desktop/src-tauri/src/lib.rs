@@ -252,6 +252,14 @@ fn migrations() -> Vec<Migration> {
             ),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 37,
+            description: "tool permission approval company lookup index",
+            sql: include_str!(
+                "../../../../Docs/03_migrations/offisim_migrations_local_v0.1/037_tool_permission_approval_company_lookup.sql"
+            ),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

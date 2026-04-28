@@ -1,0 +1,104 @@
+{
+  "id": "skill-create-real-tool-call",
+  "category": "skill-install",
+  "entryMode": "boss_chat",
+  "interactionMode": "human_in_loop",
+  "seed": {
+    "company": { "companyId": "company-skill-create", "name": "Skill Create Harness Co" },
+    "thread": { "threadId": "thread-skill-create", "status": "running" },
+    "employees": [{ "id": "emp-skill", "name": "Sam", "role": "engineer" }],
+    "taskRuns": [
+      {
+        "id": "task-skill-create",
+        "employeeId": "emp-skill",
+        "taskType": "general",
+        "input": {
+          "description": "Use create_skill_from_scratch to draft a reusable scenario skill."
+        }
+      }
+    ]
+  },
+  "llmTurns": [
+    {
+      "id": "employee-create-skill-tool-request",
+      "match": {
+        "contains": "Use create_skill_from_scratch",
+        "toolNames": ["create_skill_from_scratch"]
+      },
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call-create-skill",
+          "name": "create_skill_from_scratch",
+          "arguments": {
+            "skillBody": "---\nname: scenario-skill\ndescription: Harness-created skill for deterministic replay\nallowedTools:\n  - read_file\n---\n# Scenario Skill\nUse this skill when the harness needs a self-authored skill preview."
+          }
+        }
+      ]
+    },
+    {
+      "id": "employee-final",
+      "content": "SKILL_CREATE_STAGED"
+    }
+  ],
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-skill-create",
+      "threadId": "thread-skill-create",
+      "companyId": "company-skill-create",
+      "summary": "Create a deterministic harness skill",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Create skill",
+          "tasks": [
+            {
+              "taskType": "general",
+              "employeeId": "emp-skill",
+              "assigneeKind": "employee",
+              "assigneeName": "Sam",
+              "description": "Use create_skill_from_scratch to draft a reusable scenario skill.",
+              "dependsOnStepOutput": false,
+              "taskRunId": "task-skill-create"
+            }
+          ]
+        }
+      ]
+    },
+    "pendingAssignments": [
+      {
+        "taskType": "general",
+        "employeeId": "emp-skill",
+        "assigneeKind": "employee",
+        "assigneeName": "Sam",
+        "taskRunId": "task-skill-create",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Use create_skill_from_scratch to draft a reusable scenario skill.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0]
+  },
+  "runs": [
+    {
+      "startAt": "employee",
+      "autoResolveInteractions": [
+        { "kind": "skill_install_confirm", "selectedOptionId": "confirm" }
+      ]
+    }
+  ],
+  "assertions": [
+    { "kind": "llmCalls", "count": 2 },
+    {
+      "kind": "interactionHistoryContains",
+      "interactionKind": "skill_install_confirm",
+      "selectedOptionId": "confirm",
+      "status": "resolved",
+      "payloadType": "skill_install_confirm"
+    },
+    { "kind": "toolExecutions", "count": 0 },
+    { "kind": "finalOutputContains", "contains": "SKILL_CREATE_STAGED" }
+  ]
+}

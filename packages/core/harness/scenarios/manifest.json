@@ -40,6 +40,11 @@
       "id": "stream-nonstream-middleware-parity",
       "category": "llm-recording",
       "invariants": ["llm.middleware_after_visible_in_stream", "llm.stream_nonstream_parity"]
+    },
+    {
+      "id": "skill-create-real-tool-call",
+      "category": "skill-install",
+      "invariants": ["skill.create_requires_real_llm_tool_call", "skill.create_preview_interaction"]
     }
   ]
 }

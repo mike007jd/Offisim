@@ -36,8 +36,6 @@ interface ActiveChatRunState {
   runId: string;
   conversationKey: string;
   startedAt: number;
-  /** Set to true when the run has been terminated (abort/error). Prevents double-commit. */
-  isTerminated: boolean;
 }
 
 interface ChatSessionStore {
@@ -61,6 +59,7 @@ interface ChatSessionStore {
   clearConversation: (conversationKey: string) => void;
   clearAllConversations: () => void;
   getMessages: (conversationKey: string) => ChatMessage[];
+  /** True when no run is currently active. Event handlers use this to drop late events. */
   isActiveRunTerminated: () => boolean;
   reset: () => void;
 }
@@ -171,57 +170,86 @@ function ensureConversation(
   return conversations[conversationKey] ?? { messages: [], streaming: null };
 }
 
-export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
-  activeRun: null,
-  conversations: {},
-  appendMessage: (conversationKey, message) =>
-    set((state) => {
-      const conversation = ensureConversation(state.conversations, conversationKey);
+type ChatSessionDataState = Pick<ChatSessionStore, 'activeRun' | 'conversations'>;
+
+type ChatSessionAction =
+  | { type: 'appendMessage'; conversationKey: string; message: ChatMessage }
+  | { type: 'startRun'; conversationKey: string }
+  | {
+      type: 'setActiveRunNode';
+      nodeName: string | null;
+      options?: { resetContent?: boolean };
+    }
+  | { type: 'setActiveRunStreaming'; isStreaming: boolean }
+  | {
+      type: 'appendStreamingChunkForActiveRun';
+      nodeName: string;
+      content: string;
+      channel: 'content' | 'reasoning';
+    }
+  | { type: 'commitSpeakerSegment'; options?: { status?: MessageStatus } }
+  | { type: 'commitToolCallCheckpoint' }
+  | { type: 'terminateActiveRun'; status: 'failed' | 'interrupted' }
+  | { type: 'clearActiveRunStreamingContent' }
+  | { type: 'finalizeActiveRun'; finalContent?: string }
+  | { type: 'clearActiveRun' }
+  | { type: 'clearConversation'; conversationKey: string }
+  | { type: 'clearAllConversations' };
+
+function reduceChatSession(
+  state: ChatSessionDataState,
+  action: ChatSessionAction,
+): ChatSessionDataState {
+  switch (action.type) {
+    case 'appendMessage': {
+      const conversation = ensureConversation(state.conversations, action.conversationKey);
       const stamped =
-        message.createdAt === undefined ? { ...message, createdAt: Date.now() } : message;
+        action.message.createdAt === undefined
+          ? { ...action.message, createdAt: Date.now() }
+          : action.message;
       return {
+        ...state,
         conversations: {
           ...state.conversations,
-          [conversationKey]: {
+          [action.conversationKey]: {
             ...conversation,
             messages: [...conversation.messages, stamped],
           },
         },
       };
-    }),
-  startRun: (conversationKey) =>
-    set((state) => {
-      const conversation = ensureConversation(state.conversations, conversationKey);
+    }
+    case 'startRun': {
+      const conversation = ensureConversation(state.conversations, action.conversationKey);
       return {
         activeRun: {
           runId: genRunId(),
-          conversationKey,
+          conversationKey: action.conversationKey,
           startedAt: Date.now(),
-          isTerminated: false,
         },
         conversations: {
           ...state.conversations,
-          [conversationKey]: {
+          [action.conversationKey]: {
             ...conversation,
             streaming: conversation.streaming ?? createEmptyStreamingState(),
           },
         },
       };
-    }),
-  setActiveRunNode: (nodeName, options) =>
-    set((state) => {
+    }
+    case 'setActiveRunNode': {
       const activeRun = state.activeRun;
-      if (!activeRun || activeRun.isTerminated) return state;
+      if (!activeRun) return state;
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const previous = conversation.streaming ?? createEmptyStreamingState();
-      const shouldReset = options?.resetContent || previous.nodeName !== nodeName;
+      const shouldReset = action.options?.resetContent || previous.nodeName !== action.nodeName;
+      if (!shouldReset && conversation.streaming) return state;
       return {
+        ...state,
         conversations: {
           ...state.conversations,
           [activeRun.conversationKey]: {
             ...conversation,
             streaming: {
-              nodeName,
+              nodeName: action.nodeName,
               content: shouldReset ? '' : previous.content,
               reasoning: shouldReset ? '' : previous.reasoning,
               isStreaming: previous.isStreaming,
@@ -230,48 +258,49 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
           },
         },
       };
-    }),
-  setActiveRunStreaming: (isStreaming) =>
-    set((state) => {
+    }
+    case 'setActiveRunStreaming': {
       const activeRun = state.activeRun;
-      if (!activeRun || activeRun.isTerminated) return state;
+      if (!activeRun) return state;
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const previous = conversation.streaming ?? createEmptyStreamingState();
+      if (previous.isStreaming === action.isStreaming && conversation.streaming) return state;
       return {
+        ...state,
         conversations: {
           ...state.conversations,
           [activeRun.conversationKey]: {
             ...conversation,
             streaming: {
               ...previous,
-              isStreaming,
+              isStreaming: action.isStreaming,
               updatedAt: Date.now(),
             },
           },
         },
       };
-    }),
-  appendStreamingChunkForActiveRun: (nodeName, content, channel = 'content') =>
-    set((state) => {
+    }
+    case 'appendStreamingChunkForActiveRun': {
       const activeRun = state.activeRun;
-      if (!activeRun || activeRun.isTerminated || content.length === 0) return state;
+      if (!activeRun || action.content.length === 0) return state;
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
-      const previous = conversation.streaming ?? createEmptyStreamingState(nodeName);
-      const shouldReset = previous.nodeName !== nodeName;
+      const previous = conversation.streaming ?? createEmptyStreamingState(action.nodeName);
+      const shouldReset = previous.nodeName !== action.nodeName;
       let nextContent = shouldReset ? '' : previous.content;
       let nextReasoning = shouldReset ? '' : previous.reasoning;
-      if (channel === 'reasoning') {
-        nextReasoning += content;
+      if (action.channel === 'reasoning') {
+        nextReasoning += action.content;
       } else {
-        nextContent += content;
+        nextContent += action.content;
       }
       return {
+        ...state,
         conversations: {
           ...state.conversations,
           [activeRun.conversationKey]: {
             ...conversation,
             streaming: {
-              nodeName,
+              nodeName: action.nodeName,
               content: nextContent,
               reasoning: nextReasoning,
               isStreaming: true,
@@ -280,15 +309,15 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
           },
         },
       };
-    }),
-  commitSpeakerSegment: (options) =>
-    set((state) => {
+    }
+    case 'commitSpeakerSegment': {
       const activeRun = state.activeRun;
       if (!activeRun) return state;
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const streaming = conversation.streaming;
       if (!streaming || !streaming.content.trim()) return state;
       return {
+        ...state,
         conversations: {
           ...state.conversations,
           [activeRun.conversationKey]: {
@@ -298,7 +327,7 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
               activeRun.runId,
               {
                 content: streaming.content,
-                status: options?.status ?? 'completed',
+                status: action.options?.status ?? 'completed',
                 nodeName: streaming.nodeName,
                 reasoning: streaming.reasoning || undefined,
               },
@@ -313,11 +342,10 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
           },
         },
       };
-    }),
-  commitToolCallCheckpoint: () =>
-    set((state) => {
+    }
+    case 'commitToolCallCheckpoint': {
       const activeRun = state.activeRun;
-      if (!activeRun || activeRun.isTerminated) return state;
+      if (!activeRun) return state;
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const streaming = conversation.streaming;
       if (!streaming) return state;
@@ -325,6 +353,7 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
       const reasoning = streaming.reasoning.trim();
       const hasVisibleProgress = content.length > 0 || reasoning.length > 0;
       return {
+        ...state,
         conversations: {
           ...state.conversations,
           [activeRun.conversationKey]: {
@@ -352,31 +381,31 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
           },
         },
       };
-    }),
-  terminateActiveRun: (options) =>
-    set((state) => {
+    }
+    case 'terminateActiveRun': {
       const activeRun = state.activeRun;
-      if (!activeRun || activeRun.isTerminated) return state;
+      if (!activeRun) return state;
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const streaming = conversation.streaming;
       const content = streaming?.content.trim() ?? '';
       const reasoning = streaming?.reasoning.trim() ?? '';
       const hasVisibleProgress = content.length > 0 || reasoning.length > 0;
       const shouldCommitTerminalMessage =
-        !!streaming && (hasVisibleProgress || options.status === 'interrupted');
-      const newMessages = shouldCommitTerminalMessage
-        ? finalizeAssistantMessage(
-            conversation.messages,
-            activeRun.runId,
-            {
-              content: content || terminalContentForStatus(options.status),
-              status: options.status,
-              nodeName: streaming.nodeName,
-              reasoning: streaming.reasoning || undefined,
-            },
-            'append',
-          )
-        : conversation.messages;
+        !!streaming && (hasVisibleProgress || action.status === 'interrupted');
+      const newMessages =
+        shouldCommitTerminalMessage
+          ? finalizeAssistantMessage(
+              conversation.messages,
+              activeRun.runId,
+              {
+                content: content || terminalContentForStatus(action.status),
+                status: action.status,
+                nodeName: streaming.nodeName,
+                reasoning: streaming.reasoning || undefined,
+              },
+              'append',
+            )
+          : conversation.messages;
       return {
         activeRun: null,
         conversations: {
@@ -388,14 +417,14 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
           },
         },
       };
-    }),
-  clearActiveRunStreamingContent: () =>
-    set((state) => {
+    }
+    case 'clearActiveRunStreamingContent': {
       const activeRun = state.activeRun;
-      if (!activeRun || activeRun.isTerminated) return state;
+      if (!activeRun) return state;
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const previous = conversation.streaming ?? createEmptyStreamingState();
       return {
+        ...state,
         conversations: {
           ...state.conversations,
           [activeRun.conversationKey]: {
@@ -410,16 +439,14 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
           },
         },
       };
-    }),
-  finalizeActiveRun: (finalContent) =>
-    set((state) => {
+    }
+    case 'finalizeActiveRun': {
       const activeRun = state.activeRun;
       if (!activeRun) return state;
-      if (activeRun.isTerminated) return state;
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const streaming = conversation.streaming;
       const resolvedContent = stripLegacySpeakerPrefix(
-        finalContent?.trim() || streaming?.content.trim() || '',
+        action.finalContent?.trim() || streaming?.content.trim() || '',
       );
       return {
         activeRun: null,
@@ -442,19 +469,61 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
           },
         },
       };
-    }),
-  clearActiveRun: () => set({ activeRun: null }),
-  clearConversation: (conversationKey) =>
-    set((state) => {
+    }
+    case 'clearActiveRun':
+      return { ...state, activeRun: null };
+    case 'clearConversation': {
       const next = { ...state.conversations };
-      delete next[conversationKey];
+      delete next[action.conversationKey];
       return {
-        activeRun: state.activeRun?.conversationKey === conversationKey ? null : state.activeRun,
+        activeRun:
+          state.activeRun?.conversationKey === action.conversationKey ? null : state.activeRun,
         conversations: next,
       };
-    }),
-  clearAllConversations: () => set({ activeRun: null, conversations: {} }),
+    }
+    case 'clearAllConversations':
+      return { activeRun: null, conversations: {} };
+  }
+}
+
+export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
+  activeRun: null,
+  conversations: {},
+  appendMessage: (conversationKey, message) =>
+    set((state) => reduceChatSession(state, { type: 'appendMessage', conversationKey, message })),
+  startRun: (conversationKey) =>
+    set((state) => reduceChatSession(state, { type: 'startRun', conversationKey })),
+  setActiveRunNode: (nodeName, options) =>
+    set((state) => reduceChatSession(state, { type: 'setActiveRunNode', nodeName, options })),
+  setActiveRunStreaming: (isStreaming) =>
+    set((state) => reduceChatSession(state, { type: 'setActiveRunStreaming', isStreaming })),
+  appendStreamingChunkForActiveRun: (nodeName, content, channel = 'content') =>
+    set((state) =>
+      reduceChatSession(state, {
+        type: 'appendStreamingChunkForActiveRun',
+        nodeName,
+        content,
+        channel,
+      }),
+    ),
+  commitSpeakerSegment: (options) =>
+    set((state) => reduceChatSession(state, { type: 'commitSpeakerSegment', options })),
+  commitToolCallCheckpoint: () =>
+    set((state) => reduceChatSession(state, { type: 'commitToolCallCheckpoint' })),
+  terminateActiveRun: (options) =>
+    set((state) =>
+      reduceChatSession(state, { type: 'terminateActiveRun', status: options.status }),
+    ),
+  clearActiveRunStreamingContent: () =>
+    set((state) => reduceChatSession(state, { type: 'clearActiveRunStreamingContent' })),
+  finalizeActiveRun: (finalContent) =>
+    set((state) => reduceChatSession(state, { type: 'finalizeActiveRun', finalContent })),
+  clearActiveRun: () => set((state) => reduceChatSession(state, { type: 'clearActiveRun' })),
+  clearConversation: (conversationKey) =>
+    set((state) => reduceChatSession(state, { type: 'clearConversation', conversationKey })),
+  clearAllConversations: () =>
+    set((state) => reduceChatSession(state, { type: 'clearAllConversations' })),
   getMessages: (conversationKey) => get().conversations[conversationKey]?.messages ?? [],
-  isActiveRunTerminated: () => get().activeRun?.isTerminated ?? false,
-  reset: () => set({ activeRun: null, conversations: {} }),
+  isActiveRunTerminated: () => get().activeRun === null,
+  reset: () => set((state) => reduceChatSession(state, { type: 'clearAllConversations' })),
 }));

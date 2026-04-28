@@ -1,4 +1,5 @@
-import type { RoleSlug, RuntimePolicyConfig } from '@offisim/shared-types';
+import type { InteractionKind, RoleSlug, RuntimePolicyConfig } from '@offisim/shared-types';
+import { isSkillInstallTool } from '../agents/skill-install-tools.js';
 import { InMemoryEventBus } from '../events/event-bus.js';
 import type { EventBus } from '../events/event-bus.js';
 import { createMemoryCheckpointSaver } from '../graph/checkpoint-saver.js';
@@ -18,6 +19,8 @@ import type { RuntimeRepositories } from '../runtime/repositories.js';
 import { type RuntimeContext, createRuntimeContext } from '../runtime/runtime-context.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { InteractionService } from '../services/interaction-service.js';
+import { SkillLoader } from '../skills/skill-loader.js';
+import { SkillStagingManager } from '../skills/skill-staging.js';
 import { FakeGateway, type FakeGatewayTurn, fakeResponse } from './fake-gateway.js';
 import { type ScenarioAssertion, evaluateScenarioAssertions } from './invariant-assertions.js';
 import { type ScenarioTraceReport, TraceRecorder } from './trace-recorder.js';
@@ -102,7 +105,7 @@ interface ScenarioRun {
 }
 
 interface ScenarioInteractionResolution {
-  readonly kind: 'permission_request' | 'plan_review';
+  readonly kind: InteractionKind;
   readonly selectedOptionId: string;
   readonly freeformResponse?: string;
   readonly restoreBeforeResolve?: boolean;
@@ -125,6 +128,11 @@ export async function runDeterministicScenario(
   const trace = new TraceRecorder(eventBus);
   const gateway = new FakeGateway((scenario.llmTurns ?? []).map(toFakeGatewayTurn));
   const toolExecutor = new RecordingToolExecutor(scenario.tools ?? []);
+  const needsSkillInstall = scenarioUsesSkillInstallTools(scenario);
+  const skillLoader = needsSkillInstall ? SkillLoader.forRepos(repos) : null;
+  const skillStagingManager = needsSkillInstall
+    ? createScenarioSkillStagingManager(scenario.id)
+    : null;
   let interactionService = createInteractionService({
     scenario,
     eventBus,
@@ -147,6 +155,8 @@ export async function runDeterministicScenario(
         gateway,
         toolExecutor,
         interactionService,
+        skillLoader,
+        skillStagingManager,
       });
       const unsubscribe = installAutoInteractionResolver(
         eventBus,
@@ -210,6 +220,7 @@ export async function runDeterministicScenario(
   } finally {
     trace.stop();
     gateway.dispose();
+    skillStagingManager?.dispose();
   }
 }
 
@@ -221,6 +232,8 @@ function createScenarioRuntime(params: {
   readonly gateway: FakeGateway;
   readonly toolExecutor: RecordingToolExecutor;
   readonly interactionService: InteractionService;
+  readonly skillLoader: SkillLoader | null;
+  readonly skillStagingManager: SkillStagingManager | null;
 }): RuntimeContext {
   const authorizer = new ToolPermissionEngine({
     companyId: params.companyId,
@@ -249,7 +262,25 @@ function createScenarioRuntime(params: {
     threadId: params.threadId,
     runtimePolicy: HARNESS_RUNTIME_POLICY,
     interactionService: params.interactionService,
+    ...(params.skillLoader ? { skillLoader: params.skillLoader } : {}),
+    ...(params.skillStagingManager ? { skillStagingManager: params.skillStagingManager } : {}),
   });
+}
+
+function createScenarioSkillStagingManager(scenarioId: string): SkillStagingManager {
+  let next = 0;
+  return new SkillStagingManager({
+    now: () => 1,
+    idFactory: () => `stg-${scenarioId}-${++next}`,
+  });
+}
+
+function scenarioUsesSkillInstallTools(scenario: DeterministicScenario): boolean {
+  if ((scenario.tools ?? []).some((tool) => isSkillInstallTool(tool.name))) return true;
+  for (const turn of scenario.llmTurns ?? []) {
+    if ((turn.toolCalls ?? []).some((call) => isSkillInstallTool(call.name))) return true;
+  }
+  return false;
 }
 
 function createInteractionService(params: {

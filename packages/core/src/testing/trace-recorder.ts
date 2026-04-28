@@ -1,6 +1,6 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
-import type { OffisimGraphState } from '../graph/state.js';
 import type { EventBus } from '../events/event-bus.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
 import { canonicalJson } from './canonical-json.js';
 import { sha256Text } from './hash.js';
@@ -125,6 +125,7 @@ function normalizeFinalState(state: Partial<OffisimGraphState>): Record<string, 
     completed: state.completed ?? false,
     interruptReason: state.interruptReason ?? null,
     taskPlan: state.taskPlan ?? null,
+    pendingAssignments: state.pendingAssignments ?? [],
     stepResults: state.stepResults ?? [],
     completedStepIndices: state.completedStepIndices ?? [],
     currentStepOutputs: state.currentStepOutputs ?? [],
@@ -178,6 +179,9 @@ function normalizeString(value: string, key: string): string {
   }
   if (/^(companyId|company_id|threadId|thread_id|employeeId|employee_id)$/u.test(key)) {
     return value;
+  }
+  if (/_hash$/iu.test(key) && value.startsWith('sha256:')) {
+    return '<hash>';
   }
   if (GENERATED_ID_KEY.test(key) && !STABLE_ENTITY_ID.test(value)) {
     return '<id>';

@@ -1,19 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { ensureRuntimeBuild } from './harness-lib.mjs';
+import { REPLAY_SCENARIO_IDS, loadHarnessScenarios } from './harness-scenario-loader.mjs';
 
 await ensureRuntimeBuild({ force: process.argv.includes('--force-build') });
-
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const SCENARIOS_DIR = resolve(ROOT, 'packages/core/harness/scenarios');
-const V1_SCENARIO_IDS = [
-  'dag-output-attribution',
-  'permission-ask-approved-blocks-and-then-executes',
-  'permission-ask-denied-does-not-execute',
-  'plan-review-cancel-terminates',
-  'plan-review-approve-survives-restore',
-];
 
 const core = await import(
   new URL('../packages/core/dist/testing/fake-gateway.js', import.meta.url).href
@@ -24,7 +12,9 @@ const replay = await import(
 const scenarioRunner = await import(
   new URL('../packages/core/dist/testing/scenario-runner.js', import.meta.url).href
 );
-const logger = await import(new URL('../packages/core/dist/services/logger.js', import.meta.url).href);
+const logger = await import(
+  new URL('../packages/core/dist/services/logger.js', import.meta.url).href
+);
 logger.setLogHandler(() => {});
 
 const request = {
@@ -59,8 +49,7 @@ if (!streamChunks.at(-1)?.toolCalls?.[0] || streamChunks.at(-1).toolCalls[0].nam
 }
 
 const scenarioReports = [];
-for (const id of V1_SCENARIO_IDS) {
-  const scenario = JSON.parse(readFileSync(resolve(SCENARIOS_DIR, `${id}.json`), 'utf8'));
+for (const scenario of loadHarnessScenarios()) {
   scenarioReports.push(await scenarioRunner.runDeterministicScenario(scenario));
 }
 
@@ -100,6 +89,7 @@ console.log(
         traceHash: report.traceHash,
         assertions: report.assertions,
       })),
+      scenarioIds: REPLAY_SCENARIO_IDS,
     },
     null,
     2,

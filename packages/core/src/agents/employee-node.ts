@@ -18,7 +18,6 @@ import { assemblePrompt } from './employee-prompt-assembly.js';
 import { assembleToolKit } from './employee-tool-kit.js';
 import { runToolRound } from './employee-tool-round.js';
 import { buildTurnRunner } from './employee-turn-runner.js';
-import { buildExplicitSkillToolResponse } from './explicit-skill-tool-call.js';
 
 export { extractUsedCitations } from './employee-completion.js';
 
@@ -100,9 +99,7 @@ export async function employeeNode(
       { role: 'system', content: systemPrompt },
       { role: 'user', content: taskDescription },
     ];
-    let llmResponse =
-      buildExplicitSkillToolResponse(taskDescription, allTools) ??
-      (await runEmployeeTurn(conversationHistory, { taskRunId }));
+    let llmResponse = await runEmployeeTurn(conversationHistory, { taskRunId });
 
     // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
     let workingHistory = conversationHistory;

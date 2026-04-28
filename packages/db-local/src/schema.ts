@@ -623,6 +623,14 @@ export const toolPermissionApprovals = sqliteTable(
       table.tool_name,
       table.policy_hash,
     ),
+    index('idx_tool_perm_approval_company_lookup').on(
+      table.company_id,
+      table.thread_id,
+      table.employee_id,
+      table.server_name,
+      table.tool_name,
+      table.policy_hash,
+    ),
     index('idx_tool_perm_approval_company').on(table.company_id, table.created_at),
   ],
 );

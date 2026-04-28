@@ -12,6 +12,13 @@ const REQUIRED_BUILD_ARTIFACTS = [
   'packages/install-core/dist/index.js',
   'packages/db-local/dist/index.js',
   'packages/core/dist/index.js',
+  'packages/core/dist/testing/chaos-runner.js',
+  'packages/core/dist/testing/context-budget-runner.js',
+  'packages/core/dist/testing/model-bench-runner.js',
+  'packages/core/dist/testing/resume-runner.js',
+  'packages/core/dist/testing/soak-runner.js',
+  'packages/core/dist/testing/streaming-tool-runner.js',
+  'packages/core/dist/testing/vcr-corpus.js',
 ];
 const RUNTIME_BUILD_PACKAGES = [
   '@offisim/asset-schema',
