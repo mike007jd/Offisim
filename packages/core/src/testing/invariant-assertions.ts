@@ -1,4 +1,4 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
+import type { KanbanOrigin, KanbanState, RuntimeEvent } from '@offisim/shared-types';
 import type { OffisimGraphState } from '../graph/state.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
 import type { ScenarioAssertionReport } from './trace-recorder.js';
@@ -28,6 +28,13 @@ export type ScenarioAssertion =
   | { readonly kind: 'toolExecutions'; readonly count: number }
   | { readonly kind: 'llmCalls'; readonly count: number }
   | { readonly kind: 'firstGraphNodeIs'; readonly nodeName: string }
+  | {
+      readonly kind: 'kanbanCards';
+      readonly projectId: string;
+      readonly count: number;
+      readonly origin?: KanbanOrigin;
+      readonly states?: Partial<Record<KanbanState, number>>;
+    }
   | { readonly kind: 'toolPermissionApprovalConsumed'; readonly scope: 'once' | 'thread' }
   | { readonly kind: 'finalOutputContains'; readonly contains: string }
   | { readonly kind: 'interruptReasonIncludes'; readonly contains: string };
@@ -84,12 +91,34 @@ async function evaluateAssertion(
       return assertLlmCalls(ctx.repos, ctx.threadId, assertion.count);
     case 'firstGraphNodeIs':
       return assertFirstGraphNode(ctx.events, assertion.nodeName);
+    case 'kanbanCards':
+      return assertKanbanCards(ctx.repos, assertion);
     case 'toolPermissionApprovalConsumed':
       return assertToolPermissionApprovalConsumed(ctx.repos, ctx.threadId, assertion.scope);
     case 'finalOutputContains':
       return assertFinalOutputContains(ctx.finalState, assertion.contains);
     case 'interruptReasonIncludes':
       return assertInterruptReasonIncludes(ctx.finalState, assertion.contains);
+  }
+}
+
+async function assertKanbanCards(
+  repos: RuntimeRepositories,
+  assertion: Extract<ScenarioAssertion, { kind: 'kanbanCards' }>,
+): Promise<void> {
+  const cards = (await repos.kanban.listByProject(assertion.projectId)).filter((card) =>
+    assertion.origin ? card.origin === assertion.origin : true,
+  );
+  if (cards.length !== assertion.count) {
+    throw new Error(
+      `Expected ${assertion.count} kanban cards for ${assertion.projectId}, got ${cards.length}`,
+    );
+  }
+  for (const [state, expected] of Object.entries(assertion.states ?? {})) {
+    const actual = cards.filter((card) => card.state === state).length;
+    if (actual !== expected) {
+      throw new Error(`Expected ${expected} kanban cards in ${state}, got ${actual}`);
+    }
   }
 }
 

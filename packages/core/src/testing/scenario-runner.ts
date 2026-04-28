@@ -1,6 +1,7 @@
 import type {
   InteractionKind,
   InteractionMode,
+  ProjectStatus,
   RoleSlug,
   RuntimePolicyConfig,
 } from '@offisim/shared-types';
@@ -55,6 +56,7 @@ export interface DeterministicScenario {
   readonly seed: {
     readonly company?: Partial<SeedCompany>;
     readonly thread?: Partial<SeedThread>;
+    readonly projects?: readonly SeedProject[];
     readonly employees?: readonly SeedEmployee[];
     readonly taskRuns?: readonly SeedTaskRun[];
   };
@@ -74,6 +76,16 @@ interface SeedCompany {
 interface SeedThread {
   readonly threadId: string;
   readonly status: string;
+  readonly projectId: string | null;
+}
+
+interface SeedProject {
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string | null;
+  readonly status?: ProjectStatus;
+  readonly workspaceRoot?: string | null;
+  readonly threadId?: string | null;
 }
 
 interface SeedEmployee {
@@ -92,6 +104,7 @@ interface SeedTaskRun {
 }
 
 interface ScenarioInitialState {
+  readonly projectId?: string | null;
   readonly managerDirective?: OffisimGraphState['managerDirective'];
   readonly taskPlan?: TaskPlan;
   readonly pendingAssignments?: readonly PendingAssignment[];
@@ -331,8 +344,21 @@ async function seedScenario(params: {
     entry_mode: params.scenario.entryMode,
     root_task_id: null,
     status: params.scenario.seed.thread?.status ?? 'running',
+    project_id:
+      params.scenario.seed.thread?.projectId ?? params.scenario.seed.projects?.[0]?.id ?? null,
     interaction_mode: params.scenario.interactionMode ?? 'boss_proxy',
   });
+  for (const project of params.scenario.seed.projects ?? []) {
+    await params.repos.projects.create({
+      project_id: project.id,
+      company_id: params.companyId,
+      thread_id: project.threadId ?? params.threadId,
+      name: project.name,
+      description: project.description ?? null,
+      status: project.status ?? 'active',
+      workspace_root: project.workspaceRoot ?? null,
+    });
+  }
   for (const employee of params.scenario.seed.employees ?? []) {
     await params.repos.employees.create({
       employee_id: employee.id,
@@ -370,7 +396,11 @@ function buildInitialState(
     companyId,
     entryMode: scenario.entryMode,
     interactionMode: scenario.interactionMode ?? 'boss_proxy',
-    projectId: null,
+    projectId:
+      scenario.initialState.projectId ??
+      scenario.seed.thread?.projectId ??
+      scenario.seed.projects?.[0]?.id ??
+      null,
     targetEmployeeId: null,
     messages: [],
     managerDirective: scenario.initialState.managerDirective ?? null,

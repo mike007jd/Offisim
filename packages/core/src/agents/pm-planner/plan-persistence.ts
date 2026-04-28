@@ -20,6 +20,8 @@ export async function persistLlmPlanAsTaskPlan(
   const { runtimeCtx, state, validEmployees } = prep;
   const { repos, eventBus, companyId, threadId } = runtimeCtx;
   const planId = generateId('plan');
+  const thread = await repos.threads.findById(threadId);
+  const projectId = state.projectId ?? thread?.project_id ?? null;
 
   runtimeCtx.scratchpad.write(
     `pm.plan.${threadId}`,
@@ -103,8 +105,25 @@ export async function persistLlmPlanAsTaskPlan(
     ),
   );
 
+  if (projectId) {
+    for (const step of planSteps) {
+      for (const [taskIndex, task] of step.tasks.entries()) {
+        await repos.kanban.create({
+          project_id: projectId,
+          company_id: companyId,
+          title: task.description || step.description,
+          note: step.description,
+          origin: 'pm-planner',
+          assigned_employee_id: task.employeeId,
+          task_run_id: task.taskRunId ?? null,
+          sort_order: step.stepIndex * 100 + taskIndex,
+        });
+      }
+    }
+  }
+
   await appendAgentEvent(runtimeCtx, {
-    projectId: state.projectId,
+    projectId,
     threadId: state.threadId,
     agentName: 'pm',
     eventType: 'decision',

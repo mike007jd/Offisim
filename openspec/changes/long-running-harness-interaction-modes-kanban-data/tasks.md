@@ -280,10 +280,10 @@
 
 ### 5.3 pm-planner-node writes cards on plan
 
-- [ ] 5.3.1 `packages/core/src/agents/pm-planner-node.ts` 在 plan finalised 之后(具体 hook 点见 1.8 步读到的代码),loop plan steps,每个 step 调 `ctx.runtime.repos.kanban.create({ projectId, companyId, conversationId, title: step.label, note: step.rationale, origin: 'pm-planner', assignedEmployeeId: step.assigneeId, taskRunId: step.taskRunId, state: 'todo' })`
-- [ ] 5.3.2 新建 `pm-planner-kanban.test.mjs` (用现有 fake-gateway + scenario-runner),scenario:plan 含 3 step → kanban 表插入 3 行,origin='pm-planner'
-- [ ] 5.3.3 `node --test && pnpm harness:contract` 全绿
-- [ ] 5.3.4 commit `feat(planner): persist plan steps as kanban cards`
+- [x] 5.3.1 `packages/core/src/agents/pm-planner-node.ts` 在 plan finalised 之后(具体 hook 点见 1.8 步读到的代码),loop plan steps,每个 step 调 `ctx.runtime.repos.kanban.create({ projectId, companyId, conversationId, title: step.label, note: step.rationale, origin: 'pm-planner', assignedEmployeeId: step.assigneeId, taskRunId: step.taskRunId, state: 'todo' })`
+- [x] 5.3.2 新建 `pm-planner-kanban.test.mjs` (用现有 fake-gateway + scenario-runner),scenario:plan 含 3 step → kanban 表插入 3 行,origin='pm-planner'
+- [x] 5.3.3 `node --test && pnpm harness:contract` 全绿
+- [x] 5.3.4 commit `feat(planner): persist plan steps as kanban cards`
 
 ### 5.4 employee-completion updates card on transition
 
