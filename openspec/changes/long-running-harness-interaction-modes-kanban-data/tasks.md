@@ -184,13 +184,13 @@
 
 > **执行顺序提示:** 这一段必须在 Task 5.2 (KanbanRepo) 之后做。Task 3.7.x 暂时跳过,先做完 Phase C 的 5.1 和 5.2,再回头做 3.7。
 
-- [ ] 3.7.1 在 `packages/core/src/agents/employee-tool-kit.ts` append `todoCreateTool` / `todoUpdateTool` / `todoListTool`,调 `ctx.runtime.repos.kanban.create` / `transition` / `listByEmployee`
-- [ ] 3.7.2 工具只在 `state.interactionMode in ('direct_to_employee', 'yolo')` 时注册到 employee turn — `boss_proxy` / `human_in_loop` 模式下 plan 由 pm-planner 出,employee 不自管 TODO
-- [ ] 3.7.3 新建 `employee-tool-kit.test.mjs`,scenario:
+- [x] 3.7.1 在 `packages/core/src/agents/employee-tool-kit.ts` append `todoCreateTool` / `todoUpdateTool` / `todoListTool`,调 `ctx.runtime.repos.kanban.create` / `transition` / `listByEmployee`
+- [x] 3.7.2 工具只在 `state.interactionMode in ('direct_to_employee', 'yolo')` 时注册到 employee turn — `boss_proxy` / `human_in_loop` 模式下 plan 由 pm-planner 出,employee 不自管 TODO
+- [x] 3.7.3 新建 `employee-tool-kit.test.mjs`,scenario:
   - case A: yolo 模式下 employee 看到 todo_* 三个工具
   - case B: boss_proxy 模式下 employee 看不到 todo_* 工具
-- [ ] 3.7.4 `node --test` 全绿
-- [ ] 3.7.5 简化审查;commit `feat(agents): todo_* tools for direct/yolo mode self-planning`
+- [x] 3.7.4 `node --test` 全绿
+- [x] 3.7.5 简化审查;commit `feat(agents): todo_* tools for direct/yolo mode self-planning`
 
 ### 3.8 Platform `/sessions/:id/mode` route + Tauri command
 

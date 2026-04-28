@@ -6,6 +6,7 @@ import { type DroppedTool, buildToolPool } from '../tools/tool-pool-builder.js';
 import { buildMemoryTools } from './employee-memory-tools.js';
 import { MAX_HANDOFF_COUNT } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
+import { buildTodoTools } from './employee-todo-tools.js';
 import { buildSkillInstallTools } from './skill-install-tools.js';
 
 export interface ToolKit {
@@ -51,6 +52,10 @@ export async function assembleToolKit(
   // the gate below is permissive because the handlers self-check.
   if (runtimeCtx.skillStagingManager && runtimeCtx.skillLoader) {
     virtualTools.push(...buildSkillInstallTools());
+  }
+
+  if (state.interactionMode === 'direct_to_employee' || state.interactionMode === 'yolo') {
+    virtualTools.push(...buildTodoTools());
   }
 
   if (!isDirectChatTask && state.handoffCount < MAX_HANDOFF_COUNT) {
