@@ -291,7 +291,7 @@ export const contentStudioTemplate: CompanyTemplate = {
       cz: 10,
       w: 12,
       d: 8,
-      targetRoles: ['writer', 'researcher'],
+      targetRoles: ['writer', 'researcher', 'yolo_master'],
       deskSlots: 4,
       sortOrder: 0,
     }),

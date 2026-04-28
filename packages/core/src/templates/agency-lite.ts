@@ -308,7 +308,7 @@ export const agencyLiteTemplate: CompanyTemplate = {
       cz: 10,
       w: 12,
       d: 8,
-      targetRoles: ['graphic_designer', 'developer', 'qa'],
+      targetRoles: ['graphic_designer', 'developer', 'qa', 'yolo_master'],
       deskSlots: 3,
       sortOrder: 1,
     }),

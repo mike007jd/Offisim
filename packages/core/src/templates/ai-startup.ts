@@ -345,7 +345,7 @@ export const aiStartupTemplate: CompanyTemplate = {
       cz: 10,
       w: 10,
       d: 8,
-      targetRoles: ['fullstack', 'frontend', 'ux_designer', 'product_manager'],
+      targetRoles: ['fullstack', 'frontend', 'ux_designer', 'product_manager', 'yolo_master'],
       deskSlots: 3,
       sortOrder: 1,
     }),

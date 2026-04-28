@@ -222,7 +222,7 @@ export const productTeamTemplate: CompanyTemplate = {
       cz: 10,
       w: 12,
       d: 8,
-      targetRoles: ['product_manager', 'backend', 'fullstack', 'qa'],
+      targetRoles: ['product_manager', 'backend', 'fullstack', 'qa', 'yolo_master'],
       deskSlots: 4,
       sortOrder: 0,
     }),
