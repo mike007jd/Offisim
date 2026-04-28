@@ -202,6 +202,7 @@ export function AppMainShell(props: AppMainShellProps) {
               leftPanelWidth={officeState.leftPanelWidth}
               onSceneFallbackTo2D={onSceneFallbackTo2D}
               onSelectEmployee={onSelectEmployee}
+              paused={officeState.kanbanOpen}
               rightPanelWidth={officeState.rightPanelWidth}
               selectedEmployeeId={officeState.selectedEmployeeId}
               sceneInteractive={sceneInteractive}

@@ -339,10 +339,10 @@
 
 ### 5.8 OfficeSceneSurface paused prop 性能保护
 
-- [ ] 5.8.1 `apps/web/src/components/office-shell/OfficeSceneSurface.tsx` 加 `paused?: boolean` prop
-- [ ] 5.8.2 在 SceneCanvas 渲染处,若 `paused === true`,SceneCanvas 收到 `active={false}` 或调 `setTargetFps(12)` (取决于 `@offisim/ui-office/scene` 真实 surface,见 1.14 笔记);若两者都没,`paused` 暂时 no-op,加 TODO comment
-- [ ] 5.8.3 `AppMainShell.tsx` 把 `kanbanOpen` 透传到 `OfficeSceneSurface paused={kanbanOpen}`
-- [ ] 5.8.4 commit `perf(scene): pause/throttle 3D scene while kanban overlay open`
+- [x] 5.8.1 `apps/web/src/components/office-shell/OfficeSceneSurface.tsx` 加 `paused?: boolean` prop
+- [x] 5.8.2 在 SceneCanvas 渲染处,若 `paused === true`,SceneCanvas 收到 `active={false}` 或调 `setTargetFps(12)` (取决于 `@offisim/ui-office/scene` 真实 surface,见 1.14 笔记);若两者都没,`paused` 暂时 no-op,加 TODO comment
+- [x] 5.8.3 `AppMainShell.tsx` 把 `kanbanOpen` 透传到 `OfficeSceneSurface paused={kanbanOpen}`
+- [x] 5.8.4 commit `perf(scene): pause/throttle 3D scene while kanban overlay open`
 
 ### 5.9 Employee 头顶 cards-in-progress 徽标
 

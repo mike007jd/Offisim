@@ -36,6 +36,7 @@ interface OfficeSceneSurfaceProps {
   selectedEmployeeId: string | null;
   sceneInteractive: boolean;
   viewMode: '2D' | '3D';
+  paused?: boolean;
 }
 
 function CeremonyHost({ children }: { children: React.ReactNode }) {
@@ -68,6 +69,7 @@ export function OfficeSceneSurface({
   selectedEmployeeId,
   sceneInteractive,
   viewMode,
+  paused = false,
 }: OfficeSceneSurfaceProps) {
   const reducedMotion = useReducedMotion();
   const handleDeselectEmployee = useCallback(() => onSelectEmployee(null), [onSelectEmployee]);
@@ -77,7 +79,7 @@ export function OfficeSceneSurface({
       <CeremonyHost>
         <Suspense fallback={<div className="h-full w-full animate-pulse bg-ocean-deep" />}>
           <SceneCanvas
-            active={sceneInteractive}
+            active={sceneInteractive && !paused}
             reducedMotion={reducedMotion}
             viewMode={viewMode}
             leftInset={leftPanelWidth}
