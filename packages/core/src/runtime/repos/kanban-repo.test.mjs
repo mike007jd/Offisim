@@ -40,8 +40,23 @@ test('KanbanRepo creates, transitions, lists, and emits events', async () => {
   const doneCards = await repos.kanban.listByEmployee('employee-1', 'done');
   assert.equal(doneCards.length, 1);
   assert.equal(doneCards[0]?.blocked_reason, null);
+
+  await repos.kanban.create({
+    id: 'card-2',
+    project_id: 'project-1',
+    company_id: 'company-1',
+    title: 'Needs review',
+    origin: 'pm-planner',
+    assigned_employee_id: 'employee-1',
+    task_run_id: 'task-run-2',
+  });
+  await repos.kanban.transitionByTaskRun('task-run-2', 'review', 'Needs real evidence');
+  const reviewCards = await repos.kanban.listByEmployee('employee-1', 'review');
+  assert.equal(reviewCards.length, 1);
+  assert.equal(reviewCards[0]?.blocked_reason, 'Needs real evidence');
+
   assert.deepEqual(
     events.map((event) => event.payload.op),
-    ['created', 'transitioned', 'transitioned'],
+    ['created', 'transitioned', 'transitioned', 'created', 'transitioned'],
   );
 });

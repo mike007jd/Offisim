@@ -287,9 +287,9 @@
 
 ### 5.4 employee-completion updates card on transition
 
-- [ ] 5.4.1 `packages/core/src/agents/employee-completion.ts` 在 verifier 决定 nextState 之后,若 `state.currentTaskRunId` 存在,调 `ctx.runtime.repos.kanban.transitionByTaskRun(taskRunId, nextState === 'completed' ? 'done' : 'review', verdict.reason)`
-- [ ] 5.4.2 在 `kanban-repo.test.mjs` 加 case: `transitionByTaskRun` 找到对应 card 并改状态
-- [ ] 5.4.3 commit `feat(kanban): employee completion transitions card to done|review`
+- [x] 5.4.1 `packages/core/src/agents/employee-completion.ts` 在 verifier 决定 nextState 之后,若 `state.currentTaskRunId` 存在,调 `ctx.runtime.repos.kanban.transitionByTaskRun(taskRunId, nextState === 'completed' ? 'done' : 'review', verdict.reason)`
+- [x] 5.4.2 在 `kanban-repo.test.mjs` 加 case: `transitionByTaskRun` 找到对应 card 并改状态
+- [x] 5.4.3 commit `feat(kanban): employee completion transitions card to done|review`
 
 ### 5.5 Platform / Tauri kanban CRUD + SSE
 
