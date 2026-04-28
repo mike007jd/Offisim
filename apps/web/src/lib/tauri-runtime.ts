@@ -30,6 +30,7 @@ import { Scratchpad } from '@offisim/core/dist/runtime/scratchpad.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
 import { AgentContextPackService } from '@offisim/core/dist/services/agent-context-pack-service.js';
 import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
+import { createRuntimeRollingJournal } from '@offisim/core/dist/services/conversation-budget/rolling-journal-runtime.js';
 import {
   FileHistoryService,
   FileHistoryToolExecutor,
@@ -371,7 +372,15 @@ export async function createTauriRuntime(
     threadId,
   });
 
-  const runtimeCtx = createRuntimeContext({
+  let runtimeCtx: ReturnType<typeof createRuntimeContext> | null = null;
+  const rollingJournal = createRuntimeRollingJournal(() => {
+    if (!runtimeCtx) {
+      throw new Error('Runtime context is not ready for rolling journal.');
+    }
+    return runtimeCtx;
+  });
+
+  runtimeCtx = createRuntimeContext({
     repos,
     eventBus,
     llmGateway: gateway,
@@ -391,6 +400,7 @@ export async function createTauriRuntime(
     fileHistoryService,
     engineAdapters: createTauriEngineAdapterRegistry({ enableProviderHostPreviewAdapters: true }),
     interactionService,
+    rollingJournal,
     ...(skillLoader ? { skillLoader } : {}),
     skillStagingManager,
     skillInstallEnvironment,

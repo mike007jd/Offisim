@@ -44,6 +44,7 @@ import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context
 import { Scratchpad } from '@offisim/core/dist/runtime/scratchpad.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
 import { ConversationBudgetService } from '@offisim/core/dist/services/conversation-budget-service.js';
+import { createRuntimeRollingJournal } from '@offisim/core/dist/services/conversation-budget/rolling-journal-runtime.js';
 import { InteractionService } from '@offisim/core/dist/services/interaction-service.js';
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
@@ -362,7 +363,15 @@ export async function createBrowserRuntime(
     threadId,
   });
 
-  const runtimeCtx = createRuntimeContext({
+  let runtimeCtx: ReturnType<typeof createRuntimeContext> | null = null;
+  const rollingJournal = createRuntimeRollingJournal(() => {
+    if (!runtimeCtx) {
+      throw new Error('Runtime context is not ready for rolling journal.');
+    }
+    return runtimeCtx;
+  });
+
+  runtimeCtx = createRuntimeContext({
     repos,
     eventBus,
     llmGateway: gateway,
@@ -380,6 +389,7 @@ export async function createBrowserRuntime(
     sessionCostTracker,
     toolTelemetryService,
     interactionService,
+    rollingJournal,
     ...(skillLoader ? { skillLoader } : {}),
     skillStagingManager,
     skillInstallEnvironment,

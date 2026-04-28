@@ -54,6 +54,22 @@ export class SynopsisGenerator {
     }
   }
 
+  async summarizeMessages(
+    ctx: RuntimeContext,
+    input: {
+      messages: readonly LlmMessage[];
+      existing: ThreadSynopsisRecord | null;
+    },
+  ): Promise<string | null> {
+    const transcript = this.formatTranscript(input.messages);
+    if (!transcript) return input.existing?.summary ?? null;
+    try {
+      return await this.generateSummaryText(ctx, input.existing, transcript);
+    } catch {
+      return this.buildHeuristicSummary(input.existing, input.messages);
+    }
+  }
+
   async generate(
     ctx: RuntimeContext,
     input: {
@@ -71,9 +87,7 @@ export class SynopsisGenerator {
     const overflowCount = Math.max(0, nonSystemMessages.length - effectiveTailNonSystemMessages);
     const sourceMessages =
       overflowCount > 0 ? nonSystemMessages.slice(0, overflowCount) : nonSystemMessages;
-    const transcript = sourceMessages
-      .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
-      .join('\n');
+    const transcript = this.formatTranscript(sourceMessages);
 
     let failureStreak = this.synopsisFailureStreaks.get(ctx.threadId) ?? 0;
     let summary: string | null = null;
@@ -83,25 +97,7 @@ export class SynopsisGenerator {
       summary = this.buildHeuristicSummary(existing, sourceMessages);
     } else {
       try {
-        const synopsisModel = ctx.modelResolver.resolve(null, 'boss').model;
-        const chatRequest: LlmRequest = {
-          model: synopsisModel,
-          temperature: 0.2,
-          maxTokens: 256,
-          messages: [
-            { role: 'system', content: SYNOPSIS_SYSTEM_PROMPT },
-            {
-              role: 'user',
-              content: existing
-                ? `Existing synopsis:\n${existing.summary}\n\nNew conversation to condense:\n${transcript}`
-                : `Conversation to condense:\n${transcript}`,
-            },
-          ],
-        };
-        const response = ctx.systemCaller
-          ? await ctx.systemCaller.chat('conversation_budget', chatRequest)
-          : await ctx.llmGateway.chat(chatRequest);
-        summary = this.normalizeSummary(response);
+        summary = await this.generateSummaryText(ctx, existing, transcript);
         failureStreak = 0;
         this.synopsisFailureStreaks.delete(ctx.threadId);
       } catch (error) {
@@ -177,6 +173,38 @@ export class SynopsisGenerator {
   private normalizeSummary(response: LlmResponse): string | null {
     const summary = response.content.replace(/\s+/g, ' ').trim();
     return summary.length > 0 ? summary : null;
+  }
+
+  private formatTranscript(messages: readonly LlmMessage[]): string {
+    return messages
+      .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
+      .join('\n');
+  }
+
+  private async generateSummaryText(
+    ctx: RuntimeContext,
+    existing: ThreadSynopsisRecord | null,
+    transcript: string,
+  ): Promise<string | null> {
+    const synopsisModel = ctx.modelResolver.resolve(null, 'boss').model;
+    const chatRequest: LlmRequest = {
+      model: synopsisModel,
+      temperature: 0.2,
+      maxTokens: 256,
+      messages: [
+        { role: 'system', content: SYNOPSIS_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: existing
+            ? `Existing synopsis:\n${existing.summary}\n\nNew conversation to condense:\n${transcript}`
+            : `Conversation to condense:\n${transcript}`,
+        },
+      ],
+    };
+    const response = ctx.systemCaller
+      ? await ctx.systemCaller.chat('conversation_budget', chatRequest)
+      : await ctx.llmGateway.chat(chatRequest);
+    return this.normalizeSummary(response);
   }
 
   private buildHeuristicSummary(

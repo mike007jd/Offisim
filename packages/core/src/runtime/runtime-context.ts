@@ -7,6 +7,7 @@ import type { ModelRegistry } from '../llm/model-registry.js';
 import type { ModelResolver } from '../llm/model-resolver.js';
 import type { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import type { LlmMiddlewareChain } from '../middleware/chain.js';
+import type { RollingJournal } from '../services/conversation-budget/rolling-journal.js';
 import type { FileHistoryService } from '../services/file-history-service.js';
 import type { InteractionService } from '../services/interaction-service.js';
 import type { MemoryService } from '../services/memory-service.js';
@@ -80,6 +81,8 @@ export interface RuntimeContext {
   readonly engineAdapters?: EngineAdapterRegistry;
   /** Human-in-the-loop interaction controller. */
   readonly interactionService?: InteractionService;
+  /** Long-running thread journal with a stable first user objective anchor. */
+  readonly rollingJournal?: RollingJournal;
   /** Optional lifecycle hook registry for graph/task/interaction instrumentation. */
   readonly hookRegistry: HookRegistry;
   /** Shared in-memory scratchpad for cross-node planning notes. */
@@ -140,6 +143,7 @@ export function createRuntimeContext(deps: {
   fileHistoryService?: FileHistoryService;
   engineAdapters?: EngineAdapterRegistry;
   interactionService?: InteractionService;
+  rollingJournal?: RollingJournal;
   hookRegistry?: HookRegistry;
   scratchpad?: Scratchpad;
   skillLoader?: SkillLoader;

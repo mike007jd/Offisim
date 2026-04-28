@@ -18,6 +18,33 @@ export interface TurnRunnerDeps {
   readonly signal: AbortSignal | undefined;
 }
 
+function buildObservedMessages(
+  messages: readonly LlmMessage[],
+  response: LlmResponse,
+): readonly LlmMessage[] {
+  return [
+    ...messages,
+    {
+      role: 'assistant' as const,
+      content: response.content,
+      ...(response.reasoningContent ? { reasoningContent: response.reasoningContent } : {}),
+      ...(response.toolCalls.length > 0 ? { toolCalls: response.toolCalls } : {}),
+    },
+  ];
+}
+
+async function observeRollingJournal(
+  runtimeCtx: RuntimeContext,
+  messages: readonly LlmMessage[],
+  response: LlmResponse,
+): Promise<void> {
+  try {
+    await runtimeCtx.rollingJournal?.observeTurn(buildObservedMessages(messages, response));
+  } catch (error) {
+    void error;
+  }
+}
+
 function resolveForcedSkillToolChoice(
   messages: readonly LlmMessage[],
   allTools: readonly ToolDef[],
@@ -56,12 +83,14 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
     };
 
     if (!streamEnabled) {
-      return recordedLlmCall(runtimeCtx, request, {
+      const response = await recordedLlmCall(runtimeCtx, request, {
         nodeName: 'employee',
         provider: resolved.provider,
         model: resolved.model,
         taskRunId: meta.taskRunId,
       });
+      await observeRollingJournal(runtimeCtx, messages, response);
+      return response;
     }
 
     const streamResult = await recordedLlmStream(
@@ -76,11 +105,13 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
       forwardStreamChunks(runtimeCtx, threadId, 'employee'),
     );
 
-    return {
+    const response = {
       content: streamResult.fullContent,
       reasoningContent: streamResult.fullReasoning || undefined,
       toolCalls: streamResult.toolCalls,
       usage: streamResult.usage,
     };
+    await observeRollingJournal(runtimeCtx, messages, response);
+    return response;
   };
 }

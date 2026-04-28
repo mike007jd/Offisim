@@ -56,6 +56,10 @@ export async function assemblePrompt(
   const { memoryService, repos, eventBus, scratchpad, companyId, skillLoader } = runtimeCtx;
 
   let systemPrompt = buildEmployeePrompt(employee, company, taskDescription);
+  const anchor = runtimeCtx.rollingJournal?.anchorText();
+  if (anchor) {
+    systemPrompt += `\n\n<anchor>${sanitizeForPrompt(anchor, 2000)}</anchor>`;
+  }
 
   if (skillLoader) {
     try {

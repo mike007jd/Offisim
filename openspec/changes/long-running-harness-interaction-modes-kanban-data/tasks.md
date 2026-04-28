@@ -38,21 +38,21 @@
 
 ### 2.2 rolling journal with anchor user objective
 
-- [ ] 2.2.1 新建 `packages/core/src/services/conversation-budget/rolling-journal.ts`,导出 `RollingJournal` 类:
+- [x] 2.2.1 新建 `packages/core/src/services/conversation-budget/rolling-journal.ts`,导出 `RollingJournal` 类:
   - `constructor(opts: { everyNTurns: number; write: (text: string) => Promise<void>; summarize: (msgs) => Promise<string> })`
   - `async observeTurn(messages: readonly LlmMessage[]): Promise<void>` — 第一次调用时锁定 anchor (找第一条 `role === 'user'` 的 content);每 `everyNTurns` 触发一次 `summarize → write`
   - `anchorText(): string | null`
   - `currentTurn(): number`
-- [ ] 2.2.2 新建 `packages/core/src/services/conversation-budget/rolling-journal.test.mjs`,3 个 case:
+- [x] 2.2.2 新建 `packages/core/src/services/conversation-budget/rolling-journal.test.mjs`,3 个 case:
   - case A: 第 5、10 turn 触发 write,write 收到 summarize output
   - case B: anchor 锁定后不变(后续 user message 不覆盖)
   - case C: anchor 在 first observeTurn 后即可读
-- [ ] 2.2.3 `node --test ...rolling-journal.test.mjs` 全绿
-- [ ] 2.2.4 在 `packages/core/src/runtime/runtime-binding.ts` 构造 `RollingJournal` 实例,挂到 `RuntimeContext.runtime.rollingJournal`,`summarize` delegate 到现有 `synopsis-generator.ts`,`write` delegate 到 `repos/orchestration` 持久化为 `ThreadSynopsisRecord` (event `conversation.synopsis.updated` 已有)
-- [ ] 2.2.5 在 `packages/core/src/agents/employee-turn-runner.ts` 每 turn 结束处调 `await ctx.runtime.rollingJournal?.observeTurn(state.messages)`
-- [ ] 2.2.6 anchor 在 prompt 注入:`packages/core/src/agents/employee-prompt-assembly.ts` 在 system prompt 之后 prepend 一条 `role: 'system'` 的 anchor pin,`content: '<anchor>${rollingJournal.anchorText()}</anchor>'`,确保它不会被 micro-compact 裁
-- [ ] 2.2.7 `pnpm typecheck && pnpm lint` 全绿;简化审查;commit
-- [ ] 2.2.8 `git commit -m "feat(core): rolling journal with stable anchor user objective"`
+- [x] 2.2.3 `node --test ...rolling-journal.test.mjs` 全绿
+- [x] 2.2.4 在 `packages/core/src/runtime/runtime-binding.ts` 构造 `RollingJournal` 实例,挂到 `RuntimeContext.runtime.rollingJournal`,`summarize` delegate 到现有 `synopsis-generator.ts`,`write` delegate 到 `repos/orchestration` 持久化为 `ThreadSynopsisRecord` (event `conversation.synopsis.updated` 已有)
+- [x] 2.2.5 在 `packages/core/src/agents/employee-turn-runner.ts` 每 turn 结束处调 `await ctx.runtime.rollingJournal?.observeTurn(state.messages)`
+- [x] 2.2.6 anchor 在 prompt 注入:`packages/core/src/agents/employee-prompt-assembly.ts` 在 system prompt 之后 prepend 一条 `role: 'system'` 的 anchor pin,`content: '<anchor>${rollingJournal.anchorText()}</anchor>'`,确保它不会被 micro-compact 裁
+- [x] 2.2.7 `pnpm typecheck && pnpm lint` 全绿;简化审查;commit
+- [x] 2.2.8 `git commit -m "feat(core): rolling journal with stable anchor user objective"`
 
 ### 2.3 forkSubContext primitive
 
