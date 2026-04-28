@@ -41,7 +41,7 @@ apps/
   web             — Vite + React 19 SPA (浏览器版)
   desktop         — Tauri 2 桌面应用
   platform        — Hono API 服务端
-  launcher        — Tauri launcher
+  launcher        — dev/support Tauri launcher（非当前生产主入口）
 catalog/
   provider-source-registry — provider 元数据 catalog (generated 大文件: curated-catalog / merged-catalog / raw-source-snapshots + sources.json + registry.schema.json + curated-overrides)
 ```
@@ -220,4 +220,4 @@ Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 ## Interop
 
 外部 agent 接入 = **A2A only** (HTTP JSON-RPC, `packages/core/src/a2a/`)。
-OpenClaw 旧 gateway / SKILL.md 文件导入 / Lobster3D 场景分支已于 2026-04-14 全量移除。未来若要接入带品牌外观的外包员工, 按 A2A agent card 元数据路由, 不要复活旧 role string 分支。
+OpenClaw 旧 gateway / SKILL.md 文件导入 / 旧 role string 场景分支已于 2026-04-14 全量移除；OpenClaw 作为 A2A brand avatar 仍保留在外包员工支持列表中。未来若要接入带品牌外观的外包员工, 按 A2A agent card 元数据路由, 不要复活旧 role string 分支。

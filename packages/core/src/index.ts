@@ -351,9 +351,8 @@ export type {
   McpConfigLoaderOptions,
   McpExecutorLike,
 } from './mcp/mcp-config-loader.js';
-// NOTE: SdkClientFactory intentionally NOT in barrel — imports node:stream/child_process
-// which breaks browser builds. Use direct import in Node.js/Tauri environments:
-//   import { SdkClientFactory } from '@offisim/core/dist/mcp/sdk-client-factory.js';
+// Core exposes MCP executor/config/types only; browser and desktop runtimes own
+// their environment-specific MCP client factories.
 export type {
   McpServerConfig,
   McpConnection,
