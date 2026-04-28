@@ -1,4 +1,10 @@
 import { performance } from 'node:perf_hooks';
+import type { LlmMessage } from '../llm/gateway.js';
+import { verifyCompletion } from '../runtime/completion-verifier.js';
+import { microCompactMessages } from '../services/conversation-budget/micro-compact.js';
+import { RollingJournal } from '../services/conversation-budget/rolling-journal.js';
+import { canonicalJson } from './canonical-json.js';
+import { sha256Text } from './hash.js';
 import { summarizeRuntimeLeaks } from './leak-detector.js';
 import {
   heapGrowthMbPerHour,
@@ -13,6 +19,7 @@ export interface SoakRunnerOptions {
   readonly iterations?: number;
   readonly durationMs?: number;
   readonly concurrency?: number;
+  readonly scenarioIds?: readonly string[];
 }
 
 export interface SoakRunnerReport {
@@ -39,6 +46,7 @@ export interface SoakRunnerReport {
     readonly duplicateTaskRuns: number;
     readonly duplicateToolCalls: number;
   };
+  readonly metrics: readonly SoakScenarioMetrics[];
   readonly failures: readonly {
     readonly scenarioId: string;
     readonly traceHash: string;
@@ -46,30 +54,81 @@ export interface SoakRunnerReport {
   }[];
 }
 
+export interface SoakScenarioMetrics {
+  readonly scenarioId: string;
+  readonly finalNonSystemTokens: number;
+  readonly microCompactPasses: number;
+  readonly rollingJournalWrites: number;
+  readonly completionVerifierAllows: number;
+  readonly completionVerifierBlocks: number;
+}
+
+interface YoloSoakScenario {
+  readonly id: string;
+  readonly category: 'long-running-soak';
+  readonly fixture?: Partial<YoloSoakFixture>;
+}
+
+interface YoloSoakFixture {
+  readonly turns: number;
+  readonly journalEveryNTurns: number;
+  readonly toolResultEveryNTurns: number;
+  readonly toolResultBytes: number;
+  readonly maxToolResultBytes: number;
+  readonly snippetBytes: number;
+  readonly preserveLastN: number;
+  readonly maxFinalNonSystemTokens: number;
+  readonly minMicroCompactPasses: number;
+  readonly minRollingJournalWrites: number;
+}
+
+const DEFAULT_YOLO_SOAK_FIXTURE: YoloSoakFixture = {
+  turns: 80,
+  journalEveryNTurns: 8,
+  toolResultEveryNTurns: 4,
+  toolResultBytes: 24000,
+  maxToolResultBytes: 8000,
+  snippetBytes: 400,
+  preserveLastN: 0,
+  maxFinalNonSystemTokens: 120000,
+  minMicroCompactPasses: 3,
+  minRollingJournalWrites: 9,
+};
+
+const textEncoder = new TextEncoder();
+
 export async function runSoakHarness(
   scenarios: readonly DeterministicScenario[],
   options: SoakRunnerOptions = {},
 ): Promise<SoakRunnerReport> {
-  if (scenarios.length === 0) throw new Error('Soak harness needs at least one scenario.');
+  const selectedScenarios = options.scenarioIds
+    ? scenarios.filter((scenario) => options.scenarioIds?.includes(scenario.id))
+    : scenarios;
+  if (selectedScenarios.length === 0) throw new Error('Soak harness needs at least one scenario.');
   const concurrency = Math.max(1, Math.floor(options.concurrency ?? 1));
-  const targetIterations = Math.max(1, Math.floor(options.iterations ?? scenarios.length));
+  const targetIterations = Math.max(1, Math.floor(options.iterations ?? selectedScenarios.length));
   const deadline =
     options.durationMs && options.durationMs > 0 ? performance.now() + options.durationMs : null;
   const start = sampleRuntimeHealth();
   const startedAt = performance.now();
   const latencies: number[] = [];
   const reports: ScenarioTraceReport[] = [];
+  const metrics = new Map<string, SoakScenarioMetrics>();
   let nextIteration = 0;
 
   async function worker(): Promise<void> {
     while (nextIteration < targetIterations && (!deadline || performance.now() < deadline)) {
       const iteration = nextIteration++;
-      const scenario = scenarios[iteration % scenarios.length];
+      const scenario = selectedScenarios[iteration % selectedScenarios.length];
       if (!scenario) return;
       const t0 = performance.now();
-      const report = await runDeterministicScenario(scenario);
+      const report = isYoloSoakScenario(scenario)
+        ? await runYoloSoakScenario(scenario)
+        : await runDeterministicScenario(scenario);
       latencies.push(performance.now() - t0);
       reports.push(report);
+      const metric = extractSoakMetrics(report);
+      if (metric) metrics.set(metric.scenarioId, metric);
     }
   }
 
@@ -94,10 +153,160 @@ export async function runSoakHarness(
     },
     latencyMs: summarizeLatencyMs(latencies),
     runtime: leaks,
+    metrics: [...metrics.values()],
     failures: failures.map((report) => ({
       scenarioId: report.scenarioId,
       traceHash: report.traceHash,
       assertions: report.assertions,
     })),
   };
+}
+
+function isYoloSoakScenario(
+  scenario: DeterministicScenario,
+): scenario is DeterministicScenario & YoloSoakScenario {
+  return (scenario as { category?: unknown }).category === 'long-running-soak';
+}
+
+async function runYoloSoakScenario(scenario: YoloSoakScenario): Promise<ScenarioTraceReport> {
+  const fixture = { ...DEFAULT_YOLO_SOAK_FIXTURE, ...(scenario.fixture ?? {}) };
+  let messages: LlmMessage[] = [
+    {
+      role: 'user',
+      content: 'Refactor a multi-file counter component while preserving tests and state.',
+    },
+  ];
+  const journalWrites: string[] = [];
+  const journal = new RollingJournal({
+    everyNTurns: fixture.journalEveryNTurns,
+    write: async (text) => {
+      journalWrites.push(text);
+    },
+    summarize: async (turnMessages): Promise<string> =>
+      `summary:${turnMessages.length}:${turnMessages[0]?.content.slice(0, 32) ?? ''}`,
+  });
+  let microCompactPasses = 0;
+
+  for (let turn = 1; turn <= fixture.turns; turn++) {
+    messages.push({
+      role: 'assistant',
+      content: `turn-${turn}: edited file-${turn % 5}.ts and kept the objective anchored.`,
+    });
+    if (turn % fixture.toolResultEveryNTurns === 0) {
+      messages.push({
+        role: 'tool',
+        toolCallId: `tool-${turn}`,
+        content: `tool-result-${turn}\n${'x'.repeat(fixture.toolResultBytes)}`,
+      });
+    }
+    const compacted = microCompactMessages(messages, {
+      maxToolResultBytes: fixture.maxToolResultBytes,
+      snippetBytes: fixture.snippetBytes,
+      preserveLastN: fixture.preserveLastN,
+    });
+    if (compacted.compacted > 0) microCompactPasses += 1;
+    messages = [...compacted.messages];
+    await journal.observeTurn(messages);
+  }
+
+  const completion = verifyCompletion({
+    recentToolResults: [{ toolName: 'pnpm-test', success: true, bytes: 2048 }],
+  });
+  const finalNonSystemTokens = estimateTokens(
+    messages
+      .filter((message) => message.role !== 'system')
+      .map((message) => message.content)
+      .join('\n'),
+  );
+  const metric: SoakScenarioMetrics = {
+    scenarioId: scenario.id,
+    finalNonSystemTokens,
+    microCompactPasses,
+    rollingJournalWrites: journalWrites.length,
+    completionVerifierAllows: completion.ok ? 1 : 0,
+    completionVerifierBlocks: completion.ok ? 0 : 1,
+  };
+  const assertions = [
+    {
+      kind: 'soak.completed',
+      passed: true,
+    },
+    {
+      kind: 'soak.final_non_system_tokens_under_120k',
+      passed: finalNonSystemTokens < fixture.maxFinalNonSystemTokens,
+      message:
+        finalNonSystemTokens < fixture.maxFinalNonSystemTokens
+          ? undefined
+          : `Expected < ${fixture.maxFinalNonSystemTokens}, got ${finalNonSystemTokens}`,
+    },
+    {
+      kind: 'soak.microcompact_passes',
+      passed: microCompactPasses >= fixture.minMicroCompactPasses,
+      message:
+        microCompactPasses >= fixture.minMicroCompactPasses
+          ? undefined
+          : `Expected >= ${fixture.minMicroCompactPasses}, got ${microCompactPasses}`,
+    },
+    {
+      kind: 'soak.rolling_journal_writes',
+      passed: journalWrites.length >= fixture.minRollingJournalWrites,
+      message:
+        journalWrites.length >= fixture.minRollingJournalWrites
+          ? undefined
+          : `Expected >= ${fixture.minRollingJournalWrites}, got ${journalWrites.length}`,
+    },
+    {
+      kind: 'soak.completion_verifier_allowed',
+      passed: completion.ok,
+      message: completion.ok ? undefined : completion.reason,
+    },
+  ];
+  const trace = {
+    events: [],
+    db: {
+      taskRuns: [],
+      llmCalls: [],
+      mcpAudit: [],
+      activeInteractions: [],
+      interactionHistory: [],
+      toolPermissionApprovals: [],
+    },
+    finalState: {
+      completed: true,
+      pendingAssignments: [],
+      metrics: metric,
+      anchor: journal.anchorText(),
+    },
+  };
+  return {
+    scenarioId: scenario.id,
+    passed: assertions.every((assertion) => assertion.passed),
+    traceHash: await sha256Text(canonicalJson(trace)),
+    assertions,
+    trace,
+  };
+}
+
+function extractSoakMetrics(report: ScenarioTraceReport): SoakScenarioMetrics | null {
+  const metrics = report.trace.finalState.metrics;
+  if (!metrics || typeof metrics !== 'object') return null;
+  const record = metrics as Partial<SoakScenarioMetrics>;
+  if (record.scenarioId !== report.scenarioId) return null;
+  if (typeof record.finalNonSystemTokens !== 'number') return null;
+  if (typeof record.microCompactPasses !== 'number') return null;
+  if (typeof record.rollingJournalWrites !== 'number') return null;
+  if (typeof record.completionVerifierAllows !== 'number') return null;
+  if (typeof record.completionVerifierBlocks !== 'number') return null;
+  return {
+    scenarioId: record.scenarioId,
+    finalNonSystemTokens: record.finalNonSystemTokens,
+    microCompactPasses: record.microCompactPasses,
+    rollingJournalWrites: record.rollingJournalWrites,
+    completionVerifierAllows: record.completionVerifierAllows,
+    completionVerifierBlocks: record.completionVerifierBlocks,
+  };
+}
+
+function estimateTokens(text: string): number {
+  return Math.ceil(textEncoder.encode(text).byteLength / 4);
 }

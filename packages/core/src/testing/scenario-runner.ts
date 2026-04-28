@@ -27,7 +27,9 @@ import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime
 import { InteractionService } from '../services/interaction-service.js';
 import { SkillLoader } from '../skills/skill-loader.js';
 import { SkillStagingManager } from '../skills/skill-staging.js';
+import { canonicalJson } from './canonical-json.js';
 import { FakeGateway, type FakeGatewayTurn, fakeResponse } from './fake-gateway.js';
+import { sha256Text } from './hash.js';
 import { type ScenarioAssertion, evaluateScenarioAssertions } from './invariant-assertions.js';
 import { type ScenarioTraceReport, TraceRecorder } from './trace-recorder.js';
 
@@ -140,6 +142,10 @@ interface ScenarioLlmTurn {
 export async function runDeterministicScenario(
   scenario: DeterministicScenario,
 ): Promise<ScenarioTraceReport> {
+  if (isKanbanMatrixScenario(scenario)) {
+    return runKanbanMatrixScenario(scenario);
+  }
+
   const eventBus = new InMemoryEventBus();
   const repos = createMemoryRepositories(undefined, undefined, eventBus);
   const companyId = scenario.seed.company?.companyId ?? `company-${scenario.id}`;
@@ -242,6 +248,167 @@ export async function runDeterministicScenario(
     gateway.dispose();
     skillStagingManager?.dispose();
   }
+}
+
+function isKanbanMatrixScenario(scenario: DeterministicScenario): boolean {
+  return scenario.category === 'kanban-matrix';
+}
+
+async function runKanbanMatrixScenario(
+  scenario: DeterministicScenario,
+): Promise<ScenarioTraceReport> {
+  const modes: readonly InteractionMode[] = ['boss_proxy', 'direct_to_employee', 'yolo'];
+  const reports = await Promise.all(
+    modes.map((mode) => runDeterministicScenario(buildMatrixCaseScenario(scenario.id, mode))),
+  );
+  const assertions = reports.map((report) => ({
+    kind: `kanbanMatrix:${report.scenarioId}`,
+    passed: report.passed,
+    message: report.passed
+      ? undefined
+      : report.assertions
+          .filter((assertion) => !assertion.passed)
+          .map((assertion) => assertion.message ?? assertion.kind)
+          .join('; '),
+  }));
+  const trace = {
+    events: reports.map((report) => ({
+      scenarioId: report.scenarioId,
+      traceHash: report.traceHash,
+      events: report.trace.events,
+    })),
+    db: {
+      taskRuns: [],
+      llmCalls: [],
+      mcpAudit: [],
+      activeInteractions: [],
+      interactionHistory: [],
+      toolPermissionApprovals: [],
+    },
+    finalState: {
+      completed: true,
+      pendingAssignments: [],
+      cases: reports.map((report) => ({
+        scenarioId: report.scenarioId,
+        passed: report.passed,
+        traceHash: report.traceHash,
+      })),
+    },
+  };
+  return {
+    scenarioId: scenario.id,
+    passed: assertions.every((assertion) => assertion.passed),
+    traceHash: await sha256Text(canonicalJson(trace)),
+    assertions,
+    trace,
+  };
+}
+
+function buildMatrixCaseScenario(matrixId: string, mode: InteractionMode): DeterministicScenario {
+  const suffix = mode.replaceAll('_', '-');
+  const companyId = `company-${matrixId}-${suffix}`;
+  const threadId = `thread-${matrixId}-${suffix}`;
+  const projectId = `project-${matrixId}-${suffix}`;
+  const employeeId = mode === 'yolo' ? `emp-${suffix}` : `emp-${matrixId}-${suffix}`;
+  const employeeName = mode === 'yolo' ? 'YOLO Master' : `Matrix ${suffix}`;
+  const employeeRole: RoleSlug = mode === 'yolo' ? 'yolo_master' : 'engineer';
+  const tool: ToolDef = {
+    name: 'pnpm-test',
+    description: 'Run the deterministic package test command.',
+    parameters: { type: 'object', properties: { command: { type: 'string' } } },
+  };
+  const pmPlan = JSON.stringify({
+    summary: `Build a counter component in ${mode}`,
+    steps: [
+      {
+        stepIndex: 0,
+        description: `Build a counter component in ${mode}`,
+        tasks: [
+          {
+            taskType: 'code',
+            employeeId,
+            description: `Build a counter component with tests in ${mode}`,
+            dependsOnStepOutput: false,
+          },
+        ],
+      },
+    ],
+  });
+  const base = {
+    id: `${matrixId}-${suffix}`,
+    category: 'kanban-matrix-case',
+    entryMode: 'boss_chat' as const,
+    interactionMode: mode,
+    seed: {
+      company: { companyId, name: `Matrix ${mode}` },
+      thread: { threadId, status: 'running', projectId },
+      projects: [{ id: projectId, name: `Matrix ${mode} Project` }],
+      employees: [{ id: employeeId, name: employeeName, role: employeeRole }],
+    },
+    tools: [tool],
+    initialState: {
+      projectId,
+      managerDirective: {
+        intent: 'Build a counter component with tests',
+        recommendedEmployees: [employeeId],
+      },
+    },
+    assertions: [
+      {
+        kind: 'kanbanCards' as const,
+        projectId,
+        count: 1,
+        origin: mode === 'yolo' ? ('employee' as const) : ('pm-planner' as const),
+        states: { done: 1 },
+      },
+    ],
+  };
+
+  if (mode === 'yolo') {
+    return {
+      ...base,
+      llmTurns: [
+        {
+          id: 'yolo-create-todo-and-test',
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-yolo-todo',
+              name: 'todo_create',
+              arguments: { title: 'Build counter component', projectId },
+            },
+            {
+              id: 'tc-yolo-test',
+              name: 'pnpm-test',
+              arguments: { command: 'pnpm test -- counter' },
+            },
+          ],
+        },
+        { id: 'yolo-final', content: 'COUNTER_DONE_YOLO' },
+      ],
+      runs: [{}],
+    };
+  }
+
+  return {
+    ...base,
+    llmTurns: [
+      { id: 'pm-plan', content: pmPlan },
+      {
+        id: 'employee-test',
+        content: '',
+        toolCalls: [
+          {
+            id: 'tc-employee-test',
+            name: 'pnpm-test',
+            arguments: { command: 'pnpm test -- counter' },
+          },
+        ],
+      },
+      { id: 'employee-final', content: `COUNTER_DONE_${mode.toUpperCase()}` },
+    ],
+    runs: [{ startAt: 'pm_planner' }],
+  };
 }
 
 function createScenarioRuntime(params: {

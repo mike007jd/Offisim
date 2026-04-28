@@ -9,6 +9,7 @@ export const REPLAY_SCENARIO_IDS = [
   'dag-output-attribution',
   'direct-mode-skips-boss-chain',
   'kanban-card-state-transitions',
+  'mode-kanban-matrix',
   'permission-ask-approved-blocks-and-then-executes',
   'permission-ask-denied-does-not-execute',
   'plan-review-cancel-terminates',
@@ -16,6 +17,8 @@ export const REPLAY_SCENARIO_IDS = [
   'skill-create-real-tool-call',
   'yolo-mode-skips-boss-chain',
 ];
+
+export const SOAK_SCENARIO_IDS = ['yolo-80-turn-multi-file-refactor'];
 
 export function loadHarnessScenarios(ids = REPLAY_SCENARIO_IDS) {
   return ids.map((id) => JSON.parse(readFileSync(resolve(SCENARIOS_DIR, `${id}.json`), 'utf8')));

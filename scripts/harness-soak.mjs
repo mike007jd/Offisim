@@ -1,5 +1,6 @@
 import { ensureRuntimeBuild, parseArgs } from './harness-lib.mjs';
 import {
+  SOAK_SCENARIO_IDS,
   loadHarnessScenarios,
   parseDurationMs,
   parsePositiveInt,
@@ -16,7 +17,8 @@ const logger = await import(
 );
 logger.setLogHandler(() => {});
 
-const report = await runSoakHarness(loadHarnessScenarios(), {
+const scenarioIds = args.scenario ? String(args.scenario).split(',') : SOAK_SCENARIO_IDS;
+const report = await runSoakHarness(loadHarnessScenarios(scenarioIds), {
   iterations: parsePositiveInt(args.iterations, 100),
   concurrency: parsePositiveInt(args.concurrency, 1),
   durationMs: parseDurationMs(args.duration),

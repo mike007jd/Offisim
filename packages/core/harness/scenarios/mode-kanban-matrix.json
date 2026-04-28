@@ -1,0 +1,12 @@
+{
+  "id": "mode-kanban-matrix",
+  "category": "kanban-matrix",
+  "fixture": {
+    "modes": ["boss_proxy", "direct_to_employee", "yolo"],
+    "task": "build a counter component"
+  },
+  "assertions": [
+    "each mode creates at least one kanban card",
+    "each mode finishes at least one card as done"
+  ]
+}

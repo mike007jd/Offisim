@@ -360,21 +360,21 @@
 
 ### 6.1 80-turn YOLO soak
 
-- [ ] 6.1.1 新建 `packages/core/harness/scenarios/yolo-80-turn-multi-file-refactor.json` — 80 turn fixture,multi-file refactor 任务,fake/replay LLM gateway
-- [ ] 6.1.2 `pnpm harness:soak` 跑此 scenario
-- [ ] 6.1.3 invariant:
+- [x] 6.1.1 新建 `packages/core/harness/scenarios/yolo-80-turn-multi-file-refactor.json` — 80 turn fixture,multi-file refactor 任务,fake/replay LLM gateway
+- [x] 6.1.2 `pnpm harness:soak` 跑此 scenario
+- [x] 6.1.3 invariant:
   - `result.outcome === 'completed'`
   - final non-system tokens < 120k
   - micro-compact pass count >= 3
   - rolling-journal write count >= 9 (every 8 turns × 80 turns ≈ 10)
   - completion-verifier triggered at least once with allow,zero block-final-state(任务最终走 done)
-- [ ] 6.1.4 commit `test(harness): 80-turn YOLO soak scenario`
+- [x] 6.1.4 commit `test(harness): 80-turn YOLO soak scenario`
 
 ### 6.2 Cross-mode × kanban matrix
 
-- [ ] 6.2.1 新建 `packages/core/harness/scenarios/mode-kanban-matrix.json` — 3 mode × "build a counter component" task,invariant:每种 mode 都至少创建 1 张卡且最终至少 1 张 `done`
-- [ ] 6.2.2 `pnpm harness:contract && pnpm harness:replay` 全绿
-- [ ] 6.2.3 commit `test(harness): cross-mode × kanban matrix scenario`
+- [x] 6.2.1 新建 `packages/core/harness/scenarios/mode-kanban-matrix.json` — 3 mode × "build a counter component" task,invariant:每种 mode 都至少创建 1 张卡且最终至少 1 张 `done`
+- [x] 6.2.2 `pnpm harness:contract && pnpm harness:replay` 全绿
+- [x] 6.2.3 commit `test(harness): cross-mode × kanban matrix scenario`
 
 ### 6.3 Product live runtime closure (web 浏览器)
 

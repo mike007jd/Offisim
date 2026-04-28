@@ -81,6 +81,26 @@
         "kanban.remaining_2_stay_todo",
         "kanban.event_order_matches"
       ]
+    },
+    {
+      "id": "yolo-80-turn-multi-file-refactor",
+      "category": "long-running-soak",
+      "invariants": [
+        "soak.completed",
+        "soak.final_non_system_tokens_under_120k",
+        "soak.microcompact_passes",
+        "soak.rolling_journal_writes",
+        "soak.completion_verifier_allowed"
+      ]
+    },
+    {
+      "id": "mode-kanban-matrix",
+      "category": "kanban-matrix",
+      "invariants": [
+        "matrix.boss_proxy_creates_done_card",
+        "matrix.direct_to_employee_creates_done_card",
+        "matrix.yolo_creates_done_card"
+      ]
     }
   ]
 }
