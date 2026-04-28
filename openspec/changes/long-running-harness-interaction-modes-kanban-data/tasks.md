@@ -263,7 +263,7 @@
 
 ### 5.2 KanbanRepo + RuntimeContext wiring
 
-- [ ] 5.2.1 新建 `packages/core/src/runtime/repos/kanban-repo.ts`,export `class KanbanRepo`:
+- [x] 5.2.1 新建 `packages/core/src/runtime/repos/kanban-repo.ts`,export `class KanbanRepo`:
   - `constructor(db, eventBus?)`
   - `async create(input): Promise<KanbanCardRow>` — emit `{ kind: 'kanban', op: 'created', card }`
   - `async transition(id, next, blockedReason?): Promise<KanbanCardRow | null>` — emit `{ kind: 'kanban', op: 'transitioned', card }`
@@ -271,10 +271,10 @@
   - `async listByProject(projectId): Promise<KanbanCardRow[]>`
   - `async listByEmployee(employeeId, state?): Promise<KanbanCardRow[]>`
   - `async assign(id, employeeId): Promise<void>`
-- [ ] 5.2.2 在 `packages/core/src/runtime/repositories.ts` 注入,`RuntimeContext.runtime.repos.kanban = new KanbanRepo(db, eventBus)`
-- [ ] 5.2.3 新建 `kanban-repo.test.mjs`,scenario:create / transition / listByProject / blockedReason 持久 / event 发布
-- [ ] 5.2.4 `node --test && pnpm typecheck && pnpm lint` 全绿
-- [ ] 5.2.5 commit `feat(core): KanbanRepo with state machine and event emission`
+- [x] 5.2.2 在 `packages/core/src/runtime/repositories.ts` 注入,`RuntimeContext.runtime.repos.kanban = new KanbanRepo(db, eventBus)`
+- [x] 5.2.3 新建 `kanban-repo.test.mjs`,scenario:create / transition / listByProject / blockedReason 持久 / event 发布
+- [x] 5.2.4 `node --test && pnpm typecheck && pnpm lint` 全绿
+- [x] 5.2.5 commit `feat(core): KanbanRepo with state machine and event emission`
 
 > **回到 Phase B Task 3.7 (todo_* tools)** — 现在 KanbanRepo 已可用,做完 3.7 全部子项再回来继续 Phase C 5.3。
 

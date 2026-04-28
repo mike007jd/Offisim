@@ -203,7 +203,7 @@ export async function createBrowserRuntime(
   const threadId = `thread-${companyId}`;
   const snapshot = loadBrowserRuntimeSnapshot();
   const { dbPromise, contentLoader } = wireDeliverableContentStore(snapshot);
-  const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
+  const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader, eventBus);
   await ensureYoloMasterForActiveCompanies(repos);
   const company = await repos.companies.findById(companyId);
   if (!company) {
@@ -462,7 +462,7 @@ export async function createBrowserRuntimeReposOnly(
   const threadId = `thread-${companyId}`;
   const snapshot = loadBrowserRuntimeSnapshot();
   const { dbPromise, contentLoader } = wireDeliverableContentStore(snapshot);
-  const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader);
+  const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader, eventBus);
   await ensureYoloMasterForActiveCompanies(repos);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);

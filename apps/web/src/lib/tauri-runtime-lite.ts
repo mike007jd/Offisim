@@ -19,7 +19,7 @@ export async function createTauriRuntimeReposOnly(
   companyId?: string,
 ): Promise<RuntimeBundle> {
   const db = createTauriDrizzleDb();
-  const repos = createTauriRepositories(db);
+  const repos = createTauriRepositories(db, eventBus);
   await ensureYoloMasterForActiveCompanies(repos);
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus,

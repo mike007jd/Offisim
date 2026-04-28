@@ -10,6 +10,7 @@ import { createDeliverablesTauriRepos } from './tauri-repos/deliverables';
 import { createEmployeesTauriRepos } from './tauri-repos/employees';
 import { createFilesTauriRepos } from './tauri-repos/files';
 import { createInstallTauriRepos } from './tauri-repos/install';
+import { createKanbanTauriRepos } from './tauri-repos/kanban';
 import { createLlmTauriRepos } from './tauri-repos/llm';
 import { createMemorySystemTauriRepos } from './tauri-repos/memory-system';
 import { createOrchestrationTauriRepos } from './tauri-repos/orchestration';
@@ -29,7 +30,10 @@ import { createWorkspaceTauriRepos } from './tauri-repos/workspace';
  * paths for multi-write flows until transaction orchestration is redesigned for
  * the Tauri driver.
  */
-export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories {
+export function createTauriRepositories(
+  db: TauriDrizzleDb,
+  eventBus?: Parameters<typeof createKanbanTauriRepos>[1],
+): RuntimeRepositories {
   return {
     ...createOrchestrationTauriRepos(db),
     ...createEmployeesTauriRepos(db),
@@ -41,6 +45,7 @@ export function createTauriRepositories(db: TauriDrizzleDb): RuntimeRepositories
     ...createFilesTauriRepos(db),
     ...createWorkspaceTauriRepos(db),
     ...createProjectsTauriRepos(db),
+    ...createKanbanTauriRepos(db, eventBus),
     ...createAgentEventsTauriRepos(db),
     ...createDeliverablesTauriRepos(db),
     ...createSkillsTauriRepos(db),

@@ -2,6 +2,8 @@ import type { NewEmployee } from '@offisim/install-core';
 import type {
   InteractionKind,
   InteractionMode,
+  KanbanOrigin,
+  KanbanState,
   RoleSlug,
   SkillRow,
   SkillScope,
@@ -126,6 +128,57 @@ export interface MeetingSessionRow {
   summary_json: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface KanbanCardRow {
+  id: string;
+  project_id: string;
+  company_id: string;
+  title: string;
+  note: string;
+  state: KanbanState;
+  origin: KanbanOrigin;
+  created_by_employee_id: string | null;
+  assigned_employee_id: string | null;
+  parent_card_id: string | null;
+  blocked_reason: string | null;
+  task_run_id: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewKanbanCard = Pick<KanbanCardRow, 'project_id' | 'company_id' | 'title' | 'origin'> &
+  Partial<
+    Pick<
+      KanbanCardRow,
+      | 'id'
+      | 'note'
+      | 'state'
+      | 'created_by_employee_id'
+      | 'assigned_employee_id'
+      | 'parent_card_id'
+      | 'blocked_reason'
+      | 'task_run_id'
+      | 'sort_order'
+    >
+  >;
+
+export interface KanbanRepository {
+  create(input: NewKanbanCard): Promise<KanbanCardRow>;
+  transition(
+    id: string,
+    next: KanbanState,
+    blockedReason?: string | null,
+  ): Promise<KanbanCardRow | null>;
+  transitionByTaskRun(
+    taskRunId: string,
+    next: KanbanState,
+    blockedReason?: string | null,
+  ): Promise<void>;
+  listByProject(projectId: string): Promise<KanbanCardRow[]>;
+  listByEmployee(employeeId: string, state?: KanbanState): Promise<KanbanCardRow[]>;
+  assign(id: string, employeeId: string): Promise<void>;
 }
 
 export interface GraphCheckpointRow {
@@ -1082,6 +1135,7 @@ export interface RuntimeRepositories {
   zones: ZoneRepository;
   projects: ProjectRepository;
   projectAssignments: ProjectAssignmentRepository;
+  kanban: KanbanRepository;
   /** User-level preferences — optional for backward compatibility. */
   userPreferences?: UserPreferenceRepository;
   /** Agent event sourcing — optional for backward compatibility. */

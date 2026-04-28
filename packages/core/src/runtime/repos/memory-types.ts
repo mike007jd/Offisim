@@ -15,6 +15,7 @@ import type {
   HandoffEventRow,
   InteractionActiveRow,
   InteractionHistoryRow,
+  KanbanCardRow,
   LibraryDocumentRow,
   LlmCallRow,
   McpAuditRow,
@@ -74,6 +75,7 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   prefabInstances: ReturnType<ReturnType<typeof createMemoryPrefabRepository>['snapshot']>;
   projects: ProjectRow[];
   projectAssignments: ProjectAssignmentRow[];
+  kanbanCards: KanbanCardRow[];
   agentEvents: AgentEventRow[];
   recoveryKnowledge: RecoveryKnowledgeRow[];
   deliverables: DeliverableSummaryRow[];

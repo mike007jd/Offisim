@@ -220,7 +220,7 @@ export async function createTauriRuntime(
 
   const threadId = `thread-${companyId}`;
   const db = createTauriDrizzleDb();
-  const repos = createTauriRepositories(db);
+  const repos = createTauriRepositories(db, eventBus);
   await ensureYoloMasterForActiveCompanies(repos);
   const company = await repos.companies.findById(companyId);
   if (!company) {

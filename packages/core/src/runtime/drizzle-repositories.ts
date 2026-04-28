@@ -1,11 +1,13 @@
 import type * as schema from '@offisim/db-local/dist/schema.js';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { EventBus } from '../events/event-bus.js';
 import { createAgentEventsDrizzleRepos } from './repos/agent-events/drizzle.js';
 import { createConversationsDrizzleRepos } from './repos/conversations/drizzle.js';
 import { createDeliverablesDrizzleRepos } from './repos/deliverables/drizzle.js';
 import { createEmployeesDrizzleRepos } from './repos/employees/drizzle.js';
 import { createFilesDrizzleRepos } from './repos/files/drizzle.js';
 import { createInstallDrizzleRepos } from './repos/install/drizzle.js';
+import { createKanbanDrizzleRepos } from './repos/kanban/drizzle.js';
 import { createLlmDrizzleRepos } from './repos/llm/drizzle.js';
 import { createMemorySystemDrizzleRepos } from './repos/memory-system/drizzle.js';
 import { createOrchestrationDrizzleRepos } from './repos/orchestration/drizzle.js';
@@ -32,7 +34,7 @@ function makeTransact(db: Db) {
   };
 }
 
-export function createDrizzleRepositories(db: Db): RuntimeRepositories {
+export function createDrizzleRepositories(db: Db, eventBus?: EventBus): RuntimeRepositories {
   return {
     ...createOrchestrationDrizzleRepos(db),
     ...createEmployeesDrizzleRepos(db),
@@ -44,6 +46,7 @@ export function createDrizzleRepositories(db: Db): RuntimeRepositories {
     ...createFilesDrizzleRepos(db),
     ...createWorkspaceDrizzleRepos(db),
     ...createProjectsDrizzleRepos(db),
+    ...createKanbanDrizzleRepos(db, eventBus),
     ...createAgentEventsDrizzleRepos(db),
     ...createDeliverablesDrizzleRepos(db),
     ...createSkillsDrizzleRepos(db),
