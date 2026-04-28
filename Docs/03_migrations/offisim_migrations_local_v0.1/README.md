@@ -1,7 +1,7 @@
 # Offisim local runtime migrations v0.1
 
 This directory is the local SQLite migration pack used by the desktop app bootstrap.
-The desktop runner currently embeds migrations `001` through `038` from this folder in
+The desktop runner currently embeds migrations `001` through `039` from this folder in
 `apps/desktop/src-tauri/src/lib.rs`.
 
 Apply the executable desktop chain in lexical order:
@@ -44,6 +44,7 @@ Apply the executable desktop chain in lexical order:
 36. `036_deterministic_harness_foundation.sql`
 37. `037_tool_permission_approval_company_lookup.sql`
 38. `038_kanban_cards.sql`
+39. `039_session_interaction_mode.sql`
 
 These migrations target SQLite and reflect the Desktop / self-host local runtime model.
 Do not delete files from this folder casually; the desktop app currently includes most of them directly.

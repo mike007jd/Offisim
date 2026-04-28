@@ -425,6 +425,7 @@ export const meetingSessions = sqliteTable('meeting_sessions', {
   }),
   topic: text('topic').notNull(),
   status: text('status').notNull(),
+  interaction_mode: text('interaction_mode').notNull().default('boss_proxy'),
   summary_json: text('summary_json'),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),

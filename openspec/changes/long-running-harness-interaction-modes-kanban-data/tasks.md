@@ -203,14 +203,14 @@
 
 ### 3.9 Persist interactionMode on meeting_sessions
 
-- [ ] 3.9.1 在 1.5 步拿到的 next migration number 之后再 +1,新建 `packages/db-local/src/migrations/0YY_session_interaction_mode.sql`:
+- [x] 3.9.1 在 1.5 步拿到的 next migration number 之后再 +1,新建 `packages/db-local/src/migrations/0YY_session_interaction_mode.sql`:
   ```sql
   ALTER TABLE meeting_sessions ADD COLUMN interaction_mode TEXT NOT NULL DEFAULT 'boss_proxy';
   CREATE INDEX idx_meeting_sessions_mode ON meeting_sessions(interaction_mode);
   ```
-- [ ] 3.9.2 在 `packages/db-local/src/schema.ts` 找 `meetingSessions` 定义,加 `interaction_mode: text('interaction_mode').notNull().default('boss_proxy')`
-- [ ] 3.9.3 跑 db-local migration (按仓库现有 migration 工具) — 若没有 migrate script,在 `packages/db-local/src/index.ts` 加一段启动时 idempotent ALTER TABLE 检查
-- [ ] 3.9.4 commit `feat(db-local): persist interaction_mode on meeting_sessions`
+- [x] 3.9.2 在 `packages/db-local/src/schema.ts` 找 `meetingSessions` 定义,加 `interaction_mode: text('interaction_mode').notNull().default('boss_proxy')`
+- [x] 3.9.3 跑 db-local migration (按仓库现有 migration 工具) — 若没有 migrate script,在 `packages/db-local/src/index.ts` 加一段启动时 idempotent ALTER TABLE 检查
+- [x] 3.9.4 commit `feat(db-local): persist interaction_mode on meeting_sessions`
 
 ### 3.10 SessionModeSwitcher UI
 

@@ -270,6 +270,14 @@ fn migrations() -> Vec<Migration> {
             ),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 39,
+            description: "session interaction mode",
+            sql: include_str!(
+                "../../../../Docs/03_migrations/offisim_migrations_local_v0.1/039_session_interaction_mode.sql"
+            ),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

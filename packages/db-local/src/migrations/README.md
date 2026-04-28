@@ -36,5 +36,6 @@ Apply in lexical order:
 28. `028_deterministic_harness_foundation.sql`
 29. `029_tool_permission_approval_company_lookup.sql`
 30. `030_kanban_cards.sql`
+31. `031_session_interaction_mode.sql`
 
 These migrations target SQLite and reflect the current package-local runtime model.
