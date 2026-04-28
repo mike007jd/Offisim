@@ -174,11 +174,11 @@
 
 ### 3.6 Idempotent ensure for existing companies
 
-- [ ] 3.6.1 新建 `packages/core/src/runtime/ensure-yolo-master.ts`,export `async function ensureYoloMasterForActiveCompanies(repos): Promise<void>`:遍历所有 active company,每个 `repos.employees.findByRoleSlug('yolo_master', companyId)` — 缺则 insert 新 employee 行,persona_json / config_json 来自 `YOLO_MASTER_EMPLOYEE`,生成新 `employee_id`(uuid),`is_external = 0`
-- [ ] 3.6.2 在 `apps/platform/src/startup.ts` 启动 hook 内调一次
-- [ ] 3.6.3 `apps/desktop/src-tauri/src/main.rs` (或对应初始化点) 调一次
-- [ ] 3.6.4 新建 `ensure-yolo-master.test.mjs`,scenario:第二次调用是 no-op (idempotent)
-- [ ] 3.6.5 `node --test` 全绿;commit `feat(runtime): idempotent ensure YOLO Master for existing companies`
+- [x] 3.6.1 新建 `packages/core/src/runtime/ensure-yolo-master.ts`,export `async function ensureYoloMasterForActiveCompanies(repos): Promise<void>`:遍历所有 active company,每个 `repos.employees.findByRoleSlug('yolo_master', companyId)` — 缺则 insert 新 employee 行,persona_json / config_json 来自 `YOLO_MASTER_EMPLOYEE`,生成新 `employee_id`(uuid),`is_external = 0`
+- [x] 3.6.2 在 `apps/platform/src/startup.ts` 启动 hook 内调一次
+- [x] 3.6.3 `apps/desktop/src-tauri/src/main.rs` (或对应初始化点) 调一次
+- [x] 3.6.4 新建 `ensure-yolo-master.test.mjs`,scenario:第二次调用是 no-op (idempotent)
+- [x] 3.6.5 `node --test` 全绿;commit `feat(runtime): idempotent ensure YOLO Master for existing companies`
 
 ### 3.7 todo_* tools (依赖 Phase C 的 KanbanRepo,执行顺序见下)
 

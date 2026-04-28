@@ -330,6 +330,7 @@ export type { LogLevel, LogEntry } from './services/logger.js';
 export { ExecutionTraceServiceImpl } from './services/execution-trace-service.js';
 export { OrchestrationService } from './services/orchestration-service.js';
 export { EmployeeVersionService } from './runtime/employee-version-service.js';
+export { ensureYoloMasterForActiveCompanies } from './runtime/ensure-yolo-master.js';
 export type { VersionDiff } from './runtime/employee-version-service.js';
 export { CostCalculationService } from './runtime/cost-calculation-service.js';
 export { SopService } from './services/sop-service.js';

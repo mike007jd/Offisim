@@ -24,6 +24,7 @@ import { SummarizationMiddleware } from '@offisim/core/dist/middleware/builtin/s
 import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/user-preference-middleware.js';
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
 import { ToolPermissionEngine } from '@offisim/core/dist/permissions/tool-permission-engine.js';
+import { ensureYoloMasterForActiveCompanies } from '@offisim/core/dist/runtime/ensure-yolo-master.js';
 import { HookRegistry } from '@offisim/core/dist/runtime/hook-registry.js';
 import { ResumeCoordinator } from '@offisim/core/dist/runtime/resume-coordinator.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
@@ -220,6 +221,7 @@ export async function createTauriRuntime(
   const threadId = `thread-${companyId}`;
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
+  await ensureYoloMasterForActiveCompanies(repos);
   const company = await repos.companies.findById(companyId);
   if (!company) {
     throw new Error(`Active company "${companyId}" no longer exists. Select a company again.`);

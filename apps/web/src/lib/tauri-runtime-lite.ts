@@ -7,6 +7,7 @@
  */
 import { DeliverablePersistenceService, SkillLoader } from '@offisim/core/browser';
 import type { InMemoryEventBus } from '@offisim/core/browser';
+import { ensureYoloMasterForActiveCompanies } from '@offisim/core/dist/runtime/ensure-yolo-master.js';
 import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
 import { createTauriDrizzleDb } from './tauri-drizzle';
@@ -19,6 +20,7 @@ export async function createTauriRuntimeReposOnly(
 ): Promise<RuntimeBundle> {
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db);
+  await ensureYoloMasterForActiveCompanies(repos);
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus,
     repo: repos.deliverables,
