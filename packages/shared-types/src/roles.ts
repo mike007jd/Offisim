@@ -13,6 +13,7 @@ export type RoleSlug =
   | 'project_manager'
   | 'account_manager'
   | 'engineering_manager'
+  | 'yolo_master'
   // Dev
   | 'developer'
   | 'engineer'
@@ -61,6 +62,7 @@ export const ROLE_REGISTRY: readonly RoleEntry[] = [
     department: 'product',
     isSystem: true,
   },
+  { slug: 'yolo_master', label: 'YOLO Master', department: 'dev', isSystem: false },
   // Dev
   { slug: 'developer', label: 'Developer', department: 'dev', isSystem: false },
   { slug: 'engineer', label: 'Engineer', department: 'dev', isSystem: false },

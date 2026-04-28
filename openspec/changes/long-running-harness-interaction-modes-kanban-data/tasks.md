@@ -135,35 +135,35 @@
 
 ### 3.2 main-graph mode-aware entry router
 
-- [ ] 3.2.1 `packages/core/src/graph/state.ts` 加 `interactionMode: InteractionMode` field 到 `OffisimGraphState`,默认 `'boss_proxy'`
-- [ ] 3.2.2 `packages/core/src/graph/main-graph.ts` 加 `function modeRouter(state): 'boss' | 'pm-planner' | 'yolo-master'` (导出供 test 用):
+- [x] 3.2.1 `packages/core/src/graph/state.ts` 加 `interactionMode: InteractionMode` field 到 `OffisimGraphState`,默认 `'boss_proxy'`
+- [x] 3.2.2 `packages/core/src/graph/main-graph.ts` 加 `function modeRouter(state): 'boss' | 'pm-planner' | 'yolo-master'` (导出供 test 用):
   - `boss_proxy` / `human_in_loop` → `'boss'`
   - `direct_to_employee` → `'pm-planner'`
   - `yolo` → `'yolo-master'`
-- [ ] 3.2.3 替换现有 `addEdge(START, 'boss')` 为 `addConditionalEdges(START, modeRouter, { boss: 'boss', 'pm-planner': 'pm-planner', 'yolo-master': 'yolo-master' })`
-- [ ] 3.2.4 新建 `packages/core/src/graph/main-graph.test.mjs`,scenario:4 mode 各路由到正确节点 (4 path)
-- [ ] 3.2.5 `node --test` 全绿
-- [ ] 3.2.6 注意:`yolo-master` 节点在 Task 3.4 才注册,在 Task 3.4 完成前 `pnpm typecheck` 会红 — 容忍,Task 3.4 完成后跑 typecheck
-- [ ] 3.2.7 `git commit -m "feat(graph): mode-aware entry router for InteractionMode"`
+- [x] 3.2.3 替换现有 `addEdge(START, 'boss')` 为 `addConditionalEdges(START, modeRouter, { boss: 'boss', 'pm-planner': 'pm-planner', 'yolo-master': 'yolo-master' })`
+- [x] 3.2.4 新建 `packages/core/src/graph/main-graph.test.mjs`,scenario:4 mode 各路由到正确节点 (4 path)
+- [x] 3.2.5 `node --test` 全绿
+- [x] 3.2.6 注意:`yolo-master` 节点在 Task 3.4 才注册,在 Task 3.4 完成前 `pnpm typecheck` 会红 — 容忍,Task 3.4 完成后跑 typecheck
+- [x] 3.2.7 `git commit -m "feat(graph): mode-aware entry router for InteractionMode"`
 
 ### 3.3 YOLO Master persona + role-slug
 
-- [ ] 3.3.1 在 1.6 步找到的 RoleSlug union 文件,union 加 `'yolo_master'`
-- [ ] 3.3.2 新建 `packages/core/src/agents/yolo-master-persona.ts`,export `YOLO_MASTER_ROLE_SLUG = 'yolo_master' as const` + `YOLO_MASTER_EMPLOYEE: CompanyTemplateEmployee`,persona_json:
+- [x] 3.3.1 在 1.6 步找到的 RoleSlug union 文件,union 加 `'yolo_master'`
+- [x] 3.3.2 新建 `packages/core/src/agents/yolo-master-persona.ts`,export `YOLO_MASTER_ROLE_SLUG = 'yolo_master' as const` + `YOLO_MASTER_EMPLOYEE: CompanyTemplateEmployee`,persona_json:
   - `expertise`: 自主全栈工程师,适合长程开发任务,TDD 优先,完成前必跑 verification 命令
   - `style`: 直接、简短、行动导向,无 boss/manager 仪式,优先 fork 子上下文
   - `characterConfig`: skinColor `0x9ca3af`、hairColor `0x111827`、hairStyle `'short'`、clothingColor `0x111827`、clothingAccent `0x10b981` (kelp-green,呼应海洋赛博风格)、bodyType `'normal'`、gender `'neutral'`
   - `config_json`:`temperature 0.3`、`maxTokens 8192`
-- [ ] 3.3.3 `pnpm typecheck` 全绿;commit `feat(agents): YOLO Master persona and role slug`
+- [x] 3.3.3 `pnpm typecheck` 全绿;commit `feat(agents): YOLO Master persona and role slug`
 
 ### 3.4 yolo-master-node graph node
 
-- [ ] 3.4.1 新建 `packages/core/src/agents/yolo-master-node.ts`,export `async function yoloMasterNode(state, ctx): Promise<Partial<OffisimGraphState>>`:
+- [x] 3.4.1 新建 `packages/core/src/agents/yolo-master-node.ts`,export `async function yoloMasterNode(state, ctx): Promise<Partial<OffisimGraphState>>`:
   - 调 `ctx.runtime.repos.employees.findByRoleSlug('yolo_master', state.activeCompanyId)`,无则 throw `'YOLO Master employee not found in this company. Ensure templates seed it via ensureYoloMasterForActiveCompanies.'`
   - 复用 `runEmployeeTurn({ state: { ...state, currentEmployeeId: yolo.employee_id }, ctx, options: { skipPlannerHandoff: true, enableSubagentFork: true, enableTodoTool: true } })`
-- [ ] 3.4.2 在 `main-graph.ts` 注册节点 + edge:`graph.addNode('yolo-master', yoloMasterNode)`,`graph.addEdge('yolo-master', END)`
-- [ ] 3.4.3 新建 `yolo-master-node.test.mjs`,scenario:无 YOLO 大师时 throw 明确错误
-- [ ] 3.4.4 `node --test && pnpm typecheck` 全绿;简化审查;commit `feat(agents): YOLO Master node with single-agent harness loop`
+- [x] 3.4.2 在 `main-graph.ts` 注册节点 + edge:`graph.addNode('yolo-master', yoloMasterNode)`,`graph.addEdge('yolo-master', END)`
+- [x] 3.4.3 新建 `yolo-master-node.test.mjs`,scenario:无 YOLO 大师时 throw 明确错误
+- [x] 3.4.4 `node --test && pnpm typecheck` 全绿;简化审查;commit `feat(agents): YOLO Master node with single-agent harness loop`
 
 ### 3.5 Seed YOLO Master into 5 company templates
 

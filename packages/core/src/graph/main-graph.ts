@@ -12,6 +12,7 @@ import { pmHeartbeatNode } from '../agents/pm-heartbeat-node.js';
 import { pmPlannerNode } from '../agents/pm-planner-node.js';
 import { pmReplanNode } from '../agents/pm-replan-node.js';
 import { stepDispatcherNode } from '../agents/step-dispatcher-node.js';
+import { yoloMasterNode } from '../agents/yolo-master-node.js';
 import { graphNodeEntered, planStepCompleted } from '../events/event-factories.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getRuntime } from '../utils/get-runtime.js';
@@ -25,7 +26,9 @@ import {
   meetingTurnCheck,
   participantTurnNode,
 } from './meeting-subgraph.js';
+import { modeRouter } from './mode-router.js';
 import { OffisimGraphAnnotation, type OffisimGraphState } from './state.js';
+export { modeRouter } from './mode-router.js';
 
 /** Max replans before escalating to user */
 const MAX_REPLAN_COUNT = 3;
@@ -96,7 +99,7 @@ export function routeFromStart(state: OffisimGraphState): string {
   if (state.entryMode === 'background_sync') {
     return 'boss';
   }
-  return 'boss';
+  return modeRouter(state);
 }
 
 /** @internal — exported for testing */
@@ -347,7 +350,8 @@ export type OffisimGraphStartNode =
   | 'step_advance'
   | 'boss_summary'
   | 'employee_direct_setup'
-  | 'pm_heartbeat';
+  | 'pm_heartbeat'
+  | 'yolo-master';
 
 const DEFAULT_START_NODES = [
   'boss',
@@ -356,6 +360,8 @@ const DEFAULT_START_NODES = [
   'meeting_resume',
   'meeting_end',
   'pm_heartbeat',
+  'pm_planner',
+  'yolo-master',
 ] as const;
 
 const HARNESS_START_NODES = [
@@ -371,6 +377,7 @@ const HARNESS_START_NODES = [
   'meeting_resume',
   'meeting_end',
   'pm_heartbeat',
+  'yolo-master',
 ] as const;
 
 /**
@@ -426,6 +433,10 @@ export function buildOffisimGraph(options?: BuildGraphOptions) {
       withNodeHooks('employee_direct_setup', (state, config) =>
         employeeDirectSetupNode(state, config),
       ),
+    )
+    .addNode(
+      'yolo-master',
+      withNodeHooks('yolo-master', (state, config) => yoloMasterNode(state, config)),
     )
     .addNode(
       'error_handler',
@@ -501,6 +512,7 @@ export function buildOffisimGraph(options?: BuildGraphOptions) {
     .addEdge('pm_replan', 'step_dispatcher')
     .addEdge('pm_heartbeat', END)
     .addEdge('employee_direct_setup', 'employee')
+    .addEdge('yolo-master', END)
     .addEdge('meeting_start', 'participant_turn')
     .addConditionalEdges('participant_turn', meetingTurnCheck, [
       'participant_turn',

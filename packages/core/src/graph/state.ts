@@ -1,6 +1,6 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import { Annotation, messagesStateReducer } from '@langchain/langgraph';
-import type { RoleSlug } from '@offisim/shared-types';
+import type { InteractionMode, RoleSlug } from '@offisim/shared-types';
 import type { RecentToolResult } from '../runtime/completion-verifier.js';
 
 export type AssignmentTargetKind = 'employee';
@@ -120,6 +120,11 @@ export const OffisimGraphAnnotation = Annotation.Root({
   entryMode: Annotation<
     'boss_chat' | 'meeting' | 'install_flow' | 'background_sync' | 'direct_chat' | 'heartbeat'
   >,
+
+  interactionMode: Annotation<InteractionMode>({
+    reducer: (_prev, next) => next,
+    default: () => 'boss_proxy',
+  }),
 
   // Project scoping — null when running outside a project context
   projectId: Annotation<string | null>({

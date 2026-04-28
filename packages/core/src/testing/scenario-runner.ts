@@ -1,4 +1,9 @@
-import type { InteractionKind, RoleSlug, RuntimePolicyConfig } from '@offisim/shared-types';
+import type {
+  InteractionKind,
+  InteractionMode,
+  RoleSlug,
+  RuntimePolicyConfig,
+} from '@offisim/shared-types';
 import { isSkillInstallTool } from '../agents/skill-install-tools.js';
 import { InMemoryEventBus } from '../events/event-bus.js';
 import type { EventBus } from '../events/event-bus.js';
@@ -56,7 +61,7 @@ export interface DeterministicScenario {
   readonly initialState: ScenarioInitialState;
   readonly tools?: readonly ToolDef[];
   readonly llmTurns?: readonly ScenarioLlmTurn[];
-  readonly interactionMode?: 'boss_proxy' | 'human_in_loop';
+  readonly interactionMode?: InteractionMode;
   readonly runs?: readonly ScenarioRun[];
   readonly assertions: readonly ScenarioAssertion[];
 }
@@ -363,6 +368,7 @@ function buildInitialState(
     threadId,
     companyId,
     entryMode: scenario.entryMode,
+    interactionMode: scenario.interactionMode ?? 'boss_proxy',
     projectId: null,
     targetEmployeeId: null,
     messages: [],
