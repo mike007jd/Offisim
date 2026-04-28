@@ -1,4 +1,20 @@
-export type InteractionMode = 'boss_proxy' | 'human_in_loop';
+export type InteractionMode = 'boss_proxy' | 'human_in_loop' | 'direct_to_employee' | 'yolo';
+
+export const DEFAULT_INTERACTION_MODE: InteractionMode = 'boss_proxy';
+
+export const INTERACTION_MODE_LABEL: Record<InteractionMode, string> = {
+  boss_proxy: 'SOP',
+  human_in_loop: 'Human-in-loop',
+  direct_to_employee: 'Direct',
+  yolo: 'YOLO',
+};
+
+export const INTERACTION_MODE_DESCRIPTION: Record<InteractionMode, string> = {
+  boss_proxy: 'Boss routes work through the standard manager and planner chain.',
+  human_in_loop: 'Boss routes work through SOP with explicit human approval gates.',
+  direct_to_employee: 'Work enters the planner and employee loop without boss ceremony.',
+  yolo: 'A single autonomous YOLO Master owns the task end to end.',
+};
 
 export type InteractionKind =
   | 'permission_request'

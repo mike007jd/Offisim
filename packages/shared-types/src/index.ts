@@ -132,6 +132,11 @@ export type {
   InteractionRequest,
   InteractionResponse,
 } from './interactions.js';
+export {
+  DEFAULT_INTERACTION_MODE,
+  INTERACTION_MODE_DESCRIPTION,
+  INTERACTION_MODE_LABEL,
+} from './interactions.js';
 export { AGENT_QUESTION_REQUIRED, PLAN_REVIEW_REQUIRED } from './interactions.js';
 
 export type {

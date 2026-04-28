@@ -121,17 +121,17 @@
 
 ### 3.1 InteractionMode union 扩到 4 值
 
-- [ ] 3.1.1 `packages/shared-types/src/interactions.ts` 把 `InteractionMode` 改成 `'boss_proxy' | 'human_in_loop' | 'direct_to_employee' | 'yolo'`
-- [ ] 3.1.2 同文件加常量 export:
+- [x] 3.1.1 `packages/shared-types/src/interactions.ts` 把 `InteractionMode` 改成 `'boss_proxy' | 'human_in_loop' | 'direct_to_employee' | 'yolo'`
+- [x] 3.1.2 同文件加常量 export:
   - `INTERACTION_MODE_LABEL: Record<InteractionMode, string>` (`SOP` / `Human-in-loop` / `Direct` / `YOLO`)
   - `INTERACTION_MODE_DESCRIPTION: Record<InteractionMode, string>`
   - `DEFAULT_INTERACTION_MODE: InteractionMode = 'boss_proxy'`
-- [ ] 3.1.3 `packages/shared-types/src/index.ts` 确保 re-export 新常量
-- [ ] 3.1.4 `apps/web/src/runtime/interaction-mode-storage.ts` `loadDefaultInteractionMode` 升级 — `raw` 必须在 4 值 union 内才接受,否则 fallback `'boss_proxy'`;test 4 path
-- [ ] 3.1.5 新建 `packages/shared-types/src/interactions.test.mjs`,scenario:`DEFAULT === 'boss_proxy'`、`Object.keys(LABEL).length === 4`、`LABEL` 4 项齐
-- [ ] 3.1.6 `node --test packages/shared-types/src/interactions.test.mjs` 全绿
-- [ ] 3.1.7 `pnpm typecheck` 全绿 — 任何 union 不匹配的回归在这步暴露,逐个修
-- [ ] 3.1.8 简化审查;commit `feat(shared-types): expand InteractionMode union to 4 values`
+- [x] 3.1.3 `packages/shared-types/src/index.ts` 确保 re-export 新常量
+- [x] 3.1.4 `apps/web/src/runtime/interaction-mode-storage.ts` `loadDefaultInteractionMode` 升级 — `raw` 必须在 4 值 union 内才接受,否则 fallback `'boss_proxy'`;test 4 path
+- [x] 3.1.5 新建 `packages/shared-types/src/interactions.test.mjs`,scenario:`DEFAULT === 'boss_proxy'`、`Object.keys(LABEL).length === 4`、`LABEL` 4 项齐
+- [x] 3.1.6 `node --test packages/shared-types/src/interactions.test.mjs` 全绿
+- [x] 3.1.7 `pnpm typecheck` 全绿 — 任何 union 不匹配的回归在这步暴露,逐个修
+- [x] 3.1.8 简化审查;commit `feat(shared-types): expand InteractionMode union to 4 values`
 
 ### 3.2 main-graph mode-aware entry router
 
