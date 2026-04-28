@@ -25,6 +25,7 @@ import type {
   A2ATask,
   A2ATaskState,
 } from './a2a-types.js';
+import { type ForkSubContextResult, forkSubContext } from './fork-sub-context.js';
 
 const logger = new Logger('a2a-client');
 
@@ -138,6 +139,22 @@ export class A2AClient {
     throw new Error('A2A SendMessage returned neither task nor message');
   }
 
+  async fork(peer: A2APeer, subTask: string): Promise<ForkSubContextResult> {
+    const client = peer === this.peer ? this : new A2AClient(peer);
+    return forkSubContext({
+      subTask,
+      runChild: async (childMessages) => {
+        const task = await client.sendAndWait(childMessages[0]?.content ?? '', {
+          ...(peer.agentId ? { agentId: peer.agentId } : {}),
+        });
+        return {
+          summary: taskTextSummary(task),
+          transcript: childMessages,
+        };
+      },
+    });
+  }
+
   private async pollUntilTerminal(
     initial: A2ATask,
     timeoutMs: number,
@@ -205,4 +222,25 @@ export class A2AClient {
     if (!this.peer.token) return {};
     return { Authorization: `Bearer ${this.peer.token}` };
   }
+}
+
+function taskTextSummary(task: A2ATask): string {
+  const texts: string[] = [];
+  if (task.status.message) {
+    texts.push(...messageTextParts(task.status.message));
+  }
+  for (const artifact of task.artifacts ?? []) {
+    texts.push(
+      ...artifact.parts
+        .map((part) => part.text)
+        .filter((text): text is string => typeof text === 'string' && text.trim().length > 0),
+    );
+  }
+  return texts.join('\n').trim() || task.status.state;
+}
+
+function messageTextParts(message: A2AMessage): string[] {
+  return message.parts
+    .map((part) => part.text)
+    .filter((text): text is string => typeof text === 'string' && text.trim().length > 0);
 }

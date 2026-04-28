@@ -1,4 +1,6 @@
 export { A2AClient } from './a2a-client.js';
+export { forkSubContext } from './fork-sub-context.js';
+export type { ForkSubContextInput, ForkSubContextResult } from './fork-sub-context.js';
 export { A2ARequestHandler } from './a2a-server.js';
 export type {
   A2AHttpRequest,

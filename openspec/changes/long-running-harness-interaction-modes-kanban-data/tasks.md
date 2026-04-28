@@ -56,18 +56,18 @@
 
 ### 2.3 forkSubContext primitive
 
-- [ ] 2.3.1 新建 `packages/core/src/a2a/fork-sub-context.ts`,导出 `forkSubContext(input): Promise<ForkSubContextResult>`。签名:
+- [x] 2.3.1 新建 `packages/core/src/a2a/fork-sub-context.ts`,导出 `forkSubContext(input): Promise<ForkSubContextResult>`。签名:
   - `input.subTask: string`
   - `input.runChild: (childMessages) => Promise<{ summary: string; transcript: LlmMessage[] }>`
   - return `{ summary: string; childTokensUsed?: number }` — **不暴露 transcript**
-- [ ] 2.3.2 实现:构造 `childMessages = [{ role: 'user', content: subTask }]`,调 `runChild(childMessages)`,return `{ summary: child.summary }`。`transcript` 只用于内部 debug log,不回吐 parent。
-- [ ] 2.3.3 新建 `fork-sub-context.test.mjs`,2 个 case:
+- [x] 2.3.2 实现:构造 `childMessages = [{ role: 'user', content: subTask }]`,调 `runChild(childMessages)`,return `{ summary: child.summary }`。`transcript` 只用于内部 debug log,不回吐 parent。
+- [x] 2.3.3 新建 `fork-sub-context.test.mjs`,2 个 case:
   - case A: parent transcript 不被污染 (child runner 收到的 msg list 长度 = 1)
   - case B: result 只含 summary,无 transcript 字段
-- [ ] 2.3.4 `node --test` 全绿
-- [ ] 2.3.5 在 `packages/core/src/a2a/a2a-client.ts` 加 `async fork(peer: A2APeer, subTask: string): Promise<ForkSubContextResult>` 方法,内部调 `forkSubContext`,`runChild` = 调 a2a `sendMessage` 并 join 最终 agent message 的 text parts 作为 summary
-- [ ] 2.3.6 `pnpm typecheck && pnpm lint` 全绿;简化审查;commit
-- [ ] 2.3.7 `git commit -m "feat(a2a): forkSubContext primitive for true subagent isolation"`
+- [x] 2.3.4 `node --test` 全绿
+- [x] 2.3.5 在 `packages/core/src/a2a/a2a-client.ts` 加 `async fork(peer: A2APeer, subTask: string): Promise<ForkSubContextResult>` 方法,内部调 `forkSubContext`,`runChild` = 调 a2a `sendMessage` 并 join 最终 agent message 的 text parts 作为 summary
+- [x] 2.3.6 `pnpm typecheck && pnpm lint` 全绿;简化审查;commit
+- [x] 2.3.7 `git commit -m "feat(a2a): forkSubContext primitive for true subagent isolation"`
 
 ### 2.4 completion-verifier hook
 
