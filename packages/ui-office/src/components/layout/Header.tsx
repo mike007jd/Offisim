@@ -38,6 +38,7 @@ interface HeaderProps {
   onFileImport: (file: File) => void;
   notificationSlot?: ReactNode;
   projectSlot?: ReactNode;
+  modeSlot?: ReactNode;
   viewMode?: '2D' | '3D';
   onViewModeChange?: (mode: '2D' | '3D') => void;
   needsConfig?: boolean;
@@ -59,6 +60,7 @@ export function Header({
   onFileImport,
   notificationSlot,
   projectSlot,
+  modeSlot,
   viewMode,
   onViewModeChange,
   needsConfig,
@@ -159,6 +161,7 @@ export function Header({
         className="flex shrink-0 flex-wrap items-center justify-end"
         style={{ columnGap: 'var(--sp-sm)', rowGap: '0.25rem' }}
       >
+        {isOffice && modeSlot}
         {isOffice && officeTools && officeTools.length > 0 && <OfficeToolBar items={officeTools} />}
         <FileImportTrigger onFileSelect={onFileImport} />
         {notificationSlot}

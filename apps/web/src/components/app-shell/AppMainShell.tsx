@@ -1,3 +1,4 @@
+import type { InteractionMode } from '@offisim/shared-types';
 import type { ToastVariant } from '@offisim/ui-core';
 import {
   AgentPanel,
@@ -10,6 +11,7 @@ import {
 } from '@offisim/ui-office/web';
 import React, { Suspense, useMemo } from 'react';
 import { PEER_WORKSPACE_ITEMS, buildOfficeToolItems } from '../../lib/workspace-navigation';
+import { SessionModeSwitcher } from '../session-mode/SessionModeSwitcher';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
 import type {
   OfficeSessionState,
@@ -56,6 +58,8 @@ export interface AppMainShellProps {
   onRequestCreateProject: () => void;
   onRequestEditProject: React.ComponentProps<typeof ProjectSelector>['onRequestEditProject'];
   activeProjectStatus: React.ComponentProps<typeof StatusBar>['activeProjectStatus'];
+  interactionMode: InteractionMode;
+  onInteractionModeChange: (mode: InteractionMode) => void | Promise<void>;
   chatOpenToken: number;
   collaborationRailProps: CollaborationRailProps;
   handleOpenSettings: () => void;
@@ -97,6 +101,8 @@ export function AppMainShell(props: AppMainShellProps) {
     onRequestCreateProject,
     onRequestEditProject,
     activeProjectStatus,
+    interactionMode,
+    onInteractionModeChange,
     chatOpenToken,
     collaborationRailProps,
     handleOpenSettings,
@@ -164,6 +170,9 @@ export function AppMainShell(props: AppMainShellProps) {
               onRequestCreate={onRequestCreateProject}
               onRequestEditProject={onRequestEditProject}
             />
+          }
+          modeSlot={
+            <SessionModeSwitcher current={interactionMode} onChange={onInteractionModeChange} />
           }
           viewMode={officeState.viewMode}
           onViewModeChange={onViewModeChange}

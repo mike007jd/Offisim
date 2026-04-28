@@ -1,4 +1,5 @@
 import type { ProjectRow } from '@offisim/shared-types';
+import type { InteractionMode } from '@offisim/shared-types';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import {
   EmployeeInspector,
@@ -6,6 +7,7 @@ import {
   ProjectCreateDialog,
   type ProviderConfig,
   ResumeBar,
+  isTauri,
   loadProviderConfig,
   useAgentStates,
   useCompany,
@@ -74,6 +76,8 @@ export function App({ onCompanySwitch }: AppProps) {
     unfinishedThreads,
     dismissUnfinishedThreads,
     resumeThread,
+    interactionMode = 'boss_proxy',
+    setInteractionMode,
   } = useOffisimRuntime();
   const installFlow = useInstallFlow();
   const routeToPersonnel = useMemo(
@@ -198,6 +202,30 @@ export function App({ onCompanySwitch }: AppProps) {
   const selectedEmployeeName = officeState.selectedEmployeeId
     ? (agents.get(officeState.selectedEmployeeId)?.name ?? null)
     : null;
+  const activeConversationId = activeProject?.thread_id ?? null;
+  const handleInteractionModeChange = useCallback(
+    async (mode: InteractionMode) => {
+      setInteractionMode?.(mode);
+      if (!activeConversationId) return;
+      try {
+        if (isTauri()) {
+          const { invoke } = (await import('@tauri-apps/api/core')) as {
+            invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
+          };
+          await invoke('set_session_mode', { id: activeConversationId, mode });
+          return;
+        }
+        await fetch(`/api/sessions/${encodeURIComponent(activeConversationId)}/mode`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode }),
+        });
+      } catch (err) {
+        console.warn('[session-mode] host persistence unavailable', err);
+      }
+    },
+    [activeConversationId, setInteractionMode],
+  );
 
   const onboardingCopy = useMemo(() => getOnboardingCopy(activeTemplateId), [activeTemplateId]);
 
@@ -310,6 +338,8 @@ export function App({ onCompanySwitch }: AppProps) {
             onRequestCreateProject={handleRequestCreateProject}
             onRequestEditProject={handleRequestEditProject}
             activeProjectStatus={activeProject?.status ?? null}
+            interactionMode={interactionMode}
+            onInteractionModeChange={handleInteractionModeChange}
             chatOpenToken={officeBindings.chatOpenToken}
             collaborationRailProps={collaborationRailProps}
             handleOpenSettings={handleOpenSettings}

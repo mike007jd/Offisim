@@ -214,10 +214,10 @@
 
 ### 3.10 SessionModeSwitcher UI
 
-- [ ] 3.10.1 新建 `apps/web/src/components/session-mode/SessionModeBadge.tsx`,展示当前 mode + 海洋色 (`boss_proxy`=foam、`human_in_loop`=coral-orange、`direct_to_employee`=sea-blue、`yolo`=kelp-green)
-- [ ] 3.10.2 新建 `apps/web/src/components/session-mode/SessionModeSwitcher.tsx`,接 `current` + `onChange(mode)`,popover 列 4 项 (label + description),用 `.cyber-button` 风格
-- [ ] 3.10.3 `apps/web/src/components/app-shell/AppMainShell.tsx` header 加 `<SessionModeSwitcher>` slot,接 `activeConversationId` (从现有 store 取) + 调 `PATCH /api/sessions/:id/mode` (web) 或 Tauri command (desktop)
-- [ ] 3.10.4 commit `feat(web): SessionModeSwitcher in main shell header`
+- [x] 3.10.1 新建 `apps/web/src/components/session-mode/SessionModeBadge.tsx`,展示当前 mode + 海洋色 (`boss_proxy`=foam、`human_in_loop`=coral-orange、`direct_to_employee`=sea-blue、`yolo`=kelp-green)
+- [x] 3.10.2 新建 `apps/web/src/components/session-mode/SessionModeSwitcher.tsx`,接 `current` + `onChange(mode)`,popover 列 4 项 (label + description),用 `.cyber-button` 风格
+- [x] 3.10.3 `apps/web/src/components/app-shell/AppMainShell.tsx` header 加 `<SessionModeSwitcher>` slot,接 `activeConversationId` (从现有 store 取) + 调 `PATCH /api/sessions/:id/mode` (web) 或 Tauri command (desktop)
+- [x] 3.10.4 commit `feat(web): SessionModeSwitcher in main shell header`
 
 ### 3.11 Phase B harness scenario + checkpoint tag
 
