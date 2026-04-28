@@ -95,19 +95,19 @@
 
 ### 2.5 ResumeCoordinator + platform / Tauri resume route
 
-- [ ] 2.5.1 新建 `packages/core/src/runtime/resume-coordinator.ts`,导出 `ResumeCoordinator` 类:
+- [x] 2.5.1 新建 `packages/core/src/runtime/resume-coordinator.ts`,导出 `ResumeCoordinator` 类:
   - `constructor(saver: CheckpointSaver)`
   - `async resume(conversationId: string): Promise<{ state: OffisimGraphState; lastCheckpointTs: number } | null>` — 调 `saver.loadLatest`,无则 null
-- [ ] 2.5.2 若 `CheckpointSaver` 当前没 `loadLatest`,在 `packages/core/src/graph/checkpoint-saver.ts` 加该方法,签名 `loadLatest(conversationId: string): Promise<{ state: OffisimGraphState; lastCheckpointTs: number } | null>`
-- [ ] 2.5.3 新建 `resume-coordinator.test.mjs`,2 个 case:null / 命中
-- [ ] 2.5.4 `node --test` 全绿
-- [ ] 2.5.5 在 `packages/core/src/runtime/runtime-binding.ts` 实例化 `ResumeCoordinator`,挂到 RuntimeContext
-- [ ] 2.5.6 新建 `apps/platform/src/routes/resume.ts`,实现 `GET /api/conversations/:id/resume` SSE 端点 — 拉 latest checkpoint,first SSE event = `resume.snapshot`,然后 hand off 到现有 stream pump (找 `apps/platform/src/app.ts` 现有 SSE pump 注册点)
-- [ ] 2.5.7 在 `apps/platform/src/app.ts` 挂载该 route
-- [ ] 2.5.8 `apps/desktop/src-tauri/src/` 加对应 Tauri command `resume_conversation(id)`,返回 latest checkpoint snapshot;不需要 SSE (Tauri 直接 emit event)
-- [ ] 2.5.9 在 `apps/web/src/runtime/` 已有 `last-failed-message.ts` — 加 `useResumeOnReconnect()` hook,visibilitychange 或 SSE error 时调 `/api/conversations/:id/resume`,把 snapshot 注回 store
-- [ ] 2.5.10 `pnpm typecheck && pnpm lint && pnpm --filter @offisim/platform build` 全绿;简化审查;commit
-- [ ] 2.5.11 `git commit -m "feat(runtime): production ResumeCoordinator with platform + Tauri resume route"`
+- [x] 2.5.2 若 `CheckpointSaver` 当前没 `loadLatest`,在 `packages/core/src/graph/checkpoint-saver.ts` 加该方法,签名 `loadLatest(conversationId: string): Promise<{ state: OffisimGraphState; lastCheckpointTs: number } | null>`
+- [x] 2.5.3 新建 `resume-coordinator.test.mjs`,2 个 case:null / 命中
+- [x] 2.5.4 `node --test` 全绿
+- [x] 2.5.5 在 `packages/core/src/runtime/runtime-binding.ts` 实例化 `ResumeCoordinator`,挂到 RuntimeContext
+- [x] 2.5.6 新建 `apps/platform/src/routes/resume.ts`,实现 `GET /api/conversations/:id/resume` SSE 端点 — 拉 latest checkpoint,first SSE event = `resume.snapshot`,然后 hand off 到现有 stream pump (找 `apps/platform/src/app.ts` 现有 SSE pump 注册点)
+- [x] 2.5.7 在 `apps/platform/src/app.ts` 挂载该 route
+- [x] 2.5.8 `apps/desktop/src-tauri/src/` 加对应 Tauri command `resume_conversation(id)`,返回 latest checkpoint snapshot;不需要 SSE (Tauri 直接 emit event)
+- [x] 2.5.9 在 `apps/web/src/runtime/` 已有 `last-failed-message.ts` — 加 `useResumeOnReconnect()` hook,visibilitychange 或 SSE error 时调 `/api/conversations/:id/resume`,把 snapshot 注回 store
+- [x] 2.5.10 `pnpm typecheck && pnpm lint && pnpm --filter @offisim/platform build` 全绿;简化审查;commit
+- [x] 2.5.11 `git commit -m "feat(runtime): production ResumeCoordinator with platform + Tauri resume route"`
 
 ### 2.6 Phase A harness scenario + checkpoint tag
 

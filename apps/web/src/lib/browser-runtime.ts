@@ -40,6 +40,7 @@ import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
 import { ToolPermissionEngine } from '@offisim/core/dist/permissions/tool-permission-engine.js';
 import { HookRegistry } from '@offisim/core/dist/runtime/hook-registry.js';
+import { ResumeCoordinator } from '@offisim/core/dist/runtime/resume-coordinator.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
 import { Scratchpad } from '@offisim/core/dist/runtime/scratchpad.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
@@ -159,6 +160,7 @@ export type RuntimeBundle = {
   toolTelemetryService?: ToolTelemetryService;
   interactionService?: InteractionService;
   packService?: AgentContextPackService;
+  resumeCoordinator?: ResumeCoordinator;
   vaultActivation?: VaultActivation;
   desktopVaultRoot?: string | null;
   browserVault?: BrowserVaultController;
@@ -278,6 +280,7 @@ export async function createBrowserRuntime(
   });
 
   const checkpointer = createMemoryCheckpointSaver();
+  const resumeCoordinator = new ResumeCoordinator(checkpointer);
   const graph = buildOffisimGraph({ checkpointer });
 
   const mcpToolExecutor = new McpToolExecutor({
@@ -390,6 +393,7 @@ export async function createBrowserRuntime(
     toolTelemetryService,
     interactionService,
     rollingJournal,
+    resumeCoordinator,
     ...(skillLoader ? { skillLoader } : {}),
     skillStagingManager,
     skillInstallEnvironment,
@@ -426,6 +430,7 @@ export async function createBrowserRuntime(
     toolTelemetryService,
     interactionService,
     packService,
+    resumeCoordinator,
     skillLoader,
     vaultActivation: browserVault.activation ?? undefined,
     desktopVaultRoot: null,

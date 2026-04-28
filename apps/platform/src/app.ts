@@ -14,11 +14,15 @@ import { installRoute } from './routes/install.js';
 import { market } from './routes/market.js';
 import { meRoute } from './routes/me.js';
 import { publish } from './routes/publish.js';
+import { resumeRoute } from './routes/resume.js';
 import { reviewsRoute } from './routes/reviews.js';
 import { resolveCorsOrigins } from './startup.js';
 import type { PlatformEnv } from './types.js';
 
-export function createApp(platformDb: PlatformDb = db) {
+export function createApp(
+  platformDb: PlatformDb = db,
+  opts?: { resumeCoordinator?: PlatformEnv['Variables']['resumeCoordinator'] },
+) {
   const corsOrigins = resolveCorsOrigins();
   const app = new Hono<PlatformEnv>();
 
@@ -35,6 +39,9 @@ export function createApp(platformDb: PlatformDb = db) {
   app.use('*', generalRateLimit);
   app.use('*', async (c, next) => {
     c.set('db', platformDb);
+    if (opts?.resumeCoordinator) {
+      c.set('resumeCoordinator', opts.resumeCoordinator);
+    }
     await next();
   });
   app.use('/api/auth/*', authRateLimit);
@@ -53,6 +60,7 @@ export function createApp(platformDb: PlatformDb = db) {
   app.route('/v1/publish', publish);
   app.route('/v1/install', installRoute);
   app.route('/v1/me', meRoute);
+  app.route('/', resumeRoute);
 
   return app;
 }

@@ -5,6 +5,7 @@ mod git;
 mod llm_transport;
 mod local_paths;
 mod mcp_bridge;
+mod resume;
 mod runtime_secrets;
 mod sidecar_stderr;
 
@@ -305,6 +306,7 @@ pub fn run() {
             git::git_exec,
             local_paths::open_local_path,
             local_paths::save_deliverable_to_local,
+            resume::resume_conversation,
         ])
         .plugin(
             tauri_plugin_sql::Builder::default()

@@ -114,6 +114,7 @@ export type {
   LlmStreamChunk,
 } from './llm/gateway.js';
 export type { EventBus, EventHandler } from './events/event-bus.js';
+export type { ResumeSnapshot, LatestCheckpointSaver } from './runtime/resume-coordinator.js';
 export type {
   EngineAdapter,
   EngineAdapterRegistry,
@@ -153,6 +154,7 @@ export type { SerializedExecutionState } from './services/orchestration-service.
 // --- Factories ---
 export { buildOffisimGraph } from './graph/main-graph.js';
 export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.js';
+export { ResumeCoordinator } from './runtime/resume-coordinator.js';
 export { HookRegistry } from './runtime/hook-registry.js';
 export { Scratchpad } from './runtime/scratchpad.js';
 export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';

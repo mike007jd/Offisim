@@ -9,6 +9,7 @@ import {
   copyCheckpoint,
 } from '@langchain/langgraph-checkpoint';
 import type { CheckpointPendingWrite, PendingWrite } from '@langchain/langgraph-checkpoint';
+import type { OffisimGraphState } from '@offisim/core/browser';
 import { getTauriDb } from './tauri-db';
 
 /** Shape of a serialized write row from the pending_writes JSON aggregate. */
@@ -99,6 +100,29 @@ function logCheckpointError(method: string, err: unknown): void {
  * Tables used (`checkpoints` + `writes`) are created by Rust migration 6.
  */
 export class TauriCheckpointSaver extends BaseCheckpointSaver {
+  async loadLatest(
+    conversationId: string,
+  ): Promise<{ state: OffisimGraphState; lastCheckpointTs: number } | null> {
+    const tuple = await this.getTuple({ configurable: { thread_id: conversationId } });
+    if (!tuple) return null;
+    const checkpoint = tuple.checkpoint as Checkpoint & {
+      channel_values?: unknown;
+      ts?: string | number;
+    };
+    const state = checkpoint.channel_values as OffisimGraphState | undefined;
+    if (!state) return null;
+    const parsedTs =
+      typeof checkpoint.ts === 'number'
+        ? checkpoint.ts
+        : typeof checkpoint.ts === 'string'
+          ? Date.parse(checkpoint.ts)
+          : Number.NaN;
+    return {
+      state,
+      lastCheckpointTs: Number.isFinite(parsedTs) ? parsedTs : 0,
+    };
+  }
+
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
     const db = await getTauriDb();
     const { thread_id, checkpoint_ns = '', checkpoint_id } = config.configurable ?? {};

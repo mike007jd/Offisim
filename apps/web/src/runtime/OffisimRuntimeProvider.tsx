@@ -17,6 +17,7 @@ import { useMemo, useRef } from 'react';
 import { loadBrowserRuntimeSnapshot } from '../lib/browser-runtime-storage';
 import { useInteractionSync } from './hooks/useInteractionSync';
 import { useNotificationBridge } from './hooks/useNotificationBridge';
+import { useResumeOnReconnect } from './hooks/useResumeOnReconnect';
 import { useRuntimeInit } from './hooks/useRuntimeInit';
 import { useSceneIntentWiring } from './hooks/useSceneIntentWiring';
 import {
@@ -104,6 +105,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
     });
 
   useRuntimeMeetingBridge({ eventBus, runtimeRef, setIsRunning, setError });
+  useResumeOnReconnect({ runtimeRef, lastFailedMessageRef, setIsRunning, setError });
 
   const { unfinishedThreads, dismissUnfinishedThreads, resumeThread } =
     useUnfinishedThreadDetection({

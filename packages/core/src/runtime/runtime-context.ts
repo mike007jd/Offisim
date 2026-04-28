@@ -18,6 +18,7 @@ import type { SkillLoader } from '../skills/skill-loader.js';
 import type { SkillStagingManager } from '../skills/skill-staging.js';
 import { HookRegistry } from './hook-registry.js';
 import type { RuntimeRepositories } from './repositories.js';
+import type { ResumeCoordinator } from './resume-coordinator.js';
 import { Scratchpad } from './scratchpad.js';
 import type { SessionCostTracker } from './session-cost-tracker.js';
 import type { ToolExecutor } from './tool-executor.js';
@@ -83,6 +84,8 @@ export interface RuntimeContext {
   readonly interactionService?: InteractionService;
   /** Long-running thread journal with a stable first user objective anchor. */
   readonly rollingJournal?: RollingJournal;
+  /** Reloads latest checkpoint snapshots after reconnects or host restarts. */
+  readonly resumeCoordinator?: ResumeCoordinator;
   /** Optional lifecycle hook registry for graph/task/interaction instrumentation. */
   readonly hookRegistry: HookRegistry;
   /** Shared in-memory scratchpad for cross-node planning notes. */
@@ -144,6 +147,7 @@ export function createRuntimeContext(deps: {
   engineAdapters?: EngineAdapterRegistry;
   interactionService?: InteractionService;
   rollingJournal?: RollingJournal;
+  resumeCoordinator?: ResumeCoordinator;
   hookRegistry?: HookRegistry;
   scratchpad?: Scratchpad;
   skillLoader?: SkillLoader;

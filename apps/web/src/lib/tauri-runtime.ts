@@ -25,6 +25,7 @@ import { UserPreferenceMiddleware } from '@offisim/core/dist/middleware/builtin/
 import { LlmMiddlewareChain } from '@offisim/core/dist/middleware/chain.js';
 import { ToolPermissionEngine } from '@offisim/core/dist/permissions/tool-permission-engine.js';
 import { HookRegistry } from '@offisim/core/dist/runtime/hook-registry.js';
+import { ResumeCoordinator } from '@offisim/core/dist/runtime/resume-coordinator.js';
 import { createRuntimeContext } from '@offisim/core/dist/runtime/runtime-context.js';
 import { Scratchpad } from '@offisim/core/dist/runtime/scratchpad.js';
 import { SessionCostTracker } from '@offisim/core/dist/runtime/session-cost-tracker.js';
@@ -255,6 +256,7 @@ export async function createTauriRuntime(
   });
 
   const checkpointer = new TauriCheckpointSaver();
+  const resumeCoordinator = new ResumeCoordinator(checkpointer);
   const graph = buildOffisimGraph({ checkpointer });
 
   // MCP tool executor — TauriMcpClientFactory supports both stdio (via Rust bridge) and SSE
@@ -401,6 +403,7 @@ export async function createTauriRuntime(
     engineAdapters: createTauriEngineAdapterRegistry({ enableProviderHostPreviewAdapters: true }),
     interactionService,
     rollingJournal,
+    resumeCoordinator,
     ...(skillLoader ? { skillLoader } : {}),
     skillStagingManager,
     skillInstallEnvironment,
@@ -475,6 +478,7 @@ export async function createTauriRuntime(
     sessionCostTracker,
     toolTelemetryService,
     interactionService,
+    resumeCoordinator,
     skillLoader,
     vaultActivation: vaultActivation ?? undefined,
     desktopVaultRoot: vaultActivation?.root ?? null,
