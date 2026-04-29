@@ -6,7 +6,7 @@ use tauri::Runtime;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
-use crate::local_db::open_offisim_pool;
+use crate::local_db::get_offisim_pool;
 
 const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 const MAX_READ_BYTES: u64 = 8 * 1024 * 1024;
@@ -22,7 +22,7 @@ pub struct BashExecuteResult {
 }
 
 async fn workspace_roots<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Vec<PathBuf>, String> {
-    let pool = open_offisim_pool(app).await.map_err(|err| {
+    let pool = get_offisim_pool(app).map_err(|err| {
         eprintln!("[builtin_tools] {err}");
         "open offisim.db failed".to_string()
     })?;
@@ -39,8 +39,6 @@ async fn workspace_roots<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Vec<Pa
         eprintln!("[builtin_tools] list project workspace roots failed: {err}");
         "list project workspace roots failed".to_string()
     })?;
-    pool.close().await;
-
     let mut roots = Vec::new();
     for row in rows {
         let raw: String = row

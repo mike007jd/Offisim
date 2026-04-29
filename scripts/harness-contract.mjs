@@ -46,6 +46,13 @@ const completionVerifier = await import(
 const leakDetector = await import(
   new URL('../packages/core/dist/testing/leak-detector.js', import.meta.url).href
 );
+const soakRunner = await import(
+  new URL('../packages/core/dist/testing/soak-runner.js', import.meta.url).href
+);
+const logger = await import(
+  new URL('../packages/core/dist/services/logger.js', import.meta.url).href
+);
+logger.setLogHandler(() => {});
 const invariants = [
   await assertRuntimeDenyOverridesGrant(core),
   await assertOnceApprovalIsConsumedOnce(core),
@@ -55,6 +62,7 @@ const invariants = [
   assertLongRunningMicroCompactScenario(microCompact),
   assertCompletionVerifierScenario(completionVerifier),
   assertLeakDetectorScenario(leakDetector),
+  await assertSoakBoundedMemoryScenario(soakRunner),
   assertDagOutputAttribution(graph),
   assertKanbanStateMachineSsot(sharedKanban),
   assertDesktopKanbanStateMachineScenario(),
@@ -283,6 +291,32 @@ function assertLeakDetectorScenario(leakDetector) {
     );
   }
   return { id: 'soak.leak_detector_reports_pending_assignments', passed: true };
+}
+
+async function assertSoakBoundedMemoryScenario(soakRunner) {
+  const scenario = readScenario('soak-leak-detector-bounded-memory');
+  const fixture = scenario.fixture ?? {};
+  const iterations = Number(fixture.iterations ?? 20);
+  const concurrency = Number(fixture.concurrency ?? 4);
+  const sampleFailureCap = Number(fixture.sampleFailureCap ?? 5);
+  const maxHeapDeltaMb = Number(fixture.maxHeapDeltaMb ?? 100);
+  const report = await soakRunner.runSoakHarness(
+    [readScenario('yolo-80-turn-multi-file-refactor')],
+    {
+      iterations,
+      concurrency,
+    },
+  );
+  if (report.leakSummary.sampleFailures.length > sampleFailureCap) {
+    throw new Error(
+      `soak sample failures exceeded cap: ${report.leakSummary.sampleFailures.length} > ${sampleFailureCap}`,
+    );
+  }
+  const heapDeltaMb = report.memory.endMb - report.memory.startMb;
+  if (heapDeltaMb > maxHeapDeltaMb) {
+    throw new Error(`soak heap delta exceeded cap: ${heapDeltaMb} > ${maxHeapDeltaMb}`);
+  }
+  return { id: 'soak.bounded_memory_summary', passed: true };
 }
 
 async function assertRuntimeDenyOverridesGrant(core) {

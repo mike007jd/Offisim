@@ -4,7 +4,7 @@ use sqlx::Row;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Runtime};
 
-use crate::local_db::open_offisim_pool;
+use crate::local_db::get_offisim_pool;
 
 include!(concat!(env!("OUT_DIR"), "/kanban_state_machine.rs"));
 
@@ -166,7 +166,7 @@ pub async fn list_kanban_cards<R: Runtime>(
     app: tauri::AppHandle<R>,
     project_id: String,
 ) -> Result<Vec<KanbanCard>, String> {
-    let pool = open_offisim_pool(&app).await?;
+    let pool = get_offisim_pool(&app)?;
     let rows = sqlx::query(
         r#"
         SELECT id, project_id, company_id, title, note, state, origin,
@@ -181,7 +181,6 @@ pub async fn list_kanban_cards<R: Runtime>(
     .fetch_all(&pool)
     .await
     .map_err(|err| format!("list kanban cards: {err}"))?;
-    pool.close().await;
     rows.into_iter().map(decode_card).collect()
 }
 
@@ -194,7 +193,7 @@ pub async fn create_kanban_card<R: Runtime>(
     let state = input.state.unwrap_or_else(|| "todo".to_string());
     validate_state(&state)?;
     let id = input.id.unwrap_or_else(generate_card_id);
-    let pool = open_offisim_pool(&app).await?;
+    let pool = get_offisim_pool(&app)?;
     let company_id: Option<String> = sqlx::query_scalar(
         r#"
         SELECT company_id
@@ -243,7 +242,6 @@ pub async fn create_kanban_card<R: Runtime>(
     let card = fetch_card(&pool, &id)
         .await?
         .ok_or_else(|| "created kanban card not found".to_string())?;
-    pool.close().await;
     emit_kanban_update(&app, "created", &card);
     Ok(card)
 }
@@ -260,7 +258,7 @@ pub async fn transition_kanban_card<R: Runtime>(
     if let Some(expected) = &expected_state {
         validate_state(expected)?;
     }
-    let pool = open_offisim_pool(&app).await?;
+    let pool = get_offisim_pool(&app)?;
     let current: Option<String> =
         sqlx::query_scalar("SELECT state FROM kanban_cards WHERE id = ? LIMIT 1")
             .bind(&id)
@@ -268,18 +266,15 @@ pub async fn transition_kanban_card<R: Runtime>(
             .await
             .map_err(|err| format!("select kanban current state: {err}"))?;
     let Some(current) = current else {
-        pool.close().await;
         return Ok(None);
     };
     let expected = expected_state.unwrap_or_else(|| current.clone());
     if current != expected {
-        pool.close().await;
         return Err(format!(
             "kanban transition stale: {id} moved from {expected} to {current}"
         ));
     }
     if !is_allowed_transition(&current, &next) {
-        pool.close().await;
         return Err(format!("invalid kanban transition: {current} -> {next}"));
     }
     let result = sqlx::query(
@@ -303,7 +298,6 @@ pub async fn transition_kanban_card<R: Runtime>(
                 .fetch_optional(&pool)
                 .await
                 .map_err(|err| format!("select kanban stale state: {err}"))?;
-        pool.close().await;
         return Err(format!(
             "kanban transition stale: {id} moved from {expected} to {}",
             actual.unwrap_or_else(|| "<missing>".to_string())
@@ -311,7 +305,6 @@ pub async fn transition_kanban_card<R: Runtime>(
     }
 
     let card = fetch_card(&pool, &id).await?;
-    pool.close().await;
     if let Some(card) = &card {
         emit_kanban_update(&app, "transitioned", card);
     }
@@ -323,7 +316,7 @@ pub async fn count_kanban_for_employee<R: Runtime>(
     app: tauri::AppHandle<R>,
     employee_id: String,
 ) -> Result<i64, String> {
-    let pool = open_offisim_pool(&app).await?;
+    let pool = get_offisim_pool(&app)?;
     let count: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
@@ -335,7 +328,6 @@ pub async fn count_kanban_for_employee<R: Runtime>(
     .fetch_one(&pool)
     .await
     .map_err(|err| format!("count employee kanban cards: {err}"))?;
-    pool.close().await;
     Ok(count)
 }
 

@@ -7,10 +7,11 @@ import { RollingJournal } from '../services/conversation-budget/rolling-journal.
 import { canonicalJson } from './canonical-json.js';
 import { sha256Text } from './hash.js';
 import { summarizeRuntimeLeaks } from './leak-detector.js';
+import type { RuntimeLeakSummary } from './leak-detector.js';
 import {
+  type LatencySummary,
   heapGrowthMbPerHour,
   sampleRuntimeHealth,
-  summarizeLatencyMs,
 } from './runtime-health-sampler.js';
 import type { DeterministicScenario } from './scenario-runner.js';
 import { runDeterministicScenario } from './scenario-runner.js';
@@ -47,6 +48,7 @@ export interface SoakRunnerReport {
     readonly duplicateTaskRuns: number;
     readonly duplicateToolCalls: number;
   };
+  readonly leakSummary: SoakLeakAccumulatorSnapshot;
   readonly metrics: readonly SoakScenarioMetrics[];
   readonly failures: readonly {
     readonly scenarioId: string;
@@ -63,6 +65,21 @@ export interface SoakScenarioMetrics {
   readonly completionVerifierAllows: number;
   readonly completionVerifierBlocks: number;
 }
+
+export interface SoakLeakAccumulatorSnapshot {
+  readonly totalIterations: number;
+  readonly leakingIterations: number;
+  readonly byCategory: Record<keyof RuntimeLeakSummary, number>;
+  readonly sampleFailures: readonly {
+    readonly scenarioId: string;
+    readonly traceHash: string;
+    readonly assertions: ScenarioTraceReport['assertions'];
+  }[];
+}
+
+type MutableRuntimeLeakSummary = {
+  -readonly [K in keyof RuntimeLeakSummary]: RuntimeLeakSummary[K];
+};
 
 interface YoloSoakScenario {
   readonly id: string;
@@ -96,6 +113,8 @@ const DEFAULT_YOLO_SOAK_FIXTURE: YoloSoakFixture = {
   minRollingJournalWrites: 9,
 };
 
+const SAMPLE_FAILURE_CAP = 5;
+
 const textEncoder = new TextEncoder();
 
 export async function runSoakHarness(
@@ -112,8 +131,8 @@ export async function runSoakHarness(
     options.durationMs && options.durationMs > 0 ? performance.now() + options.durationMs : null;
   const start = sampleRuntimeHealth();
   const startedAt = performance.now();
-  const latencies: number[] = [];
-  const reports: ScenarioTraceReport[] = [];
+  const latencyBuckets = new LatencyBuckets();
+  const leakAccumulator = new SoakLeakAccumulator(SAMPLE_FAILURE_CAP);
   const metrics = new Map<string, SoakScenarioMetrics>();
   let nextIteration = 0;
 
@@ -126,8 +145,8 @@ export async function runSoakHarness(
       const report = isYoloSoakScenario(scenario)
         ? await runYoloSoakScenario(scenario)
         : await runDeterministicScenario(scenario);
-      latencies.push(performance.now() - t0);
-      reports.push(report);
+      latencyBuckets.add(performance.now() - t0);
+      leakAccumulator.add(report);
       const metric = extractSoakMetrics(report);
       if (metric) metrics.set(metric.scenarioId, metric);
     }
@@ -136,15 +155,17 @@ export async function runSoakHarness(
   await Promise.all(Array.from({ length: concurrency }, () => worker()));
   const endedAt = performance.now();
   const end = sampleRuntimeHealth();
-  const leaks = summarizeRuntimeLeaks(reports);
-  const failures = reports.filter((report) => !report.passed);
+  const leakSummary = leakAccumulator.snapshot();
 
   return {
     suite: 'soak',
     durationMs: Math.round(endedAt - startedAt),
-    iterations: reports.length,
-    passed: reports.length - failures.length,
-    failed: failures.length,
+    iterations: leakSummary.totalIterations,
+    passed:
+      leakSummary.totalIterations -
+      leakSummary.sampleFailures.length -
+      leakAccumulator.unsampledFailures,
+    failed: leakSummary.sampleFailures.length + leakAccumulator.unsampledFailures,
     memory: {
       startMb: start.heapUsedMb,
       endMb: end.heapUsedMb,
@@ -152,15 +173,115 @@ export async function runSoakHarness(
       rssStartMb: start.rssMb,
       rssEndMb: end.rssMb,
     },
-    latencyMs: summarizeLatencyMs(latencies),
-    runtime: leaks,
+    latencyMs: latencyBuckets.summary(),
+    runtime: leakAccumulator.runtimeLeaks,
+    leakSummary,
     metrics: [...metrics.values()],
-    failures: failures.map((report) => ({
-      scenarioId: report.scenarioId,
-      traceHash: report.traceHash,
-      assertions: report.assertions,
-    })),
+    failures: leakSummary.sampleFailures,
   };
+}
+
+class SoakLeakAccumulator {
+  readonly runtimeLeaks: MutableRuntimeLeakSummary = {
+    activeInteractionsLeaked: 0,
+    pendingAssignmentsLeaked: 0,
+    duplicateTaskRuns: 0,
+    duplicateToolCalls: 0,
+  };
+
+  private totalIterations = 0;
+  private leakingIterations = 0;
+  private readonly byCategory: Record<keyof RuntimeLeakSummary, number> = {
+    activeInteractionsLeaked: 0,
+    pendingAssignmentsLeaked: 0,
+    duplicateTaskRuns: 0,
+    duplicateToolCalls: 0,
+  };
+  private readonly sampleFailures: SoakLeakAccumulatorSnapshot['sampleFailures'][number][] = [];
+  unsampledFailures = 0;
+
+  constructor(private readonly sampleFailureCap: number) {}
+
+  add(report: ScenarioTraceReport): void {
+    this.totalIterations += 1;
+    const leaks = summarizeRuntimeLeaks([report]);
+    let leaked = false;
+    for (const key of Object.keys(this.byCategory) as Array<keyof RuntimeLeakSummary>) {
+      const count = leaks[key];
+      this.runtimeLeaks[key] += count;
+      this.byCategory[key] += count;
+      if (count > 0) leaked = true;
+    }
+    if (leaked) this.leakingIterations += 1;
+    if (!report.passed) {
+      if (this.sampleFailures.length < this.sampleFailureCap) {
+        this.sampleFailures.push({
+          scenarioId: report.scenarioId,
+          traceHash: report.traceHash,
+          assertions: report.assertions,
+        });
+      } else {
+        this.unsampledFailures += 1;
+      }
+    }
+  }
+
+  snapshot(): SoakLeakAccumulatorSnapshot {
+    return {
+      totalIterations: this.totalIterations,
+      leakingIterations: this.leakingIterations,
+      byCategory: { ...this.byCategory },
+      sampleFailures: this.sampleFailures,
+    };
+  }
+}
+
+class LatencyBuckets {
+  private readonly buckets = [
+    50,
+    100,
+    200,
+    400,
+    800,
+    1600,
+    3200,
+    6400,
+    12_800,
+    30_000,
+    60_000,
+    Number.POSITIVE_INFINITY,
+  ] as const;
+  private readonly counts = new Array<number>(this.buckets.length).fill(0);
+  private total = 0;
+
+  add(valueMs: number): void {
+    this.total += 1;
+    const bucketIndex = this.buckets.findIndex((upperBound) => valueMs <= upperBound);
+    const index = bucketIndex === -1 ? this.counts.length - 1 : bucketIndex;
+    this.counts[index] = (this.counts[index] ?? 0) + 1;
+  }
+
+  summary(): LatencySummary {
+    return {
+      p50: this.percentile(0.5),
+      p95: this.percentile(0.95),
+      p99: this.percentile(0.99),
+    };
+  }
+
+  private percentile(p: number): number {
+    if (this.total === 0) return 0;
+    const target = Math.max(1, Math.ceil(this.total * p));
+    let cumulative = 0;
+    for (let index = 0; index < this.counts.length; index += 1) {
+      cumulative += this.counts[index] ?? 0;
+      if (cumulative >= target) {
+        const bucket = this.buckets[index] ?? 0;
+        return Number.isFinite(bucket) ? bucket : (this.buckets[index - 1] ?? 0);
+      }
+    }
+    return 0;
+  }
 }
 
 function isYoloSoakScenario(

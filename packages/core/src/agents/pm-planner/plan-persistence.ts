@@ -37,23 +37,10 @@ export async function persistLlmPlanAsTaskPlan(
     'pm_planner',
   );
 
-  const planSteps: PlanStep[] = [];
-  for (const llmStep of plan.steps) {
-    const planTasks: PlanTask[] = [];
-    for (const llmTask of llmStep.tasks) {
+  const planSteps: PlanStep[] = plan.steps.map((llmStep) => {
+    const planTasks: PlanTask[] = llmStep.tasks.map((llmTask) => {
       const taskRunId = generateId('tr');
-      await repos.taskRuns.create({
-        task_run_id: taskRunId,
-        thread_id: threadId,
-        employee_id: llmTask.employeeId,
-        parent_task_run_id: null,
-        task_type: llmTask.taskType,
-        status: 'queued',
-        input_json: JSON.stringify({ description: llmTask.description }),
-        output_json: null,
-        started_at: new Date().toISOString(),
-      });
-      planTasks.push({
+      return {
         taskType: llmTask.taskType,
         employeeId: llmTask.employeeId,
         assigneeKind: 'employee',
@@ -63,16 +50,34 @@ export async function persistLlmPlanAsTaskPlan(
         dependsOnStepOutput: llmTask.dependsOnStepOutput,
         requiredSkills: llmTask.requiredSkills,
         taskRunId,
-      });
-    }
-    planSteps.push({
+      };
+    });
+    return {
       stepIndex: llmStep.stepIndex,
       description: llmStep.description,
       tasks: planTasks,
       phase: llmStep.phase,
       dependsOnSteps: llmStep.dependsOnSteps,
-    });
-  }
+    };
+  });
+  const startedAt = new Date().toISOString();
+  await Promise.all(
+    planSteps.flatMap((step) =>
+      step.tasks.map((task) =>
+        repos.taskRuns.create({
+          task_run_id: requireTaskRunId(task),
+          thread_id: threadId,
+          employee_id: task.employeeId,
+          parent_task_run_id: null,
+          task_type: task.taskType,
+          status: 'queued',
+          input_json: JSON.stringify({ description: task.description }),
+          output_json: null,
+          started_at: startedAt,
+        }),
+      ),
+    ),
+  );
 
   const taskPlan: TaskPlan = {
     planId,
@@ -112,20 +117,22 @@ export async function persistLlmPlanAsTaskPlan(
   );
 
   if (projectId) {
-    for (const step of planSteps) {
-      for (const [taskIndex, task] of step.tasks.entries()) {
-        await repos.kanban.create({
-          project_id: projectId,
-          company_id: companyId,
-          title: task.description || step.description,
-          note: step.description,
-          origin: 'pm-planner',
-          assigned_employee_id: task.employeeId,
-          task_run_id: task.taskRunId ?? null,
-          sort_order: step.stepIndex * 100 + taskIndex,
-        });
-      }
-    }
+    await Promise.all(
+      planSteps.flatMap((step) =>
+        step.tasks.map((task, taskIndex) =>
+          repos.kanban.create({
+            project_id: projectId,
+            company_id: companyId,
+            title: task.description || step.description,
+            note: step.description,
+            origin: 'pm-planner',
+            assigned_employee_id: task.employeeId,
+            task_run_id: requireTaskRunId(task),
+            sort_order: step.stepIndex * 100 + taskIndex,
+          }),
+        ),
+      ),
+    );
   }
 
   await appendAgentEvent(runtimeCtx, {
@@ -145,4 +152,9 @@ export async function persistLlmPlanAsTaskPlan(
     ...createEmptyPlanScopedState(),
     taskPlan,
   };
+}
+
+function requireTaskRunId(task: PlanTask): string {
+  if (!task.taskRunId) throw new Error('Expected planner task to have a taskRunId');
+  return task.taskRunId;
 }

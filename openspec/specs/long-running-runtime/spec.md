@@ -57,12 +57,19 @@ Employee success finalization SHALL default to blocked when no `taskRunId` is av
 ### Requirement: Heartbeat SHALL surface verifier-blocked work
 
 PM heartbeat SHALL classify blocked task runs as needing attention and include the blocked reason in its event payload.
+When plan progress has not changed and there are no unresolved dispatched tasks, heartbeat SHALL return without scanning task-run rows or agent-event history. If dispatched work is still unresolved, heartbeat SHALL still scan so `running-too-long` can be detected.
 
 #### Scenario: Verifier-blocked task appears in heartbeat
 
 - **WHEN** a task run is blocked by completion verification
 - **THEN** heartbeat reports that the plan needs attention
 - **AND** the payload includes `verifier-blocked`.
+
+#### Scenario: Unchanged completed plan short-circuits heartbeat
+
+- **WHEN** the heartbeat snapshot matches the current plan progress
+- **AND** no dispatched step is still unresolved
+- **THEN** heartbeat returns without an O(task-runs) database scan.
 
 ### Requirement: micro-compact pass runs before full-compact
 
@@ -180,6 +187,7 @@ The following scenarios SHALL exist in `packages/core/harness/scenarios/` and pa
 
 - `long-running-microcompact-triggers.json` — fixture with three 100KB tool results; invariant: post-prepare token count ≤ 80k and exactly 3 micro-compact markers present.
 - `completion-verifier-blocks-without-evidence.json` — fixture where employee declares done with no evidence; invariant: final task state is `'review'`, `completion-blocked` event present.
+- `soak-leak-detector-bounded-memory.json` — fixture proving soak summaries retain only bounded sample failures and enforce a bounded heap delta.
 
 The following scenario SHALL exist and pass under `pnpm harness:soak`:
 
@@ -188,3 +196,18 @@ The following scenario SHALL exist and pass under `pnpm harness:soak`:
 #### Scenario: Soak run produces valid metrics
 - **WHEN** `pnpm harness:soak` runs `yolo-80-turn-multi-file-refactor.json`
 - **THEN** the trace records `microCompactPasses ≥ 3`, `rollingJournalWrites ≥ 9`, and ends with `outcome: 'completed'`
+
+#### Scenario: Soak summary retains bounded samples
+- **WHEN** the soak harness runs many iterations with concurrency
+- **THEN** runtime leak totals are accumulated without retaining every full trace
+- **AND** failure details are capped to a small sample set.
+
+### Requirement: Plan persistence SHALL batch independent row writes
+
+PM planner persistence SHALL create task-run rows for the plan in parallel batches, then create linked kanban rows in a second parallel batch after task-run IDs exist. The logical `sort_order` SHALL come from plan step/task indices, not from write completion order.
+
+#### Scenario: Plan rows do not serialize per task
+
+- **WHEN** a plan has multiple steps and tasks
+- **THEN** task-run rows are persisted as an independent batch
+- **AND** kanban rows are persisted as an independent batch after task-run IDs are assigned.

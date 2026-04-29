@@ -2,7 +2,7 @@ use serde::Serialize;
 use sqlx::Row;
 use tauri::Runtime;
 
-use crate::local_db::open_offisim_pool;
+use crate::local_db::get_offisim_pool;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,7 +46,7 @@ pub async fn get_session<R: Runtime>(
     app: tauri::AppHandle<R>,
     id: String,
 ) -> Result<Option<SessionSnapshot>, String> {
-    let pool = open_offisim_pool(&app).await?;
+    let pool = get_offisim_pool(&app)?;
     let row = sqlx::query(
         r#"
         SELECT meeting_id, interaction_mode, status, topic, updated_at
@@ -59,8 +59,6 @@ pub async fn get_session<R: Runtime>(
     .fetch_optional(&pool)
     .await
     .map_err(|err| format!("select session: {err}"))?;
-    pool.close().await;
-
     row.map(decode_session).transpose()
 }
 
@@ -71,7 +69,7 @@ pub async fn set_session_mode<R: Runtime>(
     mode: String,
 ) -> Result<Option<SessionSnapshot>, String> {
     validate_mode(&mode)?;
-    let pool = open_offisim_pool(&app).await?;
+    let pool = get_offisim_pool(&app)?;
     sqlx::query(
         r#"
         UPDATE meeting_sessions
@@ -97,7 +95,5 @@ pub async fn set_session_mode<R: Runtime>(
     .fetch_optional(&pool)
     .await
     .map_err(|err| format!("select session: {err}"))?;
-    pool.close().await;
-
     row.map(decode_session).transpose()
 }

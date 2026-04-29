@@ -35,11 +35,11 @@
 
 ## Phase F - Hot-path efficiency
 
-- [ ] Manage a desktop SQLite pool in Tauri state and remove per-command close calls.
-- [ ] Stream-reduce soak reports with bounded sample failures and bounded latency storage.
-- [ ] Short-circuit PM heartbeat before DB scans when plan progress did not change.
-- [ ] Persist plan task rows and kanban rows in parallel batches.
-- [ ] Sync `openspec/specs/long-running-runtime/spec.md`.
+- [x] Manage a desktop SQLite pool in Tauri state and remove per-command close calls.
+- [x] Stream-reduce soak reports with bounded sample failures and bounded latency storage.
+- [x] Short-circuit PM heartbeat before DB scans when plan progress did not change.
+- [x] Persist plan task rows and kanban rows in parallel batches.
+- [x] Sync `openspec/specs/long-running-runtime/spec.md`.
 
 ## Phase G - Misc cleanup and RC verification
 

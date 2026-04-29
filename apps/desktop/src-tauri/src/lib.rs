@@ -357,6 +357,9 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            tauri::async_runtime::block_on(local_db::init_offisim_db_state(app.handle()))
+                .map_err(|e| format!("local_db init: {e}"))?;
+
             // Resolve the plaintext secret-file location once so non-command
             // callers (llm_transport) can read without an AppHandle.
             app.set_activation_policy(tauri::ActivationPolicy::Regular);

@@ -44,6 +44,13 @@ export interface TaskPlan {
   summary: string;
 }
 
+export interface PmHeartbeatSnapshot {
+  dispatchedCount: number;
+  completedCount: number;
+  blockedCount: number;
+  planSignature: string;
+}
+
 export interface ManagerDirective {
   intent: string;
   recommendedEmployees: string[];
@@ -243,6 +250,11 @@ export const OffisimGraphAnnotation = Annotation.Root({
     default: () => [],
   }),
 
+  pmHeartbeatLastSnapshot: Annotation<PmHeartbeatSnapshot | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+
   // P2: Handoff guard rail counter (only employeeNode writes this)
   handoffCount: Annotation<number>({
     default: () => 0,
@@ -284,6 +296,7 @@ export function createEmptyPlanScopedState(): Partial<OffisimGraphState> {
     dispatchedStepIndices: [],
     completedStepIndices: [],
     blockedStepIndices: [],
+    pmHeartbeatLastSnapshot: null,
     stepResults: [],
     currentStepOutputs: [],
     currentStepIndex: 0,

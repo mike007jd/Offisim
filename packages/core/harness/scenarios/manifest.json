@@ -195,6 +195,11 @@
       "invariants": ["soak.leak_detector_reports_pending_assignments"]
     },
     {
+      "id": "soak-leak-detector-bounded-memory",
+      "category": "harness-contract",
+      "invariants": ["soak.bounded_memory_summary"]
+    },
+    {
       "id": "mode-kanban-matrix",
       "category": "kanban-matrix",
       "invariants": [

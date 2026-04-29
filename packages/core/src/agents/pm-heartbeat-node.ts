@@ -1,5 +1,6 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../events/event-factories.js';
+import type { PmHeartbeatSnapshot, TaskPlan } from '../graph/state.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getRuntime } from '../utils/get-runtime.js';
@@ -34,6 +35,18 @@ export async function pmHeartbeatNode(
   const blockedCount = (state.blockedStepIndices ?? []).length;
   const totalSteps = plan.steps.length;
   const dispatchedCount = (state.dispatchedStepIndices ?? []).length;
+  const nextSnapshot = buildHeartbeatSnapshot(plan, {
+    dispatchedCount,
+    completedCount,
+    blockedCount,
+  });
+  const hasUnresolvedDispatchedTasks = dispatchedCount > completedCount + blockedCount;
+  if (
+    !hasUnresolvedDispatchedTasks &&
+    sameHeartbeatSnapshot(state.pmHeartbeatLastSnapshot, nextSnapshot)
+  ) {
+    return {};
+  }
   const currentProgress =
     blockedCount > 0
       ? `${completedCount}/${totalSteps} steps, ${blockedCount} blocked`
@@ -67,7 +80,7 @@ export async function pmHeartbeatNode(
           const lastPayload = JSON.parse(lastHeartbeat.payload_json) as Record<string, unknown>;
           if (lastPayload.progress === currentProgress && stuckTasks.length === 0) {
             // No change since last heartbeat — stay silent
-            return {};
+            return { pmHeartbeatLastSnapshot: nextSnapshot };
           }
         } catch {
           /* proceed with event */
@@ -109,5 +122,28 @@ export async function pmHeartbeatNode(
     },
   });
 
-  return {};
+  return { pmHeartbeatLastSnapshot: nextSnapshot };
+}
+
+function buildHeartbeatSnapshot(
+  plan: TaskPlan,
+  counts: Pick<PmHeartbeatSnapshot, 'dispatchedCount' | 'completedCount' | 'blockedCount'>,
+): PmHeartbeatSnapshot {
+  return {
+    ...counts,
+    planSignature: `${plan.planId}:${plan.steps.length}`,
+  };
+}
+
+function sameHeartbeatSnapshot(
+  left: PmHeartbeatSnapshot | null | undefined,
+  right: PmHeartbeatSnapshot,
+): boolean {
+  return (
+    !!left &&
+    left.planSignature === right.planSignature &&
+    left.dispatchedCount === right.dispatchedCount &&
+    left.completedCount === right.completedCount &&
+    left.blockedCount === right.blockedCount
+  );
 }
