@@ -11,6 +11,8 @@ export type ScenarioAssertion =
     }
   | { readonly kind: 'noDuplicateStepOutputs' }
   | { readonly kind: 'threadStatusIs'; readonly status: string }
+  | { readonly kind: 'taskRunStatusIs'; readonly taskRunId: string; readonly status: string }
+  | { readonly kind: 'taskStateEvent'; readonly taskRunId: string; readonly next: string }
   | {
       readonly kind: 'interactionHistoryContains';
       readonly interactionKind: string;
@@ -83,6 +85,10 @@ async function evaluateAssertion(
       return assertNoDuplicateStepOutputs(ctx.finalState);
     case 'threadStatusIs':
       return assertThreadStatus(ctx.repos, ctx.threadId, assertion.status);
+    case 'taskRunStatusIs':
+      return assertTaskRunStatus(ctx.repos, assertion.taskRunId, assertion.status);
+    case 'taskStateEvent':
+      return assertTaskStateEvent(ctx.events, assertion);
     case 'interactionHistoryContains':
       return assertInteractionHistory(ctx.repos, ctx.threadId, assertion);
     case 'noEmployeeAfterCancel':
@@ -209,6 +215,33 @@ async function assertThreadStatus(
   const thread = await repos.threads.findById(threadId);
   if (thread?.status !== expected) {
     throw new Error(`Expected thread status ${expected}, got ${thread?.status ?? '<missing>'}`);
+  }
+}
+
+async function assertTaskRunStatus(
+  repos: RuntimeRepositories,
+  taskRunId: string,
+  expected: string,
+): Promise<void> {
+  const taskRun = await repos.taskRuns.findById(taskRunId);
+  if (taskRun?.status !== expected) {
+    throw new Error(
+      `Expected task run ${taskRunId} status ${expected}, got ${taskRun?.status ?? '<missing>'}`,
+    );
+  }
+}
+
+function assertTaskStateEvent(
+  events: readonly RuntimeEvent[],
+  assertion: Extract<ScenarioAssertion, { kind: 'taskStateEvent' }>,
+): void {
+  const found = events.find((event) => {
+    if (event.type !== 'task.state.changed') return false;
+    const payload = event.payload as Record<string, unknown> | undefined;
+    return payload?.taskRunId === assertion.taskRunId && payload?.next === assertion.next;
+  });
+  if (!found) {
+    throw new Error(`Missing task.state.changed for ${assertion.taskRunId} → ${assertion.next}`);
   }
 }
 

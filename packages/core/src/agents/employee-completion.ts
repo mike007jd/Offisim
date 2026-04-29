@@ -1,5 +1,4 @@
 import { AIMessage } from '@langchain/core/messages';
-import type { TaskState } from '@offisim/shared-types';
 import {
   deliverableCreated,
   employeeStateChanged,
@@ -137,7 +136,8 @@ export async function finalizeEmployeeSuccess(
         state,
       })
     : ({ ok: true } as const);
-  const nextTaskState: TaskState = completionOutcome.ok ? 'completed' : 'review_ready';
+  // SQLite task_runs.status CHECK excludes 'review_ready'; persist as 'blocked'
+  // while runtime/UI keep 'review_ready'.
   const nextTaskRunStatus = completionOutcome.ok ? 'completed' : 'blocked';
 
   const materializedDeliverable = completionOutcome.ok
@@ -171,7 +171,7 @@ export async function finalizeEmployeeSuccess(
         companyId,
         taskRunId,
         'running',
-        nextTaskState,
+        completionOutcome.ok ? 'completed' : 'review_ready',
         threadId,
         employee.employee_id,
         'employee',

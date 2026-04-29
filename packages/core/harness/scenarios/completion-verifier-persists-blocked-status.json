@@ -1,0 +1,59 @@
+{
+  "id": "completion-verifier-persists-blocked-status",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": {
+      "companyId": "company-completion-verifier-persists-blocked-status",
+      "name": "Verifier Block Harness Co"
+    },
+    "thread": {
+      "threadId": "thread-completion-verifier-persists-blocked-status",
+      "status": "running"
+    },
+    "employees": [
+      { "id": "emp-verifier-block", "name": "Verifier Employee", "role": "engineer" }
+    ],
+    "taskRuns": [
+      {
+        "id": "task-verifier-blocked",
+        "employeeId": "emp-verifier-block",
+        "taskType": "direct_chat",
+        "input": {
+          "description": "Claim completion without running verification evidence."
+        }
+      }
+    ]
+  },
+  "llmTurns": [
+    {
+      "id": "employee-no-evidence-final",
+      "content": "NO_EVIDENCE_COMPLETION_ATTEMPT"
+    }
+  ],
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "direct_chat",
+        "employeeId": "emp-verifier-block",
+        "assigneeKind": "employee",
+        "assigneeName": "Verifier Employee",
+        "taskRunId": "task-verifier-blocked",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Claim completion without running verification evidence.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-verifier-blocked", "status": "blocked" },
+    { "kind": "taskStateEvent", "taskRunId": "task-verifier-blocked", "next": "review_ready" },
+    { "kind": "finalOutputContains", "contains": "NO_EVIDENCE_COMPLETION_ATTEMPT" }
+  ]
+}

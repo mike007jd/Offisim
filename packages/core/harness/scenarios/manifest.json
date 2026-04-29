@@ -58,6 +58,14 @@
       ]
     },
     {
+      "id": "completion-verifier-persists-blocked-status",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.task_run_status_blocked",
+        "completion.runtime_event_review_ready"
+      ]
+    },
+    {
       "id": "skill-create-real-tool-call",
       "category": "skill-install",
       "invariants": ["skill.create_requires_real_llm_tool_call", "skill.create_preview_interaction"]

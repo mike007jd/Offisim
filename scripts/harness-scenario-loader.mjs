@@ -6,6 +6,7 @@ export const ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const SCENARIOS_DIR = resolve(ROOT, 'packages/core/harness/scenarios');
 
 export const REPLAY_SCENARIO_IDS = [
+  'completion-verifier-persists-blocked-status',
   'dag-output-attribution',
   'direct-mode-skips-boss-chain',
   'kanban-card-state-transitions',
