@@ -46,4 +46,5 @@
 - [x] Fix misleading completion comment, stuck-task literals, and dead mode-kanban fixture fields.
 - [x] Run all per-commit gates and commit each phase separately.
 - [ ] Build release desktop app and run the seven Computer Use RC verification paths.
-- [ ] Record R3 evidence in `Docs/04_runtime_experience/EXECUTION_REPORT_2026-04-29.md`.
+  - Release build passed, but Section 7 live verification is blocked until a real gateway-lane credential is available; Codex local-auth resolves to SDK lane and must not be used as fs/shell evidence.
+- [x] Record R3 evidence in `Docs/04_runtime_experience/EXECUTION_REPORT_2026-04-29.md`.
