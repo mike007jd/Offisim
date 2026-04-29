@@ -43,7 +43,7 @@ import { InteractionService } from '@offisim/core/dist/services/interaction-serv
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
-import { createBuiltinTools } from '@offisim/core/dist/tools/builtin/index.js';
+import { type BuiltinTool, createBuiltinTools } from '@offisim/core/dist/tools/builtin/index.js';
 import type {
   FsAdapter,
   ShellExec,
@@ -421,14 +421,19 @@ export async function createTauriRuntime(
         ? new BrowserMcpClientFactory()
         : new TauriMcpClientFactory(),
   });
-  const builtinTools = createBuiltinTools({
-    executionMode: 'desktop-trusted',
-    fs: createTauriBuiltinFs(repos, companyId, company.workspace_root),
-    shellExec: createTauriShellExec(repos, companyId, company.workspace_root),
-    bashTimeoutMs: 30_000,
-    maxOutputBytes: 1024 * 1024,
-  });
-  builtinTools.delete('web_search');
+  const builtinTools: Map<string, BuiltinTool> =
+    resolvedProvider.executionLane === 'gateway'
+      ? createBuiltinTools({
+          executionMode: 'desktop-trusted',
+          fs: createTauriBuiltinFs(repos, companyId, company.workspace_root),
+          shellExec: createTauriShellExec(repos, companyId, company.workspace_root),
+          bashTimeoutMs: 30_000,
+          maxOutputBytes: 1024 * 1024,
+        })
+      : new Map();
+  if (builtinTools.size > 0) {
+    builtinTools.delete('web_search');
+  }
   const fileHistoryService = new FileHistoryService(
     repos.fileHistory,
     new TauriFileSnapshotAdapter(),
@@ -561,7 +566,7 @@ export async function createTauriRuntime(
     systemCaller,
     sessionCostTracker,
     toolTelemetryService,
-    builtinTools,
+    ...(builtinTools.size > 0 ? { builtinTools } : {}),
     fileHistoryService,
     engineAdapters: createTauriEngineAdapterRegistry({ enableProviderHostPreviewAdapters: true }),
     interactionService,
