@@ -5,6 +5,7 @@ mod deep_link;
 mod git;
 mod kanban;
 mod llm_transport;
+mod local_db;
 mod local_paths;
 mod mcp_bridge;
 mod resume;

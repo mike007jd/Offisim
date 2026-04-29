@@ -160,14 +160,45 @@ function createTauriExecutionAdapter(
   }
 }
 
-function isAbsolutePath(path: string): boolean {
-  return path.startsWith('/');
+type TauriPathModule = {
+  isAbsolute: (path: string) => Promise<boolean>;
+  join: (...paths: string[]) => Promise<string>;
+};
+
+let tauriPathPromise: Promise<TauriPathModule> | null = null;
+
+function tauriPath(): Promise<TauriPathModule> {
+  if (!tauriPathPromise) {
+    tauriPathPromise = import('@tauri-apps/api/path') as unknown as Promise<TauriPathModule>;
+  }
+  return tauriPathPromise;
 }
 
-function joinPath(root: string, rel: string): string {
+function fallbackIsAbsolutePath(path: string): boolean {
+  return path.startsWith('/') || path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/u.test(path);
+}
+
+async function isAbsolutePath(path: string): Promise<boolean> {
+  try {
+    const paths = await tauriPath();
+    return paths.isAbsolute(path);
+  } catch {
+    return fallbackIsAbsolutePath(path);
+  }
+}
+
+async function joinPath(root: string, rel: string): Promise<string> {
   if (!rel || rel === '.') return root;
-  const normalized = rel.replace(/^\/+/u, '');
-  return root.endsWith('/') ? `${root}${normalized}` : `${root}/${normalized}`;
+  try {
+    const paths = await tauriPath();
+    return paths.join(root, rel);
+  } catch {
+    const normalized = rel.replace(/^[\\/]+/u, '');
+    const separator = root.includes('\\') && !root.includes('/') ? '\\' : '/';
+    return root.endsWith('/') || root.endsWith('\\')
+      ? `${root}${normalized}`
+      : `${root}${separator}${normalized}`;
+  }
 }
 
 async function workspaceRootsFor(
@@ -207,7 +238,7 @@ function createTauriBuiltinFs(
       const { invoke } = (await import('@tauri-apps/api/core')) as {
         invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
       };
-      const cwd = isAbsolutePath(path)
+      const cwd = (await isAbsolutePath(path))
         ? undefined
         : await defaultWorkspaceRoot(repos, companyId, companyRoot);
       return invoke<string>('project_read_file', { path, cwd });
@@ -216,7 +247,7 @@ function createTauriBuiltinFs(
       const { invoke } = (await import('@tauri-apps/api/core')) as {
         invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
       };
-      const cwd = isAbsolutePath(path)
+      const cwd = (await isAbsolutePath(path))
         ? undefined
         : await defaultWorkspaceRoot(repos, companyId, companyRoot);
       await invoke<void>('project_write_file', { path, content, cwd });
@@ -225,7 +256,7 @@ function createTauriBuiltinFs(
       const { invoke } = (await import('@tauri-apps/api/core')) as {
         invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
       };
-      const cwd = isAbsolutePath(path)
+      const cwd = (await isAbsolutePath(path))
         ? undefined
         : await defaultWorkspaceRoot(repos, companyId, companyRoot);
       try {
@@ -249,9 +280,9 @@ function createTauriShellExec(
     };
     const root = await defaultWorkspaceRoot(repos, companyId, companyRoot);
     const cwd = options.cwd
-      ? isAbsolutePath(options.cwd)
+      ? (await isAbsolutePath(options.cwd))
         ? options.cwd
-        : joinPath(root, options.cwd)
+        : await joinPath(root, options.cwd)
       : root;
     const result = await invoke<{
       stdout: string;

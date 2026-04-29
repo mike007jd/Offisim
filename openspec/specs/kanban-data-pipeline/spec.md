@@ -7,7 +7,7 @@ Defines kanban card persistence and state transitions created by PM planning and
 ### Requirement: Kanban cards SHALL enforce a state transition whitelist
 
 Kanban persistence SHALL reject invalid state transitions instead of blindly updating the card state.
-State transitions SHALL be atomic compare-and-set writes: after reading the current state and validating the requested transition, persistence MUST update only when the row still has that same state. If the row changed before the write, the caller SHALL receive a stale-transition error and the later request SHALL NOT overwrite the winning transition.
+State transitions SHALL be atomic compare-and-set writes: after reading the current state and validating the requested transition, persistence MUST update only when the row still has that same state. If the row changed before the write, the caller SHALL receive a stale-transition error and the later request SHALL NOT overwrite the winning transition. The allowed transition table SHALL be sourced from `packages/shared-types/src/kanban-state-machine.json`; TypeScript and desktop Rust SHALL derive their runtime tables from that file rather than maintaining separate hard-coded copies.
 
 Allowed transitions are:
 

@@ -2,9 +2,11 @@ use serde::Serialize;
 use sqlx::Row;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
-use tauri::{Manager, Runtime};
+use tauri::Runtime;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
+
+use crate::local_db::open_offisim_pool;
 
 const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 const MAX_READ_BYTES: u64 = 8 * 1024 * 1024;
@@ -19,21 +21,11 @@ pub struct BashExecuteResult {
     timed_out: bool,
 }
 
-async fn open_pool<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<sqlx::SqlitePool, String> {
-    let mut db_path = app
-        .path()
-        .app_config_dir()
-        .map_err(|err| format!("resolve app config dir: {err}"))?;
-    db_path.push("offisim.db");
-    let db_url = format!("sqlite:{}", db_path.to_string_lossy());
-    sqlx::SqlitePool::connect(&db_url).await.map_err(|err| {
-        eprintln!("[builtin_tools] open offisim.db failed: {err}");
-        "open offisim.db failed".to_string()
-    })
-}
-
 async fn workspace_roots<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Vec<PathBuf>, String> {
-    let pool = open_pool(app).await?;
+    let pool = open_offisim_pool(app).await.map_err(|err| {
+        eprintln!("[builtin_tools] {err}");
+        "open offisim.db failed".to_string()
+    })?;
     let rows = sqlx::query(
         r#"
         SELECT workspace_root

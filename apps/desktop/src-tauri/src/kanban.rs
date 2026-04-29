@@ -2,7 +2,11 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{Emitter, Manager, Runtime};
+use tauri::{Emitter, Runtime};
+
+use crate::local_db::open_offisim_pool;
+
+include!(concat!(env!("OUT_DIR"), "/kanban_state_machine.rs"));
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,33 +53,17 @@ struct KanbanUpdatePayload {
 }
 
 fn validate_state(state: &str) -> Result<(), String> {
-    match state {
-        "todo" | "doing" | "blocked" | "review" | "done" => Ok(()),
-        _ => Err(format!("invalid kanban state: {state}")),
+    if KANBAN_STATE_NAMES.contains(&state) {
+        Ok(())
+    } else {
+        Err(format!("invalid kanban state: {state}"))
     }
 }
 
 fn is_allowed_transition(current: &str, next: &str) -> bool {
-    if current == next {
-        return true;
-    }
-    matches!(
-        (current, next),
-        ("todo", "doing")
-            | ("todo", "blocked")
-            | ("todo", "review")
-            | ("todo", "done")
-            | ("doing", "todo")
-            | ("doing", "blocked")
-            | ("doing", "review")
-            | ("doing", "done")
-            | ("blocked", "todo")
-            | ("blocked", "doing")
-            | ("blocked", "review")
-            | ("review", "doing")
-            | ("review", "blocked")
-            | ("review", "done")
-    )
+    KANBAN_ALLOWED_TRANSITIONS
+        .iter()
+        .any(|(from, to)| *from == current && *to == next)
 }
 
 fn validate_origin(origin: &str) -> Result<(), String> {
@@ -145,18 +133,6 @@ fn decode_card(row: sqlx::sqlite::SqliteRow) -> Result<KanbanCard, String> {
     })
 }
 
-async fn open_pool<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<sqlx::SqlitePool, String> {
-    let mut db_path = app
-        .path()
-        .app_config_dir()
-        .map_err(|err| format!("resolve app config dir: {err}"))?;
-    db_path.push("offisim.db");
-    let db_url = format!("sqlite:{}", db_path.to_string_lossy());
-    sqlx::SqlitePool::connect(&db_url)
-        .await
-        .map_err(|err| format!("open offisim.db: {err}"))
-}
-
 async fn fetch_card(pool: &sqlx::SqlitePool, id: &str) -> Result<Option<KanbanCard>, String> {
     let row = sqlx::query(
         r#"
@@ -190,7 +166,7 @@ pub async fn list_kanban_cards<R: Runtime>(
     app: tauri::AppHandle<R>,
     project_id: String,
 ) -> Result<Vec<KanbanCard>, String> {
-    let pool = open_pool(&app).await?;
+    let pool = open_offisim_pool(&app).await?;
     let rows = sqlx::query(
         r#"
         SELECT id, project_id, company_id, title, note, state, origin,
@@ -218,7 +194,7 @@ pub async fn create_kanban_card<R: Runtime>(
     let state = input.state.unwrap_or_else(|| "todo".to_string());
     validate_state(&state)?;
     let id = input.id.unwrap_or_else(generate_card_id);
-    let pool = open_pool(&app).await?;
+    let pool = open_offisim_pool(&app).await?;
     let company_id: Option<String> = sqlx::query_scalar(
         r#"
         SELECT company_id
@@ -284,7 +260,7 @@ pub async fn transition_kanban_card<R: Runtime>(
     if let Some(expected) = &expected_state {
         validate_state(expected)?;
     }
-    let pool = open_pool(&app).await?;
+    let pool = open_offisim_pool(&app).await?;
     let current: Option<String> =
         sqlx::query_scalar("SELECT state FROM kanban_cards WHERE id = ? LIMIT 1")
             .bind(&id)
@@ -347,7 +323,7 @@ pub async fn count_kanban_for_employee<R: Runtime>(
     app: tauri::AppHandle<R>,
     employee_id: String,
 ) -> Result<i64, String> {
-    let pool = open_pool(&app).await?;
+    let pool = open_offisim_pool(&app).await?;
     let count: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
@@ -361,4 +337,39 @@ pub async fn count_kanban_for_employee<R: Runtime>(
     .map_err(|err| format!("count employee kanban cards: {err}"))?;
     pool.close().await;
     Ok(count)
+}
+
+#[cfg(test)]
+mod kanban_state_machine_contracts {
+    use super::*;
+
+    #[test]
+    fn generated_state_machine_matches_json_ssot() {
+        let parsed: serde_json::Value =
+            serde_json::from_str(KANBAN_STATE_MACHINE_JSON).expect("parse generated ssot json");
+        let transitions = parsed
+            .get("transitions")
+            .and_then(serde_json::Value::as_object)
+            .expect("transitions object");
+
+        let mut expected_states: Vec<&str> = transitions.keys().map(String::as_str).collect();
+        expected_states.sort_unstable();
+        assert_eq!(KANBAN_STATE_NAMES, expected_states.as_slice());
+
+        let mut expected_pairs = Vec::new();
+        for from in &expected_states {
+            for target in transitions
+                .get(*from)
+                .and_then(serde_json::Value::as_array)
+                .expect("target array")
+            {
+                expected_pairs.push((*from, target.as_str().expect("target string")));
+            }
+        }
+        expected_pairs.sort_unstable();
+
+        let mut actual_pairs = KANBAN_ALLOWED_TRANSITIONS.to_vec();
+        actual_pairs.sort_unstable();
+        assert_eq!(actual_pairs, expected_pairs);
+    }
 }

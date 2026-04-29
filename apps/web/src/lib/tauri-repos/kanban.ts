@@ -1,6 +1,6 @@
 import type { EventBus, KanbanCardRow, RuntimeRepositories } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import type { KanbanState } from '@offisim/shared-types';
+import { type KanbanState, isKanbanTransitionAllowed } from '@offisim/shared-types';
 import { and, asc, eq } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
@@ -8,14 +8,6 @@ type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 type KanbanCardPatch = Partial<
   Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
 >;
-
-const ALLOWED_TRANSITIONS: Record<KanbanState, ReadonlySet<KanbanState>> = {
-  todo: new Set(['doing', 'blocked', 'review', 'done']),
-  doing: new Set(['todo', 'blocked', 'review', 'done']),
-  blocked: new Set(['todo', 'doing', 'review']),
-  review: new Set(['doing', 'blocked', 'done']),
-  done: new Set(),
-};
 
 function emitKanban(
   eventBus: EventBus | undefined,
@@ -104,7 +96,7 @@ export function createKanbanTauriRepos(db: TauriDrizzleDb, eventBus?: EventBus):
       if (current.state === next && current.blocked_reason === (blockedReason ?? null)) {
         return current;
       }
-      if (!ALLOWED_TRANSITIONS[current.state].has(next)) {
+      if (!isKanbanTransitionAllowed(current.state, next)) {
         throw new Error(`Invalid kanban transition: ${current.state} -> ${next}`);
       }
       const card = await compareAndUpdateViaRust(id, current.state, {

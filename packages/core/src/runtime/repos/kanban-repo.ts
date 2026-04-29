@@ -1,18 +1,14 @@
-import type { KanbanOrigin, KanbanState } from '@offisim/shared-types';
+import {
+  type KanbanOrigin,
+  type KanbanState,
+  isKanbanTransitionAllowed,
+} from '@offisim/shared-types';
 import type { EventBus } from '../../events/event-bus.js';
 import type { KanbanCardRow, NewKanbanCard } from '../repositories.js';
 
 type KanbanCardPatch = Partial<
   Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
 >;
-
-const ALLOWED_TRANSITIONS: Record<KanbanState, ReadonlySet<KanbanState>> = {
-  todo: new Set(['doing', 'blocked', 'review', 'done']),
-  doing: new Set(['todo', 'blocked', 'review', 'done']),
-  blocked: new Set(['todo', 'doing', 'review']),
-  review: new Set(['doing', 'blocked', 'done']),
-  done: new Set(),
-};
 
 export class KanbanInvalidTransitionError extends Error {
   constructor(
@@ -92,7 +88,7 @@ export class KanbanRepo {
     if (current.state === next && current.blocked_reason === (blockedReason ?? null)) {
       return current;
     }
-    if (!ALLOWED_TRANSITIONS[current.state].has(next)) {
+    if (!isKanbanTransitionAllowed(current.state, next)) {
       throw new KanbanInvalidTransitionError(current.state, next);
     }
     const card = await this.storage.compareAndUpdate(id, current.state, {

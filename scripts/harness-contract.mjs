@@ -27,6 +27,9 @@ for (const file of files) {
 
 await ensureRuntimeBuild({ force: process.argv.includes('--force-build') });
 const core = await import(new URL('../packages/core/dist/index.js', import.meta.url).href);
+const sharedKanban = await import(
+  new URL('../packages/shared-types/dist/kanban.js', import.meta.url).href
+);
 const graph = await import(
   new URL('../packages/core/dist/graph/main-graph.js', import.meta.url).href
 );
@@ -53,6 +56,8 @@ const invariants = [
   assertCompletionVerifierScenario(completionVerifier),
   assertLeakDetectorScenario(leakDetector),
   assertDagOutputAttribution(graph),
+  assertKanbanStateMachineSsot(sharedKanban),
+  assertDesktopKanbanStateMachineScenario(),
   ...assertDesktopBuiltinToolScenarios(),
 ];
 
@@ -149,6 +154,59 @@ function assertDesktopBuiltinToolScenarios() {
     );
   }
   return scenarioIds.map((id) => ({ id: `desktop.${id.replaceAll('-', '_')}`, passed: true }));
+}
+
+function assertKanbanStateMachineSsot(sharedKanban) {
+  const ssot = JSON.parse(
+    readFileSync(resolve(ROOT, 'packages/shared-types/src/kanban-state-machine.json'), 'utf8'),
+  );
+  assertTransitionTableEquals(
+    sharedKanban.KANBAN_TRANSITIONS,
+    ssot.transitions,
+    'shared-types KANBAN_TRANSITIONS',
+  );
+  return { id: 'kanban.state_machine_ts_matches_ssot', passed: true };
+}
+
+function assertDesktopKanbanStateMachineScenario() {
+  const result = spawnSync(
+    'cargo',
+    ['test', '--quiet', '--lib', 'kanban_state_machine_contracts'],
+    {
+      cwd: resolve(ROOT, 'apps/desktop/src-tauri'),
+      encoding: 'utf8',
+    },
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      [
+        'desktop kanban state machine Rust contract tests failed',
+        result.stdout.trim(),
+        result.stderr.trim(),
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    );
+  }
+  return { id: 'kanban.state_machine_rust_matches_ssot', passed: true };
+}
+
+function assertTransitionTableEquals(actual, expected, label) {
+  const normalize = (table) =>
+    Object.fromEntries(
+      Object.entries(table)
+        .map(([state, targets]) => [state, [...targets].sort()])
+        .sort(([left], [right]) => left.localeCompare(right)),
+    );
+  const normalizedActual = normalize(actual);
+  const normalizedExpected = normalize(expected);
+  if (JSON.stringify(normalizedActual) !== JSON.stringify(normalizedExpected)) {
+    throw new Error(
+      `${label} does not match kanban-state-machine.json\nactual=${JSON.stringify(
+        normalizedActual,
+      )}\nexpected=${JSON.stringify(normalizedExpected)}`,
+    );
+  }
 }
 
 function assertLongRunningMicroCompactScenario(microCompact) {

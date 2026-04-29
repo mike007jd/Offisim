@@ -1,7 +1,9 @@
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::Row;
-use tauri::{Manager, Runtime};
+use tauri::Runtime;
+
+use crate::local_db::open_offisim_pool;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,15 +33,7 @@ pub async fn resume_conversation<R: Runtime>(
     app: tauri::AppHandle<R>,
     id: String,
 ) -> Result<Option<ResumeConversationSnapshot>, String> {
-    let mut db_path = app
-        .path()
-        .app_config_dir()
-        .map_err(|err| format!("resolve app config dir: {err}"))?;
-    db_path.push("offisim.db");
-    let db_url = format!("sqlite:{}", db_path.to_string_lossy());
-    let pool = sqlx::SqlitePool::connect(&db_url)
-        .await
-        .map_err(|err| format!("open offisim.db: {err}"))?;
+    let pool = open_offisim_pool(&app).await?;
 
     let row = sqlx::query(
         r#"
@@ -61,12 +55,14 @@ pub async fn resume_conversation<R: Runtime>(
         return Ok(None);
     };
 
-    let checkpoint = parse_json_text(row.try_get::<String, _>("checkpoint").map_err(|err| {
-        format!("decode checkpoint: {err}")
-    })?);
-    let metadata = parse_json_text(row.try_get::<String, _>("metadata").map_err(|err| {
-        format!("decode metadata: {err}")
-    })?);
+    let checkpoint = parse_json_text(
+        row.try_get::<String, _>("checkpoint")
+            .map_err(|err| format!("decode checkpoint: {err}"))?,
+    );
+    let metadata = parse_json_text(
+        row.try_get::<String, _>("metadata")
+            .map_err(|err| format!("decode metadata: {err}"))?,
+    );
     let last_checkpoint_ts = checkpoint_ts(&checkpoint);
 
     Ok(Some(ResumeConversationSnapshot {
@@ -85,4 +81,3 @@ pub async fn resume_conversation<R: Runtime>(
         last_checkpoint_ts,
     }))
 }
-

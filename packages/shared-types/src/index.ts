@@ -141,7 +141,14 @@ export {
 } from './interactions.js';
 export { AGENT_QUESTION_REQUIRED, PLAN_REVIEW_REQUIRED } from './interactions.js';
 export type { KanbanOrigin, KanbanState } from './kanban.js';
-export { isKanbanOrigin, isKanbanState, KANBAN_ORIGINS, KANBAN_STATES } from './kanban.js';
+export {
+  isKanbanOrigin,
+  isKanbanState,
+  isKanbanTransitionAllowed,
+  KANBAN_ORIGINS,
+  KANBAN_STATES,
+  KANBAN_TRANSITIONS,
+} from './kanban.js';
 
 export type {
   BindingType,

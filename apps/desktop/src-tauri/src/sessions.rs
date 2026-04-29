@@ -1,6 +1,8 @@
 use serde::Serialize;
 use sqlx::Row;
-use tauri::{Manager, Runtime};
+use tauri::Runtime;
+
+use crate::local_db::open_offisim_pool;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,24 +41,12 @@ fn decode_session(row: sqlx::sqlite::SqliteRow) -> Result<SessionSnapshot, Strin
     })
 }
 
-async fn open_pool<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<sqlx::SqlitePool, String> {
-    let mut db_path = app
-        .path()
-        .app_config_dir()
-        .map_err(|err| format!("resolve app config dir: {err}"))?;
-    db_path.push("offisim.db");
-    let db_url = format!("sqlite:{}", db_path.to_string_lossy());
-    sqlx::SqlitePool::connect(&db_url)
-        .await
-        .map_err(|err| format!("open offisim.db: {err}"))
-}
-
 #[tauri::command]
 pub async fn get_session<R: Runtime>(
     app: tauri::AppHandle<R>,
     id: String,
 ) -> Result<Option<SessionSnapshot>, String> {
-    let pool = open_pool(&app).await?;
+    let pool = open_offisim_pool(&app).await?;
     let row = sqlx::query(
         r#"
         SELECT meeting_id, interaction_mode, status, topic, updated_at
@@ -81,7 +71,7 @@ pub async fn set_session_mode<R: Runtime>(
     mode: String,
 ) -> Result<Option<SessionSnapshot>, String> {
     validate_mode(&mode)?;
-    let pool = open_pool(&app).await?;
+    let pool = open_offisim_pool(&app).await?;
     sqlx::query(
         r#"
         UPDATE meeting_sessions

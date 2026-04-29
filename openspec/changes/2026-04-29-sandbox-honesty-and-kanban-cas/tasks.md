@@ -26,12 +26,12 @@
 
 ## Phase E - Single sources of truth
 
-- [ ] Add `packages/shared-types/src/kanban-state-machine.json` and consume it from TypeScript.
-- [ ] Generate Rust transition constants from the JSON SSOT in `build.rs`.
-- [ ] Add harness contract cross-check for TypeScript/Rust transition tables.
-- [ ] Move desktop SQLite pool lookup/open helpers to one local-db module.
-- [ ] Reuse a shared path utility for Tauri runtime path joins.
-- [ ] Sync `openspec/specs/kanban-data-pipeline/spec.md`.
+- [x] Add `packages/shared-types/src/kanban-state-machine.json` and consume it from TypeScript.
+- [x] Generate Rust transition constants from the JSON SSOT in `build.rs`.
+- [x] Add harness contract cross-check for TypeScript/Rust transition tables.
+- [x] Move desktop SQLite pool lookup/open helpers to one local-db module.
+- [x] Reuse a shared path utility for Tauri runtime path joins.
+- [x] Sync `openspec/specs/kanban-data-pipeline/spec.md`.
 
 ## Phase F - Hot-path efficiency
 
