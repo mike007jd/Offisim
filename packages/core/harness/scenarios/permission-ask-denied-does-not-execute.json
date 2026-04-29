@@ -105,7 +105,6 @@
       "approvedBy": "interaction:reject",
       "errorIncludes": "TOOL_PERMISSION_DENIED"
     },
-    { "kind": "toolExecutions", "count": 0 },
-    { "kind": "finalOutputContains", "contains": "DENIED_TOOL_HANDLED" }
+    { "kind": "toolExecutions", "count": 0 }
   ]
 }

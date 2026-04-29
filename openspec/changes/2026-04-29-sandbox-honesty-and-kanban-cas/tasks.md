@@ -13,9 +13,9 @@
 
 ## Phase C - Harness self-attest guard
 
-- [ ] Remove the four remaining self-attest assertions from harness scenarios.
-- [ ] Add load-time self-attest rejection to `scripts/harness-contract.mjs`.
-- [ ] Sync `packages/core/CLAUDE.md`.
+- [x] Remove the remaining self-attest assertions from harness scenarios.
+- [x] Add load-time self-attest rejection to `scripts/harness-contract.mjs`.
+- [x] Sync `packages/core/CLAUDE.md`.
 
 ## Phase D - Kanban atomicity
 

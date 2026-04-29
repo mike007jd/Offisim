@@ -33,7 +33,6 @@
   ],
   "runs": [{ "startAt": "employee" }],
   "assertions": [
-    { "kind": "agentEventPayloadContains", "contains": "no-task-run-id" },
-    { "kind": "finalOutputContains", "contains": "NO_TASKRUN_COMPLETION" }
+    { "kind": "agentEventPayloadContains", "contains": "no-task-run-id" }
   ]
 }

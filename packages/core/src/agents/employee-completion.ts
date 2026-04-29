@@ -142,6 +142,9 @@ export async function finalizeEmployeeSuccess(
   // SQLite task_runs.status CHECK excludes 'review_ready'; persist as 'blocked'
   // while runtime/UI keep 'review_ready'.
   const nextTaskRunStatus = completionOutcome.ok ? 'completed' : 'blocked';
+  const finalResponseContent = completionOutcome.ok
+    ? llmResponse.content
+    : `Task blocked: ${completionOutcome.reason}. Human review is required before this can be marked complete.`;
 
   const materializedDeliverable = completionOutcome.ok
     ? (ctx.materializedDeliverableOverride ??
@@ -167,7 +170,7 @@ export async function finalizeEmployeeSuccess(
     await repos.taskRuns.updateStatus(
       taskRunId,
       nextTaskRunStatus,
-      JSON.stringify({ content: llmResponse.content }),
+      JSON.stringify({ content: finalResponseContent }),
     );
     eventBus.emit(
       taskStateChanged(
@@ -243,7 +246,9 @@ export async function finalizeEmployeeSuccess(
     }
   }
 
-  const usedCitations = extractUsedCitations(llmResponse.content, citationMap);
+  const usedCitations = completionOutcome.ok
+    ? extractUsedCitations(llmResponse.content, citationMap)
+    : [];
 
   if (!completionOutcome.ok) {
     await appendAgentEvent(runtimeCtx, {
@@ -333,7 +338,7 @@ export async function finalizeEmployeeSuccess(
     employeeName: employee.name,
     sourceKind: 'employee' as const,
     roleSlug: employee.role_slug,
-    content: llmResponse.content,
+    content: finalResponseContent,
     taskRunId: taskRunId ?? '',
     stepIndex: preflight.stepIndex,
     artifact: materializedDeliverable
@@ -351,7 +356,7 @@ export async function finalizeEmployeeSuccess(
     currentEmployeeId: employee.employee_id,
     currentTaskRunId: taskRunId ?? null,
     pendingAssignments: remaining,
-    messages: [new AIMessage({ content: llmResponse.content })],
+    messages: [new AIMessage({ content: finalResponseContent })],
     currentStepOutputs: [...state.currentStepOutputs, stepOutputEntry],
     recentToolResults: state.recentToolResults ?? [],
   };

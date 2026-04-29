@@ -17,8 +17,5 @@
     }
   ],
   "runs": [{}],
-  "assertions": [
-    { "kind": "firstGraphNodeIs", "nodeName": "yolo-master" },
-    { "kind": "finalOutputContains", "contains": "YOLO_MODE_REACHED_EMPLOYEE" }
-  ]
+  "assertions": [{ "kind": "firstGraphNodeIs", "nodeName": "yolo-master" }]
 }

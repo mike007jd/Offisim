@@ -55,6 +55,6 @@
   "assertions": [
     { "kind": "taskRunStatusIs", "taskRunId": "task-verifier-blocked", "status": "blocked" },
     { "kind": "taskStateEvent", "taskRunId": "task-verifier-blocked", "next": "review_ready" },
-    { "kind": "finalOutputContains", "contains": "NO_EVIDENCE_COMPLETION_ATTEMPT" }
+    { "kind": "finalOutputContains", "contains": "Task blocked:" }
   ]
 }

@@ -99,7 +99,6 @@
       "status": "resolved",
       "payloadType": "skill_install_confirm"
     },
-    { "kind": "toolExecutions", "count": 0 },
-    { "kind": "finalOutputContains", "contains": "SKILL_CREATE_STAGED" }
+    { "kind": "toolExecutions", "count": 0 }
   ]
 }

@@ -15,6 +15,7 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
 - `AnthropicAdapter` 非官方 endpoint 自动 CORS-friendly (Bearer 替 x-api-key, strip telemetry, `messages.create({stream:true})` 替 `.stream()`)
 - **Tauri 模式 credential-isolated bridge 分四条**：`gateway` lane 走 Rust-side `llm_fetch` command；`claude-agent-sdk` lane 走 Rust-side `claude_agent_execute` trusted-host bridge（local Node sidecar + provider secret env 注入，credential 不越 Rust→JS 边界）；`codex-agent-sdk` lane 同模式走 `codex_agent_execute` + `codex_agent_host.mjs` sidecar；`openai-agents-sdk` lane 复用 Rust-side `llm_fetch` 作为 OpenAI SDK transport override。注册器在 `apps/web/src/lib/tauri-engine-adapters.ts`。`GatewayConfig.fetch` / `AnthropicAdapterOptions.fetch` / `OpenAiAdapterOptions.fetch` / `OpenAiAgentsSdkAdapterOptions.fetch` 是 HTTP/OpenAI transport 的唯一注入口。web 模式不注入 fetch，仍走原 SDK 默认 transport + `createCorsCleanFetch`
 - **2026-04-29 runtime remediation**：Tauri `desktop-trusted` + `gateway` lane 现在会给 employee / YOLO tool pool 注入受项目 `workspace_root` 约束的内置 `read_file` / `write_file` / `bash`；web/browser-limited 不注入。`claude-agent-sdk` / `codex-agent-sdk` / `openai-agents-sdk` lane 的 Offisim fs/shell tool bridge 仍是 known limitation，遇到文件/命令任务必须明确提示切回 gateway lane，不能假装已执行。
+- Deterministic harness scenarios must not assert mock LLM text as proof of success. `scripts/harness-contract.mjs` rejects any `finalOutputContains` assertion that exactly equals an `llmTurns[].content` value during load.
 
 ## Data Model & Zones
 

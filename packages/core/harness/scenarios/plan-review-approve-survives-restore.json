@@ -80,7 +80,6 @@
       "status": "resolved",
       "payloadType": "plan_review_payload"
     },
-    { "kind": "finalOutputContains", "contains": "APPROVED_RESTORED_PLAN_OUTPUT" },
     { "kind": "threadStatusIs", "status": "completed" }
   ]
 }

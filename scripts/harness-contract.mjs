@@ -22,6 +22,7 @@ for (const file of files) {
   if (scenario.id !== expectedId) {
     throw new Error(`${file} id mismatch: expected ${expectedId}, got ${scenario.id}`);
   }
+  assertNoSelfAttestFinalOutput(scenario, file);
 }
 
 await ensureRuntimeBuild({ force: process.argv.includes('--force-build') });
@@ -87,6 +88,25 @@ function assertSameList(left, right, leftName, rightName) {
 
 function readScenario(id) {
   return JSON.parse(readFileSync(resolve(SCENARIOS_DIR, `${id}.json`), 'utf8'));
+}
+
+function assertNoSelfAttestFinalOutput(scenario, file) {
+  const llmContents = new Set(
+    (scenario.llmTurns ?? [])
+      .map((turn) => (typeof turn?.content === 'string' ? turn.content : null))
+      .filter((content) => content && content.trim().length > 0),
+  );
+  for (const assertion of scenario.assertions ?? []) {
+    if (
+      assertion?.kind === 'finalOutputContains' &&
+      typeof assertion.contains === 'string' &&
+      llmContents.has(assertion.contains)
+    ) {
+      throw new Error(
+        `${file} self-attests finalOutputContains with exact llmTurns content: ${assertion.contains}`,
+      );
+    }
+  }
 }
 
 function assertDesktopBuiltinToolScenarios() {
