@@ -336,6 +336,7 @@ pub fn run() {
             runtime_secrets::runtime_secret_clear,
             runtime_secrets::trusted_host_product_status,
             builtin_tools::project_read_file,
+            builtin_tools::project_list_dir,
             builtin_tools::project_write_file,
             builtin_tools::bash_execute,
             claude_agent_host::claude_agent_execute,
@@ -405,8 +406,7 @@ pub fn run() {
                 if cfg!(debug_assertions) || force_devtools {
                     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
                         window.open_devtools();
-                    } else if let Some(window) =
-                        app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL)
+                    } else if let Some(window) = app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL)
                     {
                         window.open_devtools();
                     }

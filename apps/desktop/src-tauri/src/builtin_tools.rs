@@ -21,6 +21,17 @@ pub struct BashExecuteResult {
     timed_out: bool,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectDirEntry {
+    name: String,
+    path: String,
+    is_file: bool,
+    is_directory: bool,
+    is_symlink: bool,
+    size: Option<u64>,
+}
+
 async fn workspace_roots<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Vec<PathBuf>, String> {
     let pool = get_offisim_pool(app).map_err(|err| {
         eprintln!("[builtin_tools] {err}");
@@ -225,6 +236,19 @@ fn truncate_text(bytes: &[u8], max_bytes: usize) -> String {
     text
 }
 
+fn relative_path_for_entry(root: &Path, entry_path: &Path) -> String {
+    entry_path
+        .strip_prefix(root)
+        .unwrap_or(entry_path)
+        .to_string_lossy()
+        .trim_start_matches(std::path::MAIN_SEPARATOR)
+        .to_string()
+}
+
+fn containing_root<'a>(candidate: &Path, roots: &'a [PathBuf]) -> Option<&'a PathBuf> {
+    roots.iter().find(|root| candidate.starts_with(*root))
+}
+
 #[tauri::command]
 pub async fn project_read_file<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -244,6 +268,58 @@ pub async fn project_read_file<R: Runtime>(
     tokio::fs::read_to_string(&canonical)
         .await
         .map_err(|err| fs_op_error("read project file", &canonical, &roots, err))
+}
+
+#[tauri::command]
+pub async fn project_list_dir<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    path: String,
+    cwd: Option<String>,
+) -> Result<Vec<ProjectDirEntry>, String> {
+    let roots = workspace_roots(&app).await?;
+    let candidate = resolve_candidate(&path, cwd.as_deref())?;
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|err| fs_resolve_error("resolve project directory", &candidate, err))?;
+    ensure_inside_workspace(&canonical, &roots)?;
+    let root = containing_root(&canonical, &roots)
+        .ok_or_else(|| "project directory is outside bound project workspaces".to_string())?;
+
+    let mut entries = tokio::fs::read_dir(&canonical)
+        .await
+        .map_err(|err| fs_op_error("list project directory", &canonical, &roots, err))?;
+    let mut rows = Vec::new();
+    while let Some(entry) = entries
+        .next_entry()
+        .await
+        .map_err(|err| fs_op_error("read project directory entry", &canonical, &roots, err))?
+    {
+        if rows.len() >= 300 {
+            break;
+        }
+        let entry_path = entry.path();
+        let file_type = entry
+            .file_type()
+            .await
+            .map_err(|err| fs_op_error("stat project directory entry", &entry_path, &roots, err))?;
+        let metadata = entry.metadata().await.ok();
+        rows.push(ProjectDirEntry {
+            name: entry.file_name().to_string_lossy().to_string(),
+            path: relative_path_for_entry(root, &entry_path),
+            is_file: file_type.is_file(),
+            is_directory: file_type.is_dir(),
+            is_symlink: file_type.is_symlink(),
+            size: metadata
+                .filter(|_| file_type.is_file())
+                .map(|metadata| metadata.len()),
+        });
+    }
+    rows.sort_by(|a, b| {
+        b.is_directory
+            .cmp(&a.is_directory)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+    Ok(rows)
 }
 
 #[tauri::command]
@@ -317,8 +393,8 @@ pub async fn bash_execute<R: Runtime>(
 
     match timed {
         Ok(output) => {
-            let output = output
-                .map_err(|err| fs_op_error("wait for bash in", &cwd_path, &roots, err))?;
+            let output =
+                output.map_err(|err| fs_op_error("wait for bash in", &cwd_path, &roots, err))?;
             Ok(BashExecuteResult {
                 stdout: truncate_text(&output.stdout, max_bytes),
                 stderr: truncate_text(&output.stderr, max_bytes),

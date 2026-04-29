@@ -22,3 +22,4 @@
 - 若 dev 能跑但 release `.app` 不可交互、黑屏、或 Computer Use 无法附着，按 release 桌面阻塞处理，先查清原因再继续依赖桌面验收结论。
 - 修改 `packages/ui-office` 后，先跑 `pnpm --filter @offisim/ui-office build`，再跑 `pnpm --filter @offisim/desktop build`；桌面 release 读取的是已构建 UI 产物，不能用旧 dist 做验收。
 - release `.app` 附着优先用 `open -b com.offisim.desktop`；如果 Computer Use 仍附不上，修 release window / capability / reopen 链路，不要降级成 dev webview 结果。
+- Project workspace 文件浏览必须走 `project_list_dir` / `project_read_file` 这组受 `workspace_root` sandbox 约束的 Tauri command；不要在 webview 里直接用 `tauri-plugin-fs` 读项目目录。

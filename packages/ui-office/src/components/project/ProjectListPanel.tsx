@@ -7,6 +7,7 @@ import { Archive, FolderOpen, Pencil, Plus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useDeliverables } from '../../hooks/useDeliverables';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { ProjectWorkspaceFiles } from './ProjectWorkspaceFiles.js';
 
 interface ProjectListPanelProps {
   projects: ProjectRow[];
@@ -154,6 +155,10 @@ function ProjectSelectedSummary({
           </button>
         </div>
       )}
+      <ProjectWorkspaceFiles
+        key={`${project.project_id}:${project.workspace_root ?? 'no-workspace'}`}
+        workspaceRoot={project.workspace_root}
+      />
     </div>
   );
 }

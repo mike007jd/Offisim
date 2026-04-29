@@ -232,7 +232,7 @@ export function ProjectCreateDialog({
                 )}
               </div>
               <p className="text-[11px] text-slate-500">
-                Used as the project workspace root for upcoming IDE features.
+                Used for project file browsing and gateway file/shell tools.
               </p>
             </div>
           ) : (

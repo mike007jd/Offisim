@@ -100,6 +100,18 @@ Release build passed after rebuilding the UI package that feeds the desktop bund
    - Backend invalid-transition behavior remains fail-closed with `invalid kanban transition: {expected} -> {next}`.
    - Screenshot: `Docs/04_runtime_experience/evidence/r3-release-kanban-invalid-transition-20260429.png`
 
+8. Project workspace file tree: **passed**.
+   - Release app: `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`
+   - Selected project: `R3 RC Live Verify 2026-04-29`
+   - DB workspace root: `/Users/haoshengli/Documents/Offisim-R3-RC-Workspace-20260429`
+   - Release project picker showed `WORKSPACE FILES /` and listed:
+     `rc-live-tool-proof-final.txt`, `rc-live-tool-proof-rerun.txt`, `rc-live-tool-proof.txt`, `README.md`.
+   - Clicking `README.md` rendered the text preview:
+     `Offisim R3 RC workspace README`
+   - Physical directory confirmation matched the UI list:
+     `ls -la /Users/haoshengli/Documents/Offisim-R3-RC-Workspace-20260429`
+   - Screenshot: `Docs/04_runtime_experience/evidence/2026-04-29-r3/08-project-workspace-file-tree.png`
+
 ### Root causes found during live verification
 
 - SDK lane false tool surface: `codex-local-auth` resolves to an SDK lane, so it must stay text/reasoning-only. Fixed by only injecting Offisim tools when the effective lane is `gateway`, and by making SDK adapters fail closed if any tool call reaches them.
@@ -108,6 +120,15 @@ Release build passed after rebuilding the UI package that feeds the desktop bund
 - Local tool routing to external A2A: file/shell/workspace tasks now route only to internal, enabled employees; external A2A employees fail fast for direct local-tool requests.
 - Release window attach/reopen: the release app now creates and reopens a labeled main window that Computer Use can attach to via `open -b com.offisim.desktop`.
 - Stale desktop UI bundle: `@offisim/ui-office` must be rebuilt before `@offisim/desktop` release builds after UI source changes.
+- Project workspace file tree was a real product gap after the binding layer: fixed with `project_list_dir` + `project_read_file` in the release project picker. The webview does not call `tauri-plugin-fs` directly; both list and preview stay behind the same `workspace_root` sandbox used by gateway file tools.
+
+### Post-R3 1.0 backlog sweep
+
+- SDK lane tool surface: closed by making SDK lanes text/reasoning-only and fail-closed for tool requests. The 1.0 contract is not "SDK lanes can fake tools"; it is "file/shell evidence only exists on gateway lane".
+- R3 live verification blocker: closed by the Section 7 release-app evidence above.
+- Tauri release CSP allowlist: current release CSP includes the local platform origins and `tauri://localhost`; this is tracked in `openspec/specs/desktop-llm-credential-isolation/spec.md`.
+- Web/direct chat target drift: current UI contract is selected-employee SSOT with no fallback to active/first/boss employee; this is tracked in `packages/ui-office/CLAUDE.md` and the chat specs.
+- Workspace / IDE file tree half-finish: closed by the release project picker file tree evidence above.
 
 ### OpenSpec tooling note
 

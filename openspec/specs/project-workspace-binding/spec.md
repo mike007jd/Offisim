@@ -1,7 +1,7 @@
 # project-workspace-binding Specification
 
 ## Purpose
-Project rows carry an optional local `workspace_root` folder binding alongside their dedicated chat thread. On desktop the folder is chosen and revealed through Tauri's dialog + opener plugins; the binding surfaces in the ChatPanel project context strip and in the project selector / list summary. On the web frontend the folder field is a disabled hint, since File System Access semantics do not match the absolute-path model. This capability covers the schema column, the `ProjectService.createProject` object-input shape, the platform-branched folder-picker SSOT, and the create / edit / unbind / reveal UI flows — but does not extend to the IDE file tree, file read/write, or AI tool access to the workspace (those land in later phases).
+Project rows carry an optional local `workspace_root` folder binding alongside their dedicated chat thread. On desktop the folder is chosen and revealed through Tauri's dialog + opener plugins; the binding surfaces in the ChatPanel project context strip and in the project selector / list summary. On the web frontend the folder field is a disabled hint, since File System Access semantics do not match the absolute-path model. This capability covers the schema column, the `ProjectService.createProject` object-input shape, the platform-branched folder-picker SSOT, the create / edit / unbind / reveal UI flows, and the desktop workspace file tree + text preview surface.
 
 ## Requirements
 ### Requirement: `projects.workspace_root` is the SSOT field for the optional local workspace folder
@@ -187,6 +187,7 @@ If the OS reveal call fails (path not found, permission denied), the UI SHALL su
 - show `workspace_root` (or "No folder bound" when null) as a labeled row
 - show task count and deliverable count for the project's `thread_id`
 - expose the same Edit affordance as `ProjectContextStrip`
+- include the desktop workspace file tree when a workspace folder is bound
 
 The counts SHALL come from existing thread-scoped task / deliverable repos; this requirement does not introduce a new event subscription channel — it surfaces existing data.
 
@@ -201,6 +202,29 @@ The counts SHALL come from existing thread-scoped task / deliverable repos; this
 #### Scenario: Counts match thread scope
 - **WHEN** a selected project has 3 active tasks and 2 deliverables on its `thread_id`
 - **THEN** the summary shows "3 tasks" and "2 deliverables" derived from the same data sources existing surfaces use
+
+### Requirement: Desktop project picker SHALL include a workspace file tree
+
+When a selected project has `workspace_root` and the app is running in desktop mode, `ProjectListPanel` SHALL render a compact workspace file tree in the selected-summary block.
+
+The file tree SHALL list directory entries through the Tauri `project_list_dir` command and SHALL read text previews through `project_read_file`. It SHALL NOT use `tauri-plugin-fs` to directly read arbitrary workspace paths from the webview. Both commands SHALL remain constrained by the same workspace-root sandbox and redacted error behavior as gateway file tools.
+
+In browser mode the file tree SHALL render a desktop-only state and SHALL NOT invoke Tauri APIs.
+
+#### Scenario: Desktop file tree lists project workspace
+- **WHEN** a selected desktop project has `workspace_root='/Users/me/work/acme'`
+- **THEN** the selected summary calls `project_list_dir` with `cwd='/Users/me/work/acme'`
+- **AND** renders directory and file rows from the returned entries.
+
+#### Scenario: File preview uses sandboxed read command
+- **WHEN** the user selects a file row in the desktop file tree
+- **THEN** the UI calls `project_read_file` with the selected relative path and the project's workspace root
+- **AND** the preview renders returned text without bypassing the workspace sandbox.
+
+#### Scenario: Browser file tree is disabled
+- **WHEN** the same project is viewed in browser mode
+- **THEN** the summary shows a desktop-only file state
+- **AND** no Tauri invoke or plugin-fs filesystem read is attempted.
 
 ### Requirement: Platform branching is centralized in `folder-picker.ts`
 
@@ -218,4 +242,3 @@ No other module under `packages/ui-office/src/components/project/**` SHALL impor
 #### Scenario: `isTauri` source is `__TAURI_INTERNALS__`
 - **WHEN** inspecting `folder-picker.ts` runtime detection
 - **THEN** detection reads `globalThis.__TAURI_INTERNALS__` (or shared `isTauri()` helper that reads it), not `window.__TAURI__`
-
