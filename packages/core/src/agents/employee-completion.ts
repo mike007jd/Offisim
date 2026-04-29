@@ -138,6 +138,7 @@ export async function finalizeEmployeeSuccess(
       })
     : ({ ok: true } as const);
   const nextTaskState: TaskState = completionOutcome.ok ? 'completed' : 'review_ready';
+  const nextTaskRunStatus = completionOutcome.ok ? 'completed' : 'blocked';
 
   const materializedDeliverable = completionOutcome.ok
     ? (ctx.materializedDeliverableOverride ??
@@ -162,7 +163,7 @@ export async function finalizeEmployeeSuccess(
   if (taskRunId) {
     await repos.taskRuns.updateStatus(
       taskRunId,
-      nextTaskState,
+      nextTaskRunStatus,
       JSON.stringify({ content: llmResponse.content }),
     );
     eventBus.emit(

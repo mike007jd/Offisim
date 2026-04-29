@@ -402,9 +402,22 @@
 
 按 AGENTS.md "Desktop / Computer Use 验收"约束,必须测 release `.app`,不能停在 dev webview。
 
-- [ ] 6.4.1 `pnpm --filter @offisim/desktop build` 构建 release,`apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app` 启动
+- [x] 6.4.1 `pnpm --filter @offisim/desktop build` 构建 release,`apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app` 启动
 - [ ] 6.4.2 重复 6.3.2–6.3.10 全部步骤
 - [ ] 6.4.3 关注桌面侧 SQLite 数据持久化:重启 app 后看板卡片仍在;mode 切换持久化(下次开启同 conversation 仍是上次 mode)
+
+> 2026-04-29 release `.app` follow-up: build succeeded and Computer Use attached to
+> `com.offisim.desktop` / `tauri://localhost`; release app showed 11 employees and YOLO Master.
+> Boss-proxy on the old shared thread produced a false-complete path (`step_dispatcher queued 0
+> assignments` then `Task processing complete`). Clean direct chat to YOLO Master reproduced the
+> actual blocker: available callable tool categories were `none`, no scratch file was created, and
+> `pwd` was not executed. 6.4.2/6.4.3 remain unclosed.
+>
+> Additional bug found and patched during release follow-up: verifier-blocked employee completion
+> previously tried to persist `review_ready` into `task_runs.status`, violating the SQLite CHECK
+> constraint. The DB now stores `blocked` while runtime events still emit `review_ready`. Rebuilt
+> release `.app` and retested: latest YOLO Master run `tr-dc-1777421186923` stored `blocked` with
+> `completion-blocked`; no SQLite error, but native file/command tools are still absent.
 
 ### 6.5 Hygiene + repository cleanup
 
