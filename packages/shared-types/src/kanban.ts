@@ -1,12 +1,14 @@
 import stateMachine from './kanban-state-machine.json' with { type: 'json' };
 
-export const KANBAN_STATES = ['todo', 'doing', 'blocked', 'review', 'done'] as const;
-export type KanbanState = (typeof KANBAN_STATES)[number];
+const STATE_MACHINE_TRANSITIONS = stateMachine.transitions;
+
+export type KanbanState = keyof typeof STATE_MACHINE_TRANSITIONS;
+export const KANBAN_STATES = Object.keys(STATE_MACHINE_TRANSITIONS) as readonly KanbanState[];
 
 export const KANBAN_ORIGINS = ['pm-planner', 'employee', 'manager', 'human'] as const;
 export type KanbanOrigin = (typeof KANBAN_ORIGINS)[number];
 
-export const KANBAN_TRANSITIONS = stateMachine.transitions as Record<
+export const KANBAN_TRANSITIONS = STATE_MACHINE_TRANSITIONS as Record<
   KanbanState,
   readonly KanbanState[]
 >;

@@ -88,31 +88,25 @@ fn resolve_candidate(path: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
 }
 
 fn is_overbroad_workspace_root(path: &Path) -> bool {
-    const BLOCKED: &[&str] = &[
-        "/",
-        "/Users",
-        "/home",
-        "/etc",
-        "/var",
-        "/tmp",
-        "/usr",
-        "/opt",
-        "/private",
-        "/private/tmp",
-        "/private/var",
-    ];
-    if BLOCKED.iter().any(|blocked| path == Path::new(blocked)) {
-        return true;
-    }
     if let Some(home) = dirs::home_dir().and_then(|home| home.canonicalize().ok()) {
         if path == home || home.parent().is_some_and(|parent| path == parent) {
             return true;
         }
     }
-    path.components()
-        .filter(|component| matches!(component, Component::Normal(_)))
-        .count()
-        < 2
+    let normals: Vec<_> = path
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(name) => Some(name),
+            _ => None,
+        })
+        .collect();
+    if normals.len() < 2 {
+        return true;
+    }
+    // macOS canonicalize maps /tmp -> /private/tmp, /var -> /private/var, etc.,
+    // so a 2-component /private/<name> path is the canonical form of a
+    // single-component privileged root.
+    normals.len() == 2 && normals[0] == std::ffi::OsStr::new("private")
 }
 
 fn relativize_for_error(path: &Path, roots: &[PathBuf]) -> String {
@@ -183,13 +177,9 @@ fn deepest_existing_ancestor(path: &Path) -> Result<PathBuf, String> {
 
 fn resolve_write_target(candidate: &Path, roots: &[PathBuf]) -> Result<PathBuf, String> {
     let ancestor = deepest_existing_ancestor(candidate)?;
-    let canonical_ancestor = ancestor.canonicalize().map_err(|err| {
-        eprintln!(
-            "[builtin_tools] resolve write ancestor {} failed: {err}",
-            ancestor.to_string_lossy()
-        );
-        "resolve project file ancestor failed".to_string()
-    })?;
+    let canonical_ancestor = ancestor
+        .canonicalize()
+        .map_err(|err| fs_resolve_error("resolve project file ancestor", &ancestor, err))?;
     ensure_inside_workspace(&canonical_ancestor, roots)?;
     let tail = candidate.strip_prefix(&ancestor).map_err(|err| {
         eprintln!(
@@ -200,6 +190,26 @@ fn resolve_write_target(candidate: &Path, roots: &[PathBuf]) -> Result<PathBuf, 
         "resolve project file target failed".to_string()
     })?;
     Ok(canonical_ancestor.join(tail))
+}
+
+fn fs_resolve_error<E: std::fmt::Display>(stage: &str, path: &Path, err: E) -> String {
+    eprintln!(
+        "[builtin_tools] {stage} {} failed: {err}",
+        path.to_string_lossy()
+    );
+    format!("{stage} failed")
+}
+
+fn fs_op_error(stage: &str, path: &Path, roots: &[PathBuf], err: std::io::Error) -> String {
+    eprintln!(
+        "[builtin_tools] {stage} {} failed: {err}",
+        path.to_string_lossy()
+    );
+    format!(
+        "{stage} failed: {} ({:?})",
+        relativize_for_error(path, roots),
+        err.kind()
+    )
 }
 
 fn truncate_text(bytes: &[u8], max_bytes: usize) -> String {
@@ -223,36 +233,17 @@ pub async fn project_read_file<R: Runtime>(
 ) -> Result<String, String> {
     let roots = workspace_roots(&app).await?;
     let candidate = resolve_candidate(&path, cwd.as_deref())?;
-    let canonical = candidate.canonicalize().map_err(|err| {
-        eprintln!(
-            "[builtin_tools] resolve project file {} failed: {err}",
-            candidate.to_string_lossy()
-        );
-        "resolve project file failed".to_string()
-    })?;
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|err| fs_resolve_error("resolve project file", &candidate, err))?;
     ensure_inside_workspace(&canonical, &roots)?;
-    let metadata = tokio::fs::metadata(&canonical).await.map_err(|err| {
-        eprintln!(
-            "[builtin_tools] stat project file {} failed: {err}",
-            canonical.to_string_lossy()
-        );
-        format!(
-            "stat project file failed: {}",
-            relativize_for_error(&canonical, &roots)
-        )
-    })?;
+    let metadata = tokio::fs::metadata(&canonical)
+        .await
+        .map_err(|err| fs_op_error("stat project file", &canonical, &roots, err))?;
     ensure_read_size(metadata.len(), &canonical, &roots)?;
-    tokio::fs::read_to_string(&canonical).await.map_err(|err| {
-        eprintln!(
-            "[builtin_tools] read project file {} failed: {err}",
-            canonical.to_string_lossy()
-        );
-        format!(
-            "read project file failed: {} ({:?})",
-            relativize_for_error(&canonical, &roots),
-            err.kind()
-        )
-    })
+    tokio::fs::read_to_string(&canonical)
+        .await
+        .map_err(|err| fs_op_error("read project file", &canonical, &roots, err))
 }
 
 #[tauri::command]
@@ -269,44 +260,20 @@ pub async fn project_write_file<R: Runtime>(
     ensure_inside_workspace(&target, &roots)?;
     if let Some(parent) = target.parent() {
         ensure_inside_workspace(parent, &roots)?;
-        tokio::fs::create_dir_all(parent).await.map_err(|err| {
-            eprintln!(
-                "[builtin_tools] create project file parent {} failed: {err}",
-                parent.to_string_lossy()
-            );
-            format!(
-                "create project file parent failed: {} ({:?})",
-                relativize_for_error(parent, &roots),
-                err.kind()
-            )
-        })?;
-        let canonical_parent = parent.canonicalize().map_err(|err| {
-            eprintln!(
-                "[builtin_tools] resolve project file parent {} failed: {err}",
-                parent.to_string_lossy()
-            );
-            "resolve project file parent failed".to_string()
-        })?;
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|err| fs_op_error("create project file parent", parent, &roots, err))?;
+        let canonical_parent = parent
+            .canonicalize()
+            .map_err(|err| fs_resolve_error("resolve project file parent", parent, err))?;
         ensure_inside_workspace(&canonical_parent, &roots)?;
     }
-    tokio::fs::write(&target, content).await.map_err(|err| {
-        eprintln!(
-            "[builtin_tools] write project file {} failed: {err}",
-            target.to_string_lossy()
-        );
-        format!(
-            "write project file failed: {} ({:?})",
-            relativize_for_error(&target, &roots),
-            err.kind()
-        )
-    })?;
-    let canonical = target.canonicalize().map_err(|err| {
-        eprintln!(
-            "[builtin_tools] resolve written project file {} failed: {err}",
-            target.to_string_lossy()
-        );
-        "resolve written project file failed".to_string()
-    })?;
+    tokio::fs::write(&target, content)
+        .await
+        .map_err(|err| fs_op_error("write project file", &target, &roots, err))?;
+    let canonical = target
+        .canonicalize()
+        .map_err(|err| fs_resolve_error("resolve written project file", &target, err))?;
     if let Err(err) = ensure_inside_workspace(&canonical, &roots) {
         let _ = tokio::fs::remove_file(&target).await;
         return Err(err);
@@ -323,10 +290,9 @@ pub async fn bash_execute<R: Runtime>(
     max_output_bytes: Option<u32>,
 ) -> Result<BashExecuteResult, String> {
     let roots = workspace_roots(&app).await?;
-    let cwd_path = PathBuf::from(&cwd).canonicalize().map_err(|err| {
-        eprintln!("[builtin_tools] resolve shell cwd {cwd} failed: {err}");
-        "resolve shell cwd failed".to_string()
-    })?;
+    let cwd_path = PathBuf::from(&cwd)
+        .canonicalize()
+        .map_err(|err| fs_resolve_error("resolve shell cwd", Path::new(&cwd), err))?;
     ensure_inside_workspace(&cwd_path, &roots)?;
 
     let child = Command::new("bash")
@@ -338,17 +304,7 @@ pub async fn bash_execute<R: Runtime>(
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .map_err(|err| {
-            eprintln!(
-                "[builtin_tools] spawn bash in {} failed: {err}",
-                cwd_path.to_string_lossy()
-            );
-            format!(
-                "spawn bash failed: {} ({:?})",
-                relativize_for_error(&cwd_path, &roots),
-                err.kind()
-            )
-        })?;
+        .map_err(|err| fs_op_error("spawn bash in", &cwd_path, &roots, err))?;
 
     let max_bytes = max_output_bytes
         .map(|value| value as usize)
@@ -361,17 +317,8 @@ pub async fn bash_execute<R: Runtime>(
 
     match timed {
         Ok(output) => {
-            let output = output.map_err(|err| {
-                eprintln!(
-                    "[builtin_tools] wait for bash in {} failed: {err}",
-                    cwd_path.to_string_lossy()
-                );
-                format!(
-                    "wait for bash failed: {} ({:?})",
-                    relativize_for_error(&cwd_path, &roots),
-                    err.kind()
-                )
-            })?;
+            let output = output
+                .map_err(|err| fs_op_error("wait for bash in", &cwd_path, &roots, err))?;
             Ok(BashExecuteResult {
                 stdout: truncate_text(&output.stdout, max_bytes),
                 stderr: truncate_text(&output.stderr, max_bytes),

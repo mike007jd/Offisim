@@ -9,9 +9,9 @@ import { sha256Text } from './hash.js';
 import { summarizeRuntimeLeaks } from './leak-detector.js';
 import type { RuntimeLeakSummary } from './leak-detector.js';
 import {
-  type LatencySummary,
   heapGrowthMbPerHour,
   sampleRuntimeHealth,
+  summarizeLatencyMs,
 } from './runtime-health-sampler.js';
 import type { DeterministicScenario } from './scenario-runner.js';
 import { runDeterministicScenario } from './scenario-runner.js';
@@ -131,7 +131,7 @@ export async function runSoakHarness(
     options.durationMs && options.durationMs > 0 ? performance.now() + options.durationMs : null;
   const start = sampleRuntimeHealth();
   const startedAt = performance.now();
-  const latencyBuckets = new LatencyBuckets();
+  const latencies: number[] = [];
   const leakAccumulator = new SoakLeakAccumulator(SAMPLE_FAILURE_CAP);
   const metrics = new Map<string, SoakScenarioMetrics>();
   let nextIteration = 0;
@@ -145,7 +145,7 @@ export async function runSoakHarness(
       const report = isYoloSoakScenario(scenario)
         ? await runYoloSoakScenario(scenario)
         : await runDeterministicScenario(scenario);
-      latencyBuckets.add(performance.now() - t0);
+      latencies.push(performance.now() - t0);
       leakAccumulator.add(report);
       const metric = extractSoakMetrics(report);
       if (metric) metrics.set(metric.scenarioId, metric);
@@ -173,7 +173,7 @@ export async function runSoakHarness(
       rssStartMb: start.rssMb,
       rssEndMb: end.rssMb,
     },
-    latencyMs: latencyBuckets.summary(),
+    latencyMs: summarizeLatencyMs(latencies),
     runtime: leakAccumulator.runtimeLeaks,
     leakSummary,
     metrics: [...metrics.values()],
@@ -233,54 +233,6 @@ class SoakLeakAccumulator {
       byCategory: { ...this.byCategory },
       sampleFailures: this.sampleFailures,
     };
-  }
-}
-
-class LatencyBuckets {
-  private readonly buckets = [
-    50,
-    100,
-    200,
-    400,
-    800,
-    1600,
-    3200,
-    6400,
-    12_800,
-    30_000,
-    60_000,
-    Number.POSITIVE_INFINITY,
-  ] as const;
-  private readonly counts = new Array<number>(this.buckets.length).fill(0);
-  private total = 0;
-
-  add(valueMs: number): void {
-    this.total += 1;
-    const bucketIndex = this.buckets.findIndex((upperBound) => valueMs <= upperBound);
-    const index = bucketIndex === -1 ? this.counts.length - 1 : bucketIndex;
-    this.counts[index] = (this.counts[index] ?? 0) + 1;
-  }
-
-  summary(): LatencySummary {
-    return {
-      p50: this.percentile(0.5),
-      p95: this.percentile(0.95),
-      p99: this.percentile(0.99),
-    };
-  }
-
-  private percentile(p: number): number {
-    if (this.total === 0) return 0;
-    const target = Math.max(1, Math.ceil(this.total * p));
-    let cumulative = 0;
-    for (let index = 0; index < this.counts.length; index += 1) {
-      cumulative += this.counts[index] ?? 0;
-      if (cumulative >= target) {
-        const bucket = this.buckets[index] ?? 0;
-        return Number.isFinite(bucket) ? bucket : (this.buckets[index - 1] ?? 0);
-      }
-    }
-    return 0;
   }
 }
 

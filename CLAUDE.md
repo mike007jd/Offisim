@@ -71,6 +71,10 @@ catalog/
 - **UX 必须优雅简洁**。默认优先减少层级、噪声、重复状态、营销文案、解释型空话；不要把内部过程日志顶到主内容位。
 - **同一功能的多块表面必须讲同一个故事**。chat、scene、status bar、tasks、deliverable、onboarding 之间如果状态不一致，视为未完成。
 - **不要靠 fallback 假装完成**。placeholder、legacy prefix、隐藏的兼容分支、只在特定模式可用的半闭环，不算关单。
+- **禁止最小化交付口径**。执行型任务默认完整交付整个用户 scope；不要把“先做核心 / MVP / 编译通过 / harness 通过 / 部分验收”包装成完成。
+- **完整交付必须闭环到证据**：实现真实修复，同步 spec / docs / tasks，跑要求的 gate，完成必要的 release / live runtime 验证，并把证据和剩余风险写进对应 report / handoff。
+- **真实阻塞只能阻塞，不能降级成完成**。缺凭证、外部服务不可达、设备不可用、破坏性风险或产品决策无法推断时，必须保留未勾 task、tag gate、archive gate，并明确写“未完整交付”的根因和所需条件。
+- **known limitation 不是验收证据**。如果 live 验证暴露新 blocker，先修能修的真实问题；不能修的直接 surface，不得缩小 scope、口头解释或用 fallback 路径替代原验收。
 
 ## Repository Hygiene
 

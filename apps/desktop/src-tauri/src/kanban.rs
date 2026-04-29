@@ -255,28 +255,31 @@ pub async fn transition_kanban_card<R: Runtime>(
     expected_state: Option<String>,
 ) -> Result<Option<KanbanCard>, String> {
     validate_state(&next)?;
-    if let Some(expected) = &expected_state {
-        validate_state(expected)?;
-    }
     let pool = get_offisim_pool(&app)?;
-    let current: Option<String> =
-        sqlx::query_scalar("SELECT state FROM kanban_cards WHERE id = ? LIMIT 1")
-            .bind(&id)
-            .fetch_optional(&pool)
-            .await
-            .map_err(|err| format!("select kanban current state: {err}"))?;
-    let Some(current) = current else {
-        return Ok(None);
+
+    let expected = match expected_state {
+        Some(state) => {
+            validate_state(&state)?;
+            state
+        }
+        None => {
+            let current: Option<String> =
+                sqlx::query_scalar("SELECT state FROM kanban_cards WHERE id = ? LIMIT 1")
+                    .bind(&id)
+                    .fetch_optional(&pool)
+                    .await
+                    .map_err(|err| format!("select kanban current state: {err}"))?;
+            match current {
+                None => return Ok(None),
+                Some(state) => state,
+            }
+        }
     };
-    let expected = expected_state.unwrap_or_else(|| current.clone());
-    if current != expected {
-        return Err(format!(
-            "kanban transition stale: {id} moved from {expected} to {current}"
-        ));
+
+    if !is_allowed_transition(&expected, &next) {
+        return Err(format!("invalid kanban transition: {expected} -> {next}"));
     }
-    if !is_allowed_transition(&current, &next) {
-        return Err(format!("invalid kanban transition: {current} -> {next}"));
-    }
+
     let result = sqlx::query(
         r#"
         UPDATE kanban_cards
@@ -291,6 +294,7 @@ pub async fn transition_kanban_card<R: Runtime>(
     .execute(&pool)
     .await
     .map_err(|err| format!("transition kanban card: {err}"))?;
+
     if result.rows_affected() == 0 {
         let actual: Option<String> =
             sqlx::query_scalar("SELECT state FROM kanban_cards WHERE id = ? LIMIT 1")
@@ -298,10 +302,12 @@ pub async fn transition_kanban_card<R: Runtime>(
                 .fetch_optional(&pool)
                 .await
                 .map_err(|err| format!("select kanban stale state: {err}"))?;
-        return Err(format!(
-            "kanban transition stale: {id} moved from {expected} to {}",
-            actual.unwrap_or_else(|| "<missing>".to_string())
-        ));
+        return match actual {
+            None => Ok(None),
+            Some(actual) => Err(format!(
+                "kanban transition stale: {id} moved from {expected} to {actual}"
+            )),
+        };
     }
 
     let card = fetch_card(&pool, &id).await?;
