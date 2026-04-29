@@ -8,8 +8,8 @@
 
 ## Phase B - Tauri capability gate
 
-- [ ] Add main-window-only `offisim:fs-shell` and `offisim:agent-bridges` capability files.
-- [ ] Document the desktop capability convention in app-local CLAUDE guidance.
+- [x] Add main-window-only `offisim:fs-shell` and `offisim:agent-bridges` capability files.
+- [x] Document the desktop capability convention in app-local CLAUDE guidance.
 
 ## Phase C - Harness self-attest guard
 

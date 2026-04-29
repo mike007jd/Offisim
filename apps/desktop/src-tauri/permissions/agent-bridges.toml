@@ -1,0 +1,11 @@
+[[permission]]
+identifier = "agent-bridges"
+description = "Allow trusted local agent bridge and LLM transport commands."
+commands.allow = [
+  "claude_agent_execute",
+  "claude_agent_abort",
+  "codex_agent_execute",
+  "codex_agent_abort",
+  "llm_fetch",
+  "llm_fetch_abort",
+]

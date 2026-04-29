@@ -2169,6 +2169,18 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Allow trusted local agent bridge and LLM transport commands.",
+          "type": "string",
+          "const": "agent-bridges",
+          "markdownDescription": "Allow trusted local agent bridge and LLM transport commands."
+        },
+        {
+          "description": "Allow project-bound builtin filesystem and shell commands.",
+          "type": "string",
+          "const": "fs-shell",
+          "markdownDescription": "Allow project-bound builtin filesystem and shell commands."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",

@@ -1,0 +1,6 @@
+{
+  "identifier": "offisim:agent-bridges",
+  "description": "Allows the main Offisim window to invoke trusted local agent bridge commands.",
+  "windows": ["main"],
+  "permissions": ["agent-bridges"]
+}
