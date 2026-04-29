@@ -10,6 +10,7 @@ import {
   createEmptyPlanScopedState,
 } from '../graph/state.js';
 import { getRuntime } from '../utils/get-runtime.js';
+import { requiresLocalOffisimTools } from './local-tool-routing.js';
 
 /**
  * Lightweight setup node for direct employee chat.
@@ -57,6 +58,13 @@ export async function employeeDirectSetupNode(
   const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
   const taskDescription =
     typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '';
+
+  if (employee.is_external === 1 && requiresLocalOffisimTools(taskDescription)) {
+    return {
+      interruptReason: `External employee ${employee.name} cannot execute Offisim file or shell tools. Select an internal gateway employee for read_file, write_file, or bash tasks.`,
+      currentStepOutputs: [],
+    };
+  }
 
   // Create a task run in the repository so the employee node can track it
   const taskRunId = runtimeCtx.determinism.id('tr-dc');

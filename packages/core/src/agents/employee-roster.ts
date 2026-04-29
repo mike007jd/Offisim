@@ -10,7 +10,9 @@ export function buildEnrichedEmployeeList(employees: EmployeeRow[]): string {
           ? ` | expertise: ${persona.expertise.trim()}`
           : '';
       const externalTag =
-        employee.is_external === 1 ? ` [external:${employee.brand_key ?? 'custom'}]` : '';
+        employee.is_external === 1
+          ? ` [external:${employee.brand_key ?? 'custom'}; no local file/shell tools]`
+          : '';
       return `- ${employee.employee_id}: ${employee.name} (${employee.role_slug})${externalTag}${expertise}`;
     })
     .join('\n');

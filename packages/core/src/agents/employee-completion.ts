@@ -8,7 +8,11 @@ import {
 } from '../events/event-factories.js';
 import type { CitationRef, OffisimGraphState } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
-import { type VerifyOutcome, verifyCompletion } from '../runtime/completion-verifier.js';
+import {
+  DEFAULT_COMPLETION_EVIDENCE_TOOLS,
+  type VerifyOutcome,
+  verifyCompletion,
+} from '../runtime/completion-verifier.js';
 import type { TaskCompletionVerifyingPayload } from '../runtime/hook-registry.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
@@ -25,16 +29,73 @@ import type { PreflightResult } from './employee-preflight.js';
 
 const logger = new Logger('employee-completion');
 
+function evidenceToolsForTask(taskDescription: string): readonly string[] {
+  const tools = new Set<string>();
+  const text = taskDescription.toLowerCase();
+
+  if (
+    /\bverification evidence\b/u.test(text) ||
+    /\brunning verification evidence\b/u.test(text) ||
+    /\bpnpm-(test|typecheck|lint)\b/u.test(text) ||
+    /\bharness-contract\b/u.test(text) ||
+    /验证证据|运行.{0,20}验证|执行.{0,20}验证|验证.{0,40}(命令|结果|通过)|(?:命令|结果|通过).{0,40}验证/u.test(
+      text,
+    )
+  ) {
+    for (const tool of DEFAULT_COMPLETION_EVIDENCE_TOOLS) {
+      tools.add(tool);
+    }
+  }
+
+  if (
+    /\bread_file\b/u.test(text) ||
+    /\bread\b[^.]{0,80}\b(file|path|workspace|content)\b/u.test(text) ||
+    /\bquote\b[^.]{0,80}\b(content|bytes|file)\b/u.test(text) ||
+    /读取|读回|查看.{0,40}(文件|路径|工作区|readme)|引用.{0,40}(文件|内容)/u.test(text)
+  ) {
+    tools.add('read_file');
+  }
+
+  if (
+    /\bwrite_file\b/u.test(text) ||
+    /\bwrite\b[^.]{0,80}\b(file|path|workspace|content)\b/u.test(text) ||
+    /\bcreate\b[^.]{0,80}\b(file|scratch note)\b/u.test(text) ||
+    /写入|写回|创建.{0,40}(文件|路径)|保存.{0,40}(文件|路径)/u.test(text)
+  ) {
+    tools.add('write_file');
+  }
+
+  if (
+    /\bbash\b/u.test(text) ||
+    /\bshell\b/u.test(text) ||
+    /\bcommand\b/u.test(text) ||
+    /\brun\b[^.]{0,80}\b(pwd|sleep|pnpm|npm|cargo|ls|cat)\b/u.test(text) ||
+    /命令|终端|超时|越界|拒绝/u.test(text)
+  ) {
+    tools.add('bash');
+  }
+
+  return [...tools];
+}
+
 async function verifyTaskCompletion(input: {
   runtimeCtx: RuntimeContext;
   taskRunId: string;
   employeeId: string;
   state: OffisimGraphState;
+  taskDescription: string;
 }): Promise<VerifyOutcome> {
-  const { runtimeCtx, taskRunId, employeeId, state } = input;
-  const defaultOutcome = verifyCompletion({
-    recentToolResults: state.recentToolResults ?? [],
-  });
+  const { runtimeCtx, taskRunId, employeeId, state, taskDescription } = input;
+  const evidenceTools = evidenceToolsForTask(taskDescription);
+  const defaultOutcome =
+    evidenceTools.length === 0
+      ? ({ ok: true } as const)
+      : verifyCompletion(
+          {
+            recentToolResults: state.recentToolResults ?? [],
+          },
+          { evidenceTools },
+        );
   let hookOutcome: VerifyOutcome | null = null;
   const payload: TaskCompletionVerifyingPayload = {
     taskRunId,
@@ -137,6 +198,7 @@ export async function finalizeEmployeeSuccess(
           taskRunId,
           employeeId: employee.employee_id,
           state,
+          taskDescription,
         })
       : ({ ok: false, reason: 'no-task-run-id' } as const);
   const nextTaskRunStatus = completionOutcome.ok ? 'completed' : 'blocked';

@@ -141,6 +141,12 @@ When plan progress has not changed and there are no unresolved dispatched tasks,
 
 `packages/core/src/runtime/completion-verifier.ts` SHALL export `verifyCompletion(input, opts)` returning `ok: true` only if at least one entry in the last `windowSize` (default 12) `recentToolResults` is `success === true` and `toolName` is in `evidenceTools` (default `['pnpm-test', 'pnpm-typecheck', 'pnpm-lint', 'harness-contract']`).
 
+`packages/core/src/agents/employee-completion.ts` SHALL derive the required evidence tools from the task description. File and workspace-read tasks SHALL require successful `read_file` evidence; file-create/write tasks SHALL require successful `write_file` evidence; shell/command tasks SHALL require successful `bash` evidence; explicit verification tasks SHALL require the default verification evidence tools.
+
+Plain SOP text-deliverable tasks that do not ask for verification evidence, local file work, or shell work SHALL NOT be blocked merely because no tool ran. The verifier MUST NOT force fake `read_file`, `bash`, or harness evidence into ordinary text handoff steps.
+
+The evidence classifier SHALL recognize the same local-tool intent in Chinese user/task wording as in English wording, so Chinese file or shell requests cannot pass on a text-only claim.
+
 `packages/core/src/agents/employee-tool-round.ts` SHALL push `{ toolName, success, bytes }` into `state.recentToolResults` (ring buffer of size 32) after every tool invocation.
 
 #### Scenario: Empty evidence blocks completion
@@ -158,6 +164,21 @@ When plan progress has not changed and there are no unresolved dispatched tasks,
 #### Scenario: Custom hook can override
 - **WHEN** a registered hook on `task.completion.verifying` calls `allow()` (e.g., the project uses `cargo test` instead of pnpm)
 - **THEN** the task transitions to `'completed'` regardless of default-hook verdict
+
+#### Scenario: File task requires file evidence
+- **WHEN** an employee declares completion for a task that asks to read or write a workspace file
+- **THEN** completion requires a successful matching `read_file` or `write_file` tool result in the recent evidence window
+- **AND** a text-only claim does not complete the task.
+
+#### Scenario: Text SOP deliverable does not require fake tool evidence
+- **WHEN** an employee completes an ordinary SOP text handoff step that does not request file, shell, or verification evidence
+- **THEN** the task may complete without any tool result
+- **AND** no harness or mock-content assertion is accepted as substitute evidence.
+
+#### Scenario: Chinese file request requires file evidence
+- **WHEN** an employee declares completion for a Chinese task that asks to read or write a workspace file
+- **THEN** completion requires a successful matching file tool result
+- **AND** a Chinese text-only claim does not complete the task.
 
 ### Requirement: ResumeCoordinator restores conversation from latest checkpoint
 

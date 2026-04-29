@@ -37,7 +37,8 @@ export async function persistLlmPlanAsTaskPlan(
     'pm_planner',
   );
 
-  const planSteps: PlanStep[] = plan.steps.map((llmStep) => {
+  const sanitizedPlan = sanitizePlanEmployees(plan, validEmployees);
+  const planSteps: PlanStep[] = sanitizedPlan.steps.map((llmStep) => {
     const planTasks: PlanTask[] = llmStep.tasks.map((llmTask) => {
       const taskRunId = generateId('tr');
       return {
@@ -157,4 +158,24 @@ export async function persistLlmPlanAsTaskPlan(
 function requireTaskRunId(task: PlanTask): string {
   if (!task.taskRunId) throw new Error('Expected planner task to have a taskRunId');
   return task.taskRunId;
+}
+
+function sanitizePlanEmployees(
+  plan: LlmPlan,
+  validEmployees: readonly { employee_id: string }[],
+): LlmPlan {
+  const validIds = new Set(validEmployees.map((employee) => employee.employee_id));
+  const fallbackEmployee = validEmployees[0];
+  if (!fallbackEmployee) return plan;
+  return {
+    ...plan,
+    steps: plan.steps.map((step) => ({
+      ...step,
+      tasks: step.tasks.map((task) =>
+        validIds.has(task.employeeId)
+          ? task
+          : { ...task, employeeId: fallbackEmployee.employee_id },
+      ),
+    })),
+  };
 }

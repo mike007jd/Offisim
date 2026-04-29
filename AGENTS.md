@@ -7,6 +7,8 @@
 - 不允许在“部分实现 / 大部分 task 勾选 / 编译通过 / harness 通过 / 找到 blocker 但未闭环”时声称完成。
 - 如果遇到凭证、外部服务、设备不可达、破坏性风险或产品决策无法合理推断等真实阻塞，必须明确标成“未完整交付”，保留未勾 task / tag gate / archive gate，不得用 known limitation 或口头解释替代验收。
 - 发现额外真实 blocker 时，先修能修的部分并记录证据；不能修的要直接 surface 根因和下一步所需条件，不要缩小 scope 后交付。
+- SDK lane 不是工具 lane：`claude-agent-sdk` / `codex-agent-sdk` / `openai-agents-sdk` 在 Offisim 1.0 口径下只允许文本/推理，不得暴露或声称已执行文件、命令、memory、todo、skill 等 Offisim tool。需要文件/命令证据时必须走 `gateway` lane 并做 live verify。
+- 本地文件 / shell / workspace 任务必须路由到 internal + gateway 工具员工；external A2A 和 SDK lane 不能当成本机工具执行者。若用户直指 external A2A 做本地文件/命令任务，必须 fail fast 并提示切回 internal gateway lane。
 
 # 验证 / 测试准则
 - 不在 `packages/core/src/**/*.test.mjs` 新增或保留 runtime / graph / product 行为测试。
@@ -18,3 +20,5 @@
 - 用 Computer Use 测 Tauri 桌面端时，默认测 release `.app`，不要把 dev webview 结果当作最终桌面验收。
 - 验收前先执行桌面 release build，再启动 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`。
 - 若 dev 能跑但 release `.app` 不可交互、黑屏、或 Computer Use 无法附着，按 release 桌面阻塞处理，先查清原因再继续依赖桌面验收结论。
+- 修改 `packages/ui-office` 后，先跑 `pnpm --filter @offisim/ui-office build`，再跑 `pnpm --filter @offisim/desktop build`；桌面 release 读取的是已构建 UI 产物，不能用旧 dist 做验收。
+- release `.app` 附着优先用 `open -b com.offisim.desktop`；如果 Computer Use 仍附不上，修 release window / capability / reopen 链路，不要降级成 dev webview 结果。

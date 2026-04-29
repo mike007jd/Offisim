@@ -16,10 +16,14 @@ mod sidecar_stderr;
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
-fn create_main_window<R: tauri::Runtime>(
+const MAIN_WINDOW_LABEL: &str = "main";
+const MAIN_WINDOW_FALLBACK_LABEL: &str = "main-live";
+
+fn create_main_window_with_label<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
+    label: &str,
 ) -> tauri::Result<tauri::WebviewWindow<R>> {
-    tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+    tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App("index.html".into()))
         .title("Offisim")
         .inner_size(1280.0, 800.0)
         .min_inner_size(1024.0, 700.0)
@@ -27,6 +31,12 @@ fn create_main_window<R: tauri::Runtime>(
         .focused(true)
         .center()
         .build()
+}
+
+fn create_main_window<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> tauri::Result<tauri::WebviewWindow<R>> {
+    create_main_window_with_label(app, MAIN_WINDOW_LABEL)
 }
 
 fn migrations() -> Vec<Migration> {
@@ -284,18 +294,26 @@ fn migrations() -> Vec<Migration> {
     ]
 }
 
-fn restore_main_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
+fn restore_main_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> bool {
     let _ = window.unminimize();
     let _ = window.show();
     let _ = window.set_focus();
+    window.is_visible().unwrap_or(false)
 }
 
 fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
-    let window = match app.get_webview_window("main") {
+    let window = match app.get_webview_window(MAIN_WINDOW_LABEL) {
         Some(window) => window,
         None => create_main_window(app)?,
     };
-    restore_main_window(&window);
+    if restore_main_window(&window) {
+        return Ok(());
+    }
+    let fallback = match app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL) {
+        Some(window) => window,
+        None => create_main_window_with_label(app, MAIN_WINDOW_FALLBACK_LABEL)?,
+    };
+    restore_main_window(&fallback);
     Ok(())
 }
 
@@ -385,7 +403,11 @@ pub fn run() {
                     .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
                     .unwrap_or(false);
                 if cfg!(debug_assertions) || force_devtools {
-                    if let Some(window) = app.get_webview_window("main") {
+                    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+                        window.open_devtools();
+                    } else if let Some(window) =
+                        app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL)
+                    {
                         window.open_devtools();
                     }
                 }
@@ -409,6 +431,21 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| match event {
+            tauri::RunEvent::Ready | tauri::RunEvent::Resumed => {
+                let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                let _ = ensure_main_window(app);
+            }
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } if !has_visible_windows => {
+                let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+                let _ = ensure_main_window(app);
+            }
+            _ => {}
+        });
 }

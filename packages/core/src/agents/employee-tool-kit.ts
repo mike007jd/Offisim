@@ -38,6 +38,23 @@ export async function assembleToolKit(
   const { repos, toolExecutor, workstationToolResolver, memoryService, companyId, builtinTools } =
     runtimeCtx;
 
+  if (runtimeCtx.llmToolCallsEnabled === false) {
+    const pool = await buildToolPool({
+      virtualTools: [],
+      mcpTools: [],
+      runtimePolicy: runtimeCtx.runtimePolicy,
+      serverForTool: serverResolverFromExecutor(toolExecutor),
+    });
+    return {
+      virtualTools: pool.virtualTools,
+      mcpTools: pool.mcpTools,
+      allTools: pool.llmTools,
+      allowedMcpToolNames: new Set(),
+      deniedTools: pool.deniedTools,
+      toolsHash: pool.toolsHash,
+    };
+  }
+
   const virtualTools: ToolDef[] = [];
 
   if (memoryService) {

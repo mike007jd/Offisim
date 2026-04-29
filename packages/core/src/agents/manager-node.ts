@@ -7,6 +7,7 @@ import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { buildEnrichedEmployeeList } from './employee-roster.js';
+import { isLocalToolAssignableEmployee, requiresLocalOffisimTools } from './local-tool-routing.js';
 
 interface LlmAssignment {
   taskType: string;
@@ -107,15 +108,6 @@ export async function managerNode(
 
   // Get available employees
   const employees = await repos.employees.findByCompany(companyId);
-  // System graph-node roles that should not receive task assignments.
-  // All other employees (including account_manager, project_manager, etc.) are assignable.
-  const GRAPH_ONLY_ROLES = new Set(['boss', 'hr']);
-  const nonManagerEmployees = employees.filter(
-    (e) => !GRAPH_ONLY_ROLES.has(e.role_slug) && e.enabled,
-  );
-
-  const employeeList = buildEnrichedEmployeeList(nonManagerEmployees);
-
   // Get last user message (needed for both fast path and LLM path)
   const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
 
@@ -123,6 +115,18 @@ export async function managerNode(
     typeof lastUserMessage?.content === 'string'
       ? lastUserMessage.content
       : 'No user message found';
+  const localToolRequired = requiresLocalOffisimTools(userContent);
+  // System graph-node roles that should not receive task assignments.
+  // All other employees (including account_manager, project_manager, etc.) are assignable.
+  const GRAPH_ONLY_ROLES = new Set(['boss', 'hr']);
+  const nonManagerEmployees = employees.filter(
+    (e) =>
+      !GRAPH_ONLY_ROLES.has(e.role_slug) &&
+      e.enabled &&
+      (!localToolRequired || isLocalToolAssignableEmployee(e)),
+  );
+
+  const employeeList = buildEnrichedEmployeeList(nonManagerEmployees);
 
   // --- Rule-based fast path: single employee, simple delegation ---
   // When there's exactly one assignable employee AND the request is clearly work
@@ -178,9 +182,21 @@ export async function managerNode(
   );
 
   let decision = parseManagerDecision(routingStreamResult.fullContent);
+  const validEmployeeIds = new Set(nonManagerEmployees.map((employee) => employee.employee_id));
+  if (decision?.intent === 'work') {
+    decision = {
+      ...decision,
+      assignments: decision.assignments.filter((assignment) =>
+        validEmployeeIds.has(assignment.employeeId),
+      ),
+    };
+  }
 
   // Fallback: assign to first available employee
-  if (!decision && nonManagerEmployees.length > 0) {
+  if (
+    (!decision || (decision.intent === 'work' && decision.assignments.length === 0)) &&
+    nonManagerEmployees.length > 0
+  ) {
     decision = {
       intent: 'work',
       assignments: [

@@ -77,6 +77,12 @@ export interface RuntimeContext {
   readonly sessionCostTracker?: SessionCostTracker;
   /** Live tool execution telemetry buffer. */
   readonly toolTelemetryService?: ToolTelemetryService;
+  /**
+   * Whether the active LLM transport can execute Offisim tool calls for this
+   * runtime. SDK sidecars are text/reasoning-only until they provide a real
+   * tool bridge; exposing tool schemas there creates false evidence.
+   */
+  readonly llmToolCallsEnabled?: boolean;
   /** Desktop-trusted built-in file/shell tools exposed outside workstation MCP scoping. */
   readonly builtinTools?: ReadonlyMap<string, BuiltinTool>;
   /** File mutation snapshot and rewind support for desktop-trusted runtimes. */
@@ -146,6 +152,7 @@ export function createRuntimeContext(deps: {
   systemCaller?: RecordedSystemLlmCaller;
   sessionCostTracker?: SessionCostTracker;
   toolTelemetryService?: ToolTelemetryService;
+  llmToolCallsEnabled?: boolean;
   builtinTools?: ReadonlyMap<string, BuiltinTool>;
   fileHistoryService?: FileHistoryService;
   engineAdapters?: EngineAdapterRegistry;

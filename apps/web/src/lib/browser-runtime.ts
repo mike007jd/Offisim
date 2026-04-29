@@ -393,6 +393,7 @@ export async function createBrowserRuntime(
     systemCaller,
     sessionCostTracker,
     toolTelemetryService,
+    llmToolCallsEnabled: true,
     interactionService,
     rollingJournal,
     resumeCoordinator,

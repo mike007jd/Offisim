@@ -20,3 +20,14 @@ The deterministic harness contract SHALL fail if the TypeScript or Rust transiti
 #### Scenario: Transition tables match shared JSON
 - **WHEN** the harness contract loads
 - **THEN** the TypeScript transition table and Rust generated table match `kanban-state-machine.json` exactly
+
+### Requirement: Kanban UI exposes only allowed next transitions
+
+Kanban UI controls SHALL be derived from the shared transition table. A card SHALL only render actions for states that are allowed from its current state. Terminal `done` cards SHALL render a terminal-state affordance and SHALL NOT render controls that could ask for `todo`, `doing`, `blocked`, or `review`.
+
+The backend rejection remains the final guard, but the release UI SHALL NOT present known-invalid state actions as normal user choices.
+
+#### Scenario: Done card renders no invalid actions
+- **WHEN** a card has state `done`
+- **THEN** the board renders the card as terminal
+- **AND** it does not render transition buttons to any other state.

@@ -1,0 +1,61 @@
+{
+  "id": "completion-chinese-file-task-blocks-without-evidence",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": {
+      "companyId": "company-completion-chinese-file-task",
+      "name": "Chinese File Evidence Co"
+    },
+    "thread": {
+      "threadId": "thread-completion-chinese-file-task",
+      "status": "running"
+    },
+    "employees": [{ "id": "emp-chinese-file-task", "name": "Workspace Engineer", "role": "engineer" }],
+    "taskRuns": [
+      {
+        "id": "task-chinese-file-evidence",
+        "employeeId": "emp-chinese-file-task",
+        "taskType": "code",
+        "input": {
+          "description": "读取 README.md 并汇报文件内容。"
+        }
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "code",
+        "employeeId": "emp-chinese-file-task",
+        "assigneeKind": "employee",
+        "assigneeName": "Workspace Engineer",
+        "taskRunId": "task-chinese-file-evidence",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "读取 README.md 并汇报文件内容。",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-claims-chinese-file-read",
+      "match": {
+        "contains": "读取 README.md 并汇报文件内容。"
+      },
+      "content": "README.md 内容已经读取并汇报。"
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-chinese-file-evidence", "status": "blocked" },
+    { "kind": "taskStateEvent", "taskRunId": "task-chinese-file-evidence", "next": "review_ready" },
+    { "kind": "toolExecutions", "count": 0 },
+    { "kind": "finalOutputContains", "contains": "Task blocked:" }
+  ]
+}

@@ -87,6 +87,13 @@ export function assembleSettingsControllerApi({
     resolvedSelection?.transport.baseURL ||
     selectedVariant?.baseURL ||
     '';
+  const laneScopedCapabilities = selectedVariant
+    ? {
+        ...selectedVariant.capabilities,
+        toolCalls:
+          selectedVariant.capabilities.toolCalls === true && provider.executionLane === 'gateway',
+      }
+    : undefined;
   const isSaveDisabled =
     save.isSaving ||
     save.isReinitializing ||
@@ -133,7 +140,7 @@ export function assembleSettingsControllerApi({
       selectedProduct?.advancedRoutingDescription ?? 'Advanced routing is unavailable.',
     saveError: save.saveError,
     selectedAccess,
-    selectedCapabilities: capabilitySummary(selectedVariant?.capabilities),
+    selectedCapabilities: capabilitySummary(laneScopedCapabilities),
     selectedCompatibility: formatCompatibilityLabel(selectedVariant?.compatibility),
     selectedProduct,
     selectedRegion: selectedVariant?.region?.toUpperCase() ?? 'GLOBAL',

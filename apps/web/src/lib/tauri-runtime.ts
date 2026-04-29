@@ -566,6 +566,7 @@ export async function createTauriRuntime(
     systemCaller,
     sessionCostTracker,
     toolTelemetryService,
+    llmToolCallsEnabled: resolvedProvider.executionLane === 'gateway',
     ...(builtinTools.size > 0 ? { builtinTools } : {}),
     fileHistoryService,
     engineAdapters: createTauriEngineAdapterRegistry({ enableProviderHostPreviewAdapters: true }),

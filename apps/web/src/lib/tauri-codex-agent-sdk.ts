@@ -40,6 +40,14 @@ function serializeRequest(request: LlmRequest): Record<string, unknown> {
   };
 }
 
+function assertNoTools(request: LlmRequest): void {
+  if ((request.tools ?? []).length === 0) return;
+  throw new TauriCodexAgentSdkError(
+    'offisim-tools-unsupported',
+    'Codex Agent SDK lane is text/reasoning-only in Offisim and does not execute file, shell, or virtual tool calls. Switch this employee to gateway lane to use tools.',
+  );
+}
+
 function normalizeInvokeError(err: unknown): Error {
   if (err instanceof Error) return err;
   return new Error(String(err ?? 'Unknown trusted-host error'));
@@ -53,6 +61,8 @@ export class TauriCodexAgentSdkGateway implements LlmGateway {
   ) {}
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
+    assertNoTools(request);
+
     const requestId = nextRequestId();
     const channel = new Channel<CodexAgentHostEvent>();
 

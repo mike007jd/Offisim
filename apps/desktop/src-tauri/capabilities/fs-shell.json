@@ -1,6 +1,6 @@
 {
   "identifier": "offisim:fs-shell",
   "description": "Allows the main Offisim window to invoke project-bound filesystem and shell tools.",
-  "windows": ["main"],
+  "windows": ["main", "main-live"],
   "permissions": ["fs-shell"]
 }

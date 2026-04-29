@@ -15,14 +15,19 @@ export interface VerifyCompletionOptions {
   readonly windowSize?: number;
 }
 
-const DEFAULT_EVIDENCE_TOOLS = ['pnpm-test', 'pnpm-typecheck', 'pnpm-lint', 'harness-contract'];
+export const DEFAULT_COMPLETION_EVIDENCE_TOOLS = [
+  'pnpm-test',
+  'pnpm-typecheck',
+  'pnpm-lint',
+  'harness-contract',
+] as const;
 const DEFAULT_WINDOW_SIZE = 12;
 
 export function verifyCompletion(
   input: VerifyCompletionInput,
   opts: VerifyCompletionOptions = {},
 ): VerifyOutcome {
-  const evidenceTools = new Set(opts.evidenceTools ?? DEFAULT_EVIDENCE_TOOLS);
+  const evidenceTools = new Set(opts.evidenceTools ?? DEFAULT_COMPLETION_EVIDENCE_TOOLS);
   const windowSize = opts.windowSize ?? DEFAULT_WINDOW_SIZE;
   const window = input.recentToolResults.slice(-windowSize);
   const evidence = window.filter((result) => evidenceTools.has(result.toolName));

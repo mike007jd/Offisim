@@ -19,7 +19,7 @@ Direct-to-employee and YOLO entry paths SHALL clear stale SOP/plan execution sta
 
 In a `desktop-trusted` Tauri runtime using the `gateway` lane, employee and YOLO tool pools SHALL include bounded built-in `read_file`, `write_file`, and `bash` capabilities for project workspaces.
 
-Browser-limited runtimes SHALL NOT expose those built-ins. Agent SDK lanes remain known-limited for full Offisim fs/shell tool support until separately implemented.
+Browser-limited runtimes SHALL NOT expose those built-ins. Agent SDK lanes SHALL be treated as text/reasoning-only Offisim lanes unless a true tool bridge is implemented and verified.
 
 #### Scenario: Desktop gateway YOLO sees project tools
 
@@ -32,15 +32,42 @@ Browser-limited runtimes SHALL NOT expose those built-ins. Agent SDK lanes remai
 - **WHEN** a browser-limited runtime starts an employee turn without desktop built-ins
 - **THEN** the model request does not expose `read_file`, `write_file`, or `bash`.
 
-### Requirement: Agent SDK lanes SHALL be explicit about fs/shell limitation
+### Requirement: Agent SDK lanes SHALL NOT expose Offisim runtime tools
 
-Until SDK-lane tool bridging is implemented, Claude, Codex, and OpenAI agent SDK lane adapters SHALL fail with explicit user-facing limitation text when a task needs Offisim fs/shell tools.
+Until SDK-lane tool bridging is implemented, Claude, Codex, and OpenAI agent SDK lanes SHALL set runtime tool-call capability false and SHALL NOT expose file, shell, memory, todo, skill, MCP, or built-in tool schemas to the model.
 
-#### Scenario: SDK lane tells the user to switch lane
+Adapters for SDK lanes SHALL fail closed with explicit user-facing text if any tool request reaches them. Provider/UI capability copy SHALL NOT label SDK-lane execution as an Offisim tools-capable path.
 
-- **WHEN** an employee task requires file or shell tools under an SDK lane
-- **THEN** the adapter reports that SDK lane fs/shell tools are not currently supported
-- **AND** it points the user to the gateway lane for project file and command work.
+#### Scenario: SDK lane hides all Offisim tools
+
+- **WHEN** an employee or YOLO turn runs under an SDK lane
+- **THEN** the model request contains none of `read_file`, `write_file`, `bash`, `todo_create`, `todo_update`, `todo_list`, `handoff_to`, skill tools, memory tools, MCP tools, or built-in tools
+- **AND** settings copy describes the lane as text/reasoning-only for Offisim tools.
+
+#### Scenario: SDK adapter fails closed on unexpected tools
+
+- **WHEN** a tool request reaches an SDK lane adapter
+- **THEN** the adapter rejects the request instead of forwarding it to a sidecar that cannot execute Offisim tools
+- **AND** the error points the user to the gateway lane for project file and command work.
+
+### Requirement: Local tool work SHALL NOT route to external A2A employees
+
+Requests that require Offisim-local filesystem, shell, workspace, or path-bounded project tools SHALL route only to enabled internal employees running in a tools-capable gateway context. External A2A employees and text/reasoning-only SDK lanes SHALL NOT be selected for those tasks as if they could access local project files or commands.
+
+Direct-to-employee requests that explicitly target an external A2A employee for local file or command work SHALL fail fast with a user-facing explanation instead of sending the task to the external endpoint.
+
+#### Scenario: Boss avoids external A2A for local tools
+
+- **WHEN** a user asks to read, write, list, or execute commands in the project workspace
+- **AND** both internal and external employees are available
+- **THEN** routing selects an enabled internal employee for the local-tool task
+- **AND** no A2A request is sent as local filesystem evidence.
+
+#### Scenario: External direct local-tool request fails fast
+
+- **WHEN** direct chat targets an external A2A employee with a local file or shell request
+- **THEN** the request is rejected before external dispatch
+- **AND** the user is told to use an internal gateway-lane employee for project file and command work.
 
 ### Requirement: InteractionMode is a 4-value union
 

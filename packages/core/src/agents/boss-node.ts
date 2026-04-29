@@ -10,6 +10,7 @@ import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { isLocalToolAssignableEmployee, requiresLocalOffisimTools } from './local-tool-routing.js';
 
 interface BossDecision {
   action:
@@ -163,13 +164,22 @@ export async function bossNode(
     runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId),
     runtimeCtx.repos.sopTemplates.findByCompany(runtimeCtx.companyId),
   ]);
-  const nonManagerEmployees = employees.filter((e) => e.role_slug !== 'manager' && e.enabled !== 0);
+  const localToolRequired = requiresLocalOffisimTools(userContent);
+  const nonManagerEmployees = employees.filter(
+    (e) =>
+      e.role_slug !== 'manager' &&
+      e.enabled !== 0 &&
+      (!localToolRequired || isLocalToolAssignableEmployee(e)),
+  );
   let rosterSection = '';
   if (nonManagerEmployees.length > 0) {
     const roster = nonManagerEmployees
       .map((e) => `- ${e.employee_id}: ${e.name} (${e.role_slug})`)
       .join('\n');
-    rosterSection = `\n\nAvailable employees:\n${roster}`;
+    const localToolNote = localToolRequired
+      ? "\n\nLocal Offisim file/shell tools are required for this request. External A2A employees are omitted because they cannot execute this app instance's read_file/write_file/bash tools."
+      : '';
+    rosterSection = `\n\nAvailable employees:\n${roster}${localToolNote}`;
   }
 
   // Inject available SOPs so boss can choose use_sop when a match exists

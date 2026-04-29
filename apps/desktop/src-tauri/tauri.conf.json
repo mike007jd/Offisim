@@ -12,8 +12,9 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Offisim",
-        "create": false,
+        "create": true,
         "width": 1280,
         "height": 800,
         "minWidth": 1024,

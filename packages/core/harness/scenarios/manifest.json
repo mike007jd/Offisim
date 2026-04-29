@@ -106,6 +106,30 @@
       ]
     },
     {
+      "id": "completion-file-tool-evidence-completes",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.file_tool_evidence_allows_completion",
+        "completion.real_tool_call_not_self_attest"
+      ]
+    },
+    {
+      "id": "completion-chinese-file-task-blocks-without-evidence",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.chinese_file_task_requires_real_tool_evidence",
+        "completion.text_claim_not_file_evidence"
+      ]
+    },
+    {
+      "id": "completion-text-deliverable-without-tool-evidence-completes",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.text_deliverable_allows_completion_without_tool_evidence",
+        "completion.text_deliverable_not_self_attest"
+      ]
+    },
+    {
       "id": "pm-heartbeat-flags-blocked-task",
       "category": "long-running-runtime",
       "invariants": [
@@ -129,6 +153,14 @@
       "invariants": ["graph.first_node_pm_planner"]
     },
     {
+      "id": "direct-setup-clears-stale-task-plan",
+      "category": "interaction-modes",
+      "invariants": [
+        "graph.direct_setup_clears_stale_task_plan",
+        "completion.direct_setup_real_tool_evidence_completes"
+      ]
+    },
+    {
       "id": "gateway-lane-yolo-has-fs-shell-tools",
       "category": "interaction-modes",
       "invariants": ["tools.gateway_yolo_exposes_fs_shell"]
@@ -137,6 +169,31 @@
       "id": "tool-kit-without-builtins-omits-fs-shell",
       "category": "interaction-modes",
       "invariants": ["tools.web_without_builtins_omits_fs_shell"]
+    },
+    {
+      "id": "non-tool-lane-omits-all-runtime-tools",
+      "category": "interaction-modes",
+      "invariants": [
+        "tools.non_tool_lane_omits_virtual_tools",
+        "tools.non_tool_lane_omits_builtin_tools",
+        "tools.non_tool_lane_omits_mcp_tools"
+      ]
+    },
+    {
+      "id": "local-tool-routing-avoids-external-a2a",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.local_tool_tasks_exclude_external_a2a",
+        "routing.invalid_llm_employee_id_resanitized_to_internal_worker"
+      ]
+    },
+    {
+      "id": "external-direct-chat-local-tools-fail-fast",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.external_direct_chat_local_tools_fail_fast",
+        "routing.external_a2a_not_invoked_for_local_tools"
+      ]
     },
     {
       "id": "builtin-tools-rejects-symlink-escape",

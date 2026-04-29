@@ -55,7 +55,7 @@ export class TauriClaudeAgentSdkGateway implements LlmGateway {
   async chat(request: LlmRequest): Promise<LlmResponse> {
     if (request.tools && request.tools.length > 0) {
       throw new Error(
-        'Claude Agent SDK lane does not currently support fs/shell tool calls. Switch this employee to gateway lane to use file/shell tools.',
+        'Claude Agent SDK lane is text/reasoning-only in Offisim and does not execute file, shell, or virtual tool calls. Switch this employee to gateway lane to use tools.',
       );
     }
 

@@ -1,0 +1,98 @@
+{
+  "id": "direct-setup-clears-stale-task-plan",
+  "category": "interaction-modes",
+  "entryMode": "boss_chat",
+  "interactionMode": "boss_proxy",
+  "seed": {
+    "company": { "companyId": "company-direct-clear-stale-plan", "name": "Direct Clear Co" },
+    "thread": { "threadId": "thread-direct-clear-stale-plan", "status": "running" },
+    "employees": [
+      { "id": "emp-direct-clear", "name": "Direct Engineer", "role": "engineer" }
+    ]
+  },
+  "tools": [
+    {
+      "name": "write_file",
+      "description": "Write a file.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "content": { "type": "string" }
+        },
+        "required": ["path", "content"]
+      }
+    }
+  ],
+  "toolFixtures": {
+    "write_file": [
+      {
+        "success": true,
+        "result": "Successfully wrote direct-clear.txt"
+      }
+    ]
+  },
+  "initialState": {
+    "targetEmployeeId": "emp-direct-clear",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Use write_file to create direct-clear.txt with real tool evidence."
+      }
+    ],
+    "taskPlan": {
+      "planId": "stale-plan-direct-clear",
+      "threadId": "thread-direct-clear-stale-plan",
+      "companyId": "company-direct-clear-stale-plan",
+      "summary": "Stale plan that must not survive direct setup",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Already terminal stale step",
+          "tasks": []
+        },
+        {
+          "stepIndex": 1,
+          "description": "Pending stale step that would trip dispatcher",
+          "tasks": []
+        }
+      ]
+    },
+    "dispatchedStepIndices": [0],
+    "completedStepIndices": [0],
+    "currentStepIndex": 1
+  },
+  "llmTurns": [
+    {
+      "id": "direct-setup-write",
+      "match": {
+        "contains": "Use write_file to create direct-clear.txt",
+        "toolNames": ["write_file"]
+      },
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call-direct-clear-write",
+          "name": "write_file",
+          "arguments": { "path": "direct-clear.txt", "content": "DIRECT_CLEAR_OK" }
+        }
+      ]
+    },
+    {
+      "id": "direct-setup-final",
+      "match": { "contains": "Successfully wrote direct-clear.txt" },
+      "content": "Direct setup completed after real write_file evidence."
+    }
+  ],
+  "runs": [{ "startAt": "employee_direct_setup" }],
+  "assertions": [
+    {
+      "kind": "taskRunStatusIs",
+      "taskRunId": "tr-dc-direct-setup-clears-stale-task-plan-1",
+      "status": "completed"
+    },
+    { "kind": "mcpAuditContains", "toolName": "write_file" },
+    { "kind": "finalOutputNotContains", "contains": "SOP dispatcher could not advance" },
+    { "kind": "finalOutputNotContains", "contains": "Task blocked:" }
+  ]
+}

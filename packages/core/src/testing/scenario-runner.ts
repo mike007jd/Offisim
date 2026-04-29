@@ -1,3 +1,4 @@
+import { HumanMessage } from '@langchain/core/messages';
 import type {
   InteractionKind,
   InteractionMode,
@@ -68,6 +69,7 @@ export interface DeterministicScenario {
   readonly initialState: ScenarioInitialState;
   readonly tools?: readonly ToolDef[];
   readonly builtinTools?: readonly ToolDef[];
+  readonly llmToolCallsEnabled?: boolean;
   readonly toolFixtures?: Record<string, readonly ToolResultFixture[]>;
   readonly llmTurns?: readonly ScenarioLlmTurn[];
   readonly interactionMode?: InteractionMode;
@@ -100,6 +102,12 @@ interface SeedEmployee {
   readonly name: string;
   readonly role: RoleSlug;
   readonly config?: Record<string, unknown>;
+  readonly isExternal?: boolean;
+  readonly a2aUrl?: string | null;
+  readonly a2aToken?: string | null;
+  readonly a2aAgentId?: string | null;
+  readonly brandKey?: string | null;
+  readonly agentCardJson?: string | null;
 }
 
 interface SeedTaskRun {
@@ -132,6 +140,13 @@ interface ScenarioInitialState {
   readonly blockedStepIndices?: readonly number[];
   readonly currentStepIndex?: number;
   readonly routeDecision?: OffisimGraphState['routeDecision'];
+  readonly targetEmployeeId?: string | null;
+  readonly messages?: readonly ScenarioInitialMessage[];
+}
+
+interface ScenarioInitialMessage {
+  readonly role: 'user';
+  readonly content: string;
 }
 
 interface ScenarioRun {
@@ -206,6 +221,7 @@ export async function runDeterministicScenario(
         skillLoader,
         skillStagingManager,
         builtinTools: scenario.builtinTools ?? [],
+        llmToolCallsEnabled: scenario.llmToolCallsEnabled ?? true,
         determinism,
       });
       const unsubscribe = installAutoInteractionResolver(
@@ -559,6 +575,7 @@ function createScenarioRuntime(params: {
   readonly skillLoader: SkillLoader | null;
   readonly skillStagingManager: SkillStagingManager | null;
   readonly builtinTools: readonly ToolDef[];
+  readonly llmToolCallsEnabled: boolean;
   readonly determinism: RuntimeDeterminism;
 }): RuntimeContext {
   const authorizer = new ToolPermissionEngine({
@@ -587,6 +604,7 @@ function createScenarioRuntime(params: {
     companyId: params.companyId,
     threadId: params.threadId,
     runtimePolicy: HARNESS_RUNTIME_POLICY,
+    llmToolCallsEnabled: params.llmToolCallsEnabled,
     determinism: params.determinism,
     builtinTools: createScenarioBuiltinTools(params.builtinTools),
     interactionService: params.interactionService,
@@ -708,6 +726,12 @@ async function seedScenario(params: {
       role_slug: employee.role,
       persona_json: JSON.stringify({ expertise: 'Harness scenario employee' }),
       config_json: JSON.stringify(employee.config ?? {}),
+      is_external: employee.isExternal === true,
+      a2a_url: employee.a2aUrl ?? null,
+      a2a_token: employee.a2aToken ?? null,
+      a2a_agent_id: employee.a2aAgentId ?? null,
+      brand_key: employee.brandKey ?? null,
+      agent_card_json: employee.agentCardJson ?? null,
     });
   }
   for (const taskRun of params.scenario.seed.taskRuns ?? []) {
@@ -753,8 +777,10 @@ function buildInitialState(
       scenario.seed.thread?.projectId ??
       scenario.seed.projects?.[0]?.id ??
       null,
-    targetEmployeeId: null,
-    messages: [],
+    targetEmployeeId: scenario.initialState.targetEmployeeId ?? null,
+    messages: (scenario.initialState.messages ?? []).map(
+      (message) => new HumanMessage(message.content),
+    ),
     managerDirective: scenario.initialState.managerDirective ?? null,
     taskPlan: scenario.initialState.taskPlan ?? null,
     pendingAssignments: [...(scenario.initialState.pendingAssignments ?? [])],

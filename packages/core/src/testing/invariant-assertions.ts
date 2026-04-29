@@ -12,6 +12,7 @@ export type ScenarioAssertion =
   | { readonly kind: 'noDuplicateStepOutputs' }
   | { readonly kind: 'threadStatusIs'; readonly status: string }
   | { readonly kind: 'taskRunStatusIs'; readonly taskRunId: string; readonly status: string }
+  | { readonly kind: 'taskRunsExcludeEmployee'; readonly employeeId: string }
   | { readonly kind: 'taskStateEvent'; readonly taskRunId: string; readonly next: string }
   | {
       readonly kind: 'interactionHistoryContains';
@@ -132,6 +133,8 @@ async function evaluateAssertion(
       return assertThreadStatus(ctx.repos, ctx.threadId, assertion.status);
     case 'taskRunStatusIs':
       return assertTaskRunStatus(ctx.repos, assertion.taskRunId, assertion.status);
+    case 'taskRunsExcludeEmployee':
+      return assertTaskRunsExcludeEmployee(ctx.repos, ctx.threadId, assertion.employeeId);
     case 'taskStateEvent':
       return assertTaskStateEvent(ctx.events, assertion);
     case 'interactionHistoryContains':
@@ -412,6 +415,22 @@ async function assertTaskRunStatus(
   if (taskRun?.status !== expected) {
     throw new Error(
       `Expected task run ${taskRunId} status ${expected}, got ${taskRun?.status ?? '<missing>'}`,
+    );
+  }
+}
+
+async function assertTaskRunsExcludeEmployee(
+  repos: RuntimeRepositories,
+  threadId: string,
+  employeeId: string,
+): Promise<void> {
+  const taskRuns = await repos.taskRuns.findByThread(threadId);
+  const matching = taskRuns.filter((taskRun) => taskRun.employee_id === employeeId);
+  if (matching.length > 0) {
+    throw new Error(
+      `Expected no task runs for employee ${employeeId}, found ${matching
+        .map((taskRun) => taskRun.task_run_id)
+        .join(', ')}`,
     );
   }
 }

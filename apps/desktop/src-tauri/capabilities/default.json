@@ -1,7 +1,7 @@
 {
   "identifier": "default",
   "description": "Default capabilities for Offisim desktop",
-  "windows": ["main"],
+  "windows": ["main", "main-live"],
   "permissions": [
     "core:default",
     "sql:default",

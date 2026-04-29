@@ -87,6 +87,10 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   ]
     .filter(Boolean)
     .join(' • ');
+  const laneHelp =
+    executionLane === 'gateway'
+      ? 'Gateway lane exposes Offisim tools when the active runtime has a trusted host and configured workspace.'
+      : 'This SDK lane is text/reasoning-only in Offisim; file, shell, memory, todo, and skill tools are hidden.';
 
   const resolvedSummary = (
     <div className="flex flex-wrap items-center gap-2 text-sm text-white/80">
@@ -271,7 +275,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                 <p className="mt-2 text-xs text-slate-400">
                   {verifiedExecutionLanes.length > supportedExecutionLanes.length
                     ? 'Additional lanes exist in provider metadata, but the current runtime host cannot expose them.'
-                    : 'The selected product resolves to one active execution binding in this lane.'}
+                    : laneHelp}
                 </p>
               </div>
 

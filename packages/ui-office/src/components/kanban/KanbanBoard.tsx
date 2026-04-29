@@ -1,4 +1,8 @@
-import type { KanbanOrigin, KanbanState as SharedKanbanState } from '@offisim/shared-types';
+import {
+  type KanbanOrigin,
+  type KanbanState as SharedKanbanState,
+  isKanbanTransitionAllowed,
+} from '@offisim/shared-types';
 import { cn } from '@offisim/ui-core';
 import { type FormEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
@@ -273,6 +277,7 @@ function LiveKanbanBoard({
   const [note, setNote] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const grouped = useMemo(() => groupCards(cards), [cards]);
 
   const handleCreate = useCallback(
@@ -281,10 +286,13 @@ function LiveKanbanBoard({
       const trimmed = title.trim();
       if (!trimmed || !onCreate) return;
       setCreating(true);
+      setErrorMessage(null);
       try {
         await onCreate({ title: trimmed, note: note.trim() || null, origin: 'human' });
         setTitle('');
         setNote('');
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : String(error));
       } finally {
         setCreating(false);
       }
@@ -296,8 +304,11 @@ function LiveKanbanBoard({
     async (card: KanbanCardData, next: KanbanState) => {
       if (!onMove || card.state === next) return;
       setBusyId(card.id);
+      setErrorMessage(null);
       try {
         await onMove(card.id, next);
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : String(error));
       } finally {
         setBusyId(null);
       }
@@ -345,6 +356,15 @@ function LiveKanbanBoard({
           Add
         </button>
       </form>
+      {errorMessage && (
+        <div
+          role="alert"
+          className="border-b border-red-500/20 bg-red-500/10 text-xs font-medium text-red-200"
+          style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-sm)' }}
+        >
+          {errorMessage}
+        </div>
+      )}
 
       <div
         className="grid min-h-0 flex-1 overflow-x-auto custom-scrollbar"
@@ -411,6 +431,10 @@ function LiveKanbanCard({
   busy: boolean;
   onMove: (card: KanbanCardData, next: KanbanState) => Promise<void>;
 }) {
+  const allowedTargets = KANBAN_STATES.filter(
+    (state) => state !== card.state && isKanbanTransitionAllowed(card.state, state),
+  );
+
   return (
     <article className="glass-panel-sm" style={{ borderRadius: '8px', padding: 'var(--sp-md)' }}>
       <div className="flex items-start justify-between" style={{ columnGap: 'var(--sp-sm)' }}>
@@ -443,18 +467,27 @@ function LiveKanbanCard({
         </div>
       )}
       <div className="mt-3 flex flex-wrap" style={{ gap: 'var(--sp-xs)' }}>
-        {KANBAN_STATES.filter((state) => state !== card.state).map((state) => (
-          <button
-            key={state}
-            type="button"
-            className="border border-white/[0.08] text-[10px] text-slate-400 hover:border-[color:var(--color-sea-blue)] hover:text-[color:var(--color-sea-blue)] disabled:opacity-40"
+        {allowedTargets.length > 0 ? (
+          allowedTargets.map((state) => (
+            <button
+              key={state}
+              type="button"
+              className="border border-white/[0.08] text-[10px] text-slate-400 hover:border-[color:var(--color-sea-blue)] hover:text-[color:var(--color-sea-blue)] disabled:opacity-40"
+              style={{ borderRadius: '8px', padding: 'var(--sp-xs) var(--sp-sm)' }}
+              disabled={busy}
+              onClick={() => void onMove(card, state)}
+            >
+              {KANBAN_LABELS[state]}
+            </button>
+          ))
+        ) : (
+          <span
+            className="border border-white/[0.08] text-[10px] uppercase text-slate-500"
             style={{ borderRadius: '8px', padding: 'var(--sp-xs) var(--sp-sm)' }}
-            disabled={busy}
-            onClick={() => void onMove(card, state)}
           >
-            {KANBAN_LABELS[state]}
-          </button>
-        ))}
+            Terminal
+          </span>
+        )}
       </div>
     </article>
   );

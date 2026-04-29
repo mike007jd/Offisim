@@ -2,6 +2,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../../events/event-factories.js';
 import { type OffisimGraphState, createEmptyPlanScopedState } from '../../graph/state.js';
 import { getRuntime } from '../../utils/get-runtime.js';
+import { isLocalToolAssignableEmployee, requiresLocalOffisimTools } from '../local-tool-routing.js';
 import type { PmPreflightOutcome } from '../pm-planner-types.js';
 import { parseReviewedPlanPayload } from './plan-review-payload.js';
 
@@ -63,16 +64,22 @@ export async function runPmPreflight(
   const employeeDetails = await Promise.all(
     directive.recommendedEmployees.map((id) => repos.employees.findById(id)),
   );
-  const validEmployees = employeeDetails.filter(
+  let validEmployees = employeeDetails.filter(
     (e): e is NonNullable<typeof e> => e !== null && e.enabled === 1,
   );
+  const allEmployees = await repos.employees.findByCompany(companyId);
+  const allEnabled = allEmployees.filter((e) => e.enabled === 1);
+  const localToolRequired = requiresLocalOffisimTools(directive.intent);
+  if (localToolRequired) {
+    validEmployees = validEmployees.filter(isLocalToolAssignableEmployee);
+    if (validEmployees.length === 0) {
+      validEmployees = allEnabled.filter(isLocalToolAssignableEmployee);
+    }
+  }
 
   if (validEmployees.length === 0) {
     return { kind: 'short-circuit', result: emptyPlan('pm-preflight-no-employee') };
   }
-
-  const allEmployees = await repos.employees.findByCompany(companyId);
-  const allEnabled = allEmployees.filter((e) => e.enabled === 1);
 
   return {
     kind: 'ready',

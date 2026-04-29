@@ -75,6 +75,8 @@ catalog/
 - **完整交付必须闭环到证据**：实现真实修复，同步 spec / docs / tasks，跑要求的 gate，完成必要的 release / live runtime 验证，并把证据和剩余风险写进对应 report / handoff。
 - **真实阻塞只能阻塞，不能降级成完成**。缺凭证、外部服务不可达、设备不可用、破坏性风险或产品决策无法推断时，必须保留未勾 task、tag gate、archive gate，并明确写“未完整交付”的根因和所需条件。
 - **known limitation 不是验收证据**。如果 live 验证暴露新 blocker，先修能修的真实问题；不能修的直接 surface，不得缩小 scope、口头解释或用 fallback 路径替代原验收。
+- **本地工具任务不能错投外包/SDK**。涉及 workspace 文件、路径、shell、bash、pnpm/cargo/npm、越界拒绝、timeout 的任务只能由 internal + gateway 工具员工执行。external A2A 员工和 `claude-agent-sdk` / `codex-agent-sdk` / `openai-agents-sdk` lane 不能被当成本机文件/命令执行者。
+- **release 桌面验收要用新 UI dist**。只要改过 `packages/ui-office`，必须先 `pnpm --filter @offisim/ui-office build`，再 `pnpm --filter @offisim/desktop build`，否则 release `.app` 可能还是旧 Kanban/Settings UI。
 
 ## Repository Hygiene
 
@@ -216,7 +218,7 @@ Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 ### Live Product Findings
 
 - `web` live：真实 MiniMax 请求跑通，底部 token / cost / latency 都是真值
-- **Agent SDK execution lanes 已正式开放（commits `3e99f940` `feat: add agent sdk execution lanes` + `d5e0f4c9` `Add SOP-driven dual runtime engine support`）**：核心员工 runtime 现走 4 lane —— `gateway`（默认 HTTP）、`claude-agent-sdk`、`codex-agent-sdk`、`openai-agents-sdk`。Tauri 侧统一注册在 `apps/web/src/lib/tauri-engine-adapters.ts`；trusted host 命令对应 `claude_agent_execute` / `codex_agent_execute`，sidecars 在 `apps/desktop/src-tauri/src/{claude,codex}_agent_host.rs` + `resources/codex-agent-host.mjs`；Web 不注入 fetch 仍走 SDK 默认 transport。Provider 元数据 catalog 在 `catalog/provider-source-registry/` (commit `61427aab`)
+- **Agent SDK execution lanes 已正式开放（commits `3e99f940` `feat: add agent sdk execution lanes` + `d5e0f4c9` `Add SOP-driven dual runtime engine support`）**：核心员工 runtime 现走 4 lane —— `gateway`（默认 HTTP）、`claude-agent-sdk`、`codex-agent-sdk`、`openai-agents-sdk`。Tauri 侧统一注册在 `apps/web/src/lib/tauri-engine-adapters.ts`；trusted host 命令对应 `claude_agent_execute` / `codex_agent_execute`，sidecars 在 `apps/desktop/src-tauri/src/{claude,codex}_agent_host.rs` + `resources/codex-agent-host.mjs`；Web 不注入 fetch 仍走 SDK 默认 transport。Provider 元数据 catalog 在 `catalog/provider-source-registry/` (commit `61427aab`)。**1.0 交付口径**：SDK lane 是 text/reasoning-only，不是 Offisim tool lane；文件、shell、memory、todo、skill、MCP、builtin tool 只允许在 `gateway` lane 暴露和验收，不能把 SDK lane 文本回复当作工具执行证据。SDK adapter 收到 tool request 必须 fail closed；local file/shell routing 不能选择 external A2A 员工。
 - chat 一轮 streaming fix 已落（`fix-chat-streaming-ux` archived），但仍非强感知 streaming；二次迭代目标是正文 chunk 在气泡里增长
 - 2D DiceBear 卡通头像和 3D 块人两种渲染引擎，颜色优先级（自 C1 起）= `persona_json.appearance` 在则用 appearance；不在则 fallback `outfitColorFromSeed(seed)` / `skinToneFromSeed(seed)` SSOT bridge（2D shirt = 3D body 字节等价）。统一入口 `resolveOutfitColor(seed, appearance?)` / `resolveSkinTone(seed, appearance?)`。DiceBear `top` 走 `HAIR_STYLE_TO_AVATAARS_TOP` v9 enum 映射（bald → `topProbability: 0`，v9 无 `noHair` 令牌）。3D 块人 C1 只消费 skin / clothing color；hairStyle/bodyType/gender/clothingAccent 持久化但渲染待 GPT 5.5 art pass。`AgentState` 携带 pre-resolved `avatarSeed` + parsed `appearance`，不再保留 `persona_json` 镜像
 - A2A 产品抽象 = **品牌外观外包员工**（external employee with brand avatar）。接不同 A2A 产品 → 办公室场景出现对应品牌员工 avatar（OpenClaw / Hermes / Codex 等，发版带内置 **支持列表**；没命中的走 **custom** 通用外包样式）。走员工语义：席位 / zone / ceremony 和内部员工一致，仅 2D+3D 渲染按 brandKey 分支。**不与 DiceBear / 块人内部员工共用资产** —— DiceBear + 块人专供内部员工（核心逻辑），外包员工每 brand 独立 2D+3D 资产

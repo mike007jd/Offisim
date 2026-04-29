@@ -1,0 +1,63 @@
+{
+  "id": "completion-text-deliverable-without-tool-evidence-completes",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": {
+      "companyId": "company-completion-text-deliverable",
+      "name": "Text Completion Evidence Co"
+    },
+    "thread": {
+      "threadId": "thread-completion-text-deliverable",
+      "status": "running"
+    },
+    "employees": [
+      { "id": "emp-text-deliverable", "name": "SOP Writer", "role": "ops" }
+    ],
+    "taskRuns": [
+      {
+        "id": "task-text-deliverable",
+        "employeeId": "emp-text-deliverable",
+        "taskType": "sop_step",
+        "input": {
+          "description": "Summarize the desktop release request into concise acceptance criteria."
+        }
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "sop_step",
+        "employeeId": "emp-text-deliverable",
+        "assigneeKind": "employee",
+        "assigneeName": "SOP Writer",
+        "taskRunId": "task-text-deliverable",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Summarize the desktop release request into concise acceptance criteria.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-text-deliverable",
+      "match": {
+        "contains": "Summarize the desktop release request into concise acceptance criteria."
+      },
+      "content": "Acceptance criteria prepared for the desktop release verification."
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-text-deliverable", "status": "completed" },
+    { "kind": "taskStateEvent", "taskRunId": "task-text-deliverable", "next": "completed" },
+    { "kind": "toolExecutions", "count": 0 },
+    { "kind": "finalOutputNotContains", "contains": "Task blocked:" }
+  ]
+}

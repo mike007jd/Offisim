@@ -30,6 +30,18 @@ Allowed transitions are:
 - **THEN** exactly one transition succeeds
 - **AND** the other request is rejected as stale instead of silently overwriting the first result.
 
+### Requirement: Kanban UI SHALL expose only allowed next transitions
+
+Kanban UI controls SHALL be derived from the same shared transition table as the repositories. A card SHALL only render actions for states that are allowed from its current state. Terminal `done` cards SHALL render a terminal-state affordance and SHALL NOT render controls that could ask for `todo`, `doing`, `blocked`, or `review`.
+
+The backend rejection remains the final guard, but the release UI SHALL NOT present known-invalid state actions as normal user choices.
+
+#### Scenario: Done card renders no invalid actions
+
+- **WHEN** a card has state `done`
+- **THEN** the board renders the card as terminal
+- **AND** it does not render transition buttons to any other state.
+
 ### Requirement: Employee completion SHALL reflect completion truth on kanban cards
 
 Employee completion SHALL move linked kanban cards to `done` only when completion verification succeeds. If verifier blocks completion, linked cards SHALL move to `review` with the blocked reason.

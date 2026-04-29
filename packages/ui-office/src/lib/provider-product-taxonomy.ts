@@ -244,14 +244,13 @@ const LOCAL_VARIANTS: Record<string, ProviderVariantDefinition> = {
     authMode: 'subscription',
     capabilities: createCapabilities({
       thinking: true,
-      toolCalls: true,
       codingPlan: true,
     }),
     modelDisplayNames: {
       'claude-sonnet-4-20250514': 'Claude Sonnet 4',
     },
     notes:
-      'Repo-owned local-auth product. Desktop trusted host resolves local Claude auth without exposing credential bytes to TypeScript.',
+      'Repo-owned local-auth product. Desktop trusted host resolves local Claude auth without exposing credential bytes to TypeScript. This SDK lane is text/reasoning-only in Offisim; use gateway for Offisim tools.',
   },
   'codex-local-auth': {
     productId: 'codex',
@@ -270,14 +269,13 @@ const LOCAL_VARIANTS: Record<string, ProviderVariantDefinition> = {
     authMode: 'local-auth',
     capabilities: createCapabilities({
       thinking: true,
-      toolCalls: true,
       codingPlan: true,
     }),
     modelDisplayNames: {
       'gpt-5.4': 'GPT-5.4',
     },
     notes:
-      'Repo-owned local-auth product. Codex is host-gated and fails closed until a trusted local-auth resolver is available.',
+      'Repo-owned local-auth product. Codex is host-gated and fails closed until a trusted local-auth resolver is available. This SDK lane is text/reasoning-only in Offisim; use gateway for Offisim tools.',
   },
   'qwen-model-studio-manual': {
     productId: 'qwen-model-studio',

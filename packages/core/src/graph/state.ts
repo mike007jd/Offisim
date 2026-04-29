@@ -291,6 +291,7 @@ export type OffisimGraphState = typeof OffisimGraphAnnotation.State;
 export function createEmptyPlanScopedState(): Partial<OffisimGraphState> {
   return {
     // plan-scoped: stale tool evidence must never carry into a newly planned turn.
+    taskPlan: null,
     recentToolResults: [],
     pendingAssignments: [],
     dispatchedStepIndices: [],
