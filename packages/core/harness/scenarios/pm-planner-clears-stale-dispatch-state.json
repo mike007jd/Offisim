@@ -1,0 +1,55 @@
+{
+  "id": "pm-planner-clears-stale-dispatch-state",
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": { "companyId": "company-pm-planner-clears-stale-dispatch-state", "name": "SOP Reset Co" },
+    "thread": { "threadId": "thread-pm-planner-clears-stale-dispatch-state", "status": "running" },
+    "employees": [
+      { "id": "emp-sop-reset", "name": "SOP Engineer", "role": "engineer" }
+    ]
+  },
+  "tools": [
+    {
+      "name": "pnpm-test",
+      "description": "Run package tests.",
+      "parameters": { "type": "object", "properties": { "command": { "type": "string" } } }
+    }
+  ],
+  "initialState": {
+    "managerDirective": {
+      "intent": "Build the requested SOP deliverable",
+      "recommendedEmployees": ["emp-sop-reset"]
+    },
+    "completedStepIndices": [0],
+    "dispatchedStepIndices": [0],
+    "currentStepIndex": 1
+  },
+  "llmTurns": [
+    {
+      "id": "pm-new-plan",
+      "content": "{\"summary\":\"Build SOP deliverable after stale checkpoint\",\"steps\":[{\"stepIndex\":0,\"description\":\"Create deliverable\",\"tasks\":[{\"taskType\":\"code\",\"employeeId\":\"emp-sop-reset\",\"description\":\"Create the deliverable and verify it\",\"dependsOnStepOutput\":false}]}]}"
+    },
+    {
+      "id": "employee-tool",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "tc-run-test",
+          "name": "pnpm-test",
+          "arguments": { "command": "pnpm test -- stale-reset" }
+        }
+      ]
+    },
+    {
+      "id": "employee-final",
+      "content": "STALE_DISPATCH_RESET_EMPLOYEE_DONE"
+    }
+  ],
+  "runs": [{ "startAt": "pm_planner" }],
+  "assertions": [
+    { "kind": "toolExecutions", "count": 1 },
+    { "kind": "finalOutputContains", "contains": "STALE_DISPATCH_RESET_EMPLOYEE_DONE" },
+    { "kind": "threadStatusIs", "status": "completed" }
+  ]
+}

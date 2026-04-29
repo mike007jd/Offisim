@@ -32,6 +32,14 @@
       "invariants": ["graph.step_outputs_grouped_by_step_index", "graph.no_duplicate_step_outputs"]
     },
     {
+      "id": "pm-planner-clears-stale-dispatch-state",
+      "category": "graph",
+      "invariants": [
+        "graph.pm_planner_resets_run_scoped_dispatch_state",
+        "graph.no_false_complete_after_stale_checkpoint"
+      ]
+    },
+    {
       "id": "recorded-stream-tool-call-replay",
       "category": "llm-recording",
       "invariants": ["llm.stream_tool_calls_recorded", "llm.replay_reproduces_tool_calls"]

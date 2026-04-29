@@ -13,6 +13,7 @@ export const REPLAY_SCENARIO_IDS = [
   'mode-kanban-matrix',
   'permission-ask-approved-blocks-and-then-executes',
   'permission-ask-denied-does-not-execute',
+  'pm-planner-clears-stale-dispatch-state',
   'plan-review-cancel-terminates',
   'plan-review-approve-survives-restore',
   'skill-create-real-tool-call',

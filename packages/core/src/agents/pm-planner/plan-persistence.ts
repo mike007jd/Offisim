@@ -138,7 +138,14 @@ export async function persistLlmPlanAsTaskPlan(
   return {
     taskPlan,
     currentStepIndex: 0,
+    pendingAssignments: [],
+    dispatchedStepIndices: [],
+    completedStepIndices: [],
     stepResults: [],
     currentStepOutputs: [],
+    currentTaskRunId: null,
+    currentEmployeeId: null,
+    interruptReason: null,
+    completed: false,
   };
 }
