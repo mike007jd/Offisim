@@ -1,9 +1,12 @@
 import { ChevronLeft, FileText, Folder, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { toErrorMessage } from '../../lib/error-message.js';
 import {
   type ProjectWorkspaceEntry,
+  formatWorkspaceFileSize,
   isProjectWorkspaceFilesAvailable,
   listProjectWorkspaceDirectory,
+  parentWorkspacePath,
   readProjectWorkspaceFile,
 } from '../../lib/project-workspace-files.js';
 
@@ -12,19 +15,6 @@ interface ProjectWorkspaceFilesProps {
 }
 
 const PREVIEW_LIMIT = 6000;
-
-function parentPath(path: string): string {
-  const parts = path.split('/').filter(Boolean);
-  parts.pop();
-  return parts.join('/');
-}
-
-function formatSize(size: number | null | undefined): string {
-  if (typeof size !== 'number') return '';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 102.4) / 10} KB`;
-  return `${Math.round(size / (1024 * 102.4)) / 10} MB`;
-}
 
 export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesProps) {
   const desktopMode = isProjectWorkspaceFilesAvailable();
@@ -37,7 +27,9 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
   const [error, setError] = useState<string | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
 
-  const displayPath = useMemo(() => (currentPath ? `/${currentPath}` : '/'), [currentPath]);
+  const displayPath = currentPath ? `/${currentPath}` : '/';
+  // Wraps `path` + `reloadVersion` so the effect fires on user-clicked refresh
+  // (otherwise Biome's exhaustive-deps strips the version-only trigger).
   const directoryRequest = useMemo(
     () => ({ path: currentPath || '.', version: reloadVersion }),
     [currentPath, reloadVersion],
@@ -58,7 +50,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
       .catch((err) => {
         if (!cancelled) {
           setEntries([]);
-          setError(err instanceof Error ? err.message : String(err));
+          setError(toErrorMessage(err));
         }
       })
       .finally(() => {
@@ -84,7 +76,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
       );
     } catch (err) {
       setPreview(null);
-      setError(err instanceof Error ? err.message : String(err));
+      setError(toErrorMessage(err));
     } finally {
       setPreviewLoading(false);
     }
@@ -137,7 +129,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
           onClick={() => {
             setSelectedFile(null);
             setPreview(null);
-            setCurrentPath(parentPath(currentPath));
+            setCurrentPath(parentWorkspacePath(currentPath));
           }}
         >
           <ChevronLeft className="h-3 w-3" />
@@ -172,7 +164,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
             <span className="min-w-0 flex-1 truncate">{entry.name}</span>
             {!entry.isDirectory && (
               <span className="flex-shrink-0 text-[10px] text-slate-600">
-                {formatSize(entry.size)}
+                {formatWorkspaceFileSize(entry.size)}
               </span>
             )}
           </button>

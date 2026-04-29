@@ -4,6 +4,7 @@ import type {
   LlmResponse,
   LlmStreamChunk,
 } from '@offisim/core/dist/llm/gateway.js';
+import { sdkLaneTextOnlyMessage } from '@offisim/core/dist/llm/sdk-lane-policy.js';
 import { Channel, invoke } from '@tauri-apps/api/core';
 
 type CodexAgentHostEvent =
@@ -44,7 +45,7 @@ function assertNoTools(request: LlmRequest): void {
   if ((request.tools ?? []).length === 0) return;
   throw new TauriCodexAgentSdkError(
     'offisim-tools-unsupported',
-    'Codex Agent SDK lane is text/reasoning-only in Offisim and does not execute file, shell, or virtual tool calls. Switch this employee to gateway lane to use tools.',
+    sdkLaneTextOnlyMessage('Codex Agent SDK'),
   );
 }
 

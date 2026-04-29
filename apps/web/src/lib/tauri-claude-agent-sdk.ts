@@ -4,6 +4,7 @@ import type {
   LlmResponse,
   LlmStreamChunk,
 } from '@offisim/core/dist/llm/gateway.js';
+import { sdkLaneTextOnlyMessage } from '@offisim/core/dist/llm/sdk-lane-policy.js';
 import { Channel, invoke } from '@tauri-apps/api/core';
 
 type ClaudeAgentHostEvent =
@@ -54,9 +55,7 @@ export class TauriClaudeAgentSdkGateway implements LlmGateway {
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
     if (request.tools && request.tools.length > 0) {
-      throw new Error(
-        'Claude Agent SDK lane is text/reasoning-only in Offisim and does not execute file, shell, or virtual tool calls. Switch this employee to gateway lane to use tools.',
-      );
+      throw new Error(sdkLaneTextOnlyMessage('Claude Agent SDK'));
     }
 
     const requestId = nextRequestId();

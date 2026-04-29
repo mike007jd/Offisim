@@ -8,6 +8,7 @@ import {
 import { LlmError } from '../errors.js';
 import type { LlmGateway, LlmMessage, LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
 import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
+import { sdkLaneTextOnlyMessage } from './sdk-lane-policy.js';
 
 const SDK_ERROR_STATUS: Record<SDKAssistantMessageError, number | undefined> = {
   authentication_failed: 401,
@@ -202,9 +203,7 @@ export class ClaudeAgentSdkAdapter implements LlmGateway {
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
     if (request.tools && request.tools.length > 0) {
-      throw new Error(
-        'Claude Agent SDK lane is text/reasoning-only in Offisim and does not execute file, shell, or virtual tool calls. Switch this employee to gateway lane to use tools.',
-      );
+      throw new Error(sdkLaneTextOnlyMessage('Claude Agent SDK'));
     }
 
     return withRetry(

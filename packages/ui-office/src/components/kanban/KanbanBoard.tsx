@@ -7,6 +7,7 @@ import { cn } from '@offisim/ui-core';
 import { type FormEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
+import { toErrorMessage } from '../../lib/error-message.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { KanbanColumn } from './KanbanColumn';
 
@@ -292,7 +293,7 @@ function LiveKanbanBoard({
         setTitle('');
         setNote('');
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : String(error));
+        setErrorMessage(toErrorMessage(error));
       } finally {
         setCreating(false);
       }
@@ -308,7 +309,7 @@ function LiveKanbanBoard({
       try {
         await onMove(card.id, next);
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : String(error));
+        setErrorMessage(toErrorMessage(error));
       } finally {
         setBusyId(null);
       }

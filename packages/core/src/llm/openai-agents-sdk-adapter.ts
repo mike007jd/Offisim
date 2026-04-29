@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { LlmError } from '../errors.js';
 import type { LlmGateway, LlmMessage, LlmRequest, LlmResponse, LlmStreamChunk } from './gateway.js';
 import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
+import { sdkLaneTextOnlyMessage } from './sdk-lane-policy.js';
 
 export interface OpenAiAgentsSdkAdapterOptions {
   /** Custom base URL for OpenAI-compatible endpoints. */
@@ -166,9 +167,7 @@ export class OpenAiAgentsSdkAdapter implements LlmGateway {
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
     if (request.tools && request.tools.length > 0) {
-      throw new Error(
-        'OpenAI Agents SDK lane is text/reasoning-only in Offisim and does not execute file, shell, or virtual tool calls. Switch this employee to gateway lane to use tools.',
-      );
+      throw new Error(sdkLaneTextOnlyMessage('OpenAI Agents SDK'));
     }
 
     return withRetry(

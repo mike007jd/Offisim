@@ -302,16 +302,18 @@ pub async fn project_list_dir<R: Runtime>(
             .file_type()
             .await
             .map_err(|err| fs_op_error("stat project directory entry", &entry_path, &roots, err))?;
-        let metadata = entry.metadata().await.ok();
+        let size = if file_type.is_file() {
+            entry.metadata().await.ok().map(|metadata| metadata.len())
+        } else {
+            None
+        };
         rows.push(ProjectDirEntry {
             name: entry.file_name().to_string_lossy().to_string(),
             path: relative_path_for_entry(root, &entry_path),
             is_file: file_type.is_file(),
             is_directory: file_type.is_dir(),
             is_symlink: file_type.is_symlink(),
-            size: metadata
-                .filter(|_| file_type.is_file())
-                .map(|metadata| metadata.len()),
+            size,
         });
     }
     rows.sort_by(|a, b| {
