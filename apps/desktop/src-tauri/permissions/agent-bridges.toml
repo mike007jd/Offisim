@@ -1,11 +1,25 @@
 [[permission]]
 identifier = "agent-bridges"
-description = "Allow trusted local agent bridge and LLM transport commands."
+description = "Allow trusted local agent, provider secret, runtime session, and kanban bridge commands."
 commands.allow = [
+  "runtime_secret_status",
+  "runtime_secret_set",
+  "runtime_secret_clear",
+  "trusted_host_product_status",
   "claude_agent_execute",
   "claude_agent_abort",
   "codex_agent_execute",
   "codex_agent_abort",
   "llm_fetch",
   "llm_fetch_abort",
+  "git_exec",
+  "open_local_path",
+  "save_deliverable_to_local",
+  "resume_conversation",
+  "get_session",
+  "set_session_mode",
+  "list_kanban_cards",
+  "create_kanban_card",
+  "transition_kanban_card",
+  "count_kanban_for_employee",
 ]

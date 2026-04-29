@@ -1,6 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -17,6 +18,21 @@ function loadEsbuild() {
 
 const { build } = loadEsbuild();
 
+function formatOutfile(outfile) {
+  const result = spawnSync(
+    'pnpm',
+    ['exec', 'biome', 'format', '--write', '--no-errors-on-unmatched', relative(ROOT, outfile)],
+    {
+      cwd: ROOT,
+      stdio: 'inherit',
+    },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`Biome failed to format ${outfile}`);
+  }
+}
+
 await mkdir(dirname(OUTFILE), { recursive: true });
 await build({
   entryPoints: [ENTRY],
@@ -31,6 +47,7 @@ await build({
     js: '#!/usr/bin/env node',
   },
 });
+formatOutfile(OUTFILE);
 
 console.log(
   JSON.stringify(

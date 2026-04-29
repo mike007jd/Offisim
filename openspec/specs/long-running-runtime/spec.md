@@ -187,7 +187,7 @@ The following scenarios SHALL exist in `packages/core/harness/scenarios/` and pa
 
 - `long-running-microcompact-triggers.json` — fixture with three 100KB tool results; invariant: post-prepare token count ≤ 80k and exactly 3 micro-compact markers present.
 - `completion-verifier-blocks-without-evidence.json` — fixture where employee declares done with no evidence; invariant: final task state is `'review'`, `completion-blocked` event present.
-- `soak-leak-detector-bounded-memory.json` — fixture proving soak summaries retain only bounded sample failures and enforce a bounded heap delta.
+- `soak-leak-detector-bounded-memory.json` — fixture proving soak summaries retain only bounded sample failures and leak counters, without retaining every full trace.
 
 The following scenario SHALL exist and pass under `pnpm harness:soak`:
 

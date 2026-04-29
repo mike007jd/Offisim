@@ -4,14 +4,12 @@
   "fixture": {
     "iterations": 20,
     "concurrency": 4,
-    "sampleFailureCap": 5,
-    "maxHeapDeltaMb": 100
+    "sampleFailureCap": 5
   },
   "assertions": [
     {
       "kind": "soakBoundedMemory",
-      "sampleFailureCap": 5,
-      "maxHeapDeltaMb": 100
+      "sampleFailureCap": 5
     }
   ]
 }

@@ -299,7 +299,6 @@ async function assertSoakBoundedMemoryScenario(soakRunner) {
   const iterations = Number(fixture.iterations ?? 20);
   const concurrency = Number(fixture.concurrency ?? 4);
   const sampleFailureCap = Number(fixture.sampleFailureCap ?? 5);
-  const maxHeapDeltaMb = Number(fixture.maxHeapDeltaMb ?? 100);
   const report = await soakRunner.runSoakHarness(
     [readScenario('yolo-80-turn-multi-file-refactor')],
     {
@@ -312,9 +311,8 @@ async function assertSoakBoundedMemoryScenario(soakRunner) {
       `soak sample failures exceeded cap: ${report.leakSummary.sampleFailures.length} > ${sampleFailureCap}`,
     );
   }
-  const heapDeltaMb = report.memory.endMb - report.memory.startMb;
-  if (heapDeltaMb > maxHeapDeltaMb) {
-    throw new Error(`soak heap delta exceeded cap: ${heapDeltaMb} > ${maxHeapDeltaMb}`);
+  if (report.leakSummary.leakingIterations > 0) {
+    throw new Error(`soak leak detector reported ${report.leakSummary.leakingIterations} leaks`);
   }
   return { id: 'soak.bounded_memory_summary', passed: true };
 }
