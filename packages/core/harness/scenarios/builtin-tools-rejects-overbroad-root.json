@@ -1,0 +1,14 @@
+{
+  "id": "builtin-tools-rejects-overbroad-root",
+  "category": "desktop-builtin-tools",
+  "fixture": {
+    "workspaceRoot": "/",
+    "expectedError": "no project workspace_root is bound for file/shell tools"
+  },
+  "assertions": [
+    {
+      "kind": "desktopRustTest",
+      "testName": "rejects_overbroad_workspace_root"
+    }
+  ]
+}

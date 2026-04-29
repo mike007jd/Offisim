@@ -139,6 +139,26 @@
       "invariants": ["tools.web_without_builtins_omits_fs_shell"]
     },
     {
+      "id": "builtin-tools-rejects-symlink-escape",
+      "category": "desktop-builtin-tools",
+      "invariants": ["desktop.builtin_tools_rejects_symlink_escape"]
+    },
+    {
+      "id": "builtin-tools-rejects-overbroad-root",
+      "category": "desktop-builtin-tools",
+      "invariants": ["desktop.builtin_tools_rejects_overbroad_root"]
+    },
+    {
+      "id": "builtin-tools-rejects-oversize-read",
+      "category": "desktop-builtin-tools",
+      "invariants": ["desktop.builtin_tools_rejects_oversize_read"]
+    },
+    {
+      "id": "builtin-tools-rejects-oversize-write",
+      "category": "desktop-builtin-tools",
+      "invariants": ["desktop.builtin_tools_rejects_oversize_write"]
+    },
+    {
       "id": "kanban-card-state-transitions",
       "category": "kanban",
       "invariants": [

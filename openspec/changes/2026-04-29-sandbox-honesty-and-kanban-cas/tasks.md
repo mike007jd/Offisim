@@ -1,10 +1,10 @@
 ## Phase A - Sandbox honesty
 
-- [ ] Harden `builtin_tools.rs` write paths against symlink escape before `mkdir` or write.
-- [ ] Sanitize overbroad `workspace_root` rows and redact LLM-facing path errors.
-- [ ] Add read/write size limits and remove login-shell sourcing from bash execution.
-- [ ] Add deterministic scenarios for symlink escape, overbroad roots, oversized read, and oversized write.
-- [ ] Sync `openspec/specs/interaction-modes/spec.md`.
+- [x] Harden `builtin_tools.rs` write paths against symlink escape before `mkdir` or write.
+- [x] Sanitize overbroad `workspace_root` rows and redact LLM-facing path errors.
+- [x] Add read/write size limits and remove login-shell sourcing from bash execution.
+- [x] Add deterministic scenarios for symlink escape, overbroad roots, oversized read, and oversized write.
+- [x] Sync `openspec/specs/interaction-modes/spec.md`.
 
 ## Phase B - Tauri capability gate
 

@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,6 +52,7 @@ const invariants = [
   assertCompletionVerifierScenario(completionVerifier),
   assertLeakDetectorScenario(leakDetector),
   assertDagOutputAttribution(graph),
+  ...assertDesktopBuiltinToolScenarios(),
 ];
 
 console.log(
@@ -85,6 +87,48 @@ function assertSameList(left, right, leftName, rightName) {
 
 function readScenario(id) {
   return JSON.parse(readFileSync(resolve(SCENARIOS_DIR, `${id}.json`), 'utf8'));
+}
+
+function assertDesktopBuiltinToolScenarios() {
+  const scenarioIds = [
+    'builtin-tools-rejects-symlink-escape',
+    'builtin-tools-rejects-overbroad-root',
+    'builtin-tools-rejects-oversize-read',
+    'builtin-tools-rejects-oversize-write',
+  ];
+  const expectedTests = new Set([
+    'rejects_symlink_escape_before_write_target_resolution',
+    'rejects_overbroad_workspace_root',
+    'rejects_oversize_read_with_redacted_path',
+    'rejects_oversize_write_with_redacted_path',
+  ]);
+  for (const scenarioId of scenarioIds) {
+    const scenario = readScenario(scenarioId);
+    for (const assertion of scenario.assertions ?? []) {
+      if (assertion.kind !== 'desktopRustTest') {
+        throw new Error(`${scenarioId} unsupported assertion ${JSON.stringify(assertion)}`);
+      }
+      if (!expectedTests.has(assertion.testName)) {
+        throw new Error(`${scenarioId} references unknown Rust test ${assertion.testName}`);
+      }
+    }
+  }
+  const result = spawnSync('cargo', ['test', '--quiet', '--lib', 'builtin_tools_contracts'], {
+    cwd: resolve(ROOT, 'apps/desktop/src-tauri'),
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      [
+        'desktop builtin tool Rust contract tests failed',
+        result.stdout.trim(),
+        result.stderr.trim(),
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    );
+  }
+  return scenarioIds.map((id) => ({ id: `desktop.${id.replaceAll('-', '_')}`, passed: true }));
 }
 
 function assertLongRunningMicroCompactScenario(microCompact) {

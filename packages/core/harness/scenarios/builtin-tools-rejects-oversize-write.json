@@ -1,0 +1,15 @@
+{
+  "id": "builtin-tools-rejects-oversize-write",
+  "category": "desktop-builtin-tools",
+  "fixture": {
+    "operation": "project_write_file",
+    "limitBytes": 8388608,
+    "expectedError": "file too large to write in-process"
+  },
+  "assertions": [
+    {
+      "kind": "desktopRustTest",
+      "testName": "rejects_oversize_write_with_redacted_path"
+    }
+  ]
+}

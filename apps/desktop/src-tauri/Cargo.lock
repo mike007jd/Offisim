@@ -2638,6 +2638,7 @@ dependencies = [
 name = "offisim-desktop"
 version = "0.0.1"
 dependencies = [
+ "dirs",
  "futures-util",
  "libc",
  "once_cell",

@@ -1,0 +1,16 @@
+{
+  "id": "builtin-tools-rejects-symlink-escape",
+  "category": "desktop-builtin-tools",
+  "fixture": {
+    "operation": "project_write_file",
+    "path": "workspace/link/escape.txt",
+    "linkTarget": "outside-workspace",
+    "expectedError": "path is outside bound project workspaces"
+  },
+  "assertions": [
+    {
+      "kind": "desktopRustTest",
+      "testName": "rejects_symlink_escape_before_write_target_resolution"
+    }
+  ]
+}
