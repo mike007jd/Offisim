@@ -5,6 +5,9 @@ import type { OffisimGraphState } from '../graph/state.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getRuntime } from '../utils/get-runtime.js';
 
+const STUCK_REASONS = ['verifier-blocked', 'running-too-long', 'stuck-task'] as const;
+type StuckReason = (typeof STUCK_REASONS)[number];
+
 /**
  * PM Heartbeat node — proactive progress check.
  *
@@ -54,7 +57,7 @@ export async function pmHeartbeatNode(
 
   // Check for stuck tasks — tasks in 'running' status for too long
   const stuckTasks: string[] = [];
-  const stuckTaskReasons: Record<string, 'verifier-blocked' | 'running-too-long'> = {};
+  const stuckTaskReasons: Record<string, StuckReason> = {};
   const taskRuns = await repos.taskRuns.findByThread(state.threadId);
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   for (const tr of taskRuns) {
@@ -96,7 +99,7 @@ export async function pmHeartbeatNode(
     recommendation = 'completed';
   } else if (stuckTasks.length > 0) {
     recommendation = 'needs_attention';
-    blockers.push(...stuckTasks.map((id) => `${stuckTaskReasons[id] ?? 'stuck_task'}:${id}`));
+    blockers.push(...stuckTasks.map((id) => `${stuckTaskReasons[id] ?? 'stuck-task'}:${id}`));
   } else if (dispatchedCount > completedCount) {
     recommendation = 'in_progress';
   } else {

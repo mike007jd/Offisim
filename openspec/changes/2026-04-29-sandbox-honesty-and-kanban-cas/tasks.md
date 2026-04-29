@@ -43,7 +43,7 @@
 
 ## Phase G - Misc cleanup and RC verification
 
-- [ ] Fix misleading completion comment, stuck-task literals, and dead mode-kanban fixture fields.
-- [ ] Run all per-commit gates and commit each phase separately.
+- [x] Fix misleading completion comment, stuck-task literals, and dead mode-kanban fixture fields.
+- [x] Run all per-commit gates and commit each phase separately.
 - [ ] Build release desktop app and run the seven Computer Use RC verification paths.
 - [ ] Record R3 evidence in `Docs/04_runtime_experience/EXECUTION_REPORT_2026-04-29.md`.

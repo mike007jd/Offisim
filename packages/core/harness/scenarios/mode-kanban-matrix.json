@@ -1,10 +1,6 @@
 {
   "id": "mode-kanban-matrix",
   "category": "kanban-matrix",
-  "fixture": {
-    "modes": ["boss_proxy", "direct_to_employee", "yolo"],
-    "task": "build a counter component"
-  },
   "assertions": [
     { "kind": "kanbanMatrixAllModesPassed" },
     {

@@ -139,8 +139,6 @@ export async function finalizeEmployeeSuccess(
           state,
         })
       : ({ ok: false, reason: 'no-task-run-id' } as const);
-  // SQLite task_runs.status CHECK excludes 'review_ready'; persist as 'blocked'
-  // while runtime/UI keep 'review_ready'.
   const nextTaskRunStatus = completionOutcome.ok ? 'completed' : 'blocked';
   const finalResponseContent = completionOutcome.ok
     ? llmResponse.content
@@ -177,6 +175,7 @@ export async function finalizeEmployeeSuccess(
         companyId,
         taskRunId,
         'running',
+        // review_ready is UI-only; SQLite task_runs.status persists the blocked state above.
         completionOutcome.ok ? 'completed' : 'review_ready',
         threadId,
         employee.employee_id,
