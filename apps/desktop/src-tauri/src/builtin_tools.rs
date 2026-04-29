@@ -3,6 +3,7 @@ use sqlx::Row;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
 use tauri::Runtime;
+use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
@@ -11,6 +12,9 @@ use crate::local_db::get_offisim_pool;
 const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 const MAX_READ_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_WRITE_BYTES: usize = 8 * 1024 * 1024;
+/// Hard ceiling on `project_read_file_preview` — file-tree previews never
+/// pull more than 64 KB across the IPC boundary regardless of caller request.
+const MAX_PREVIEW_BYTES: u64 = 65_536;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,6 +23,20 @@ pub struct BashExecuteResult {
     stderr: String,
     exit_code: i32,
     timed_out: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectFilePreview {
+    /// Valid UTF-8, possibly empty if the truncation point fell inside a
+    /// multi-byte sequence the boundary walk-back could not recover.
+    content: String,
+    /// `true` when the on-disk file exceeds the clamped `max_bytes` — UI
+    /// surfaces a "preview truncated · {totalSize} bytes total" hint.
+    truncated: bool,
+    /// Full file size on disk (from `metadata().len()`), so callers can
+    /// display the truncation hint without a follow-up stat call.
+    total_size: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -247,6 +265,70 @@ fn relative_path_for_entry(root: &Path, entry_path: &Path) -> String {
 
 fn containing_root<'a>(candidate: &Path, roots: &'a [PathBuf]) -> Option<&'a PathBuf> {
     roots.iter().find(|root| candidate.starts_with(*root))
+}
+
+/// UTF-8 boundary safety: convert `bytes` to a String. If the buffer ends
+/// mid-codepoint, walk back to the last valid UTF-8 boundary so callers always
+/// get a clean string. Returns the empty string if the walk-back yields zero
+/// valid bytes (e.g. all-binary preview).
+fn utf8_boundary_safe_string(bytes: Vec<u8>) -> String {
+    match String::from_utf8(bytes) {
+        Ok(text) => text,
+        Err(err) => {
+            let valid_up_to = err.utf8_error().valid_up_to();
+            let mut buf = err.into_bytes();
+            buf.truncate(valid_up_to);
+            // Safe: valid_up_to is by definition the first index that is NOT
+            // valid UTF-8, so everything before it parses cleanly.
+            String::from_utf8(buf).unwrap_or_default()
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn project_read_file_preview<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    path: String,
+    cwd: Option<String>,
+    max_bytes: u32,
+) -> Result<ProjectFilePreview, String> {
+    let roots = workspace_roots(&app).await?;
+    let candidate = resolve_candidate(&path, cwd.as_deref())?;
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|err| fs_resolve_error("resolve project file", &candidate, err))?;
+    ensure_inside_workspace(&canonical, &roots)?;
+
+    // Open once and stat via the file handle — saves the redundant `metadata()`
+    // syscall the previous draft did before opening.
+    let file = tokio::fs::File::open(&canonical)
+        .await
+        .map_err(|err| fs_op_error("open project file", &canonical, &roots, err))?;
+    let total_size = file
+        .metadata()
+        .await
+        .map_err(|err| fs_op_error("stat project file", &canonical, &roots, err))?
+        .len();
+
+    // Clamp the request to the hard cap regardless of caller intent — preview
+    // IPC must stay bounded so a 50 MB log file never streams across.
+    let clamped = (max_bytes as u64).min(MAX_PREVIEW_BYTES);
+    let read_bytes = clamped.min(total_size);
+
+    let mut reader = file.take(read_bytes);
+    let mut buffer = Vec::with_capacity(read_bytes as usize);
+    reader
+        .read_to_end(&mut buffer)
+        .await
+        .map_err(|err| fs_op_error("read project file preview", &canonical, &roots, err))?;
+
+    let content = utf8_boundary_safe_string(buffer);
+    let truncated = total_size > clamped;
+    Ok(ProjectFilePreview {
+        content,
+        truncated,
+        total_size,
+    })
 }
 
 #[tauri::command]
@@ -519,5 +601,32 @@ mod builtin_tools_contracts {
         assert!(err.contains("file too large to write in-process"));
         assert!(err.contains("large.txt"));
         assert!(!err.contains("/Users/"));
+    }
+
+    #[test]
+    fn utf8_boundary_walk_back_drops_partial_codepoint() {
+        // "héllo" — UTF-8: 0x68 0xC3 0xA9 0x6C 0x6C 0x6F (6 bytes total).
+        // Truncating at 2 bytes (h + first byte of é) must walk back to 1 byte.
+        let bytes = vec![0x68, 0xC3];
+        let recovered = utf8_boundary_safe_string(bytes);
+        assert_eq!(recovered, "h", "walk-back should drop partial é prefix");
+    }
+
+    #[test]
+    fn utf8_boundary_walk_back_returns_empty_for_first_byte_partial() {
+        // Just the leading byte of a multi-byte codepoint — no valid prefix.
+        let bytes = vec![0xC3];
+        let recovered = utf8_boundary_safe_string(bytes);
+        assert_eq!(
+            recovered, "",
+            "walk-back must return empty when no valid bytes precede partial"
+        );
+    }
+
+    #[test]
+    fn utf8_boundary_passes_through_valid_utf8() {
+        let bytes = "hello".as_bytes().to_vec();
+        let recovered = utf8_boundary_safe_string(bytes);
+        assert_eq!(recovered, "hello");
     }
 }

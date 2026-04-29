@@ -8,6 +8,7 @@ import {
 } from '../graph/state.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { employeeNode } from './employee-node.js';
+import { detectTaskToolIntent } from './task-tool-intent.js';
 import { YOLO_MASTER_ROLE_SLUG } from './yolo-master-persona.js';
 
 function latestHumanText(state: OffisimGraphState): string {
@@ -35,6 +36,7 @@ export async function yoloMasterNode(
   }
 
   const taskDescription = latestHumanText(state);
+  const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(taskDescription);
   const taskRunId = runtimeCtx.determinism.id('tr-yolo');
   const stepIndex = state.currentStepIndex ?? 0;
 
@@ -75,6 +77,7 @@ export async function yoloMasterNode(
       currentEmployeeId: yolo.employee_id,
       currentTaskRunId: taskRunId,
       pendingAssignments: [assignment],
+      taskToolIntent,
     },
     config,
   );

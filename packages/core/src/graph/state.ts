@@ -1,6 +1,7 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import { Annotation, messagesStateReducer } from '@langchain/langgraph';
 import type { InteractionMode, RoleSlug } from '@offisim/shared-types';
+import type { TaskToolIntent } from '../agents/task-tool-intent.js';
 import type { RecentToolResult } from '../runtime/completion-verifier.js';
 
 export type AssignmentTargetKind = 'employee';
@@ -233,6 +234,15 @@ export const OffisimGraphAnnotation = Annotation.Root({
     default: () => [],
   }),
 
+  // Local-tool intent computed once per turn at the graph entry point
+  // (boss / pm-planner preflight / yolo-master). Downstream consumers
+  // (manager, direct-setup, completion-verifier) read this rather than
+  // re-deriving from text. See agents/task-tool-intent.ts for the SSOT.
+  taskToolIntent: Annotation<TaskToolIntent | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+
   // DAG dispatch tracking
   /** Indices of steps whose tasks have been queued (may still be running). */
   dispatchedStepIndices: Annotation<number[]>({
@@ -309,6 +319,8 @@ export function createEmptyPlanScopedState(): Partial<OffisimGraphState> {
     meetingActionItems: [],
     hrAssessment: null,
     managerDirective: null,
+    // plan-scoped: stale local-tool intent must not leak into the next plan.
+    taskToolIntent: null,
   };
 }
 

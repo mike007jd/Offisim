@@ -6,6 +6,7 @@ export interface ActivityTimelineProps {
   selectedEventId: string | null;
   onSelectEvent: (eventId: string) => void;
   className?: string;
+  getEmployeeName?: (employeeId: string) => string | null;
 }
 
 export function ActivityTimeline({
@@ -13,6 +14,7 @@ export function ActivityTimeline({
   selectedEventId,
   onSelectEvent,
   className = '',
+  getEmployeeName,
 }: ActivityTimelineProps) {
   return (
     <div className={`overflow-y-auto ${className}`}>
@@ -24,6 +26,7 @@ export function ActivityTimeline({
           events={group.events}
           selectedEventId={selectedEventId}
           onSelectEvent={onSelectEvent}
+          getEmployeeName={getEmployeeName}
         />
       ))}
     </div>

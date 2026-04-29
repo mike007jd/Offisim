@@ -72,5 +72,13 @@ export function parsePmPlan(content: string): LlmPlan | null {
     }
   }
 
-  return steps.length > 0 ? { summary: parsed.summary, steps } : null;
+  if (steps.length === 0) return null;
+  const recommendedEmployees = Array.isArray(parsed.recommendedEmployees)
+    ? parsed.recommendedEmployees.filter((id): id is string => typeof id === 'string')
+    : undefined;
+  return {
+    summary: parsed.summary,
+    steps,
+    ...(recommendedEmployees && recommendedEmployees.length > 0 ? { recommendedEmployees } : {}),
+  };
 }

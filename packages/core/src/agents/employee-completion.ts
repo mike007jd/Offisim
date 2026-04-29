@@ -8,11 +8,7 @@ import {
 } from '../events/event-factories.js';
 import type { CitationRef, OffisimGraphState } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
-import {
-  DEFAULT_COMPLETION_EVIDENCE_TOOLS,
-  type VerifyOutcome,
-  verifyCompletion,
-} from '../runtime/completion-verifier.js';
+import { type VerifyOutcome, verifyCompletion } from '../runtime/completion-verifier.js';
 import type { TaskCompletionVerifyingPayload } from '../runtime/hook-registry.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
@@ -26,57 +22,13 @@ import {
 import type { MaterializedEmployeeDeliverable } from './employee-deliverables.js';
 import { TASK_TYPE_HANDOFF_CONTINUATION } from './employee-node-constants.js';
 import type { PreflightResult } from './employee-preflight.js';
+import {
+  detectTaskToolIntent,
+  evidenceToolsForIntent,
+  unionTaskToolIntents,
+} from './task-tool-intent.js';
 
 const logger = new Logger('employee-completion');
-
-function evidenceToolsForTask(taskDescription: string): readonly string[] {
-  const tools = new Set<string>();
-  const text = taskDescription.toLowerCase();
-
-  if (
-    /\bverification evidence\b/u.test(text) ||
-    /\brunning verification evidence\b/u.test(text) ||
-    /\bpnpm-(test|typecheck|lint)\b/u.test(text) ||
-    /\bharness-contract\b/u.test(text) ||
-    /验证证据|运行.{0,20}验证|执行.{0,20}验证|验证.{0,40}(命令|结果|通过)|(?:命令|结果|通过).{0,40}验证/u.test(
-      text,
-    )
-  ) {
-    for (const tool of DEFAULT_COMPLETION_EVIDENCE_TOOLS) {
-      tools.add(tool);
-    }
-  }
-
-  if (
-    /\bread_file\b/u.test(text) ||
-    /\bread\b[^.]{0,80}\b(file|path|workspace|content)\b/u.test(text) ||
-    /\bquote\b[^.]{0,80}\b(content|bytes|file)\b/u.test(text) ||
-    /读取|读回|查看.{0,40}(文件|路径|工作区|readme)|引用.{0,40}(文件|内容)/u.test(text)
-  ) {
-    tools.add('read_file');
-  }
-
-  if (
-    /\bwrite_file\b/u.test(text) ||
-    /\bwrite\b[^.]{0,80}\b(file|path|workspace|content)\b/u.test(text) ||
-    /\bcreate\b[^.]{0,80}\b(file|scratch note)\b/u.test(text) ||
-    /写入|写回|创建.{0,40}(文件|路径)|保存.{0,40}(文件|路径)/u.test(text)
-  ) {
-    tools.add('write_file');
-  }
-
-  if (
-    /\bbash\b/u.test(text) ||
-    /\bshell\b/u.test(text) ||
-    /\bcommand\b/u.test(text) ||
-    /\brun\b[^.]{0,80}\b(pwd|sleep|pnpm|npm|cargo|ls|cat)\b/u.test(text) ||
-    /命令|终端|超时|越界|拒绝/u.test(text)
-  ) {
-    tools.add('bash');
-  }
-
-  return [...tools];
-}
 
 async function verifyTaskCompletion(input: {
   runtimeCtx: RuntimeContext;
@@ -86,7 +38,15 @@ async function verifyTaskCompletion(input: {
   taskDescription: string;
 }): Promise<VerifyOutcome> {
   const { runtimeCtx, taskRunId, employeeId, state, taskDescription } = input;
-  const evidenceTools = evidenceToolsForTask(taskDescription);
+  // Per-task evidence is the UNION of per-turn intent (boss/preflight from
+  // user message) AND per-task intent (PM-planner step description). PM can
+  // decompose a generic ask into a specific "read README" step that demands
+  // file evidence even when the original message did not — accepting only
+  // the per-turn intent here would let a text-only completion pass.
+  const turnIntent = state.taskToolIntent;
+  const taskIntent = detectTaskToolIntent(taskDescription);
+  const intent = turnIntent ? unionTaskToolIntents(turnIntent, taskIntent) : taskIntent;
+  const evidenceTools = evidenceToolsForIntent(intent);
   const defaultOutcome =
     evidenceTools.length === 0
       ? ({ ok: true } as const)

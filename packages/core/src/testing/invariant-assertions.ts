@@ -80,7 +80,33 @@ export type ScenarioAssertion =
       readonly value: number;
     }
   | { readonly kind: 'agentEventPayloadContains'; readonly contains: string }
-  | { readonly kind: 'interruptReasonIncludes'; readonly contains: string };
+  | { readonly kind: 'interruptReasonIncludes'; readonly contains: string }
+  | {
+      /**
+       * Assert at least `count` events of `eventType` exist in the runtime
+       * trace, optionally with each matching event payload satisfying the
+       * `payloadEquals` shallow shape. `count` defaults to 1; pass an exact
+       * integer to assert "exactly N" (the assertion fails if more/fewer fire).
+       */
+      readonly kind: 'eventEmitted';
+      readonly eventType: string;
+      readonly payloadEquals?: Readonly<Record<string, unknown>>;
+      readonly count?: number;
+    }
+  | {
+      /** Inverse of `eventEmitted` — fails if any event of `eventType` exists. */
+      readonly kind: 'eventNotEmitted';
+      readonly eventType: string;
+    }
+  | {
+      /**
+       * Assert a top-level field on the final OffisimGraphState matches via
+       * deep equality. Currently scoped to the `taskToolIntent` field, which
+       * is the only structured-record field new scenarios need to inspect.
+       */
+      readonly kind: 'taskToolIntentEquals';
+      readonly value: Readonly<Record<string, unknown>>;
+    };
 
 export interface ScenarioAssertionContext {
   readonly scenarioId: string;
@@ -173,6 +199,77 @@ async function evaluateAssertion(
       return assertAgentEventPayloadContains(ctx.repos, ctx.threadId, assertion.contains);
     case 'interruptReasonIncludes':
       return assertInterruptReasonIncludes(ctx.finalState, assertion.contains);
+    case 'eventEmitted':
+      return assertEventEmitted(ctx.events, assertion);
+    case 'eventNotEmitted':
+      return assertEventNotEmitted(ctx.events, assertion.eventType);
+    case 'taskToolIntentEquals':
+      return assertTaskToolIntentEquals(ctx.finalState, assertion.value);
+  }
+}
+
+function payloadShallowMatches(
+  payload: unknown,
+  expected: Readonly<Record<string, unknown>>,
+): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  const record = payload as Record<string, unknown>;
+  for (const [key, value] of Object.entries(expected)) {
+    if (record[key] !== value) return false;
+  }
+  return true;
+}
+
+function assertEventEmitted(
+  events: readonly RuntimeEvent[],
+  assertion: Extract<ScenarioAssertion, { kind: 'eventEmitted' }>,
+): void {
+  const matches = events.filter((event) => {
+    if (event.type !== assertion.eventType) return false;
+    if (!assertion.payloadEquals) return true;
+    return payloadShallowMatches(event.payload, assertion.payloadEquals);
+  });
+  if (assertion.count !== undefined) {
+    if (matches.length !== assertion.count) {
+      throw new Error(
+        `Expected exactly ${assertion.count} ${assertion.eventType} event(s)${
+          assertion.payloadEquals ? ` with payload ${JSON.stringify(assertion.payloadEquals)}` : ''
+        }, got ${matches.length}`,
+      );
+    }
+    return;
+  }
+  if (matches.length === 0) {
+    throw new Error(
+      `Expected at least one ${assertion.eventType} event${
+        assertion.payloadEquals ? ` with payload ${JSON.stringify(assertion.payloadEquals)}` : ''
+      }, found none`,
+    );
+  }
+}
+
+function assertEventNotEmitted(events: readonly RuntimeEvent[], eventType: string): void {
+  const found = events.some((event) => event.type === eventType);
+  if (found) {
+    throw new Error(`Expected no ${eventType} events; got at least one`);
+  }
+}
+
+function assertTaskToolIntentEquals(
+  finalState: Partial<OffisimGraphState>,
+  expected: Readonly<Record<string, unknown>>,
+): void {
+  const actual = finalState.taskToolIntent;
+  if (!actual) {
+    throw new Error(`Expected taskToolIntent to equal ${JSON.stringify(expected)}, got null`);
+  }
+  const actualRecord = actual as unknown as Record<string, unknown>;
+  for (const [key, value] of Object.entries(expected)) {
+    if (actualRecord[key] !== value) {
+      throw new Error(
+        `Expected taskToolIntent.${key}=${JSON.stringify(value)}, got ${JSON.stringify(actualRecord[key])}`,
+      );
+    }
   }
 }
 

@@ -38,6 +38,7 @@ export {
   taskStateChanged,
   taskAssignmentChanged,
   taskAssignmentDispatched,
+  taskAssignmentRerouted,
   taskSubtaskProgress,
   deliverableCreated,
 } from './task-events.js';

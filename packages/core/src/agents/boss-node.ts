@@ -10,7 +10,7 @@ import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
-import { isLocalToolAssignableEmployee, requiresLocalOffisimTools } from './local-tool-routing.js';
+import { detectTaskToolIntent, isLocalToolAssignableEmployee } from './task-tool-intent.js';
 
 interface BossDecision {
   action:
@@ -164,7 +164,8 @@ export async function bossNode(
     runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId),
     runtimeCtx.repos.sopTemplates.findByCompany(runtimeCtx.companyId),
   ]);
-  const localToolRequired = requiresLocalOffisimTools(userContent);
+  const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(userContent);
+  const localToolRequired = taskToolIntent.requiresLocalTools;
   const nonManagerEmployees = employees.filter(
     (e) =>
       e.role_slug !== 'manager' &&
@@ -360,6 +361,7 @@ export async function bossNode(
   return {
     routeDecision: route,
     messages: [new AIMessage({ content: messageContent })],
+    taskToolIntent,
     ...(projectId !== (state.projectId ?? null) ? { projectId } : {}),
     // For direct_delegate, set targetEmployeeId so employee_direct_setup can use it
     ...(route === 'direct_delegate' && decision?.targetEmployeeId

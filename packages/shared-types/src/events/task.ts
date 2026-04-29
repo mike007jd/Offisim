@@ -41,3 +41,34 @@ export interface TaskSubtaskProgressPayload {
   readonly totalSteps: number;
   readonly completedSteps: number;
 }
+
+/**
+ * Reasons a runtime node may override an LLM/planner-chosen task assignment.
+ *
+ * - `requires-local-tools`: routing gate filtered out an external A2A pick
+ *   for a task that needs Offisim-local file/shell tooling.
+ * - `employee-not-found`: pm-planner sanitize swapped a missing employee.
+ * - `employee-disabled`: pm-planner sanitize swapped a disabled employee.
+ * - `no-recommendation-fallback`: pm-planner sanitize fell back to the first
+ *   valid employee because the plan provided no `recommendedEmployees`
+ *   ordering — surfaces the silent ordering dependency.
+ */
+export type TaskAssignmentRerouteReason =
+  | 'requires-local-tools'
+  | 'employee-not-found'
+  | 'employee-disabled'
+  | 'no-recommendation-fallback';
+
+/** Which routing layer made the rerouting decision. */
+export type TaskAssignmentRerouteSource = 'manager' | 'pm-planner';
+
+/** Canonical event type literal — use everywhere instead of the bare string. */
+export const TASK_ASSIGNMENT_REROUTED = 'task.assignment.rerouted' as const;
+
+export interface TaskAssignmentReroutedPayload {
+  readonly taskRunId: string;
+  readonly requestedEmployeeId: string;
+  readonly resolvedEmployeeId: string;
+  readonly reason: TaskAssignmentRerouteReason;
+  readonly source: TaskAssignmentRerouteSource;
+}

@@ -1,0 +1,46 @@
+{
+  "id": "routing-rejects-bare-noun-prose",
+  "category": "interaction-modes",
+  "entryMode": "boss_chat",
+  "interactionMode": "boss_proxy",
+  "seed": {
+    "company": { "companyId": "company-bare-noun", "name": "Bare Noun Routing Co" },
+    "thread": { "threadId": "thread-bare-noun", "status": "running" },
+    "employees": [
+      { "id": "emp-internal-bare", "name": "Internal Worker", "role": "engineer" },
+      {
+        "id": "emp-external-bare",
+        "name": "External A2A Worker",
+        "role": "developer",
+        "isExternal": true,
+        "a2aUrl": "http://localhost:4100",
+        "brandKey": "codex"
+      }
+    ]
+  },
+  "initialState": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Please describe the workspace and file a bug if anything looks off."
+      }
+    ]
+  },
+  "llmTurns": [
+    {
+      "id": "boss-direct-reply-decision",
+      "match": { "contains": "Please describe the workspace" },
+      "content": "{\"action\":\"direct_reply\",\"reply\":\"Sure thing — here is a quick rundown.\",\"reason\":\"conversational\"}"
+    },
+    {
+      "id": "boss-direct-reply-text",
+      "match": { "contains": "Sure thing" },
+      "content": "Sure thing — here is a quick rundown."
+    }
+  ],
+  "runs": [{}],
+  "assertions": [
+    { "kind": "taskToolIntentEquals", "value": { "requiresLocalTools": false } },
+    { "kind": "eventNotEmitted", "eventType": "task.assignment.rerouted" }
+  ]
+}

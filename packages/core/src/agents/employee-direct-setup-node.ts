@@ -10,7 +10,7 @@ import {
   createEmptyPlanScopedState,
 } from '../graph/state.js';
 import { getRuntime } from '../utils/get-runtime.js';
-import { requiresLocalOffisimTools } from './local-tool-routing.js';
+import { detectTaskToolIntent } from './task-tool-intent.js';
 
 /**
  * Lightweight setup node for direct employee chat.
@@ -59,7 +59,8 @@ export async function employeeDirectSetupNode(
   const taskDescription =
     typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '';
 
-  if (employee.is_external === 1 && requiresLocalOffisimTools(taskDescription)) {
+  const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(taskDescription);
+  if (employee.is_external === 1 && taskToolIntent.requiresLocalTools) {
     return {
       interruptReason: `External employee ${employee.name} cannot execute Offisim file or shell tools. Select an internal gateway employee for read_file, write_file, or bash tasks.`,
       currentStepOutputs: [],
@@ -119,5 +120,6 @@ export async function employeeDirectSetupNode(
     pendingAssignments: [assignment],
     currentTaskRunId: taskRunId,
     currentEmployeeId: employee.employee_id,
+    taskToolIntent,
   };
 }

@@ -106,7 +106,13 @@ export type {
   GitAutoCommittedPayload,
   PrefabStateChangedPayload,
   TaskAssignmentDispatchedPayload,
+  TaskAssignmentReroutedPayload,
+  TaskAssignmentRerouteReason,
+  TaskAssignmentRerouteSource,
   TaskSubtaskProgressPayload,
+} from './events.js';
+export { TASK_ASSIGNMENT_REROUTED } from './events/task.js';
+export type {
   ToolExecutionTelemetryPayload,
   VaultSyncFailedPayload,
 } from './events.js';

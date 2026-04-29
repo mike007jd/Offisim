@@ -2,14 +2,18 @@
  * Task-related event factories.
  * Extracted from event-factories.ts for domain-scoped modularity.
  */
-import type {
-  DeliverableCreatedPayload,
-  RuntimeEvent,
-  TaskAssignmentDispatchedPayload,
-  TaskAssignmentPayload,
-  TaskState,
-  TaskStatePayload,
-  TaskSubtaskProgressPayload,
+import {
+  type DeliverableCreatedPayload,
+  type RuntimeEvent,
+  TASK_ASSIGNMENT_REROUTED,
+  type TaskAssignmentDispatchedPayload,
+  type TaskAssignmentPayload,
+  type TaskAssignmentRerouteReason,
+  type TaskAssignmentRerouteSource,
+  type TaskAssignmentReroutedPayload,
+  type TaskState,
+  type TaskStatePayload,
+  type TaskSubtaskProgressPayload,
 } from '@offisim/shared-types';
 
 export function taskStateChanged(
@@ -67,6 +71,32 @@ export function taskAssignmentChanged(
       assigneeName: opts?.assigneeName,
       assigneeKind: opts?.assigneeKind,
       action,
+    },
+  };
+}
+
+export function taskAssignmentRerouted(
+  companyId: string,
+  taskRunId: string,
+  requestedEmployeeId: string,
+  resolvedEmployeeId: string,
+  reason: TaskAssignmentRerouteReason,
+  threadId: string | undefined,
+  source: TaskAssignmentRerouteSource,
+): RuntimeEvent<TaskAssignmentReroutedPayload> {
+  return {
+    type: TASK_ASSIGNMENT_REROUTED,
+    entityId: taskRunId,
+    entityType: 'task',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: {
+      taskRunId,
+      requestedEmployeeId,
+      resolvedEmployeeId,
+      reason,
+      source,
     },
   };
 }

@@ -1,5 +1,5 @@
 import { ChevronLeft, FileText, Folder, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { toErrorMessage } from '../../lib/error-message.js';
 import {
   type ProjectWorkspaceEntry,
@@ -7,39 +7,98 @@ import {
   isProjectWorkspaceFilesAvailable,
   listProjectWorkspaceDirectory,
   parentWorkspacePath,
-  readProjectWorkspaceFile,
+  readProjectWorkspaceFilePreview,
 } from '../../lib/project-workspace-files.js';
 
 interface ProjectWorkspaceFilesProps {
   workspaceRoot: string | null;
 }
 
-const PREVIEW_LIMIT = 6000;
+const PREVIEW_MAX_BYTES = 8192;
+
+type Selection =
+  | null
+  | { kind: 'loading'; path: string }
+  | {
+      kind: 'ready';
+      path: string;
+      preview: string;
+      truncated: boolean;
+      totalSize: number;
+    }
+  | { kind: 'error'; path: string; message: string };
+
+type SelectionAction =
+  | { type: 'select'; path: string }
+  | {
+      type: 'previewLoaded';
+      path: string;
+      preview: string;
+      truncated: boolean;
+      totalSize: number;
+    }
+  | { type: 'previewFailed'; path: string; message: string }
+  | { type: 'clear' };
+
+function selectionReducer(state: Selection, action: SelectionAction): Selection {
+  switch (action.type) {
+    case 'select':
+      return { kind: 'loading', path: action.path };
+    case 'previewLoaded':
+      // Only commit when we're still loading the same path; null / error / ready
+      // / different-path all mean the user moved on or another path is loading.
+      if (!state || state.kind !== 'loading' || state.path !== action.path) return state;
+      return {
+        kind: 'ready',
+        path: action.path,
+        preview: action.preview,
+        truncated: action.truncated,
+        totalSize: action.totalSize,
+      };
+    case 'previewFailed':
+      if (!state || state.kind !== 'loading' || state.path !== action.path) return state;
+      return { kind: 'error', path: action.path, message: action.message };
+    case 'clear':
+      return null;
+  }
+}
 
 export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesProps) {
   const desktopMode = isProjectWorkspaceFilesAvailable();
   const [currentPath, setCurrentPath] = useState('');
   const [entries, setEntries] = useState<ProjectWorkspaceEntry[]>([]);
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [selection, dispatchSelection] = useReducer(selectionReducer, null);
+  // Bumped on every preview request and on workspaceRoot change so in-flight
+  // fetches that resolve after the user moved on (workspace switch, new click)
+  // get dropped instead of writing stale content into the new selection.
+  const previewRequestId = useRef(0);
 
   const displayPath = currentPath ? `/${currentPath}` : '/';
-  // Wraps `path` + `reloadVersion` so the effect fires on user-clicked refresh
-  // (otherwise Biome's exhaustive-deps strips the version-only trigger).
   const directoryRequest = useMemo(
     () => ({ path: currentPath || '.', version: reloadVersion }),
     [currentPath, reloadVersion],
   );
 
+  // Reset internal nav + selection when the parent passes a different
+  // workspaceRoot (project switch). Replaces the old `key=` re-mount approach
+  // so cosmetic parent re-renders no longer blow away nav state. Bumping
+  // `previewRequestId` invalidates any in-flight preview fetch from the old
+  // workspace so it can't write stale content into the new project's view.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: workspaceRoot dep is the trigger, not a value the effect reads
+  useEffect(() => {
+    previewRequestId.current += 1;
+    setCurrentPath('');
+    dispatchSelection({ type: 'clear' });
+  }, [workspaceRoot]);
+
   useEffect(() => {
     if (!workspaceRoot || !desktopMode) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    setDirectoryLoading(true);
+    setDirectoryError(null);
     void listProjectWorkspaceDirectory({
       workspaceRoot,
       path: directoryRequest.path,
@@ -50,11 +109,11 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
       .catch((err) => {
         if (!cancelled) {
           setEntries([]);
-          setError(toErrorMessage(err));
+          setDirectoryError(toErrorMessage(err));
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setDirectoryLoading(false);
       });
     return () => {
       cancelled = true;
@@ -62,23 +121,31 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
   }, [workspaceRoot, desktopMode, directoryRequest]);
 
   async function openFile(entry: ProjectWorkspaceEntry) {
-    if (!workspaceRoot || previewLoading) return;
-    setSelectedFile(entry.path);
-    setPreview(null);
-    setPreviewLoading(true);
-    setError(null);
+    if (!workspaceRoot) return;
+    if (selection?.kind === 'loading') return;
+    const id = ++previewRequestId.current;
+    dispatchSelection({ type: 'select', path: entry.path });
     try {
-      const content = await readProjectWorkspaceFile({ workspaceRoot, path: entry.path });
-      setPreview(
-        content.length > PREVIEW_LIMIT
-          ? `${content.slice(0, PREVIEW_LIMIT)}\n\n[preview truncated]`
-          : content,
-      );
+      const preview = await readProjectWorkspaceFilePreview({
+        workspaceRoot,
+        path: entry.path,
+        maxBytes: PREVIEW_MAX_BYTES,
+      });
+      if (id !== previewRequestId.current) return;
+      dispatchSelection({
+        type: 'previewLoaded',
+        path: entry.path,
+        preview: preview.content,
+        truncated: preview.truncated,
+        totalSize: preview.totalSize,
+      });
     } catch (err) {
-      setPreview(null);
-      setError(toErrorMessage(err));
-    } finally {
-      setPreviewLoading(false);
+      if (id !== previewRequestId.current) return;
+      dispatchSelection({
+        type: 'previewFailed',
+        path: entry.path,
+        message: toErrorMessage(err),
+      });
     }
   }
 
@@ -104,6 +171,8 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
     );
   }
 
+  const selectedFilePath = selection?.path ?? null;
+
   return (
     <div className="border-t border-white/8 pt-2">
       <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-slate-600">
@@ -114,11 +183,11 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
           type="button"
           className="rounded p-0.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
           onClick={() => setReloadVersion((version) => version + 1)}
-          disabled={loading}
+          disabled={directoryLoading}
           aria-label="Refresh workspace files"
           title="Refresh"
         >
-          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3 w-3 ${directoryLoading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -127,8 +196,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
           type="button"
           className="mb-1 flex items-center gap-1 text-[11px] text-slate-400 transition-colors hover:text-slate-200"
           onClick={() => {
-            setSelectedFile(null);
-            setPreview(null);
+            dispatchSelection({ type: 'clear' });
             setCurrentPath(parentWorkspacePath(currentPath));
           }}
         >
@@ -143,13 +211,12 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
             type="button"
             key={entry.path || entry.name}
             className={`flex w-full min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-white/5 ${
-              selectedFile === entry.path ? 'bg-white/8 text-slate-100' : 'text-slate-400'
+              selectedFilePath === entry.path ? 'bg-white/8 text-slate-100' : 'text-slate-400'
             }`}
             onClick={() => {
               if (entry.isDirectory) {
                 setCurrentPath(entry.path);
-                setSelectedFile(null);
-                setPreview(null);
+                dispatchSelection({ type: 'clear' });
               } else if (entry.isFile) {
                 void openFile(entry);
               }
@@ -169,20 +236,39 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
             )}
           </button>
         ))}
-        {!loading && entries.length === 0 && (
+        {!directoryLoading && entries.length === 0 && (
           <div className="px-1.5 py-2 text-[11px] text-slate-600">Empty folder</div>
         )}
       </div>
 
-      {(previewLoading || preview) && (
+      {selection?.kind === 'loading' && (
         <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-black/20 px-2 py-1.5 text-[10px] leading-relaxed text-slate-300">
-          {previewLoading ? 'Loading...' : (preview ?? '')}
+          Loading...
         </pre>
       )}
 
-      {error && (
+      {selection?.kind === 'ready' && (
+        <div className="mt-2 space-y-1">
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-black/20 px-2 py-1.5 text-[10px] leading-relaxed text-slate-300">
+            {selection.preview}
+          </pre>
+          {selection.truncated && (
+            <p className="text-[10px] text-slate-600">
+              preview truncated · {formatWorkspaceFileSize(selection.totalSize)} total
+            </p>
+          )}
+        </div>
+      )}
+
+      {selection?.kind === 'error' && (
         <div className="mt-2 rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-[10px] text-red-200">
-          {error}
+          {selection.message}
+        </div>
+      )}
+
+      {directoryError && (
+        <div className="mt-2 rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-[10px] text-red-200">
+          {directoryError}
         </div>
       )}
     </div>

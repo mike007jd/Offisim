@@ -9,6 +9,7 @@ import {
 import { appendAgentEvent } from '../../utils/append-agent-event.js';
 import { generateId } from '../../utils/generate-id.js';
 import type { LlmPlan, PmPreflightReady } from '../pm-planner-types.js';
+import { sanitizePlanEmployees } from './sanitize-rebind.js';
 
 // Plan-persistence no longer owns a "department-only" variant; external employees
 // go through the shared employee dispatch pipeline (employee-a2a-executor) and
@@ -37,7 +38,20 @@ export async function persistLlmPlanAsTaskPlan(
     'pm_planner',
   );
 
-  const sanitizedPlan = sanitizePlanEmployees(plan, validEmployees);
+  const recommendedEmployees =
+    plan.recommendedEmployees && plan.recommendedEmployees.length > 0
+      ? plan.recommendedEmployees
+      : prep.directive.recommendedEmployees;
+  const sanitizedPlan = sanitizePlanEmployees(plan, validEmployees, {
+    companyId,
+    threadId,
+    eventBus,
+    recommendedEmployees,
+    // Pass the full roster (enabled + disabled) so classifyDropReason can
+    // tell `employee-disabled` apart from `employee-not-found`. Passing
+    // `allEnabled` would silently report disabled employees as missing.
+    allEmployees: prep.allEmployees,
+  });
   const planSteps: PlanStep[] = sanitizedPlan.steps.map((llmStep) => {
     const planTasks: PlanTask[] = llmStep.tasks.map((llmTask) => {
       const taskRunId = generateId('tr');
@@ -158,24 +172,4 @@ export async function persistLlmPlanAsTaskPlan(
 function requireTaskRunId(task: PlanTask): string {
   if (!task.taskRunId) throw new Error('Expected planner task to have a taskRunId');
   return task.taskRunId;
-}
-
-function sanitizePlanEmployees(
-  plan: LlmPlan,
-  validEmployees: readonly { employee_id: string }[],
-): LlmPlan {
-  const validIds = new Set(validEmployees.map((employee) => employee.employee_id));
-  const fallbackEmployee = validEmployees[0];
-  if (!fallbackEmployee) return plan;
-  return {
-    ...plan,
-    steps: plan.steps.map((step) => ({
-      ...step,
-      tasks: step.tasks.map((task) =>
-        validIds.has(task.employeeId)
-          ? task
-          : { ...task, employeeId: fallbackEmployee.employee_id },
-      ),
-    })),
-  };
 }

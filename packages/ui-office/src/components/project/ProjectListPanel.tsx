@@ -155,10 +155,7 @@ function ProjectSelectedSummary({
           </button>
         </div>
       )}
-      <ProjectWorkspaceFiles
-        key={`${project.project_id}:${project.workspace_root ?? 'no-workspace'}`}
-        workspaceRoot={project.workspace_root}
-      />
+      <ProjectWorkspaceFiles workspaceRoot={project.workspace_root} />
     </div>
   );
 }

@@ -6,9 +6,10 @@ import { getEventId } from './workspace/activity-log-utils';
 export interface ActivityTimeGroupProps {
   label: string;
   eventCount: number;
-  events: Array<{ event: RuntimeEvent; level: EventDisplayLevel }>;
+  events: Array<{ event: RuntimeEvent; level: EventDisplayLevel; collapsedCount?: number }>;
   selectedEventId: string | null;
   onSelectEvent: (eventId: string) => void;
+  getEmployeeName?: (employeeId: string) => string | null;
 }
 
 export function ActivityTimeGroup({
@@ -17,6 +18,7 @@ export function ActivityTimeGroup({
   events,
   selectedEventId,
   onSelectEvent,
+  getEmployeeName,
 }: ActivityTimeGroupProps) {
   return (
     <div>
@@ -28,13 +30,15 @@ export function ActivityTimeGroup({
         </span>
       </div>
       {/* Event rows */}
-      {events.map(({ event, level }) => {
+      {events.map(({ event, level, collapsedCount }) => {
         const id = getEventId(event);
         return (
           <ActivityEventRow
             key={id}
             event={event}
             level={level}
+            collapsedCount={collapsedCount}
+            getEmployeeName={getEmployeeName}
             selected={selectedEventId === id}
             onClick={() => onSelectEvent(id)}
           />

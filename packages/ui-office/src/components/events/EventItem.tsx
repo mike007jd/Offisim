@@ -1,4 +1,4 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
+import { type RuntimeEvent, TASK_ASSIGNMENT_REROUTED } from '@offisim/shared-types';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertCircle,
@@ -12,6 +12,9 @@ import {
   Users,
 } from 'lucide-react';
 import { formatTimestamp } from '../../lib/format-time.js';
+import { formatTaskAssignmentReroutedLabel } from '../../runtime/runtime-activity-formatters.js';
+
+export { formatTaskAssignmentReroutedLabel };
 
 type EventCategory = 'entered' | 'error' | 'completed' | 'other';
 
@@ -31,6 +34,9 @@ function categorize(event: RuntimeEvent): { category: EventCategory; action: str
 
 /** Extract a human-readable label from event payload, falling back to a topic-derived label. */
 export function getDisplayLabel(event: RuntimeEvent): string {
+  if (event.type === TASK_ASSIGNMENT_REROUTED) {
+    return formatTaskAssignmentReroutedLabel(event);
+  }
   const p = event.payload as Record<string, unknown>;
   if (typeof p.message === 'string') return p.message;
   if (typeof p.nodeName === 'string') return p.nodeName;

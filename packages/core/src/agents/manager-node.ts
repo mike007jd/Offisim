@@ -1,4 +1,5 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { TaskAssignmentRerouteReason } from '@offisim/shared-types';
 import { graphNodeEntered } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
@@ -6,8 +7,9 @@ import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { emitAssignmentRerouted } from './emit-assignment-rerouted.js';
 import { buildEnrichedEmployeeList } from './employee-roster.js';
-import { isLocalToolAssignableEmployee, requiresLocalOffisimTools } from './local-tool-routing.js';
+import { detectTaskToolIntent, isLocalToolAssignableEmployee } from './task-tool-intent.js';
 
 interface LlmAssignment {
   taskType: string;
@@ -115,7 +117,8 @@ export async function managerNode(
     typeof lastUserMessage?.content === 'string'
       ? lastUserMessage.content
       : 'No user message found';
-  const localToolRequired = requiresLocalOffisimTools(userContent);
+  const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(userContent);
+  const localToolRequired = taskToolIntent.requiresLocalTools;
   // System graph-node roles that should not receive task assignments.
   // All other employees (including account_manager, project_manager, etc.) are assignable.
   const GRAPH_ONLY_ROLES = new Set(['boss', 'hr']);
@@ -183,20 +186,26 @@ export async function managerNode(
 
   let decision = parseManagerDecision(routingStreamResult.fullContent);
   const validEmployeeIds = new Set(nonManagerEmployees.map((employee) => employee.employee_id));
+  const droppedAssignments: LlmAssignment[] = [];
   if (decision?.intent === 'work') {
-    decision = {
-      ...decision,
-      assignments: decision.assignments.filter((assignment) =>
-        validEmployeeIds.has(assignment.employeeId),
-      ),
-    };
+    const kept: LlmAssignment[] = [];
+    for (const assignment of decision.assignments) {
+      if (validEmployeeIds.has(assignment.employeeId)) {
+        kept.push(assignment);
+      } else {
+        droppedAssignments.push(assignment);
+      }
+    }
+    decision = { ...decision, assignments: kept };
   }
 
   // Fallback: assign to first available employee
+  let fallbackTriggered = false;
   if (
     (!decision || (decision.intent === 'work' && decision.assignments.length === 0)) &&
     nonManagerEmployees.length > 0
   ) {
+    fallbackTriggered = true;
     decision = {
       intent: 'work',
       assignments: [
@@ -208,6 +217,42 @@ export async function managerNode(
         },
       ],
     };
+  }
+
+  // Emit task.assignment.rerouted for every silently-overridden LLM pick.
+  // Resolution: if any kept assignment exists, that's the resolved id;
+  // otherwise we fell back to nonManagerEmployees[0]. taskRunId is synthetic
+  // because plan-persistence has not yet created the actual TaskRun rows.
+  const firstResolvedId =
+    decision?.assignments[0]?.employeeId ?? nonManagerEmployees[0]?.employee_id;
+  for (let i = 0; i < droppedAssignments.length; i++) {
+    const dropped = droppedAssignments[i];
+    if (!dropped || !firstResolvedId) continue;
+    const reason: TaskAssignmentRerouteReason = localToolRequired
+      ? 'requires-local-tools'
+      : 'employee-not-found';
+    emitAssignmentRerouted({
+      companyId: runtimeCtx.companyId,
+      threadId: state.threadId,
+      taskRunId: `mgr:${state.threadId}:${i}`,
+      requestedEmployeeId: dropped.employeeId,
+      resolvedEmployeeId: firstResolvedId,
+      reason,
+      source: 'manager',
+      eventBus: runtimeCtx.eventBus,
+    });
+  }
+  if (fallbackTriggered && droppedAssignments.length === 0 && firstResolvedId) {
+    emitAssignmentRerouted({
+      companyId: runtimeCtx.companyId,
+      threadId: state.threadId,
+      taskRunId: `mgr:${state.threadId}:fallback`,
+      requestedEmployeeId: '',
+      resolvedEmployeeId: firstResolvedId,
+      reason: 'no-recommendation-fallback',
+      source: 'manager',
+      eventBus: runtimeCtx.eventBus,
+    });
   }
 
   if (!decision) {

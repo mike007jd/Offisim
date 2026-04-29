@@ -195,6 +195,7 @@ export {
   employeeStateChanged,
   taskStateChanged,
   taskAssignmentChanged,
+  taskAssignmentRerouted,
   meetingStateChanged,
   llmCallStarted,
   llmCallCompleted,

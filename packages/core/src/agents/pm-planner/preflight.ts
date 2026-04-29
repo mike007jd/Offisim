@@ -2,8 +2,8 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../../events/event-factories.js';
 import { type OffisimGraphState, createEmptyPlanScopedState } from '../../graph/state.js';
 import { getRuntime } from '../../utils/get-runtime.js';
-import { isLocalToolAssignableEmployee, requiresLocalOffisimTools } from '../local-tool-routing.js';
 import type { PmPreflightOutcome } from '../pm-planner-types.js';
+import { detectTaskToolIntent, isLocalToolAssignableEmployee } from '../task-tool-intent.js';
 import { parseReviewedPlanPayload } from './plan-review-payload.js';
 
 export async function runPmPreflight(
@@ -69,7 +69,8 @@ export async function runPmPreflight(
   );
   const allEmployees = await repos.employees.findByCompany(companyId);
   const allEnabled = allEmployees.filter((e) => e.enabled === 1);
-  const localToolRequired = requiresLocalOffisimTools(directive.intent);
+  const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(directive.intent);
+  const localToolRequired = taskToolIntent.requiresLocalTools;
   if (localToolRequired) {
     validEmployees = validEmployees.filter(isLocalToolAssignableEmployee);
     if (validEmployees.length === 0) {
@@ -84,7 +85,7 @@ export async function runPmPreflight(
   return {
     kind: 'ready',
     runtimeCtx,
-    state,
+    state: state.taskToolIntent === taskToolIntent ? state : { ...state, taskToolIntent },
     directive,
     interactionMode,
     approvedToExecute,
@@ -92,5 +93,6 @@ export async function runPmPreflight(
     reviewedPlan,
     validEmployees,
     allEnabled,
+    allEmployees,
   };
 }

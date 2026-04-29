@@ -21,6 +21,7 @@ export type EventFamily =
   | 'employee.state.changed'
   | 'task.state.changed'
   | 'task.assignment.changed'
+  | 'task.assignment.rerouted'
   | 'meeting.state.changed'
   | 'install.state.changed'
   | 'binding.state.changed'

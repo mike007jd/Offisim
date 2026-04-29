@@ -336,6 +336,7 @@ pub fn run() {
             runtime_secrets::runtime_secret_clear,
             runtime_secrets::trusted_host_product_status,
             builtin_tools::project_read_file,
+            builtin_tools::project_read_file_preview,
             builtin_tools::project_list_dir,
             builtin_tools::project_write_file,
             builtin_tools::bash_execute,

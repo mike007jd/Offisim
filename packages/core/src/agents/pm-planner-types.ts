@@ -20,6 +20,13 @@ export interface LlmPlanStep {
 export interface LlmPlan {
   summary: string;
   steps: LlmPlanStep[];
+  /**
+   * Optional planner-recommended employee ordering. When present, sanitize-rebind
+   * uses this order to pick a fallback employee instead of iteration order from
+   * the company roster. The PM-planner falls back to `ManagerDirective.recommendedEmployees`
+   * when the LLM plan does not include this field.
+   */
+  recommendedEmployees?: string[];
 }
 
 export interface PmPreflightReady {
@@ -33,6 +40,12 @@ export interface PmPreflightReady {
   reviewedPlan: LlmPlan | null;
   validEmployees: EmployeeRow[];
   allEnabled: EmployeeRow[];
+  /**
+   * Full company roster (enabled + disabled). Sanitize-rebind needs the
+   * disabled rows so it can distinguish `employee-disabled` from
+   * `employee-not-found` when classifying a rebind reason.
+   */
+  allEmployees: EmployeeRow[];
 }
 
 export type PmPreflightOutcome =

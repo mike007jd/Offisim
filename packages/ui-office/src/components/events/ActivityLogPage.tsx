@@ -2,6 +2,7 @@ import type { RuntimeEvent } from '@offisim/shared-types';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useAgentStates } from '../../runtime/use-agent-states';
 import { ActivityEmptyState } from './ActivityEmptyState';
 import { ActivityEventDetail } from './ActivityEventDetail';
 import { ActivityFilterBar } from './ActivityFilterBar';
@@ -41,6 +42,11 @@ export interface ActivityLogPageProps {
 export function ActivityLogPage({ sessionState, onSessionStateChange }: ActivityLogPageProps) {
   const { eventBus, bootstrapState } = useOffisimRuntime();
   const { toasts, addToast, dismissToast } = useToasts();
+  const agents = useAgentStates();
+  const getEmployeeName = useCallback(
+    (employeeId: string) => agents.get(employeeId)?.name ?? null,
+    [agents],
+  );
 
   // 7.1 — Subscribe to event store
   const store = useMemo(
@@ -190,6 +196,7 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
               selectedEventId={sessionState.selectedEventId}
               onSelectEvent={handleSelectEvent}
               className={sessionState.selectedEventId ? 'w-3/5' : 'w-full'}
+              getEmployeeName={getEmployeeName}
             />
             {/* 7.2 — Detail panel: 40% when event selected */}
             {sessionState.selectedEventId && focusedEvent && (

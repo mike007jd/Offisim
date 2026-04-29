@@ -1,5 +1,7 @@
 import type {
   InteractionKind,
+  RuntimeEvent,
+  TaskAssignmentReroutedPayload,
   ToolExecutionTelemetryPayload,
   WorkspaceStalenessDetectedPayload,
 } from '@offisim/shared-types';
@@ -189,4 +191,38 @@ export function formatStalenessReason(payload: WorkspaceStalenessDetectedPayload
 
 export function getToolCategory(payload: ToolExecutionTelemetryPayload): ToolCategory {
   return categorizeTool(payload);
+}
+
+const REROUTE_SOURCE_LABEL: Record<string, string> = {
+  manager: 'Manager',
+  'pm-planner': 'PM planner',
+};
+
+const REROUTE_REASON_LABEL: Record<string, string> = {
+  'requires-local-tools': 'task requires local tools',
+  'employee-not-found': 'requested employee not found',
+  'employee-disabled': 'requested employee disabled',
+  'no-recommendation-fallback': 'no planner recommendation — fell back to first available',
+};
+
+/**
+ * Format a `task.assignment.rerouted` event for the activity log + EventLog.
+ * `getEmployeeName` resolves an id to a display name; falls back to the id
+ * when the resolver returns null (spec: "fall back to id if not found").
+ */
+export function formatTaskAssignmentReroutedLabel(
+  event: RuntimeEvent,
+  getEmployeeName?: (employeeId: string) => string | null,
+): string {
+  const p = event.payload as Partial<TaskAssignmentReroutedPayload>;
+  const source = p.source ?? 'manager';
+  const sourceLabel = REROUTE_SOURCE_LABEL[source] ?? source;
+  const reason = p.reason ?? 'unknown';
+  const reasonLabel = REROUTE_REASON_LABEL[reason] ?? reason;
+  const taskRunId = p.taskRunId ?? '?';
+  const requestedId = p.requestedEmployeeId ?? '?';
+  const resolvedId = p.resolvedEmployeeId ?? '?';
+  const requestedName = (getEmployeeName?.(requestedId) ?? null) || requestedId || '(none)';
+  const resolvedName = (getEmployeeName?.(resolvedId) ?? null) || resolvedId;
+  return `${sourceLabel} rerouted task ${taskRunId} from ${requestedName} to ${resolvedName}: ${reasonLabel}`;
 }

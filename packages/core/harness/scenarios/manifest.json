@@ -196,6 +196,38 @@
       ]
     },
     {
+      "id": "routing-rejects-bare-noun-prose",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.bare_noun_prose_does_not_require_local_tools",
+        "routing.no_reroute_event_for_conversational_request"
+      ]
+    },
+    {
+      "id": "routing-accepts-verb-object-imperative",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.verb_object_imperative_triggers_local_tool_intent",
+        "routing.read_intent_implies_requires_local_tools"
+      ]
+    },
+    {
+      "id": "manager-rerouted-event-fires",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.manager_emits_rerouted_event_when_filtering_external",
+        "routing.manager_rerouted_event_carries_requested_and_resolved_ids"
+      ]
+    },
+    {
+      "id": "sanitize-rebind-uses-recommended-order",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.sanitize_rebind_prefers_recommended_employees_order",
+        "routing.sanitize_rebind_emits_pm_planner_rerouted_event"
+      ]
+    },
+    {
       "id": "builtin-tools-rejects-symlink-escape",
       "category": "desktop-builtin-tools",
       "invariants": ["desktop.builtin_tools_rejects_symlink_escape"]

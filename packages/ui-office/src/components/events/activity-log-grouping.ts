@@ -1,11 +1,78 @@
-import type { RuntimeEvent } from '@offisim/shared-types';
+import { type RuntimeEvent, TASK_ASSIGNMENT_REROUTED } from '@offisim/shared-types';
 import type { EventDisplayLevel } from './EventLog';
 
-export type FilteredEvent = { event: RuntimeEvent; level: EventDisplayLevel };
+export type FilteredEvent = {
+  event: RuntimeEvent;
+  level: EventDisplayLevel;
+  /**
+   * When > 1, indicates this row represents a collapsed run of N consecutive
+   * `task.assignment.rerouted` events sharing source + reason + taskRunId.
+   * Renderer shows a `×N` badge next to the row.
+   */
+  collapsedCount?: number;
+};
 
 export interface TimeGroup {
   label: string;
   events: FilteredEvent[];
+}
+
+const COLLAPSE_THRESHOLD = 3;
+
+function rerouteGroupKey(event: RuntimeEvent): string | null {
+  if (event.type !== TASK_ASSIGNMENT_REROUTED) return null;
+  const p = event.payload as Record<string, unknown>;
+  const source = typeof p.source === 'string' ? p.source : '?';
+  const reason = typeof p.reason === 'string' ? p.reason : '?';
+  const taskRunId = typeof p.taskRunId === 'string' ? p.taskRunId : '?';
+  return `${source}|${reason}|${taskRunId}`;
+}
+
+/**
+ * Collapse runs of 3+ consecutive `task.assignment.rerouted` events that
+ * share `source + reason + taskRunId` into a single row with a `×N` badge.
+ *
+ * The first event in the run is the representative row (carries the formatted
+ * label); subsequent events are dropped from the timeline but the count is
+ * preserved on the representative row's `collapsedCount`.
+ *
+ * Runs of <3 events are passed through untouched — keeps low-noise reruns
+ * fully visible while compacting genuine spam.
+ */
+export function collapseConsecutiveReroutes(events: FilteredEvent[]): FilteredEvent[] {
+  if (events.length === 0) return events;
+  const result: FilteredEvent[] = [];
+  let i = 0;
+  while (i < events.length) {
+    const current = events[i];
+    if (!current) {
+      i++;
+      continue;
+    }
+    const key = rerouteGroupKey(current.event);
+    if (!key) {
+      result.push(current);
+      i++;
+      continue;
+    }
+    let runEnd = i + 1;
+    while (runEnd < events.length) {
+      const next = events[runEnd];
+      if (!next || rerouteGroupKey(next.event) !== key) break;
+      runEnd++;
+    }
+    const runLength = runEnd - i;
+    if (runLength >= COLLAPSE_THRESHOLD) {
+      result.push({ ...current, collapsedCount: runLength });
+    } else {
+      for (let j = i; j < runEnd; j++) {
+        const item = events[j];
+        if (item) result.push(item);
+      }
+    }
+    i = runEnd;
+  }
+  return result;
 }
 
 export const GROUP_ORDER = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older'] as const;
@@ -58,9 +125,9 @@ export function groupEventsByTime(events: FilteredEvent[]): TimeGroup[] {
     buckets.get(key)?.sort((a, b) => b.event.timestamp - a.event.timestamp);
   }
 
-  // Return non-empty groups in order
+  // Return non-empty groups, collapsing 3+ consecutive reroute events per group.
   return GROUP_ORDER.filter((key) => (buckets.get(key)?.length ?? 0) > 0).map((key) => ({
     label: key,
-    events: buckets.get(key) ?? [],
+    events: collapseConsecutiveReroutes(buckets.get(key) ?? []),
   }));
 }

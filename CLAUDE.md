@@ -166,6 +166,9 @@ catalog/
 - **desktop 必须 single-instance**: `tauri-plugin-single-instance = "2"` 要放在 `apps/desktop/src-tauri/src/lib.rs` 的 `.plugin(...)` 最前面，先于 `tauri-plugin-sql` / 其他 plugin 初始化。否则第二个 Tauri dev / binary 会和已运行实例共用 `appDataDir/offisim.db`，撞上 SQLite 写锁后表现成前端 runtime 初始化挂住、黑屏 webview。
 - **`isTauri()` 统一认 `__TAURI_INTERNALS__`**: Tauri 2 默认 `withGlobalTauri:false` 不注入 `__TAURI__`。新代码不要再依赖 `window.__TAURI__`
 - **8 阶段 ceremony**: idle → gathering → analyzing → planning → dispatching → working → reporting → dismissing
+- **本地工具路由 SSOT**: `packages/core/src/agents/task-tool-intent.ts`（`detectTaskToolIntent` + `evidenceToolsForIntent`）。boss / pm-planner preflight / yolo / direct-setup 在入口算一次存到 `state.taskToolIntent`，下游消费 state field（不许再 grep 文本）。Bare-noun / narrative prose 不触发；只接 verb+object pairs / 显式 tool tokens / 中文 imperative。
+- **路由 rebind 事件**: `task.assignment.rerouted`（`shared-types/events/task.ts`），`source: 'manager' | 'pm-planner'`，`reason: 'requires-local-tools' | 'employee-not-found' | 'employee-disabled' | 'no-recommendation-fallback'`。manager 把 LLM-picked external 过滤掉时、`pm-planner/sanitize-rebind.ts` 换 missing/disabled 员工时都要 emit + `logger.info` 镜像。activity feed 形态：连续 3+ 同 source+reason+taskRunId collapse 成一行 `×N` badge。
+- **Tauri bounded preview IPC**: `project_read_file_preview(path, cwd, max_bytes)` Rust hardcap 64 KB + UTF-8 boundary walk-back。文件树 UI（`ProjectWorkspaceFiles.tsx`）只能用这个，不准调 `project_read_file`（那是 agent tool lane unbounded 入口）。
 - **doc-engine 的 xlsx** 走 `package.json` 里的 `"xlsx": "https://cdn.sheetjs.com/..tgz"` (install-time 拉, 非 npm registry) — SheetJS 许可原因
 - **仓库已无产品级自动 gate**: 不再保留 husky / 产品 typecheck / 产品 test / 旧 smoke 自动校验链。产品验收走 live agent。
 - **2026-04-14 起产品自动测试策略作废**: 过去的 `vitest` / `playwright` / `__VAULT_SMOKE__` / auto-smoke 链已删除。runtime / UI / vault / Tauri 问题走 live agent，不要重建那一套。
