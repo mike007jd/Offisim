@@ -4,6 +4,19 @@ import type { KanbanState } from '@offisim/shared-types';
 import { and, asc, eq } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
+type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+type KanbanCardPatch = Partial<
+  Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+>;
+
+const ALLOWED_TRANSITIONS: Record<KanbanState, ReadonlySet<KanbanState>> = {
+  todo: new Set(['doing', 'blocked', 'review', 'done']),
+  doing: new Set(['todo', 'blocked', 'review', 'done']),
+  blocked: new Set(['todo', 'doing', 'review']),
+  review: new Set(['doing', 'blocked', 'done']),
+  done: new Set(),
+};
+
 function emitKanban(
   eventBus: EventBus | undefined,
   op: 'created' | 'transitioned' | 'assigned',
@@ -27,6 +40,28 @@ export function createKanbanTauriRepos(db: TauriDrizzleDb, eventBus?: EventBus):
   const findById = async (id: string): Promise<KanbanCardRow | null> => {
     const rows = await db.select().from(schema.kanbanCards).where(eq(schema.kanbanCards.id, id));
     return (rows[0] as KanbanCardRow | undefined) ?? null;
+  };
+
+  const compareAndUpdateViaRust = async (
+    id: string,
+    expectedState: KanbanState,
+    patch: KanbanCardPatch,
+  ): Promise<KanbanCardRow | null> => {
+    try {
+      const { invoke } = (await import('@tauri-apps/api/core')) as { invoke: InvokeFn };
+      const card = await invoke<Record<string, unknown> | null>('transition_kanban_card', {
+        id,
+        next: patch.state,
+        reason: patch.blocked_reason ?? null,
+        expectedState,
+      });
+      if (!card) return null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('kanban transition stale')) return null;
+      throw error;
+    }
+    return findById(id);
   };
 
   const listByTaskRun = async (taskRunId: string): Promise<KanbanCardRow[]> =>
@@ -64,16 +99,26 @@ export function createKanbanTauriRepos(db: TauriDrizzleDb, eventBus?: EventBus):
       return row;
     },
     async transition(id, next, blockedReason) {
-      await db
-        .update(schema.kanbanCards)
-        .set({
-          state: next,
-          blocked_reason: blockedReason ?? null,
-          updated_at: new Date().toISOString(),
-        })
-        .where(eq(schema.kanbanCards.id, id));
-      const card = await findById(id);
-      if (card) emitKanban(eventBus, 'transitioned', card);
+      const current = await findById(id);
+      if (!current) return null;
+      if (current.state === next && current.blocked_reason === (blockedReason ?? null)) {
+        return current;
+      }
+      if (!ALLOWED_TRANSITIONS[current.state].has(next)) {
+        throw new Error(`Invalid kanban transition: ${current.state} -> ${next}`);
+      }
+      const card = await compareAndUpdateViaRust(id, current.state, {
+        state: next,
+        blocked_reason: blockedReason ?? null,
+        updated_at: new Date().toISOString(),
+      });
+      if (!card) {
+        const actual = await findById(id);
+        throw new Error(
+          `Kanban transition stale: ${id} moved from ${current.state} to ${actual?.state ?? '<missing>'}; cannot transition to ${next}`,
+        );
+      }
+      emitKanban(eventBus, 'transitioned', card);
       return card;
     },
     async transitionByTaskRun(taskRunId, next, blockedReason) {

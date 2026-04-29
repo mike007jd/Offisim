@@ -19,10 +19,10 @@
 
 ## Phase D - Kanban atomicity
 
-- [ ] Add compare-and-update storage contract and use it in `KanbanRepo.transition`.
-- [ ] Add Rust SQL CAS to `transition_kanban_card`.
-- [ ] Add stale-transition deterministic scenario.
-- [ ] Sync `openspec/specs/kanban-data-pipeline/spec.md`.
+- [x] Add compare-and-update storage contract and use it in `KanbanRepo.transition`.
+- [x] Add Rust SQL CAS to `transition_kanban_card`.
+- [x] Add stale-transition deterministic scenario.
+- [x] Sync `openspec/specs/kanban-data-pipeline/spec.md`.
 
 ## Phase E - Single sources of truth
 

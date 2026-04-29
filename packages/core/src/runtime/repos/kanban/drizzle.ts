@@ -26,6 +26,22 @@ class DrizzleKanbanStorage implements KanbanRepoStorage {
     return this.findById(id);
   }
 
+  async compareAndUpdate(
+    id: string,
+    expectedState: KanbanState,
+    patch: Partial<
+      Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+    >,
+  ): Promise<KanbanCardRow | null> {
+    const result = this.db
+      .update(schema.kanbanCards)
+      .set(patch)
+      .where(and(eq(schema.kanbanCards.id, id), eq(schema.kanbanCards.state, expectedState)))
+      .run() as { changes?: number };
+    if (result.changes === 0) return null;
+    return this.findById(id);
+  }
+
   async findById(id: string): Promise<KanbanCardRow | null> {
     const rows = this.db
       .select()

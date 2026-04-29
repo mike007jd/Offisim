@@ -7,6 +7,7 @@ Defines kanban card persistence and state transitions created by PM planning and
 ### Requirement: Kanban cards SHALL enforce a state transition whitelist
 
 Kanban persistence SHALL reject invalid state transitions instead of blindly updating the card state.
+State transitions SHALL be atomic compare-and-set writes: after reading the current state and validating the requested transition, persistence MUST update only when the row still has that same state. If the row changed before the write, the caller SHALL receive a stale-transition error and the later request SHALL NOT overwrite the winning transition.
 
 Allowed transitions are:
 
@@ -22,6 +23,12 @@ Allowed transitions are:
 - **AND** a caller requests transition to `todo`
 - **THEN** the repository rejects the transition
 - **AND** the card remains `done`.
+
+#### Scenario: Reject stale concurrent transition
+
+- **WHEN** a kanban card in `todo` receives concurrent requests to transition to `doing` and to `review`
+- **THEN** exactly one transition succeeds
+- **AND** the other request is rejected as stale instead of silently overwriting the first result.
 
 ### Requirement: Employee completion SHALL reflect completion truth on kanban cards
 

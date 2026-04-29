@@ -2,6 +2,10 @@ import type { KanbanOrigin, KanbanState } from '@offisim/shared-types';
 import type { EventBus } from '../../events/event-bus.js';
 import type { KanbanCardRow, NewKanbanCard } from '../repositories.js';
 
+type KanbanCardPatch = Partial<
+  Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+>;
+
 const ALLOWED_TRANSITIONS: Record<KanbanState, ReadonlySet<KanbanState>> = {
   todo: new Set(['doing', 'blocked', 'review', 'done']),
   doing: new Set(['todo', 'blocked', 'review', 'done']),
@@ -20,13 +24,27 @@ export class KanbanInvalidTransitionError extends Error {
   }
 }
 
+export class KanbanStaleTransitionError extends Error {
+  constructor(
+    readonly cardId: string,
+    readonly expected: KanbanState,
+    readonly actual: KanbanState | null,
+    readonly next: KanbanState,
+  ) {
+    super(
+      `Kanban transition stale: ${cardId} moved from ${expected} to ${actual ?? '<missing>'}; cannot transition to ${next}`,
+    );
+    this.name = 'KanbanStaleTransitionError';
+  }
+}
+
 export interface KanbanRepoStorage {
   insert(row: KanbanCardRow): Promise<KanbanCardRow>;
-  update(
+  update(id: string, patch: KanbanCardPatch): Promise<KanbanCardRow | null>;
+  compareAndUpdate(
     id: string,
-    patch: Partial<
-      Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
-    >,
+    expectedState: KanbanState,
+    patch: KanbanCardPatch,
   ): Promise<KanbanCardRow | null>;
   findById(id: string): Promise<KanbanCardRow | null>;
   listByProject(projectId: string): Promise<KanbanCardRow[]>;
@@ -77,12 +95,16 @@ export class KanbanRepo {
     if (!ALLOWED_TRANSITIONS[current.state].has(next)) {
       throw new KanbanInvalidTransitionError(current.state, next);
     }
-    const card = await this.storage.update(id, {
+    const card = await this.storage.compareAndUpdate(id, current.state, {
       state: next,
       blocked_reason: blockedReason ?? null,
       updated_at: new Date().toISOString(),
     });
-    if (card) this.emit('transitioned', card);
+    if (!card) {
+      const actual = await this.storage.findById(id);
+      throw new KanbanStaleTransitionError(id, current.state, actual?.state ?? null, next);
+    }
+    this.emit('transitioned', card);
     return card;
   }
 

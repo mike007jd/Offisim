@@ -36,6 +36,20 @@ export class MemoryKanbanStorage implements KanbanRepoStorage {
     return { ...next };
   }
 
+  async compareAndUpdate(
+    id: string,
+    expectedState: KanbanState,
+    patch: Partial<
+      Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+    >,
+  ): Promise<KanbanCardRow | null> {
+    const current = this.store.get(id);
+    if (!current || current.state !== expectedState) return null;
+    const next = { ...current, ...patch };
+    this.store.set(id, next);
+    return { ...next };
+  }
+
   async findById(id: string): Promise<KanbanCardRow | null> {
     const row = this.store.get(id);
     return row ? { ...row } : null;

@@ -278,8 +278,12 @@ pub async fn transition_kanban_card<R: Runtime>(
     id: String,
     next: String,
     reason: Option<String>,
+    expected_state: Option<String>,
 ) -> Result<Option<KanbanCard>, String> {
     validate_state(&next)?;
+    if let Some(expected) = &expected_state {
+        validate_state(expected)?;
+    }
     let pool = open_pool(&app).await?;
     let current: Option<String> =
         sqlx::query_scalar("SELECT state FROM kanban_cards WHERE id = ? LIMIT 1")
@@ -291,23 +295,44 @@ pub async fn transition_kanban_card<R: Runtime>(
         pool.close().await;
         return Ok(None);
     };
+    let expected = expected_state.unwrap_or_else(|| current.clone());
+    if current != expected {
+        pool.close().await;
+        return Err(format!(
+            "kanban transition stale: {id} moved from {expected} to {current}"
+        ));
+    }
     if !is_allowed_transition(&current, &next) {
         pool.close().await;
         return Err(format!("invalid kanban transition: {current} -> {next}"));
     }
-    sqlx::query(
+    let result = sqlx::query(
         r#"
         UPDATE kanban_cards
         SET state = ?, blocked_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-        WHERE id = ?
+        WHERE id = ? AND state = ?
         "#,
     )
     .bind(&next)
     .bind(reason)
     .bind(&id)
+    .bind(&expected)
     .execute(&pool)
     .await
     .map_err(|err| format!("transition kanban card: {err}"))?;
+    if result.rows_affected() == 0 {
+        let actual: Option<String> =
+            sqlx::query_scalar("SELECT state FROM kanban_cards WHERE id = ? LIMIT 1")
+                .bind(&id)
+                .fetch_optional(&pool)
+                .await
+                .map_err(|err| format!("select kanban stale state: {err}"))?;
+        pool.close().await;
+        return Err(format!(
+            "kanban transition stale: {id} moved from {expected} to {}",
+            actual.unwrap_or_else(|| "<missing>".to_string())
+        ));
+    }
 
     let card = fetch_card(&pool, &id).await?;
     pool.close().await;

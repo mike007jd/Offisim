@@ -47,6 +47,14 @@ export type ScenarioAssertion =
       readonly next: KanbanState;
       readonly errorIncludes?: string;
     }
+  | {
+      readonly kind: 'kanbanRejectsStaleTransition';
+      readonly cardId: string;
+      readonly projectId: string;
+      readonly firstNext: KanbanState;
+      readonly secondNext: KanbanState;
+      readonly errorIncludes?: string;
+    }
   | { readonly kind: 'toolPermissionApprovalConsumed'; readonly scope: 'once' | 'thread' }
   | { readonly kind: 'finalOutputContains'; readonly contains: string }
   | { readonly kind: 'finalOutputNotContains'; readonly contains: string }
@@ -144,6 +152,8 @@ async function evaluateAssertion(
       return assertKanbanEventSequence(ctx.events, assertion.sequence);
     case 'kanbanRejectsTransition':
       return assertKanbanRejectsTransition(ctx.repos, assertion);
+    case 'kanbanRejectsStaleTransition':
+      return assertKanbanRejectsStaleTransition(ctx.repos, assertion);
     case 'toolPermissionApprovalConsumed':
       return assertToolPermissionApprovalConsumed(ctx.repos, ctx.threadId, assertion.scope);
     case 'finalOutputContains':
@@ -179,6 +189,50 @@ async function assertKanbanRejectsTransition(
     return;
   }
   throw new Error(`Expected kanban transition to ${assertion.next} to throw`);
+}
+
+async function assertKanbanRejectsStaleTransition(
+  repos: RuntimeRepositories,
+  assertion: Extract<ScenarioAssertion, { kind: 'kanbanRejectsStaleTransition' }>,
+): Promise<void> {
+  const results = await Promise.allSettled([
+    repos.kanban.transition(assertion.cardId, assertion.firstNext, 'first stale transition'),
+    repos.kanban.transition(assertion.cardId, assertion.secondNext, 'second stale transition'),
+  ]);
+  const successes = results.filter(
+    (
+      result,
+    ): result is PromiseFulfilledResult<Awaited<ReturnType<typeof repos.kanban.transition>>> =>
+      result.status === 'fulfilled' && result.value !== null,
+  );
+  const staleFailures = results.filter((result) => {
+    if (result.status !== 'rejected') return false;
+    const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+    return assertion.errorIncludes
+      ? message.includes(assertion.errorIncludes)
+      : message.includes('Kanban transition stale');
+  });
+  if (successes.length !== 1 || staleFailures.length !== 1) {
+    throw new Error(
+      `Expected one successful transition and one stale rejection, got ${results
+        .map((result) =>
+          result.status === 'fulfilled'
+            ? `fulfilled:${result.value?.state ?? '<null>'}`
+            : `rejected:${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+        )
+        .join(', ')}`,
+    );
+  }
+
+  const cards = await repos.kanban.listByProject(assertion.projectId);
+  const card = cards.find((candidate) => candidate.id === assertion.cardId);
+  if (!card) throw new Error(`Expected kanban card ${assertion.cardId} to still exist`);
+  if (card.state === 'todo') throw new Error('Expected stale transition race to move out of todo');
+  if (card.state !== assertion.firstNext && card.state !== assertion.secondNext) {
+    throw new Error(
+      `Expected final state to be ${assertion.firstNext} or ${assertion.secondNext}, got ${card.state}`,
+    );
+  }
 }
 
 function assertGraphStateArrayEquals(
