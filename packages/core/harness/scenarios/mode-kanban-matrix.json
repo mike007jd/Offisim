@@ -6,7 +6,24 @@
     "task": "build a counter component"
   },
   "assertions": [
-    "each mode creates at least one kanban card",
-    "each mode finishes at least one card as done"
+    { "kind": "kanbanMatrixAllModesPassed" },
+    {
+      "kind": "kanbanMatrixCaseCards",
+      "mode": "boss_proxy",
+      "origin": "pm-planner",
+      "states": { "done": 1 }
+    },
+    {
+      "kind": "kanbanMatrixCaseCards",
+      "mode": "direct_to_employee",
+      "origin": "pm-planner",
+      "states": { "done": 1 }
+    },
+    {
+      "kind": "kanbanMatrixCaseCards",
+      "mode": "yolo",
+      "origin": "employee",
+      "states": { "done": 1 }
+    }
   ]
 }

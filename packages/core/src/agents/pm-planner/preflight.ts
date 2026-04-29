@@ -1,6 +1,6 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../../events/event-factories.js';
-import type { OffisimGraphState } from '../../graph/state.js';
+import { type OffisimGraphState, createEmptyPlanScopedState } from '../../graph/state.js';
 import { getRuntime } from '../../utils/get-runtime.js';
 import type { PmPreflightOutcome } from '../pm-planner-types.js';
 import { parseReviewedPlanPayload } from './plan-review-payload.js';
@@ -29,21 +29,18 @@ export async function runPmPreflight(
       ? await parseReviewedPlanPayload(planReviewDecision.reviewedPayload)
       : null;
 
-  const emptyPlan: Partial<OffisimGraphState> = {
+  const emptyPlan = (interruptReason: string | null): Partial<OffisimGraphState> => ({
+    ...createEmptyPlanScopedState(),
     taskPlan: null,
-    currentStepIndex: 0,
-    stepResults: [],
-    currentStepOutputs: [],
-  };
+    interruptReason,
+  });
 
   if (cancelled) {
     await repos.threads.updateStatus(threadId, 'cancelled');
     return {
       kind: 'short-circuit',
       result: {
-        ...emptyPlan,
-        pendingAssignments: [],
-        completed: true,
+        ...emptyPlan('pm-preflight-cancelled'),
       },
     };
   }
@@ -53,16 +50,14 @@ export async function runPmPreflight(
     return {
       kind: 'short-circuit',
       result: {
-        ...emptyPlan,
-        pendingAssignments: [],
-        completed: true,
+        ...emptyPlan('pm-preflight-invalid-reviewed-plan'),
         interruptReason: 'Plan review approval payload was missing, invalid, or hash-mismatched.',
       },
     };
   }
 
   if (!directive || directive.recommendedEmployees.length === 0) {
-    return { kind: 'short-circuit', result: emptyPlan };
+    return { kind: 'short-circuit', result: emptyPlan('pm-preflight-no-directive') };
   }
 
   const employeeDetails = await Promise.all(
@@ -73,7 +68,7 @@ export async function runPmPreflight(
   );
 
   if (validEmployees.length === 0) {
-    return { kind: 'short-circuit', result: emptyPlan };
+    return { kind: 'short-circuit', result: emptyPlan('pm-preflight-no-employee') };
   }
 
   const allEmployees = await repos.employees.findByCompany(companyId);

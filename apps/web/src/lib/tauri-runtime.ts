@@ -43,6 +43,13 @@ import { InteractionService } from '@offisim/core/dist/services/interaction-serv
 import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
+import { createBuiltinTools } from '@offisim/core/dist/tools/builtin/index.js';
+import type {
+  FsAdapter,
+  ShellExec,
+  ShellExecResult,
+} from '@offisim/core/dist/tools/builtin/types.js';
+import { CompositeToolExecutor } from '@offisim/core/dist/tools/composite-tool-executor.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
 import type { InteractionMode } from '@offisim/shared-types';
@@ -151,6 +158,119 @@ function createTauriExecutionAdapter(
     default:
       throw new Error(`Unknown execution lane: ${config.executionLane as string}`);
   }
+}
+
+function isAbsolutePath(path: string): boolean {
+  return path.startsWith('/');
+}
+
+function joinPath(root: string, rel: string): string {
+  if (!rel || rel === '.') return root;
+  const normalized = rel.replace(/^\/+/u, '');
+  return root.endsWith('/') ? `${root}${normalized}` : `${root}/${normalized}`;
+}
+
+async function workspaceRootsFor(
+  repos: RuntimeRepositories,
+  companyId: string,
+  companyRoot: string | null,
+): Promise<string[]> {
+  const roots = new Set<string>();
+  if (companyRoot?.trim()) roots.add(companyRoot.trim());
+  const projects = await repos.projects.findActiveByCompany(companyId);
+  for (const project of projects) {
+    if (project.workspace_root?.trim()) roots.add(project.workspace_root.trim());
+  }
+  return [...roots];
+}
+
+async function defaultWorkspaceRoot(
+  repos: RuntimeRepositories,
+  companyId: string,
+  companyRoot: string | null,
+): Promise<string> {
+  const roots = await workspaceRootsFor(repos, companyId, companyRoot);
+  if (roots.length === 1 && roots[0]) return roots[0];
+  if (roots.length === 0) {
+    throw new Error('No project workspace root is bound for file/shell tools.');
+  }
+  throw new Error('Multiple workspace roots are bound; pass an absolute path or cwd.');
+}
+
+function createTauriBuiltinFs(
+  repos: RuntimeRepositories,
+  companyId: string,
+  companyRoot: string | null,
+): FsAdapter {
+  return {
+    async readFile(path) {
+      const { invoke } = (await import('@tauri-apps/api/core')) as {
+        invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+      };
+      const cwd = isAbsolutePath(path)
+        ? undefined
+        : await defaultWorkspaceRoot(repos, companyId, companyRoot);
+      return invoke<string>('project_read_file', { path, cwd });
+    },
+    async writeFile(path, content) {
+      const { invoke } = (await import('@tauri-apps/api/core')) as {
+        invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+      };
+      const cwd = isAbsolutePath(path)
+        ? undefined
+        : await defaultWorkspaceRoot(repos, companyId, companyRoot);
+      await invoke<void>('project_write_file', { path, content, cwd });
+    },
+    async exists(path) {
+      const { invoke } = (await import('@tauri-apps/api/core')) as {
+        invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+      };
+      const cwd = isAbsolutePath(path)
+        ? undefined
+        : await defaultWorkspaceRoot(repos, companyId, companyRoot);
+      try {
+        await invoke<string>('project_read_file', { path, cwd });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  };
+}
+
+function createTauriShellExec(
+  repos: RuntimeRepositories,
+  companyId: string,
+  companyRoot: string | null,
+): ShellExec {
+  return async (command, options): Promise<ShellExecResult> => {
+    const { invoke } = (await import('@tauri-apps/api/core')) as {
+      invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+    };
+    const root = await defaultWorkspaceRoot(repos, companyId, companyRoot);
+    const cwd = options.cwd
+      ? isAbsolutePath(options.cwd)
+        ? options.cwd
+        : joinPath(root, options.cwd)
+      : root;
+    const result = await invoke<{
+      stdout: string;
+      stderr: string;
+      exitCode: number;
+      timedOut: boolean;
+    }>('bash_execute', {
+      cwd,
+      cmd: command,
+      timeoutMs: options.timeoutMs ?? 30_000,
+      maxOutputBytes: options.maxOutputBytes ?? 1024 * 1024,
+    });
+    return {
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      timedOut: result.timedOut,
+    };
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -270,6 +390,14 @@ export async function createTauriRuntime(
         ? new BrowserMcpClientFactory()
         : new TauriMcpClientFactory(),
   });
+  const builtinTools = createBuiltinTools({
+    executionMode: 'desktop-trusted',
+    fs: createTauriBuiltinFs(repos, companyId, company.workspace_root),
+    shellExec: createTauriShellExec(repos, companyId, company.workspace_root),
+    bashTimeoutMs: 30_000,
+    maxOutputBytes: 1024 * 1024,
+  });
+  builtinTools.delete('web_search');
   const fileHistoryService = new FileHistoryService(
     repos.fileHistory,
     new TauriFileSnapshotAdapter(),
@@ -278,6 +406,7 @@ export async function createTauriRuntime(
     threadId,
     companyId,
   });
+  const compositeToolExecutor = new CompositeToolExecutor(builtinTools, fileHistoryToolExecutor);
   const interactionBox = { pending: null };
   const hookRegistry = new HookRegistry();
   const scratchpad = new Scratchpad();
@@ -317,7 +446,7 @@ export async function createTauriRuntime(
 
   // Wrap with audit logging — writes to mcp_audit_log + emits mcp.tool.result events
   const toolExecutor = new AuditingToolExecutor(
-    fileHistoryToolExecutor,
+    compositeToolExecutor,
     repos.mcpAudit,
     eventBus,
     companyId,
@@ -401,6 +530,7 @@ export async function createTauriRuntime(
     systemCaller,
     sessionCostTracker,
     toolTelemetryService,
+    builtinTools,
     fileHistoryService,
     engineAdapters: createTauriEngineAdapterRegistry({ enableProviderHostPreviewAdapters: true }),
     interactionService,

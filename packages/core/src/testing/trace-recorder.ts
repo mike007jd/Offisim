@@ -5,7 +5,7 @@ import type { RuntimeRepositories } from '../runtime/repositories.js';
 import { canonicalJson } from './canonical-json.js';
 import { sha256Text } from './hash.js';
 
-const STABLE_ENTITY_ID = /^(scenario-|thread-|company-|emp-|task-)/u;
+const STABLE_ENTITY_ID = /^(scenario-|thread-|company-|emp-|task-|tr-)/u;
 const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/giu;
 const GENERATED_ID_PATTERN = /\b(plan|tr|ma|ix|ixh|del|ae)-<uuid>\b/gu;
 const ZEROED_NUMBER_KEY = /timestamp|createdAt|respondedAt|latency|duration/i;
@@ -72,12 +72,14 @@ export class TraceRecorder {
     const snapshot = repos.snapshot?.() as
       | {
           taskRuns?: unknown;
+          kanbanCards?: unknown;
           activeInteractions?: unknown;
           toolPermissionApprovals?: unknown;
         }
       | undefined;
     return {
       taskRuns: normalizeRows(filterByThread(snapshot?.taskRuns, threadId)),
+      kanbanCards: normalizeRows(snapshotRows(snapshot?.kanbanCards)),
       llmCalls: normalizeRows(await repos.llmCalls.findByThread(threadId)),
       mcpAudit: normalizeRows(await repos.mcpAudit.listByThread(threadId)),
       activeInteractions: normalizeRows(filterByThread(snapshot?.activeInteractions, threadId)),
@@ -128,8 +130,13 @@ function normalizeFinalState(state: Partial<OffisimGraphState>): Record<string, 
     pendingAssignments: state.pendingAssignments ?? [],
     stepResults: state.stepResults ?? [],
     completedStepIndices: state.completedStepIndices ?? [],
+    blockedStepIndices: state.blockedStepIndices ?? [],
     currentStepOutputs: state.currentStepOutputs ?? [],
   }) as Record<string, unknown>;
+}
+
+function snapshotRows(rows: unknown): unknown[] {
+  return Array.isArray(rows) ? rows : [];
 }
 
 function filterByThread(rows: unknown, threadId: string): unknown[] {

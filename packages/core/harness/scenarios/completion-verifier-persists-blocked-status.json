@@ -29,6 +29,7 @@
   "llmTurns": [
     {
       "id": "employee-no-evidence-final",
+      "match": { "contains": "Claim completion without running verification evidence." },
       "content": "NO_EVIDENCE_COMPLETION_ATTEMPT"
     }
   ],

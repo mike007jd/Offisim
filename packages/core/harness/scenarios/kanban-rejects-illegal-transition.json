@@ -1,0 +1,33 @@
+{
+  "id": "kanban-rejects-illegal-transition",
+  "category": "kanban",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": { "companyId": "company-kanban-illegal", "name": "Kanban Illegal Co" },
+    "thread": {
+      "threadId": "thread-kanban-illegal",
+      "status": "running",
+      "projectId": "project-kanban-illegal"
+    },
+    "projects": [{ "id": "project-kanban-illegal", "name": "Kanban Illegal Project" }],
+    "kanbanCards": [
+      {
+        "id": "card-kanban-done",
+        "projectId": "project-kanban-illegal",
+        "title": "Already done",
+        "state": "done",
+        "origin": "human"
+      }
+    ]
+  },
+  "initialState": {},
+  "runs": [{ "startAt": "boss_summary" }],
+  "assertions": [
+    {
+      "kind": "kanbanRejectsTransition",
+      "cardId": "card-kanban-done",
+      "next": "todo",
+      "errorIncludes": "Invalid kanban transition"
+    }
+  ]
+}

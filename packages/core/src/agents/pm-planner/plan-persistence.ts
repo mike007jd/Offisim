@@ -1,5 +1,11 @@
 import { planCreated } from '../../events/event-factories.js';
-import type { OffisimGraphState, PlanStep, PlanTask, TaskPlan } from '../../graph/state.js';
+import {
+  type OffisimGraphState,
+  type PlanStep,
+  type PlanTask,
+  type TaskPlan,
+  createEmptyPlanScopedState,
+} from '../../graph/state.js';
 import { appendAgentEvent } from '../../utils/append-agent-event.js';
 import { generateId } from '../../utils/generate-id.js';
 import type { LlmPlan, PmPreflightReady } from '../pm-planner-types.js';
@@ -136,16 +142,7 @@ export async function persistLlmPlanAsTaskPlan(
   });
 
   return {
+    ...createEmptyPlanScopedState(),
     taskPlan,
-    currentStepIndex: 0,
-    pendingAssignments: [],
-    dispatchedStepIndices: [],
-    completedStepIndices: [],
-    stepResults: [],
-    currentStepOutputs: [],
-    currentTaskRunId: null,
-    currentEmployeeId: null,
-    interruptReason: null,
-    completed: false,
   };
 }

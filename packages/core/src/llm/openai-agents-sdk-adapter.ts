@@ -167,7 +167,7 @@ export class OpenAiAgentsSdkAdapter implements LlmGateway {
   async chat(request: LlmRequest): Promise<LlmResponse> {
     if (request.tools && request.tools.length > 0) {
       throw new Error(
-        'OpenAI Agents SDK lane does not yet expose Offisim tool calls. Use the gateway lane for tool-enabled turns.',
+        'OpenAI Agents SDK lane does not currently support fs/shell tool calls. Switch this employee to gateway lane to use file/shell tools.',
       );
     }
 

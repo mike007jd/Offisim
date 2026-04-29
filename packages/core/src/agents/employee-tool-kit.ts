@@ -35,7 +35,8 @@ export async function assembleToolKit(
   state: OffisimGraphState,
 ): Promise<ToolKit> {
   const { employee, isDirectChatTask } = preflight;
-  const { repos, toolExecutor, workstationToolResolver, memoryService, companyId } = runtimeCtx;
+  const { repos, toolExecutor, workstationToolResolver, memoryService, companyId, builtinTools } =
+    runtimeCtx;
 
   const virtualTools: ToolDef[] = [];
 
@@ -86,9 +87,11 @@ export async function assembleToolKit(
 
   // PRD 2.3: Workstation-scoped tools when resolver present (employee scope);
   // system agents (manager / hr / pm / boss) bypass and get full listAvailable.
-  const mcpTools = workstationToolResolver
+  const scopedMcpTools = workstationToolResolver
     ? await workstationToolResolver.resolveForEmployee(companyId, employee.employee_id)
     : await toolExecutor.listAvailable(companyId);
+  const builtinToolDefs = builtinTools ? [...builtinTools.values()].map((tool) => tool.def) : [];
+  const mcpTools = [...builtinToolDefs, ...scopedMcpTools];
   const pool = await buildToolPool({
     virtualTools,
     mcpTools,

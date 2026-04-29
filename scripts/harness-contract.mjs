@@ -38,6 +38,9 @@ const microCompact = await import(
 const completionVerifier = await import(
   new URL('../packages/core/dist/runtime/completion-verifier.js', import.meta.url).href
 );
+const leakDetector = await import(
+  new URL('../packages/core/dist/testing/leak-detector.js', import.meta.url).href
+);
 const invariants = [
   await assertRuntimeDenyOverridesGrant(core),
   await assertOnceApprovalIsConsumedOnce(core),
@@ -46,6 +49,7 @@ const invariants = [
   await assertPlanReviewPayloadValidation(planReview),
   assertLongRunningMicroCompactScenario(microCompact),
   assertCompletionVerifierScenario(completionVerifier),
+  assertLeakDetectorScenario(leakDetector),
   assertDagOutputAttribution(graph),
 ];
 
@@ -125,6 +129,38 @@ function assertCompletionVerifierScenario(completionVerifier) {
     throw new Error(`unexpected blocked event fixture: ${scenario.fixture.expectedEventKind}`);
   }
   return { id: 'completion.verifier_blocks_without_evidence', passed: true };
+}
+
+function assertLeakDetectorScenario(leakDetector) {
+  const scenario = readScenario('soak-leak-detector-catches-pending-assignment');
+  const leaks = leakDetector.summarizeRuntimeLeaks([
+    {
+      scenarioId: scenario.id,
+      passed: false,
+      traceHash: 'fixture',
+      assertions: [],
+      trace: {
+        events: [],
+        db: {
+          taskRuns: [],
+          llmCalls: [],
+          mcpAudit: [],
+          activeInteractions: [],
+          interactionHistory: [],
+          toolPermissionApprovals: [],
+        },
+        finalState: {
+          pendingAssignments: scenario.fixture.pendingAssignments,
+        },
+      },
+    },
+  ]);
+  if (leaks.pendingAssignmentsLeaked !== scenario.fixture.expectedPendingAssignmentsLeaked) {
+    throw new Error(
+      `leak detector pending assignment mismatch: expected ${scenario.fixture.expectedPendingAssignmentsLeaked}, got ${leaks.pendingAssignmentsLeaked}`,
+    );
+  }
+  return { id: 'soak.leak_detector_reports_pending_assignments', passed: true };
 }
 
 async function assertRuntimeDenyOverridesGrant(core) {

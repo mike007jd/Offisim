@@ -55,6 +55,29 @@ fn validate_state(state: &str) -> Result<(), String> {
     }
 }
 
+fn is_allowed_transition(current: &str, next: &str) -> bool {
+    if current == next {
+        return true;
+    }
+    matches!(
+        (current, next),
+        ("todo", "doing")
+            | ("todo", "blocked")
+            | ("todo", "review")
+            | ("todo", "done")
+            | ("doing", "todo")
+            | ("doing", "blocked")
+            | ("doing", "review")
+            | ("doing", "done")
+            | ("blocked", "todo")
+            | ("blocked", "doing")
+            | ("blocked", "review")
+            | ("review", "doing")
+            | ("review", "blocked")
+            | ("review", "done")
+    )
+}
+
 fn validate_origin(origin: &str) -> Result<(), String> {
     match origin {
         "pm-planner" | "employee" | "manager" | "human" => Ok(()),
@@ -258,6 +281,20 @@ pub async fn transition_kanban_card<R: Runtime>(
 ) -> Result<Option<KanbanCard>, String> {
     validate_state(&next)?;
     let pool = open_pool(&app).await?;
+    let current: Option<String> =
+        sqlx::query_scalar("SELECT state FROM kanban_cards WHERE id = ? LIMIT 1")
+            .bind(&id)
+            .fetch_optional(&pool)
+            .await
+            .map_err(|err| format!("select kanban current state: {err}"))?;
+    let Some(current) = current else {
+        pool.close().await;
+        return Ok(None);
+    };
+    if !is_allowed_transition(&current, &next) {
+        pool.close().await;
+        return Err(format!("invalid kanban transition: {current} -> {next}"));
+    }
     sqlx::query(
         r#"
         UPDATE kanban_cards

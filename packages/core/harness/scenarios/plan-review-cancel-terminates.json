@@ -11,6 +11,7 @@
   "llmTurns": [
     {
       "id": "pm-plan",
+      "match": { "contains": "Plan cancellable work" },
       "content": "{\"summary\":\"Plan that will be cancelled\",\"steps\":[{\"stepIndex\":0,\"description\":\"Do cancelled work\",\"tasks\":[{\"taskType\":\"general\",\"employeeId\":\"emp-plan-cancel\",\"description\":\"Do cancelled work\",\"dependsOnStepOutput\":false}]}]}"
     }
   ],

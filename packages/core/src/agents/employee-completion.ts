@@ -91,6 +91,7 @@ export interface FinalizeSuccessContext {
   readonly round: number;
   readonly signal: AbortSignal | undefined;
   readonly materializedDeliverableOverride?: MaterializedEmployeeDeliverable | null;
+  readonly skipVerification?: boolean;
 }
 
 /**
@@ -128,14 +129,16 @@ export async function finalizeEmployeeSuccess(
   } = preflight;
   const { repos, eventBus, companyId, threadId, memoryService, scratchpad } = runtimeCtx;
 
-  const completionOutcome = taskRunId
-    ? await verifyTaskCompletion({
-        runtimeCtx,
-        taskRunId,
-        employeeId: employee.employee_id,
-        state,
-      })
-    : ({ ok: true } as const);
+  const completionOutcome = ctx.skipVerification
+    ? ({ ok: true } as const)
+    : taskRunId
+      ? await verifyTaskCompletion({
+          runtimeCtx,
+          taskRunId,
+          employeeId: employee.employee_id,
+          state,
+        })
+      : ({ ok: false, reason: 'no-task-run-id' } as const);
   // SQLite task_runs.status CHECK excludes 'review_ready'; persist as 'blocked'
   // while runtime/UI keep 'review_ready'.
   const nextTaskRunStatus = completionOutcome.ok ? 'completed' : 'blocked';

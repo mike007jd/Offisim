@@ -35,9 +35,15 @@
       "parameters": { "type": "object", "properties": { "path": { "type": "string" } } }
     }
   ],
+  "toolFixtures": {
+    "write_file": [
+      { "success": true, "result": { "ok": true, "path": "out.txt" } }
+    ]
+  },
   "llmTurns": [
     {
       "id": "employee-tool-request",
+      "match": { "contains": "Use write_file with approval", "toolNames": ["write_file"] },
       "content": "",
       "toolCalls": [
         { "id": "call-write-approved", "name": "write_file", "arguments": { "path": "out.txt" } }
@@ -45,10 +51,12 @@
     },
     {
       "id": "employee-final",
+      "match": { "contains": "out.txt" },
       "content": "APPROVED_TOOL_OUTPUT"
     },
     {
       "id": "consolidator",
+      "match": { "contains": "APPROVED_TOOL_OUTPUT" },
       "content": "{\"memories\":[]}"
     }
   ],

@@ -73,9 +73,34 @@ Because completion-verifier correctly requires verification evidence, checking 6
 - 6.3.1 uses `pnpm dev:all`, not `pnpm dev`, because the root package has no `dev` script.
 - 6.4.2 was attempted through release `.app`, but cannot be closed because desktop employee execution still lacks native file/command tools.
 
+## 2026-04-29 Remediation Round
+
+This round addressed the false-completion and false-green patterns documented in `CODEX_REMEDIATION_2026-04-29.md`. It is source + deterministic-harness remediation only; RC tag remains blocked until the release `.app` live checklist is rerun.
+
+- Boss summary no longer marks empty or blocked work completed. Covered by `boss-summary-empty-with-stale-plan-does-not-mark-complete` and `boss-summary-idle-no-plan-does-not-mark-complete`.
+- Step advancement separates completed and blocked terminal states with `blockedStepIndices`. Covered by `step-advance-segregates-blocked-from-completed`.
+- PM planner, preflight, direct setup, and YOLO setup now clear plan-scoped stale state. Covered by `pm-planner-clears-stale-dispatch-state` and `yolo-mode-skips-boss-chain`.
+- Employee completion without `taskRunId` defaults to blocked, not `{ok:true}`. Covered by `completion-without-taskrunid-defaults-to-blocked`.
+- PM heartbeat now reports verifier-blocked task runs as attention-needed. Covered by `pm-heartbeat-flags-blocked-task`.
+- Tauri desktop gateway lane now injects bounded project `read_file` / `write_file` / `bash` built-ins; browser mode omits them. Covered by `gateway-lane-yolo-has-fs-shell-tools` and `tool-kit-without-builtins-omits-fs-shell`.
+- Codex/Claude/OpenAI SDK lanes now explicitly state the fs/shell limitation and point project-file work to gateway lane. Full SDK-lane tool bridging remains outside this round.
+- Kanban state transitions are enforced in memory repo and Tauri command path; `done -> todo` is rejected. Covered by `kanban-rejects-illegal-transition`.
+- Harness anti-self-proofing was tightened: `RecordingToolExecutor` now requires explicit `toolFixtures`; `FakeGateway` now requires prompt/tool match constraints; `mode-kanban-matrix` evaluates its own assertions; `replay-gateway` is exercised by `recorded-stream-tool-call-replay` and `stream-nonstream-middleware-parity`; soak now runs an actual 80-turn YOLO graph and leak detector has a negative fixture.
+
+Fresh deterministic evidence:
+
+- `pnpm --filter @offisim/core typecheck` passed.
+- `cargo check` in `apps/desktop/src-tauri` passed.
+- `node scripts/harness-contract.mjs --force-build` passed with 27 manifest scenarios.
+- `node scripts/harness-replay.mjs` passed with 20 deterministic graph scenarios plus 2 replay-gateway scenarios.
+- `node scripts/harness-soak.mjs --force-build --iterations=1` passed the 80-turn YOLO graph; leak summary: active interactions 0, pending assignments 0, duplicate task runs 0, duplicate tool calls 0.
+
 ## Current Gate
 
-Do not create `v1.1.0-rc.1` and do not archive the OpenSpec change until one of these is true:
+Do not create `v1.1.0-rc.1` and do not archive the OpenSpec change until release `.app` live verification proves the remediation:
 
-1. A trusted file/read/write + fixed verification command tool surface is added for live runtime employees.
-2. The product checklist is narrowed so web browser live closure does not claim project-file execution, and desktop/MCP-equipped runtime becomes the only required execution closure.
+1. Clean direct chat to YOLO Master creates `verify-2026-04-29.md` under the bound project `workspace_root`, and the file is confirmed with both Computer Use screenshot and physical `ls`.
+2. Clean direct chat runs `pwd` / `ls -la`, and the chat output matches the physical project workspace.
+3. SOP run with real employee output does not show the old `Task processing complete.` fallback.
+4. Verifier-block path persists `task_runs.status = blocked`, keeps boss summary non-successful, and heartbeat reports `verifier-blocked`.
+5. Stale checkpoint isolation is visually rechecked after one completed plan followed by a new plan.

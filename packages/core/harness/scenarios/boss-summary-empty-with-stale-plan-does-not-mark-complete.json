@@ -1,0 +1,48 @@
+{
+  "id": "boss-summary-empty-with-stale-plan-does-not-mark-complete",
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": {
+      "companyId": "company-boss-summary-empty-with-stale-plan",
+      "name": "Boss Summary Stale Plan Co"
+    },
+    "thread": { "threadId": "thread-boss-summary-empty-with-stale-plan", "status": "running" },
+    "employees": [{ "id": "emp-summary-stale", "name": "Stale Engineer", "role": "engineer" }]
+  },
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-stale",
+      "threadId": "thread-boss-summary-empty-with-stale-plan",
+      "companyId": "company-boss-summary-empty-with-stale-plan",
+      "summary": "Stale unfinished plan",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Do real work",
+          "tasks": [
+            {
+              "taskType": "code",
+              "employeeId": "emp-summary-stale",
+              "description": "Do real work",
+              "dependsOnStepOutput": false,
+              "taskRunId": "tr-summary-stale"
+            }
+          ]
+        }
+      ]
+    },
+    "dispatchedStepIndices": [0],
+    "completedStepIndices": [],
+    "blockedStepIndices": []
+  },
+  "runs": [{ "startAt": "boss_summary" }],
+  "assertions": [
+    { "kind": "threadStatusIs", "status": "running" },
+    {
+      "kind": "interruptReasonIncludes",
+      "contains": "boss-summary-empty-with-pending-plan"
+    },
+    { "kind": "finalOutputNotContains", "contains": "Task processing complete." }
+  ]
+}

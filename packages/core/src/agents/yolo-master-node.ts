@@ -1,7 +1,11 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { Command } from '@langchain/langgraph';
 import { graphNodeEntered } from '../events/event-factories.js';
-import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
+import {
+  type OffisimGraphState,
+  type PendingAssignment,
+  createEmptyPlanScopedState,
+} from '../graph/state.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { employeeNode } from './employee-node.js';
 import { YOLO_MASTER_ROLE_SLUG } from './yolo-master-persona.js';
@@ -66,10 +70,11 @@ export async function yoloMasterNode(
   return employeeNode(
     {
       ...state,
+      ...createEmptyPlanScopedState(),
       interactionMode: 'yolo',
       currentEmployeeId: yolo.employee_id,
       currentTaskRunId: taskRunId,
-      pendingAssignments: [assignment, ...state.pendingAssignments],
+      pendingAssignments: [assignment],
     },
     config,
   );

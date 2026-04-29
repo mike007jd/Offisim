@@ -23,10 +23,12 @@ import { ToolPermissionEngine } from '../permissions/tool-permission-engine.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
 import { type RuntimeContext, createRuntimeContext } from '../runtime/runtime-context.js';
+import type { RuntimeDeterminism } from '../runtime/runtime-context.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { InteractionService } from '../services/interaction-service.js';
 import { SkillLoader } from '../skills/skill-loader.js';
 import { SkillStagingManager } from '../skills/skill-staging.js';
+import type { BuiltinTool } from '../tools/builtin/types.js';
 import { canonicalJson } from './canonical-json.js';
 import { FakeGateway, type FakeGatewayTurn, fakeResponse } from './fake-gateway.js';
 import { sha256Text } from './hash.js';
@@ -61,9 +63,12 @@ export interface DeterministicScenario {
     readonly projects?: readonly SeedProject[];
     readonly employees?: readonly SeedEmployee[];
     readonly taskRuns?: readonly SeedTaskRun[];
+    readonly kanbanCards?: readonly SeedKanbanCard[];
   };
   readonly initialState: ScenarioInitialState;
   readonly tools?: readonly ToolDef[];
+  readonly builtinTools?: readonly ToolDef[];
+  readonly toolFixtures?: Record<string, readonly ToolResultFixture[]>;
   readonly llmTurns?: readonly ScenarioLlmTurn[];
   readonly interactionMode?: InteractionMode;
   readonly runs?: readonly ScenarioRun[];
@@ -105,6 +110,16 @@ interface SeedTaskRun {
   readonly input?: Record<string, unknown>;
 }
 
+interface SeedKanbanCard {
+  readonly id: string;
+  readonly projectId: string;
+  readonly title: string;
+  readonly state?: 'todo' | 'doing' | 'blocked' | 'review' | 'done';
+  readonly origin?: 'pm-planner' | 'employee' | 'manager' | 'human';
+  readonly assignedEmployeeId?: string | null;
+  readonly taskRunId?: string | null;
+}
+
 interface ScenarioInitialState {
   readonly projectId?: string | null;
   readonly managerDirective?: OffisimGraphState['managerDirective'];
@@ -114,6 +129,7 @@ interface ScenarioInitialState {
   readonly recentToolResults?: OffisimGraphState['recentToolResults'];
   readonly dispatchedStepIndices?: readonly number[];
   readonly completedStepIndices?: readonly number[];
+  readonly blockedStepIndices?: readonly number[];
   readonly currentStepIndex?: number;
   readonly routeDecision?: OffisimGraphState['routeDecision'];
 }
@@ -139,6 +155,12 @@ interface ScenarioLlmTurn {
   readonly toolCalls?: LlmResponse['toolCalls'];
 }
 
+interface ToolResultFixture {
+  readonly success: boolean;
+  readonly result: unknown;
+  readonly error?: string;
+}
+
 export async function runDeterministicScenario(
   scenario: DeterministicScenario,
 ): Promise<ScenarioTraceReport> {
@@ -152,7 +174,7 @@ export async function runDeterministicScenario(
   const threadId = scenario.seed.thread?.threadId ?? `thread-${scenario.id}`;
   const trace = new TraceRecorder(eventBus);
   const gateway = new FakeGateway((scenario.llmTurns ?? []).map(toFakeGatewayTurn));
-  const toolExecutor = new RecordingToolExecutor(scenario.tools ?? []);
+  const toolExecutor = new RecordingToolExecutor(scenario.tools ?? [], scenario.toolFixtures ?? {});
   const needsSkillInstall = scenarioUsesSkillInstallTools(scenario);
   const skillLoader = needsSkillInstall ? SkillLoader.forRepos(repos) : null;
   const skillStagingManager = needsSkillInstall
@@ -165,6 +187,7 @@ export async function runDeterministicScenario(
     companyId,
     threadId,
   });
+  const determinism = createScenarioDeterminism(scenario.id);
 
   await seedScenario({ scenario, repos, companyId, threadId });
 
@@ -182,6 +205,8 @@ export async function runDeterministicScenario(
         interactionService,
         skillLoader,
         skillStagingManager,
+        builtinTools: scenario.builtinTools ?? [],
+        determinism,
       });
       const unsubscribe = installAutoInteractionResolver(
         eventBus,
@@ -261,7 +286,7 @@ async function runKanbanMatrixScenario(
   const reports = await Promise.all(
     modes.map((mode) => runDeterministicScenario(buildMatrixCaseScenario(scenario.id, mode))),
   );
-  const assertions = reports.map((report) => ({
+  const caseAssertions = reports.map((report) => ({
     kind: `kanbanMatrix:${report.scenarioId}`,
     passed: report.passed,
     message: report.passed
@@ -271,6 +296,8 @@ async function runKanbanMatrixScenario(
           .map((assertion) => assertion.message ?? assertion.kind)
           .join('; '),
   }));
+  const matrixAssertions = evaluateKanbanMatrixAssertions(scenario, reports);
+  const assertions = [...caseAssertions, ...matrixAssertions];
   const trace = {
     events: reports.map((report) => ({
       scenarioId: report.scenarioId,
@@ -304,8 +331,93 @@ async function runKanbanMatrixScenario(
   };
 }
 
+interface KanbanMatrixAssertion {
+  readonly kind: 'kanbanMatrixAllModesPassed' | 'kanbanMatrixCaseCards';
+  readonly mode?: InteractionMode;
+  readonly origin?: 'pm-planner' | 'employee';
+  readonly states?: Record<string, number>;
+}
+
+function evaluateKanbanMatrixAssertions(
+  scenario: DeterministicScenario,
+  reports: readonly ScenarioTraceReport[],
+): ScenarioTraceReport['assertions'] {
+  const rawAssertions = Array.isArray((scenario as { assertions?: unknown }).assertions)
+    ? ((scenario as { assertions: readonly unknown[] }).assertions ?? [])
+    : [];
+  return rawAssertions.map((assertion, index) => {
+    if (!isKanbanMatrixAssertion(assertion)) {
+      return {
+        kind: `kanbanMatrix.assertion.${index}`,
+        passed: false,
+        message: `Unsupported kanban matrix assertion: ${JSON.stringify(assertion)}`,
+      };
+    }
+    try {
+      assertKanbanMatrixAssertion(assertion, reports);
+      return { kind: assertion.kind, passed: true };
+    } catch (error) {
+      return {
+        kind: assertion.kind,
+        passed: false,
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+}
+
+function isKanbanMatrixAssertion(value: unknown): value is KanbanMatrixAssertion {
+  if (!value || typeof value !== 'object') return false;
+  const kind = (value as { kind?: unknown }).kind;
+  return kind === 'kanbanMatrixAllModesPassed' || kind === 'kanbanMatrixCaseCards';
+}
+
+function assertKanbanMatrixAssertion(
+  assertion: KanbanMatrixAssertion,
+  reports: readonly ScenarioTraceReport[],
+): void {
+  if (assertion.kind === 'kanbanMatrixAllModesPassed') {
+    const failed = reports.filter((report) => !report.passed).map((report) => report.scenarioId);
+    if (failed.length > 0) throw new Error(`Kanban matrix failed cases: ${failed.join(', ')}`);
+    return;
+  }
+
+  const mode = assertion.mode;
+  if (!mode) throw new Error('kanbanMatrixCaseCards requires mode');
+  const report = reports.find((candidate) => candidate.scenarioId.endsWith(modeSuffix(mode)));
+  if (!report) throw new Error(`No kanban matrix case report for mode ${mode}`);
+  const cards = toRecordArray(report.trace.db.kanbanCards);
+  if (cards.length === 0) throw new Error(`No kanban cards recorded for mode ${mode}`);
+  if (assertion.origin) {
+    const mismatched = cards.filter((card) => card.origin !== assertion.origin);
+    if (mismatched.length > 0) {
+      throw new Error(
+        `Expected all ${mode} cards origin=${assertion.origin}, got ${JSON.stringify(cards)}`,
+      );
+    }
+  }
+  for (const [state, expectedCount] of Object.entries(assertion.states ?? {})) {
+    const actual = cards.filter((card) => card.state === state).length;
+    if (actual !== expectedCount) {
+      throw new Error(`Expected ${expectedCount} ${mode} cards in ${state}, got ${actual}`);
+    }
+  }
+}
+
+function modeSuffix(mode: InteractionMode): string {
+  return mode.replaceAll('_', '-');
+}
+
+function toRecordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is Record<string, unknown> =>
+        Boolean(entry && typeof entry === 'object'),
+      )
+    : [];
+}
+
 function buildMatrixCaseScenario(matrixId: string, mode: InteractionMode): DeterministicScenario {
-  const suffix = mode.replaceAll('_', '-');
+  const suffix = modeSuffix(mode);
   const companyId = `company-${matrixId}-${suffix}`;
   const threadId = `thread-${matrixId}-${suffix}`;
   const projectId = `project-${matrixId}-${suffix}`;
@@ -367,9 +479,15 @@ function buildMatrixCaseScenario(matrixId: string, mode: InteractionMode): Deter
   if (mode === 'yolo') {
     return {
       ...base,
+      toolFixtures: {
+        'pnpm-test': [{ success: true, result: { ok: true, command: 'pnpm test -- counter' } }],
+      },
       llmTurns: [
         {
           id: 'yolo-create-todo-and-test',
+          match: {
+            toolNames: ['todo_create', 'pnpm-test'],
+          },
           content: '',
           toolCalls: [
             {
@@ -384,7 +502,11 @@ function buildMatrixCaseScenario(matrixId: string, mode: InteractionMode): Deter
             },
           ],
         },
-        { id: 'yolo-final', content: 'COUNTER_DONE_YOLO' },
+        {
+          id: 'yolo-final',
+          match: { contains: 'pnpm test -- counter' },
+          content: 'COUNTER_DONE_YOLO',
+        },
       ],
       runs: [{}],
     };
@@ -392,10 +514,21 @@ function buildMatrixCaseScenario(matrixId: string, mode: InteractionMode): Deter
 
   return {
     ...base,
+    toolFixtures: {
+      'pnpm-test': [{ success: true, result: { ok: true, command: 'pnpm test -- counter' } }],
+    },
     llmTurns: [
-      { id: 'pm-plan', content: pmPlan },
+      {
+        id: 'pm-plan',
+        match: { contains: 'Build a counter component with tests' },
+        content: pmPlan,
+      },
       {
         id: 'employee-test',
+        match: {
+          contains: `Build a counter component with tests in ${mode}`,
+          toolNames: ['pnpm-test'],
+        },
         content: '',
         toolCalls: [
           {
@@ -405,7 +538,11 @@ function buildMatrixCaseScenario(matrixId: string, mode: InteractionMode): Deter
           },
         ],
       },
-      { id: 'employee-final', content: `COUNTER_DONE_${mode.toUpperCase()}` },
+      {
+        id: 'employee-final',
+        match: { contains: 'pnpm test -- counter' },
+        content: `COUNTER_DONE_${mode.toUpperCase()}`,
+      },
     ],
     runs: [{ startAt: 'pm_planner' }],
   };
@@ -421,6 +558,8 @@ function createScenarioRuntime(params: {
   readonly interactionService: InteractionService;
   readonly skillLoader: SkillLoader | null;
   readonly skillStagingManager: SkillStagingManager | null;
+  readonly builtinTools: readonly ToolDef[];
+  readonly determinism: RuntimeDeterminism;
 }): RuntimeContext {
   const authorizer = new ToolPermissionEngine({
     companyId: params.companyId,
@@ -448,10 +587,42 @@ function createScenarioRuntime(params: {
     companyId: params.companyId,
     threadId: params.threadId,
     runtimePolicy: HARNESS_RUNTIME_POLICY,
+    determinism: params.determinism,
+    builtinTools: createScenarioBuiltinTools(params.builtinTools),
     interactionService: params.interactionService,
     ...(params.skillLoader ? { skillLoader: params.skillLoader } : {}),
     ...(params.skillStagingManager ? { skillStagingManager: params.skillStagingManager } : {}),
   });
+}
+
+function createScenarioDeterminism(scenarioId: string): RuntimeDeterminism {
+  const counters = new Map<string, number>();
+  return {
+    nowMs: () => 1_704_067_200_000,
+    nowIso: () => '2024-01-01T00:00:00.000Z',
+    id: (prefix) => {
+      const next = (counters.get(prefix) ?? 0) + 1;
+      counters.set(prefix, next);
+      return `${prefix}-${scenarioId}-${next}`;
+    },
+    uuid: () => {
+      const next = (counters.get('uuid') ?? 0) + 1;
+      counters.set('uuid', next);
+      return `00000000-0000-4000-8000-${next.toString().padStart(12, '0')}`;
+    },
+  };
+}
+
+function createScenarioBuiltinTools(tools: readonly ToolDef[]): ReadonlyMap<string, BuiltinTool> {
+  return new Map(
+    tools.map((def) => [
+      def.name,
+      {
+        def,
+        execute: async (args) => ({ ok: true, tool: def.name, args }),
+      },
+    ]),
+  );
 }
 
 function createScenarioSkillStagingManager(scenarioId: string): SkillStagingManager {
@@ -552,6 +723,19 @@ async function seedScenario(params: {
       started_at: now,
     });
   }
+  for (const card of params.scenario.seed.kanbanCards ?? []) {
+    await params.repos.kanban.create({
+      id: card.id,
+      project_id: card.projectId,
+      company_id: params.companyId,
+      title: card.title,
+      note: '',
+      state: card.state ?? 'todo',
+      origin: card.origin ?? 'human',
+      assigned_employee_id: card.assignedEmployeeId ?? null,
+      task_run_id: card.taskRunId ?? null,
+    });
+  }
 }
 
 function buildInitialState(
@@ -578,6 +762,7 @@ function buildInitialState(
     recentToolResults: [...(scenario.initialState.recentToolResults ?? [])],
     dispatchedStepIndices: [...(scenario.initialState.dispatchedStepIndices ?? [])],
     completedStepIndices: [...(scenario.initialState.completedStepIndices ?? [])],
+    blockedStepIndices: [...(scenario.initialState.blockedStepIndices ?? [])],
     currentStepIndex: scenario.initialState.currentStepIndex ?? 0,
     stepResults: [],
     routeDecision: scenario.initialState.routeDecision ?? null,
@@ -647,14 +832,25 @@ function buildInteractionResponse(
 
 class RecordingToolExecutor implements ToolExecutor {
   readonly executions: ToolCallRequest[] = [];
+  private readonly callCounts = new Map<string, number>();
 
-  constructor(private readonly tools: readonly ToolDef[]) {}
+  constructor(
+    private readonly tools: readonly ToolDef[],
+    private readonly fixtures: Record<string, readonly ToolResultFixture[]>,
+  ) {}
 
   async execute(call: ToolCallRequest): Promise<ToolCallResponse> {
     this.executions.push(call);
+    const callIndex = this.callCounts.get(call.name) ?? 0;
+    this.callCounts.set(call.name, callIndex + 1);
+    const fixture = this.fixtures[call.name]?.[callIndex];
+    if (!fixture) {
+      throw new Error(`ToolFixtureMissing(${call.name}, ${callIndex})`);
+    }
     return {
-      success: true,
-      result: { ok: true, tool: call.name, args: call.arguments },
+      success: fixture.success,
+      result: fixture.result,
+      ...(fixture.error ? { error: fixture.error } : {}),
     };
   }
 

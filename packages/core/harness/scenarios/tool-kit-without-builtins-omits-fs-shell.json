@@ -1,0 +1,41 @@
+{
+  "id": "tool-kit-without-builtins-omits-fs-shell",
+  "category": "interaction-modes",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": { "companyId": "company-no-builtins", "name": "No Builtins Co" },
+    "thread": { "threadId": "thread-no-builtins", "status": "running" },
+    "employees": [{ "id": "emp-no-builtins", "name": "No Builtins Engineer", "role": "engineer" }],
+    "taskRuns": [
+      {
+        "id": "tr-no-builtins",
+        "employeeId": "emp-no-builtins",
+        "taskType": "implementation",
+        "status": "queued"
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "implementation",
+        "employeeId": "emp-no-builtins",
+        "assigneeKind": "employee",
+        "assigneeName": "No Builtins Engineer",
+        "taskRunId": "tr-no-builtins",
+        "stepIndex": 0,
+        "inputJson": { "description": "Inspect available tools.", "stepIndex": 0 }
+      }
+    ],
+    "dispatchedStepIndices": [0]
+  },
+  "llmTurns": [
+    {
+      "id": "no-builtins",
+      "match": { "absentToolNames": ["read_file", "write_file", "bash"] },
+      "content": "NO_BUILTINS_VISIBLE"
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [{ "kind": "firstGraphNodeIs", "nodeName": "employee" }]
+}

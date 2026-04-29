@@ -16,6 +16,11 @@
       "parameters": { "type": "object", "properties": { "command": { "type": "string" } } }
     }
   ],
+  "toolFixtures": {
+    "pnpm-test": [
+      { "success": true, "result": { "ok": true, "command": "pnpm test -- stale-reset" } }
+    ]
+  },
   "initialState": {
     "managerDirective": {
       "intent": "Build the requested SOP deliverable",
@@ -28,10 +33,12 @@
   "llmTurns": [
     {
       "id": "pm-new-plan",
+      "match": { "contains": "Build the requested SOP deliverable" },
       "content": "{\"summary\":\"Build SOP deliverable after stale checkpoint\",\"steps\":[{\"stepIndex\":0,\"description\":\"Create deliverable\",\"tasks\":[{\"taskType\":\"code\",\"employeeId\":\"emp-sop-reset\",\"description\":\"Create the deliverable and verify it\",\"dependsOnStepOutput\":false}]}]}"
     },
     {
       "id": "employee-tool",
+      "match": { "contains": "Create the deliverable and verify it", "toolNames": ["pnpm-test"] },
       "content": "",
       "toolCalls": [
         {
@@ -43,13 +50,14 @@
     },
     {
       "id": "employee-final",
+      "match": { "contains": "pnpm test -- stale-reset" },
       "content": "STALE_DISPATCH_RESET_EMPLOYEE_DONE"
     }
   ],
   "runs": [{ "startAt": "pm_planner" }],
   "assertions": [
     { "kind": "toolExecutions", "count": 1 },
-    { "kind": "finalOutputContains", "contains": "STALE_DISPATCH_RESET_EMPLOYEE_DONE" },
+    { "kind": "graphStateArrayEquals", "field": "blockedStepIndices", "value": [] },
     { "kind": "threadStatusIs", "status": "completed" }
   ]
 }

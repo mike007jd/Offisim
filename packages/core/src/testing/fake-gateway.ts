@@ -9,6 +9,7 @@ import type {
 export interface FakeGatewayTurnMatch {
   readonly contains?: string;
   readonly toolNames?: readonly string[];
+  readonly absentToolNames?: readonly string[];
 }
 
 export interface FakeGatewayTurn {
@@ -66,7 +67,9 @@ export class FakeGateway implements LlmGateway {
 }
 
 function assertTurnMatch(turn: FakeGatewayTurn, request: LlmRequest): void {
-  if (!turn.match) return;
+  if (!hasMatchConstraint(turn.match)) {
+    throw new Error(`FakeGateway turn ${turn.id} is missing prompt/tool match constraints`);
+  }
   if (turn.match.contains) {
     const joinedMessages = request.messages.map((message) => message.content).join('\n');
     if (!joinedMessages.includes(turn.match.contains)) {
@@ -82,6 +85,25 @@ function assertTurnMatch(turn: FakeGatewayTurn, request: LlmRequest): void {
       throw new Error(`FakeGateway turn ${turn.id} missing tools: ${missing.join(', ')}`);
     }
   }
+  if (turn.match.absentToolNames) {
+    const actual = new Set((request.tools ?? []).map((tool) => tool.name));
+    const present = turn.match.absentToolNames.filter((name) => actual.has(name));
+    if (present.length > 0) {
+      throw new Error(
+        `FakeGateway turn ${turn.id} unexpectedly exposed tools: ${present.join(', ')}`,
+      );
+    }
+  }
+}
+
+function hasMatchConstraint(
+  match: FakeGatewayTurnMatch | undefined,
+): match is FakeGatewayTurnMatch {
+  return Boolean(
+    (match?.contains && match.contains.length > 0) ||
+      (match?.toolNames && match.toolNames.length > 0) ||
+      (match?.absentToolNames && match.absentToolNames.length > 0),
+  );
 }
 
 export function fakeResponse(

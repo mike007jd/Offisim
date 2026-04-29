@@ -1,0 +1,39 @@
+{
+  "id": "completion-without-taskrunid-defaults-to-blocked",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": { "companyId": "company-completion-no-taskrun", "name": "No Task Run Co" },
+    "thread": { "threadId": "thread-completion-no-taskrun", "status": "running" },
+    "employees": [{ "id": "emp-no-taskrun", "name": "No TaskRun Engineer", "role": "engineer" }]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "implementation",
+        "employeeId": "emp-no-taskrun",
+        "assigneeKind": "employee",
+        "assigneeName": "No TaskRun Engineer",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Claim completion without a task run id.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": [{ "toolName": "pnpm-test", "success": true, "bytes": 12 }]
+  },
+  "llmTurns": [
+    {
+      "id": "employee-final-no-taskrun",
+      "match": { "contains": "Claim completion without a task run id." },
+      "content": "NO_TASKRUN_COMPLETION"
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "agentEventPayloadContains", "contains": "no-task-run-id" },
+    { "kind": "finalOutputContains", "contains": "NO_TASKRUN_COMPLETION" }
+  ]
+}

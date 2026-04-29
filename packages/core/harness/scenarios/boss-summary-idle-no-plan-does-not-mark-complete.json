@@ -1,0 +1,16 @@
+{
+  "id": "boss-summary-idle-no-plan-does-not-mark-complete",
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": { "companyId": "company-boss-summary-idle", "name": "Boss Summary Idle Co" },
+    "thread": { "threadId": "thread-boss-summary-idle", "status": "running" }
+  },
+  "initialState": {},
+  "runs": [{ "startAt": "boss_summary" }],
+  "assertions": [
+    { "kind": "threadStatusIs", "status": "running" },
+    { "kind": "finalOutputContains", "contains": "No executable work was completed" },
+    { "kind": "finalOutputNotContains", "contains": "Task processing complete." }
+  ]
+}

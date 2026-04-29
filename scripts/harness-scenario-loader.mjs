@@ -6,17 +6,25 @@ export const ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const SCENARIOS_DIR = resolve(ROOT, 'packages/core/harness/scenarios');
 
 export const REPLAY_SCENARIO_IDS = [
+  'boss-summary-empty-with-stale-plan-does-not-mark-complete',
+  'boss-summary-idle-no-plan-does-not-mark-complete',
+  'completion-without-taskrunid-defaults-to-blocked',
   'completion-verifier-persists-blocked-status',
   'dag-output-attribution',
   'direct-mode-skips-boss-chain',
+  'gateway-lane-yolo-has-fs-shell-tools',
   'kanban-card-state-transitions',
+  'kanban-rejects-illegal-transition',
   'mode-kanban-matrix',
   'permission-ask-approved-blocks-and-then-executes',
   'permission-ask-denied-does-not-execute',
+  'pm-heartbeat-flags-blocked-task',
   'pm-planner-clears-stale-dispatch-state',
   'plan-review-cancel-terminates',
   'plan-review-approve-survives-restore',
   'skill-create-real-tool-call',
+  'step-advance-segregates-blocked-from-completed',
+  'tool-kit-without-builtins-omits-fs-shell',
   'yolo-mode-skips-boss-chain',
 ];
 

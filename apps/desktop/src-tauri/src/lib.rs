@@ -1,3 +1,4 @@
+mod builtin_tools;
 mod claude_agent_host;
 mod codex_agent_host;
 mod deep_link;
@@ -315,6 +316,9 @@ pub fn run() {
             runtime_secrets::runtime_secret_set,
             runtime_secrets::runtime_secret_clear,
             runtime_secrets::trusted_host_product_status,
+            builtin_tools::project_read_file,
+            builtin_tools::project_write_file,
+            builtin_tools::bash_execute,
             claude_agent_host::claude_agent_execute,
             claude_agent_host::claude_agent_abort,
             codex_agent_host::codex_agent_execute,

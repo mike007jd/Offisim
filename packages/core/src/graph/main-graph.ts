@@ -14,6 +14,7 @@ import { pmReplanNode } from '../agents/pm-replan-node.js';
 import { stepDispatcherNode } from '../agents/step-dispatcher-node.js';
 import { yoloMasterNode } from '../agents/yolo-master-node.js';
 import { graphNodeEntered, planStepCompleted } from '../events/event-factories.js';
+import type { TaskRunRow } from '../runtime/repositories.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { createMemoryCheckpointSaver } from './checkpoint-saver.js';
@@ -144,7 +145,8 @@ export function areAllPlanStepsTerminal(state: OffisimGraphState): boolean {
   const plan = state.taskPlan;
   if (!plan || plan.steps.length === 0) return true;
   const completed = new Set(state.completedStepIndices ?? []);
-  return plan.steps.every((step) => completed.has(step.stepIndex));
+  const blocked = new Set(state.blockedStepIndices ?? []);
+  return plan.steps.every((step) => completed.has(step.stepIndex) || blocked.has(step.stepIndex));
 }
 
 /** @internal — exported for testing */
@@ -203,12 +205,15 @@ async function stepAdvanceNode(
 
   // Determine which steps were dispatched and are now complete.
   // When pendingAssignments reaches zero, ALL tasks from ALL dispatched steps are done.
-  const alreadyCompleted = new Set(state.completedStepIndices ?? []);
+  const alreadyTerminal = new Set([
+    ...(state.completedStepIndices ?? []),
+    ...(state.blockedStepIndices ?? []),
+  ]);
   const dispatched = state.dispatchedStepIndices ?? [];
-  // Steps dispatched in this batch = dispatched but not yet in completedStepIndices
-  const newlyCompletedIndices = dispatched.filter((i) => !alreadyCompleted.has(i));
+  // Steps dispatched in this batch = dispatched but not yet terminal.
+  const newlyTerminalIndices = dispatched.filter((i) => !alreadyTerminal.has(i));
 
-  if (newlyCompletedIndices.length === 0) {
+  if (newlyTerminalIndices.length === 0) {
     return {
       currentStepOutputs: [],
       interruptReason:
@@ -218,7 +223,7 @@ async function stepAdvanceNode(
     };
   }
 
-  const stepsToComplete = newlyCompletedIndices;
+  const stepsToComplete = newlyTerminalIndices;
 
   const outputsByStep = groupCurrentStepOutputsByStep(
     state.currentStepOutputs,
@@ -228,13 +233,20 @@ async function stepAdvanceNode(
 
   const newStepResults = [...state.stepResults];
   const newCompletedIndices = [...(state.completedStepIndices ?? [])];
+  const newBlockedIndices = [...(state.blockedStepIndices ?? [])];
+  const taskRuns = runtimeCtx ? await runtimeCtx.repos.taskRuns.findByThread(state.threadId) : [];
 
   for (const stepIdx of stepsToComplete) {
     const outputs = outputsByStep.get(stepIdx) ?? [];
     newStepResults.push({ stepIndex: stepIdx, outputs });
-    newCompletedIndices.push(stepIdx);
+    const stepBlocked = isStepBlocked(state, stepIdx, taskRuns);
+    if (stepBlocked) {
+      newBlockedIndices.push(stepIdx);
+    } else {
+      newCompletedIndices.push(stepIdx);
+    }
 
-    if (runtimeCtx && state.taskPlan) {
+    if (runtimeCtx && state.taskPlan && !stepBlocked) {
       runtimeCtx.eventBus.emit(
         planStepCompleted(
           runtimeCtx.companyId,
@@ -254,10 +266,10 @@ async function stepAdvanceNode(
   }
 
   // Compute next display index: lowest step not yet completed
-  const completedSet = new Set(newCompletedIndices);
+  const terminalSet = new Set([...newCompletedIndices, ...newBlockedIndices]);
   const plan = state.taskPlan;
   const nextPending = plan
-    ? plan.steps.map((s) => s.stepIndex).find((i) => !completedSet.has(i))
+    ? plan.steps.map((s) => s.stepIndex).find((i) => !terminalSet.has(i))
     : undefined;
   const nextDisplayIndex = nextPending ?? state.currentStepIndex + stepsToComplete.length;
 
@@ -272,8 +284,10 @@ async function stepAdvanceNode(
       eventType: 'action',
       payload: {
         action: 'step_advance',
-        completedSteps: stepsToComplete,
+        completedSteps: stepsToComplete.filter((stepIdx) => newCompletedIndices.includes(stepIdx)),
+        blockedSteps: stepsToComplete.filter((stepIdx) => newBlockedIndices.includes(stepIdx)),
         totalCompleted: newCompletedIndices.length,
+        totalBlocked: newBlockedIndices.length,
       },
     });
   }
@@ -283,7 +297,24 @@ async function stepAdvanceNode(
     currentStepIndex: nextDisplayIndex,
     currentStepOutputs: [],
     completedStepIndices: newCompletedIndices,
+    blockedStepIndices: newBlockedIndices,
   };
+}
+
+function isStepBlocked(
+  state: OffisimGraphState,
+  stepIdx: number,
+  taskRuns: readonly TaskRunRow[],
+): boolean {
+  const planStep = state.taskPlan?.steps.find((step) => step.stepIndex === stepIdx);
+  const taskRunIds = new Set(planStep?.tasks.map((task) => task.taskRunId).filter(Boolean));
+  for (const output of state.currentStepOutputs) {
+    if (output.stepIndex === stepIdx) taskRunIds.add(output.taskRunId);
+  }
+  if (taskRunIds.size === 0) return false;
+  return taskRuns.some(
+    (taskRun) => taskRunIds.has(taskRun.task_run_id) && taskRun.status === 'blocked',
+  );
 }
 
 export function groupCurrentStepOutputsByStep(

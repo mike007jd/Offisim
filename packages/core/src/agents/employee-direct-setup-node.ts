@@ -4,7 +4,11 @@ import {
   employeeStateChanged,
   graphNodeEntered,
 } from '../events/event-factories.js';
-import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
+import {
+  type OffisimGraphState,
+  type PendingAssignment,
+  createEmptyPlanScopedState,
+} from '../graph/state.js';
 import { getRuntime } from '../utils/get-runtime.js';
 
 /**
@@ -55,7 +59,7 @@ export async function employeeDirectSetupNode(
     typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '';
 
   // Create a task run in the repository so the employee node can track it
-  const taskRunId = `tr-dc-${Date.now()}`;
+  const taskRunId = runtimeCtx.determinism.id('tr-dc');
   await runtimeCtx.repos.taskRuns.create({
     task_run_id: taskRunId,
     thread_id: state.threadId,
@@ -72,9 +76,14 @@ export async function employeeDirectSetupNode(
   const assignment: PendingAssignment = {
     taskType: 'direct_chat',
     employeeId: employee.employee_id,
+    assigneeKind: 'employee',
+    assigneeName: employee.name,
+    taskRunId,
+    stepIndex: 0,
     inputJson: {
       description: taskDescription,
       taskRunId,
+      stepIndex: 0,
     },
   };
 
@@ -98,7 +107,9 @@ export async function employeeDirectSetupNode(
   );
 
   return {
+    ...createEmptyPlanScopedState(),
     pendingAssignments: [assignment],
-    currentStepOutputs: [],
+    currentTaskRunId: taskRunId,
+    currentEmployeeId: employee.employee_id,
   };
 }

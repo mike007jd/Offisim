@@ -16,6 +16,7 @@ import type { WorkstationToolResolver } from '../services/workstation-tool-resol
 import type { SkillInstallEnvironment } from '../skills/skill-install-environment.js';
 import type { SkillLoader } from '../skills/skill-loader.js';
 import type { SkillStagingManager } from '../skills/skill-staging.js';
+import type { BuiltinTool } from '../tools/builtin/types.js';
 import { HookRegistry } from './hook-registry.js';
 import type { RuntimeRepositories } from './repositories.js';
 import type { ResumeCoordinator } from './resume-coordinator.js';
@@ -76,6 +77,8 @@ export interface RuntimeContext {
   readonly sessionCostTracker?: SessionCostTracker;
   /** Live tool execution telemetry buffer. */
   readonly toolTelemetryService?: ToolTelemetryService;
+  /** Desktop-trusted built-in file/shell tools exposed outside workstation MCP scoping. */
+  readonly builtinTools?: ReadonlyMap<string, BuiltinTool>;
   /** File mutation snapshot and rewind support for desktop-trusted runtimes. */
   readonly fileHistoryService?: FileHistoryService;
   /** Trusted runtime engine adapters for per-employee engine mode. */
@@ -143,6 +146,7 @@ export function createRuntimeContext(deps: {
   systemCaller?: RecordedSystemLlmCaller;
   sessionCostTracker?: SessionCostTracker;
   toolTelemetryService?: ToolTelemetryService;
+  builtinTools?: ReadonlyMap<string, BuiltinTool>;
   fileHistoryService?: FileHistoryService;
   engineAdapters?: EngineAdapterRegistry;
   interactionService?: InteractionService;

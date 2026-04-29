@@ -237,6 +237,11 @@ export const OffisimGraphAnnotation = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => [],
   }),
+  /** Indices of steps that reached a verifier/user-intervention block. */
+  blockedStepIndices: Annotation<number[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
 
   // P2: Handoff guard rail counter (only employeeNode writes this)
   handoffCount: Annotation<number>({
@@ -270,6 +275,28 @@ export const OffisimGraphAnnotation = Annotation.Root({
 });
 
 export type OffisimGraphState = typeof OffisimGraphAnnotation.State;
+
+export function createEmptyPlanScopedState(): Partial<OffisimGraphState> {
+  return {
+    // plan-scoped: stale tool evidence must never carry into a newly planned turn.
+    recentToolResults: [],
+    pendingAssignments: [],
+    dispatchedStepIndices: [],
+    completedStepIndices: [],
+    blockedStepIndices: [],
+    stepResults: [],
+    currentStepOutputs: [],
+    currentStepIndex: 0,
+    currentTaskRunId: null,
+    currentEmployeeId: null,
+    interruptReason: null,
+    completed: false,
+    // plan-scoped: these are derived by manager/meeting/HR for the current work item.
+    meetingActionItems: [],
+    hrAssessment: null,
+    managerDirective: null,
+  };
+}
 
 export function parseCompactBaseline(raw: string | null): CompactBaselineState | null {
   if (!raw) return null;

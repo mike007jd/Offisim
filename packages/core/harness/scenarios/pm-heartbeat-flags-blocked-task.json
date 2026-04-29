@@ -1,0 +1,48 @@
+{
+  "id": "pm-heartbeat-flags-blocked-task",
+  "category": "long-running-runtime",
+  "entryMode": "heartbeat",
+  "seed": {
+    "company": { "companyId": "company-heartbeat-blocked", "name": "Heartbeat Blocked Co" },
+    "thread": { "threadId": "thread-heartbeat-blocked", "status": "running" },
+    "employees": [{ "id": "emp-heartbeat-blocked", "name": "Blocked Worker", "role": "qa" }],
+    "taskRuns": [
+      {
+        "id": "tr-heartbeat-blocked",
+        "employeeId": "emp-heartbeat-blocked",
+        "taskType": "verification",
+        "status": "blocked"
+      }
+    ]
+  },
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-heartbeat-blocked",
+      "threadId": "thread-heartbeat-blocked",
+      "companyId": "company-heartbeat-blocked",
+      "summary": "Blocked heartbeat plan",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Verify release",
+          "tasks": [
+            {
+              "taskType": "verification",
+              "employeeId": "emp-heartbeat-blocked",
+              "description": "Verify release",
+              "dependsOnStepOutput": false,
+              "taskRunId": "tr-heartbeat-blocked"
+            }
+          ]
+        }
+      ]
+    },
+    "dispatchedStepIndices": [0],
+    "blockedStepIndices": [0]
+  },
+  "runs": [{ "startAt": "pm_heartbeat" }],
+  "assertions": [
+    { "kind": "agentEventPayloadContains", "contains": "verifier-blocked" },
+    { "kind": "agentEventPayloadContains", "contains": "tr-heartbeat-blocked" }
+  ]
+}

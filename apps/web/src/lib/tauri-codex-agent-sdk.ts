@@ -31,6 +31,8 @@ function serializeRequest(request: LlmRequest): Record<string, unknown> {
   return {
     messages: request.messages,
     model: request.model,
+    approvalPolicy: 'on-request',
+    sandbox: 'workspace-write',
     ...(typeof request.temperature === 'number' ? { temperature: request.temperature } : {}),
     ...(typeof request.maxTokens === 'number' ? { maxTokens: request.maxTokens } : {}),
     ...(typeof request.timeoutMs === 'number' ? { timeoutMs: request.timeoutMs } : {}),

@@ -31,17 +31,26 @@ export async function pmHeartbeatNode(
   if (!plan || plan.steps.length === 0) return {};
 
   const completedCount = (state.completedStepIndices ?? []).length;
+  const blockedCount = (state.blockedStepIndices ?? []).length;
   const totalSteps = plan.steps.length;
   const dispatchedCount = (state.dispatchedStepIndices ?? []).length;
-  const currentProgress = `${completedCount}/${totalSteps} steps`;
+  const currentProgress =
+    blockedCount > 0
+      ? `${completedCount}/${totalSteps} steps, ${blockedCount} blocked`
+      : `${completedCount}/${totalSteps} steps`;
 
   // Check for stuck tasks — tasks in 'running' status for too long
   const stuckTasks: string[] = [];
+  const stuckTaskReasons: Record<string, 'verifier-blocked' | 'running-too-long'> = {};
   const taskRuns = await repos.taskRuns.findByThread(state.threadId);
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   for (const tr of taskRuns) {
-    if (tr.status === 'running' && tr.started_at < fiveMinAgo) {
+    if (tr.status === 'blocked') {
       stuckTasks.push(tr.task_run_id);
+      stuckTaskReasons[tr.task_run_id] = 'verifier-blocked';
+    } else if (tr.status === 'running' && tr.started_at < fiveMinAgo) {
+      stuckTasks.push(tr.task_run_id);
+      stuckTaskReasons[tr.task_run_id] = 'running-too-long';
     }
   }
 
@@ -74,7 +83,7 @@ export async function pmHeartbeatNode(
     recommendation = 'completed';
   } else if (stuckTasks.length > 0) {
     recommendation = 'needs_attention';
-    blockers.push(...stuckTasks.map((id) => `stuck_task:${id}`));
+    blockers.push(...stuckTasks.map((id) => `${stuckTaskReasons[id] ?? 'stuck_task'}:${id}`));
   } else if (dispatchedCount > completedCount) {
     recommendation = 'in_progress';
   } else {
@@ -91,9 +100,11 @@ export async function pmHeartbeatNode(
       projectId: state.projectId,
       progress: currentProgress,
       stuckTasks,
+      stuckTaskReasons,
       blockers,
       recommendation,
       completedStepIndices: state.completedStepIndices ?? [],
+      blockedStepIndices: state.blockedStepIndices ?? [],
       dispatchedStepIndices: state.dispatchedStepIndices ?? [],
     },
   });

@@ -38,6 +38,7 @@
   "llmTurns": [
     {
       "id": "employee-tool-request",
+      "match": { "contains": "Try write_file and adapt if denied", "toolNames": ["write_file"] },
       "content": "",
       "toolCalls": [
         { "id": "call-write-denied", "name": "write_file", "arguments": { "path": "blocked.txt" } }
@@ -45,10 +46,12 @@
     },
     {
       "id": "employee-denied-final",
+      "match": { "contains": "TOOL_PERMISSION_DENIED" },
       "content": "DENIED_TOOL_HANDLED"
     },
     {
       "id": "consolidator",
+      "match": { "contains": "DENIED_TOOL_HANDLED" },
       "content": "{\"memories\":[]}"
     }
   ],

@@ -39,10 +39,38 @@ export type ScenarioAssertion =
     }
   | {
       readonly kind: 'kanbanEventSequence';
-      readonly sequence: readonly string[];
+      readonly sequence: readonly KanbanEventExpectation[];
+    }
+  | {
+      readonly kind: 'kanbanRejectsTransition';
+      readonly cardId: string;
+      readonly next: KanbanState;
+      readonly errorIncludes?: string;
     }
   | { readonly kind: 'toolPermissionApprovalConsumed'; readonly scope: 'once' | 'thread' }
   | { readonly kind: 'finalOutputContains'; readonly contains: string }
+  | { readonly kind: 'finalOutputNotContains'; readonly contains: string }
+  | {
+      readonly kind: 'graphStateArrayEquals';
+      readonly field:
+        | 'recentToolResults'
+        | 'pendingAssignments'
+        | 'dispatchedStepIndices'
+        | 'completedStepIndices'
+        | 'blockedStepIndices';
+      readonly value: readonly unknown[];
+    }
+  | {
+      readonly kind: 'graphStateArrayIncludes';
+      readonly field: 'dispatchedStepIndices' | 'completedStepIndices' | 'blockedStepIndices';
+      readonly value: number;
+    }
+  | {
+      readonly kind: 'graphStateArrayExcludes';
+      readonly field: 'dispatchedStepIndices' | 'completedStepIndices' | 'blockedStepIndices';
+      readonly value: number;
+    }
+  | { readonly kind: 'agentEventPayloadContains'; readonly contains: string }
   | { readonly kind: 'interruptReasonIncludes'; readonly contains: string };
 
 export interface ScenarioAssertionContext {
@@ -53,6 +81,15 @@ export interface ScenarioAssertionContext {
   readonly toolExecutions: readonly unknown[];
   readonly events: readonly RuntimeEvent[];
 }
+
+type KanbanEventExpectation =
+  | string
+  | {
+      readonly op: string;
+      readonly state: KanbanState;
+      readonly cardId?: string;
+      readonly blockedReason?: string | null;
+    };
 
 export async function evaluateScenarioAssertions(
   assertions: readonly ScenarioAssertion[],
@@ -105,12 +142,75 @@ async function evaluateAssertion(
       return assertKanbanCards(ctx.repos, assertion);
     case 'kanbanEventSequence':
       return assertKanbanEventSequence(ctx.events, assertion.sequence);
+    case 'kanbanRejectsTransition':
+      return assertKanbanRejectsTransition(ctx.repos, assertion);
     case 'toolPermissionApprovalConsumed':
       return assertToolPermissionApprovalConsumed(ctx.repos, ctx.threadId, assertion.scope);
     case 'finalOutputContains':
       return assertFinalOutputContains(ctx.finalState, assertion.contains);
+    case 'finalOutputNotContains':
+      return assertFinalOutputNotContains(ctx.finalState, assertion.contains);
+    case 'graphStateArrayEquals':
+      return assertGraphStateArrayEquals(ctx.finalState, assertion.field, assertion.value);
+    case 'graphStateArrayIncludes':
+      return assertGraphStateArrayIncludes(ctx.finalState, assertion.field, assertion.value);
+    case 'graphStateArrayExcludes':
+      return assertGraphStateArrayExcludes(ctx.finalState, assertion.field, assertion.value);
+    case 'agentEventPayloadContains':
+      return assertAgentEventPayloadContains(ctx.repos, ctx.threadId, assertion.contains);
     case 'interruptReasonIncludes':
       return assertInterruptReasonIncludes(ctx.finalState, assertion.contains);
+  }
+}
+
+async function assertKanbanRejectsTransition(
+  repos: RuntimeRepositories,
+  assertion: Extract<ScenarioAssertion, { kind: 'kanbanRejectsTransition' }>,
+): Promise<void> {
+  try {
+    await repos.kanban.transition(assertion.cardId, assertion.next, 'illegal transition scenario');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (assertion.errorIncludes && !message.includes(assertion.errorIncludes)) {
+      throw new Error(
+        `Expected kanban error to include ${assertion.errorIncludes}, got ${message}`,
+      );
+    }
+    return;
+  }
+  throw new Error(`Expected kanban transition to ${assertion.next} to throw`);
+}
+
+function assertGraphStateArrayEquals(
+  finalState: Partial<OffisimGraphState>,
+  field: Extract<ScenarioAssertion, { kind: 'graphStateArrayEquals' }>['field'],
+  expected: readonly unknown[],
+): void {
+  const actual = finalState[field] ?? [];
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`Expected ${field}=${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+function assertGraphStateArrayIncludes(
+  finalState: Partial<OffisimGraphState>,
+  field: Extract<ScenarioAssertion, { kind: 'graphStateArrayIncludes' }>['field'],
+  expected: number,
+): void {
+  const actual = finalState[field] ?? [];
+  if (!actual.includes(expected)) {
+    throw new Error(`Expected ${field} to include ${expected}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+function assertGraphStateArrayExcludes(
+  finalState: Partial<OffisimGraphState>,
+  field: Extract<ScenarioAssertion, { kind: 'graphStateArrayExcludes' }>['field'],
+  expected: number,
+): void {
+  const actual = finalState[field] ?? [];
+  if (actual.includes(expected)) {
+    throw new Error(`Expected ${field} to exclude ${expected}, got ${JSON.stringify(actual)}`);
   }
 }
 
@@ -136,7 +236,7 @@ async function assertKanbanCards(
 
 function assertKanbanEventSequence(
   events: readonly RuntimeEvent[],
-  expected: readonly string[],
+  expected: readonly KanbanEventExpectation[],
 ): void {
   const actual = events
     .map((event) => {
@@ -145,20 +245,51 @@ function assertKanbanEventSequence(
       const record = payload as {
         kind?: unknown;
         op?: unknown;
-        card?: { state?: unknown };
+        card?: { id?: unknown; state?: unknown; blocked_reason?: unknown };
       };
       if (record.kind !== 'kanban' || typeof record.op !== 'string') return null;
-      return `${record.op}:${String(record.card?.state ?? '<missing>')}`;
+      return {
+        op: record.op,
+        state: String(record.card?.state ?? '<missing>'),
+        cardId: typeof record.card?.id === 'string' ? record.card.id : undefined,
+        blockedReason:
+          typeof record.card?.blocked_reason === 'string' || record.card?.blocked_reason === null
+            ? record.card.blocked_reason
+            : undefined,
+      };
     })
-    .filter((entry): entry is string => entry !== null);
+    .filter((entry): entry is NormalizedKanbanEvent => entry !== null);
   if (
     actual.length !== expected.length ||
-    expected.some((entry, index) => actual[index] !== entry)
+    expected.some((entry, index) => !matchesKanbanEventExpectation(actual[index], entry))
   ) {
     throw new Error(
-      `Kanban event sequence mismatch. expected=${expected.join(',')} actual=${actual.join(',')}`,
+      `Kanban event sequence mismatch. expected=${JSON.stringify(expected)} actual=${JSON.stringify(actual)}`,
     );
   }
+}
+
+interface NormalizedKanbanEvent {
+  readonly op: string;
+  readonly state: string;
+  readonly cardId: string | undefined;
+  readonly blockedReason: string | null | undefined;
+}
+
+function matchesKanbanEventExpectation(
+  actual: NormalizedKanbanEvent | undefined,
+  expected: KanbanEventExpectation,
+): boolean {
+  if (!actual) return false;
+  if (typeof expected === 'string') {
+    return `${actual.op}:${actual.state}` === expected;
+  }
+  if (actual.op !== expected.op || actual.state !== expected.state) return false;
+  if (expected.cardId !== undefined && actual.cardId !== expected.cardId) return false;
+  if (expected.blockedReason !== undefined && actual.blockedReason !== expected.blockedReason) {
+    return false;
+  }
+  return true;
 }
 
 function assertFirstGraphNode(events: readonly RuntimeEvent[], expected: string): void {
@@ -320,16 +451,30 @@ function assertToolPermissionApprovalConsumed(
 }
 
 function assertFinalOutputContains(finalState: Partial<OffisimGraphState>, contains: string): void {
-  const contents = (finalState.currentStepOutputs ?? [])
-    .map((output) => output.content)
-    .concat(
-      (finalState.stepResults ?? []).flatMap((step) =>
-        step.outputs.map((output) => output.content),
-      ),
-    );
+  const contents = finalTextContents(finalState);
   if (!contents.some((content) => content.includes(contains))) {
     throw new Error(`Final outputs do not contain "${contains}"`);
   }
+}
+
+function assertFinalOutputNotContains(
+  finalState: Partial<OffisimGraphState>,
+  contains: string,
+): void {
+  const contents = finalTextContents(finalState);
+  if (contents.some((content) => content.includes(contains))) {
+    throw new Error(`Final outputs unexpectedly contain "${contains}"`);
+  }
+}
+
+async function assertAgentEventPayloadContains(
+  repos: RuntimeRepositories,
+  threadId: string,
+  contains: string,
+): Promise<void> {
+  const rows = (await repos.agentEvents?.findByThread(threadId, { limit: 100 })) ?? [];
+  const found = rows.some((row) => row.payload_json?.includes(contains));
+  if (!found) throw new Error(`Agent event payloads do not contain "${contains}"`);
 }
 
 function assertInterruptReasonIncludes(
@@ -339,6 +484,20 @@ function assertInterruptReasonIncludes(
   if (!finalState.interruptReason?.includes(contains)) {
     throw new Error(`Interrupt reason does not contain "${contains}"`);
   }
+}
+
+function finalTextContents(finalState: Partial<OffisimGraphState>): string[] {
+  const messageContents = (finalState.messages ?? [])
+    .map((message) => (typeof message.content === 'string' ? message.content : null))
+    .filter((content): content is string => content !== null);
+  return (finalState.currentStepOutputs ?? [])
+    .map((output) => output.content)
+    .concat(
+      (finalState.stepResults ?? []).flatMap((step) =>
+        step.outputs.map((output) => output.content),
+      ),
+    )
+    .concat(messageContents);
 }
 
 function parseJson(raw: string | null): unknown {

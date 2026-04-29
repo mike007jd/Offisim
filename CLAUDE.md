@@ -59,6 +59,7 @@ catalog/
 
 - **仓库已移除产品级自动化测试**。不要再引入 vitest / playwright / 旧 smoke / AI test / 普通 `test` 脚本来当 product 验收。
 - **deterministic harness 例外**（2026-04-28 起）：`packages/core/harness/scenarios/` + `packages/core/src/testing/` + `scripts/harness-{contract,replay,provider-adapter}.mjs` 是允许的"确定性回放证明"层。定位是 graph / runtime / permission / plan-review 等不变量的 replay 资产，由 fake/replay gateway 喂确定性输入、对 trace 做 invariant 断言；它**不是** product 验收，也**不替代** live agent 手测。新增 scenario / invariant 走这条；不要把它扩成 vitest/playwright 风格的 product e2e。
+- **deterministic harness 反自证规则**（2026-04-29 起）：不要用 LLM mock content 等于 `finalOutputContains` 来证明行为；`FakeGateway` turn 必须带 prompt/tool match；`RecordingToolExecutor` 必须有显式 `toolFixtures`，fixture 缺失应失败；`expectError` 只能用于明确业务异常，不能拿 `FakeGateway exhausted` 当通过条件。
 - **验证统一用 live agent 手测**（功能验收）：真实浏览器 / 真实桌面 runtime / 真实用户流，边操作边观察，不靠自动断言自证。
 - 绿 typecheck / build / harness contract 只代表代码能编 + graph 不变量没破，不代表功能完成。功能完成必须有 live runtime 证据。
 - 若需要记录验证结果，把步骤、观察、截图/日志写进 memory 或 handoff；不要回补 product 自动测试。

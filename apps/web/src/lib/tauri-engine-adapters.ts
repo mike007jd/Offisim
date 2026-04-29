@@ -80,6 +80,8 @@ function serializeRequest(envelope: EngineTaskEnvelope): Record<string, unknown>
     model: envelope.model,
     temperature: 0.7,
     maxTokens: 4096,
+    approvalPolicy: 'on-request',
+    sandbox: 'workspace-write',
   };
 }
 
@@ -87,6 +89,8 @@ async function* resultEvents(
   engineId: EngineId,
   responsePromise: Promise<LlmResponse>,
 ): AsyncIterable<RuntimeActivityEvent> {
+  // TODO(remediation-2026-04-29): wire trusted sidecar tool_started/tool_completed
+  // events to the UI once the host protocol exposes structured tool telemetry.
   yield {
     kind: 'text_delta',
     channel: 'reasoning',

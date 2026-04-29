@@ -9,6 +9,16 @@
     "employees": [{ "id": "emp-yolo", "name": "YOLO Master", "role": "yolo_master" }]
   },
   "initialState": {},
-  "runs": [{ "expectError": "FakeGateway exhausted" }],
-  "assertions": [{ "kind": "firstGraphNodeIs", "nodeName": "yolo-master" }]
+  "llmTurns": [
+    {
+      "id": "yolo-direct-final",
+      "match": { "toolNames": ["todo_create"] },
+      "content": "YOLO_MODE_REACHED_EMPLOYEE"
+    }
+  ],
+  "runs": [{}],
+  "assertions": [
+    { "kind": "firstGraphNodeIs", "nodeName": "yolo-master" },
+    { "kind": "finalOutputContains", "contains": "YOLO_MODE_REACHED_EMPLOYEE" }
+  ]
 }

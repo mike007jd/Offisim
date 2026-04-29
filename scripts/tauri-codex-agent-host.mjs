@@ -130,8 +130,7 @@ function buildDeveloperInstructions(messages, tools) {
   const sections = [
     "You are Offisim's trusted Codex local-auth bridge.",
     'Return exactly one plain assistant reply.',
-    'Do not invoke tools, do not execute commands, and do not read or modify local files.',
-    'Do not ask for approvals or mention that tools were withheld.',
+    'If tools are available in this trusted workspace, use them when needed to verify file or shell work before claiming completion.',
   ];
 
   const systemPrompt = buildSystemPrompt(messages);
@@ -142,7 +141,7 @@ function buildDeveloperInstructions(messages, tools) {
 
   if (Array.isArray(tools) && tools.length > 0) {
     sections.push(
-      'The upstream caller supplied tool definitions, but this bridge does not expose them. Answer directly without simulating tool calls.',
+      'The upstream caller supplied Offisim tool definitions. Prefer native trusted-host tools when they are available; if they are unavailable, state that explicitly instead of simulating tool results.',
     );
   }
 
@@ -478,8 +477,8 @@ async function runCodexTurn(payload) {
         const thread = await client.send('thread/start', {
           model: asNonEmptyString(request.model) ?? 'gpt-5.4',
           cwd,
-          approvalPolicy: 'never',
-          sandbox: 'read-only',
+          approvalPolicy: asNonEmptyString(request.approvalPolicy) ?? 'on-request',
+          sandbox: asNonEmptyString(request.sandbox) ?? 'workspace-write',
           developerInstructions: buildDeveloperInstructions(request.messages ?? [], request.tools),
           ephemeral: true,
           experimentalRawEvents: false,

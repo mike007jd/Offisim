@@ -1,4 +1,30 @@
 {
   "id": "recorded-stream-tool-call-replay",
-  "category": "llm-recording"
+  "category": "llm-recording",
+  "fixture": {
+    "request": {
+      "model": "fake-model",
+      "messages": [{ "role": "user", "content": "record a stream tool call" }],
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file",
+          "parameters": {
+            "type": "object",
+            "properties": { "path": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "response": {
+      "content": "reading requested file",
+      "toolCalls": [{ "id": "tc-read", "name": "read_file", "arguments": { "path": "README.md" } }],
+      "usage": { "inputTokens": 3, "outputTokens": 4 }
+    },
+    "expectedToolName": "read_file"
+  },
+  "assertions": [
+    { "kind": "replayFixtureKeyMatchesRequest" },
+    { "kind": "replayStreamPreservesToolCall", "toolName": "read_file" }
+  ]
 }

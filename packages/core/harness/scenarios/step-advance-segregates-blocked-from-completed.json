@@ -1,0 +1,86 @@
+{
+  "id": "step-advance-segregates-blocked-from-completed",
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": { "companyId": "company-step-advance-blocked", "name": "Step Advance Co" },
+    "thread": { "threadId": "thread-step-advance-blocked", "status": "running" },
+    "employees": [
+      { "id": "emp-step-ok", "name": "OK Engineer", "role": "engineer" },
+      { "id": "emp-step-blocked", "name": "Blocked QA", "role": "qa" }
+    ],
+    "taskRuns": [
+      {
+        "id": "tr-step-ok",
+        "employeeId": "emp-step-ok",
+        "taskType": "implementation",
+        "status": "completed"
+      },
+      {
+        "id": "tr-step-blocked",
+        "employeeId": "emp-step-blocked",
+        "taskType": "verification",
+        "status": "blocked"
+      }
+    ]
+  },
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-step-blocked",
+      "threadId": "thread-step-advance-blocked",
+      "companyId": "company-step-advance-blocked",
+      "summary": "One blocked step",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Implement and verify",
+          "tasks": [
+            {
+              "taskType": "implementation",
+              "employeeId": "emp-step-ok",
+              "description": "Implement",
+              "dependsOnStepOutput": false,
+              "taskRunId": "tr-step-ok"
+            },
+            {
+              "taskType": "verification",
+              "employeeId": "emp-step-blocked",
+              "description": "Verify",
+              "dependsOnStepOutput": false,
+              "taskRunId": "tr-step-blocked"
+            }
+          ]
+        }
+      ]
+    },
+    "dispatchedStepIndices": [0],
+    "completedStepIndices": [],
+    "blockedStepIndices": [],
+    "currentStepOutputs": [
+      {
+        "employeeId": "emp-step-ok",
+        "employeeName": "OK Engineer",
+        "sourceKind": "employee",
+        "roleSlug": "engineer",
+        "content": "Implementation finished",
+        "taskRunId": "tr-step-ok",
+        "stepIndex": 0
+      },
+      {
+        "employeeId": "emp-step-blocked",
+        "employeeName": "Blocked QA",
+        "sourceKind": "employee",
+        "roleSlug": "qa",
+        "content": "Verification blocked",
+        "taskRunId": "tr-step-blocked",
+        "stepIndex": 0
+      }
+    ]
+  },
+  "runs": [{ "startAt": "step_advance" }],
+  "assertions": [
+    { "kind": "graphStateArrayExcludes", "field": "completedStepIndices", "value": 0 },
+    { "kind": "graphStateArrayIncludes", "field": "blockedStepIndices", "value": 0 },
+    { "kind": "finalOutputContains", "contains": "blocked step" }
+  ]
+}

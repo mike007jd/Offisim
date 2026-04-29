@@ -1,4 +1,5 @@
 import { performance } from 'node:perf_hooks';
+import type { ToolCallResult } from '../llm/gateway.js';
 import type { LlmMessage } from '../llm/gateway.js';
 import { verifyCompletion } from '../runtime/completion-verifier.js';
 import { microCompactMessages } from '../services/conversation-budget/micro-compact.js';
@@ -170,6 +171,7 @@ function isYoloSoakScenario(
 
 async function runYoloSoakScenario(scenario: YoloSoakScenario): Promise<ScenarioTraceReport> {
   const fixture = { ...DEFAULT_YOLO_SOAK_FIXTURE, ...(scenario.fixture ?? {}) };
+  const graphReport = await runDeterministicScenario(buildYoloSoakGraphScenario(scenario, fixture));
   let messages: LlmMessage[] = [
     {
       role: 'user',
@@ -227,9 +229,14 @@ async function runYoloSoakScenario(scenario: YoloSoakScenario): Promise<Scenario
     completionVerifierBlocks: completion.ok ? 0 : 1,
   };
   const assertions = [
+    ...graphReport.assertions.map((assertion) => ({
+      ...assertion,
+      kind: `graph.${assertion.kind}`,
+    })),
     {
       kind: 'soak.completed',
-      passed: true,
+      passed: graphReport.passed,
+      message: graphReport.passed ? undefined : `Graph report failed: ${graphReport.traceHash}`,
     },
     {
       kind: 'soak.final_non_system_tokens_under_120k',
@@ -262,20 +269,13 @@ async function runYoloSoakScenario(scenario: YoloSoakScenario): Promise<Scenario
     },
   ];
   const trace = {
-    events: [],
-    db: {
-      taskRuns: [],
-      llmCalls: [],
-      mcpAudit: [],
-      activeInteractions: [],
-      interactionHistory: [],
-      toolPermissionApprovals: [],
-    },
+    events: graphReport.trace.events,
+    db: graphReport.trace.db,
     finalState: {
-      completed: true,
-      pendingAssignments: [],
+      ...graphReport.trace.finalState,
       metrics: metric,
       anchor: journal.anchorText(),
+      graphTraceHash: graphReport.traceHash,
     },
   };
   return {
@@ -284,6 +284,83 @@ async function runYoloSoakScenario(scenario: YoloSoakScenario): Promise<Scenario
     traceHash: await sha256Text(canonicalJson(trace)),
     assertions,
     trace,
+  };
+}
+
+function buildYoloSoakGraphScenario(
+  scenario: YoloSoakScenario,
+  fixture: YoloSoakFixture,
+): DeterministicScenario {
+  const companyId = `company-${scenario.id}`;
+  const threadId = `thread-${scenario.id}`;
+  const projectId = `project-${scenario.id}`;
+  const employeeId = `emp-${scenario.id}-yolo`;
+  const llmTurns = Array.from({ length: fixture.turns }, (_, index) => {
+    const turn = index + 1;
+    const title = `soak-card-${turn}`;
+    const toolCall: ToolCallResult = {
+      id: `tc-soak-create-${turn}`,
+      name: 'todo_create',
+      arguments: { title, projectId },
+    };
+    const testCall: ToolCallResult = {
+      id: `tc-soak-test-${turn}`,
+      name: 'pnpm-test',
+      arguments: { command: `pnpm test -- soak-${turn}` },
+    };
+    return [
+      {
+        id: `yolo-soak-tool-${turn}`,
+        match: { toolNames: ['todo_create', 'pnpm-test'] },
+        content: '',
+        toolCalls: [toolCall, testCall],
+      },
+      {
+        id: `yolo-soak-final-${turn}`,
+        match: { contains: title },
+        content: `SOAK_TURN_${turn}_DONE`,
+      },
+    ];
+  }).flat();
+
+  return {
+    id: `${scenario.id}-graph`,
+    category: 'interaction-modes',
+    entryMode: 'boss_chat',
+    interactionMode: 'yolo',
+    seed: {
+      company: { companyId, name: 'YOLO Soak Harness Co' },
+      thread: { threadId, status: 'running', projectId },
+      projects: [{ id: projectId, name: 'YOLO Soak Project' }],
+      employees: [{ id: employeeId, name: 'YOLO Master', role: 'yolo_master' }],
+    },
+    initialState: { projectId },
+    tools: [
+      {
+        name: 'pnpm-test',
+        description: 'Run deterministic soak verification.',
+        parameters: { type: 'object', properties: { command: { type: 'string' } } },
+      },
+    ],
+    toolFixtures: {
+      'pnpm-test': Array.from({ length: fixture.turns }, (_, index) => ({
+        success: true,
+        result: { ok: true, command: `pnpm test -- soak-${index + 1}` },
+      })),
+    },
+    llmTurns,
+    runs: Array.from({ length: fixture.turns }, () => ({ startAt: 'yolo-master' as const })),
+    assertions: [
+      { kind: 'firstGraphNodeIs', nodeName: 'yolo-master' },
+      {
+        kind: 'kanbanCards',
+        projectId,
+        count: fixture.turns,
+        origin: 'employee',
+        states: { done: fixture.turns },
+      },
+      { kind: 'graphStateArrayEquals', field: 'pendingAssignments', value: [] },
+    ],
   };
 }
 

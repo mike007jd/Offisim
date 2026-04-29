@@ -65,6 +65,32 @@ function emitDirectChatCompletedIfNeeded(
   );
 }
 
+function planCompletionStats(state: OffisimGraphState): {
+  total: number;
+  completed: number;
+  blocked: number;
+  terminal: number;
+  allTerminal: boolean;
+} {
+  const total = state.taskPlan?.steps.length ?? 0;
+  const completed = new Set(state.completedStepIndices ?? []);
+  const blocked = new Set(state.blockedStepIndices ?? []);
+  const terminal = new Set([...completed, ...blocked]);
+  return {
+    total,
+    completed: completed.size,
+    blocked: blocked.size,
+    terminal: terminal.size,
+    allTerminal:
+      total > 0 && state.taskPlan?.steps.every((step) => terminal.has(step.stepIndex)) === true,
+  };
+}
+
+function isPlanFullyCompleted(state: OffisimGraphState): boolean {
+  const stats = planCompletionStats(state);
+  return stats.total > 0 && stats.allTerminal && stats.blocked === 0;
+}
+
 /**
  * Boss summary node — produces the final summary after employee work
  * or after an error handler. Marks the graph as completed.
@@ -94,8 +120,9 @@ export async function bossSummaryNode(
     return { completed: true };
   }
 
-  // Emit planCompleted if there was a task plan
-  if (runtimeCtx && state.taskPlan) {
+  // Emit planCompleted only when every step genuinely completed. Blocked plans
+  // need human attention and must not publish a completion signal.
+  if (runtimeCtx && state.taskPlan && isPlanFullyCompleted(state)) {
     // If there are pending step outputs (the last step didn't go through stepAdvance),
     // emit planStepCompleted for the final step first.
     if (state.currentStepOutputs.length > 0) {
@@ -162,15 +189,51 @@ export async function bossSummaryNode(
       : employeeResults.map(stripLegacySpeakerPrefix);
 
   if (employeeResults.length === 0) {
+    const stats = planCompletionStats(state);
+    const hasNoPlanState =
+      !state.taskPlan &&
+      state.pendingAssignments.length === 0 &&
+      (state.completedStepIndices ?? []).length === 0 &&
+      (state.blockedStepIndices ?? []).length === 0;
+
+    if (hasNoPlanState) {
+      return {
+        completed: false,
+        messages: [new AIMessage({ content: 'No executable work was completed in this turn.' })],
+      };
+    }
+
+    if (state.taskPlan && stats.allTerminal) {
+      const content =
+        stats.blocked > 0
+          ? `Plan reached a terminal state with ${stats.completed} completed step(s) and ${stats.blocked} blocked step(s). Human review is required before this can be treated as complete.`
+          : `Plan completed ${stats.completed}/${stats.total} step(s), but no employee output was captured for summary.`;
+      if (runtimeCtx && stats.blocked === 0) {
+        const thread = await runtimeCtx.repos.threads.findById(state.threadId);
+        if (thread?.status !== 'cancelled') {
+          await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
+        }
+      }
+      return {
+        completed: stats.blocked === 0,
+        messages: [new AIMessage({ content })],
+      };
+    }
+
     if (runtimeCtx) {
       const thread = await runtimeCtx.repos.threads.findById(state.threadId);
-      if (thread?.status !== 'cancelled') {
-        await runtimeCtx.repos.threads.updateStatus(state.threadId, 'completed');
+      if (thread?.status === 'queued') {
+        await runtimeCtx.repos.threads.updateStatus(state.threadId, 'running');
       }
     }
     return {
-      completed: true,
-      messages: [new AIMessage({ content: 'Task processing complete.' })],
+      completed: false,
+      interruptReason: 'boss-summary-empty-with-pending-plan',
+      messages: [
+        new AIMessage({
+          content: `Cannot summarize yet: ${stats.terminal}/${stats.total} plan step(s) are terminal and ${state.pendingAssignments.length} assignment(s) remain queued.`,
+        }),
+      ],
     };
   }
 

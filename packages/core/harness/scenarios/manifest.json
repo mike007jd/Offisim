@@ -40,6 +40,30 @@
       ]
     },
     {
+      "id": "boss-summary-empty-with-stale-plan-does-not-mark-complete",
+      "category": "graph",
+      "invariants": [
+        "graph.boss_summary_empty_plan_does_not_complete_thread",
+        "graph.boss_summary_empty_plan_interrupts"
+      ]
+    },
+    {
+      "id": "boss-summary-idle-no-plan-does-not-mark-complete",
+      "category": "graph",
+      "invariants": [
+        "graph.boss_summary_idle_does_not_complete_thread",
+        "graph.boss_summary_idle_uses_non_completion_copy"
+      ]
+    },
+    {
+      "id": "step-advance-segregates-blocked-from-completed",
+      "category": "graph",
+      "invariants": [
+        "graph.blocked_step_not_in_completed_indices",
+        "graph.blocked_step_recorded_separately"
+      ]
+    },
+    {
       "id": "recorded-stream-tool-call-replay",
       "category": "llm-recording",
       "invariants": ["llm.stream_tool_calls_recorded", "llm.replay_reproduces_tool_calls"]
@@ -74,6 +98,22 @@
       ]
     },
     {
+      "id": "completion-without-taskrunid-defaults-to-blocked",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.missing_task_run_id_blocks_by_default",
+        "completion.no_hardcoded_success_without_task_run"
+      ]
+    },
+    {
+      "id": "pm-heartbeat-flags-blocked-task",
+      "category": "long-running-runtime",
+      "invariants": [
+        "heartbeat.blocked_task_requires_attention",
+        "heartbeat.blocked_reason_is_verifier_blocked"
+      ]
+    },
+    {
       "id": "skill-create-real-tool-call",
       "category": "skill-install",
       "invariants": ["skill.create_requires_real_llm_tool_call", "skill.create_preview_interaction"]
@@ -89,6 +129,16 @@
       "invariants": ["graph.first_node_pm_planner"]
     },
     {
+      "id": "gateway-lane-yolo-has-fs-shell-tools",
+      "category": "interaction-modes",
+      "invariants": ["tools.gateway_yolo_exposes_fs_shell"]
+    },
+    {
+      "id": "tool-kit-without-builtins-omits-fs-shell",
+      "category": "interaction-modes",
+      "invariants": ["tools.web_without_builtins_omits_fs_shell"]
+    },
+    {
       "id": "kanban-card-state-transitions",
       "category": "kanban",
       "invariants": [
@@ -97,6 +147,11 @@
         "kanban.remaining_2_stay_todo",
         "kanban.event_order_matches"
       ]
+    },
+    {
+      "id": "kanban-rejects-illegal-transition",
+      "category": "kanban",
+      "invariants": ["kanban.done_cannot_transition_to_todo"]
     },
     {
       "id": "yolo-80-turn-multi-file-refactor",
@@ -108,6 +163,11 @@
         "soak.rolling_journal_writes",
         "soak.completion_verifier_allowed"
       ]
+    },
+    {
+      "id": "soak-leak-detector-catches-pending-assignment",
+      "category": "long-running-soak",
+      "invariants": ["soak.leak_detector_reports_pending_assignments"]
     },
     {
       "id": "mode-kanban-matrix",

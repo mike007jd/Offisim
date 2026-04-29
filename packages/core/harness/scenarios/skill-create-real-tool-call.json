@@ -38,6 +38,7 @@
     },
     {
       "id": "employee-final",
+      "match": { "contains": "Use create_skill_from_scratch" },
       "content": "SKILL_CREATE_STAGED"
     }
   ],
