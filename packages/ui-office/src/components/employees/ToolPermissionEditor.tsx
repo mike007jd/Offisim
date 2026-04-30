@@ -49,14 +49,14 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-border-default bg-surface-muted p-3">
       <div>
-        <label htmlFor={defaultModeId} className="mb-1 block text-xs text-slate-400">
+        <label htmlFor={defaultModeId} className="mb-1 block text-xs text-text-muted">
           Default approval mode
         </label>
         <select
           id={defaultModeId}
-          className="w-full rounded-md border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+          className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
           value={policy.defaultMode}
           onChange={(event) => updateDefaultMode(event.target.value as ToolApprovalMode)}
         >
@@ -68,18 +68,18 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-400">Tool-specific overrides</p>
+          <p className="text-xs text-text-muted">Tool-specific overrides</p>
           <button
             type="button"
             onClick={addOverride}
-            className="rounded-md border border-white/10 px-2 py-1 text-xs text-slate-200"
+            className="rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition hover:bg-surface-hover"
           >
             Add override
           </button>
         </div>
 
         {policy.overrides.length === 0 && (
-          <p className="text-xs text-slate-500">No tool overrides configured.</p>
+          <p className="text-xs text-text-muted">No tool overrides configured.</p>
         )}
 
         {policy.overrides.map((override, index) => (
@@ -91,14 +91,14 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
               value={override.pattern}
               onChange={(event) => updateOverride(index, { pattern: event.target.value })}
               placeholder="calendar.*"
-              className="rounded-md border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+              className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
             />
             <select
               value={override.mode}
               onChange={(event) =>
                 updateOverride(index, { mode: event.target.value as ToolApprovalMode })
               }
-              className="rounded-md border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+              className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
             >
               <option value="auto">Auto</option>
               <option value="ask_first_time">Ask First Time</option>
@@ -107,7 +107,7 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
             <button
               type="button"
               onClick={() => removeOverride(index)}
-              className="rounded-md border border-white/10 px-2 py-1 text-xs text-slate-200"
+              className="rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition hover:bg-surface-hover"
             >
               Remove
             </button>

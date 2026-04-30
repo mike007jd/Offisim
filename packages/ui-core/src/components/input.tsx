@@ -23,8 +23,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           aria-invalid={error || undefined}
           aria-describedby={mergedDescribedBy}
           className={cn(
-            'flex h-9 w-full rounded-lg border bg-white/5 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-50',
-            error ? 'border-red-400/60' : 'border-white/15',
+            'flex h-9 w-full rounded-lg border bg-surface px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-text-muted disabled:opacity-70',
+            error ? 'border-error' : 'border-border-default',
             className,
           )}
           ref={ref}
@@ -33,7 +33,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {helperText ? (
           <p
             id={helperId}
-            className={cn('mt-1 text-xs', error ? 'text-red-300' : 'text-slate-400')}
+            className={cn('mt-1 text-xs', error ? 'text-error' : 'text-text-muted')}
           >
             {helperText}
           </p>

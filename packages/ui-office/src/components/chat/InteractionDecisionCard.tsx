@@ -34,24 +34,24 @@ export function InteractionDecisionCard({
   }
 
   return (
-    <Card className="border-white/10 bg-black/30 backdrop-blur-md">
+    <Card className="border-border-default bg-surface-elevated backdrop-blur-md">
       <CardHeader className="gap-2">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-sm text-white">{request.title}</CardTitle>
+          <CardTitle className="text-sm text-text-primary">{request.title}</CardTitle>
           <Badge variant={request.severity === 'high' ? 'error' : 'secondary'}>
             {request.severity === 'high' ? 'High risk' : 'Decision'}
           </Badge>
         </div>
-        {employeeName && <span className="text-xs text-slate-400">From: {employeeName}</span>}
-        <p className="whitespace-pre-wrap text-xs text-slate-300">{request.prompt}</p>
+        {employeeName && <span className="text-xs text-text-secondary">From: {employeeName}</span>}
+        <p className="whitespace-pre-wrap text-xs text-text-secondary">{request.prompt}</p>
         {request.recommendation && (
-          <div className="rounded-md border border-cyan-400/20 bg-cyan-500/5 px-3 py-2 text-xs text-cyan-100/85">
+          <div className="rounded-md border border-info bg-info-muted px-3 py-2 text-xs text-info">
             <div className="font-medium">
               Boss recommends:{' '}
               {request.options.find((option) => option.id === request.recommendation?.optionId)
                 ?.label ?? request.recommendation.optionId}
             </div>
-            <div className="mt-1 text-cyan-100/65">{request.recommendation.reason}</div>
+            <div className="mt-1 text-text-secondary">{request.recommendation.reason}</div>
           </div>
         )}
       </CardHeader>
@@ -79,7 +79,7 @@ export function InteractionDecisionCard({
                   note.trim().length === 0)
               }
             >
-              {pendingOption === option.id ? 'Working…' : option.label}
+              {pendingOption === option.id ? 'Working...' : option.label}
             </Button>
           ))}
         </div>

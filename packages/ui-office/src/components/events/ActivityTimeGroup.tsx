@@ -23,9 +23,9 @@ export function ActivityTimeGroup({
   return (
     <div>
       {/* Group header */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-white/[0.03]">
-        <span className="text-xs font-bold text-slate-300">{label}</span>
-        <span className="text-[10px] text-slate-500 bg-white/[0.06] px-1.5 py-0.5 rounded-full">
+      <div className="flex items-center gap-2 bg-surface-muted px-4 py-2">
+        <span className="text-xs font-bold text-text-primary">{label}</span>
+        <span className="rounded-full bg-surface-elevated px-1.5 py-0.5 text-[10px] text-text-muted">
           {eventCount}
         </span>
       </div>

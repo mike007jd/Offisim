@@ -168,7 +168,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
               ariaLabel="Theme"
             />
             {theme === 'system' ? (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-text-muted">
                 Following OS preference: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
               </p>
             ) : null}
@@ -200,7 +200,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
       <SettingsSection title="Conversation memory & summarization">
         <div className="space-y-5">
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+            <h4 className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
               Memory
             </h4>
             <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -236,10 +236,10 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
           </div>
 
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+            <h4 className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
               Summarization
             </h4>
-            <p className="mt-1 text-xs text-slate-500">Auto-compress long conversations.</p>
+            <p className="mt-1 text-xs text-text-muted">Auto-compress long conversations.</p>
             <div className="mt-3 grid gap-4 md:grid-cols-3">
               <BooleanSelect
                 id="runtime-summarization-enabled"

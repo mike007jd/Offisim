@@ -22,7 +22,7 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
       className={cn(
         'flex items-center gap-1',
         density === 'default' ? 'h-11 px-2' : 'h-9 px-1.5',
-        surface && 'rounded-xl border border-white/10 bg-white/5',
+        surface && 'rounded-xl border border-border-default bg-surface-muted',
         className,
       )}
       {...props}
@@ -40,7 +40,12 @@ ToolbarGroup.displayName = 'ToolbarGroup';
 
 export const ToolbarSeparator = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} aria-hidden className={cn('mx-1 h-5 w-px bg-white/10', className)} {...props} />
+    <div
+      ref={ref}
+      aria-hidden
+      className={cn('mx-1 h-5 w-px bg-border-subtle', className)}
+      {...props}
+    />
   ),
 );
 ToolbarSeparator.displayName = 'ToolbarSeparator';

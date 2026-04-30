@@ -30,7 +30,7 @@ function renderIcon(icon: EmptyStateProps['icon']): ReactNode {
   if (isValidElement(icon)) return icon;
   const Icon = icon as ComponentType<{ className?: string }>;
   return (
-    <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300">
+    <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border-default bg-surface-muted text-text-secondary">
       <Icon className="h-5 w-5" />
     </div>
   );
@@ -75,9 +75,9 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center text-center text-slate-300',
+        'flex flex-col items-center text-center text-text-secondary',
         isCompact
-          ? 'gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-6'
+          ? 'gap-2 rounded-xl border border-border-default bg-surface-muted px-4 py-6'
           : 'gap-4 px-6 py-10',
         className,
       )}
@@ -86,7 +86,7 @@ export function EmptyState({
       <div className="flex max-w-md flex-col gap-1">
         <div
           className={cn(
-            'font-semibold leading-tight text-slate-100',
+            'font-semibold leading-tight text-text-primary',
             isCompact ? 'text-sm' : 'text-base',
           )}
         >
@@ -95,7 +95,7 @@ export function EmptyState({
         {description && (
           <div
             className={cn(
-              'text-slate-400',
+              'text-text-secondary',
               isCompact ? 'text-xs leading-relaxed' : 'text-sm leading-relaxed',
             )}
           >
@@ -112,7 +112,7 @@ export function EmptyState({
           ))}
         </div>
       )}
-      {footer && <div className="pt-1 text-xs text-slate-500">{footer}</div>}
+      {footer && <div className="pt-1 text-xs text-text-muted">{footer}</div>}
     </div>
   );
 }

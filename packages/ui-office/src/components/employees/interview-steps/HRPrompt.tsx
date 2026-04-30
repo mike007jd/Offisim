@@ -23,16 +23,16 @@ export function HRPrompt({ step }: HRPromptProps) {
   return (
     <div className="flex items-start gap-3">
       {/* HR Avatar */}
-      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500/30 border-2 border-blue-500 flex items-center justify-center">
-        <span className="text-xs font-mono font-bold text-blue-500">HR</span>
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border-2 border-border-focus bg-accent-muted">
+        <span className="font-mono text-xs font-bold text-accent-text">HR</span>
       </div>
 
       {/* Speech Bubble */}
-      <div className="relative bg-slate-800 border-2 border-slate-700 p-3 flex-1">
+      <div className="relative flex-1 border-2 border-border-default bg-surface-muted p-3">
         {/* Bubble arrow */}
-        <div className="absolute left-[-8px] top-3 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-r-[8px] border-r-slate-700" />
-        <div className="absolute left-[-5px] top-3 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-r-[8px] border-r-slate-800" />
-        <p className="text-sm text-slate-100 leading-relaxed">{HR_QUESTIONS[step]}</p>
+        <div className="absolute left-[-8px] top-3 h-0 w-0 border-b-[6px] border-r-[8px] border-t-[6px] border-b-transparent border-r-border-default border-t-transparent" />
+        <div className="absolute left-[-5px] top-3 h-0 w-0 border-b-[6px] border-r-[8px] border-t-[6px] border-b-transparent border-r-surface-muted border-t-transparent" />
+        <p className="text-sm leading-relaxed text-text-primary">{HR_QUESTIONS[step]}</p>
       </div>
     </div>
   );

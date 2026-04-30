@@ -1,5 +1,6 @@
-import { Button } from '@offisim/ui-core';
-import { Activity, Cpu, Database, Square, Zap } from 'lucide-react';
+import type { ProjectStatus } from '@offisim/shared-types';
+import { Button, SegmentedControl } from '@offisim/ui-core';
+import { Activity, Cpu, Square } from 'lucide-react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
@@ -21,17 +22,16 @@ function pendingInteractionLabel(
   }
 }
 
-// ---------------------------------------------------------------------------
-
-import type { ProjectStatus } from '@offisim/shared-types';
-
 const PROJECT_STATUS_STYLE: Record<ProjectStatus, { label: string; color: string }> = {
-  planning: { label: 'Planning', color: 'text-blue-400' },
-  active: { label: 'Active', color: 'text-emerald-400' },
-  paused: { label: 'Paused', color: 'text-amber-400' },
-  completed: { label: 'Done', color: 'text-slate-500' },
-  archived: { label: 'Archived', color: 'text-slate-500' },
+  planning: { label: 'Planning', color: 'text-info' },
+  active: { label: 'Active', color: 'text-success' },
+  paused: { label: 'Paused', color: 'text-warning' },
+  completed: { label: 'Done', color: 'text-text-muted' },
+  archived: { label: 'Archived', color: 'text-text-muted' },
 };
+
+const SEGMENT_BASE_CLS = 'flex items-center gap-3 text-[10px] tracking-wider';
+const DIVIDER_CLS = 'h-3 w-px bg-border-subtle';
 
 interface StatusBarProps {
   modelName?: string;
@@ -49,166 +49,295 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
 
   return (
     <footer
-      className="bg-black/60 backdrop-blur-xl text-slate-500 text-[10px] flex items-center justify-between relative overflow-hidden border-t border-white/5"
+      className="relative flex items-center justify-between overflow-hidden border-t border-border-subtle bg-surface-elevated/90 text-[10px] tracking-wider text-text-secondary backdrop-blur-xl"
       style={{ minHeight: '40px', paddingInline: 'var(--sp-lg)' }}
     >
-      <div className="absolute inset-0 opacity-[0.02] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
+      <RunStateSegment
+        pipelineStage={pipelineStage}
+        runStatus={runStatus}
+        activeProjectStatus={activeProjectStatus ?? null}
+        pendingInteraction={pendingInteraction}
+      />
 
-      <div className="flex items-center space-x-5 relative z-10">
-        <div className="flex items-center space-x-2">
-          {pipelineStage ? (
-            <>
-              <div
-                className={`w-2 h-2 rounded-full animate-pulse ${STAGE_META[pipelineStage].dotClass}`}
-                title={`Pipeline stage: ${STAGE_META[pipelineStage].label}`}
-              />
-              <span
-                className={`uppercase tracking-[0.2em] font-black ${STAGE_META[pipelineStage].colorClass}`}
-                title={`Pipeline stage: ${STAGE_META[pipelineStage].label}`}
-              >
-                {STAGE_META[pipelineStage].label}
-              </span>
-            </>
-          ) : (
-            <>
-              <div
-                className={`w-2 h-2 rounded-full ${runStatus === 'running' ? 'bg-emerald-500 animate-pulse' : runStatus === 'error' ? 'bg-red-500' : 'bg-slate-600'}`}
-                title={`Runtime status: ${runStatus}`}
-              />
-              <span
-                className={`font-black ${runStatus === 'running' ? 'text-emerald-500/90 tracking-[0.12em]' : runStatus === 'error' ? 'text-red-500/90 tracking-[0.12em]' : 'text-slate-400 tracking-[0.08em]'}`}
-                title={`Runtime status: ${runStatus}`}
-              >
-                {runStatus === 'running' ? 'Running' : runStatus === 'error' ? 'Error' : 'Ready'}
-              </span>
-            </>
-          )}
-        </div>
+      <WorkSegment
+        headline={headline}
+        toolsCount={activeTools.length}
+        tasksCount={metrics.activeTaskCount}
+        employeesActive={metrics.employeeUtilization.active}
+        employeesTotal={metrics.employeeUtilization.total}
+      />
 
-        {activeProjectStatus && (
+      <ResourcesSegment
+        modelName={modelName}
+        usedTokens={metrics.totalInputTokens + metrics.totalOutputTokens}
+        costUsd={metrics.estimatedCostUsd}
+        elapsedMs={metrics.elapsedMs}
+        isRunning={isRunning}
+        onAbort={abortExecution}
+        interactionMode={interactionMode === 'human_in_loop' ? 'human_in_loop' : 'boss_proxy'}
+        onChangeInteractionMode={setInteractionMode}
+      />
+    </footer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Left — run state
+// ---------------------------------------------------------------------------
+
+function RunStateSegment({
+  pipelineStage,
+  runStatus,
+  activeProjectStatus,
+  pendingInteraction,
+}: {
+  pipelineStage: ReturnType<typeof usePipelineStage>['stage'];
+  runStatus: 'running' | 'error' | 'idle';
+  activeProjectStatus: ProjectStatus | null;
+  pendingInteraction: ReturnType<typeof useOffisimRuntime>['pendingInteraction'];
+}) {
+  return (
+    <div className={`${SEGMENT_BASE_CLS} relative z-10`}>
+      <div className="flex items-center gap-2">
+        {pipelineStage ? (
           <>
-            <div className="w-px h-3 bg-white/10" />
+            <div
+              className={`h-2 w-2 animate-pulse rounded-full ${STAGE_META[pipelineStage].dotClass}`}
+              title={`Pipeline stage: ${STAGE_META[pipelineStage].label}`}
+            />
             <span
-              className={`uppercase tracking-[0.15em] font-semibold ${PROJECT_STATUS_STYLE[activeProjectStatus].color}`}
-              title={`Project status: ${PROJECT_STATUS_STYLE[activeProjectStatus].label}`}
+              className={`font-bold uppercase ${STAGE_META[pipelineStage].colorClass}`}
+              title={`Pipeline stage: ${STAGE_META[pipelineStage].label}`}
             >
-              {PROJECT_STATUS_STYLE[activeProjectStatus].label}
+              {STAGE_META[pipelineStage].label}
+            </span>
+          </>
+        ) : (
+          <>
+            <div
+              className={`h-2 w-2 rounded-full ${runStatus === 'running' ? 'animate-pulse bg-success' : runStatus === 'error' ? 'bg-error' : 'bg-text-muted'}`}
+              title={`Runtime status: ${runStatus}`}
+            />
+            <span
+              className={`font-bold uppercase ${runStatus === 'running' ? 'text-success' : runStatus === 'error' ? 'text-error' : 'text-text-secondary'}`}
+              title={`Runtime status: ${runStatus}`}
+            >
+              {runStatus === 'running' ? 'Running' : runStatus === 'error' ? 'Error' : 'Ready'}
             </span>
           </>
         )}
-
-        <div className="w-px h-3 bg-white/10" />
-
-        <div className="flex items-center space-x-4">
-          {headline && (
-            <div className="flex items-center space-x-1.5 max-w-[18rem]" title={headline}>
-              <Activity className="w-3 h-3 text-cyan-400/60" />
-              <span className="truncate font-mono text-cyan-200/70">{headline}</span>
-            </div>
-          )}
-          {activeTools.length > 0 && (
-            <div
-              className="flex items-center space-x-1.5"
-              title={`${activeTools.length} tool calls currently running`}
-            >
-              <span className="font-mono text-emerald-300/70">{activeTools.length} tools</span>
-            </div>
-          )}
-          {modelName && (
-            <div className="flex items-center space-x-1.5" title={`Model: ${modelName}`}>
-              <Cpu className="w-3 h-3 text-blue-400/50" />
-              <span className="font-mono">{modelName}</span>
-            </div>
-          )}
-          {metrics.activeTaskCount > 0 && (
-            <div
-              className="flex items-center space-x-1.5"
-              title={`${metrics.activeTaskCount} active tasks`}
-            >
-              <Zap className="w-3 h-3 text-amber-400/50" />
-              <span className="font-mono">{metrics.activeTaskCount} tasks</span>
-            </div>
-          )}
-          <div
-            className="flex items-center space-x-1.5"
-            title={`${metrics.employeeUtilization.active} active of ${metrics.employeeUtilization.total} employees`}
-          >
-            <Database className="w-3 h-3 text-purple-400/50" />
-            <span className="font-mono">
-              {metrics.employeeUtilization.active}/{metrics.employeeUtilization.total} employees
-            </span>
-          </div>
-        </div>
       </div>
 
-      <div className="flex items-center space-x-5 relative z-10">
-        <EnergyMeter
-          usedTokens={metrics.totalInputTokens + metrics.totalOutputTokens}
-          costUsd={metrics.estimatedCostUsd}
-        />
-        {metrics.elapsedMs != null && (
+      {activeProjectStatus && (
+        <>
+          <div className={DIVIDER_CLS} />
           <span
-            className="font-mono"
-            title={`Latency ${(metrics.elapsedMs / 1000).toFixed(1)} seconds`}
+            className={`font-semibold uppercase ${PROJECT_STATUS_STYLE[activeProjectStatus].color}`}
+            title={`Project status: ${PROJECT_STATUS_STYLE[activeProjectStatus].label}`}
           >
-            LAT: {(metrics.elapsedMs / 1000).toFixed(1)}s
+            {PROJECT_STATUS_STYLE[activeProjectStatus].label}
           </span>
-        )}
-        {isRunning && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-6 gap-1 px-2 text-[10px] text-slate-400 hover:bg-red-400/10 hover:text-red-300"
-            onClick={abortExecution}
-            title="Stop execution"
-          >
-            <Square className="h-2.5 w-2.5 fill-current" />
-            Stop
-          </Button>
-        )}
-        <div className="w-px h-3 bg-white/10" />
-        {setInteractionMode && (
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              size="sm"
-              variant={interactionMode === 'boss_proxy' ? 'secondary' : 'ghost'}
-              className="h-6 px-2 text-[10px]"
-              onClick={() => setInteractionMode('boss_proxy')}
-              title="Route instructions through the boss proxy"
-            >
-              Proxy
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={interactionMode === 'human_in_loop' ? 'secondary' : 'ghost'}
-              className="h-6 px-2 text-[10px]"
-              onClick={() => setInteractionMode('human_in_loop')}
-              title="Keep approvals and steering in the loop"
-            >
-              Human
-            </Button>
-          </div>
-        )}
-        {pendingInteraction && (
+        </>
+      )}
+
+      {pendingInteraction && (
+        <>
+          <div className={DIVIDER_CLS} />
           <span
-            className="font-mono text-amber-200/80"
+            className="rounded-full border border-warning/40 bg-warning-muted px-2 py-0.5 font-semibold uppercase text-warning"
             title={pendingInteractionLabel(pendingInteraction)}
           >
             {pendingInteractionLabel(pendingInteraction)}
           </span>
-        )}
-        <div className="w-px h-3 bg-white/10" />
-        <div
-          className="flex items-center space-x-2 opacity-40 hover:opacity-100 transition-opacity"
-          title="Offisim runtime build v1.0.0-rc.1"
-        >
-          <Activity className="w-3 h-3" />
-          <span className="font-mono">v1.0.0-rc.1</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Center — work cluster
+// ---------------------------------------------------------------------------
+
+function WorkSegment({
+  headline,
+  toolsCount,
+  tasksCount,
+  employeesActive,
+  employeesTotal,
+}: {
+  headline: string | null | undefined;
+  toolsCount: number;
+  tasksCount: number;
+  employeesActive: number;
+  employeesTotal: number;
+}) {
+  const hasCluster = toolsCount > 0 || tasksCount > 0 || employeesTotal > 0;
+  if (!headline && !hasCluster) return null;
+  return (
+    <div className={`${SEGMENT_BASE_CLS} relative z-10 min-w-0 flex-1 justify-center`}>
+      {headline && (
+        <div className="flex max-w-[18rem] items-center gap-1.5 min-w-0" title={headline}>
+          <Activity className="h-3 w-3 shrink-0 text-accent" />
+          <span className="truncate font-mono text-accent-text">{headline}</span>
         </div>
+      )}
+      {headline && hasCluster && <div className={DIVIDER_CLS} />}
+      {hasCluster && (
+        <WorkCluster
+          toolsCount={toolsCount}
+          tasksCount={tasksCount}
+          employeesActive={employeesActive}
+          employeesTotal={employeesTotal}
+        />
+      )}
+    </div>
+  );
+}
+
+function WorkCluster({
+  toolsCount,
+  tasksCount,
+  employeesActive,
+  employeesTotal,
+}: {
+  toolsCount: number;
+  tasksCount: number;
+  employeesActive: number;
+  employeesTotal: number;
+}) {
+  const parts: { key: string; text: string; title: string }[] = [];
+  if (toolsCount > 0) {
+    parts.push({
+      key: 'tools',
+      text: `${toolsCount}t`,
+      title: `${toolsCount} tool calls running`,
+    });
+  }
+  if (tasksCount > 0) {
+    parts.push({
+      key: 'tasks',
+      text: `${tasksCount}T`,
+      title: `${tasksCount} active tasks`,
+    });
+  }
+  if (employeesTotal > 0) {
+    parts.push({
+      key: 'employees',
+      text: `${employeesActive}/${employeesTotal}P`,
+      title: `${employeesActive} active of ${employeesTotal} employees`,
+    });
+  }
+  if (parts.length === 0) return null;
+  const composedTitle = parts.map((p) => p.title).join(' · ');
+  return (
+    <div
+      className="flex items-center gap-1.5 font-mono text-text-secondary"
+      title={composedTitle}
+    >
+      {parts.map((part, idx) => (
+        <span key={part.key} className="flex items-center" title={part.title}>
+          {idx > 0 && <span className="px-1 text-text-disabled">·</span>}
+          {part.text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Right — resources
+// ---------------------------------------------------------------------------
+
+function ResourcesSegment({
+  modelName,
+  usedTokens,
+  costUsd,
+  elapsedMs,
+  isRunning,
+  onAbort,
+  interactionMode,
+  onChangeInteractionMode,
+}: {
+  modelName?: string;
+  usedTokens: number;
+  costUsd: number;
+  elapsedMs: number | null | undefined;
+  isRunning: boolean;
+  onAbort: () => void;
+  interactionMode: 'boss_proxy' | 'human_in_loop';
+  onChangeInteractionMode?: (mode: 'boss_proxy' | 'human_in_loop') => void;
+}) {
+  return (
+    <div className={`${SEGMENT_BASE_CLS} relative z-10`}>
+      {modelName && (
+        <div
+          className="flex items-center gap-1.5 font-mono"
+          title={`Model: ${modelName}`}
+        >
+          <Cpu className="h-3 w-3 text-info" />
+          <span>{modelName}</span>
+        </div>
+      )}
+
+      <EnergyMeter usedTokens={usedTokens} costUsd={costUsd} />
+
+      {elapsedMs != null && (
+        <span
+          className="font-mono"
+          title={`Latency ${(elapsedMs / 1000).toFixed(1)} seconds`}
+        >
+          LAT: {(elapsedMs / 1000).toFixed(1)}s
+        </span>
+      )}
+
+      {isRunning && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-6 gap-1 px-2 text-[10px] text-text-secondary hover:bg-error-muted hover:text-error"
+          onClick={onAbort}
+          title="Stop execution"
+        >
+          <Square className="h-2.5 w-2.5 fill-current" />
+          Stop
+        </Button>
+      )}
+
+      <div className={DIVIDER_CLS} />
+
+      {onChangeInteractionMode && (
+        <SegmentedControl
+          size="sm"
+          ariaLabel="Interaction mode"
+          value={interactionMode}
+          onChange={(value) => onChangeInteractionMode(value as 'boss_proxy' | 'human_in_loop')}
+          items={[
+            {
+              value: 'boss_proxy',
+              label: 'Proxy',
+              ariaLabel: 'Route instructions through the boss proxy',
+            },
+            {
+              value: 'human_in_loop',
+              label: 'Human',
+              ariaLabel: 'Keep approvals and steering in the loop',
+            },
+          ]}
+          className="h-6 [&_button]:!h-5 [&_button]:!px-2 [&_button]:!text-[10px]"
+        />
+      )}
+
+      <div className={DIVIDER_CLS} />
+
+      <div
+        className="flex items-center gap-1.5 font-mono opacity-40 transition-opacity hover:opacity-100"
+        title="Offisim runtime build v1.0.0-rc.1"
+      >
+        <Activity className="h-3 w-3" />
+        <span>v1.0.0-rc.1</span>
       </div>
-    </footer>
+    </div>
   );
 }

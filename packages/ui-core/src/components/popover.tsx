@@ -89,7 +89,7 @@ const PopoverContent = forwardRef<
           role="dialog"
           aria-modal="false"
           className={cn(
-            'z-top w-72 rounded-lg border border-white/10 bg-slate-900 p-3 text-slate-200 shadow-2xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:duration-150 data-[state=closed]:duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40',
+            'z-top w-72 rounded-lg border border-border-default bg-surface-elevated p-3 text-text-primary shadow-2xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:duration-150 data-[state=closed]:duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
             className,
           )}
           {...props}

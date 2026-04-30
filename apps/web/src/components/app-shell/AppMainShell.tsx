@@ -4,6 +4,7 @@ import {
   AgentPanel,
   AppLayout,
   Header,
+  KanbanTray,
   NotificationCenter,
   ProjectSelector,
   type ProviderConfig,
@@ -11,6 +12,7 @@ import {
 } from '@offisim/ui-office/web';
 import React, { Suspense, useMemo } from 'react';
 import { PEER_WORKSPACE_ITEMS, buildOfficeToolItems } from '../../lib/workspace-navigation';
+import { useKanbanStream } from '../../runtime/useKanbanStream';
 import { SessionModeSwitcher } from '../session-mode/SessionModeSwitcher';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
 import type {
@@ -80,6 +82,7 @@ export interface AppMainShellProps {
   onStartMarketInstall: (listingId: string, version: string) => void;
   addToast: (message: string, variant?: ToastVariant) => void;
   onEditExternalEmployee: (employeeId: string) => void;
+  lastUserRequest?: string | null;
 }
 
 export function AppMainShell(props: AppMainShellProps) {
@@ -123,28 +126,19 @@ export function AppMainShell(props: AppMainShellProps) {
     onStartMarketInstall,
     addToast,
     onEditExternalEmployee,
+    lastUserRequest,
   } = props;
+  const kanban = useKanbanStream(officeState.kanbanOpen ? activeProjectId : null);
 
   const officeToolItems = useMemo(
     () =>
       buildOfficeToolItems({
         hasActiveCompany: activeCompanyId !== null,
         dashboardOpen: officeState.dashboardOpen,
-        kanbanOpen: officeState.kanbanOpen,
         onOpenStudio,
         onToggleDashboard,
-        onToggleKanban,
-        onOpenAddEmployee: onOpenEmployeeCreator,
       }),
-    [
-      activeCompanyId,
-      officeState.dashboardOpen,
-      officeState.kanbanOpen,
-      onOpenStudio,
-      onToggleDashboard,
-      onToggleKanban,
-      onOpenEmployeeCreator,
-    ],
+    [activeCompanyId, officeState.dashboardOpen, onOpenStudio, onToggleDashboard],
   );
 
   return (
@@ -185,6 +179,18 @@ export function AppMainShell(props: AppMainShellProps) {
           officeTools={officeToolItems}
         />
       }
+      taskTray={
+        isOffice ? (
+          <KanbanTray
+            expanded={officeState.kanbanOpen}
+            requestText={lastUserRequest ?? undefined}
+            cards={kanban.cards}
+            onMove={kanban.move}
+            onCreate={kanban.create}
+            onToggle={onToggleKanban}
+          />
+        ) : null
+      }
       agentPanel={
         isOffice ? (
           <AgentPanel
@@ -202,7 +208,6 @@ export function AppMainShell(props: AppMainShellProps) {
               leftPanelWidth={officeState.leftPanelWidth}
               onSceneFallbackTo2D={onSceneFallbackTo2D}
               onSelectEmployee={onSelectEmployee}
-              paused={officeState.kanbanOpen}
               rightPanelWidth={officeState.rightPanelWidth}
               selectedEmployeeId={officeState.selectedEmployeeId}
               sceneInteractive={sceneInteractive}

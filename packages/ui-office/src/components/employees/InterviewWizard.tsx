@@ -153,10 +153,10 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
       >
         <div className="mb-4">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">
+            <span className="font-mono text-xs uppercase tracking-wider text-text-muted">
               Step {state.currentStep + 1} of {WIZARD_STEPS.length}: {STEP_LABELS[currentStepName]}
             </span>
-            <span className="text-xs font-mono text-slate-400">{Math.round(progress * 100)}%</span>
+            <span className="font-mono text-xs text-text-muted">{Math.round(progress * 100)}%</span>
           </div>
           <Progress value={progress * 100} />
 
@@ -174,10 +174,10 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
                 className={cn(
                   'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold transition-colors',
                   idx === state.currentStep
-                    ? 'bg-red-500 text-white'
+                    ? 'bg-accent text-text-inverse'
                     : state.completedSteps.has(idx)
-                      ? 'cursor-pointer bg-emerald-500/80 text-white hover:bg-emerald-400'
-                      : 'bg-slate-700 text-slate-500',
+                      ? 'cursor-pointer bg-success text-text-inverse hover:bg-success'
+                      : 'bg-surface-disabled text-text-disabled',
                 )}
                 title={STEP_LABELS[stepName]}
               >
@@ -222,7 +222,7 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
             <button
               type="button"
               onClick={clearError}
-              className="text-[10px] font-mono uppercase tracking-wider text-red-300/70 hover:text-red-200"
+              className="font-mono text-[10px] uppercase tracking-wider text-error hover:text-error"
             >
               Dismiss
             </button>

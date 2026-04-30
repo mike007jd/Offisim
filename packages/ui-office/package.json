@@ -40,10 +40,6 @@
       "types": "./dist/components/studio/StudioPage.d.ts",
       "default": "./dist/components/studio/StudioPage.js"
     },
-    "./kanban": {
-      "types": "./dist/components/kanban/index.d.ts",
-      "default": "./dist/components/kanban/index.js"
-    },
     "./marketplace": {
       "types": "./dist/components/marketplace/index.d.ts",
       "default": "./dist/components/marketplace/index.js"

@@ -106,7 +106,7 @@ function CompanyNameModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.6)',
+        background: STUDIO_COLORS.surface0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

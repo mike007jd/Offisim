@@ -107,36 +107,26 @@ function CompanyPortalPreview({
 
   if (!company) {
     return (
-      <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-white/10 bg-white/[0.02]">
-        <div className="text-center">
-          <div className="text-2xl font-semibold text-white">Create your first company</div>
-          <p className="mt-3 text-sm text-slate-400">
-            Start with a template, then preview the layout here before entering.
-          </p>
-        </div>
-      </div>
+      <PreviewState
+        title="Create your first company"
+        description="Start with a template, then preview here."
+        dashed
+      />
     );
   }
 
   if (loading) {
     return (
-      <div className="h-full rounded-[28px] border border-white/10 bg-white/[0.02] animate-pulse" />
+      <div className="h-full animate-pulse rounded-2xl border border-border-default bg-surface-muted" />
     );
   }
 
   if (!bounds || zones.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.02]">
-        <div className="text-center">
-          <div className="text-xl font-semibold text-white">{company.name}</div>
-          <p className="mt-3 text-sm text-slate-400">Layout not customized yet.</p>
-        </div>
-      </div>
-    );
+    return <PreviewState title={company.name} description="Layout not customized yet." />;
   }
 
   return (
-    <div className="h-full rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.1),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-4">
+    <div className="h-full rounded-2xl border border-border-default bg-surface-elevated p-4">
       <svg
         viewBox={`0 0 ${viewBox.w} ${viewBox.h}`}
         className="h-full w-full"
@@ -148,12 +138,13 @@ function CompanyPortalPreview({
             <path
               d="M 24 0 L 0 0 0 24"
               fill="none"
-              stroke="rgba(148,163,184,0.12)"
+              stroke="var(--color-border-subtle-val)"
+              strokeOpacity="0.35"
               strokeWidth="1"
             />
           </pattern>
         </defs>
-        <rect width={viewBox.w} height={viewBox.h} rx="28" fill="rgba(2,6,23,0.72)" />
+        <rect width={viewBox.w} height={viewBox.h} rx="28" fill="var(--color-surface-muted-val)" />
         <rect width={viewBox.w} height={viewBox.h} rx="28" fill="url(#company-preview-grid)" />
         {zones.map((zone, index) => {
           const x0 = mapValue(
@@ -203,7 +194,7 @@ function CompanyPortalPreview({
               <text
                 x={x1 - 12}
                 y={y0 + 22}
-                fill="rgba(226,232,240,0.65)"
+                fill="var(--color-text-muted-val)"
                 fontSize="10"
                 textAnchor="end"
               >
@@ -235,7 +226,7 @@ function CompanyPortalPreview({
               cx={x}
               cy={y}
               r="4.5"
-              fill="rgba(255,255,255,0.9)"
+              fill="var(--color-surface-elevated-val)"
               opacity="0.88"
             />
           );
@@ -283,7 +274,7 @@ export function CompanySelectionPage({
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-surface text-white lg:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden bg-surface text-text-primary lg:flex-row">
       {creatingNew && (
         <CompanyCreationWizard
           mode="create-new"
@@ -295,16 +286,18 @@ export function CompanySelectionPage({
           onDismiss={() => setCreatingNew(false)}
         />
       )}
-      <aside className="flex shrink-0 flex-col border-white/8 bg-black/20 p-5 lg:w-[320px] lg:border-r">
+      <aside className="flex shrink-0 flex-col border-border-default bg-surface-elevated p-5 lg:w-[320px] lg:border-r">
         <div className="mb-4 flex items-center justify-between lg:mb-5">
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-slate-500">Companies</div>
-            <div className="mt-1 text-xl font-semibold text-white lg:mt-2 lg:text-2xl">Portal</div>
+            <div className="text-[11px] uppercase tracking-wider text-text-muted">Companies</div>
+            <div className="mt-1 text-xl font-semibold text-text-primary lg:mt-2 lg:text-2xl">
+              Portal
+            </div>
           </div>
           <button
             type="button"
             onClick={() => setCreatingNew(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-200 transition hover:border-blue-300/50 hover:bg-blue-500/15"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-focus bg-accent-muted px-3 text-sm font-medium text-accent-text transition hover:bg-surface-hover"
           >
             <FolderPlus className="h-4 w-4" />
             New
@@ -313,7 +306,7 @@ export function CompanySelectionPage({
 
         <div className="flex max-h-[32vh] flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none lg:space-y-3">
           {visibleCompanies.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-sm text-slate-400">
+            <div className="rounded-xl border border-dashed border-border-default bg-surface-muted p-5 text-sm text-text-secondary">
               No companies yet. Create one to start building your workspace.
             </div>
           ) : (
@@ -356,8 +349,8 @@ export function CompanySelectionPage({
           <section className="min-w-0">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <div className="text-[11px] uppercase tracking-wider text-slate-500">Preview</div>
-                <div className="mt-1 text-xl font-semibold text-white lg:mt-2 lg:text-2xl">
+                <div className="text-[11px] uppercase tracking-wider text-text-muted">Preview</div>
+                <div className="mt-1 text-xl font-semibold text-text-primary lg:mt-2 lg:text-2xl">
                   {selectedCompany?.name ?? 'Company Showcase'}
                 </div>
               </div>
@@ -372,19 +365,21 @@ export function CompanySelectionPage({
             </div>
           </section>
 
-          <aside className="rounded-2xl border border-white/10 bg-black/20 p-5">
-            <div className="text-[11px] uppercase tracking-wider text-slate-500">Company Brief</div>
+          <aside className="rounded-2xl border border-border-default bg-surface-elevated p-5">
+            <div className="text-[11px] uppercase tracking-wider text-text-muted">
+              Company Brief
+            </div>
             {selectedCompany ? (
               <>
                 <div className="mt-4 flex items-start gap-3">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-                    <Building2 className="h-5 w-5 text-blue-300" />
+                  <div className="rounded-xl border border-border-default bg-surface-muted p-3">
+                    <Building2 className="h-5 w-5 text-accent" />
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-xl font-semibold text-white">
+                    <div className="truncate text-xl font-semibold text-text-primary">
                       {selectedCompany.name}
                     </div>
-                    <div className="mt-1 text-sm text-slate-400">
+                    <div className="mt-1 text-sm text-text-secondary">
                       {selectedCompany.template_label ?? 'Custom company'}
                     </div>
                   </div>
@@ -397,29 +392,15 @@ export function CompanySelectionPage({
                   <InfoStat label="Assets" value={String(data?.prefabs.length ?? 0)} />
                 </div>
 
-                <div className="mt-6 rounded-xl border border-white/8 bg-white/[0.03] p-4">
-                  <div className="text-[11px] uppercase tracking-wider text-slate-500">Updated</div>
-                  <div className="mt-2 text-sm text-slate-300">
-                    {formatUpdatedAt(selectedCompany.updated_at)}
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.03] p-4">
-                  <div className="text-[11px] uppercase tracking-wider text-slate-500">
-                    Layout Signal
-                  </div>
-                  <div className="mt-2 text-sm text-slate-300">
-                    {data?.zones.length
-                      ? `This company currently exposes ${data.zones.length} zones and ${data.prefabs.length} placed assets.`
-                      : 'This company does not have a saved office layout yet.'}
-                  </div>
-                </div>
+                <p className="mt-4 text-[11px] text-text-muted">
+                  Updated {formatUpdatedAt(selectedCompany.updated_at)}
+                </p>
 
                 <div className="mt-6 space-y-3 pb-2">
                   <button
                     type="button"
                     onClick={() => onEnterCompany(selectedCompany.company_id)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-400"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-text-inverse transition hover:bg-accent-hover"
                   >
                     Enter Company
                     <ArrowRight className="h-4 w-4" />
@@ -429,15 +410,15 @@ export function CompanySelectionPage({
                     onClick={handleArchiveClick}
                     className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${
                       archiveArmed
-                        ? 'border-rose-400/40 bg-rose-500/10 text-rose-100 hover:border-rose-300/60 hover:bg-rose-500/15'
-                        : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.05]'
+                        ? 'border-error/40 bg-error-muted text-error hover:border-error'
+                        : 'border-border-default bg-surface-muted text-text-secondary hover:border-border-strong hover:bg-surface-hover'
                     }`}
                   >
                     <Archive className="h-4 w-4" />
                     {archiveArmed ? 'Confirm Archive' : 'Archive Company'}
                   </button>
                   {archiveArmed && (
-                    <p className="rounded-xl border border-rose-400/20 bg-rose-500/8 px-4 py-3 text-xs leading-relaxed text-rose-100">
+                    <p className="rounded-xl border border-error/30 bg-error-muted px-4 py-3 text-xs leading-relaxed text-error">
                       Archive {selectedCompany.name}? The company will be removed from the active
                       list.
                     </p>
@@ -445,7 +426,7 @@ export function CompanySelectionPage({
                 </div>
               </>
             ) : (
-              <div className="mt-6 rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-sm text-slate-400">
+              <div className="mt-6 rounded-xl border border-dashed border-border-default bg-surface-muted p-5 text-sm text-text-secondary">
                 Pick a company on the left to inspect its layout, or create a new company.
               </div>
             )}
@@ -508,8 +489,8 @@ function CompanyRow({
       }}
       className={`group w-full rounded-xl border p-3 text-left transition lg:p-4 ${
         isPreview
-          ? 'border-blue-400/40 bg-blue-500/10 shadow-glow-accent'
-          : 'border-white/8 bg-white/[0.03] hover:border-white/14 hover:bg-white/[0.05]'
+          ? 'border-border-focus bg-accent-muted shadow-glow-accent'
+          : 'border-border-default bg-surface hover:border-border-strong hover:bg-surface-hover'
       } ${isRenaming ? 'cursor-default' : 'cursor-pointer'}`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -532,13 +513,13 @@ function CompanyRow({
                 }
               }}
               onBlur={() => void onCommitRename(draftName)}
-              className="w-full rounded-md border border-blue-400/40 bg-slate-950/80 px-2 py-1 text-base font-semibold text-white outline-none focus:border-blue-300/70"
+              className="w-full rounded-md border border-border-focus bg-surface px-2 py-1 text-base font-semibold text-text-primary outline-none focus:border-accent"
               aria-label={`Rename ${company.name}`}
             />
           ) : (
-            <div className="truncate text-base font-semibold text-white">{company.name}</div>
+            <div className="truncate text-base font-semibold text-text-primary">{company.name}</div>
           )}
-          <div className="mt-1 text-xs uppercase tracking-wider text-slate-500">
+          <div className="mt-1 text-xs uppercase tracking-wider text-text-muted">
             {company.template_label ?? 'Custom Layout'}
           </div>
         </div>
@@ -550,7 +531,7 @@ function CompanyRow({
                 e.stopPropagation();
                 onStartRename();
               }}
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-white/8 text-slate-400 opacity-0 transition hover:bg-white/10 hover:text-white group-hover:opacity-100 focus:opacity-100"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-border-subtle text-text-muted opacity-0 transition hover:bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus:opacity-100"
               title="Rename company"
               aria-label={`Rename ${company.name}`}
             >
@@ -558,13 +539,13 @@ function CompanyRow({
             </button>
           )}
           {isActive && (
-            <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+            <span className="rounded-full border border-success/30 bg-success-muted px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-success">
               Active
             </span>
           )}
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-4 text-xs text-slate-400 lg:mt-4">
+      <div className="mt-3 flex items-center gap-4 text-xs text-text-secondary lg:mt-4">
         <span className="inline-flex items-center gap-1.5">
           <Users className="h-3.5 w-3.5" />
           {summary.employeeCount}
@@ -580,9 +561,28 @@ function CompanyRow({
 
 function InfoStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
-      <div className="text-[11px] uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
+    <div className="rounded-xl border border-border-subtle bg-surface-muted p-4">
+      <div className="text-[11px] uppercase tracking-wider text-text-muted">{label}</div>
+      <div className="mt-2 text-2xl font-semibold text-text-primary">{value}</div>
+    </div>
+  );
+}
+
+function PreviewState({
+  title,
+  description,
+  dashed,
+}: { title: string; description: string; dashed?: boolean }) {
+  return (
+    <div
+      className={`flex h-full items-center justify-center rounded-2xl border bg-surface-muted ${
+        dashed ? 'border-dashed border-border-default' : 'border-border-default'
+      }`}
+    >
+      <div className="px-8 text-center">
+        <div className="text-xl font-semibold text-text-primary">{title}</div>
+        <p className="mt-2 text-sm text-text-secondary">{description}</p>
+      </div>
     </div>
   );
 }

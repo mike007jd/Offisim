@@ -51,7 +51,7 @@ export function SopLibraryBar({
   }, [confirmDelete, onDelete]);
 
   return (
-    <div className="h-10 shrink-0 flex items-center gap-1.5 px-3 border-b border-white/5 bg-slate-900/40">
+    <div className="flex h-10 shrink-0 items-center gap-1.5 border-b border-border-default bg-surface-elevated px-3">
       {onToggleSidebar && (
         <Button
           variant="ghost"
@@ -86,7 +86,7 @@ export function SopLibraryBar({
         <Button
           variant="outline"
           size="sm"
-          className={`gap-1 h-7 text-xs ${confirmDelete ? 'text-red-400 border-red-400/30' : ''}`}
+          className={`h-7 gap-1 text-xs ${confirmDelete ? 'border-error text-error' : ''}`}
           onClick={handleDelete}
         >
           <Trash2 className="w-3 h-3" />
@@ -106,7 +106,7 @@ export function SopLibraryBar({
         <Button
           variant="outline"
           size="sm"
-          className={`gap-1 h-7 text-xs ${editMode ? 'text-amber-300 border-amber-400/30 bg-amber-500/10' : ''}`}
+          className={`h-7 gap-1 text-xs ${editMode ? 'border-warning bg-warning-muted text-warning' : ''}`}
           onClick={onEditModeToggle}
         >
           <Pencil className="w-3 h-3" />

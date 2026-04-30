@@ -5,7 +5,7 @@
 ```bash
 pnpm install          # 安装依赖 (pnpm 10+, Node 20+)
 pnpm build            # 全量构建 (turbo, 顺序: shared-types → core → renderer/db-*/doc-engine/... → ui-office → apps)
-pnpm typecheck        # 全量类型检查 (16 packages)
+pnpm typecheck        # 全量类型检查 (11 packages + 4 apps)
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
 pnpm format           # Biome format
@@ -159,7 +159,7 @@ catalog/
 - **`packages/ui-office/CLAUDE.md`** — Workspace IA, Navigation, UI/Scene/3D, Prefab 双文件
 - **`apps/platform/CLAUDE.md`** — Platform API, 测试 mock 模式
 
-### Cross-Cutting Facts (2026-04-11 audit)
+### Cross-Cutting Facts
 
 - **desktop 内置 MCP bridge**: `lib.rs` 注册 `mcp_bridge::init()` — desktop 有 web 没有的 MCP 能力。本地 SQLite 现在是未上线口径的单基线 schema：`packages/db-local/src/schema.sql`，desktop 启动时由 `local_db.rs` 直接 bootstrap，不保留 migration 链。
 - **desktop 是纯 Tauri 壳**: 零 npm deps, frontendDist 直接指 `../../web/dist`
@@ -170,6 +170,7 @@ catalog/
 - **本地工具路由 SSOT**: `packages/core/src/agents/task-tool-intent.ts`（`detectTaskToolIntent` + `evidenceToolsForIntent`）。boss / pm-planner preflight / yolo / direct-setup 在入口算一次存到 `state.taskToolIntent`，下游消费 state field（不许再 grep 文本）。Bare-noun / narrative prose 不触发；只接 verb+object pairs / 显式 tool tokens / 中文 imperative。
 - **路由 rebind 事件**: `task.assignment.rerouted`（`shared-types/events/task.ts`），`source: 'manager' | 'pm-planner'`，`reason: 'requires-local-tools' | 'employee-not-found' | 'employee-disabled' | 'no-recommendation-fallback'`。manager 把 LLM-picked external 过滤掉时、`pm-planner/sanitize-rebind.ts` 换 missing/disabled 员工时都要 emit + `logger.info` 镜像。activity feed 形态：连续 3+ 同 source+reason+taskRunId collapse 成一行 `×N` badge。
 - **Tauri bounded preview IPC**: `project_read_file_preview(path, cwd, max_bytes)` Rust hardcap 64 KB + UTF-8 boundary walk-back。文件树 UI（`ProjectWorkspaceFiles.tsx`）只能用这个，不准调 `project_read_file`（那是 agent tool lane unbounded 入口）。
+- **Desktop builtin tool sandbox**: 实现在 `apps/desktop/src-tauri/src/builtin_tools.rs`（commit `3f618ce9`），暴露给 employee / YOLO tool pool 的 `read_file` / `write_file` / `bash` 都受 workspace_root 约束 + 硬上限：read 8 MB / write 8 MB / bash 默认输出 1 MB / preview 64 KB。这些 builtin **只在 `gateway` lane 注入**（commit `50c1e296`），SDK lane 永远拿不到。
 - **doc-engine 的 xlsx** 走 `package.json` 里的 `"xlsx": "https://cdn.sheetjs.com/..tgz"` (install-time 拉, 非 npm registry) — SheetJS 许可原因
 - **仓库已无产品级自动 gate**: 不再保留 husky / 产品 typecheck / 产品 test / 旧 smoke 自动校验链。产品验收走 live agent。
 - **2026-04-14 起产品自动测试策略作废**: 过去的 `vitest` / `playwright` / `__VAULT_SMOKE__` / auto-smoke 链已删除。runtime / UI / vault / Tauri 问题走 live agent，不要重建那一套。

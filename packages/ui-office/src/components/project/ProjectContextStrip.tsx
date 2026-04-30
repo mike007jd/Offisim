@@ -40,18 +40,18 @@ export function ProjectContextStrip({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-white/8 bg-white/3 px-3 py-1.5 text-xs text-slate-300">
-      <span className="text-slate-500">Project</span>
-      <span className="text-slate-500">·</span>
+    <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle bg-surface-muted px-3 py-1.5 text-xs text-text-secondary">
+      <span className="text-text-muted">Project</span>
+      <span className="text-text-muted">·</span>
       <span
-        className="font-medium text-slate-100 truncate max-w-[160px]"
+        className="max-w-[160px] truncate font-medium text-text-primary"
         title={activeProject.name}
       >
         {activeProject.name}
       </span>
-      <span className="text-slate-500">·</span>
+      <span className="text-text-muted">·</span>
       <span
-        className={`truncate max-w-[280px] ${folder ? 'text-slate-300' : 'text-slate-500'}`}
+        className={`max-w-[280px] truncate ${folder ? 'text-text-secondary' : 'text-text-muted'}`}
         title={folder ?? 'No folder bound'}
       >
         {hint}
@@ -62,7 +62,7 @@ export function ProjectContextStrip({
             type="button"
             onClick={handleOpenFolder}
             disabled={opening}
-            className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-200 transition-colors hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md border border-border-default bg-surface px-2 py-0.5 text-[11px] text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50"
             title="Open in OS file manager"
           >
             <FolderOpen className="h-3 w-3" />
@@ -73,7 +73,7 @@ export function ProjectContextStrip({
         <button
           type="button"
           onClick={() => onRequestEdit(activeProject)}
-          className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-200 transition-colors hover:border-white/20 hover:bg-white/10"
+          className="inline-flex items-center gap-1 rounded-md border border-border-default bg-surface px-2 py-0.5 text-[11px] text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
           title="Edit project"
         >
           <Pencil className="h-3 w-3" />

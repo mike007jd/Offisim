@@ -2,10 +2,10 @@ import { Activity, Sparkles, TerminalSquare, Wrench } from 'lucide-react';
 import { useRuntimeActivityFeed } from '../../runtime/use-runtime-activity-feed';
 
 const ENTRY_STYLES = {
-  info: 'border-cyan-400/20 bg-cyan-400/8 text-cyan-100',
-  success: 'border-emerald-400/20 bg-emerald-400/8 text-emerald-100',
-  warning: 'border-amber-400/20 bg-amber-400/8 text-amber-100',
-  error: 'border-rose-400/20 bg-rose-400/8 text-rose-100',
+  info: 'border-info/30 bg-info-muted text-info',
+  success: 'border-success/30 bg-success-muted text-success',
+  warning: 'border-warning/30 bg-warning-muted text-warning',
+  error: 'border-error/30 bg-error-muted text-error',
 } as const;
 
 function formatCost(totalCostUsd: number | null): string | null {
@@ -28,7 +28,7 @@ export function ActivityRail({
 
   if (!hasActivity) {
     return variant === 'compact' ? null : (
-      <div className="mb-2 rounded-2xl border border-white/8 bg-white/3 px-3 py-2 text-[11px] text-slate-500">
+      <div className="mb-2 rounded-2xl border border-border-subtle bg-surface-muted px-3 py-2 text-[11px] text-text-muted">
         Run a task to see live activity here.
       </div>
     );
@@ -42,46 +42,46 @@ export function ActivityRail({
 
   if (variant === 'compact') {
     return (
-      <div className="mb-2 rounded-2xl border border-white/8 bg-white/4 px-3 py-2">
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-200">
-          <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-cyan-100">
+      <div className="mb-2 rounded-2xl border border-border-subtle bg-surface-muted px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-secondary">
+          <span className="inline-flex items-center gap-1 rounded-full border border-info/30 bg-info-muted px-2 py-0.5 text-info">
             <Activity className="h-3 w-3 animate-pulse" />
             <span className="font-medium">{headline ?? 'Runtime active'}</span>
           </span>
           {costLabel && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-violet-400/20 bg-violet-400/10 px-2 py-0.5 text-violet-100">
+            <span className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent-muted px-2 py-0.5 text-accent">
               <Sparkles className="h-3 w-3" />
               <span>{costLabel}</span>
             </span>
           )}
           {focusedEmployeeId && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-blue-100">
+            <span className="inline-flex items-center gap-1 rounded-full border border-border-default bg-surface-elevated px-2 py-0.5 text-text-secondary">
               <span className="font-medium">Focus: {focusedEmployeeName ?? focusedEmployeeId}</span>
             </span>
           )}
         </div>
         {latestEntry && (
-          <p className="mt-2 truncate text-[11px] text-slate-400">{latestEntry.label}</p>
+          <p className="mt-2 truncate text-[11px] text-text-muted">{latestEntry.label}</p>
         )}
       </div>
     );
   }
 
   return (
-    <div className="mb-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 shadow-overlay">
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-200">
-        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-cyan-100">
+    <div className="mb-2 rounded-2xl border border-border-subtle bg-surface-muted px-3 py-2 shadow-overlay">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-secondary">
+        <span className="inline-flex items-center gap-1 rounded-full border border-info/30 bg-info-muted px-2 py-0.5 text-info">
           <Activity className="h-3 w-3 animate-pulse" />
           <span className="font-medium">{headline ?? 'Runtime active'}</span>
         </span>
         {costLabel && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-violet-400/20 bg-violet-400/10 px-2 py-0.5 text-violet-100">
+          <span className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent-muted px-2 py-0.5 text-accent">
             <Sparkles className="h-3 w-3" />
             <span>{costLabel}</span>
           </span>
         )}
         {focusedEmployeeId && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-blue-100">
+          <span className="inline-flex items-center gap-1 rounded-full border border-border-default bg-surface-elevated px-2 py-0.5 text-text-secondary">
             <span className="font-medium">Focus: {focusedEmployeeName ?? focusedEmployeeId}</span>
           </span>
         )}
@@ -92,11 +92,11 @@ export function ActivityRail({
           {activeTools.map((tool) => (
             <span
               key={tool.toolCallId}
-              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[11px] text-emerald-100"
+              className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-muted px-2 py-1 text-[11px] text-success"
             >
               <Wrench className="h-3 w-3" />
               <span className="font-medium">{tool.label}</span>
-              <span className="rounded-full bg-black/20 px-1.5 py-px font-mono text-[10px] text-emerald-200/80">
+              <span className="rounded-full bg-surface-elevated px-1.5 py-px font-mono text-[10px] text-success">
                 {tool.elapsedSeconds}s
               </span>
             </span>

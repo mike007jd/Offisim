@@ -24,10 +24,10 @@ function LoadingSkeleton({ eyebrow, title }: { eyebrow: string; title: string })
         <h1 className="workspace-shell-title">{title}</h1>
       </header>
       <div className="workspace-shell-loading-region px-6 py-6 space-y-4">
-        <div className="h-4 w-3/4 rounded bg-white/5 animate-pulse" />
-        <div className="h-4 w-1/2 rounded bg-white/5 animate-pulse" />
-        <div className="h-32 w-full rounded-lg bg-white/5 animate-pulse" />
-        <div className="h-4 w-2/3 rounded bg-white/5 animate-pulse" />
+        <div className="h-4 w-3/4 animate-pulse rounded bg-surface-muted" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-surface-muted" />
+        <div className="h-32 w-full animate-pulse rounded-lg bg-surface-muted" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-surface-muted" />
       </div>
     </div>
   );
@@ -39,8 +39,8 @@ function ErrorState({ message }: { message: string }) {
       data-testid="workspace-error"
       className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center"
     >
-      <AlertCircle className="h-8 w-8 text-red-400/80" />
-      <p className="max-w-md text-sm text-red-300/90">{message}</p>
+      <AlertCircle className="h-8 w-8 text-error" />
+      <p className="max-w-md text-sm text-error">{message}</p>
     </div>
   );
 }

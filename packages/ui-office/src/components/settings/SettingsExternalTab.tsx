@@ -162,8 +162,8 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">External Employees</h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <h2 className="text-lg font-semibold text-text-primary">External Employees</h2>
+          <p className="mt-1 text-sm text-text-secondary">
             Branded A2A agents connected to this company. Offisim dispatches tasks over JSON-RPC
             using each agent card.
           </p>
@@ -174,15 +174,15 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
       </div>
 
       {isLoading && rows.length === 0 && (
-        <div className="flex items-center gap-2 text-sm text-slate-400">
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </div>
       )}
 
       {!isLoading && rows.length === 0 && (
-        <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-6 py-10 text-center">
-          <p className="text-sm font-semibold text-slate-200">No external employees yet</p>
-          <p className="mt-1 text-xs text-slate-500">
+        <div className="rounded-lg border border-dashed border-border-default bg-surface-muted px-6 py-10 text-center">
+          <p className="text-sm font-semibold text-text-primary">No external employees yet</p>
+          <p className="mt-1 text-xs text-text-muted">
             Connect an A2A endpoint to add a branded external employee.
           </p>
         </div>
@@ -197,7 +197,7 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
           return (
             <li
               key={row.employee_id}
-              className="rounded-lg border border-white/10 bg-white/[0.03] p-4"
+              className="rounded-lg border border-border-default bg-surface-elevated p-4"
             >
               <div className="flex items-start gap-3">
                 <img
@@ -207,15 +207,15 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-100">{row.name}</p>
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-300">
+                    <p className="truncate text-sm font-semibold text-text-primary">{row.name}</p>
+                    <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary">
                       {brand.displayName}
                     </span>
-                    <span className="text-[11px] text-slate-500">role: {row.role_slug}</span>
+                    <span className="text-[11px] text-text-muted">role: {row.role_slug}</span>
                   </div>
-                  <p className="mt-1 truncate text-xs text-slate-400">{row.a2a_url ?? '—'}</p>
+                  <p className="mt-1 truncate text-xs text-text-secondary">{row.a2a_url ?? '—'}</p>
                   {card?.name && card.name !== row.name && (
-                    <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                    <p className="mt-0.5 truncate text-[11px] text-text-muted">
                       agent card: {card.name}
                       {card.version ? ` · v${card.version}` : ''}
                     </p>
@@ -266,10 +266,10 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
               </div>
 
               {isEditing && (
-                <div className="mt-3 flex items-end gap-2 rounded-lg border border-white/10 bg-black/20 p-3">
+                <div className="mt-3 flex items-end gap-2 rounded-lg border border-border-default bg-surface-muted p-3">
                   <div className="flex-1">
                     <label
-                      className="text-[11px] uppercase tracking-wide text-slate-400"
+                      className="text-[11px] uppercase tracking-wide text-text-muted"
                       htmlFor={`token-${row.employee_id}`}
                     >
                       Bearer token

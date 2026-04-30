@@ -162,8 +162,8 @@ function extractEmployeeId(event: RuntimeEvent): string | null {
 
 export const LEVEL_ROW_STYLES: Record<EventDisplayLevel, string> = {
   Info: '',
-  Warning: 'border-l-2 border-amber-400 bg-amber-400/5',
-  Error: 'border-l-2 border-red-400 bg-red-400/5',
+  Warning: 'border-l-2 border-warning bg-warning-muted',
+  Error: 'border-l-2 border-error bg-error-muted',
 };
 
 export function EventLog() {
@@ -241,13 +241,13 @@ export function EventLog() {
   );
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <h2 className="text-[8px] uppercase tracking-wider text-slate-400 p-3 pb-1">Event Log</h2>
+    <div className="flex h-full flex-col overflow-hidden bg-surface-elevated text-text-primary">
+      <h2 className="p-3 pb-1 text-[8px] uppercase tracking-wider text-text-secondary">Event Log</h2>
       <EventFilters onFilterChange={setFilters} />
       <ScrollArea className="flex-1">
         <div ref={scrollRef}>
           {filteredEvents.length === 0 ? (
-            <div className="p-3 text-xs text-slate-500">
+            <div className="p-3 text-xs text-text-muted">
               {events.length === 0 ? 'No events yet' : 'No events match filters'}
             </div>
           ) : (
@@ -260,7 +260,7 @@ export function EventLog() {
                   key={`${event.timestamp}-${i}`}
                   role={clickable ? 'button' : undefined}
                   tabIndex={clickable ? 0 : undefined}
-                  className={`${rowStyle} ${clickable ? 'cursor-pointer hover:bg-blue-500/5' : ''}`}
+                  className={`${rowStyle} ${clickable ? 'cursor-pointer hover:bg-surface-hover' : ''}`}
                   onClick={clickable ? () => handleEmployeeClick(employeeId) : undefined}
                   onKeyDown={
                     clickable

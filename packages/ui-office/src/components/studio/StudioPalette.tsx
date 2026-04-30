@@ -6,19 +6,19 @@
  */
 
 import { getAllBuiltinPrefabs } from '@offisim/renderer';
-import type { PrefabDefinition, SemanticCategory } from '@offisim/shared-types';
-import type { ZonePreset } from '@offisim/shared-types';
+import type { PrefabDefinition, SemanticCategory, Zone } from '@offisim/shared-types';
 import { ZONE_PRESET_GROUPS, isRequiredArchetype } from '@offisim/shared-types';
-import { BookOpen, Cpu, Leaf, Lock, Monitor, Server, Users } from 'lucide-react';
+import { BookOpen, Cpu, Leaf, Monitor, Pencil, Plus, Server, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PrefabThumbnail } from './PrefabThumbnail.js';
+import { StudioPaletteCategoryHeader } from './StudioPaletteCategoryHeader.js';
+import { StudioPalettePrefabCard } from './StudioPalettePrefabCard.js';
+import { StudioPaletteZonePresetCard } from './StudioPaletteZonePresetCard.js';
 import { useStudioStore } from './StudioState.js';
 import {
   FONT,
   LAYOUT,
   SP,
   STUDIO_COLORS,
-  STUDIO_TRANSITION,
   panelStyle,
   sectionHeaderStyle,
 } from './studio-style-helpers.js';
@@ -41,15 +41,6 @@ const CATEGORIES: CategoryMeta[] = [
   { id: 'decorative', label: 'Decorative', Icon: Leaf, colorKey: 'catDecorative' },
 ];
 
-const CATEGORY_COLOR_MAP: Record<SemanticCategory, string> = {
-  workspace: STUDIO_COLORS.catWorkspace,
-  compute: STUDIO_COLORS.catCompute,
-  knowledge: STUDIO_COLORS.catKnowledge,
-  collaboration: STUDIO_COLORS.catCollaboration,
-  infrastructure: STUDIO_COLORS.catInfrastructure,
-  decorative: STUDIO_COLORS.catDecorative,
-};
-
 // -- Styles -------------------------------------------------------------------
 
 const LIST_STYLE: React.CSSProperties = {
@@ -71,12 +62,12 @@ export function StudioPalette() {
       : null,
   );
 
-  const [activeTab, setActiveTab] = useState<'assets' | 'zones'>('assets');
+  const [activeTab, setActiveTab] = useState<'assets' | 'zones'>('zones');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  // Auto-switch to assets tab when entering Edit Zone mode
+  // Overview is zone-first; assets appear only after entering a zone.
   useEffect(() => {
-    if (isEditingZone) setActiveTab('assets');
+    setActiveTab(isEditingZone ? 'assets' : 'zones');
   }, [isEditingZone]);
 
   // Filter categories when in Edit Zone mode by allowedCategories. Empty / undefined
@@ -118,58 +109,8 @@ export function StudioPalette() {
             : 'Zones'}
       </div>
 
-      {/* Tab bar — Zones tab disabled in Edit Zone mode */}
-      <div
-        style={{
-          display: 'flex',
-          borderBottom: `1px solid ${STUDIO_COLORS.border}`,
-          flexShrink: 0,
-        }}
-      >
-        {(['assets', 'zones'] as const).map((tab) => {
-          const isActive = activeTab === tab;
-          const isZonesDisabled = isEditingZone && tab === 'zones';
-          return (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => {
-                if (isZonesDisabled) return;
-                setActiveTab(tab);
-              }}
-              disabled={isZonesDisabled}
-              title={isZonesDisabled ? 'Available outside zone edit' : undefined}
-              style={{
-                flex: 1,
-                padding: `${SP.sm}px ${SP.md}px`,
-                background: 'transparent',
-                border: 'none',
-                borderBottom: isActive
-                  ? `2px solid ${STUDIO_COLORS.accent}`
-                  : '2px solid transparent',
-                cursor: isZonesDisabled ? 'not-allowed' : 'pointer',
-                fontSize: FONT.sm,
-                fontWeight: isActive ? FONT.semibold : FONT.normal,
-                color: isZonesDisabled
-                  ? STUDIO_COLORS.textDisabled
-                  : isActive
-                    ? STUDIO_COLORS.textPrimary
-                    : STUDIO_COLORS.textTertiary,
-                opacity: isZonesDisabled ? 0.55 : 1,
-                fontFamily: FONT.family,
-                letterSpacing: 0,
-                transition: STUDIO_TRANSITION.colorBorderFast,
-                textTransform: 'capitalize' as const,
-              }}
-            >
-              {tab === 'assets' ? 'Assets' : 'Zones'}
-            </button>
-          );
-        })}
-      </div>
-
       {/* Tab content */}
-      {activeTab === 'assets' ? (
+      {isEditingZone && activeTab === 'assets' ? (
         <div style={LIST_STYLE}>
           {isEditingZone &&
             focusedZone &&
@@ -194,53 +135,13 @@ export function StudioPalette() {
 
             return (
               <div key={cat.id}>
-                {/* Category header */}
-                <button
-                  type="button"
+                <StudioPaletteCategoryHeader
+                  collapsed={isCollapsed}
                   onClick={() => toggleCategory(cat.id)}
-                  aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${cat.label} category (${items.length} items)`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: SP.sm,
-                    width: '100%',
-                    padding: `${SP.sm}px ${SP.md}px`,
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontSize: FONT.base,
-                    fontWeight: FONT.bold,
-                    color: STUDIO_COLORS.textSecondary,
-                    fontFamily: FONT.family,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: FONT.xs,
-                      color: STUDIO_COLORS.textTertiary,
-                      transition: STUDIO_TRANSITION.transformFast,
-                      transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-                      display: 'inline-block',
-                    }}
-                  >
-                    ▼
-                  </span>
-                  <cat.Icon size={12} style={{ color: catColor }} />
-                  <span>{cat.label}</span>
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: FONT.xs,
-                      color: STUDIO_COLORS.textTertiary,
-                      fontWeight: FONT.medium,
-                    }}
-                  >
-                    {items.length}
-                  </span>
-                </button>
-
-                {/* Grid of prefab cards */}
+                  icon={<cat.Icon size={12} style={{ color: catColor }} />}
+                  label={cat.label}
+                  count={items.length}
+                />
                 {!isCollapsed && (
                   <div
                     style={{
@@ -253,7 +154,7 @@ export function StudioPalette() {
                     {items.map((prefab) => {
                       const isActive = isPlacing && placingPrefab?.prefabId === prefab.prefabId;
                       return (
-                        <PrefabCard
+                        <StudioPalettePrefabCard
                           key={prefab.prefabId}
                           definition={prefab}
                           isActive={isActive}
@@ -268,75 +169,111 @@ export function StudioPalette() {
           })}
         </div>
       ) : (
-        <div style={LIST_STYLE}>
+        <ZoneOverview collapsed={collapsed} onToggleCategory={toggleCategory} />
+      )}
+    </div>
+  );
+}
+
+function ZoneOverview({
+  collapsed,
+  onToggleCategory,
+}: {
+  collapsed: Record<string, boolean>;
+  onToggleCategory: (catId: string) => void;
+}) {
+  const zones = useStudioStore((s) => s.zones);
+  const instances = useStudioStore((s) => s.instances);
+  const selectedZoneId = useStudioStore((s) => s.selectedZoneId);
+  const selectZone = useStudioStore((s) => s.selectZone);
+  const enterEditZone = useStudioStore((s) => s.enterEditZone);
+  const startZonePlacement = useStudioStore((s) => s.startZonePlacement);
+  const [showPresets, setShowPresets] = useState(false);
+
+  const sortedZones = useMemo(
+    () => [...zones].sort((a, b) => a.sortOrder - b.sortOrder),
+    [zones],
+  );
+  const instanceCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const instance of instances) {
+      counts.set(instance.zoneId, (counts.get(instance.zoneId) ?? 0) + 1);
+    }
+    return counts;
+  }, [instances]);
+
+  return (
+    <div style={LIST_STYLE}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: SP.sm, padding: SP.sm }}>
+        <button
+          type="button"
+          onClick={() => setShowPresets((open) => !open)}
+          aria-expanded={showPresets}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: SP.xs,
+            minHeight: 32,
+            borderRadius: LAYOUT.cardRadius,
+            border: `1px solid ${STUDIO_COLORS.borderActive}`,
+            background: STUDIO_COLORS.accentMuted,
+            color: STUDIO_COLORS.accentText,
+            fontSize: FONT.sm,
+            fontWeight: FONT.bold,
+            fontFamily: FONT.family,
+            cursor: 'pointer',
+          }}
+        >
+          <Plus size={14} />
+          Add Zone
+        </button>
+
+        {sortedZones.length === 0 ? (
+          <div
+            style={{
+              border: `1px dashed ${STUDIO_COLORS.borderSubtle}`,
+              borderRadius: LAYOUT.cardRadius,
+              padding: SP.md,
+              color: STUDIO_COLORS.textTertiary,
+              fontSize: FONT.sm,
+              textAlign: 'center',
+              fontFamily: FONT.family,
+            }}
+          >
+            No zones yet.
+          </div>
+        ) : (
+          sortedZones.map((zone) => (
+            <ZoneOverviewRow
+              key={zone.zoneId}
+              zone={zone}
+              itemCount={instanceCounts.get(zone.zoneId) ?? 0}
+              selected={zone.zoneId === selectedZoneId}
+              onSelect={() => selectZone(zone.zoneId)}
+              onEdit={() => enterEditZone(zone.zoneId)}
+            />
+          ))
+        )}
+      </div>
+
+      {showPresets && (
+        <div style={{ borderTop: `1px solid ${STUDIO_COLORS.borderSubtle}`, paddingTop: SP.xs }}>
           {ZONE_PRESET_GROUPS.map((group) => {
             const isCollapsed = collapsed[`zone-${group.archetype}`] ?? false;
             const required = isRequiredArchetype(group.archetype);
 
             return (
               <div key={group.archetype}>
-                {/* Group header */}
-                <button
-                  type="button"
-                  onClick={() => toggleCategory(`zone-${group.archetype}`)}
-                  aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${group.label} zone group (${group.presets.length} presets)`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: SP.sm,
-                    width: '100%',
-                    padding: `${SP.sm}px ${SP.md}px`,
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontSize: FONT.base,
-                    fontWeight: FONT.bold,
-                    color: STUDIO_COLORS.textSecondary,
-                    fontFamily: FONT.family,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: FONT.xs,
-                      color: STUDIO_COLORS.textTertiary,
-                      transition: STUDIO_TRANSITION.transformFast,
-                      transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-                      display: 'inline-block',
-                    }}
-                  >
-                    ▼
-                  </span>
-                  <span style={{ fontSize: FONT.base }}>{group.icon}</span>
-                  <span>{group.label}</span>
-                  {required && (
-                    <span
-                      style={{
-                        fontSize: FONT.xs,
-                        fontWeight: FONT.semibold,
-                        color: STUDIO_COLORS.warning,
-                        background: STUDIO_COLORS.warningMuted,
-                        borderRadius: 10,
-                        padding: `1px ${SP.xs}px`,
-                        letterSpacing: 0.3,
-                      }}
-                    >
-                      REQUIRED
-                    </span>
-                  )}
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: FONT.xs,
-                      color: STUDIO_COLORS.textTertiary,
-                      fontWeight: FONT.medium,
-                    }}
-                  >
-                    {group.presets.length}
-                  </span>
-                </button>
-
-                {/* Zone preset cards */}
+                <StudioPaletteCategoryHeader
+                  collapsed={isCollapsed}
+                  onClick={() => onToggleCategory(`zone-${group.archetype}`)}
+                  icon={<span style={{ fontSize: FONT.base }}>{group.icon}</span>}
+                  label={group.label}
+                  count={group.presets.length}
+                  required={required}
+                  ariaLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${group.label} zone group (${group.presets.length} presets)`}
+                />
                 {!isCollapsed && (
                   <div
                     style={{
@@ -347,7 +284,15 @@ export function StudioPalette() {
                     }}
                   >
                     {group.presets.map((preset) => (
-                      <ZonePresetCard key={preset.id} preset={preset} isRequired={required} />
+                      <StudioPaletteZonePresetCard
+                        key={preset.id}
+                        preset={preset}
+                        isRequired={required}
+                        onStartPlacement={() => {
+                          startZonePlacement(preset);
+                          setShowPresets(false);
+                        }}
+                      />
                     ))}
                   </div>
                 )}
@@ -360,200 +305,108 @@ export function StudioPalette() {
   );
 }
 
-// -- Prefab card (icon grid item) ---------------------------------------------
-
-function PrefabCard({
-  definition,
-  isActive,
+function ZoneOverviewRow({
+  zone,
+  itemCount,
+  selected,
   onSelect,
+  onEdit,
 }: {
-  definition: PrefabDefinition;
-  isActive: boolean;
+  zone: Zone;
+  itemCount: number;
+  selected: boolean;
   onSelect: () => void;
+  onEdit: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const color = CATEGORY_COLOR_MAP[definition.category] ?? STUDIO_COLORS.textSecondary;
-
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      aria-label={`Place ${definition.name} (${definition.gridSize[0]}x${definition.gridSize[1]})`}
-      title={`${definition.name} (${definition.gridSize[0]}x${definition.gridSize[1]})`}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        padding: `${SP.sm}px ${SP.xs}px ${SP.xs}px`,
-        borderRadius: LAYOUT.cardRadius,
-        background: isActive
-          ? STUDIO_COLORS.accentMuted
-          : hovered
-            ? STUDIO_COLORS.surface2
-            : STUDIO_COLORS.surface1,
-        border: isActive
-          ? `1px solid ${STUDIO_COLORS.borderActive}`
-          : `1px solid ${STUDIO_COLORS.borderSubtle}`,
-        cursor: 'pointer',
-        fontFamily: FONT.family,
-        transition: STUDIO_TRANSITION.allFast,
-      }}
-    >
-      <PrefabThumbnail
-        prefabId={definition.prefabId}
-        size={32}
-        color={isActive ? STUDIO_COLORS.accentText : color}
-      />
-      <span
-        style={{
-          fontSize: 8,
-          fontWeight: FONT.medium,
-          color: isActive ? STUDIO_COLORS.accentText : STUDIO_COLORS.textTertiary,
-          textAlign: 'center',
-          lineHeight: 1.15,
-          overflow: 'hidden',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical' as const,
-          wordBreak: 'break-word' as const,
-          width: '100%',
-        }}
-      >
-        {definition.name}
-      </span>
-    </button>
-  );
-}
-
-// -- Zone preset card ---------------------------------------------------------
-
-function ZonePresetCard({
-  preset,
-  isRequired,
-}: {
-  preset: ZonePreset;
-  isRequired: boolean;
-}) {
-  const [hovered, setHovered] = useState(false);
-
-  const handleClick = () => {
-    useStudioStore.getState().startZonePlacement(preset);
-  };
-
-  const sizeLabel = `${preset.w}x${preset.d}`;
-  const itemsLabel = `${preset.prefabs.length} items`;
-  const desksLabel = preset.deskSlots > 0 ? `${preset.deskSlots} desks` : null;
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      aria-label={`Place ${preset.label} zone (${sizeLabel})`}
-      title={preset.description}
+    <div
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: SP.sm,
-        padding: `${SP.sm}px ${SP.xs}px`,
+        minHeight: 44,
         borderRadius: LAYOUT.cardRadius,
-        background: hovered ? STUDIO_COLORS.surface2 : STUDIO_COLORS.surface1,
-        border: `1px solid ${STUDIO_COLORS.borderSubtle}`,
-        cursor: 'pointer',
+        border: `1px solid ${selected ? STUDIO_COLORS.borderActive : STUDIO_COLORS.borderSubtle}`,
+        background: selected ? STUDIO_COLORS.accentMuted : STUDIO_COLORS.surface1,
+        padding: `${SP.xs}px ${SP.sm}px`,
         fontFamily: FONT.family,
-        textAlign: 'left',
-        transition: STUDIO_TRANSITION.allFast,
-        width: '100%',
       }}
     >
-      {/* Color swatch with optional lock overlay */}
-      <div
+      <button
+        type="button"
+        onClick={onSelect}
         style={{
-          position: 'relative',
-          flexShrink: 0,
-          width: 28,
-          height: 28,
-          borderRadius: 4,
-          background: preset.accentColor,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
+          gap: SP.sm,
+          minWidth: 0,
+          flex: 1,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          textAlign: 'left',
+          cursor: 'pointer',
+          fontFamily: FONT.family,
         }}
       >
-        {/* Inner proportional size indicator */}
-        <div
+        <span
           style={{
-            width: Math.min(20, Math.round((preset.w / Math.max(preset.w, preset.d)) * 20)),
-            height: Math.min(20, Math.round((preset.d / Math.max(preset.w, preset.d)) * 20)),
-            borderRadius: 2,
-            background: 'rgba(255,255,255,0.25)',
+            width: 18,
+            height: 18,
+            flexShrink: 0,
+            borderRadius: 5,
+            border: `2px solid ${zone.accentColor}`,
+            background: zone.floorColor,
           }}
         />
-        {/* Lock icon overlay for required archetypes */}
-        {isRequired && (
-          <div
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <span
             style={{
-              position: 'absolute',
-              bottom: 1,
-              right: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: selected ? STUDIO_COLORS.accentText : STUDIO_COLORS.textPrimary,
+              fontSize: FONT.sm,
+              fontWeight: FONT.bold,
             }}
           >
-            <Lock size={8} style={{ color: 'rgba(255,255,255,0.85)' }} />
-          </div>
-        )}
-      </div>
-
-      {/* Text info */}
-      <div
+            {zone.label}
+          </span>
+          <span
+            style={{
+              display: 'block',
+              marginTop: 2,
+              color: STUDIO_COLORS.textTertiary,
+              fontSize: FONT.xs,
+            }}
+          >
+            {zone.w}x{zone.d} · {itemCount} items · {zone.deskSlots} desks
+          </span>
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`Edit ${zone.label}`}
         style={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          borderRadius: 999,
+          border: `1px solid ${STUDIO_COLORS.borderSubtle}`,
+          background: STUDIO_COLORS.surface2,
+          color: STUDIO_COLORS.textSecondary,
+          padding: `4px ${SP.sm}px`,
+          fontSize: FONT.xs,
+          fontWeight: FONT.bold,
+          fontFamily: FONT.family,
+          cursor: 'pointer',
         }}
       >
-        <span
-          style={{
-            fontSize: FONT.base,
-            fontWeight: FONT.medium,
-            color: STUDIO_COLORS.textSecondary,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {preset.label}
-        </span>
-        <span
-          style={{
-            fontSize: FONT.xs,
-            color: STUDIO_COLORS.textTertiary,
-            display: 'flex',
-            gap: SP.xs,
-            flexWrap: 'wrap' as const,
-          }}
-        >
-          <span>{sizeLabel}</span>
-          <span style={{ color: STUDIO_COLORS.textDisabled }}>·</span>
-          <span>{itemsLabel}</span>
-          {desksLabel && (
-            <>
-              <span style={{ color: STUDIO_COLORS.textDisabled }}>·</span>
-              <span>{desksLabel}</span>
-            </>
-          )}
-        </span>
-      </div>
-    </button>
+        <Pencil size={11} />
+        Edit
+      </button>
+    </div>
   );
 }

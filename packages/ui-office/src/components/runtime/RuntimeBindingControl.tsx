@@ -28,23 +28,23 @@ const ALL_OPTIONS: ReadonlyArray<PickerOption> = [
   {
     id: 'inherit',
     label: 'Inherit company default',
-    description: 'Follow the company-wide runtime default set in Settings.',
+    description: 'Use company default.',
   },
   {
     id: 'provider',
     label: 'Provider gateway',
-    description: 'Run inside the Offisim LangGraph employee node via the configured provider lane.',
+    description: 'Runs in Offisim with configured tools.',
   },
   {
     id: 'claude-engine',
     label: 'Claude engine',
-    description: 'Delegate the assigned task to the Claude Agent runtime sidecar.',
+    description: 'Desktop sidecar text runtime.',
     engineId: 'claude-engine',
   },
   {
     id: 'codex-engine',
     label: 'Codex engine',
-    description: 'Delegate the assigned task to the Codex Agent runtime sidecar.',
+    description: 'Desktop sidecar text runtime.',
     engineId: 'codex-engine',
   },
 ];
@@ -124,22 +124,22 @@ export function RuntimeBindingControl({
           return (
             <RadioGroupItem key={option.id} value={option.id} disabled={engineUnavailable} asChild>
               <div
-                className={`flex h-auto w-auto flex-col items-start gap-1 rounded-2xl border px-4 py-3 text-left transition ${
+                className={`flex h-auto min-h-[92px] w-auto flex-col items-start gap-1 rounded-lg border px-3 py-3 text-left transition ${
                   isSelected
-                    ? 'border-cyan-400/40 bg-cyan-500/10 text-cyan-50'
-                    : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.06]'
+                    ? 'border-border-focus bg-accent-muted text-accent-text'
+                    : 'border-border-default bg-surface text-text-primary hover:border-border-strong hover:bg-surface-hover'
                 } ${
                   engineUnavailable
-                    ? 'cursor-not-allowed opacity-50 hover:border-white/10 hover:bg-white/[0.03]'
+                    ? 'cursor-not-allowed opacity-55 hover:border-border-default hover:bg-surface'
                     : 'cursor-pointer'
                 }`}
               >
                 <span className="text-sm font-medium">{option.label}</span>
-                <span className="text-[11px] leading-snug text-slate-400">
+                <span className="text-[11px] leading-snug text-text-secondary">
                   {option.description}
                 </span>
                 {engineUnavailable && (
-                  <span className="mt-1 text-[10px] uppercase tracking-wider text-amber-300/80">
+                  <span className="mt-1 text-[10px] uppercase tracking-wider text-warning">
                     {ENGINE_UNAVAILABLE_HINT}
                   </span>
                 )}
@@ -150,16 +150,16 @@ export function RuntimeBindingControl({
       </RadioGroup>
 
       {scope === 'employee' && resolvedBinding && (
-        <p className="text-xs text-slate-300">
+        <p className="text-xs text-text-secondary">
           Resolved:{' '}
-          <span className="font-medium text-slate-100">
+          <span className="font-medium text-text-primary">
             {resolvedBindingLabel(resolvedBinding, resolvedSource)}
           </span>
         </p>
       )}
 
       {showPreviewDisclosure && (
-        <p className="rounded-xl border border-amber-400/20 bg-amber-500/5 px-3 py-2 text-[11px] leading-snug text-amber-200/90">
+        <p className="rounded-lg border border-warning/30 bg-warning-muted px-3 py-2 text-[11px] leading-snug text-warning">
           Preview · limited tool telemetry. Engine sidecars stream text and reasoning today; tool
           execution events and handoff proposals are not yet wired.
         </p>

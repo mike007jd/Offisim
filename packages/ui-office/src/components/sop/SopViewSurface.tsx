@@ -559,14 +559,17 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
   );
 
   return (
-    <div className="relative flex h-full overflow-hidden" data-layout-tier={tier}>
+    <div
+      className="relative flex h-full overflow-hidden bg-surface text-text-primary"
+      data-layout-tier={tier}
+    >
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
       {/* Left sidebar — SOP list */}
       {showInlineSidebar && sidebar}
 
       {/* Right panel — toolbar + canvas + command bar */}
-      <div className="relative flex-1 flex flex-col min-w-0">
+        <div className="relative flex min-w-0 flex-1 flex-col bg-surface">
         <SopLibraryBar
           selectedSopId={sessionState.selectedSopId}
           hasSourceUrl={!!selectedSop?.sourceUrl}
@@ -598,10 +601,10 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             <span
               className={`rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider ${
                 saveStatus === 'saving'
-                  ? 'bg-slate-800/80 text-slate-300'
+                  ? 'border border-border-default bg-surface-elevated text-text-secondary'
                   : saveStatus === 'saved'
-                    ? 'bg-emerald-500/20 text-emerald-300'
-                    : 'bg-red-500/20 text-red-300'
+                    ? 'border border-success/30 bg-success-muted text-success'
+                    : 'border border-error/30 bg-error-muted text-error'
               }`}
             >
               {saveStatus === 'saving'
@@ -715,7 +718,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
           <button
             type="button"
             aria-label="Close SOP list"
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-surface/70"
             onClick={() => setSidebarDrawerOpen(false)}
           />
           <div className="relative z-10 h-full shadow-modal">{sidebar}</div>

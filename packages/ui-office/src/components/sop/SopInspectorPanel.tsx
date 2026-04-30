@@ -32,7 +32,7 @@ function pickLatestFailedTask(tasks: readonly TaskInfo[]): TaskInfo | null {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500">{children}</div>
+    <div className="font-mono text-[10px] uppercase tracking-wider text-text-muted">{children}</div>
   );
 }
 
@@ -95,11 +95,11 @@ export function SopInspectorPanel({
     return (
       <aside
         className={cn(
-          'flex w-[320px] shrink-0 items-center justify-center border-l border-white/5 bg-slate-900/40',
+          'flex w-[320px] shrink-0 items-center justify-center border-l border-border-default bg-surface-elevated',
           className,
         )}
       >
-        <p className="text-xs text-slate-500 px-6 text-center">Select a step to inspect</p>
+        <p className="px-6 text-center text-xs text-text-muted">Select a step to inspect</p>
       </aside>
     );
   }
@@ -107,60 +107,52 @@ export function SopInspectorPanel({
   return (
     <aside
       className={cn(
-        'w-[320px] shrink-0 overflow-y-auto border-l border-white/5 bg-slate-900/40',
+        'w-[320px] shrink-0 overflow-y-auto border-l border-border-default bg-surface-elevated',
         className,
       )}
     >
-      <div className="p-4 flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <SectionLabel>Label</SectionLabel>
-          <div className="text-sm font-semibold text-white">{step.label}</div>
+      <div className="flex flex-col gap-4 p-4">
+        <div className="flex flex-col gap-1">
+          <div className="text-sm font-semibold text-text-primary">{step.label}</div>
+          <div className="flex items-center gap-2 text-xs text-text-muted">
+            <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
+            <span>{STATUS_LABEL[status]}</span>
+            <span aria-hidden>·</span>
+            <span>{step.role_slug}</span>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <SectionLabel>Role</SectionLabel>
-          <div className="text-xs text-slate-300">{step.role_slug}</div>
-          {roleMissing && (
-            <div className="rounded border border-amber-400/40 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-snug text-amber-200">
-              <span className="font-semibold">Role gap.</span> No employee with this role; the
-              dispatcher will fall back to any available employee.
-            </div>
-          )}
-        </div>
+        {roleMissing && (
+          <p className="rounded border border-warning/40 bg-warning-muted px-2 py-1.5 text-[11px] leading-snug text-warning">
+            No employee with role <span className="font-semibold">{step.role_slug}</span> — dispatcher will fall back.
+          </p>
+        )}
 
         {status === 'failed' && (
           <div className="flex flex-col gap-1.5">
             <SectionLabel>Last error</SectionLabel>
-            <div className="rounded border border-red-400/30 bg-red-500/10 px-2 py-1.5 text-[11px] leading-snug">
+            <div className="rounded border border-error/30 bg-error-muted px-2 py-1.5 text-[11px] leading-snug">
               {lastFailedTask?.taskType?.trim() && (
-                <div className="font-mono text-red-200">{lastFailedTask.taskType.trim()}</div>
+                <div className="font-mono text-error">{lastFailedTask.taskType.trim()}</div>
               )}
-              <div className="mt-0.5 text-red-100/80 whitespace-pre-wrap">
-                {lastFailedTask?.description?.trim() || '(no detail provided)'}
+              <div className="mt-0.5 whitespace-pre-wrap text-error">
+                {lastFailedTask?.description?.trim() || '—'}
               </div>
             </div>
           </div>
         )}
 
         <div className="flex flex-col gap-1.5">
-          <SectionLabel>Status</SectionLabel>
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
-            <span className="text-xs text-slate-300">{STATUS_LABEL[status]}</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
           <SectionLabel>Instruction</SectionLabel>
-          <p className="text-xs leading-relaxed text-slate-300 whitespace-pre-wrap">
-            {step.instruction || <span className="text-slate-500 italic">No instruction</span>}
+          <p className="whitespace-pre-wrap text-xs leading-relaxed text-text-secondary">
+            {step.instruction || <span className="italic text-text-muted">No instruction</span>}
           </p>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <SectionLabel>Dependencies</SectionLabel>
           {dependencyLabels.length === 0 ? (
-            <p className="text-xs text-slate-500 italic">No upstream steps</p>
+            <p className="text-xs italic text-text-muted">None</p>
           ) : (
             <ul className="flex flex-col gap-1">
               {dependencyLabels.map((dep) => (
@@ -168,7 +160,7 @@ export function SopInspectorPanel({
                   <button
                     type="button"
                     onClick={() => onSelectStep(dep.stepId)}
-                    className="w-full text-left text-xs text-slate-300 hover:text-white px-2 py-1 rounded bg-slate-800/40 hover:bg-slate-800/80 transition truncate"
+                    className="w-full truncate rounded bg-surface-muted px-2 py-1 text-left text-xs text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
                   >
                     {dep.label}
                   </button>
@@ -179,16 +171,16 @@ export function SopInspectorPanel({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <SectionLabel>Output Key</SectionLabel>
+          <SectionLabel>Output key</SectionLabel>
           <div className="flex items-center gap-2">
-            <code className="flex-1 min-w-0 font-mono text-[11px] text-cyan-200 px-2 py-1 rounded bg-slate-800/60 truncate">
+            <code className="min-w-0 flex-1 truncate rounded bg-surface-muted px-2 py-1 font-mono text-[11px] text-accent-text">
               {step.output_key}
             </code>
             <button
               type="button"
               onClick={handleCopy}
               aria-label="Copy output key"
-              className="shrink-0 inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-800/40 hover:bg-slate-800/80 transition"
+              className="inline-flex shrink-0 items-center gap-1 rounded bg-surface-muted px-2 py-1 text-[10px] text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
             >
               {copied ? (
                 <>

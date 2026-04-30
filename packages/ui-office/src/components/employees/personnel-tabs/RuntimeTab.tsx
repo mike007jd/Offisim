@@ -37,16 +37,10 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
   if (formData.isExternal) {
     return (
       <TabScrollShell>
-        <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-900/40 p-5">
-          <div className="flex items-center gap-2 text-slate-200">
-            <Lock className="h-4 w-4" />
-            <span className="text-sm font-medium">Engine binding does not apply</span>
-          </div>
-          <p className="text-xs leading-relaxed text-slate-400">
-            External A2A peer — engine binding does not apply. Routing is handled by the brand's A2A
-            endpoint.
-          </p>
-        </div>
+        <p className="flex items-center gap-2 text-xs text-text-muted">
+          <Lock className="h-3.5 w-3.5" />
+          External A2A peer — routing handled by brand endpoint.
+        </p>
       </TabScrollShell>
     );
   }
@@ -61,7 +55,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 pb-32">
           <section className="flex flex-col gap-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
               Execution binding
             </h3>
             <RuntimeBindingControl
@@ -76,7 +70,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
       </div>
 
       {isDirty && (
-        <div className="shrink-0 border-t border-slate-700 bg-slate-950/85 px-6 py-3 backdrop-blur-sm">
+        <div className="shrink-0 border-t border-border-default bg-surface-elevated px-6 py-3 backdrop-blur-sm">
           <div className="mx-auto flex w-full max-w-2xl items-center justify-end gap-3">
             <Button size="sm" disabled={isSaving} onClick={save}>
               <Save className="mr-1 h-3.5 w-3.5" />

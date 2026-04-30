@@ -187,7 +187,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
           style={{
             ...toolButtonStyle(true),
             borderColor: STUDIO_COLORS.warning,
-            background: 'rgba(245, 158, 11, 0.12)',
+            background: STUDIO_COLORS.warningMuted,
             color: STUDIO_COLORS.warning,
             gap: SP.xs,
           }}

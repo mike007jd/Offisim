@@ -15,7 +15,7 @@ import {
   useToasts,
 } from '@offisim/ui-core';
 import { CloudUpload, Download, KeyRound } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePublish } from '../../hooks/usePublish.js';
 import { loadRegistryAuthToken, saveRegistryAuthToken } from '../../hooks/useRegistryClient.js';
 import { showDiscardConfirm } from '../../lib/discard-confirm-toast.js';
@@ -370,45 +370,41 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         description="Build a package from an employee or a skill, download the archive, and submit a registry draft that points at an external artifact URL."
         footer={footer}
         onRequestClose={handleRequestClose}
-        className="border-white/10 bg-slate-950/95"
+        className="border-border-default bg-surface-elevated text-text-primary"
       >
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-4">
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                <KeyRound className="h-4 w-4 text-cyan-300" />
-                Registry Auth
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                Use an `offisim_...` API token if you are not signed into the platform in this
-                browser.
-              </p>
+        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-6">
+            <Field
+              label={
+                <span className="flex items-center gap-1.5">
+                  <KeyRound className="h-3.5 w-3.5 text-info" />
+                  Registry token
+                </span>
+              }
+              htmlFor="publish-auth-token"
+              hint={
+                creator ? (
+                  <span className="text-success">
+                    Publishing as @{creator.handle} ({creator.display_name})
+                  </span>
+                ) : (
+                  'Required when not signed into the platform.'
+                )
+              }
+            >
               <Input
-                className="mt-3"
+                id="publish-auth-token"
                 value={authToken}
                 onChange={(event) => setAuthToken(event.target.value)}
                 placeholder="offisim_your_api_token"
               />
-              {creator ? (
-                <p className="mt-2 text-xs text-emerald-300">
-                  Publishing as @{creator.handle} ({creator.display_name})
-                </p>
-              ) : (
-                <p className="mt-2 text-xs text-slate-500">
-                  Creator profile not detected yet. The current token or session must belong to a
-                  registered creator.
-                </p>
-              )}
-            </section>
+            </Field>
 
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="space-y-4">
               {hasMultipleKinds && (
-                <div className="mb-4">
-                  <label htmlFor="publish-kind" className="text-xs font-medium text-slate-300">
-                    Kind
-                  </label>
+                <Field label="Kind" htmlFor="publish-kind">
                   <Select value={kind} onValueChange={(value) => setKind(value as PublishKind)}>
-                    <SelectTrigger id="publish-kind" className="mt-2">
+                    <SelectTrigger id="publish-kind">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -416,17 +412,12 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                       <SelectItem value="skill">Skill</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </Field>
               )}
-              <div>
-                <label
-                  htmlFor="publish-source-asset"
-                  className="text-xs font-medium text-slate-300"
-                >
-                  {sourceLabel}
-                </label>
+
+              <Field label={sourceLabel} htmlFor="publish-source-asset">
                 <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
-                  <SelectTrigger id="publish-source-asset" className="mt-2">
+                  <SelectTrigger id="publish-source-asset">
                     <SelectValue placeholder={sourcePlaceholder} />
                   </SelectTrigger>
                   <SelectContent>
@@ -437,66 +428,47 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <div>
-                  <label htmlFor="publish-title" className="text-xs font-medium text-slate-300">
-                    Title
-                  </label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Title" htmlFor="publish-title">
                   <Input
                     id="publish-title"
-                    className="mt-2"
                     value={form.title}
                     onChange={(event) => updateForm('title', event.target.value)}
                     placeholder="Writer Pro"
                   />
-                </div>
-                <div>
-                  <label htmlFor="publish-version" className="text-xs font-medium text-slate-300">
-                    Version
-                  </label>
+                </Field>
+                <Field label="Version" htmlFor="publish-version">
                   <Input
                     id="publish-version"
-                    className="mt-2"
                     value={form.version}
                     onChange={(event) => updateForm('version', event.target.value)}
                     placeholder="0.1.0"
                   />
-                </div>
-                <div>
-                  <label htmlFor="publish-summary" className="text-xs font-medium text-slate-300">
-                    Summary
-                  </label>
+                </Field>
+                <Field label="Summary" htmlFor="publish-summary">
                   <Input
                     id="publish-summary"
-                    className="mt-2"
                     value={form.summary}
                     onChange={(event) => updateForm('summary', event.target.value)}
-                    placeholder="Short one-line marketplace summary"
+                    placeholder="One-line marketplace summary"
                   />
-                </div>
-                <div>
-                  <label htmlFor="publish-tags" className="text-xs font-medium text-slate-300">
-                    Tags
-                  </label>
+                </Field>
+                <Field label="Tags" htmlFor="publish-tags">
                   <Input
                     id="publish-tags"
-                    className="mt-2"
                     value={form.tags}
                     onChange={(event) => updateForm('tags', event.target.value)}
                     placeholder="workflow,design,team"
                   />
-                </div>
-                <div>
-                  <label htmlFor="publish-license" className="text-xs font-medium text-slate-300">
-                    License
-                  </label>
+                </Field>
+                <Field label="License" htmlFor="publish-license">
                   <Select
                     value={form.license}
                     onValueChange={(value) => updateForm('license', value)}
                   >
-                    <SelectTrigger id="publish-license" className="mt-2">
+                    <SelectTrigger id="publish-license">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -505,21 +477,15 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                       <SelectItem value="proprietary">Proprietary</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div>
-                  <label
-                    htmlFor="publish-risk-class"
-                    className="text-xs font-medium text-slate-300"
-                  >
-                    Risk class
-                  </label>
+                </Field>
+                <Field label="Risk class" htmlFor="publish-risk-class">
                   <Select
                     value={form.riskClass}
                     onValueChange={(value) =>
                       updateForm('riskClass', value as PublishFormState['riskClass'])
                     }
                   >
-                    <SelectTrigger id="publish-risk-class" className="mt-2">
+                    <SelectTrigger id="publish-risk-class">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -528,99 +494,114 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                       <SelectItem value="privileged_asset">Privileged asset</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </Field>
               </div>
 
-              <div className="mt-4">
-                <label htmlFor="publish-description" className="text-xs font-medium text-slate-300">
-                  Description / README
-                </label>
+              <Field label="Description / README" htmlFor="publish-description">
                 <Textarea
                   id="publish-description"
-                  className="mt-2 min-h-32"
+                  className="min-h-32"
                   value={form.description}
                   onChange={(event) => updateForm('description', event.target.value)}
-                  placeholder="Explain what this package includes, who it is for, and any setup notes."
+                  placeholder="What this package includes, who it is for, and setup notes."
                 />
-              </div>
+              </Field>
 
-              <div className="mt-4">
-                <label
-                  htmlFor="publish-artifact-url"
-                  className="text-xs font-medium text-slate-300"
-                >
-                  Artifact URL
-                </label>
+              <Field
+                label="Artifact URL"
+                htmlFor="publish-artifact-url"
+                hint="Direct download URL for the package archive."
+              >
                 <Input
                   id="publish-artifact-url"
-                  className="mt-2"
                   value={form.artifactUrl}
                   onChange={(event) => updateForm('artifactUrl', event.target.value)}
                   placeholder="https://github.com/owner/repo/releases/download/v0.1.0/package.offisimpkg"
                 />
-                <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-                  Use the download URL for the package archive you uploaded to GitHub Releases or
-                  another stable host.
-                </p>
-              </div>
+              </Field>
 
               {(status || error) && (
-                <p className="mt-3 text-xs leading-relaxed text-slate-300">{status ?? error}</p>
+                <p className="text-xs text-text-secondary">{status ?? error}</p>
               )}
-            </section>
+            </div>
           </div>
 
-          <aside className="space-y-4">
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <p className="text-sm font-semibold text-white">Current draft preview</p>
-              <dl className="mt-3 space-y-2 text-xs text-slate-400">
-                <div>
-                  <dt className="text-slate-500">Title</dt>
-                  <dd className="text-slate-200">{form.title || 'Untitled package'}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Version</dt>
-                  <dd className="text-slate-200">{form.version}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Tags</dt>
-                  <dd className="text-slate-200">
-                    {publishMeta.tags.length > 0 ? publishMeta.tags.join(', ') : 'No tags'}
-                  </dd>
-                </div>
+          <aside className="space-y-6 lg:border-l lg:border-border-subtle lg:pl-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                Draft preview
+              </p>
+              <dl className="mt-3 space-y-1.5 text-xs">
+                <DraftRow label="Title" value={form.title || 'Untitled package'} />
+                <DraftRow label="Version" value={form.version} />
+                <DraftRow
+                  label="Tags"
+                  value={publishMeta.tags.length > 0 ? publishMeta.tags.join(', ') : 'No tags'}
+                />
               </dl>
-            </section>
+            </div>
 
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <p className="text-sm font-semibold text-white">Recent drafts</p>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                Recent drafts
+              </p>
               {isLoading ? (
-                <p className="mt-3 text-xs text-slate-500">Loading drafts…</p>
+                <p className="mt-3 text-xs text-text-muted">Loading…</p>
               ) : drafts.length === 0 ? (
-                <p className="mt-3 text-xs leading-relaxed text-slate-500">
-                  No publish drafts yet.
-                </p>
+                <p className="mt-3 text-xs text-text-muted">No drafts yet.</p>
               ) : (
-                <div className="mt-3 space-y-2">
+                <ul className="mt-3 space-y-2">
                   {drafts.slice(0, 5).map((draft) => (
-                    <div
+                    <li
                       key={draft.draft_id}
-                      className="rounded-xl border border-white/10 bg-slate-950/70 p-3"
+                      className="border-l-2 border-border-default pl-2.5 text-xs"
                     >
-                      <p className="text-xs font-medium text-slate-100">
+                      <p className="font-medium text-text-primary">
                         {draft.title ?? draft.kind ?? 'Untitled draft'}
                       </p>
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        {draft.status} · validation {draft.validation_state}
+                      <p className="text-[11px] text-text-muted">
+                        {draft.status} · {draft.validation_state}
                       </p>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
-            </section>
+            </div>
           </aside>
         </div>
       </DialogShell>
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
     </>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  hint,
+  children,
+}: {
+  label: ReactNode;
+  htmlFor: string;
+  hint?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={htmlFor} className="text-xs font-medium text-text-secondary">
+        {label}
+      </label>
+      {children}
+      {hint ? <p className="text-[11px] text-text-muted">{hint}</p> : null}
+    </div>
+  );
+}
+
+function DraftRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-text-muted">{label}</dt>
+      <dd className="truncate text-text-primary">{value}</dd>
+    </div>
   );
 }

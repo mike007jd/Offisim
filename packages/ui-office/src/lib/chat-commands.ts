@@ -10,11 +10,11 @@
 export type CommandCategory = 'team' | 'workflow' | 'navigate' | 'config' | 'chat';
 
 export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; badgeClass: string }> = {
-  team: { label: 'Team', badgeClass: 'bg-emerald-500/20 text-emerald-400' },
-  workflow: { label: 'Workflow', badgeClass: 'bg-blue-500/20 text-blue-400' },
-  navigate: { label: 'Navigate', badgeClass: 'bg-amber-500/20 text-amber-400' },
-  config: { label: 'Config', badgeClass: 'bg-purple-500/20 text-purple-400' },
-  chat: { label: 'Chat', badgeClass: 'bg-slate-500/20 text-slate-400' },
+  team: { label: 'Team', badgeClass: 'bg-success-muted text-success' },
+  workflow: { label: 'Workflow', badgeClass: 'bg-info-muted text-info' },
+  navigate: { label: 'Navigate', badgeClass: 'bg-warning-muted text-warning' },
+  config: { label: 'Config', badgeClass: 'bg-accent-muted text-accent' },
+  chat: { label: 'Chat', badgeClass: 'bg-surface-muted text-text-muted' },
 };
 
 // ── Context types (provided by ChatPanel) ──────────────────────────

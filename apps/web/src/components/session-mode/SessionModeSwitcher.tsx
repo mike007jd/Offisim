@@ -29,7 +29,7 @@ export function SessionModeSwitcher({ current, onChange }: SessionModeSwitcherPr
           aria-label="Switch session mode"
         >
           <SessionModeBadge mode={current} />
-          <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+          <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" collisionPadding={8} className="w-72">
@@ -43,10 +43,10 @@ export function SessionModeSwitcher({ current, onChange }: SessionModeSwitcherPr
           >
             <SessionModeBadge mode={mode} />
             <span className="min-w-0">
-              <span className="block text-xs font-semibold text-slate-100">
+              <span className="block text-xs font-semibold text-text-primary">
                 {INTERACTION_MODE_LABEL[mode]}
               </span>
-              <span className="block text-[11px] leading-snug text-slate-400">
+              <span className="block text-[11px] leading-snug text-text-secondary">
                 {INTERACTION_MODE_DESCRIPTION[mode]}
               </span>
             </span>

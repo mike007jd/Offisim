@@ -42,11 +42,16 @@ export interface EmployeeInspectorProps {
 // ---------------------------------------------------------------------------
 
 const CATEGORY_COLORS: Record<MemoryEntryRow['category'], string> = {
-  experience: 'text-amber-400',
-  decision: 'text-blue-400',
-  knowledge: 'text-emerald-400',
-  preference: 'text-purple-400',
+  experience: 'text-warning',
+  decision: 'text-info',
+  knowledge: 'text-success',
+  preference: 'text-accent',
 };
+
+const INSPECTOR_SECTION_CLASS =
+  'rounded-xl border border-border-subtle bg-surface-muted px-3 py-2';
+const INSPECTOR_LABEL_CLASS =
+  'flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-text-muted';
 
 // ---------------------------------------------------------------------------
 // MemoriesSection — collapsible, top-5 by importance, Forget per entry
@@ -78,56 +83,56 @@ function MemoriesSection({
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+      <div className={INSPECTOR_SECTION_CLASS}>
+        <div className={INSPECTOR_LABEL_CLASS}>
           <Brain className="h-3 w-3" />
           Memories
         </div>
-        <p className="mt-2 text-xs text-slate-500">Loading…</p>
+        <p className="mt-2 text-xs text-text-muted">Loading...</p>
       </div>
     );
   }
 
   if (total === 0) {
     return (
-      <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+      <div className={INSPECTOR_SECTION_CLASS}>
+        <div className={INSPECTOR_LABEL_CLASS}>
           <Brain className="h-3 w-3" />
           Memories
         </div>
-        <p className="mt-2 text-xs text-slate-400">No memories yet.</p>
+        <p className="mt-2 text-xs text-text-secondary">No memories yet.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+    <div className={INSPECTOR_SECTION_CLASS}>
       <button
         type="button"
         className="flex w-full items-center justify-between"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+        <div className={INSPECTOR_LABEL_CLASS}>
           <Brain className="h-3 w-3" />
           Memories ({total})
         </div>
-        <span className="text-[10px] text-slate-500">{expanded ? '▾' : '▸'}</span>
+        <span className="text-[10px] text-text-muted">{expanded ? '▾' : '▸'}</span>
       </button>
       <div className="mt-2 flex flex-col gap-1.5">
         {visible.map((m) => (
           <div key={m.memory_id} className="group flex items-start gap-1.5">
-            <span className="mt-0.5 text-[10px] text-slate-600">★</span>
+            <span className="mt-0.5 text-[10px] text-text-muted">★</span>
             <div className="min-w-0 flex-1">
-              <p className="text-xs leading-relaxed text-slate-200 break-words">{m.content}</p>
+              <p className="break-words text-xs leading-relaxed text-text-primary">{m.content}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className={`text-[9px] ${CATEGORY_COLORS[m.category]}`}>{m.category}</span>
-                <span className="text-[9px] text-slate-600">{m.importance.toFixed(2)}</span>
+                <span className="text-[9px] text-text-muted">{m.importance.toFixed(2)}</span>
               </div>
             </div>
             <button
               type="button"
               onClick={() => handleForget(m.memory_id)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-600 hover:text-red-400 p-0.5"
+              className="p-0.5 text-text-muted opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
               title="Forget this memory"
               aria-label={`Forget memory: ${m.content.slice(0, 30)}`}
             >
@@ -140,7 +145,7 @@ function MemoriesSection({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="mt-1.5 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+          className="mt-1.5 text-[10px] text-text-muted transition-colors hover:text-text-primary"
         >
           Show all {total} memories
         </button>
@@ -235,7 +240,7 @@ export function EmployeeInspector({
   const enabled = employee?.enabled ?? 1;
   const isDismissed = enabled === 0;
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
-  const dotColor = STATUS_DOTS[agent.state] ?? 'bg-slate-400';
+  const dotColor = STATUS_DOTS[agent.state] ?? 'bg-text-muted';
   const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
   const subTaskTotal = agent.subTasks?.length ?? 0;
   const completedSubTasks =
@@ -288,14 +293,14 @@ export function EmployeeInspector({
       aria-label={`Inspecting ${agent.name}`}
     >
       {/* Floating card */}
-      <div className="rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-md">
+      <div className="rounded-xl border border-border-default bg-surface-elevated text-text-primary shadow-2xl backdrop-blur-md">
         {/* Header row */}
         <div
-          className="flex items-center justify-between border-b border-white/8"
+          className="flex items-center justify-between border-b border-border-subtle"
           style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-md)' }}
         >
           <span
-            className="text-xs font-semibold uppercase tracking-wider text-slate-400"
+            className="text-xs font-semibold uppercase tracking-wider text-text-secondary"
             title="Anchored to the selected employee in the personnel rail"
           >
             Inspecting
@@ -303,7 +308,7 @@ export function EmployeeInspector({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-500 hover:text-slate-200 transition-colors"
+            className="text-text-muted transition-colors hover:text-text-primary"
             aria-label="Close inspector"
           >
             <X className="h-3.5 w-3.5" />
@@ -320,7 +325,7 @@ export function EmployeeInspector({
           }}
         >
           <div className="relative flex-shrink-0">
-            <div className="h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-slate-800">
+            <div className="h-12 w-12 overflow-hidden rounded-full border border-border-subtle bg-surface-muted">
               <EmployeeAvatar
                 agent={employee ?? agent}
                 size={48}
@@ -328,12 +333,12 @@ export function EmployeeInspector({
               />
             </div>
             <div
-              className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-900 ${dotColor}`}
+              className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-surface-elevated ${dotColor}`}
             />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-slate-100">{agent.name}</p>
-            <p className="truncate text-xs text-slate-400 font-mono">{roleLabel}</p>
+            <p className="truncate text-sm font-semibold text-text-primary">{agent.name}</p>
+            <p className="truncate font-mono text-xs text-text-secondary">{roleLabel}</p>
           </div>
           <Badge variant={variant} className="text-xs flex-shrink-0">
             {agent.state}
@@ -346,45 +351,47 @@ export function EmployeeInspector({
           style={{ paddingInline: 'var(--sp-lg)', paddingBottom: 'var(--sp-md)' }}
         >
           {isDismissed ? (
-            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-rose-300">Dismissed</div>
-              <p className="mt-2 text-sm text-rose-100">
+            <div className="rounded-xl border border-error bg-error-muted px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-error">Dismissed</div>
+              <p className="mt-2 text-sm text-error">
                 This employee is hidden from the office. Their memories are preserved.
               </p>
             </div>
           ) : null}
 
           {currentTaskLabel ? (
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            <div className={INSPECTOR_SECTION_CLASS}>
+              <div className={INSPECTOR_LABEL_CLASS}>
                 <BriefcaseBusiness className="h-3 w-3" />
                 Current Focus
               </div>
-              <p className="mt-2 text-sm font-medium leading-relaxed text-slate-100">
+              <p className="mt-2 text-sm font-medium leading-relaxed text-text-primary">
                 {currentTaskLabel}
               </p>
-              {stepProgress ? <p className="mt-1 text-xs text-slate-400">{stepProgress}</p> : null}
+              {stepProgress ? (
+                <p className="mt-1 text-xs text-text-secondary">{stepProgress}</p>
+              ) : null}
             </div>
           ) : (
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            <div className={INSPECTOR_SECTION_CLASS}>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
                 Current Focus
               </div>
-              <p className="mt-2 text-sm text-slate-300">Available for the next assignment.</p>
+              <p className="mt-2 text-sm text-text-secondary">Available for the next assignment.</p>
             </div>
           )}
 
           {subTaskTotal > 0 ? (
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            <div className={INSPECTOR_SECTION_CLASS}>
+              <div className={INSPECTOR_LABEL_CLASS}>
                 <ListChecks className="h-3 w-3" />
                 Subtasks
               </div>
-              <p className="mt-2 text-sm text-slate-100">
+              <p className="mt-2 text-sm text-text-primary">
                 {completedSubTasks}/{subTaskTotal} complete
               </p>
               {runningSubTask ? (
-                <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                <p className="mt-1 text-xs leading-relaxed text-text-secondary">
                   In progress: {runningSubTask.label}
                 </p>
               ) : null}
@@ -395,23 +402,23 @@ export function EmployeeInspector({
 
           {agent.taskRunId && (
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500">Task ID</span>
-              <span className="font-mono text-slate-300 truncate max-w-[140px]">
-                {agent.taskRunId.slice(0, 12)}…
+              <span className="text-text-muted">Task ID</span>
+              <span className="max-w-[140px] truncate font-mono text-text-secondary">
+                {agent.taskRunId.slice(0, 12)}...
               </span>
             </div>
           )}
           {agent.workstationId && (
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500">Workstation</span>
-              <span className="font-mono text-slate-300">{agent.workstationId}</span>
+              <span className="text-text-muted">Workstation</span>
+              <span className="font-mono text-text-secondary">{agent.workstationId}</span>
             </div>
           )}
         </div>
 
         {/* Actions */}
         <div
-          className="flex gap-2 border-t border-white/8"
+          className="flex gap-2 border-t border-border-subtle"
           style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-md)' }}
         >
           <Button
@@ -436,7 +443,7 @@ export function EmployeeInspector({
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 gap-1.5 text-xs text-emerald-400 hover:text-emerald-300"
+              className="flex-1 gap-1.5 text-xs text-success hover:text-success"
               disabled={isUpdatingEnabled}
               onClick={handleReenable}
             >
@@ -447,7 +454,7 @@ export function EmployeeInspector({
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 gap-1.5 text-xs text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+              className="flex-1 gap-1.5 text-xs text-error hover:bg-error-muted hover:text-error"
               disabled={isUpdatingEnabled}
               onClick={handleDismiss}
             >

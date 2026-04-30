@@ -12,23 +12,23 @@ export interface SurfaceCardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const TONE_CLASS: Record<SurfaceCardTone, string> = {
-  default: 'border border-white/10 bg-white/5',
-  muted: 'border border-white/5 bg-white/2',
-  raised: 'border border-white/15 bg-slate-900/70 shadow-sm',
+  default: 'border border-border-default bg-surface-elevated',
+  muted: 'border border-border-subtle bg-surface-muted',
+  raised: 'border border-border-default bg-surface-elevated shadow-sm',
   ghost: 'border border-transparent bg-transparent',
 };
 
 /**
  * Shared surface primitive for workspace bands, sidebars, and embedded panels.
  * Thin wrapper on the ui-core `Card` visual language with tone presets; prefer
- * over raw `rounded-xl border border-white/10 bg-white/5` class soup.
+ * over raw ad hoc surface class soup.
  */
 export const SurfaceCard = forwardRef<HTMLDivElement, SurfaceCardProps>(
   ({ className, tone = 'default', borderless = false, flush = false, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        'rounded-xl',
+        'rounded-xl text-text-primary',
         borderless ? 'border-0 bg-transparent' : TONE_CLASS[tone],
         !flush && 'p-4',
         className,

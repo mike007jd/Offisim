@@ -121,7 +121,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
         size="sm"
         title={
           <span className="flex items-center gap-2">
-            <Download className="h-4 w-4 text-blue-400" />
+            <Download className="h-4 w-4 text-accent" />
             Import SOP from URL
           </span>
         }
@@ -142,7 +142,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
       >
         <div className="space-y-3 pt-2">
           <div className="flex items-center gap-2">
-            <Link className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+            <Link className="h-3.5 w-3.5 shrink-0 text-text-muted" />
             <input
               type="url"
               value={url}
@@ -152,7 +152,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
                 setError(null);
               }}
               placeholder="https://raw.githubusercontent.com/..."
-              className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
+              className="flex-1 rounded-lg border border-border-default bg-surface px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -175,18 +175,18 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
           )}
 
           {error && (
-            <p className="text-[11px] text-red-400 bg-red-500/5 border border-red-500/20 rounded px-2 py-1">
+            <p className="rounded border border-error bg-error-muted px-2 py-1 text-[11px] text-error">
               {error}
             </p>
           )}
 
           {preview && (
-            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 space-y-1.5">
-              <p className="text-sm font-medium text-white">{preview.name}</p>
+            <div className="space-y-1.5 rounded-lg border border-border-default bg-surface-muted p-3">
+              <p className="text-sm font-medium text-text-primary">{preview.name}</p>
               {preview.description && (
-                <p className="text-[11px] text-slate-400">{preview.description}</p>
+                <p className="text-[11px] text-text-secondary">{preview.description}</p>
               )}
-              <p className="text-[10px] text-slate-500">{preview.stepCount} steps</p>
+              <p className="text-[10px] text-text-muted">{preview.stepCount} steps</p>
             </div>
           )}
         </div>

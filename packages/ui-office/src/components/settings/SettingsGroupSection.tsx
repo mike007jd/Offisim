@@ -8,11 +8,11 @@ interface SettingsGroupSectionProps {
 export function SettingsGroupSection({ title, children }: SettingsGroupSectionProps) {
   return (
     <div className="mb-6">
-      <div className="flex items-center gap-3 mb-4">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <div className="mb-4 flex items-center gap-3">
+        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
           {title}
         </span>
-        <div className="flex-1 h-px bg-white/10" />
+        <div className="h-px flex-1 bg-border-default" />
       </div>
       <div className="space-y-1">{children}</div>
     </div>

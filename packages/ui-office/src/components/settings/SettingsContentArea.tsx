@@ -17,11 +17,8 @@ export function SettingsContentArea({
   controller,
   onEditExternalEmployee,
 }: SettingsContentAreaProps) {
-  const { handleSave, hasUnsavedChanges, isReinitializing, isSaveDisabled, isSaving, saveError } =
-    controller;
+  const { handleSave, hasUnsavedChanges, isSaveDisabled, isSaving, saveError } = controller;
   const showSaveBar = activeTab !== 'external';
-  // controller.isSaving is already (save.isSaving || save.isReinitializing); isReinitializing is
-  // exposed only so the hint line can call out the reinit phase distinctly.
   const buttonLabel = isSaving ? 'Saving…' : 'Save changes';
 
   let tooltip: string;
@@ -40,12 +37,12 @@ export function SettingsContentArea({
   const buttonDisabled = (isSaveDisabled || !hasUnsavedChanges) && !saveError;
 
   return (
-    <div className="flex flex-1 flex-col min-h-0">
+    <div className="flex min-h-0 flex-1 flex-col bg-surface text-text-primary">
       <div
         data-testid="settings-content-scroll"
-        className={`flex-1 overflow-y-auto p-6 sm:p-8 ${showSaveBar ? 'pb-28' : 'pb-8'}`}
+        className={`flex-1 overflow-y-auto p-5 sm:p-6 ${showSaveBar ? 'pb-24' : 'pb-6'}`}
       >
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="mx-auto w-full max-w-5xl">
           {saveError && (
             <ErrorState
               variant="banner"
@@ -65,40 +62,21 @@ export function SettingsContentArea({
       </div>
 
       {showSaveBar && (
-        <div className="shrink-0 border-t border-white/10 bg-slate-950/80 px-6 py-3 backdrop-blur-sm sm:px-8 sm:py-4">
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
+        <div className="shrink-0 border-t border-border-default bg-surface-elevated px-6 py-3 shadow-overlay sm:px-8 sm:py-4">
+          <div className="mx-auto w-full max-w-5xl">
             <button
               type="button"
               onClick={() => void handleSave()}
               disabled={buttonDisabled}
               title={tooltip}
-              className={`h-11 rounded-lg text-sm font-medium transition-colors ${
+              className={`h-11 w-full rounded-lg text-sm font-medium transition-colors ${
                 buttonDisabled
-                  ? 'cursor-not-allowed bg-white/10 text-slate-500 opacity-60'
-                  : 'bg-cyan-500 text-white hover:bg-cyan-400'
+                  ? 'cursor-not-allowed border border-border-default bg-surface-muted text-text-muted'
+                  : 'bg-accent text-text-inverse hover:bg-accent-hover'
               }`}
             >
               {buttonLabel}
             </button>
-            {!hasUnsavedChanges && !saveError && !isSaving && (
-              <p className="text-center text-xs text-slate-500">No changes to save</p>
-            )}
-            {isReinitializing && (
-              <p className="text-center text-xs text-slate-400">Reinitializing runtime</p>
-            )}
-            {saveError && (
-              <div className="flex flex-col items-center gap-1">
-                <p className="text-center text-sm text-red-400">{saveError}</p>
-                <button
-                  type="button"
-                  onClick={() => void handleSave()}
-                  disabled={isSaving}
-                  className="text-xs text-cyan-300 underline disabled:opacity-50"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}

@@ -76,12 +76,12 @@ function StageNode({ step, state }: { step: PipelineStep; state: NodeState }) {
         className={[
           'w-5 h-5 rounded-full flex items-center justify-center transition-all duration-500 ease-out',
           state === 'completed'
-            ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
+            ? 'bg-success-muted text-success ring-1 ring-success'
             : state === 'active'
               ? 'ring-2 ring-current shadow-glow-accent'
               : state === 'error'
-                ? 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40'
-                : 'bg-white/5 text-slate-500 ring-1 ring-white/10',
+                ? 'bg-error-muted text-error ring-1 ring-error'
+                : 'bg-surface-muted text-text-muted ring-1 ring-border-default',
           state === 'active' ? meta.chatColorClass : '',
         ]
           .filter(Boolean)
@@ -92,7 +92,7 @@ function StageNode({ step, state }: { step: PipelineStep; state: NodeState }) {
           <span className={['w-2 h-2 rounded-full animate-pulse', meta.dotClass].join(' ')} />
         )}
         {state === 'error' && <span className="text-[10px] font-bold leading-none">✗</span>}
-        {state === 'pending' && <span className="w-1.5 h-1.5 rounded-full bg-white/10" />}
+        {state === 'pending' && <span className="h-1.5 w-1.5 rounded-full bg-border-default" />}
       </div>
 
       {/* Label */}
@@ -100,12 +100,12 @@ function StageNode({ step, state }: { step: PipelineStep; state: NodeState }) {
         className={[
           'text-[10px] font-medium tracking-wide leading-none transition-colors duration-500',
           state === 'completed'
-            ? 'text-emerald-400/70'
+            ? 'text-success'
             : state === 'active'
               ? meta.chatColorClass
               : state === 'error'
-                ? 'text-red-400/70'
-                : 'text-slate-500',
+                ? 'text-error'
+                : 'text-text-muted',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -123,7 +123,7 @@ function Connector({ state }: { state: 'done' | 'pending' }) {
       <div
         className={[
           'h-px w-full transition-colors duration-500',
-          state === 'done' ? 'bg-emerald-500/30' : 'bg-white/8',
+          state === 'done' ? 'bg-success' : 'bg-border-subtle',
         ].join(' ')}
       />
     </div>
@@ -157,7 +157,7 @@ export function PipelineProgress({ stage, routeLabel, isRunning, onAbort }: Pipe
   return (
     <div
       ref={containerRef}
-      className="border-t border-white/5 bg-black/20 backdrop-blur-sm"
+      className="border-t border-border-subtle bg-surface-elevated backdrop-blur-sm"
       style={{
         opacity: 0,
         transform: 'translateY(4px)',
@@ -186,7 +186,7 @@ export function PipelineProgress({ stage, routeLabel, isRunning, onAbort }: Pipe
                 type="button"
                 onClick={onAbort}
                 title="Stop execution"
-                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                className="flex items-center gap-1 rounded px-2 py-1 text-[10px] text-text-muted transition-colors hover:bg-error-muted hover:text-error"
               >
                 <Square className="h-2.5 w-2.5 fill-current" />
                 <span>Stop</span>
@@ -195,7 +195,7 @@ export function PipelineProgress({ stage, routeLabel, isRunning, onAbort }: Pipe
           )}
         </div>
         {(routeLabel || activeCeremonyLabel) && (
-          <div className="mt-1 text-[10px] text-slate-500 tracking-wide text-center">
+          <div className="mt-1 text-center text-[10px] tracking-wide text-text-muted">
             {activeCeremonyLabel ?? routeLabel}
           </div>
         )}

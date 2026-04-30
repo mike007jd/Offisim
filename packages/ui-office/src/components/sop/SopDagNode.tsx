@@ -24,10 +24,10 @@ function getRoleColor(roleSlug: string): string {
 // ---------------------------------------------------------------------------
 
 export const STATUS_DOT: Record<SopStepStatus, string> = {
-  pending: 'bg-slate-500',
-  active: 'bg-blue-400 animate-pulse',
-  completed: 'bg-emerald-400',
-  failed: 'bg-red-400',
+  pending: 'bg-text-muted',
+  active: 'animate-pulse bg-info',
+  completed: 'bg-success',
+  failed: 'bg-error',
 };
 
 export const STATUS_LABEL: Record<SopStepStatus, string> = {
@@ -63,14 +63,14 @@ export const SopDagNode = memo(function SopDagNode({
   const depsCount = step.dependencies.length;
 
   const borderClass = selected
-    ? 'border-blue-400/60 shadow-lg shadow-blue-400/20'
-    : 'border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-white/5';
+    ? 'border-border-focus shadow-overlay'
+    : 'border-border-default hover:border-border-strong hover:shadow-overlay';
 
   return (
     <button
       type="button"
       onClick={() => onStepClick(step.step_id)}
-      className={`relative flex w-[280px] h-[140px] rounded-lg overflow-hidden bg-slate-800/80 border transition-all ${editMode ? 'cursor-move' : 'cursor-pointer'} text-left ${borderClass}`}
+      className={`relative flex h-[140px] w-[280px] overflow-hidden rounded-lg border bg-surface-elevated text-left transition-all ${editMode ? 'cursor-move' : 'cursor-pointer'} ${borderClass}`}
     >
       {/* Left color bar */}
       <div className="w-1 shrink-0" style={{ backgroundColor: roleColor }} />
@@ -80,24 +80,24 @@ export const SopDagNode = memo(function SopDagNode({
         {/* Top row: status dot + label + deps chip + role badge */}
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
-          <span className="text-sm font-semibold text-white truncate flex-1">{step.label}</span>
+          <span className="flex-1 truncate text-sm font-semibold text-text-primary">{step.label}</span>
           {depsCount > 0 && (
-            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-700/60 text-slate-300">
+            <span className="shrink-0 rounded-full bg-surface-muted px-1.5 py-0.5 text-[10px] text-text-secondary">
               deps · {depsCount}
             </span>
           )}
           {status === 'failed' && (
-            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/80 text-white font-semibold uppercase tracking-wide">
+            <span className="shrink-0 rounded-full bg-error-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-error">
               failed
             </span>
           )}
           {roleMissing && (
-            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/40">
+            <span className="shrink-0 rounded-full border border-warning/40 bg-warning-muted px-1.5 py-0.5 text-[10px] text-warning">
               ⚠ no {step.role_slug}
             </span>
           )}
           <span
-            className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full text-white/80"
+            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] text-text-primary"
             style={{ backgroundColor: `${roleColor}33` }}
           >
             {step.role_slug}
@@ -105,12 +105,12 @@ export const SopDagNode = memo(function SopDagNode({
         </div>
 
         {/* Instruction excerpt — single line to make room for output_key subline */}
-        <p className="text-xs text-slate-400 line-clamp-1 leading-relaxed flex-1">
+        <p className="line-clamp-1 flex-1 text-xs leading-relaxed text-text-secondary">
           {step.instruction}
         </p>
 
         {/* Output key */}
-        <p className="font-mono text-[10px] text-slate-500 truncate">→ {step.output_key}</p>
+        <p className="truncate font-mono text-[10px] text-text-muted">→ {step.output_key}</p>
       </div>
     </button>
   );

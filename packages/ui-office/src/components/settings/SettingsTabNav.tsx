@@ -30,10 +30,10 @@ export function SettingsTabNav({
     <nav
       className={
         horizontal
-          ? 'flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-white/10 bg-slate-950/60 p-2'
+          ? 'flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-border-default bg-surface-elevated p-2'
           : verticalCollapsed
-            ? 'w-12 flex-shrink-0 border-r border-white/10 bg-slate-950/60 py-3'
-            : 'w-56 flex-shrink-0 border-r border-white/10 bg-slate-950/60 py-6'
+            ? 'w-12 flex-shrink-0 border-r border-border-default bg-surface-elevated py-3'
+            : 'w-56 flex-shrink-0 border-r border-border-default bg-surface-elevated py-6'
       }
       aria-orientation={orientation}
     >
@@ -41,7 +41,7 @@ export function SettingsTabNav({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white"
+          className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-md border border-border-default text-text-secondary hover:bg-surface-hover hover:text-text-primary"
           aria-label={
             verticalCollapsed ? 'Expand settings navigation' : 'Collapse settings navigation'
           }
@@ -69,8 +69,8 @@ export function SettingsTabNav({
                   : 'w-full border-l-[4px] px-5'
             } ${
               isActive
-                ? 'border-cyan-400 bg-white/[0.06] text-white'
-                : 'border-transparent text-slate-400 hover:bg-white/[0.03] hover:text-slate-200'
+                ? 'border-border-focus bg-accent-muted text-accent-text'
+                : 'border-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary'
             }`}
           >
             <Icon className="h-4 w-4" />

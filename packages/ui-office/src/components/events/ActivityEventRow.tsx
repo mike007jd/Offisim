@@ -19,14 +19,14 @@ export interface ActivityEventRowProps {
 }
 
 const LEVEL_LEFT_BORDER: Record<EventDisplayLevel, string> = {
-  Error: 'border-l-[4px] border-red-500',
-  Warning: 'border-l-[4px] border-amber-500',
+  Error: 'border-l-[4px] border-error',
+  Warning: 'border-l-[4px] border-warning',
   Info: '',
 };
 
 const LEVEL_BAR_COLOR: Record<EventDisplayLevel, string> = {
-  Error: 'bg-red-500',
-  Warning: 'bg-amber-500',
+  Error: 'bg-error',
+  Warning: 'bg-warning',
   Info: 'bg-transparent',
 };
 
@@ -40,29 +40,29 @@ export function ActivityEventRow({
 }: ActivityEventRowProps) {
   const domain = domainIcon(event.type);
   const Icon = domain?.Icon ?? Activity;
-  const iconColor = domain?.color ?? 'text-slate-400';
+  const iconColor = domain?.color ?? 'text-text-secondary';
   const label =
     event.type === TASK_ASSIGNMENT_REROUTED
       ? formatTaskAssignmentReroutedLabel(event, getEmployeeName)
       : getDisplayLabel(event);
 
-  const selectedStyle = selected ? 'bg-white/[0.06]' : '';
+  const selectedStyle = selected ? 'bg-accent-muted' : '';
   const levelBorder = LEVEL_LEFT_BORDER[level];
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-3 px-4 h-12 text-left transition-colors hover:bg-white/[0.04] ${selectedStyle} ${levelBorder}`}
+      className={`flex h-12 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-surface-hover ${selectedStyle} ${levelBorder}`}
     >
       <Icon className={`h-5 w-5 shrink-0 ${iconColor}`} />
-      <span className="flex-1 truncate text-sm text-slate-200">{label}</span>
+      <span className="flex-1 truncate text-sm text-text-primary">{label}</span>
       {collapsedCount && collapsedCount > 1 && (
-        <span className="shrink-0 rounded-full bg-white/[0.08] px-2 py-0.5 text-[10px] font-medium text-slate-300">
+        <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-medium text-text-secondary">
           ×{collapsedCount}
         </span>
       )}
-      <span className="shrink-0 text-xs text-slate-500 w-20 text-right">
+      <span className="w-20 shrink-0 text-right text-xs text-text-muted">
         {formatTimestamp(event.timestamp)}
       </span>
       <span className={`shrink-0 w-1 h-6 rounded-full ${LEVEL_BAR_COLOR[level]}`} />

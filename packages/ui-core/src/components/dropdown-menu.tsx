@@ -55,7 +55,7 @@ const DropdownMenuContent = forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 min-w-[8rem] overflow-hidden rounded-lg border border-white/15 bg-slate-900 p-1 shadow-xl',
+          'z-50 min-w-[8rem] overflow-hidden rounded-lg border border-border-default bg-surface-elevated p-1 text-text-primary shadow-xl',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
           className,
         )}
@@ -75,11 +75,11 @@ const DropdownMenuItem = forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-200 outline-none transition-colors',
+      'relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary outline-none transition-colors',
       variant === 'destructive'
-        ? 'text-red-300 focus:bg-red-500/10 focus:text-red-200 hover:text-red-200 focus-visible:bg-red-500/10'
-        : 'focus:bg-white/10 focus:text-slate-100',
-      'focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-inset',
+        ? 'text-error focus:bg-error-muted focus:text-error hover:text-error focus-visible:bg-error-muted'
+        : 'focus:bg-surface-hover focus:text-text-primary',
+      'focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}

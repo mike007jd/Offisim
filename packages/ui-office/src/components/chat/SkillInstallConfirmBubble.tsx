@@ -131,48 +131,50 @@ export function SkillInstallConfirmBubble({
       : `Employee: ${resolveEmployeeLabel(context)}`;
 
   return (
-    <Card className="border-white/10 bg-black/30 backdrop-blur-md">
-      <CardHeader className="gap-2">
+    <Card className="border-border-default bg-surface-elevated text-text-primary shadow-overlay">
+      <CardHeader className="gap-2 border-b border-border-subtle pb-3">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-sm text-white">
+          <CardTitle className="min-w-0 truncate text-sm text-text-primary">
             {headerTitle(action, context.skillName, context)}
           </CardTitle>
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
-        {employeeName && <span className="text-xs text-slate-400">From: {employeeName}</span>}
+        {employeeName && <span className="text-xs text-text-muted">From: {employeeName}</span>}
         {action !== 'edit' && action !== 'create' && (
-          <p className="whitespace-pre-wrap text-xs text-slate-300">{context.skillDescription}</p>
+          <p className="line-clamp-2 whitespace-pre-wrap text-xs text-text-secondary">
+            {context.skillDescription}
+          </p>
         )}
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="max-h-[460px] space-y-3 overflow-y-auto pt-3">
         {action === 'fork' && context.parent && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
               Fork
             </div>
-            <p className="text-xs text-slate-200">
+            <p className="text-xs text-text-primary">
               {`"${context.parent.name}@${context.parent.version}" → ${resolveEmployeeLabel(context)}`}
             </p>
-            <p className="text-[11px] text-slate-500">Parent: {context.parent.slug}</p>
+            <p className="text-[11px] text-text-muted">Parent: {context.parent.slug}</p>
           </section>
         )}
 
         {action === 'edit' && context.bodyDiff && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
               Body diff
             </div>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               <div>
-                <div className="text-[11px] text-slate-400">Old</div>
-                <div className="mt-1 rounded-md border border-white/10 bg-black/30 p-2 text-[11px] text-slate-300 whitespace-pre-wrap break-words">
-                  {context.bodyDiff.oldPreview || <span className="text-slate-500">(empty)</span>}
+                <div className="text-[11px] text-text-muted">Old</div>
+                <div className="mt-1 whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-2 text-[11px] text-text-secondary">
+                  {context.bodyDiff.oldPreview || <span className="text-text-muted">(empty)</span>}
                 </div>
               </div>
               <div>
-                <div className="text-[11px] text-slate-400">New</div>
-                <div className="mt-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-[11px] text-emerald-100 whitespace-pre-wrap break-words">
-                  {context.bodyDiff.newPreview || <span className="text-slate-500">(empty)</span>}
+                <div className="text-[11px] text-text-muted">New</div>
+                <div className="mt-1 whitespace-pre-wrap break-words rounded-md border border-success/40 bg-success-muted p-2 text-[11px] text-success">
+                  {context.bodyDiff.newPreview || <span className="text-text-muted">(empty)</span>}
                 </div>
               </div>
             </div>
@@ -181,11 +183,11 @@ export function SkillInstallConfirmBubble({
 
         {(action === 'install' || action === 'create') && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
               Permissions
             </div>
             {context.allowedTools.length === 0 ? (
-              <p className="text-xs text-slate-500">No tools declared.</p>
+              <p className="text-xs text-text-muted">No tools declared.</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {context.allowedTools.map((tool) => {
@@ -195,8 +197,8 @@ export function SkillInstallConfirmBubble({
                       key={tool}
                       className={
                         wideScope
-                          ? 'rounded-md border border-rose-500/50 bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-200'
-                          : 'rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-200'
+                          ? 'rounded-md border border-error/50 bg-error-muted px-2 py-0.5 text-[11px] font-medium text-error'
+                          : 'rounded-md border border-border-subtle bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary'
                       }
                       data-wide-scope={wideScope ? 'true' : 'false'}
                     >
@@ -211,10 +213,10 @@ export function SkillInstallConfirmBubble({
 
         {action === 'install' && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
               Source
             </div>
-            <p className="break-all text-xs text-slate-200">
+            <p className="break-all text-xs text-text-primary">
               {describeSource(context.sourceKind, context.sourceRef)}
             </p>
           </section>
@@ -222,22 +224,22 @@ export function SkillInstallConfirmBubble({
 
         {action === 'create' && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
               Attribution
             </div>
-            <p className="break-all text-xs text-slate-200">
+            <p className="break-all text-xs text-text-primary">
               Authored by {context.modelKey ?? context.sourceRef}
             </p>
-            {context.slug && <p className="text-[11px] text-slate-500">Slug: {context.slug}</p>}
+            {context.slug && <p className="text-[11px] text-text-muted">Slug: {context.slug}</p>}
           </section>
         )}
 
         {action !== 'edit' && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
               Scope
             </div>
-            <p className="text-xs text-slate-200">{scopeLabel}</p>
+            <p className="text-xs text-text-primary">{scopeLabel}</p>
           </section>
         )}
 
@@ -246,7 +248,7 @@ export function SkillInstallConfirmBubble({
             partitioned.references.length > 0 ||
             partitioned.assets.length > 0) && (
             <section className="space-y-1.5">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                 Assets
               </div>
               <AssetGroup label="scripts/" paths={partitioned.scripts} />
@@ -256,13 +258,13 @@ export function SkillInstallConfirmBubble({
           )}
 
         {hasFrontmatterError && context.frontmatterError && (
-          <section className="space-y-1.5 rounded-md border border-rose-500/40 bg-rose-500/10 p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-rose-200">
+          <section className="space-y-1.5 rounded-md border border-error/40 bg-error-muted p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-error">
               Frontmatter error
             </div>
-            <p className="text-xs text-rose-100">{context.frontmatterError.detail}</p>
+            <p className="text-xs text-error">{context.frontmatterError.detail}</p>
             {context.frontmatterError.field && (
-              <p className="font-mono text-[11px] text-rose-200">
+              <p className="font-mono text-[11px] text-error">
                 {context.frontmatterError.reason}: {context.frontmatterError.field}
               </p>
             )}
@@ -271,28 +273,28 @@ export function SkillInstallConfirmBubble({
 
         {(action === 'install' || action === 'create') && body.length > 0 && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
               SKILL.md preview
             </div>
             <div
               className={
                 showFullBody
-                  ? 'rounded-md border border-white/10 bg-black/30 p-3 text-xs text-slate-200 whitespace-pre-wrap break-words max-h-96 overflow-y-auto'
-                  : 'relative max-h-[120px] overflow-hidden rounded-md border border-white/10 bg-black/30 p-3 text-xs text-slate-200 whitespace-pre-wrap break-words'
+                  ? 'max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-3 text-xs text-text-primary'
+                  : 'relative max-h-[84px] overflow-hidden whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-3 text-xs text-text-secondary'
               }
             >
               {body}
               {!showFullBody && shouldClampBody && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface-muted to-transparent" />
               )}
             </div>
             {shouldClampBody && (
               <button
                 type="button"
                 onClick={() => setShowFullBody((s) => !s)}
-                className="text-[11px] text-sky-300 hover:text-sky-200"
+                className="text-[11px] font-medium text-accent hover:text-accent-text"
               >
-                {showFullBody ? 'Show less' : 'Show full'}
+                {showFullBody ? 'Show less' : 'Show details'}
               </button>
             )}
           </section>
@@ -321,10 +323,10 @@ function AssetGroup({ label, paths }: { label: string; paths: string[] }) {
   if (paths.length === 0) return null;
   return (
     <div>
-      <div className="text-[11px] text-slate-400">{label}</div>
-      <ul className="ml-2 mt-0.5 space-y-0.5 text-xs text-slate-200">
+      <div className="text-[11px] text-text-muted">{label}</div>
+      <ul className="ml-2 mt-0.5 space-y-0.5 text-xs text-text-secondary">
         {paths.map((p) => (
-          <li key={p} className="font-mono text-[11px] text-slate-300">
+          <li key={p} className="font-mono text-[11px] text-text-secondary">
             {p}
           </li>
         ))}

@@ -121,18 +121,18 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
   );
 
   if (loading) {
-    return <p className="px-3 py-6 text-sm text-slate-500">Loading installed packages…</p>;
+    return <p className="px-3 py-6 text-sm text-text-muted">Loading installed packages...</p>;
   }
 
   if (actionableItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 px-4 py-10 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
-          <Store className="h-5 w-5 text-slate-500" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border-default bg-surface-muted">
+          <Store className="h-5 w-5 text-text-muted" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-200">No installed market packages</p>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+          <p className="text-sm font-semibold text-text-primary">No installed market packages</p>
+          <p className="mt-1 text-xs leading-relaxed text-text-secondary">
             Packages installed from the marketplace will appear here for manual update checks.
           </p>
         </div>
@@ -149,25 +149,25 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
         return (
           <div
             key={item.installed_package_id}
-            className="rounded-2xl border border-white/10 bg-white/[0.04] p-3"
+            className="rounded-2xl border border-border-default bg-surface-elevated p-3"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{item.package_id}</p>
-                <p className="text-[11px] text-slate-400">
+                <p className="truncate text-sm font-semibold text-text-primary">{item.package_id}</p>
+                <p className="text-[11px] text-text-secondary">
                   v{item.version} · {new Date(item.installed_at).toLocaleDateString()}
                 </p>
               </div>
               {update?.hasUpdate && (
-                <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-200">
+                <span className="rounded-full border border-success bg-success-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-success">
                   Update
                 </span>
               )}
             </div>
 
-            {update?.error && <p className="mt-2 text-[11px] text-rose-300">{update.error}</p>}
+            {update?.error && <p className="mt-2 text-[11px] text-error">{update.error}</p>}
             {!update?.error && update && (
-              <p className="mt-2 text-[11px] text-slate-400">
+              <p className="mt-2 text-[11px] text-text-secondary">
                 Latest registry version: {update.latestVersion}
               </p>
             )}
@@ -181,7 +181,7 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
                 onClick={() => void checkForUpdate(item)}
               >
                 <RefreshCcw className="h-3.5 w-3.5" />
-                {checkingId === item.installed_package_id ? 'Checking…' : 'Check update'}
+                {checkingId === item.installed_package_id ? 'Checking...' : 'Check update'}
               </Button>
 
               {item.origin_listing_id && update?.hasUpdate && (

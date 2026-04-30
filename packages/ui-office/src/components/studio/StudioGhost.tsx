@@ -493,7 +493,7 @@ export function StudioGhost() {
           <div
             ref={labelDivRef}
             style={{
-              background: 'rgba(0,0,0,0.7)',
+              background: STUDIO_COLORS.surface0,
               color: STUDIO_COLORS.success,
               padding: '2px 6px',
               borderRadius: 3,

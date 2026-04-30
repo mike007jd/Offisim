@@ -46,7 +46,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
           onChange={(event) =>
             setDraftCategory(event.target.value as (typeof MEMORY_CATEGORIES)[number])
           }
-          className="rounded-md border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+          className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
         >
           {MEMORY_CATEGORIES.map((category) => (
             <option key={category} value={category}>
@@ -58,7 +58,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
           value={draftContent}
           onChange={(event) => setDraftContent(event.target.value)}
           placeholder="Seed a memory..."
-          className="rounded-md border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+          className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
         />
         <input
           type="range"
@@ -79,7 +79,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
             });
             setDraftContent('');
           }}
-          className="rounded-md border border-white/10 px-3 py-2 text-sm text-slate-200"
+          className="rounded-md border border-border-default px-3 py-2 text-sm text-text-secondary transition hover:bg-surface-hover disabled:cursor-not-allowed disabled:text-text-disabled"
         >
           Add
         </button>
@@ -91,7 +91,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
           onChange={(event) =>
             setFilterCategory(event.target.value as 'all' | (typeof MEMORY_CATEGORIES)[number])
           }
-          className="rounded-md border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+          className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
         >
           <option value="all">All categories</option>
           {MEMORY_CATEGORIES.map((category) => (
@@ -104,33 +104,33 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search memories..."
-          className="rounded-md border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+          className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
         />
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-slate-400">Loading memories…</p>
+        <p className="text-sm text-text-secondary">Loading memories...</p>
       ) : error ? (
-        <p className="text-sm text-red-400">Error: {error}</p>
+        <p className="text-sm text-error">Error: {error}</p>
       ) : (
         <div className="flex flex-col gap-3">
           {groupedMemories.map(({ category, entries }) => (
-            <section key={category} className="rounded-lg border border-white/10 bg-white/5 p-3">
+            <section key={category} className="rounded-lg border border-border-default bg-surface-muted p-3">
               <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-sm font-medium capitalize text-slate-100">{category}</h4>
-                <span className="text-xs text-slate-500">{entries.length}</span>
+                <h4 className="text-sm font-medium capitalize text-text-primary">{category}</h4>
+                <span className="text-xs text-text-muted">{entries.length}</span>
               </div>
               {entries.length === 0 ? (
-                <p className="text-xs text-slate-500">No entries in this category.</p>
+                <p className="text-xs text-text-muted">No entries in this category.</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {entries.map((memory) => (
                     <div
                       key={memory.memory_id}
-                      className="rounded-md border border-white/10 bg-black/10 p-2"
+                      className="rounded-md border border-border-default bg-surface p-2"
                     >
                       <textarea
-                        className="min-h-[72px] w-full rounded-md border border-white/10 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                        className="min-h-[72px] w-full rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
                         defaultValue={memory.content}
                         onBlur={(event) => {
                           const next = event.target.value.trim();
@@ -139,7 +139,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
                           }
                         }}
                       />
-                      <div className="mt-2 flex items-center gap-3 text-xs text-slate-400">
+                      <div className="mt-2 flex items-center gap-3 text-xs text-text-secondary">
                         <label className="flex items-center gap-2">
                           <span>Importance</span>
                           <input
@@ -164,7 +164,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
                               void deleteMemory(memory.memory_id);
                             }
                           }}
-                          className="ml-auto rounded-md border border-white/10 px-2 py-1 text-xs text-slate-200"
+                          className="ml-auto rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition hover:bg-surface-hover"
                         >
                           Delete
                         </button>

@@ -84,7 +84,7 @@ export const OverlayShell = forwardRef<HTMLDivElement, OverlayShellProps>(
       // biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop dismissal is a mouse affordance only; Escape is owned by useTopmostEscape
       <div
         className={cn(
-          'fixed inset-0 z-50 flex items-stretch justify-stretch bg-slate-950/70 backdrop-blur-sm',
+          'fixed inset-0 z-50 flex items-stretch justify-stretch bg-glass-bg backdrop-blur-sm',
           backdropClassName,
         )}
         onClick={handleBackdropClick}
@@ -105,7 +105,7 @@ export const OverlayShell = forwardRef<HTMLDivElement, OverlayShellProps>(
               type="button"
               onClick={onRequestClose}
               aria-label={closeLabel}
-              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface-muted text-text-secondary transition hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             >
               <X className="h-4 w-4" />
             </button>

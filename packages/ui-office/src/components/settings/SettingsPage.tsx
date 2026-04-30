@@ -61,7 +61,10 @@ export function SettingsPage({
 
   return (
     <div
-      className={cn('flex h-full', tier === 'narrow' ? 'flex-col' : 'flex-row')}
+      className={cn(
+        'flex h-full bg-surface text-text-primary',
+        tier === 'narrow' ? 'flex-col' : 'flex-row',
+      )}
       data-layout-tier={tier}
     >
       <SettingsTabNav

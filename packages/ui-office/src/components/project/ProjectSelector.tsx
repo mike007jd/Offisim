@@ -1,15 +1,38 @@
 import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
-import { BriefcaseBusiness, ChevronDown, FolderPlus } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { ProjectListPanel } from './ProjectListPanel.js';
+import {
+  EntityDropdown,
+  type EntityDropdownItem,
+  type EntityDropdownSection,
+} from '@offisim/ui-core';
+import { Archive, BriefcaseBusiness, ChevronDown, FolderPlus } from 'lucide-react';
+import { useState } from 'react';
+import { ProjectSelectedSummary } from './ProjectListPanel.js';
 
 const STATUS_DOT: Record<ProjectStatus, string> = {
-  planning: 'bg-blue-400',
-  active: 'bg-emerald-400',
-  paused: 'bg-amber-400',
-  completed: 'bg-zinc-400',
-  archived: 'bg-zinc-600',
+  planning: 'bg-info',
+  active: 'bg-success',
+  paused: 'bg-warning',
+  completed: 'bg-text-muted',
+  archived: 'bg-text-disabled',
 };
+
+const STATUS_LABEL: Record<ProjectStatus, string> = {
+  planning: 'Planning',
+  active: 'Active',
+  paused: 'Paused',
+  completed: 'Completed',
+  archived: 'Archived',
+};
+
+const STATUS_CHIP: Record<ProjectStatus, string> = {
+  planning: 'text-info bg-info-muted border border-info',
+  active: 'text-success bg-success-muted border border-success',
+  paused: 'text-warning bg-warning-muted border border-warning',
+  completed: 'text-text-secondary bg-surface-muted border border-border-default',
+  archived: 'text-text-muted bg-surface-muted border border-border-subtle',
+};
+
+const ALL_OPTION_ID = '__all__';
 
 interface ProjectSelectorProps {
   projects: ProjectRow[];
@@ -21,6 +44,20 @@ interface ProjectSelectorProps {
   onRequestEditProject?: (project: ProjectRow) => void;
 }
 
+function projectItem(project: ProjectRow): EntityDropdownItem {
+  return {
+    id: project.project_id,
+    label: project.name,
+    icon: <span className={`mt-1 h-1.5 w-1.5 rounded-full ${STATUS_DOT[project.status]}`} />,
+    badge: (
+      <span className={`rounded px-1.5 py-0.5 text-[10px] ${STATUS_CHIP[project.status]}`}>
+        {STATUS_LABEL[project.status]}
+      </span>
+    ),
+    hint: project.description ?? undefined,
+  };
+}
+
 export function ProjectSelector({
   projects,
   activeProjectId,
@@ -29,88 +66,94 @@ export function ProjectSelector({
   onRequestEditProject,
 }: ProjectSelectorProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
-
   const activeProject = projects.find((p) => p.project_id === activeProjectId) ?? null;
 
-  function handleSelect(id: string | null) {
-    onSelect(id);
-    setOpen(false);
+  const activeProjects = projects.filter((p) =>
+    (['planning', 'active', 'paused'] as ProjectStatus[]).includes(p.status),
+  );
+  const completedProjects = projects.filter((p) =>
+    (['completed', 'archived'] as ProjectStatus[]).includes(p.status),
+  );
+
+  const sections: EntityDropdownSection[] = [
+    {
+      items: [
+        {
+          id: ALL_OPTION_ID,
+          label: 'All (no project scope)',
+          icon: <Archive className="h-3.5 w-3.5 shrink-0 text-text-muted" />,
+        },
+      ],
+    },
+  ];
+  if (activeProjects.length > 0) {
+    sections.push({ title: 'Active', items: activeProjects.map(projectItem) });
+  }
+  if (completedProjects.length > 0) {
+    sections.push({ title: 'Completed', items: completedProjects.map(projectItem) });
   }
 
-  const isEmpty = projects.length === 0;
+  const handleSelect = (id: string) => {
+    onSelect(id === ALL_OPTION_ID ? null : id);
+    setOpen(false);
+  };
+
+  const trigger = (
+    <button
+      type="button"
+      className="flex h-7 items-center gap-1.5 rounded-full border border-border-default bg-surface-muted px-2.5 text-xs text-text-secondary transition-colors hover:border-border-strong hover:bg-surface-hover hover:text-text-primary"
+      title="Select project context"
+    >
+      <BriefcaseBusiness className="h-3.5 w-3.5 flex-shrink-0 text-info" />
+      {activeProject ? (
+        <>
+          <span
+            className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[activeProject.status]}`}
+          />
+          <span className="max-w-[120px] truncate">{activeProject.name}</span>
+        </>
+      ) : (
+        <span className="text-text-muted">All</span>
+      )}
+      <ChevronDown
+        className={`h-3 w-3 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`}
+      />
+    </button>
+  );
 
   return (
-    <div ref={ref} className="relative">
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-7 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 text-xs text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10"
-        title="Select project context"
-      >
-        <BriefcaseBusiness className="h-3.5 w-3.5 flex-shrink-0 text-cyan-300/70" />
-        {activeProject ? (
-          <>
-            <span
-              className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[activeProject.status]}`}
-            />
-            <span className="max-w-[120px] truncate">{activeProject.name}</span>
-          </>
-        ) : (
-          <span className="text-slate-500">All</span>
-        )}
-        <ChevronDown
-          className={`h-3 w-3 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 min-w-[220px] text-xs">
-          {isEmpty ? (
-            <div className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-3 shadow-2xl flex flex-col gap-2">
-              <p className="text-slate-400 leading-relaxed">
-                A project pairs a chat thread with an optional local workspace folder.
-              </p>
-              {onRequestCreate && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    onRequestCreate();
-                  }}
-                  className="flex items-center justify-center gap-1.5 rounded-md border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-cyan-100 transition-colors hover:bg-cyan-500/25"
-                >
-                  <FolderPlus className="h-3.5 w-3.5" />
-                  Create your first project
-                </button>
-              )}
-            </div>
-          ) : (
-            <ProjectListPanel
-              projects={projects}
-              activeProjectId={activeProjectId}
-              onSelect={handleSelect}
-              onClose={() => setOpen(false)}
-              onRequestCreateProject={onRequestCreate}
-              onRequestEditProject={onRequestEditProject}
-            />
-          )}
-        </div>
-      )}
-    </div>
+    <EntityDropdown
+      open={open}
+      onOpenChange={setOpen}
+      trigger={trigger}
+      align="start"
+      collisionPadding={8}
+      contentClassName="w-72 max-h-[28rem] overflow-y-auto"
+      title={projects.length > 0 ? `Projects · ${projects.length}` : 'Projects'}
+      sections={sections}
+      activeId={activeProjectId ?? ALL_OPTION_ID}
+      onSelect={handleSelect}
+      emptyText="No projects yet. Create one below."
+      bodyExtras={
+        activeProject ? (
+          <ProjectSelectedSummary
+            project={activeProject}
+            onRequestEdit={onRequestEditProject}
+          />
+        ) : null
+      }
+      footerAction={
+        onRequestCreate
+          ? {
+              label: 'New project',
+              icon: <FolderPlus className="h-3.5 w-3.5" />,
+              onSelect: () => {
+                setOpen(false);
+                onRequestCreate();
+              },
+            }
+          : undefined
+      }
+    />
   );
 }

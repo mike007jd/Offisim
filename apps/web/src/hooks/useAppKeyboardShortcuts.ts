@@ -63,18 +63,6 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
         return;
       }
 
-      if (
-        isOffice &&
-        (e.metaKey || e.ctrlKey) &&
-        e.key.toLowerCase() === 'j' &&
-        officeState.kanbanOpen &&
-        getTopmostModalId() === 'kanban-overlay'
-      ) {
-        e.preventDefault();
-        handleToggleKanban();
-        return;
-      }
-
       // When any topmost modal owns input, leave every other shortcut to the
       // owner's own useTopmostEscape / keydown handlers.
       if (anyModalOpen) return;
@@ -160,7 +148,6 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     handleToggleDashboard,
     handleToggleKanban,
     officeState.dashboardOpen,
-    officeState.kanbanOpen,
     officeState.selectedEmployeeId,
     setShortcutHelpOpen,
     updateWorkspaceState,

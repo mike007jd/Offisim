@@ -28,7 +28,6 @@
       "@offisim/ui-office/install": [
         "../../packages/ui-office/src/components/install/InstallDialog.tsx"
       ],
-      "@offisim/ui-office/kanban": ["../../packages/ui-office/src/components/kanban/index.ts"],
       "@offisim/ui-office/marketplace": [
         "../../packages/ui-office/src/components/marketplace/index.ts"
       ],

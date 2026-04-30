@@ -28,33 +28,36 @@ export function AgentPanel({
   }, [agents, search]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col bg-surface-elevated text-text-primary">
       {/* Header */}
-      <div className="border-b border-white/5" style={{ padding: 'var(--sp-xxl)' }}>
+      <div className="border-b border-border-default" style={{ padding: 'var(--sp-xl)' }}>
         <div className="flex items-center justify-between" style={{ marginBottom: 'var(--sp-lg)' }}>
-          <h2 className="text-xs font-black uppercase tracking-[0.4em] text-slate-400 flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-text-secondary">
             <Users className="w-3 h-3" />
             <span>Team</span>
           </h2>
-          <span className="text-[10px] font-mono text-blue-500/60">
+          <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-0.5 text-[10px] font-medium text-text-muted">
             {filteredEntries.length} {search ? `/ ${agents.size}` : ''} members
           </span>
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
             placeholder="Search employees..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-lg py-2 pl-9 pr-4 text-[10px] font-mono focus:outline-none focus:border-blue-500/40 transition-all placeholder:text-slate-700 text-slate-300"
+            className="h-9 w-full rounded-lg border border-border-default bg-surface-muted py-2 pl-9 pr-3 text-sm text-text-primary transition-all placeholder:text-text-muted focus:border-border-focus focus:bg-surface focus:outline-none"
           />
         </div>
       </div>
 
       {/* Employee list */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar" style={{ padding: 'var(--sp-lg)' }}>
+      <div
+        className="custom-scrollbar flex-1 space-y-3 overflow-y-auto"
+        style={{ padding: 'var(--sp-lg)' }}
+      >
         {filteredEntries.map(([id, agent], idx) => (
           <div key={id} className="animate-list-item" style={{ animationDelay: `${idx * 30}ms` }}>
             <AgentCard
@@ -68,14 +71,14 @@ export function AgentPanel({
       </div>
 
       {/* Bottom action — direct to employee creator */}
-      <div className="border-t border-white/5 bg-black/40" style={{ padding: 'var(--sp-lg)' }}>
+      <div className="border-t border-border-default bg-surface" style={{ padding: 'var(--sp-lg)' }}>
         <button
           type="button"
-          className="cyber-button w-full flex items-center justify-center group"
+          className="group flex h-10 w-full items-center justify-center rounded-lg border border-border-default bg-surface-muted text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary transition hover:border-border-focus hover:bg-accent-muted hover:text-accent-text"
           style={{ columnGap: 'var(--sp-sm)' }}
           onClick={onOpenCreator}
         >
-          <Plus className="w-3 h-3 text-blue-400 group-hover:rotate-90 transition-transform" />
+          <Plus className="h-3.5 w-3.5 text-accent transition-transform group-hover:rotate-90" />
           <span>Add Employee</span>
         </button>
       </div>

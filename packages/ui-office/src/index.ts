@@ -50,7 +50,6 @@ export * from './components/install/BindingForm.js';
 export * from './components/install/FileImportTrigger.js';
 export * from './components/install/InstallProgress.js';
 export * from './components/install/ManifestReview.js';
-// Note: Kanban is NOT exported from the barrel — lazy-loaded via subpath @offisim/ui-office/kanban
 export * from './components/layout/AppLayout.js';
 export * from './components/notifications/NotificationCard.js';
 export * from './components/notifications/NotificationCenter.js';

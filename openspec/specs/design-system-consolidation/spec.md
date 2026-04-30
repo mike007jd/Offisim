@@ -2,12 +2,12 @@
 
 ## Purpose
 
-Touched UI surfaces use a shared set of primitives (`SurfaceCard`, `Toolbar`, `SegmentedControl`, `DialogShell`, `EmptyState`, `ErrorState`) and constrained visual tokens (spacing, radius, border, typography) rather than duplicating incompatible local patterns. Accent styling (cyan, all-caps, monospaced, heavy glass) is reserved for metadata, active state, or high-priority status, and cards/toolbars use stable dimensions so hover/selected states do not reshuffle layout. Broad page sections are not wrapped as nested floating cards.
+Touched UI surfaces use a shared set of primitives (`SurfaceCard`, `Toolbar`, `SegmentedControl`, `DialogShell`, `EmptyState`, `ErrorState`, `EntityDropdown`) and constrained visual tokens (spacing, radius, border, typography) rather than duplicating incompatible local patterns. Accent styling (cyan, all-caps, monospaced, heavy glass) is reserved for metadata, active state, or high-priority status, and cards/toolbars use stable dimensions so hover/selected states do not reshuffle layout. Broad page sections are not wrapped as nested floating cards.
 
 ## Requirements
 
 ### Requirement: Shared UI primitives cover repeated surfaces
-Touched UI surfaces SHALL use shared or equivalent primitives for `SurfaceCard`, `Toolbar`, `SegmentedControl`, `DialogShell`, `EmptyState`, and `ErrorState` instead of duplicating incompatible local patterns.
+Touched UI surfaces SHALL use shared or equivalent primitives for `SurfaceCard`, `Toolbar`, `SegmentedControl`, `DialogShell`, `EmptyState`, `ErrorState`, and `EntityDropdown` instead of duplicating incompatible local patterns. The `EntityDropdown` primitive lives in `@offisim/ui-core` and renders the recurring "trigger row + scrollable item list + footer action" shape (current consumers: Header company switcher, project selector, Market mode/manage tabs).
 
 #### Scenario: Touched empty states use shared primitive
 - **WHEN** SOP, Market, Activity, Studio Properties, or Settings renders an empty/default/error state touched by this change
@@ -16,6 +16,11 @@ Touched UI surfaces SHALL use shared or equivalent primitives for `SurfaceCard`,
 #### Scenario: Touched dialogs use shared shell
 - **WHEN** Company Editor, Employee Creator, Studio, Dashboard, or other touched overlay renders as a modal/dialog
 - **THEN** it uses `DialogShell` or an equivalent shared close/focus/action contract
+
+#### Scenario: Entity-shaped dropdowns use shared primitive
+- **WHEN** the Header company switcher, project selector, or Market mode/manage tab strip renders a dropdown that lists selectable entities with an active-id indicator and a footer "manage" action
+- **THEN** the dropdown is rendered through `EntityDropdown` (or a thin wrapper that consumes it) rather than a hand-rolled `DropdownMenu` markup duplicate
+- **AND** the trigger, item list, active-state badge, and footer action share the same accessible structure across all three call sites
 
 ### Requirement: Visual tokens are constrained on touched surfaces
 Touched surfaces SHALL use the design system spacing, radius, border, and typography tokens where available. Large all-caps labels, monospaced text, heavy glass effects, and cyan highlights SHALL be reserved for metadata, active states, or high-priority status rather than applied uniformly across an entire screen.

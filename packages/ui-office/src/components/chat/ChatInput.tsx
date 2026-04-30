@@ -20,23 +20,23 @@ interface MentionOption {
 // ── Role color mapping ─────────────────────────────────────────────
 
 const ROLE_COLORS: Record<string, string> = {
-  developer: 'bg-blue-500',
-  engineer: 'bg-blue-500',
-  backend: 'bg-blue-400',
-  frontend: 'bg-cyan-500',
-  fullstack: 'bg-blue-600',
-  pm: 'bg-purple-500',
-  product_manager: 'bg-purple-500',
-  researcher: 'bg-violet-500',
-  analyst: 'bg-purple-400',
-  designer: 'bg-orange-500',
-  artist: 'bg-orange-400',
-  ui_designer: 'bg-amber-500',
-  ux_designer: 'bg-orange-600',
+  developer: 'bg-info',
+  engineer: 'bg-info',
+  backend: 'bg-info',
+  frontend: 'bg-accent',
+  fullstack: 'bg-info',
+  pm: 'bg-accent',
+  product_manager: 'bg-accent',
+  researcher: 'bg-success',
+  analyst: 'bg-success',
+  designer: 'bg-warning',
+  artist: 'bg-warning',
+  ui_designer: 'bg-warning',
+  ux_designer: 'bg-warning',
 };
 
 function roleColor(role: string): string {
-  return ROLE_COLORS[role] ?? 'bg-slate-500';
+  return ROLE_COLORS[role] ?? 'bg-text-muted';
 }
 
 function resizeTextarea(element: HTMLTextAreaElement | null, currentText: string) {
@@ -178,6 +178,14 @@ export function ChatInput({
   }, []);
 
   // ── Send logic ──────────────────────────────────────────────────
+  function clearComposer() {
+    setText('');
+    setShowSlashMenu(false);
+    setShowMentionMenu(false);
+    setSlashFilter('');
+    setMentionFilter('');
+  }
+
   function handleSend() {
     const trimmed = text.trim();
     if (!trimmed || disabled) return;
@@ -185,13 +193,13 @@ export function ChatInput({
     const parsed = parseCommand(trimmed);
     if (parsed) {
       onCommand(parsed.command, parsed.args);
-      setText('');
+      clearComposer();
       return;
     }
 
     // Not a command (or unrecognized /something) — send as regular message
     onSend(trimmed);
-    setText('');
+    clearComposer();
   }
 
   // ── Select slash command ────────────────────────────────────────
@@ -228,6 +236,11 @@ export function ChatInput({
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         const cmd = filteredSlash[slashIndex];
+        const parsed = parseCommand(text.trim());
+        if (parsed && parsed.command === cmd && parsed.args === '' && cmd.type !== 'runtime') {
+          handleSend();
+          return;
+        }
         if (cmd) selectSlashCommand(cmd);
         return;
       }
@@ -286,33 +299,35 @@ export function ChatInput({
   const chatInputTargetRef = useTourTarget('office:chat-input');
 
   return (
-    <div ref={chatInputTargetRef} className="relative border-t border-white/8 px-3 py-2">
+    <div ref={chatInputTargetRef} className="relative border-t border-border-default px-3 py-2">
       {/* Slash command menu */}
       {showSlashMenu && filteredSlash.length > 0 && (
         <div
           ref={menuRef}
-          className="absolute bottom-full left-3 right-3 mb-1 bg-slate-900 border border-white/10 rounded-lg shadow-xl overflow-hidden z-50"
+          className="absolute bottom-full left-3 right-3 z-50 mb-1 overflow-hidden rounded-lg border border-border-default bg-surface-elevated shadow-modal"
         >
           <div className="max-h-[240px] overflow-y-auto py-1">
             {filteredSlash.map((cmd, i) => (
               <button
                 key={cmd.name}
                 type="button"
-                className={`w-full flex items-center gap-2.5 px-3 h-8 text-left transition-colors ${
-                  i === slashIndex ? 'bg-blue-500/20 text-white' : 'text-slate-300 hover:bg-white/5'
+                className={`flex h-8 w-full items-center gap-2.5 px-3 text-left transition-colors ${
+                  i === slashIndex
+                    ? 'bg-accent-muted text-accent-text'
+                    : 'text-text-secondary hover:bg-surface-hover'
                 }`}
                 onMouseEnter={() => setSlashIndex(i)}
                 onClick={() => selectSlashCommand(cmd)}
               >
-                <span className="text-xs font-mono text-blue-400 shrink-0">/{cmd.name}</span>
+                <span className="shrink-0 font-mono text-xs text-accent">/{cmd.name}</span>
                 <span
-                  className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-slate-500/20 text-slate-400'}`}
+                  className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-surface-muted text-text-muted'}`}
                 >
                   {cmd.category}
                 </span>
-                <span className="text-xs text-slate-400 truncate">{cmd.description}</span>
+                <span className="truncate text-xs text-text-secondary">{cmd.description}</span>
                 {cmd.argumentHint && (
-                  <span className="text-[10px] text-slate-500 truncate ml-auto shrink-0">
+                  <span className="ml-auto shrink-0 truncate text-[10px] text-text-muted">
                     {cmd.argumentHint}
                   </span>
                 )}
@@ -326,28 +341,28 @@ export function ChatInput({
       {showMentionMenu && filteredMentions.length > 0 && (
         <div
           ref={menuRef}
-          className="absolute bottom-full left-3 right-3 mb-1 bg-slate-900 border border-white/10 rounded-lg shadow-xl overflow-hidden z-50"
+          className="absolute bottom-full left-3 right-3 z-50 mb-1 overflow-hidden rounded-lg border border-border-default bg-surface-elevated shadow-modal"
         >
           <div className="max-h-[240px] overflow-y-auto py-1">
             {filteredMentions.map((opt, i) => (
               <button
                 key={opt.id}
                 type="button"
-                className={`w-full flex items-center gap-2.5 px-3 h-8 text-left transition-colors ${
+                className={`flex h-8 w-full items-center gap-2.5 px-3 text-left transition-colors ${
                   i === mentionIndex
-                    ? 'bg-blue-500/20 text-white'
-                    : 'text-slate-300 hover:bg-white/5'
+                    ? 'bg-accent-muted text-accent-text'
+                    : 'text-text-secondary hover:bg-surface-hover'
                 }`}
                 onMouseEnter={() => setMentionIndex(i)}
                 onClick={() => selectMention(opt)}
               >
                 <span
-                  className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold text-white ${roleColor(opt.role)}`}
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-text-inverse ${roleColor(opt.role)}`}
                 >
                   {opt.name[0]}
                 </span>
                 <span className="text-xs font-medium">{opt.name}</span>
-                <span className="text-xs text-slate-500 truncate">{opt.role}</span>
+                <span className="truncate text-xs text-text-muted">{opt.role}</span>
               </button>
             ))}
           </div>
@@ -365,34 +380,30 @@ export function ChatInput({
           disabled={disabled}
           rows={1}
           maxLength={8000}
-          className="flex-1 min-h-[32px] max-h-[72px] bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white leading-snug resize-none focus:outline-none focus:border-blue-500/50 transition-colors placeholder:text-slate-600 disabled:opacity-40"
+          className="min-h-[32px] max-h-[72px] flex-1 resize-none rounded-lg border border-border-default bg-surface px-3 py-1.5 text-sm leading-snug text-text-primary transition-colors placeholder:text-text-muted focus:border-border-focus focus:outline-none disabled:bg-surface-muted disabled:text-text-muted"
         />
         <button
           type="button"
           onClick={handleSend}
           disabled={!canSend}
           aria-label="Send message"
-          className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-all active:scale-95 ${
-            canSend
-              ? 'bg-blue-600 hover:bg-blue-500 text-white'
-              : 'bg-transparent text-transparent pointer-events-none'
-          }`}
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent`}
         >
-          <ArrowUp className="w-3.5 h-3.5" />
+          <ArrowUp className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Hint line */}
-      <div className="flex items-center gap-3 mt-1 px-1">
+      <div className="mt-1 flex items-center gap-3 px-1">
         {disabled && disabledReason ? (
-          <span className="text-[10px] text-amber-300/80">{disabledReason}</span>
+          <span className="text-[10px] text-warning">{disabledReason}</span>
         ) : (
           <>
-            <span className="text-[10px] text-slate-500">
-              <kbd className="text-slate-500">/</kbd> commands
+            <span className="text-[10px] text-text-muted">
+              <kbd className="text-text-muted">/</kbd> commands
             </span>
-            <span className="text-[10px] text-slate-500">
-              <kbd className="text-slate-500">@</kbd> mention
+            <span className="text-[10px] text-text-muted">
+              <kbd className="text-text-muted">@</kbd> mention
             </span>
           </>
         )}

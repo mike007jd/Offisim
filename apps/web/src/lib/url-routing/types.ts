@@ -31,7 +31,6 @@ export type WorkspaceRoute =
       overlay: Extract<UrlOverlayKey, 'office-editor'> | null;
       viewMode?: '2D' | '3D';
       dashboardOpen?: boolean;
-      kanbanOpen?: boolean;
       marketplaceListingId?: string | null;
       companyId?: string | null;
     }

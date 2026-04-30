@@ -1,8 +1,13 @@
 export { KanbanBoard } from './KanbanBoard.js';
-export type { KanbanBoardProps } from './KanbanBoard.js';
+export type {
+  CreateKanbanInput,
+  KanbanBoardProps,
+  KanbanCardData,
+  KanbanState,
+} from './KanbanBoard.js';
 export { KanbanColumn } from './KanbanColumn.js';
 export type { KanbanColumnProps } from './KanbanColumn.js';
 export { KanbanCard } from './KanbanCard.js';
 export type { KanbanCardProps } from './KanbanCard.js';
-export { KanbanOverlay } from './KanbanOverlay.js';
-export type { KanbanOverlayProps } from './KanbanOverlay.js';
+export { KanbanTray } from './KanbanTray.js';
+export type { KanbanTrayProps } from './KanbanTray.js';

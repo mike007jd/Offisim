@@ -419,7 +419,6 @@ export function App({ onCompanySwitch }: AppProps) {
             onArchiveCompany={lifecycle.handleArchiveCompany}
             officeState={officeState}
             activeCompanyId={activeCompanyId}
-            activeProjectId={activeProjectId}
             repos={repos}
             activeThreadId={activeProject?.thread_id ?? null}
             onStudioCompanyCreated={lifecycle.handleStudioCompanyCreated}
@@ -427,7 +426,6 @@ export function App({ onCompanySwitch }: AppProps) {
             updateOfficeState={officeBindings.updateOfficeState}
             updateWorkspaceState={updateWorkspaceState}
             installFlow={installFlow}
-            lastUserRequest={officeBindings.lastUserRequest}
           />
 
           {showLayout && (
@@ -471,6 +469,7 @@ export function App({ onCompanySwitch }: AppProps) {
               onStartMarketInstall={installFlow.startRegistryInstall}
               addToast={addToast}
               onEditExternalEmployee={(id) => routeToPersonnel(id, 'profile')}
+              lastUserRequest={officeBindings.lastUserRequest}
             />
           )}
 

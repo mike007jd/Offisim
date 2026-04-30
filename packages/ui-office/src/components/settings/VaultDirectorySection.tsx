@@ -140,9 +140,9 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
       >
         <div className="space-y-4">
           <div>
-            <p className="text-sm text-slate-200">{statusText}</p>
+            <p className="text-sm text-text-primary">{statusText}</p>
             {desktopVaultRoot ? (
-              <p className="mt-2 font-mono text-xs text-slate-400">{desktopVaultRoot}</p>
+              <p className="mt-2 font-mono text-xs text-text-muted">{desktopVaultRoot}</p>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-3">
@@ -176,9 +176,9 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
     >
       <div className="space-y-4">
         <div>
-          <p className="text-sm text-slate-200">{statusText}</p>
+          <p className="text-sm text-text-primary">{statusText}</p>
           {status.root ? (
-            <p className="mt-2 font-mono text-xs text-slate-400">{status.root}</p>
+            <p className="mt-2 font-mono text-xs text-text-muted">{status.root}</p>
           ) : null}
         </div>
 

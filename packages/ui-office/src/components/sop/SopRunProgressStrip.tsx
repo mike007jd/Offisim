@@ -69,16 +69,16 @@ export function SopRunProgressStrip({ definition, sopTemplateId }: SopRunProgres
   const completedTasks = store.stats.completed;
 
   const accentClass = stats.hasFailure
-    ? 'border-red-400/30 bg-red-500/[0.08] text-red-100'
-    : 'border-cyan-400/20 bg-cyan-500/[0.06] text-cyan-100';
+    ? 'border-error bg-error-muted text-error'
+    : 'border-info bg-info-muted text-info';
 
   const dotClass = isRunning
     ? stats.hasFailure
-      ? 'bg-red-400 animate-pulse'
-      : 'bg-cyan-300 animate-pulse'
+      ? 'animate-pulse bg-error'
+      : 'animate-pulse bg-info'
     : stats.hasFailure
-      ? 'bg-red-400'
-      : 'bg-emerald-400';
+      ? 'bg-error'
+      : 'bg-success';
 
   let body: string;
   if (isRunning) {

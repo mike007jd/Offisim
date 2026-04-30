@@ -34,7 +34,7 @@ export function SegmentedControl<V extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5',
+        'inline-flex items-center rounded-lg border border-border-default bg-surface-muted p-0.5',
         className,
       )}
     >
@@ -53,11 +53,11 @@ export function SegmentedControl<V extends string>({
               if (!item.disabled && !selected) onChange(item.value);
             }}
             className={cn(
-              'inline-flex items-center justify-center gap-1.5 rounded-md px-3 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:opacity-50',
+              'inline-flex items-center justify-center gap-1.5 rounded-md px-3 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50',
               size === 'sm' ? 'h-7 text-xs' : 'h-8 text-sm',
               selected
-                ? 'bg-cyan-500/20 text-cyan-100'
-                : 'text-slate-300 hover:bg-white/5 hover:text-slate-100',
+                ? 'bg-accent-muted text-accent-text'
+                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
             )}
           >
             {item.label}

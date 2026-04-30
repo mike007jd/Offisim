@@ -9,7 +9,7 @@ export interface ActivityPayloadViewProps {
 export function ActivityPayloadView({ payload, depth = 0 }: ActivityPayloadViewProps) {
   const entries = Object.entries(payload);
   if (entries.length === 0) {
-    return <p className="text-xs text-slate-500 italic">Empty payload</p>;
+    return <p className="text-xs italic text-text-muted">Empty payload</p>;
   }
 
   return (
@@ -33,7 +33,7 @@ function PayloadEntry({
   if (value === null || value === undefined) {
     return (
       <Row label={entryKey}>
-        <span className="text-slate-500 italic">null</span>
+        <span className="italic text-text-muted">null</span>
       </Row>
     );
   }
@@ -41,7 +41,7 @@ function PayloadEntry({
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return (
       <Row label={entryKey}>
-        <span className="text-slate-200">{String(value)}</span>
+        <span className="text-text-primary">{String(value)}</span>
       </Row>
     );
   }
@@ -50,7 +50,7 @@ function PayloadEntry({
     if (value.length <= 5) {
       return (
         <Row label={entryKey}>
-          <span className="text-slate-200">
+          <span className="text-text-primary">
             [{value.map((v) => formatPrimitive(v)).join(', ')}]
           </span>
         </Row>
@@ -73,7 +73,7 @@ function PayloadEntry({
     } catch {
       return (
         <Row label={entryKey}>
-          <span className="text-slate-500 italic">[Unable to display]</span>
+          <span className="italic text-text-muted">[Unable to display]</span>
         </Row>
       );
     }
@@ -87,7 +87,7 @@ function PayloadEntry({
 
   return (
     <Row label={entryKey}>
-      <span className="text-slate-200">{String(value)}</span>
+      <span className="text-text-primary">{String(value)}</span>
     </Row>
   );
 }
@@ -101,7 +101,7 @@ function Row({
 }) {
   return (
     <div className="flex items-baseline gap-3 min-h-[32px] py-1">
-      <span className="shrink-0 font-mono text-xs text-slate-400">{label}</span>
+      <span className="shrink-0 font-mono text-xs text-text-secondary">{label}</span>
       <span className="text-xs break-all">{children}</span>
     </div>
   );
@@ -123,7 +123,7 @@ function CollapsibleSection({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1 py-1 text-xs font-mono text-slate-400 hover:text-slate-300 transition-colors"
+        className="flex items-center gap-1 py-1 font-mono text-xs text-text-secondary transition-colors hover:text-text-primary"
       >
         {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         {label}

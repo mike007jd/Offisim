@@ -124,7 +124,7 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       <Html position={[0, 0.3, 0]} center style={{ pointerEvents: 'none', userSelect: 'none' }}>
         <div
           style={{
-            background: 'rgba(0,0,0,0.6)',
+            background: STUDIO_COLORS.surface0,
             color: isSelected ? STUDIO_COLORS.accentText : STUDIO_COLORS.textSecondary,
             padding: '1px 4px',
             borderRadius: 2,
@@ -310,7 +310,7 @@ export function StudioPlacedPrefabs() {
           >
             <div
               style={{
-                background: 'rgba(2, 6, 23, 0.88)',
+                background: STUDIO_COLORS.surface0,
                 color: STUDIO_COLORS.textPrimary,
                 padding: '4px 8px',
                 borderRadius: 6,
@@ -319,7 +319,7 @@ export function StudioPlacedPrefabs() {
                 fontWeight: 700,
                 whiteSpace: 'nowrap',
                 border: `1px solid ${STUDIO_COLORS.borderActive}`,
-                boxShadow: '0 10px 24px rgba(0,0,0,0.28)',
+                boxShadow: `0 10px 24px color-mix(in srgb, ${STUDIO_COLORS.borderSubtle} 70%, transparent)`,
               }}
             >
               {transformMode === 'rotate' ? 'Rotate selected object' : 'Drag selected object'}

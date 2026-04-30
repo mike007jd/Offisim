@@ -68,7 +68,7 @@ export function ModelStep({ formData, updateField }: ModelStepProps) {
           }}
         />
         {formData.maxTokens < 1024 && (
-          <p className="mt-1 text-[10px] text-amber-400">
+          <p className="mt-1 text-[10px] text-warning">
             Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.
           </p>
         )}

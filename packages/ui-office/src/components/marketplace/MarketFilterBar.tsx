@@ -1,6 +1,12 @@
 import type { AssetKind } from '@offisim/asset-schema';
-import { useFocusTrap, useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import {
+  EntityDropdown,
+  type EntityDropdownItem,
+  useFocusTrap,
+  useRegisterModal,
+  useTopmostEscape,
+} from '@offisim/ui-core';
+import { ChevronDown, Layers, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { KIND_FILTERS, type MarketSortOption, SORT_OPTIONS } from './marketplace-meta.js';
 
@@ -54,7 +60,7 @@ export function MarketFilterBar({
         <select
           value={kind}
           onChange={(e) => onKindChange(e.target.value as AssetKind | 'all')}
-          className="h-9 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-slate-300 focus:outline-none"
+          className="h-9 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary focus:border-border-focus focus:outline-none"
         >
           {KIND_FILTERS.map((f) => (
             <option key={f.value} value={f.value}>
@@ -69,7 +75,7 @@ export function MarketFilterBar({
         <select
           value={sort}
           onChange={(e) => onSortChange(e.target.value as MarketSortOption)}
-          className="h-9 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-slate-300 focus:outline-none"
+          className="h-9 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary focus:border-border-focus focus:outline-none"
         >
           {SORT_OPTIONS.map((s) => (
             <option key={s} value={s}>
@@ -80,33 +86,14 @@ export function MarketFilterBar({
       )}
 
       {/* Mode toggle */}
-      <div className="flex overflow-hidden rounded-lg border border-white/10">
-        <button
-          type="button"
-          onClick={() => onModeChange('explore')}
-          className={`px-3 py-1.5 text-sm transition-colors ${
-            mode === 'explore' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-300'
-          }`}
-        >
-          Explore
-        </button>
-        <button
-          type="button"
-          onClick={() => onModeChange('manage')}
-          className={`px-3 py-1.5 text-sm transition-colors ${
-            mode === 'manage' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-300'
-          }`}
-        >
-          Manage
-        </button>
-      </div>
+      <ModeDropdown mode={mode} onModeChange={onModeChange} />
 
       {/* Publish — explore only */}
       {mode === 'explore' && (
         <button
           type="button"
           onClick={onPublishClick}
-          className="h-9 rounded-lg bg-white/[0.06] px-4 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10"
+          className="h-9 rounded-lg border border-border-default bg-surface px-4 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
         >
           Publish
         </button>
@@ -115,17 +102,17 @@ export function MarketFilterBar({
   );
 
   return (
-    <div className="shrink-0 border-b border-white/10">
+    <div className="shrink-0 border-b border-border-default bg-surface">
       <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search packages..."
-            className="h-9 w-full rounded-lg border border-white/10 bg-white/[0.04] pl-9 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-white/20 focus:outline-none"
+            className="h-9 w-full rounded-lg border border-border-default bg-surface pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
           />
         </div>
 
@@ -133,7 +120,7 @@ export function MarketFilterBar({
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-300"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-default bg-surface text-text-secondary"
             aria-label="Open market filters"
           >
             <SlidersHorizontal className="h-4 w-4" />
@@ -144,17 +131,17 @@ export function MarketFilterBar({
       </div>
 
       {sheetOpen && narrow && (
-        <div className="fixed inset-0 z-modal flex items-end bg-black/50">
+        <div className="fixed inset-0 z-modal flex items-end bg-glass-bg">
           <div
             ref={sheetRef}
-            className="w-full rounded-t-2xl border-t border-white/10 bg-slate-950 p-4 shadow-modal"
+            className="w-full rounded-t-2xl border-t border-border-default bg-surface-elevated p-4 shadow-modal"
           >
             <div className="mb-4 flex items-center justify-between">
-              <div className="text-sm font-semibold text-white">Market filters</div>
+              <div className="text-sm font-semibold text-text-primary">Market filters</div>
               <button
                 type="button"
                 onClick={() => setSheetOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-slate-300"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default text-text-secondary"
                 aria-label="Close market filters"
               >
                 <X className="h-4 w-4" />
@@ -167,21 +154,79 @@ export function MarketFilterBar({
 
       {/* Manage sub-tabs */}
       {mode === 'manage' && (
-        <div className="flex gap-1 px-6 pb-2">
-          {MANAGE_TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => onManageTabChange(tab)}
-              className={`rounded-lg px-3 py-1 text-sm capitalize transition-colors ${
-                manageTab === tab ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 px-6 pb-2">
+          <span className="text-xs uppercase tracking-wider text-text-muted">View</span>
+          <ManageTabDropdown manageTab={manageTab} onManageTabChange={onManageTabChange} />
         </div>
       )}
     </div>
+  );
+}
+
+function ModeDropdown({
+  mode,
+  onModeChange,
+}: {
+  mode: 'explore' | 'manage';
+  onModeChange: (mode: 'explore' | 'manage') => void;
+}) {
+  const items: EntityDropdownItem[] = [
+    { id: 'explore', label: 'Explore' },
+    { id: 'manage', label: 'Manage' },
+  ];
+  return (
+    <EntityDropdown
+      trigger={
+        <button
+          type="button"
+          className="flex h-9 items-center gap-2 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary transition-colors hover:bg-surface-hover"
+          aria-label="Marketplace mode"
+        >
+          <span className="font-medium">{mode === 'explore' ? 'Explore' : 'Manage'}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 text-text-muted" />
+        </button>
+      }
+      items={items}
+      activeId={mode}
+      onSelect={(id) => onModeChange(id as 'explore' | 'manage')}
+      align="end"
+      collisionPadding={8}
+      contentClassName="w-44"
+    />
+  );
+}
+
+function ManageTabDropdown({
+  manageTab,
+  onManageTabChange,
+}: {
+  manageTab: 'installed' | 'updates' | 'published';
+  onManageTabChange: (tab: 'installed' | 'updates' | 'published') => void;
+}) {
+  const items: EntityDropdownItem[] = MANAGE_TABS.map((tab) => ({
+    id: tab,
+    label: tab.charAt(0).toUpperCase() + tab.slice(1),
+  }));
+  const current = manageTab.charAt(0).toUpperCase() + manageTab.slice(1);
+  return (
+    <EntityDropdown
+      trigger={
+        <button
+          type="button"
+          className="flex h-7 items-center gap-2 rounded-lg border border-border-default bg-surface px-2.5 text-xs text-text-primary transition-colors hover:bg-surface-hover"
+          aria-label="Manage view"
+        >
+          <Layers className="h-3 w-3 shrink-0 text-text-muted" />
+          <span className="font-medium">{current}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 text-text-muted" />
+        </button>
+      }
+      items={items}
+      activeId={manageTab}
+      onSelect={(id) => onManageTabChange(id as 'installed' | 'updates' | 'published')}
+      align="start"
+      collisionPadding={8}
+      contentClassName="w-44"
+    />
   );
 }

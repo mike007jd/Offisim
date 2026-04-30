@@ -21,6 +21,7 @@ import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
+import { useTheme } from '../../theme/theme-provider.js';
 import { useCompany } from '../company/CompanyContext.js';
 import { DevLightingPanel } from './DevLightingPanel.js';
 import { SceneFrameLoopController } from './SceneFrameLoopController.js';
@@ -484,10 +485,11 @@ function Office3DViewInner({
   const [lightingTier, setLightingTier] = useState<SceneLightingTier>('high');
   const [, setDevOverrideVersion] = useState(0);
   const sc = useSceneColors();
+  const { resolvedTheme } = useTheme();
   const rendererConfig = getRendererConfig(lightingTier);
   const devLightingOverrides = getDevLightingOverrides();
   const shadowsEnabled = devLightingOverrides.shadows ?? lightingTier !== 'off';
-  const postProcessingEnabled = devLightingOverrides.post ?? true;
+  const postProcessingEnabled = devLightingOverrides.post ?? resolvedTheme === 'dark';
   const {
     setFlowLines,
     handleDeselect,
@@ -513,8 +515,12 @@ function Office3DViewInner({
 
   return (
     <div
-      className="w-full h-full bg-slate-950"
-      style={{ position: 'relative', cursor: isDragging ? 'grabbing' : undefined }}
+      className="h-full w-full bg-surface"
+      style={{
+        position: 'relative',
+        cursor: isDragging ? 'grabbing' : undefined,
+        backgroundColor: sc.sceneBackground,
+      }}
     >
       <Canvas
         dpr={rendererConfig.dpr}

@@ -27,7 +27,7 @@ function DetailSkeleton({ compact }: { compact: boolean }) {
       <div
         className={cn(
           'space-y-4 p-8',
-          compact ? 'w-full border-t border-white/10' : 'w-2/5 border-l border-white/10',
+          compact ? 'w-full border-t border-border-subtle' : 'w-2/5 border-l border-border-subtle',
         )}
       >
         <Skeleton className="h-5 w-1/2" />
@@ -53,7 +53,7 @@ export function MarketDetailView({
         <button
           type="button"
           onClick={onBack}
-          className="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-sm text-slate-300 hover:bg-white/10 transition-colors"
+          className="absolute left-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-muted px-3 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -65,15 +65,15 @@ export function MarketDetailView({
 
   if (unavailable || !detail) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4">
-        <p className="text-lg font-semibold text-slate-300">Listing unavailable</p>
-        <p className="text-sm text-slate-500">
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-surface text-text-primary">
+        <p className="text-lg font-semibold text-text-primary">Listing unavailable</p>
+        <p className="text-sm text-text-secondary">
           This package may have been removed or is no longer accessible.
         </p>
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-4 py-2 text-sm text-slate-300 hover:bg-white/10 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-muted px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
@@ -87,112 +87,117 @@ export function MarketDetailView({
   const version = typeof detail.version === 'string' ? detail.version : detail.version.version;
 
   return (
-    <div className={cn('relative flex h-full', compact && 'flex-col overflow-y-auto')}>
-      <button
-        type="button"
-        onClick={onBack}
-        className="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-sm text-slate-300 hover:bg-white/10 transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
-
-      {/* Left: Hero area */}
-      <div className={cn('overflow-y-auto p-8 pt-14', compact ? 'w-full' : 'w-3/5')}>
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${rarity.badge}`}
+    <div
+      className={cn('flex h-full flex-col bg-surface text-text-primary', compact && 'overflow-y-auto')}
+    >
+      <header className="flex shrink-0 items-center gap-3 border-b border-border-subtle px-6 py-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
         >
-          {Icon && <Icon className="h-4 w-4" />}
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${rarity.badge}`}
+        >
+          {Icon && <Icon className="h-3.5 w-3.5" />}
           {detail.kind}
         </span>
+      </header>
 
-        <h1 className="mt-4 text-3xl font-bold text-white">{detail.title}</h1>
-        <p className="mt-2 text-base text-slate-400">{detail.summary}</p>
+      <div className={cn('flex min-h-0 flex-1', compact && 'flex-col overflow-y-auto')}>
+        {/* Left: Hero area */}
+        <div className={cn('overflow-y-auto px-8 py-6', compact ? 'w-full' : 'w-3/5')}>
+          <h1 className="text-2xl font-semibold text-text-primary">{detail.title}</h1>
+          <p className="mt-1.5 text-sm text-text-secondary">{detail.summary}</p>
 
-        {detail.tags && detail.tags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {detail.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-white/[0.06] px-3 py-1 text-xs text-slate-400"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {detail.description && (
-          <div className="mt-6 border-t border-white/10 pt-6">
-            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
-              Description
-            </h2>
-            <div className="mt-3 text-sm leading-relaxed text-slate-400 whitespace-pre-wrap">
-              {detail.description}
+          {detail.tags && detail.tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {detail.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-surface-muted px-2.5 py-0.5 text-[11px] text-text-secondary"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* Right: Metadata */}
-      <div
-        className={cn(
-          'overflow-y-auto p-8 pt-14',
-          compact ? 'w-full border-t border-white/10 pt-8' : 'w-2/5 border-l border-white/10',
-        )}
-      >
-        <dl className="space-y-4 text-sm">
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Version</dt>
-            <dd className="mt-1 text-slate-200">{version}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Creator</dt>
-            <dd className="mt-1 text-slate-200">@{detail.creator.handle}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Rating</dt>
-            <dd className="mt-1 inline-flex items-center gap-1 text-slate-200">
-              <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-              {detail.rating.toFixed(1)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-slate-500">Installs</dt>
-            <dd className="mt-1 text-slate-200">{formatInstallCount(detail.install_count)}</dd>
-          </div>
-        </dl>
-
-        {INSTALLABLE_KINDS.has(detail.kind) ? (
-          <button
-            type="button"
-            onClick={() =>
-              onInstall(
-                detail.listing_id,
-                typeof detail.version === 'string' ? detail.version : detail.version.version,
-              )
-            }
-            className={`mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition-colors ${rarity.accent}`}
-          >
-            Install
-          </button>
-        ) : (
-          <div className="mt-6 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-sm text-slate-500">
-            Install not available for {detail.kind} packages
-          </div>
-        )}
-
-        <div className="mt-6">
-          <PermissionsBlock permissions={detail.permissions} variant="wide" />
+          {detail.description && (
+            <div className="mt-5 border-t border-border-subtle pt-5">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                Description
+              </h2>
+              <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
+                {detail.description}
+              </div>
+            </div>
+          )}
         </div>
 
-        {typeof detail.version !== 'string' && detail.version.runtime_range && (
-          <div className="mt-6">
-            <h3 className="text-xs uppercase tracking-wide text-slate-500">Compatibility</h3>
-            <p className="mt-1 text-sm text-slate-300">Runtime: {detail.version.runtime_range}</p>
+        {/* Right: Metadata */}
+        <div
+          className={cn(
+            'overflow-y-auto px-8 py-6',
+            compact ? 'w-full border-t border-border-subtle' : 'w-2/5 border-l border-border-subtle',
+          )}
+        >
+          <dl className="space-y-3 text-sm">
+            <MetaRow label="Version" value={version} />
+            <MetaRow label="Creator" value={`@${detail.creator.handle}`} />
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-text-muted">Rating</dt>
+              <dd className="mt-0.5 inline-flex items-center gap-1 text-text-primary">
+                <Star className="h-3.5 w-3.5 fill-current text-warning" />
+                {detail.rating.toFixed(1)}
+              </dd>
+            </div>
+            <MetaRow label="Installs" value={formatInstallCount(detail.install_count)} />
+          </dl>
+
+          {INSTALLABLE_KINDS.has(detail.kind) ? (
+            <button
+              type="button"
+              onClick={() =>
+                onInstall(
+                  detail.listing_id,
+                  typeof detail.version === 'string' ? detail.version : detail.version.version,
+                )
+              }
+              className={`mt-5 w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${rarity.accent}`}
+            >
+              Install
+            </button>
+          ) : (
+            <p className="mt-5 text-center text-xs text-text-muted">
+              Install not supported for {detail.kind}.
+            </p>
+          )}
+
+          <div className="mt-5">
+            <PermissionsBlock permissions={detail.permissions} variant="wide" />
           </div>
-        )}
+
+          {typeof detail.version !== 'string' && detail.version.runtime_range && (
+            <div className="mt-5 text-xs">
+              <span className="text-text-muted">Runtime · </span>
+              <span className="text-text-secondary">{detail.version.runtime_range}</span>
+            </div>
+          )}
+        </div>
       </div>
+    </div>
+  );
+}
+
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] uppercase tracking-wide text-text-muted">{label}</dt>
+      <dd className="mt-0.5 text-text-primary">{value}</dd>
     </div>
   );
 }

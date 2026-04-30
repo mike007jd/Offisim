@@ -20,12 +20,12 @@ export function MarketplaceDetailOverlay({
   const { detail, loading, unavailable } = useListingDetail(listingId);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex flex-col bg-surface-elevated text-text-primary backdrop-blur-sm">
       <div className="flex h-12 items-center justify-end px-4">
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+          className="rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
         >
           <X className="h-5 w-5" />
         </button>

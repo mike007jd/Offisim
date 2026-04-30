@@ -19,7 +19,7 @@ import {
 } from '../../lib/desktop-mcp-registry';
 import { isTauri } from '../../lib/env';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
-import { SettingsSection } from './settings-primitives';
+import { SettingsSection, surfaceInputProps } from './settings-primitives';
 
 type DesktopCoreMcpServerConfig = CoreMcpServerConfig & {
   registeredServerId?: string;
@@ -235,7 +235,7 @@ export function McpConfigPanel() {
         <div className="grid gap-3 md:grid-cols-[140px,1fr,1fr,auto] md:items-start">
           <div>
             <Select value={transport} onValueChange={(v) => setTransport(v as McpTransport)}>
-              <SelectTrigger className="h-10 text-sm">
+              <SelectTrigger className={surfaceInputProps('text-sm')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -250,7 +250,7 @@ export function McpConfigPanel() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Server name"
-            className="h-10 text-sm"
+            className={surfaceInputProps('text-sm')}
           />
           <Input
             value={transport === 'stdio' ? command : url}
@@ -261,7 +261,7 @@ export function McpConfigPanel() {
             placeholder={
               transport === 'stdio' ? '/usr/local/bin/mcp-server' : 'http://localhost:3001/sse'
             }
-            className="h-10 text-sm"
+            className={surfaceInputProps('text-sm')}
           />
           <Button
             onClick={handleAdd}
@@ -272,7 +272,7 @@ export function McpConfigPanel() {
               (transport === 'stdio' ? !command.trim() : !url.trim()) ||
               connecting !== null
             }
-            className="h-10 border-emerald-500/50 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25 hover:border-emerald-400"
+            className="h-10 border-success/40 bg-success-muted text-success hover:border-success hover:bg-surface-hover"
           >
             <Plus className="h-3.5 w-3.5" />
             {connecting ? 'Connecting…' : 'Add'}
@@ -283,7 +283,7 @@ export function McpConfigPanel() {
             value={argsText}
             onChange={(e) => setArgsText(e.target.value)}
             placeholder="Arguments (one per line, optional)"
-            className="h-10 text-sm"
+            className={surfaceInputProps('text-sm')}
           />
         )}
         {formError && <p className="text-xs text-error">{formError}</p>}
@@ -291,25 +291,25 @@ export function McpConfigPanel() {
 
       <SettingsSection title="Configured servers">
         {servers.length === 0 ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-text-muted">
             No MCP servers configured. Add one above to enable tool use.
           </p>
         ) : (
           <div className="space-y-4">
             {grouped.map(([groupTransport, groupServers]) => (
               <div key={groupTransport} className="space-y-1.5">
-                <header className="text-[11px] uppercase tracking-wide text-white/55">
+                <header className="text-[11px] uppercase tracking-wide text-text-muted">
                   {groupTransport.toUpperCase()} · {groupServers.length}
                 </header>
                 <ul className="space-y-1">
                   {groupServers.map((server) => (
                     <li
                       key={serverKey(server)}
-                      className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-white/[0.04]"
+                      className="flex items-center gap-3 rounded-md border border-border-subtle bg-surface px-3 py-2 hover:bg-surface-hover"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-slate-100">
+                          <span className="truncate text-sm font-medium text-text-primary">
                             {server.name}
                           </span>
                           <Badge
@@ -323,7 +323,7 @@ export function McpConfigPanel() {
                                 : 'Disconnected'}
                           </Badge>
                         </div>
-                        <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">
+                        <p className="mt-0.5 truncate font-mono text-[11px] text-text-muted">
                           {server.transport === 'stdio'
                             ? [server.command ?? '', ...(server.args ?? [])]
                                 .filter(Boolean)
@@ -339,7 +339,7 @@ export function McpConfigPanel() {
                             onClick={() => handleReconnect(server)}
                             disabled={!isReady || connecting !== null}
                             title="Reconnect"
-                            className="h-7 w-7 p-0 text-slate-300 hover:text-emerald-200"
+                            className="h-7 w-7 p-0 text-text-secondary hover:text-success"
                           >
                             <RefreshCw className="h-3.5 w-3.5" />
                           </Button>
@@ -349,7 +349,7 @@ export function McpConfigPanel() {
                           size="sm"
                           onClick={() => handleRemove(server)}
                           title="Delete server"
-                          className="h-7 w-7 p-0 text-slate-300 hover:text-error"
+                          className="h-7 w-7 p-0 text-text-secondary hover:text-error"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

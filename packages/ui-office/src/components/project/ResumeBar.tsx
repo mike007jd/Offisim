@@ -18,8 +18,8 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
   if (projects.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 bg-amber-900/30 border border-amber-700/50 rounded-lg px-4 py-2 text-sm">
-      <span className="text-amber-200 shrink-0">
+    <div className="flex items-center gap-2 rounded-lg border border-warning bg-warning-muted px-4 py-2 text-sm">
+      <span className="shrink-0 text-warning">
         {projects.length === 1 ? '1 unfinished project' : `${projects.length} unfinished projects`}
       </span>
       <div className="flex flex-wrap gap-1 flex-1 min-w-0">
@@ -28,7 +28,7 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
             key={p.threadId}
             type="button"
             onClick={() => onResume(p.threadId)}
-            className="px-2.5 py-1.5 bg-amber-700/50 hover:bg-amber-600/50 rounded text-xs text-amber-100 truncate max-w-[200px]"
+            className="max-w-[200px] truncate rounded border border-warning bg-surface px-2.5 py-1.5 text-xs text-text-primary hover:bg-surface-hover"
             title={p.projectName}
           >
             Resume {p.projectName}
@@ -38,7 +38,7 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
       <button
         type="button"
         onClick={onDismiss}
-        className="ml-auto text-amber-400/60 hover:text-amber-300 text-xs shrink-0"
+        className="ml-auto shrink-0 text-xs text-warning hover:text-text-primary"
         aria-label="Dismiss unfinished project notice"
       >
         Dismiss

@@ -11,7 +11,7 @@ const Checkbox = forwardRef<React.ComponentRef<typeof CheckboxPrimitive.Root>, C
       ref={ref}
       checked={checked}
       className={cn(
-        'flex h-4 w-4 shrink-0 items-center justify-center rounded border border-white/20 bg-white/5 text-cyan-100 shadow-sm transition-colors hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-cyan-400/60 data-[state=checked]:bg-cyan-500/20 data-[state=indeterminate]:border-cyan-400/60 data-[state=indeterminate]:bg-cyan-500/20',
+        'flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border-default bg-surface text-accent shadow-sm transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-accent data-[state=checked]:bg-accent-muted data-[state=indeterminate]:border-accent data-[state=indeterminate]:bg-accent-muted',
         className,
       )}
       {...props}
@@ -37,11 +37,11 @@ const CheckboxField = forwardRef<
   React.ComponentRef<typeof CheckboxPrimitive.Root>,
   CheckboxFieldProps
 >(({ label, description, id, className, ...props }, ref) => (
-  <label className="flex items-start gap-2 text-sm text-slate-200" htmlFor={id}>
+  <label className="flex items-start gap-2 text-sm text-text-primary" htmlFor={id}>
     <Checkbox ref={ref} id={id} className={className} {...props} />
     <span className="grid gap-0.5">
       <span>{label}</span>
-      {description ? <span className="text-xs text-slate-400">{description}</span> : null}
+      {description ? <span className="text-xs text-text-secondary">{description}</span> : null}
     </span>
   </label>
 ));

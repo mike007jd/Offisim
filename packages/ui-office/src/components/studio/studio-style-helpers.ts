@@ -2,8 +2,10 @@ import type { CSSProperties } from 'react';
 
 import {
   CATEGORY_COLORS_DARK,
+  CATEGORY_COLORS_LIGHT,
   DARK_SEMANTIC_COLORS,
   FONT_FAMILY,
+  LIGHT_SEMANTIC_COLORS,
   MOTION_DURATION,
   MOTION_EASING,
   RADIUS_SCALE,
@@ -12,48 +14,144 @@ import {
   Z_INDEX_SCALE,
 } from '@offisim/ui-core/tokens';
 
+let cachedIsLight: boolean | null = null;
+
+function isLightStudioTheme(): boolean {
+  if (cachedIsLight !== null) return cachedIsLight;
+  if (typeof document === 'undefined') return false;
+  const root = document.documentElement;
+  cachedIsLight = root.classList.contains('light') || root.dataset.theme === 'light';
+  return cachedIsLight;
+}
+
+function semanticColors() {
+  return isLightStudioTheme() ? LIGHT_SEMANTIC_COLORS : DARK_SEMANTIC_COLORS;
+}
+
+function categoryColors() {
+  return isLightStudioTheme() ? CATEGORY_COLORS_LIGHT : CATEGORY_COLORS_DARK;
+}
+
+if (typeof window !== 'undefined') {
+  const resetThemeCache = () => {
+    cachedIsLight = null;
+  };
+  window.addEventListener('offisim.theme.change', resetThemeCache);
+  window.addEventListener('offisim.density.change', resetThemeCache);
+}
+
 export const STUDIO_COLORS = {
-  bg: DARK_SEMANTIC_COLORS.surface,
-  surface0: DARK_SEMANTIC_COLORS.surfaceElevated,
-  surface1: DARK_SEMANTIC_COLORS.surfaceMuted,
-  surface2: DARK_SEMANTIC_COLORS.surfaceHover,
+  get bg() {
+    return semanticColors().surface;
+  },
+  get surface0() {
+    return semanticColors().surfaceElevated;
+  },
+  get surface1() {
+    return semanticColors().surfaceMuted;
+  },
+  get surface2() {
+    return semanticColors().surfaceHover;
+  },
 
-  border: DARK_SEMANTIC_COLORS.borderDefault,
-  borderSubtle: DARK_SEMANTIC_COLORS.borderSubtle,
-  borderActive: DARK_SEMANTIC_COLORS.borderFocus,
+  get border() {
+    return semanticColors().borderDefault;
+  },
+  get borderSubtle() {
+    return semanticColors().borderSubtle;
+  },
+  get borderActive() {
+    return semanticColors().borderFocus;
+  },
 
-  textPrimary: DARK_SEMANTIC_COLORS.textPrimary,
-  textSecondary: DARK_SEMANTIC_COLORS.textSecondary,
-  textTertiary: DARK_SEMANTIC_COLORS.textMuted,
-  textDisabled: DARK_SEMANTIC_COLORS.textDisabled,
-  textInverse: DARK_SEMANTIC_COLORS.textInverse,
+  get textPrimary() {
+    return semanticColors().textPrimary;
+  },
+  get textSecondary() {
+    return semanticColors().textSecondary;
+  },
+  get textTertiary() {
+    return semanticColors().textMuted;
+  },
+  get textDisabled() {
+    return semanticColors().textDisabled;
+  },
+  get textInverse() {
+    return semanticColors().textInverse;
+  },
 
-  accent: DARK_SEMANTIC_COLORS.accent,
-  accentHover: DARK_SEMANTIC_COLORS.accentHover,
-  accentMuted: DARK_SEMANTIC_COLORS.accentMuted,
-  accentText: DARK_SEMANTIC_COLORS.accentText,
+  get accent() {
+    return semanticColors().accent;
+  },
+  get accentHover() {
+    return semanticColors().accentHover;
+  },
+  get accentMuted() {
+    return semanticColors().accentMuted;
+  },
+  get accentText() {
+    return semanticColors().accentText;
+  },
 
-  success: DARK_SEMANTIC_COLORS.success,
-  successMuted: DARK_SEMANTIC_COLORS.successMuted,
-  error: DARK_SEMANTIC_COLORS.error,
-  errorMuted: DARK_SEMANTIC_COLORS.errorMuted,
-  warning: DARK_SEMANTIC_COLORS.warning,
-  warningMuted: DARK_SEMANTIC_COLORS.warningMuted,
-  info: DARK_SEMANTIC_COLORS.info,
+  get success() {
+    return semanticColors().success;
+  },
+  get successMuted() {
+    return semanticColors().successMuted;
+  },
+  get error() {
+    return semanticColors().error;
+  },
+  get errorMuted() {
+    return semanticColors().errorMuted;
+  },
+  get warning() {
+    return semanticColors().warning;
+  },
+  get warningMuted() {
+    return semanticColors().warningMuted;
+  },
+  get info() {
+    return semanticColors().info;
+  },
 
-  catWorkspace: CATEGORY_COLORS_DARK.workspace,
-  catCompute: CATEGORY_COLORS_DARK.compute,
-  catKnowledge: CATEGORY_COLORS_DARK.knowledge,
-  catCollaboration: CATEGORY_COLORS_DARK.collaboration,
-  catInfrastructure: CATEGORY_COLORS_DARK.infrastructure,
-  catDecorative: CATEGORY_COLORS_DARK.decorative,
+  get catWorkspace() {
+    return categoryColors().workspace;
+  },
+  get catCompute() {
+    return categoryColors().compute;
+  },
+  get catKnowledge() {
+    return categoryColors().knowledge;
+  },
+  get catCollaboration() {
+    return categoryColors().collaboration;
+  },
+  get catInfrastructure() {
+    return categoryColors().infrastructure;
+  },
+  get catDecorative() {
+    return categoryColors().decorative;
+  },
 
-  canvasBg: DARK_SEMANTIC_COLORS.surface,
-  gridMajor: DARK_SEMANTIC_COLORS.textMuted,
-  gridMinor: DARK_SEMANTIC_COLORS.surfaceHover,
-  plotBorder: DARK_SEMANTIC_COLORS.accent,
-  ghostValid: DARK_SEMANTIC_COLORS.success,
-  ghostBlocked: DARK_SEMANTIC_COLORS.error,
+  get canvasBg() {
+    return semanticColors().surface;
+  },
+  get gridMajor() {
+    return semanticColors().textMuted;
+  },
+  get gridMinor() {
+    return semanticColors().surfaceHover;
+  },
+  get plotBorder() {
+    return semanticColors().accent;
+  },
+  get ghostValid() {
+    return semanticColors().success;
+  },
+  get ghostBlocked() {
+    return semanticColors().error;
+  },
 } as const;
 
 const SP_DEFAULTS = {
@@ -250,7 +348,7 @@ export function kbdStyle(): CSSProperties {
     height: 18,
     padding: `0 ${SP.xs}px`,
     borderRadius: RADIUS_SCALE.sm - 1,
-    background: DARK_SEMANTIC_COLORS.glassBg,
+    background: STUDIO_COLORS.surface1,
     border: `1px solid ${STUDIO_COLORS.borderSubtle}`,
     color: STUDIO_COLORS.textTertiary,
     fontSize: FONT.xs,

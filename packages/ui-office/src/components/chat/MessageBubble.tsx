@@ -1,4 +1,5 @@
 import { cn } from '@offisim/ui-core';
+import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Deliverable } from '../../hooks/useDeliverables';
@@ -65,7 +66,7 @@ function renderWithCitations(text: string): ReactNode {
       return (
         <sup
           key={`${match[1]}-${citationIndex}`}
-          className="inline-flex items-center justify-center mx-0.5 px-1 min-w-[1.1em] h-4 text-[10px] font-bold rounded bg-blue-500/30 text-blue-200 cursor-default"
+          className="mx-0.5 inline-flex h-4 min-w-[1.1em] cursor-default items-center justify-center rounded bg-info-muted px-1 text-[10px] font-bold text-info"
           title={`Citation ${match[1]}`}
         >
           {match[1]}
@@ -93,7 +94,7 @@ export function MessageBubble({
   if (role === 'system') {
     return (
       <div data-role="system" className="px-1 py-1">
-        <div className="font-mono text-[11px] text-slate-500 whitespace-pre-wrap leading-relaxed">
+        <div className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-text-muted">
           {content}
         </div>
       </div>
@@ -130,9 +131,9 @@ export function MessageBubble({
   // Status-based border styling
   const statusBorder =
     status === 'failed'
-      ? 'border-l-2 border-red-400/40'
+      ? 'border-l-2 border-error'
       : status === 'interrupted'
-        ? 'border-l-2 border-amber-400/40'
+        ? 'border-l-2 border-warning'
         : '';
 
   return (
@@ -150,20 +151,15 @@ export function MessageBubble({
       )}
       {/* Reasoning collapsible section */}
       {reasoning && (
-        <div className="mb-1 max-w-[94%] rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100">
+        <div className="mb-1 max-w-[94%] rounded-xl border border-info bg-info-muted px-3 py-1.5 text-xs leading-snug text-text-primary">
           <button
             type="button"
-            className="mb-1 flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-indigo-200/80 cursor-pointer"
+            className="mb-1 flex cursor-pointer items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-info"
             onClick={() => setReasoningOpen((o) => !o)}
           >
-            <span
-              className={cn(
-                'inline-block transition-transform text-[8px]',
-                reasoningOpen ? 'rotate-90' : '',
-              )}
-            >
-              ▶
-            </span>
+            <ChevronRight
+              className={cn('h-3 w-3 transition-transform', reasoningOpen && 'rotate-90')}
+            />
             Reasoning
           </button>
           {reasoningOpen && <div className="whitespace-pre-wrap">{reasoning}</div>}
@@ -172,17 +168,17 @@ export function MessageBubble({
       <div
         className={cn(
           'max-w-[94%] px-3 py-1.5 text-sm leading-snug whitespace-pre-wrap rounded-xl',
-          isUser ? 'bg-blue-600/20 text-slate-100' : 'bg-white/5 text-slate-200',
+          isUser ? 'bg-accent-muted text-accent-text' : 'bg-surface-muted text-text-primary',
           statusBorder,
         )}
       >
         {isUser ? displayContent : renderWithCitations(displayContent)}
         {/* Status label */}
         {status === 'failed' && (
-          <div className="mt-1 text-[10px] font-medium text-red-400/70">Failed</div>
+          <div className="mt-1 text-[10px] font-medium text-error">Failed</div>
         )}
         {status === 'interrupted' && (
-          <div className="mt-1 text-[10px] font-medium text-amber-400/70">Interrupted</div>
+          <div className="mt-1 text-[10px] font-medium text-warning">Interrupted</div>
         )}
       </div>
       {hasDeliverables && deliverables && (

@@ -1,10 +1,11 @@
-import { DARK_SEMANTIC_COLORS } from '@offisim/ui-core/tokens';
 import { Environment } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
 import { computeShadowBias } from '../../lib/shadow-bias.js';
 import type { AgentState } from '../../runtime/use-agent-states.js';
+import { useSceneColors } from '../../theme/use-scene-colors.js';
+import { useTheme } from '../../theme/theme-provider.js';
 import { AmbientStateLight } from './office3d-scene-primitives.js';
 import { LIGHTING_TIER_PRESETS } from './scene-performance-tier.js';
 import type { getDevLightingOverrides } from './scene-performance-tier.js';
@@ -53,10 +54,19 @@ export function SceneLightingRig({
   agents: Map<string, AgentState>;
   devOverrides?: ReturnType<typeof getDevLightingOverrides>;
 }) {
+  const sceneColors = useSceneColors();
+  const { resolvedTheme } = useTheme();
   const preset = LIGHTING_TIER_PRESETS[tier];
   const shadowsEnabled = (devOverrides?.shadows ?? true) && preset.shadowMapSize > 0;
-  const hemisphereIntensity = devOverrides?.hemi ?? preset.hemisphereIntensity;
-  const environmentEnabled = devOverrides?.env ?? preset.envMapPreset != null;
+  const hemisphereIntensity =
+    devOverrides?.hemi ??
+    (resolvedTheme === 'light' ? Math.max(0.35, preset.hemisphereIntensity * 0.68) : preset.hemisphereIntensity);
+  const keyIntensity = resolvedTheme === 'light' ? 1.08 : 1.6;
+  const fillIntensity = resolvedTheme === 'light' ? 0.28 : 0.45;
+  const rimIntensity = resolvedTheme === 'light' ? 0.18 : 0.35;
+  const fogNear = resolvedTheme === 'light' ? 42 : 20;
+  const fogFar = resolvedTheme === 'light' ? 150 : 120;
+  const environmentEnabled = devOverrides?.env ?? (resolvedTheme === 'dark' && preset.envMapPreset != null);
 
   return (
     <>
@@ -67,7 +77,7 @@ export function SceneLightingRig({
       <directionalLight
         castShadow={shadowsEnabled}
         position={[12, 25, 12]}
-        intensity={1.6}
+        intensity={keyIntensity}
         color={LIGHT_COLORS.key}
         shadow-mapSize={[preset.shadowMapSize, preset.shadowMapSize]}
         shadow-bias={computeShadowBias({ lightDistance: 28, sceneScale: 1 })}
@@ -76,8 +86,8 @@ export function SceneLightingRig({
         shadow-camera-top={20}
         shadow-camera-bottom={-20}
       />
-      <directionalLight position={[-15, 12, -10]} intensity={0.45} color={LIGHT_COLORS.sideFill} />
-      <directionalLight position={[5, 8, -18]} intensity={0.35} color={LIGHT_COLORS.rim} />
+      <directionalLight position={[-15, 12, -10]} intensity={fillIntensity} color={LIGHT_COLORS.sideFill} />
+      <directionalLight position={[5, 8, -18]} intensity={rimIntensity} color={LIGHT_COLORS.rim} />
       {preset.bounceSpotlightCount >= 1 && (
         <spotLight
           position={[0, 6, 14]}
@@ -101,7 +111,7 @@ export function SceneLightingRig({
       {environmentEnabled && <Environment preset={preset.envMapPreset ?? 'apartment'} />}
       <AmbientStateLight agents={agents} maxIntensity={0.25} />
       <RigAmbientStateLight />
-      <fog attach="fog" args={[DARK_SEMANTIC_COLORS.surface, 20, 120]} />
+      <fog attach="fog" args={[sceneColors.sceneBackground, fogNear, fogFar]} />
     </>
   );
 }

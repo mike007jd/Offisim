@@ -188,7 +188,7 @@ export function ActivityLogPage({
 
   // 7.2 — Layout: filter bar + content area
   return (
-    <div className="flex h-full flex-col" data-layout-tier={tier}>
+    <div className="flex h-full flex-col bg-surface text-text-primary" data-layout-tier={tier}>
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
       <ActivityFilterBar
         datePreset={sessionState.datePreset}
@@ -202,7 +202,14 @@ export function ActivityLogPage({
         onSearchChange={handleSearchChange}
         variant={tier === 'narrow' ? 'narrow' : 'default'}
       />
-      <div className="flex min-h-0 flex-1">
+      <div
+        className={cn(
+          'grid min-h-0 flex-1',
+          sessionState.selectedEventId && focusedEvent
+            ? 'grid-cols-1 md:grid-cols-[1fr_minmax(320px,420px)]'
+            : 'grid-cols-1',
+        )}
+      >
         {/* 7.5 — Empty state: filters yield no results */}
         {filteredEvents.length === 0 ? (
           <ActivityEmptyState
@@ -212,26 +219,18 @@ export function ActivityLogPage({
           />
         ) : (
           <>
-            {/* 7.2 — Timeline: full-width or 60% when detail open */}
             <ActivityTimeline
               groups={groups}
               selectedEventId={sessionState.selectedEventId}
               onSelectEvent={handleSelectEvent}
-              className={
-                sessionState.selectedEventId
-                  ? cn(tier === 'desktop' ? 'w-3/5' : tier === 'tablet' ? 'w-[70%]' : 'hidden')
-                  : 'w-full'
-              }
+              className={cn(
+                'min-w-0',
+                sessionState.selectedEventId && tier === 'narrow' && 'hidden',
+              )}
               getEmployeeName={getEmployeeName}
             />
-            {/* 7.2 — Detail panel: 40% when event selected */}
             {sessionState.selectedEventId && focusedEvent && (
-              <div
-                className={cn(
-                  'border-l border-white/10',
-                  tier === 'desktop' ? 'w-2/5' : tier === 'tablet' ? 'w-[30%]' : 'w-full',
-                )}
-              >
+              <div className="min-w-0 border-l border-border-default">
                 <ActivityEventDetail event={focusedEvent} onClose={handleCloseDetail} />
               </div>
             )}

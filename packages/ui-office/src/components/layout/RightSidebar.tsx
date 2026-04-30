@@ -28,7 +28,7 @@ interface RightSidebarProps {
 type TaskSubTab = 'activity' | 'plan' | 'outputs';
 
 const PILL_TRIGGER_BASE =
-  'h-auto min-w-fit shrink-0 rounded-full border border-transparent text-slate-400 data-[state=active]:border-cyan-400/40 data-[state=active]:bg-cyan-400/10 data-[state=active]:text-cyan-100 hover:text-slate-200';
+  'h-auto min-w-fit shrink-0 rounded-full border border-transparent text-text-secondary data-[state=active]:border-border-focus data-[state=active]:bg-accent-muted data-[state=active]:text-accent-text hover:bg-surface-hover hover:text-text-primary';
 const MAIN_TAB_TRIGGER_CLASS = `${PILL_TRIGGER_BASE} gap-1.5 px-3 py-2 text-[11px]`;
 const SUB_TAB_TRIGGER_CLASS = `${PILL_TRIGGER_BASE} px-3 py-1 text-[10px] uppercase tracking-[0.18em]`;
 
@@ -65,12 +65,12 @@ export function RightSidebar({
   }, [stage, isRunning]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-white/5 px-3 py-3">
+    <div className="flex h-full flex-col overflow-hidden bg-surface-elevated text-text-primary">
+      <div className="border-b border-border-default px-3 py-2.5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Workspace</p>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Workspace</p>
           {workflowLabel && activeTab === 'tasks' && (
-            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+            <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-text-muted">
               {workflowLabel}
             </span>
           )}
@@ -80,14 +80,14 @@ export function RightSidebar({
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as 'chat' | 'tasks')}
-        className="flex min-h-[640px] min-h-0 flex-1 flex-col overflow-hidden"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div className="border-b border-white/5 px-2 pt-2">
-          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 pb-2">
+        <div className="border-b border-border-default px-2 pt-2">
+          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 pb-2 text-text-secondary">
             <TabsTrigger
-              value="chat"
-              title="Chat"
-              aria-label="Chat"
+            value="chat"
+            title="Chat"
+            aria-label="Chat"
               className={MAIN_TAB_TRIGGER_CLASS}
             >
               <MessageSquare className="h-4 w-4" />
@@ -130,8 +130,8 @@ export function RightSidebar({
             onValueChange={(value) => setTaskSubTab(value as TaskSubTab)}
             className="flex min-h-0 flex-1 flex-col overflow-hidden"
           >
-            <div className="border-b border-white/5 px-2 pt-2">
-              <TabsList className="flex h-auto w-full justify-start gap-1 rounded-none border-0 bg-transparent p-0 pb-2">
+            <div className="border-b border-border-default px-2 pt-2">
+              <TabsList className="flex h-auto w-full justify-start gap-1 rounded-none border-0 bg-transparent p-0 pb-2 text-text-secondary">
                 <TabsTrigger value="activity" className={SUB_TAB_TRIGGER_CLASS}>
                   Activity
                 </TabsTrigger>

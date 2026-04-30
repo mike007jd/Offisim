@@ -45,13 +45,13 @@ const TooltipContent = forwardRef<
         align={align}
         collisionPadding={collisionPadding}
         className={cn(
-          'z-dropdown max-w-xs rounded-md border border-white/15 bg-slate-900/95 px-2 py-1 text-xs text-slate-100 shadow-popover backdrop-blur-sm data-[state=closed]:animate-out data-[state=delayed-open]:animate-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40',
+          'z-dropdown max-w-xs rounded-md border border-border-default bg-surface-elevated px-2 py-1 text-xs text-text-primary shadow-popover backdrop-blur-sm data-[state=closed]:animate-out data-[state=delayed-open]:animate-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
           className,
         )}
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="fill-slate-900/95" />
+        <TooltipPrimitive.Arrow className="fill-surface-elevated" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   ),

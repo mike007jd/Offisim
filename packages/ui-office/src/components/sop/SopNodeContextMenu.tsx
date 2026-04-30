@@ -99,7 +99,7 @@ export function SopNodeContextMenu({
     <div
       ref={menuRef}
       style={style}
-      className="w-[140px] rounded-lg border border-white/10 bg-slate-800/95 py-1 shadow-xl backdrop-blur-sm"
+      className="w-[140px] rounded-lg border border-border-default bg-surface-elevated py-1 shadow-xl backdrop-blur-sm"
       onPointerDown={(e) => e.stopPropagation()}
     >
       {items.map((item) => (
@@ -108,7 +108,7 @@ export function SopNodeContextMenu({
           type="button"
           onClick={item.action}
           className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
-            item.danger ? 'text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:bg-white/5'
+            item.danger ? 'text-error hover:bg-error-muted' : 'text-text-secondary hover:bg-surface-hover'
           }`}
         >
           {item.icon}

@@ -194,13 +194,13 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
 
   return (
     <div
-      className="bg-black/40 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300"
+      className="overflow-hidden rounded-2xl border border-border-default bg-surface-elevated/95 text-text-primary shadow-overlay backdrop-blur-3xl transition-all duration-300"
       style={{ height: open ? `${compact ? COMPACT_HEIGHT : heightPx}px` : '40px' }}
     >
       {open && (
         <div
           data-testid="chat-resize-handle"
-          className="h-1.5 cursor-ns-resize flex items-center justify-center"
+          className="flex h-1.5 cursor-ns-resize items-center justify-center"
           onDoubleClick={(event) => {
             event.stopPropagation();
             toggleCompact();
@@ -210,7 +210,7 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
           onPointerUp={handlePointerUp}
           title="Drag to resize. Double-click to toggle compact mode."
         >
-          <div className="h-1 w-8 rounded-full bg-white/20" />
+          <div className="h-1 w-8 rounded-full bg-border-strong" />
         </div>
       )}
 
@@ -218,13 +218,13 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
       <button
         type="button"
         onClick={toggle}
-        className="w-full h-10 flex items-center justify-between text-slate-400 hover:text-white transition-colors"
+        className="flex h-10 w-full items-center justify-between text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
         style={{ paddingInline: 'var(--sp-lg)' }}
       >
         <div className="flex items-center" style={{ columnGap: 'var(--sp-sm)' }}>
-          <MessageSquare className="w-3.5 h-3.5 text-blue-400" />
-          <span className="text-xs font-medium text-slate-300">Chat</span>
-          {compact && <Minimize2 className="h-3 w-3 text-slate-500" />}
+          <MessageSquare className="h-3.5 w-3.5 text-accent" />
+          <span className="text-xs font-medium text-text-primary">Chat</span>
+          {compact && <Minimize2 className="h-3 w-3 text-text-muted" />}
         </div>
         <div
           className="transition-transform duration-300"
@@ -236,7 +236,7 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
 
       {/* Content area — always rendered to preserve state */}
       <div
-        className="min-h-0 overflow-hidden transition-opacity duration-300 flex flex-col"
+        className="flex min-h-0 flex-col overflow-hidden transition-opacity duration-300"
         style={{
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',

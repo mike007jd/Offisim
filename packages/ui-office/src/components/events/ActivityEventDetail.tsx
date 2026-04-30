@@ -12,9 +12,9 @@ export interface ActivityEventDetailProps {
 }
 
 const LEVEL_BADGE: Record<EventDisplayLevel, string> = {
-  Info: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
-  Warning: 'bg-amber-400/20 text-amber-400 border-amber-400/40',
-  Error: 'bg-red-500/20 text-red-400 border-red-500/40',
+  Info: 'bg-info-muted text-info border-info',
+  Warning: 'bg-warning-muted text-warning border-warning',
+  Error: 'bg-error-muted text-error border-error',
 };
 
 export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps) {
@@ -23,24 +23,24 @@ export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps
   const entityLabel = getDisplayLabel(event);
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
+    <div className="flex h-full flex-col overflow-y-auto bg-surface-elevated text-text-primary">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <h2 className="text-sm font-medium text-slate-200">Event Detail</h2>
+      <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+        <h2 className="text-sm font-medium text-text-primary">Event Detail</h2>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close detail panel"
-          className="p-1 rounded hover:bg-white/10 transition-colors"
+          className="rounded p-1 transition-colors hover:bg-surface-hover"
         >
-          <X className="h-4 w-4 text-slate-400" />
+          <X className="h-4 w-4 text-text-secondary" />
         </button>
       </div>
 
       <div className="flex flex-col gap-4 p-4">
         {/* Event Type */}
         <Section label="Event Type">
-          <p className="text-sm font-mono text-slate-200">{event.type.replaceAll('.', ' / ')}</p>
+          <p className="font-mono text-sm text-text-primary">{event.type.replaceAll('.', ' / ')}</p>
         </Section>
 
         {/* Level */}
@@ -54,17 +54,17 @@ export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps
 
         {/* Timestamp */}
         <Section label="Timestamp">
-          <p className="text-xs text-slate-300">{formatFullTimestamp(event.timestamp)}</p>
+          <p className="text-xs text-text-secondary">{formatFullTimestamp(event.timestamp)}</p>
         </Section>
 
         {/* Entity */}
         <Section label="Entity">
-          <p className="text-xs text-slate-300">{entityLabel}</p>
+          <p className="text-xs text-text-secondary">{entityLabel}</p>
           {event.entityType && (
-            <p className="text-[11px] text-slate-500 mt-0.5">Type: {event.entityType}</p>
+            <p className="mt-0.5 text-[11px] text-text-muted">Type: {event.entityType}</p>
           )}
           {event.entityId && (
-            <p className="text-[11px] text-slate-500 font-mono mt-0.5">ID: {event.entityId}</p>
+            <p className="mt-0.5 font-mono text-[11px] text-text-muted">ID: {event.entityId}</p>
           )}
         </Section>
 
@@ -86,7 +86,7 @@ function Section({
 }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">{label}</p>
+      <p className="mb-1 text-[10px] uppercase tracking-wider text-text-muted">{label}</p>
       {children}
     </div>
   );

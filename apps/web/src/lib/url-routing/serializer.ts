@@ -21,7 +21,6 @@ function primaryIdentity(parsed: ParsedUrl): string {
         overlay,
         office?.viewMode ?? '3D',
         office?.dashboardOpen ? 'dashboard' : '',
-        office?.kanbanOpen ? 'kanban' : '',
         office?.marketplaceListingId ?? '',
       ].join(':');
     }
@@ -43,7 +42,6 @@ export function serializeOfficeUrl({ sessionState, overlay }: SerializableUrlSta
   const search = new URLSearchParams();
   if (office.viewMode === '2D') search.set('view', '2d');
   if (office.dashboardOpen) search.set('dashboard', '1');
-  if (office.kanbanOpen) search.set('kanban', '1');
   append(search, 'listing', office.marketplaceListingId);
   if (overlay === 'office-editor') search.set('overlay', 'office-editor');
   return `/${suffix(search)}`;

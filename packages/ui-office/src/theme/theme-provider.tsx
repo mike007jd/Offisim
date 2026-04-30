@@ -90,6 +90,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.classList.toggle('dark', resolvedTheme === 'dark');
     root.classList.toggle('light', resolvedTheme === 'light');
+    // Notify modules that cache theme-derived values (e.g. `studio-style-helpers`).
+    window.dispatchEvent(new CustomEvent('offisim.theme.change', { detail: resolvedTheme }));
   }, [resolvedTheme]);
 
   useEffect(() => {

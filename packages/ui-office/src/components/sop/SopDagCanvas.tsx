@@ -18,10 +18,10 @@ const DRAG_THRESHOLD = 5; // px radius before treating as drag
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2;
 
-const INPUT_PORT_STROKE = 'rgba(34,211,238,0.9)';
-const INPUT_PORT_REJECT_STROKE = 'rgba(248,113,113,0.95)';
-const OUTPUT_PORT_STROKE = 'rgba(251,191,36,0.95)';
-const PORT_FILL = 'rgba(15,23,42,0.98)';
+const INPUT_PORT_STROKE = 'var(--color-info-val)';
+const INPUT_PORT_REJECT_STROKE = 'var(--color-error-val)';
+const OUTPUT_PORT_STROKE = 'var(--color-warning-val)';
+const PORT_FILL = 'var(--color-surface-elevated-val)';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -578,7 +578,12 @@ export function SopDagCanvas({
             height={20 * scale}
             patternUnits="userSpaceOnUse"
           >
-            <circle cx={1 * scale} cy={1 * scale} r={1 * scale} fill="rgba(255,255,255,0.05)" />
+            <circle
+              cx={1 * scale}
+              cy={1 * scale}
+              r={1 * scale}
+              fill="color-mix(in srgb, var(--color-border-default-val) 38%, transparent)"
+            />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#sop-dot-grid)" pointerEvents="none" />
@@ -598,7 +603,7 @@ export function SopDagCanvas({
             <path
               d={connectingLine}
               fill="none"
-              stroke="rgba(251,191,36,0.5)"
+              stroke="var(--color-warning-val)"
               strokeWidth={2}
               strokeDasharray="6 4"
               strokeLinecap="round"
@@ -775,7 +780,7 @@ export function SopDagCanvas({
               rect.top + rect.height / 2,
             );
           }}
-          className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-500/15 px-3 py-2 text-sm font-medium text-cyan-100 backdrop-blur-sm transition hover:bg-cyan-500/25"
+          className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-border-focus bg-accent-muted px-3 py-2 text-sm font-medium text-accent-text backdrop-blur-sm transition hover:bg-surface-hover"
         >
           <Plus className="h-4 w-4" />
           Add Step

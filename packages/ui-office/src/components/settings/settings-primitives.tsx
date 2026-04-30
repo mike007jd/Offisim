@@ -12,11 +12,11 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-3 border-t border-white/5 pt-6 first:border-t-0 first:pt-0">
+    <section className="space-y-3 border-t border-border-default pt-5 first:border-t-0 first:pt-0">
       <header className="flex items-baseline justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-white/90">{title}</h3>
-          {description ? <p className="mt-1 text-xs text-white/55">{description}</p> : null}
+          <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+          {description ? <p className="mt-1 text-xs text-text-muted">{description}</p> : null}
         </div>
         {action}
       </header>
@@ -40,17 +40,17 @@ export function SurfaceCard({
 }) {
   return (
     <section
-      className={`rounded-[24px] border border-white/10 bg-slate-950/45 p-5 shadow-modal backdrop-blur-xl ${className}`}
+      className={`rounded-xl border border-border-default bg-surface-elevated p-4 ${className}`}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-400">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
             {title}
           </p>
-          {description ? <p className="mt-2 text-sm text-slate-300">{description}</p> : null}
+          {description ? <p className="mt-2 text-sm text-text-secondary">{description}</p> : null}
         </div>
         {icon ? (
-          <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-2 text-cyan-100">
+          <div className="rounded-lg border border-border-focus bg-accent-muted p-2 text-accent-text">
             {icon}
           </div>
         ) : null}
@@ -64,7 +64,7 @@ export function SectionLabel({ htmlFor, children }: { htmlFor: string; children:
   return (
     <label
       htmlFor={htmlFor}
-      className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400"
+      className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted"
     >
       {children}
     </label>
@@ -72,7 +72,7 @@ export function SectionLabel({ htmlFor, children }: { htmlFor: string; children:
 }
 
 export function surfaceInputProps(className = '') {
-  return `h-11 rounded-2xl border-white/10 bg-slate-950/70 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-400/40 ${className}`;
+  return `h-10 rounded-lg border-border-default bg-surface text-text-primary placeholder:text-text-muted focus-visible:ring-border-focus ${className}`;
 }
 
 export function formatCompatibilityLabel(value?: string) {

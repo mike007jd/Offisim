@@ -3,10 +3,8 @@ import {
   Building2,
   LayoutDashboard,
   PenTool,
-  Plus,
   Settings as SettingsIcon,
   Store,
-  Trello,
   Users,
   Workflow,
 } from 'lucide-react';
@@ -22,7 +20,7 @@ export interface PeerWorkspaceNavItem {
   icon: NavIcon;
 }
 
-export type OfficeToolId = 'studio' | 'dashboard' | 'kanban' | 'add-employee';
+export type OfficeToolId = 'studio' | 'dashboard';
 
 export interface OfficeToolNavItem {
   key: OfficeToolId;
@@ -57,38 +55,29 @@ export const PEER_WORKSPACE_ITEMS: ReadonlyArray<PeerWorkspaceNavItem> = [
 export const OFFICE_TOOL_ICON: Record<OfficeToolId, NavIcon> = {
   studio: PenTool,
   dashboard: LayoutDashboard,
-  kanban: Trello,
-  'add-employee': Plus,
 };
 
 export const OFFICE_TOOL_LABEL: Record<OfficeToolId, string> = {
   studio: 'Studio',
   dashboard: 'Dashboard',
-  kanban: 'Kanban',
-  'add-employee': 'Add Employee',
 };
 
 export const OFFICE_TOOL_SHORTCUT: Record<OfficeToolId, string | undefined> = {
   studio: undefined,
   dashboard: '⌘D',
-  kanban: '⌘J',
-  'add-employee': undefined,
 };
 
 export interface BuildOfficeToolsOptions {
   hasActiveCompany: boolean;
   dashboardOpen: boolean;
-  kanbanOpen: boolean;
   onOpenStudio: () => void;
   onToggleDashboard: () => void;
-  onToggleKanban: () => void;
-  onOpenAddEmployee: () => void;
 }
 
 export function buildOfficeToolItems(opts: BuildOfficeToolsOptions): OfficeToolNavItem[] {
   const disabledBase = !opts.hasActiveCompany;
   const disabledReason = disabledBase ? 'Select or create a company first' : undefined;
-  return (['studio', 'dashboard', 'kanban', 'add-employee'] as const).map((id) => {
+  return (['studio', 'dashboard'] as const).map((id) => {
     const base = {
       key: id,
       label: OFFICE_TOOL_LABEL[id],
@@ -106,14 +95,6 @@ export function buildOfficeToolItems(opts: BuildOfficeToolsOptions): OfficeToolN
           isActive: opts.dashboardOpen,
           onActivate: opts.onToggleDashboard,
         };
-      case 'kanban':
-        return {
-          ...base,
-          isActive: opts.kanbanOpen,
-          onActivate: opts.onToggleKanban,
-        };
-      case 'add-employee':
-        return { ...base, onActivate: opts.onOpenAddEmployee };
     }
   });
 }

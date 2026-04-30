@@ -10,20 +10,20 @@ export interface PermissionsBlockProps {
 
 const VARIANT_STYLES = {
   compact: {
-    section: 'rounded-2xl border border-white/10 bg-white/[0.03] p-3',
-    header: 'mb-2 flex items-center gap-1.5 text-xs font-semibold text-white',
+    section: 'rounded-2xl border border-border-default bg-surface-muted p-3',
+    header: 'mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-primary',
     icon: 'h-3.5 w-3.5',
-    dl: 'space-y-1.5 text-xs text-slate-300',
+    dl: 'space-y-1.5 text-xs text-text-secondary',
     row: 'flex justify-between gap-2',
-    dt: 'text-slate-500',
+    dt: 'text-text-muted',
   },
   wide: {
-    section: 'rounded-3xl border border-white/10 bg-white/[0.03] p-5',
-    header: 'flex items-center gap-2 text-sm font-semibold text-white',
+    section: 'rounded-2xl border border-border-default bg-surface-muted p-4',
+    header: 'flex items-center gap-2 text-sm font-semibold text-text-primary',
     icon: 'h-4 w-4',
-    dl: 'mt-4 space-y-3 text-sm text-slate-300',
+    dl: 'mt-4 space-y-3 text-sm text-text-secondary',
     row: '',
-    dt: 'text-xs uppercase tracking-wide text-slate-500',
+    dt: 'text-xs uppercase tracking-wide text-text-muted',
   },
 } as const;
 
@@ -48,7 +48,7 @@ export function PermissionsBlock({ permissions, variant = 'wide' }: PermissionsB
   return (
     <section className={s.section}>
       <div className={s.header}>
-        <Shield className={`${s.icon} text-cyan-300`} />
+        <Shield className={`${s.icon} text-accent`} />
         Permissions
       </div>
       <dl className={s.dl}>

@@ -385,7 +385,7 @@ function ZoneFloor({
         {hasOverlap && (
           <mesh position={[0, 0.005, 0]} rotation={_zonePlaneRotation}>
             <planeGeometry args={[zone.w, zone.d]} />
-            <meshBasicMaterial color="#ef4444" transparent opacity={0.1} depthWrite={false} />
+            <meshBasicMaterial color={STUDIO_COLORS.error} transparent opacity={0.12} depthWrite={false} />
           </mesh>
         )}
 
@@ -454,7 +454,6 @@ function ZoneFloor({
                 whiteSpace: 'nowrap',
                 cursor: isDragging ? 'grabbing' : 'pointer',
                 userSelect: 'none',
-                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
                 transition: STUDIO_TRANSITION.allFast,
               }}
             >
@@ -468,7 +467,12 @@ function ZoneFloor({
                   e.stopPropagation();
                   enterEditZone(zone.zoneId);
                 }}
-                className="rounded-full border border-cyan-300/30 bg-slate-950/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100"
+                style={{
+                  border: `1px solid ${STUDIO_COLORS.borderActive}`,
+                  background: STUDIO_COLORS.surface0,
+                  color: STUDIO_COLORS.accentText,
+                }}
+                className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
               >
                 Edit
               </button>

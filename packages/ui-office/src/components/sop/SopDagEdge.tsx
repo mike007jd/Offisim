@@ -18,10 +18,10 @@ export function buildBezierPath(
 // ---------------------------------------------------------------------------
 
 const STROKE_CONFIG: Record<SopStepStatus, { stroke: string; width: number }> = {
-  pending: { stroke: 'rgba(148,163,184,0.45)', width: 2 },
-  active: { stroke: 'rgba(96,165,250,0.75)', width: 2.5 },
-  completed: { stroke: 'rgba(52,211,153,0.6)', width: 2 },
-  failed: { stroke: 'rgba(248,113,113,0.65)', width: 2 },
+  pending: { stroke: 'var(--color-border-default-val)', width: 2 },
+  active: { stroke: 'var(--color-info-val)', width: 2.5 },
+  completed: { stroke: 'var(--color-success-val)', width: 2 },
+  failed: { stroke: 'var(--color-error-val)', width: 2 },
 };
 
 // ---------------------------------------------------------------------------
@@ -45,7 +45,7 @@ export const SopDagEdge = memo(function SopDagEdge({
   const { stroke, width } = STROKE_CONFIG[status];
   const [hovered, setHovered] = useState(false);
 
-  const activeStroke = editMode && hovered ? 'rgba(248,113,113,0.7)' : stroke;
+  const activeStroke = editMode && hovered ? 'var(--color-error-val)' : stroke;
   const activeWidth = editMode && hovered ? 3 : width;
 
   return (
@@ -82,14 +82,14 @@ export const SopDagEdge = memo(function SopDagEdge({
             cx={(edge.fromPoint.x + edge.toPoint.x) / 2}
             cy={(edge.fromPoint.y + edge.toPoint.y) / 2}
             r={8}
-            fill="rgba(248,113,113,0.3)"
+            fill="var(--color-error-muted-val)"
           />
           <text
             x={(edge.fromPoint.x + edge.toPoint.x) / 2}
             y={(edge.fromPoint.y + edge.toPoint.y) / 2}
             textAnchor="middle"
             dominantBaseline="central"
-            fill="rgba(248,113,113,0.9)"
+            fill="var(--color-error-val)"
             fontSize={12}
             fontWeight="bold"
           >
@@ -98,7 +98,7 @@ export const SopDagEdge = memo(function SopDagEdge({
         </>
       )}
       {status === 'active' && (
-        <circle r={3} fill="rgba(96,165,250,0.8)">
+        <circle r={3} fill="var(--color-info-val)">
           <animateMotion dur="1.5s" repeatCount="indefinite" path={d} />
         </circle>
       )}

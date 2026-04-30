@@ -4,6 +4,7 @@ import { extractZoneSlug } from '@offisim/shared-types';
 import {
   Button,
   Input,
+  SegmentedControl,
   Select,
   SelectContent,
   SelectItem,
@@ -147,11 +148,11 @@ export function ProfileTab({ editor }: ProfileTabProps) {
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 pb-32">
           {/* Identity */}
           <section className="flex flex-col gap-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
               Identity
             </h3>
             <div>
-              <label htmlFor="editor-name" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-name" className="mb-1 block text-sm text-text-secondary">
                 Name
               </label>
               <Input
@@ -162,7 +163,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <label htmlFor="editor-role" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-role" className="mb-1 block text-sm text-text-secondary">
                 Role
               </label>
               <Select
@@ -182,7 +183,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               </Select>
             </div>
             <div>
-              <label htmlFor="editor-enabled" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-enabled" className="mb-1 block text-sm text-text-secondary">
                 Status
               </label>
               <Button
@@ -196,7 +197,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               </Button>
             </div>
             <div>
-              <label htmlFor="editor-workstation" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-workstation" className="mb-1 block text-sm text-text-secondary">
                 Assign Workstation
               </label>
               <Select
@@ -215,21 +216,26 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-[10px] text-slate-500">
-                {workstationLabel
-                  ? `${workstationLabel} — MCP tools available via workstation rack`
-                  : 'No workstation assigned — no MCP tools accessible'}
+              <p
+                className="mt-1 text-[10px] text-text-muted"
+                title={
+                  workstationLabel
+                    ? 'MCP tools available via workstation rack.'
+                    : 'No MCP tools accessible without a workstation.'
+                }
+              >
+                {workstationLabel ? 'MCP tools enabled' : 'No MCP tools'}
               </p>
             </div>
           </section>
 
           {/* Persona */}
           <section className="flex flex-col gap-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
               Persona
             </h3>
             <div>
-              <label htmlFor="editor-expertise" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-expertise" className="mb-1 block text-sm text-text-secondary">
                 Expertise
               </label>
               <Textarea
@@ -241,7 +247,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <label htmlFor="editor-style" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-style" className="mb-1 block text-sm text-text-secondary">
                 Working Style
               </label>
               <Textarea
@@ -253,45 +259,35 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <p className="mb-2 block text-sm text-slate-400">Communication Frequency</p>
-              <div className="flex gap-2">
-                {(['low', 'medium', 'high'] as const).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => updateField('communicationFrequency', value)}
-                    className={`rounded-md border px-3 py-1.5 text-xs transition ${
-                      formData.communicationFrequency === value
-                        ? 'border-blue-400 bg-blue-500/15 text-blue-200'
-                        : 'border-slate-700 text-slate-400'
-                    }`}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
+              <p className="mb-2 block text-sm text-text-secondary">Communication Frequency</p>
+              <SegmentedControl
+                size="sm"
+                ariaLabel="Communication frequency"
+                value={formData.communicationFrequency}
+                onChange={(value) => updateField('communicationFrequency', value)}
+                items={[
+                  { value: 'low', label: 'Low' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'high', label: 'High' },
+                ]}
+              />
             </div>
             <div>
-              <p className="mb-2 block text-sm text-slate-400">Risk Preference</p>
-              <div className="flex gap-2">
-                {(['conservative', 'balanced', 'aggressive'] as const).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => updateField('riskPreference', value)}
-                    className={`rounded-md border px-3 py-1.5 text-xs transition ${
-                      formData.riskPreference === value
-                        ? 'border-blue-400 bg-blue-500/15 text-blue-200'
-                        : 'border-slate-700 text-slate-400'
-                    }`}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
+              <p className="mb-2 block text-sm text-text-secondary">Risk Preference</p>
+              <SegmentedControl
+                size="sm"
+                ariaLabel="Risk preference"
+                value={formData.riskPreference}
+                onChange={(value) => updateField('riskPreference', value)}
+                items={[
+                  { value: 'conservative', label: 'Conservative' },
+                  { value: 'balanced', label: 'Balanced' },
+                  { value: 'aggressive', label: 'Aggressive' },
+                ]}
+              />
             </div>
             <div>
-              <label htmlFor="editor-decision-style" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-decision-style" className="mb-1 block text-sm text-text-secondary">
                 Decision Style
               </label>
               <Select
@@ -312,7 +308,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               </Select>
             </div>
             <div>
-              <label htmlFor="editor-instructions" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-instructions" className="mb-1 block text-sm text-text-secondary">
                 Custom Instructions
               </label>
               <Textarea
@@ -323,11 +319,11 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 rows={4}
               />
             </div>
-            <div className="rounded border border-slate-700">
+            <div className="rounded-lg border border-border-default bg-surface-muted">
               <button
                 type="button"
                 onClick={() => setShowSystemPrompt((v) => !v)}
-                className="flex w-full items-center gap-1.5 px-3 py-2 text-xs text-slate-400 transition-colors hover:text-slate-200"
+                className="flex w-full items-center gap-1.5 px-3 py-2 text-xs text-text-secondary transition-colors hover:text-text-primary"
               >
                 {showSystemPrompt ? (
                   <ChevronDown className="h-3.5 w-3.5 shrink-0" />
@@ -337,7 +333,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 System Prompt Preview
               </button>
               {showSystemPrompt && (
-                <pre className="overflow-x-hidden whitespace-pre-wrap bg-black/20 px-3 pb-3 font-mono text-[11px] leading-relaxed text-slate-300">
+                <pre className="overflow-x-hidden whitespace-pre-wrap bg-surface px-3 pb-3 font-mono text-[11px] leading-relaxed text-text-secondary">
                   {buildSystemPrompt(formData)}
                 </pre>
               )}
@@ -346,11 +342,11 @@ export function ProfileTab({ editor }: ProfileTabProps) {
 
           {/* Config */}
           <section className="flex flex-col gap-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
               Config
             </h3>
             <div>
-              <label htmlFor="editor-provider" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-provider" className="mb-1 block text-sm text-text-secondary">
                 Provider
               </label>
               <Select value={selectedProvider} onValueChange={handleProviderChange}>
@@ -367,7 +363,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               </Select>
             </div>
             <div>
-              <label htmlFor="editor-model" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-model" className="mb-1 block text-sm text-text-secondary">
                 Model
               </label>
               <Input
@@ -396,7 +392,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                       key={m}
                       type="button"
                       onClick={() => updateField('modelPreference', m)}
-                      className="rounded border border-slate-700 bg-slate-800/50 px-1.5 py-0.5 text-[10px] text-slate-400 transition-colors hover:border-blue-500 hover:text-blue-300"
+                      className="rounded border border-border-default bg-surface-muted px-1.5 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-border-focus hover:text-accent-text"
                     >
                       {m}
                     </button>
@@ -405,7 +401,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               )}
             </div>
             <div>
-              <label htmlFor="editor-temperature" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-temperature" className="mb-1 block text-sm text-text-secondary">
                 Temperature
               </label>
               <Input
@@ -419,7 +415,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <label htmlFor="editor-max-tokens" className="mb-1 block text-sm text-slate-400">
+              <label htmlFor="editor-max-tokens" className="mb-1 block text-sm text-text-secondary">
                 Max Tokens
               </label>
               <Input
@@ -435,19 +431,19 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 }}
               />
               {formData.maxTokens < 1024 && (
-                <p className="mt-1 text-[10px] text-amber-400">
+                <p className="mt-1 text-[10px] text-warning">
                   Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.
                 </p>
               )}
             </div>
             {isEditMode && employeeId && (
               <div>
-                <p className="mb-2 block text-sm text-slate-400">Skills</p>
+                <p className="mb-2 block text-sm text-text-secondary">Skills</p>
                 <SkillBindingList companyId={activeCompanyId} employeeId={employeeId} />
               </div>
             )}
             <div>
-              <p className="mb-2 block text-sm text-slate-400">Tool Permissions</p>
+              <p className="mb-2 block text-sm text-text-secondary">Tool Permissions</p>
               <ToolPermissionEditor
                 value={formData.toolPermissionPolicy}
                 onChange={(value) => updateField('toolPermissionPolicy', value)}
@@ -458,7 +454,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
       </div>
 
       {/* Sticky save bar */}
-      <div className="shrink-0 border-t border-slate-700 bg-slate-950/85 px-6 py-3 backdrop-blur-sm">
+      <div className="shrink-0 border-t border-border-default bg-surface-elevated px-6 py-3 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3">
           <div className="flex flex-1 items-center gap-2">
             {isEditMode && !isConfirmingDelete && (

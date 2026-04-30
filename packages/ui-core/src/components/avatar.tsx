@@ -19,8 +19,8 @@ const SIZE_CLASS: Record<NonNullable<AvatarProps['size']>, string> = {
 
 const RING_CLASS: Record<NonNullable<AvatarProps['ring']>, string> = {
   none: 'border-transparent',
-  subtle: 'border-white/15',
-  accent: 'border-cyan-400/40',
+  subtle: 'border-border-default',
+  accent: 'border-border-focus',
 };
 
 const Avatar = forwardRef<React.ComponentRef<typeof AvatarPrimitive.Root>, AvatarProps>(
@@ -28,7 +28,7 @@ const Avatar = forwardRef<React.ComponentRef<typeof AvatarPrimitive.Root>, Avata
     <AvatarPrimitive.Root
       ref={ref}
       className={cn(
-        'relative flex shrink-0 overflow-hidden border bg-white/5',
+        'relative flex shrink-0 overflow-hidden border bg-surface-muted',
         SIZE_CLASS[size],
         shape === 'circle' ? 'rounded-full' : 'rounded-lg',
         RING_CLASS[ring],
@@ -60,7 +60,7 @@ const AvatarFallback = forwardRef<
     ref={ref}
     delayMs={delayMs}
     className={cn(
-      'flex h-full w-full items-center justify-center bg-white/8 font-medium text-slate-400',
+      'flex h-full w-full items-center justify-center bg-surface-muted font-medium text-text-muted',
       className,
     )}
     {...props}

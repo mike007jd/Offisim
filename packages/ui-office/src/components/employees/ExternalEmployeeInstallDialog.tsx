@@ -297,7 +297,7 @@ export function ExternalEmployeeInstallDialog({
         {step === 'endpoint' && (
           <div className="mt-2 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs uppercase tracking-wide text-slate-400" htmlFor="a2a-url">
+              <label className="text-xs uppercase tracking-wide text-text-muted" htmlFor="a2a-url">
                 Agent base URL
               </label>
               <Input
@@ -307,14 +307,17 @@ export function ExternalEmployeeInstallDialog({
                 placeholder="https://your-agent.example.dev"
                 autoFocus
               />
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-text-muted">
                 Offisim will GET {'{url}'}/.well-known/agent-card.json with an optional bearer
                 token.
               </p>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs uppercase tracking-wide text-slate-400" htmlFor="a2a-token">
+              <label
+                className="text-xs uppercase tracking-wide text-text-muted"
+                htmlFor="a2a-token"
+              >
                 Bearer token (optional)
               </label>
               <Input
@@ -328,7 +331,7 @@ export function ExternalEmployeeInstallDialog({
 
             <div className="flex flex-col gap-1.5">
               <label
-                className="text-xs uppercase tracking-wide text-slate-400"
+                className="text-xs uppercase tracking-wide text-text-muted"
                 htmlFor="a2a-agent-id"
               >
                 Agent ID (optional)
@@ -343,7 +346,7 @@ export function ExternalEmployeeInstallDialog({
 
             {error && (
               <div
-                className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200"
+                className="rounded-lg border border-error/40 bg-error-muted px-3 py-2 text-sm text-error"
                 role="alert"
               >
                 {error}
@@ -354,7 +357,7 @@ export function ExternalEmployeeInstallDialog({
 
         {step === 'preview' && card && (
           <div className="mt-2 flex flex-col gap-4">
-            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-lg border border-border-subtle bg-surface-muted p-4">
               <div className="flex items-start gap-3">
                 <img
                   alt={`${brandEntry.displayName} avatar`}
@@ -362,22 +365,24 @@ export function ExternalEmployeeInstallDialog({
                   className="h-12 w-12 rounded-lg"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-100">{card.name}</p>
+                  <p className="truncate text-sm font-semibold text-text-primary">{card.name}</p>
                   {card.provider?.organization && (
-                    <p className="truncate text-xs text-slate-400">{card.provider.organization}</p>
+                    <p className="truncate text-xs text-text-secondary">
+                      {card.provider.organization}
+                    </p>
                   )}
-                  <p className="mt-1 text-xs text-slate-500">version {card.version}</p>
+                  <p className="mt-1 text-xs text-text-muted">version {card.version}</p>
                 </div>
               </div>
               {card.description && (
-                <p className="mt-3 text-sm text-slate-300">{card.description}</p>
+                <p className="mt-3 text-sm text-text-secondary">{card.description}</p>
               )}
               {card.skills && card.skills.length > 0 && (
                 <ul className="mt-3 flex flex-wrap gap-1.5">
                   {card.skills.map((skill) => (
                     <li
                       key={skill.id}
-                      className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-300"
+                      className="rounded-full border border-border-subtle bg-surface-elevated px-2 py-0.5 text-[11px] text-text-secondary"
                     >
                       {skill.name}
                     </li>
@@ -388,7 +393,7 @@ export function ExternalEmployeeInstallDialog({
 
             <div className="flex flex-col gap-1.5">
               <label
-                className="text-xs uppercase tracking-wide text-slate-400"
+                className="text-xs uppercase tracking-wide text-text-muted"
                 htmlFor="a2a-display-name"
               >
                 Display name
@@ -404,7 +409,7 @@ export function ExternalEmployeeInstallDialog({
               <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="a2a-brand"
-                  className="text-xs uppercase tracking-wide text-slate-400"
+                  className="text-xs uppercase tracking-wide text-text-muted"
                 >
                   Brand
                 </label>
@@ -424,8 +429,8 @@ export function ExternalEmployeeInstallDialog({
                   </SelectContent>
                 </Select>
                 {brandKey === 'custom' && (
-                  <p className="text-[11px] text-slate-500">
-                    No canonical brand matched — using custom fallback avatar.
+                  <p className="text-[11px] text-text-muted">
+                    No canonical brand matched - using custom fallback avatar.
                   </p>
                 )}
               </div>
@@ -433,13 +438,13 @@ export function ExternalEmployeeInstallDialog({
               <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="a2a-role"
-                  className="text-xs uppercase tracking-wide text-slate-400"
+                  className="text-xs uppercase tracking-wide text-text-muted"
                 >
                   Role
                 </label>
                 <Select value={roleSlug} onValueChange={(value) => setRoleSlug(value as RoleSlug)}>
                   <SelectTrigger id="a2a-role">
-                    <SelectValue placeholder="Select role…" />
+                    <SelectValue placeholder="Select role..." />
                   </SelectTrigger>
                   <SelectContent>
                     {ROLE_OPTIONS.map((opt) => (
@@ -454,7 +459,7 @@ export function ExternalEmployeeInstallDialog({
 
             {error && (
               <div
-                className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200"
+                className="rounded-lg border border-error/40 bg-error-muted px-3 py-2 text-sm text-error"
                 role="alert"
               >
                 {error}

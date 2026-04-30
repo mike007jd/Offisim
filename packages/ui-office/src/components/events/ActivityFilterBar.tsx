@@ -47,22 +47,27 @@ export function ActivityFilterBar({
   });
   useFocusTrap(sheetRef, narrowSheetOpen);
 
-  function handleTypeToggle(e: React.ChangeEvent<HTMLSelectElement>) {
-    const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
-    onEventTypesChange(selected);
+  function handleTypeChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const selected = e.target.value;
+    onEventTypesChange(selected === 'all' ? [] : [selected]);
   }
 
-  function handleActorToggle(e: React.ChangeEvent<HTMLSelectElement>) {
-    const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
-    onActorFiltersChange(selected);
+  function handleActorChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const selected = e.target.value;
+    onActorFiltersChange(selected === 'all' ? [] : [selected]);
   }
+
+  const eventTypeValue = eventTypes[0] ?? 'all';
+  const actorValue = actorFilters[0] ?? 'all';
+  const controlClass =
+    'h-9 min-w-0 flex-1 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary focus:border-border-focus focus:outline-none';
 
   const controls = (
     <>
       <select
         value={datePreset}
         onChange={(e) => onDatePresetChange(e.target.value as DatePreset)}
-        className="rounded-md border border-white/10 bg-white/[0.06] px-2 py-1.5 text-xs text-slate-300 focus:border-accent/50 focus:outline-none"
+        className={controlClass}
       >
         {DATE_PRESETS.map((p) => (
           <option key={p.value} value={p.value}>
@@ -72,12 +77,12 @@ export function ActivityFilterBar({
       </select>
 
       <select
-        multiple
-        value={eventTypes}
-        onChange={handleTypeToggle}
-        className="max-h-8 overflow-hidden rounded-md border border-white/10 bg-white/[0.06] px-2 py-1.5 text-xs text-slate-300 focus:border-accent/50 focus:outline-none"
+        value={eventTypeValue}
+        onChange={handleTypeChange}
+        className={controlClass}
         title="Event types"
       >
+        <option value="all">All events</option>
         {ALL_EVENT_TYPES.filter((t) => t !== 'All').map((type) => (
           <option key={type} value={type}>
             {type}
@@ -86,12 +91,12 @@ export function ActivityFilterBar({
       </select>
 
       <select
-        multiple
-        value={actorFilters}
-        onChange={handleActorToggle}
-        className="max-h-8 overflow-hidden rounded-md border border-white/10 bg-white/[0.06] px-2 py-1.5 text-xs text-slate-300 focus:border-accent/50 focus:outline-none"
+        value={actorValue}
+        onChange={handleActorChange}
+        className={controlClass}
         title="Actors"
       >
+        <option value="all">All actors</option>
         {actorOptions.map((actor) => (
           <option key={actor} value={actor}>
             {actor}
@@ -103,23 +108,23 @@ export function ActivityFilterBar({
 
   if (variant === 'narrow') {
     return (
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-white/10 px-3">
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border-default bg-surface-elevated px-3">
         <button
           type="button"
           aria-label="Open activity filters"
           onClick={() => setSheetOpen(true)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-300"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border-default bg-surface-muted text-text-secondary"
         >
           <SlidersHorizontal className="h-4 w-4" />
         </button>
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search events..."
-            className="w-full rounded-md border border-white/10 bg-white/[0.06] py-2 pl-8 pr-3 text-xs text-slate-200 placeholder:text-slate-500 focus:border-accent/50 focus:outline-none"
+            className="h-9 w-full rounded-lg border border-border-default bg-surface py-2 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
           />
         </div>
         {sheetOpen && (
@@ -127,20 +132,20 @@ export function ActivityFilterBar({
             <button
               type="button"
               aria-label="Close activity filters"
-              className="absolute inset-0 bg-black/60"
+              className="absolute inset-0 bg-surface/70"
               onClick={() => setSheetOpen(false)}
             />
             <div
               ref={sheetRef}
-              className="absolute inset-x-0 bottom-0 rounded-t-2xl border border-white/10 bg-slate-950 p-4 shadow-modal"
+              className="absolute inset-x-0 bottom-0 rounded-t-2xl border border-border-default bg-surface-elevated p-4 shadow-modal"
             >
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-100">Filters</h2>
+                <h2 className="text-sm font-semibold text-text-primary">Filters</h2>
                 <button
                   type="button"
                   aria-label="Close filters"
                   onClick={() => setSheetOpen(false)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface-muted text-text-secondary"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -154,17 +159,17 @@ export function ActivityFilterBar({
   }
 
   return (
-    <div className="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-6">
+    <div className="grid h-14 shrink-0 grid-cols-[repeat(3,minmax(0,1fr))_minmax(160px,2fr)] items-center gap-3 border-b border-border-default bg-surface-elevated px-6">
       {controls}
 
-      <div className="relative flex-1">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+      <div className="relative min-w-0">
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
         <input
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search events..."
-          className="w-full text-xs bg-white/[0.06] text-slate-200 border border-white/10 rounded-md pl-8 pr-3 py-1.5 placeholder:text-slate-500 focus:outline-none focus:border-accent/50"
+          className="h-9 w-full rounded-lg border border-border-default bg-surface py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
         />
       </div>
     </div>

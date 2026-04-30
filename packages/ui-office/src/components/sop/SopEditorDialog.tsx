@@ -199,27 +199,27 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="SOP name..."
-              className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
+              className="w-full rounded-lg border border-border-default bg-surface px-2 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
             />
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optional)"
-              className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
+              className="w-full rounded-lg border border-border-default bg-surface px-2 py-1 text-xs text-text-secondary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
             />
           </div>
 
           {/* Steps */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
                 Steps ({steps.length})
               </span>
               <button
                 type="button"
                 onClick={addStep}
-                className="flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-300"
+                className="flex items-center gap-0.5 text-[10px] text-accent-text hover:text-accent"
               >
                 <Plus className="w-3 h-3" /> Add Step
               </button>
@@ -228,10 +228,10 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
             {steps.map((step, i) => (
               <div
                 key={step.step_id}
-                className="rounded-lg border border-white/5 bg-white/[0.02] p-2 space-y-1.5"
+                className="space-y-1.5 rounded-lg border border-border-default bg-surface-muted p-2"
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-slate-500 font-mono shrink-0 w-12">
+                  <span className="w-12 shrink-0 font-mono text-[10px] text-text-muted">
                     #{i + 1}
                   </span>
                   <input
@@ -239,12 +239,12 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                     value={step.label}
                     onChange={(e) => updateStep(i, { label: e.target.value })}
                     placeholder="Step label"
-                    className="flex-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
+                    className="flex-1 rounded border border-border-default bg-surface px-1.5 py-0.5 text-xs text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
                   />
                   <select
                     value={step.role_slug}
                     onChange={(e) => updateStep(i, { role_slug: e.target.value as RoleSlug })}
-                    className="bg-white/5 border border-white/10 rounded px-1 py-0.5 text-[10px] text-slate-300 focus:outline-none focus:border-blue-500/50"
+                    className="rounded border border-border-default bg-surface px-1 py-0.5 text-[10px] text-text-secondary focus:border-border-focus focus:outline-none"
                   >
                     {HIREABLE_ROLES.map((r) => (
                       <option key={r.slug} value={r.slug}>
@@ -256,7 +256,7 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                     <button
                       type="button"
                       onClick={() => removeStep(i)}
-                      className="text-slate-600 hover:text-red-400 transition-colors"
+                      className="text-text-muted transition-colors hover:text-error"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
@@ -267,11 +267,11 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                   onChange={(e) => updateStep(i, { instruction: e.target.value })}
                   placeholder="Instruction for this step..."
                   rows={2}
-                  className="w-full bg-white/5 border border-white/10 rounded px-1.5 py-1 text-[11px] text-slate-300 placeholder:text-slate-600 resize-none focus:outline-none focus:border-blue-500/50"
+                  className="w-full resize-none rounded border border-border-default bg-surface px-1.5 py-1 text-[11px] text-text-secondary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
                 />
                 {i > 0 && (
                   <div className="flex items-center gap-1 flex-wrap">
-                    <span className="text-[10px] text-slate-500">After:</span>
+                    <span className="text-[10px] text-text-muted">After:</span>
                     {steps.slice(0, i).map((prev) => {
                       const selected = step.dependencies.includes(prev.step_id);
                       return (
@@ -287,8 +287,8 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                           }}
                           className={`px-1.5 py-0.5 rounded text-[10px] transition-colors ${
                             selected
-                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                              : 'bg-white/5 text-slate-500 border border-white/10 hover:border-white/20'
+                              ? 'border border-border-focus bg-accent-muted text-accent-text'
+                              : 'border border-border-default bg-surface-muted text-text-muted hover:border-border-strong'
                           }`}
                         >
                           #{steps.indexOf(prev) + 1}
@@ -303,9 +303,9 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
 
           {/* Validation errors */}
           {errors.length > 0 && (
-            <div className="rounded border border-red-500/20 bg-red-500/5 p-2 space-y-0.5">
+            <div className="space-y-0.5 rounded border border-error bg-error-muted p-2">
               {errors.map((err) => (
-                <p key={err} className="text-[10px] text-red-400">
+                <p key={err} className="text-[10px] text-error">
                   {err}
                 </p>
               ))}

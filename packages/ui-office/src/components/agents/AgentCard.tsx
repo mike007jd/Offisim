@@ -33,7 +33,7 @@ interface AgentCardProps {
 
 export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
-  const dotColor = STATUS_DOTS[agent.state] ?? 'bg-slate-400';
+  const dotColor = STATUS_DOTS[agent.state] ?? 'bg-text-muted';
   const glowClass = STATE_GLOW[agent.state] ?? '';
   const isInteractive = Boolean(onClick);
 
@@ -63,11 +63,11 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
       aria-label={isInteractive ? `${agent.name} employee card` : undefined}
       aria-pressed={isInteractive ? (isSelected ?? false) : undefined}
       className={[
-        'bg-black/40 p-4 rounded-xl border cursor-pointer',
+        'min-h-[96px] rounded-xl border bg-surface p-3 cursor-pointer',
         'transition-all duration-300',
         isSelected
-          ? 'border-blue-500/40 bg-white/5 shadow-glow-accent'
-          : 'border-white/5 hover:border-blue-500/40 hover:bg-white/5 hover:shadow-glow-accent',
+          ? 'border-border-focus bg-accent-muted shadow-glow-accent'
+          : 'border-border-default hover:border-border-focus hover:bg-surface-hover hover:shadow-glow-accent',
         glowing ? glowClass : '',
       ]
         .filter(Boolean)
@@ -81,10 +81,10 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
         }
       }}
     >
-      <div className="flex items-center space-x-3">
+      <div className="flex items-start gap-3">
         {/* Avatar with status dot */}
         <div className="relative flex-shrink-0">
-          <div className="w-11 h-11 rounded-full bg-slate-900 overflow-hidden border border-white/10">
+          <div className="h-11 w-11 overflow-hidden rounded-full border border-border-default bg-surface-muted">
             <EmployeeAvatar agent={agent} size={44} className="w-full h-full object-cover" />
           </div>
           <div
@@ -93,18 +93,23 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
         </div>
 
         {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-0.5">
-            <span className="text-sm font-semibold text-slate-200 truncate">{agent.name}</span>
-            <div className="flex items-center gap-1.5">
-              <Badge variant={variant} className="text-[10px] transition-colors duration-300">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <span className="min-w-0 truncate text-sm font-semibold text-text-primary">
+              {agent.name}
+            </span>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Badge
+                variant={variant}
+                className="min-w-[46px] justify-center text-[10px] transition-colors duration-300"
+              >
                 {agent.state}
               </Badge>
             </div>
           </div>
-          <p className="text-xs text-slate-400 truncate font-mono flex items-center gap-1">
+          <p className="flex items-center gap-1 truncate text-xs text-text-secondary">
             {ROLE_LABELS[agent.role] ?? agent.role}
-            <Wrench className="h-2.5 w-2.5 text-slate-700 inline flex-shrink-0" />
+            <Wrench className="inline h-2.5 w-2.5 flex-shrink-0 text-text-muted" />
           </p>
         </div>
       </div>
@@ -115,7 +120,7 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
           className={[
             'mt-2 flex items-center gap-1.5 text-[10px] font-mono',
             'transform transition-all duration-300',
-            isComplete ? 'text-emerald-400' : isFailed ? 'text-red-400' : 'text-slate-300',
+            isComplete ? 'text-success' : isFailed ? 'text-error' : 'text-text-secondary',
           ].join(' ')}
           style={{
             animation: 'slideInRight 0.3s ease-out',
@@ -125,7 +130,7 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
           <span>
             {task.stepIndex + 1}/{task.totalSteps}
           </span>
-          <span className="truncate max-w-[120px]">{truncate(task.stepLabel, 25)}</span>
+          <span className="max-w-[120px] truncate">{truncate(task.stepLabel, 25)}</span>
         </div>
       )}
 
@@ -169,7 +174,7 @@ function SubTaskList({
       {/* Summary header — clickable to expand */}
       <button
         type="button"
-        className="w-full flex items-center justify-between text-[10px] font-mono text-slate-400 hover:text-slate-300 transition-colors"
+        className="flex w-full items-center justify-between text-[10px] font-mono text-text-muted transition-colors hover:text-text-secondary"
         onClick={(e) => {
           e.stopPropagation();
           setExpanded((prev) => !prev);
@@ -190,24 +195,24 @@ function SubTaskList({
               className={[
                 'truncate max-w-[130px]',
                 st.status === 'done'
-                  ? 'text-slate-500'
+                  ? 'text-text-muted'
                   : st.status === 'failed'
-                    ? 'text-red-400'
-                    : 'text-slate-300',
+                    ? 'text-error'
+                    : 'text-text-secondary',
               ].join(' ')}
             >
               {truncate(st.label, 25)}
             </span>
             {st.status === 'running' && st.startedAt && (
-              <span className="text-slate-500 ml-auto">
+              <span className="ml-auto text-text-muted">
                 {Math.round((Date.now() - st.startedAt) / 1000)}s
               </span>
             )}
-            {st.status === 'done' && <span className="text-slate-500 ml-auto">done</span>}
+            {st.status === 'done' && <span className="ml-auto text-text-muted">done</span>}
           </div>
         ))}
         {hiddenCount > 0 && !expanded && (
-          <div className="text-[10px] font-mono text-slate-500 pl-4">+{hiddenCount} more</div>
+          <div className="pl-4 text-[10px] font-mono text-text-muted">+{hiddenCount} more</div>
         )}
       </div>
     </div>

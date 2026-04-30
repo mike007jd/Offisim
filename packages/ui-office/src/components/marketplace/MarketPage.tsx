@@ -209,7 +209,7 @@ export function MarketPage({
                 : 'grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]'
             }`}
           >
-            <div className="min-h-0 overflow-y-auto border-r border-white/10">
+            <div className="min-h-0 overflow-y-auto border-r border-border-default">
               <MarketCardGrid
                 results={results}
                 isLoading={isLoading}

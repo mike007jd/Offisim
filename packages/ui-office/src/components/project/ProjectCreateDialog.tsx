@@ -141,11 +141,6 @@ export function ProjectCreateDialog({
       stackId="project-create"
       size="md"
       title={title}
-      description={
-        mode === 'create'
-          ? 'Bind a chat thread, optional description, and (on desktop) a local workspace folder.'
-          : 'Update project details. Folder rebinds without affecting the chat thread.'
-      }
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
@@ -165,7 +160,7 @@ export function ProjectCreateDialog({
         }}
       >
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="project-create-name" className="text-xs font-medium text-slate-300">
+          <label htmlFor="project-create-name" className="text-xs font-medium text-text-secondary">
             Name
           </label>
           <Input
@@ -179,9 +174,9 @@ export function ProjectCreateDialog({
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="project-create-description"
-            className="text-xs font-medium text-slate-300"
+            className="text-xs font-medium text-text-secondary"
           >
-            Description <span className="text-slate-500">(optional)</span>
+            Description <span className="text-text-muted">(optional)</span>
           </label>
           <Textarea
             id="project-create-description"
@@ -193,18 +188,18 @@ export function ProjectCreateDialog({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-slate-300">Workspace folder</span>
+          <span className="text-xs font-medium text-text-secondary">Workspace folder</span>
           {desktopMode ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <div className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-slate-200">
-                  <Folder className="h-4 w-4 flex-shrink-0 text-cyan-300/70" />
+                <div className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary">
+                  <Folder className="h-4 w-4 flex-shrink-0 text-info" />
                   {workspaceRoot ? (
                     <span className="truncate" title={workspaceRoot}>
                       {workspaceRoot}
                     </span>
                   ) : (
-                    <span className="text-slate-500">No folder bound</span>
+                    <span className="text-text-muted">No folder bound</span>
                   )}
                 </div>
                 <Button
@@ -231,26 +226,17 @@ export function ProjectCreateDialog({
                   </Button>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500">
-                Used for project file browsing and gateway file/shell tools.
-              </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-400">
-              <span className="flex items-center gap-2">
-                <Folder className="h-4 w-4 flex-shrink-0 opacity-60" />
-                Available on desktop
-              </span>
-              <span className="text-[11px] text-slate-500">
-                Folder binding is desktop-only — your project will still get a dedicated chat
-                thread.
-              </span>
+            <div className="flex items-center gap-2 rounded-lg border border-border-default bg-surface-muted px-3 py-2 text-xs text-text-muted">
+              <Folder className="h-4 w-4 flex-shrink-0 opacity-60" />
+              Folder binding is desktop-only.
             </div>
           )}
         </div>
 
         {error && (
-          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          <p className="rounded-lg border border-error bg-error-muted px-3 py-2 text-xs text-error">
             {error}
           </p>
         )}

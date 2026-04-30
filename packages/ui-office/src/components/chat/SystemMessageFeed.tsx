@@ -5,8 +5,8 @@ import {
 } from '../../runtime/use-system-message-feed';
 
 const ENTRY_STYLES = {
-  info: 'border-slate-400/15 bg-white/4 text-slate-200',
-  warning: 'border-amber-400/25 bg-amber-400/10 text-amber-50',
+  info: 'border-info bg-info-muted text-info',
+  warning: 'border-warning bg-warning-muted text-warning',
 } as const;
 
 const ICON_MAP: Record<SystemMessageIcon, typeof Sparkles> = {
@@ -35,7 +35,7 @@ export function SystemMessageFeed() {
           })()}
           <div className="min-w-0 space-y-1">
             <p className="font-semibold uppercase tracking-[0.18em] text-[10px]">{entry.title}</p>
-            <p className="leading-relaxed text-slate-300">{entry.detail}</p>
+            <p className="leading-relaxed text-text-secondary">{entry.detail}</p>
           </div>
         </div>
       ))}

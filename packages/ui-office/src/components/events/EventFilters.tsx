@@ -90,21 +90,21 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
     const base =
       'px-2 py-1 rounded text-[10px] font-medium cursor-pointer select-none transition-colors';
     if (!active)
-      return `${base} bg-transparent text-slate-400 border border-slate-400/30 opacity-40`;
-    if (level === 'Error') return `${base} bg-red-500/20 text-red-500 border border-red-500/40`;
+      return `${base} bg-transparent text-text-muted border border-border-default opacity-60`;
+    if (level === 'Error') return `${base} bg-error-muted text-error border border-error`;
     if (level === 'Warning')
-      return `${base} bg-amber-400/20 text-amber-400 border border-amber-400/40`;
-    return `${base} bg-blue-500/20 text-blue-500 border border-blue-500/40`;
+      return `${base} bg-warning-muted text-warning border border-warning`;
+    return `${base} bg-info-muted text-info border border-info`;
   };
 
   return (
-    <div className="flex flex-col gap-1.5 px-3 py-1.5 border-b border-slate-400/10">
+    <div className="flex flex-col gap-1.5 border-b border-border-subtle px-3 py-1.5">
       {/* Top row: type dropdown + level pills */}
       <div className="flex items-center gap-1.5 overflow-hidden">
         <select
           value={selectedType}
           onChange={(e) => handleTypeChange(e.target.value as EventFilterType)}
-          className="text-[10px] bg-slate-950 text-slate-400 border border-slate-400/20 rounded px-1.5 py-0.5 cursor-pointer focus:outline-none focus:border-blue-500/50 flex-shrink-0"
+          className="shrink-0 cursor-pointer rounded border border-border-default bg-surface px-1.5 py-0.5 text-[10px] text-text-secondary focus:border-border-focus focus:outline-none"
         >
           {ALL_EVENT_TYPES.map((t) => (
             <option key={t} value={t}>
@@ -133,7 +133,7 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
         value={search}
         onChange={(e) => handleSearch(e.target.value)}
         placeholder="Search events..."
-        className="w-full text-[10px] bg-slate-950 text-slate-100 border border-slate-400/20 rounded px-1.5 py-0.5 placeholder:text-slate-400/40 focus:outline-none focus:border-blue-500/50"
+        className="w-full rounded border border-border-default bg-surface px-1.5 py-0.5 text-[10px] text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
       />
     </div>
   );

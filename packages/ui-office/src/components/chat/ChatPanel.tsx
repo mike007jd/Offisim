@@ -451,22 +451,20 @@ export function ChatPanel({
   ) : null;
 
   return (
-    <div data-chat-panel-root className="flex flex-1 min-h-0 flex-col overflow-hidden">
+    <div
+      data-chat-panel-root
+      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-elevated text-text-primary"
+    >
       {!isReady && (
-        <div className="mx-3 mt-3 rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-2 text-[11px] text-amber-100">
-          <div className="flex items-center justify-between gap-3">
-            <span>
-              Configure an API Key to enable AI collaboration. You can still browse scenes,
-              templates, and editors.
-            </span>
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="shrink-0 rounded-md border border-amber-300/20 bg-black/20 px-2 py-1 text-[10px] text-amber-50 transition-colors hover:bg-black/35"
-            >
-              Open Settings
-            </button>
-          </div>
+        <div className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-muted px-3 py-1.5 text-[11px] text-warning">
+          <span>Configure an API key to enable AI collaboration.</span>
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="shrink-0 rounded-md border border-warning/30 bg-surface px-2 py-0.5 text-[10px] text-warning transition-colors hover:bg-surface-hover"
+          >
+            Settings
+          </button>
         </div>
       )}
 
@@ -482,18 +480,18 @@ export function ChatPanel({
       {/* Direct chat header — single compact line */}
       {isDirectChat && (
         <div
-          className="flex items-center gap-2 border-b border-white/5 h-8"
+          className="flex h-8 items-center gap-2 border-b border-border-default"
           style={{ paddingInline: 'var(--sp-md)' }}
         >
           <button
             type="button"
             onClick={onClearSelection}
-            className="flex items-center gap-1 text-slate-500 hover:text-white transition-colors"
+            className="flex items-center gap-1 text-text-muted transition-colors hover:text-text-primary"
           >
             <ArrowLeft className="h-3 w-3" />
             <span className="text-xs">Team</span>
           </button>
-          <span className="text-xs text-slate-300 font-medium">
+          <span className="text-xs font-medium text-text-primary">
             {selectedEmployeeName ?? selectedEmployeeId}
           </span>
         </div>
@@ -516,13 +514,11 @@ export function ChatPanel({
         <div className="flex flex-1 flex-col justify-end gap-2 px-3 py-2">
           {latestMessage ? (
             <MessageBubble role={latestMessage.role} content={latestMessage.content} />
-          ) : isDirectChat ? (
-            <div className="rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-xs text-slate-500">
-              Start a conversation with {selectedEmployeeName ?? 'this employee'}
-            </div>
           ) : (
-            <div className="rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-xs text-slate-500">
-              Enter a task and watch your AI team collaborate.
+            <div className="rounded-xl border border-border-subtle bg-surface-muted px-3 py-2 text-xs text-text-muted">
+              {isDirectChat
+                ? `Start a conversation with ${selectedEmployeeName ?? 'this employee'}`
+                : 'Enter a task to start collaborating.'}
             </div>
           )}
           <StreamingBubble
@@ -549,7 +545,7 @@ export function ChatPanel({
               </ScrollArea>
             ) : isDirectChat ? (
               <div className="flex flex-1 items-center justify-center">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-text-muted">
                   Start a conversation with {selectedEmployeeName ?? 'this employee'}
                 </p>
               </div>
@@ -654,7 +650,7 @@ export function ChatPanel({
                 key={label}
                 type="button"
                 onClick={() => handleSend(text)}
-                className="text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-300 hover:text-blue-300 hover:border-blue-500/30 transition-colors"
+                className="rounded-full border border-border-subtle bg-surface-muted px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-border-focus hover:bg-accent-muted hover:text-accent-text"
                 data-onboarding-starter-prompt={label}
               >
                 {label}

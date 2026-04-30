@@ -5,18 +5,13 @@ import { useThree } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
 import { toOverlapRects, useStudioStore } from './StudioState.js';
-import { FONT } from './studio-style-helpers.js';
+import { FONT, STUDIO_COLORS } from './studio-style-helpers.js';
 
 function snap(v: number, grid: number): number {
   return Math.round(v / grid) * grid;
 }
 
 const SNAP = 0.5;
-
-const VALID_FILL = 'rgba(34, 197, 94, 0.15)';
-const VALID_BORDER = 'rgb(34, 197, 94)';
-const BLOCKED_FILL = 'rgba(239, 68, 68, 0.15)';
-const BLOCKED_BORDER = 'rgb(239, 68, 68)';
 
 const BORDER_THICKNESS = 0.06;
 const BORDER_HEIGHT = 0.04;
@@ -50,17 +45,15 @@ export function StudioZoneGhost() {
   }
 
   function applyColors(blocked: boolean) {
-    const fill = blocked ? BLOCKED_FILL : VALID_FILL;
-    const border = blocked ? BLOCKED_BORDER : VALID_BORDER;
+    const border = blocked ? STUDIO_COLORS.error : STUDIO_COLORS.success;
 
     if (fillMatRef.current) {
-      fillMatRef.current.color.set(blocked ? '#ef4444' : '#22c55e');
+      fillMatRef.current.color.set(border);
       fillMatRef.current.opacity = 0.15;
     }
     for (const mat of borderMatRefs.current) {
       mat.color.set(border);
     }
-    void fill;
   }
 
   return (
@@ -124,7 +117,7 @@ export function StudioZoneGhost() {
           <planeGeometry args={[ghostW, ghostD]} />
           <meshBasicMaterial
             ref={fillMatRef}
-            color="#22c55e"
+            color={STUDIO_COLORS.success}
             transparent
             opacity={0.15}
             side={THREE.DoubleSide}
@@ -140,7 +133,7 @@ export function StudioZoneGhost() {
             ref={(el) => {
               if (el) borderMatRefs.current[0] = el;
             }}
-            color={VALID_BORDER}
+            color={STUDIO_COLORS.success}
             transparent
             opacity={0.8}
           />
@@ -152,7 +145,7 @@ export function StudioZoneGhost() {
             ref={(el) => {
               if (el) borderMatRefs.current[1] = el;
             }}
-            color={VALID_BORDER}
+            color={STUDIO_COLORS.success}
             transparent
             opacity={0.8}
           />
@@ -164,7 +157,7 @@ export function StudioZoneGhost() {
             ref={(el) => {
               if (el) borderMatRefs.current[2] = el;
             }}
-            color={VALID_BORDER}
+            color={STUDIO_COLORS.success}
             transparent
             opacity={0.8}
           />
@@ -176,7 +169,7 @@ export function StudioZoneGhost() {
             ref={(el) => {
               if (el) borderMatRefs.current[3] = el;
             }}
-            color={VALID_BORDER}
+            color={STUDIO_COLORS.success}
             transparent
             opacity={0.8}
           />
@@ -186,11 +179,12 @@ export function StudioZoneGhost() {
         <Html position={[0, 0.4, 0]} center style={{ pointerEvents: 'none' }}>
           <div
             style={{
-              background: 'rgba(0,0,0,0.75)',
+              background: STUDIO_COLORS.surface0,
+              border: `1px solid ${STUDIO_COLORS.borderSubtle}`,
               borderRadius: 6,
               padding: '4px 10px',
               fontSize: 11,
-              color: '#fff',
+              color: STUDIO_COLORS.textPrimary,
               whiteSpace: 'nowrap',
               fontFamily: FONT.family,
             }}

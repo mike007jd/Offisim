@@ -45,17 +45,12 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0">
           {isExternal ? (
-            <div
+            <p
               data-testid="external-avatar-disabled"
-              className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/5 p-3"
+              className="text-xs text-text-muted"
             >
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-300">
-                Appearance
-              </p>
-              <p className="text-xs text-slate-400">
-                This employee uses its brand's built-in avatar and cannot be customized.
-              </p>
-            </div>
+              Brand avatar — appearance is fixed.
+            </p>
           ) : (
             <AvatarCustomizer
               config={formData.appearance}
@@ -99,13 +94,11 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
 
 function PreviewCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-3">
-      <p className="self-start text-[10px] font-medium uppercase tracking-wider text-slate-400">
+    <div className="relative flex aspect-[256/200] min-h-[200px] w-full max-w-[256px] items-center justify-center rounded-lg border border-border-subtle bg-surface-muted">
+      <span className="absolute left-2 top-1.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
         {label}
-      </p>
-      <div className="flex aspect-[256/200] min-h-[200px] w-full max-w-[256px] items-center justify-center">
-        {children}
-      </div>
+      </span>
+      {children}
     </div>
   );
 }

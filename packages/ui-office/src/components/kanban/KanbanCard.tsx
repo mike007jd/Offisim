@@ -8,17 +8,17 @@ import type { TaskInfo } from '../../hooks/useTaskDashboard';
 function statusDot(status: string): string {
   switch (status) {
     case 'completed':
-      return 'bg-green-400';
+      return 'bg-success';
     case 'active':
     case 'running':
-      return 'bg-blue-400 animate-pulse';
+      return 'bg-info animate-pulse';
     case 'failed':
     case 'cancelled':
-      return 'bg-red-400';
+      return 'bg-error';
     case 'review_ready':
-      return 'bg-amber-400';
+      return 'bg-warning';
     default:
-      return 'bg-slate-500';
+      return 'bg-text-muted';
   }
 }
 
@@ -43,12 +43,12 @@ function statusLabel(status: string): string {
 }
 
 function roleBadgeColor(taskType: string): string {
-  if (taskType.includes('dev') || taskType.includes('code')) return 'bg-blue-500/20 text-blue-300';
+  if (taskType.includes('dev') || taskType.includes('code')) return 'bg-info-muted text-info';
   if (taskType.includes('design') || taskType.includes('art'))
-    return 'bg-purple-500/20 text-purple-300';
-  if (taskType.includes('test') || taskType.includes('qa')) return 'bg-amber-500/20 text-amber-300';
-  if (taskType.includes('review')) return 'bg-cyan-500/20 text-cyan-300';
-  return 'bg-slate-500/20 text-slate-400';
+    return 'bg-accent-muted text-accent-text';
+  if (taskType.includes('test') || taskType.includes('qa')) return 'bg-warning-muted text-warning';
+  if (taskType.includes('review')) return 'bg-accent-muted text-accent-text';
+  return 'bg-surface-muted text-text-secondary';
 }
 
 // ---------------------------------------------------------------------------
@@ -69,11 +69,11 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
       className={cn(
         'w-full text-left rounded-lg border transition-colors duration-150',
         'px-2.5 py-2 space-y-1.5',
-        'border-white/[0.06] bg-[var(--surface)] hover:bg-white/[0.06] hover:border-white/15',
+        'border-border-default bg-surface hover:border-border-strong hover:bg-surface-hover',
         task.status === 'active' || task.status === 'running'
-          ? 'border-blue-500/30 shadow-glow-accent'
+          ? 'border-info shadow-glow-accent'
           : '',
-        task.status === 'failed' || task.status === 'cancelled' ? 'border-red-500/20' : '',
+        task.status === 'failed' || task.status === 'cancelled' ? 'border-error' : '',
         onClick ? 'cursor-pointer' : 'cursor-default',
       )}
       onClick={() => onClick?.(task.taskRunId)}
@@ -81,16 +81,16 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
       {/* Top row: employee + status */}
       <div className="flex items-center gap-1.5">
         <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDot(task.status))} />
-        <span className="text-[11px] font-semibold text-slate-200 truncate flex-1">
+        <span className="flex-1 truncate text-[11px] font-semibold text-text-primary">
           {task.employeeName ?? task.employeeId ?? 'Unassigned'}
         </span>
-        <span className="text-[10px] text-slate-500 uppercase tracking-wide shrink-0">
+        <span className="shrink-0 text-[10px] uppercase tracking-wide text-text-muted">
           {statusLabel(task.status)}
         </span>
       </div>
 
       {/* Description */}
-      <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-2">
+      <p className="line-clamp-2 text-[10px] leading-relaxed text-text-secondary">
         {task.description || task.taskType}
       </p>
 
@@ -102,7 +102,7 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
           </span>
         )}
         {taskCost > 0 && (
-          <span className="ml-auto text-[10px] font-mono text-emerald-400/70">
+          <span className="ml-auto font-mono text-[10px] text-success">
             ${taskCost.toFixed(4)}
           </span>
         )}

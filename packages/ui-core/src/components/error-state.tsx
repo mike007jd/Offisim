@@ -72,20 +72,20 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center text-center text-slate-300',
+        'flex flex-col items-center text-center text-text-secondary',
         inline
-          ? 'gap-2 rounded-xl border border-amber-400/20 bg-amber-500/5 px-4 py-4'
+          ? 'gap-2 rounded-xl border border-warning bg-warning-muted px-4 py-4'
           : 'gap-4 px-6 py-10',
         className,
       )}
     >
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-300">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-warning bg-warning-muted text-warning">
         {renderErrorIcon(icon)}
       </div>
       <div className="flex max-w-md flex-col gap-1">
         <div
           className={cn(
-            'font-semibold leading-tight text-slate-100',
+            'font-semibold leading-tight text-text-primary',
             inline ? 'text-sm' : 'text-base',
           )}
         >
@@ -94,7 +94,7 @@ export function ErrorState({
         {body && (
           <div
             className={cn(
-              'text-slate-400',
+              'text-text-secondary',
               inline ? 'text-xs leading-relaxed' : 'text-sm leading-relaxed',
             )}
           >
@@ -103,11 +103,11 @@ export function ErrorState({
         )}
       </div>
       {technicalDetail && (
-        <details className="w-full max-w-md rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-left">
-          <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-300">
+        <details className="w-full max-w-md rounded-lg border border-border-default bg-surface-muted px-3 py-2 text-left">
+          <summary className="cursor-pointer text-xs text-text-muted hover:text-text-primary">
             Show technical detail
           </summary>
-          <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-slate-400">
+          <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-text-secondary">
             {technicalDetail}
           </div>
         </details>

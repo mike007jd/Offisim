@@ -14,6 +14,7 @@ export { AppLayout } from './components/layout/AppLayout.js';
 export { Header } from './components/layout/Header.js';
 export { RightSidebar } from './components/layout/RightSidebar.js';
 export { StatusBar } from './components/layout/StatusBar.js';
+export { KanbanTray } from './components/kanban/KanbanTray.js';
 export { NotificationCenter } from './components/notifications/NotificationCenter.js';
 export { OnboardingTour } from './components/onboarding/OnboardingTour.js';
 export { FirstRunWelcomeScreen } from './components/onboarding/FirstRunWelcomeScreen.js';

@@ -15,10 +15,10 @@ export function MarketManageView({
   if (manageTab === 'published') {
     return (
       <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
-          <Store className="h-5 w-5 text-slate-500" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border-default bg-surface-muted">
+          <Store className="h-5 w-5 text-text-muted" />
         </div>
-        <p className="text-sm font-semibold text-slate-200">Published packages</p>
+        <p className="text-sm font-semibold text-text-primary">Published packages</p>
       </div>
     );
   }
@@ -27,7 +27,7 @@ export function MarketManageView({
     <div className="flex flex-col h-full">
       {manageTab === 'updates' && (
         <div className="px-3 pt-3 pb-1">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-text-muted">
             Packages with available updates
           </p>
         </div>
@@ -37,7 +37,7 @@ export function MarketManageView({
         <button
           type="button"
           onClick={onGoToExplore}
-          className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 transition"
+          className="rounded-lg border border-border-default bg-surface-muted px-3 py-1.5 text-xs text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
         >
           Browse Explore
         </button>

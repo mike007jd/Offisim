@@ -55,7 +55,7 @@ export function getDisplayLabel(event: RuntimeEvent): string {
     if (verb !== 'changed' && verb !== 'updated') return subject;
     return subject;
   }
-  if (event.entityId.length > 12) return `${event.entityId.slice(0, 8)}…`;
+  if (event.entityId.length > 12) return `${event.entityId.slice(0, 8)}...`;
   return event.entityId;
 }
 
@@ -69,13 +69,13 @@ interface EventItemProps {
 
 /** Pick a domain-specific icon + color for known event prefixes. */
 export function domainIcon(type: string): { Icon: LucideIcon; color: string } | null {
-  if (type.startsWith('hr.')) return { Icon: UserCheck, color: 'text-rose-400' };
-  if (type.startsWith('mcp.')) return { Icon: Plug, color: 'text-blue-400' };
-  if (type.startsWith('knowledge.')) return { Icon: BookOpen, color: 'text-emerald-400' };
-  if (type.startsWith('memory.')) return { Icon: Lightbulb, color: 'text-amber-400' };
-  if (type.startsWith('handoff.')) return { Icon: ArrowRightLeft, color: 'text-orange-400' };
+  if (type.startsWith('hr.')) return { Icon: UserCheck, color: 'text-error' };
+  if (type.startsWith('mcp.')) return { Icon: Plug, color: 'text-info' };
+  if (type.startsWith('knowledge.')) return { Icon: BookOpen, color: 'text-success' };
+  if (type.startsWith('memory.')) return { Icon: Lightbulb, color: 'text-warning' };
+  if (type.startsWith('handoff.')) return { Icon: ArrowRightLeft, color: 'text-accent' };
   if (type.startsWith('meeting.') || type.startsWith('direct.chat.'))
-    return { Icon: Users, color: 'text-cyan-400' };
+    return { Icon: Users, color: 'text-accent' };
   return null;
 }
 
@@ -88,10 +88,10 @@ export function EventItem({ event }: EventItemProps) {
   const iconColor =
     domain?.color ??
     (category === 'error'
-      ? 'text-lobster-red'
+      ? 'text-error'
       : category === 'entered'
-        ? 'text-sea-blue'
-        : 'text-kelp-green');
+        ? 'text-info'
+        : 'text-success');
   const label = getDisplayLabel(event);
   const topicLabel = formatEventType(event.type);
 
@@ -99,16 +99,16 @@ export function EventItem({ event }: EventItemProps) {
     <div className="flex items-start gap-2 px-3 py-2 text-xs">
       <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${iconColor}`} />
       <div className="min-w-0 flex-1 space-y-1">
-        <div className="break-words leading-relaxed text-sand">
+        <div className="break-words leading-relaxed text-text-primary">
           <span className="font-medium">{label}</span>
-          {action && <span className="text-shell ml-1">{action}</span>}
+          {action && <span className="ml-1 text-text-secondary">{action}</span>}
         </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-shell/80">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-text-muted">
           <span className="font-mono">{topicLabel}</span>
           {event.entityId ? <span className="font-mono">ID {event.entityId}</span> : null}
         </div>
       </div>
-      <span className="text-shell shrink-0 pt-0.5">{formatTimestamp(event.timestamp)}</span>
+      <span className="shrink-0 pt-0.5 text-text-muted">{formatTimestamp(event.timestamp)}</span>
     </div>
   );
 }

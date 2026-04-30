@@ -61,7 +61,7 @@ interface SwatchRowProps {
 function SwatchRow({ label, options, selected, onSelect }: SwatchRowProps) {
   return (
     <div>
-      <p className="text-[10px] text-slate-400 mb-1.5">{label}</p>
+      <p className="mb-1.5 text-[10px] text-text-muted">{label}</p>
       <div className="flex gap-1.5 flex-wrap">
         {options.map((opt) => (
           <button
@@ -73,7 +73,8 @@ function SwatchRow({ label, options, selected, onSelect }: SwatchRowProps) {
             style={{
               backgroundColor: numericToHex(opt.value),
               borderColor: selected === opt.value ? 'var(--color-text-primary-val)' : 'transparent',
-              boxShadow: selected === opt.value ? '0 0 0 1px rgba(255,255,255,0.3)' : 'none',
+              boxShadow:
+                selected === opt.value ? '0 0 0 1px var(--color-border-focus-val)' : 'none',
             }}
           />
         ))}
@@ -87,8 +88,8 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
     onChange({ ...config, [key]: value });
 
   return (
-    <div className="flex flex-col gap-3 p-3 rounded-xl border border-white/10 bg-white/5">
-      <p className="text-[10px] font-medium text-slate-300 uppercase tracking-wider">Appearance</p>
+    <div className="flex flex-col gap-3 rounded-xl border border-border-default bg-surface-muted p-3">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-text-primary">Appearance</p>
 
       <SwatchRow
         label="Skin tone"
@@ -118,12 +119,12 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
           selected={config.clothingAccent}
           onSelect={(v) => set('clothingAccent', v)}
         />
-        <p className="mt-1 text-[10px] text-slate-500">Renders as a visible vest panel.</p>
+        <p className="mt-1 text-[10px] text-text-muted">Renders as a visible vest panel.</p>
       </div>
 
       {/* Gender presentation toggle */}
       <div>
-        <p className="text-[10px] text-slate-400 mb-1.5">Gender presentation</p>
+        <p className="mb-1.5 text-[10px] text-text-muted">Gender presentation</p>
         <div className="flex gap-1">
           {GENDER_OPTIONS.map((opt) => (
             <button
@@ -133,8 +134,8 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
               className={cn(
                 'flex-1 py-1 text-[11px] border transition-colors',
                 config.gender === opt.value
-                  ? 'border-blue-500 bg-blue-500/20 text-blue-300'
-                  : 'border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500',
+                  ? 'border-border-focus bg-accent-muted text-accent-text'
+                  : 'border-border-default bg-surface text-text-secondary hover:border-border-strong',
               )}
             >
               {opt.label}
@@ -145,7 +146,7 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <p className="text-[10px] text-slate-400 mb-1">Hair style</p>
+          <p className="mb-1 text-[10px] text-text-muted">Hair style</p>
           <Select value={config.hairStyle} onValueChange={(v) => set('hairStyle', v)}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue />
@@ -161,7 +162,7 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
         </div>
 
         <div>
-          <p className="text-[10px] text-slate-400 mb-1">Body type</p>
+          <p className="mb-1 text-[10px] text-text-muted">Body type</p>
           <Select value={config.bodyType} onValueChange={(v) => set('bodyType', v)}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue />

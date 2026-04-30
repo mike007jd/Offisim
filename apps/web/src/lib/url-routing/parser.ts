@@ -108,7 +108,6 @@ export function parseOfficePath(search: URLSearchParams): ParsedUrl {
       office: {
         ...(viewMode ? { viewMode } : {}),
         dashboardOpen: search.get('dashboard') === '1',
-        kanbanOpen: search.get('kanban') === '1',
         marketplaceListingId: search.get('listing'),
       },
     },
@@ -262,7 +261,5 @@ export function urlRequiresCompany(parsed: ParsedUrl): boolean {
   if (parsed.overlay === 'employee-creator') return true;
   if (parsed.overlay === 'office-editor') return true;
   const office = parsed.sessionPatch.office;
-  return Boolean(
-    parsed.companyId || office?.marketplaceListingId || office?.dashboardOpen || office?.kanbanOpen,
-  );
+  return Boolean(parsed.companyId || office?.marketplaceListingId || office?.dashboardOpen);
 }

@@ -62,7 +62,7 @@ function descriptionStyle(focused: boolean): React.CSSProperties {
     left: 0,
     right: 0,
     zIndex: STUDIO_Z_INDEX.elevated,
-    boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
+    boxShadow: `0 6px 18px color-mix(in srgb, ${STUDIO_COLORS.borderSubtle} 70%, transparent)`,
   };
 }
 

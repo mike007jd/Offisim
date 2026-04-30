@@ -70,8 +70,8 @@ const SelectTrigger = forwardRef<
           aria-invalid={error || undefined}
           aria-describedby={mergedDescribedBy}
           className={cn(
-            'flex h-9 w-full items-center justify-between gap-2 rounded-lg border bg-white/5 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-50',
-            error ? 'border-red-400/60' : 'border-white/15',
+            'flex h-9 w-full items-center justify-between gap-2 rounded-lg border bg-surface px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-text-muted disabled:opacity-70',
+            error ? 'border-error' : 'border-border-default',
             className,
           )}
           {...props}
@@ -84,7 +84,7 @@ const SelectTrigger = forwardRef<
         {helperText ? (
           <p
             id={helperId}
-            className={cn('mt-1 text-xs', error ? 'text-red-300' : 'text-slate-400')}
+            className={cn('mt-1 text-xs', error ? 'text-error' : 'text-text-muted')}
           >
             {helperText}
           </p>
@@ -107,7 +107,7 @@ const SelectContent = forwardRef<
       <SelectPrimitive.Content
         ref={ref}
         className={cn(
-          'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-white/15 bg-slate-900 text-slate-200 shadow-xl',
+          'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-border-default bg-surface-elevated text-text-primary shadow-xl',
           position === 'popper' && 'translate-y-1',
           className,
         )}
@@ -136,8 +136,8 @@ const SelectItem = forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-white/10 data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-      'focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-inset',
+      'relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-2 pr-8 text-sm text-text-primary outline-none focus:bg-surface-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset',
       className,
     )}
     {...props}

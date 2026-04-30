@@ -10,9 +10,9 @@ export function PlaceholderTab({ title, description }: PlaceholderTabProps) {
   return (
     <div className="flex h-full items-start justify-center px-6 py-10">
       <div className="max-w-md text-center">
-        <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
-        <p className="mt-2 text-sm text-slate-400">{description}</p>
-        <p className="mt-3 text-[11px] uppercase tracking-wider text-slate-500">
+        <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
+        <p className="mt-2 text-sm text-text-secondary">{description}</p>
+        <p className="mt-3 text-[11px] uppercase tracking-wider text-text-muted">
           Available in a follow-up change
         </p>
       </div>

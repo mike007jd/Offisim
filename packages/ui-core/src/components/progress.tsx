@@ -16,12 +16,12 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
     const heightClass = size === 'sm' ? 'h-1' : size === 'lg' ? 'h-3' : 'h-2';
     const toneClass =
       tone === 'success'
-        ? 'bg-emerald-400'
+        ? 'bg-success'
         : tone === 'warning'
-          ? 'bg-amber-400'
+          ? 'bg-warning'
           : tone === 'error'
-            ? 'bg-red-400'
-            : 'bg-cyan-400';
+            ? 'bg-error'
+            : 'bg-accent';
 
     return (
       // biome-ignore lint/a11y/useFocusableInteractive: progressbar is a status role, not interactive — focus is not required
@@ -32,7 +32,7 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
         aria-valuemin={0}
         aria-valuemax={max}
         className={cn(
-          'relative w-full overflow-hidden rounded-full border border-white/5 bg-white/10',
+          'relative w-full overflow-hidden rounded-full border border-border-subtle bg-surface-muted',
           heightClass,
           className,
         )}

@@ -19,6 +19,7 @@ export * from './components/checkbox.js';
 export * from './components/dialog-shell.js';
 export * from './components/dropdown-menu.js';
 export * from './components/empty-state.js';
+export * from './components/entity-dropdown.js';
 export * from './components/error-state.js';
 export * from './components/input.js';
 export * from './components/overlay-shell.js';

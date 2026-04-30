@@ -20,19 +20,19 @@ export function humanizeNodeName(nodeName: string): string {
 
 /** Badge color classes keyed by graph node name. */
 export const NODE_BADGE_COLORS: Record<string, string> = {
-  boss: 'bg-amber-500/25 text-amber-300',
-  boss_summary: 'bg-amber-500/25 text-amber-300',
-  manager: 'bg-emerald-500/25 text-emerald-300',
-  pm_planner: 'bg-purple-500/25 text-purple-300',
-  pm_replan: 'bg-purple-500/25 text-purple-300',
-  pm_heartbeat: 'bg-purple-500/25 text-purple-300',
-  hr: 'bg-rose-500/25 text-rose-300',
-  employee: 'bg-blue-500/25 text-blue-300',
-  employee_direct_setup: 'bg-blue-500/25 text-blue-300',
-  error_handler: 'bg-red-500/25 text-red-300',
+  boss: 'bg-warning-muted text-warning',
+  boss_summary: 'bg-warning-muted text-warning',
+  manager: 'bg-success-muted text-success',
+  pm_planner: 'bg-accent-muted text-accent-text',
+  pm_replan: 'bg-accent-muted text-accent-text',
+  pm_heartbeat: 'bg-accent-muted text-accent-text',
+  hr: 'bg-error-muted text-error',
+  employee: 'bg-info-muted text-info',
+  employee_direct_setup: 'bg-info-muted text-info',
+  error_handler: 'bg-error-muted text-error',
 };
 
-export const DEFAULT_BADGE_COLOR = 'bg-slate-500/25 text-slate-300';
+export const DEFAULT_BADGE_COLOR = 'bg-surface-muted text-text-secondary';
 
 /** Pre-chunk placeholder text, keyed by graph node name. Short verb form — the
  *  shimmer + elapsed counter carry the "still working" signal. */
@@ -53,14 +53,14 @@ export const DEFAULT_PLACEHOLDER = 'Thinking';
 
 /** Resolve badge color for a display name (used by MessageBubble). */
 const DISPLAY_NAME_BADGE_COLORS: Record<string, string> = {
-  Boss: 'bg-amber-500/25 text-amber-300',
-  PM: 'bg-purple-500/25 text-purple-300',
-  Manager: 'bg-emerald-500/25 text-emerald-300',
-  HR: 'bg-rose-500/25 text-rose-300',
-  'Error Handler': 'bg-red-500/25 text-red-300',
-  Meeting: 'bg-cyan-500/25 text-cyan-300',
+  Boss: 'bg-warning-muted text-warning',
+  PM: 'bg-accent-muted text-accent-text',
+  Manager: 'bg-success-muted text-success',
+  HR: 'bg-error-muted text-error',
+  'Error Handler': 'bg-error-muted text-error',
+  Meeting: 'bg-info-muted text-info',
 };
 
 export function getBadgeColorForDisplayName(displayName: string): string {
-  return DISPLAY_NAME_BADGE_COLORS[displayName] ?? 'bg-blue-500/25 text-blue-300';
+  return DISPLAY_NAME_BADGE_COLORS[displayName] ?? 'bg-info-muted text-info';
 }

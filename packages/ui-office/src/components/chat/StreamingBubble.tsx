@@ -42,12 +42,12 @@ export function StreamingBubble({
       )}
       {reasoning && <ReasoningRegion reasoning={reasoning} hasContent={!!content} />}
       {(content || showPlaceholder) && (
-        <div className="max-h-[60vh] max-w-[94%] overflow-y-auto overscroll-contain rounded-xl border-l-2 border-blue-400/30 bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap">
+        <div className="max-h-[60vh] max-w-[94%] overflow-y-auto overscroll-contain rounded-xl border-l-2 border-info bg-surface-muted px-3 py-1.5 text-sm leading-snug text-text-primary whitespace-pre-wrap">
           {content ? (
             <>
               {content}
               {isStreaming && (
-                <span className="inline-block w-1.5 h-3.5 ml-0.5 bg-blue-400/60 animate-pulse rounded-sm" />
+                <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-info" />
               )}
             </>
           ) : (
@@ -69,11 +69,11 @@ function ReasoningRegion({ reasoning, hasContent }: ReasoningRegionProps) {
   const expanded = expandedByUser ?? !hasContent;
 
   return (
-    <div className="mb-1 max-h-[40vh] max-w-[94%] overflow-y-auto overscroll-contain rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100/90">
+    <div className="mb-1 max-h-[40vh] max-w-[94%] overflow-y-auto overscroll-contain rounded-xl border border-info bg-info-muted px-3 py-1.5 text-xs leading-snug text-text-primary">
       <button
         type="button"
         onClick={() => setExpandedByUser(!expanded)}
-        className="mb-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-indigo-200/80 transition-colors hover:text-indigo-100"
+        className="mb-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-info transition-colors hover:text-text-primary"
       >
         <span>{expanded ? '▾' : '▸'}</span>
         <span>Reasoning</span>
@@ -98,15 +98,15 @@ function PlaceholderWithTimer({ text }: PlaceholderWithTimerProps) {
   }, []);
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-slate-300/80">
-      <span className="relative inline-block overflow-hidden rounded-sm px-0.5 text-slate-300/90">
+    <span className="inline-flex items-center gap-1.5 text-text-secondary">
+      <span className="relative inline-block overflow-hidden rounded-sm px-0.5 text-text-secondary">
         <span>{text}</span>
         <span className="pointer-events-none absolute inset-0 streaming-shimmer" aria-hidden />
       </span>
       {elapsedSec > 0 && (
-        <span className="text-[11px] tabular-nums text-slate-400/70">{elapsedSec}s</span>
+        <span className="text-[11px] tabular-nums text-text-muted">{elapsedSec}s</span>
       )}
-      <span className="inline-block w-1.5 h-3.5 bg-blue-400/60 animate-pulse rounded-sm" />
+      <span className="inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-info" />
     </span>
   );
 }

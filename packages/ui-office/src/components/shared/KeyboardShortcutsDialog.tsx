@@ -7,7 +7,7 @@ interface KeyboardShortcutsDialogProps {
 
 const SHORTCUTS = [
   { keys: 'Cmd/Ctrl + D', description: 'Toggle Dashboard' },
-  { keys: 'Cmd/Ctrl + J', description: 'Toggle Kanban' },
+  { keys: 'Cmd/Ctrl + J', description: 'Toggle Project Board' },
   { keys: 'Cmd/Ctrl + 1', description: 'Toggle 3D / 2D view' },
   { keys: 'Cmd/Ctrl + E', description: 'Edit selected employee' },
   { keys: 'Cmd/Ctrl + /', description: 'Open keyboard shortcuts' },
@@ -27,10 +27,10 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
         {SHORTCUTS.map((shortcut) => (
           <div
             key={shortcut.keys}
-            className="flex items-center justify-between rounded-lg border border-white/8 bg-white/4 px-3 py-2 text-sm"
+            className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-sm"
           >
-            <span className="text-slate-300">{shortcut.description}</span>
-            <kbd className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-slate-400">
+            <span className="text-text-secondary">{shortcut.description}</span>
+            <kbd className="rounded-md border border-border-default bg-surface px-2 py-1 text-[11px] text-text-muted">
               {shortcut.keys}
             </kbd>
           </div>

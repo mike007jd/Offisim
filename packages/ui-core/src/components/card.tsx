@@ -5,7 +5,10 @@ const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('rounded-xl border border-white/10 bg-white/5 shadow-sm', className)}
+      className={cn(
+        'rounded-xl border border-border-default bg-surface-elevated text-text-primary shadow-sm',
+        className,
+      )}
       {...props}
     />
   ),
@@ -42,7 +45,7 @@ const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
     <div
       ref={ref}
       className={cn(
-        'flex items-center justify-end gap-2 border-t border-white/10 p-4 pt-0',
+        'flex items-center justify-end gap-2 border-t border-border-subtle p-4 pt-0',
         className,
       )}
       {...props}

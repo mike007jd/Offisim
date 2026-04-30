@@ -151,7 +151,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
 
   if (!workspaceRoot) {
     return (
-      <div className="border-t border-white/8 pt-2 text-[11px] text-slate-500">
+      <div className="border-t border-border-subtle pt-2 text-[11px] text-text-muted">
         <div className="flex items-center gap-1.5">
           <Folder className="h-3 w-3" />
           <span>No workspace folder</span>
@@ -162,7 +162,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
 
   if (!desktopMode) {
     return (
-      <div className="border-t border-white/8 pt-2 text-[11px] text-slate-500">
+      <div className="border-t border-border-subtle pt-2 text-[11px] text-text-muted">
         <div className="flex items-center gap-1.5">
           <Folder className="h-3 w-3" />
           <span>Desktop files only</span>
@@ -174,14 +174,14 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
   const selectedFilePath = selection?.path ?? null;
 
   return (
-    <div className="border-t border-white/8 pt-2">
-      <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-slate-600">
+    <div className="border-t border-border-subtle pt-2">
+      <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-text-muted">
         <span className="min-w-0 flex-1 truncate" title={displayPath}>
           Workspace files {displayPath}
         </span>
         <button
           type="button"
-          className="rounded p-0.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+          className="rounded p-0.5 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
           onClick={() => setReloadVersion((version) => version + 1)}
           disabled={directoryLoading}
           aria-label="Refresh workspace files"
@@ -194,7 +194,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
       {currentPath && (
         <button
           type="button"
-          className="mb-1 flex items-center gap-1 text-[11px] text-slate-400 transition-colors hover:text-slate-200"
+          className="mb-1 flex items-center gap-1 text-[11px] text-text-secondary transition-colors hover:text-text-primary"
           onClick={() => {
             dispatchSelection({ type: 'clear' });
             setCurrentPath(parentWorkspacePath(currentPath));
@@ -210,8 +210,8 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
           <button
             type="button"
             key={entry.path || entry.name}
-            className={`flex w-full min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-white/5 ${
-              selectedFilePath === entry.path ? 'bg-white/8 text-slate-100' : 'text-slate-400'
+            className={`flex w-full min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-surface-hover ${
+              selectedFilePath === entry.path ? 'bg-accent-muted text-accent-text' : 'text-text-secondary'
             }`}
             onClick={() => {
               if (entry.isDirectory) {
@@ -224,36 +224,36 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
             title={entry.path}
           >
             {entry.isDirectory ? (
-              <Folder className="h-3 w-3 flex-shrink-0 text-cyan-300/70" />
+              <Folder className="h-3 w-3 flex-shrink-0 text-info" />
             ) : (
-              <FileText className="h-3 w-3 flex-shrink-0 text-slate-500" />
+              <FileText className="h-3 w-3 flex-shrink-0 text-text-muted" />
             )}
             <span className="min-w-0 flex-1 truncate">{entry.name}</span>
             {!entry.isDirectory && (
-              <span className="flex-shrink-0 text-[10px] text-slate-600">
+              <span className="flex-shrink-0 text-[10px] text-text-muted">
                 {formatWorkspaceFileSize(entry.size)}
               </span>
             )}
           </button>
         ))}
         {!directoryLoading && entries.length === 0 && (
-          <div className="px-1.5 py-2 text-[11px] text-slate-600">Empty folder</div>
+          <div className="px-1.5 py-2 text-[11px] text-text-muted">Empty folder</div>
         )}
       </div>
 
       {selection?.kind === 'loading' && (
-        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-black/20 px-2 py-1.5 text-[10px] leading-relaxed text-slate-300">
+        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-surface px-2 py-1.5 text-[10px] leading-relaxed text-text-secondary">
           Loading...
         </pre>
       )}
 
       {selection?.kind === 'ready' && (
         <div className="mt-2 space-y-1">
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-black/20 px-2 py-1.5 text-[10px] leading-relaxed text-slate-300">
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-surface px-2 py-1.5 text-[10px] leading-relaxed text-text-secondary">
             {selection.preview}
           </pre>
           {selection.truncated && (
-            <p className="text-[10px] text-slate-600">
+            <p className="text-[10px] text-text-muted">
               preview truncated · {formatWorkspaceFileSize(selection.totalSize)} total
             </p>
           )}
@@ -261,13 +261,13 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
       )}
 
       {selection?.kind === 'error' && (
-        <div className="mt-2 rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-[10px] text-red-200">
+        <div className="mt-2 rounded border border-error bg-error-muted px-2 py-1 text-[10px] text-error">
           {selection.message}
         </div>
       )}
 
       {directoryError && (
-        <div className="mt-2 rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-[10px] text-red-200">
+        <div className="mt-2 rounded border border-error bg-error-muted px-2 py-1 text-[10px] text-error">
           {directoryError}
         </div>
       )}

@@ -56,10 +56,6 @@ function createUiOfficeAliases() {
       replacement: path.resolve(uiOfficeSrc, 'components/studio/StudioPage.tsx'),
     },
     {
-      find: /^@offisim\/ui-office\/kanban$/,
-      replacement: path.resolve(uiOfficeSrc, 'components/kanban/index.ts'),
-    },
-    {
       find: /^@offisim\/ui-office\/marketplace$/,
       replacement: path.resolve(uiOfficeSrc, 'components/marketplace/index.ts'),
     },

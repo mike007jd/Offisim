@@ -76,11 +76,11 @@ export function SopSidebar({
   }
 
   return (
-    <div className="flex w-[280px] shrink-0 flex-col border-r border-border-subtle bg-surface-elevated/70">
+    <div className="flex w-[280px] shrink-0 flex-col border-r border-border-default bg-surface-elevated">
       {/* Sidebar header */}
       <div className="shrink-0 px-3 pt-3 pb-2 space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
             SOPs
           </span>
           <div className="flex items-center gap-1">
@@ -88,7 +88,7 @@ export function SopSidebar({
               <button
                 type="button"
                 onClick={onToggleCollapse}
-                className="flex h-6 w-6 items-center justify-center rounded border border-white/8 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+                className="flex h-6 w-6 items-center justify-center rounded border border-border-subtle text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
                 title="Collapse SOP sidebar"
                 aria-label="Collapse SOP sidebar"
               >
@@ -98,7 +98,7 @@ export function SopSidebar({
             <button
               type="button"
               onClick={onImportClick}
-              className="flex h-6 w-6 items-center justify-center rounded border border-white/8 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+              className="flex h-6 w-6 items-center justify-center rounded border border-border-subtle text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
               title="Import SOP"
               aria-label="Import SOP"
             >
@@ -107,7 +107,7 @@ export function SopSidebar({
             <button
               type="button"
               onClick={onCreateClick}
-              className="flex h-6 w-6 items-center justify-center rounded border border-white/8 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+              className="flex h-6 w-6 items-center justify-center rounded border border-border-subtle text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
               title="Create SOP"
               aria-label="Create SOP"
             >
@@ -118,13 +118,13 @@ export function SopSidebar({
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600" />
+          <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search..."
-            className="w-full bg-white/5 border border-white/8 rounded pl-6 pr-2 py-1 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/40"
+            className="w-full rounded border border-border-default bg-surface py-1 pl-6 pr-2 text-xs text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
           />
         </div>
       </div>
@@ -134,8 +134,8 @@ export function SopSidebar({
         {loading && <WorkspaceListSkeleton rows={6} className="px-0 py-2" />}
         {!loading && filtered.length === 0 && (
           <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
-            <ClipboardList className="w-5 h-5 text-slate-600" />
-            <p className="text-xs text-slate-500">
+            <ClipboardList className="h-5 w-5 text-text-muted" />
+            <p className="text-xs text-text-muted">
               {sops.length === 0 ? 'No SOPs yet' : 'No matches'}
             </p>
           </div>
@@ -147,12 +147,12 @@ export function SopSidebar({
             onClick={() => onSelectSop(sop.sopTemplateId)}
             className={`w-full text-left rounded-md px-2.5 py-2 transition-colors ${
               selectedSopId === sop.sopTemplateId
-                ? 'bg-cyan-500/12 border border-cyan-400/25 text-cyan-50'
-                : 'border border-transparent text-slate-300 hover:bg-white/5 hover:text-slate-100'
+                ? 'border border-border-focus bg-accent-muted text-accent-text'
+                : 'border border-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary'
             }`}
           >
             <div className="text-xs font-medium truncate">{sop.name}</div>
-            <div className="mt-0.5 text-[10px] text-slate-500">
+            <div className="mt-0.5 text-[10px] text-text-muted">
               {sop.stepCount} step{sop.stepCount !== 1 ? 's' : ''}
               {sop.sourceUrl ? ' \u00B7 synced' : ''}
             </div>

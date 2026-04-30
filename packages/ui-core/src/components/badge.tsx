@@ -8,13 +8,13 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border-cyan-400/40 bg-cyan-400/10 text-cyan-200',
-        secondary: 'border-white/15 bg-white/8 text-slate-300',
-        success: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300',
-        warning: 'border-amber-400/40 bg-amber-400/10 text-amber-300',
-        error: 'border-red-400/40 bg-red-400/10 text-red-300',
-        info: 'border-blue-400/40 bg-blue-400/10 text-blue-300',
-        outline: 'border-white/15 text-slate-300',
+        default: 'border-accent bg-accent-muted text-accent-text',
+        secondary: 'border-border-default bg-surface-muted text-text-secondary',
+        success: 'border-success bg-success-muted text-success',
+        warning: 'border-warning bg-warning-muted text-warning',
+        error: 'border-error bg-error-muted text-error',
+        info: 'border-info bg-info-muted text-info',
+        outline: 'border-border-default text-text-secondary',
       },
       size: {
         xs: 'px-1.5 py-0.5 text-[10px]',
@@ -53,7 +53,7 @@ function Badge({
           type="button"
           aria-label="Dismiss"
           onClick={onDismiss}
-          className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-current opacity-80 transition hover:bg-white/10 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+          className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-current opacity-80 transition hover:bg-surface-hover hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
         >
           <X className="h-3 w-3" aria-hidden="true" />
         </button>

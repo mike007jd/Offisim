@@ -34,16 +34,16 @@ export interface ToastItem {
 }
 
 const VARIANT_CLASSES: Record<ToastVariant, string> = {
-  info: 'border-white/15 bg-slate-900/95 text-slate-200',
-  success: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300',
-  warning: 'border-amber-400/45 bg-amber-500/10 text-amber-100',
-  error: 'border-red-400/40 bg-red-500/10 text-red-300',
+  info: 'border-info bg-surface-elevated text-text-primary',
+  success: 'border-success bg-success-muted text-success',
+  warning: 'border-warning bg-warning-muted text-warning',
+  error: 'border-error bg-error-muted text-error',
 };
 
 const ACTION_CLASSES: Record<NonNullable<ToastAction['tone']>, string> = {
-  primary: 'border-white/20 bg-white/10 text-white hover:bg-white/15',
-  secondary: 'border-amber-300/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15',
-  danger: 'border-red-300/40 bg-red-500/10 text-red-100 hover:bg-red-500/15',
+  primary: 'border-accent bg-accent-muted text-accent-text hover:bg-surface-hover',
+  secondary: 'border-border-default bg-surface-muted text-text-secondary hover:bg-surface-hover',
+  danger: 'border-error bg-error-muted text-error hover:bg-surface-hover',
 };
 
 const DEFAULT_DURATION_MS = 5_000;

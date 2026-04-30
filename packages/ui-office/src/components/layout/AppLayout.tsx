@@ -16,6 +16,8 @@ interface AppLayoutProps {
    * When `null` / `undefined`, the scene canvas is shown (Office mode).
    */
   centerContent?: ReactNode;
+  /** Office-scoped tray mounted below the shell header (for boards/status). */
+  taskTray?: ReactNode;
   chatDrawerMode?: 'always' | 'mobile-only';
   /** Bump to request right rail expansion (only on desktop/tablet). */
   requestRightExpandToken?: number;
@@ -41,11 +43,11 @@ function PanelCollapseHandle({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className={`absolute top-1/2 -translate-y-1/2 z-30 w-6 h-14 flex items-center justify-center bg-black/80 border border-white/15 hover:bg-blue-500/25 hover:border-blue-500/40 transition-all shadow-lg backdrop-blur-sm group ${
+      className={`absolute top-1/2 -translate-y-1/2 z-30 w-6 h-14 flex items-center justify-center bg-surface-elevated/95 border border-border-default hover:bg-accent-muted hover:border-border-focus transition-all shadow-lg backdrop-blur-sm group ${
         side === 'left' ? '-right-3 rounded-r-lg border-l-0' : '-left-3 rounded-l-lg border-r-0'
       }`}
     >
-      <Chevron className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-400 transition-colors" />
+      <Chevron className="w-3.5 h-3.5 text-text-secondary group-hover:text-accent transition-colors" />
     </button>
   );
 }
@@ -71,11 +73,11 @@ function CollapsedBar({
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      className="flex-1 flex flex-col items-center justify-center gap-3 relative z-10 hover:bg-white/5 transition-colors border-t-2 border-blue-500/20"
+      className="flex-1 flex flex-col items-center justify-center gap-3 relative z-10 hover:bg-surface-hover transition-colors border-t-2 border-border-focus"
     >
-      <Icon className="w-4 h-4 text-blue-400" />
+      <Icon className="w-4 h-4 text-accent" />
       <span
-        className="text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+        className="text-[11px] font-semibold uppercase tracking-wide text-text-muted"
         style={{
           writingMode: 'vertical-rl',
           ...(side === 'right' ? { transform: 'rotate(180deg)' } : {}),
@@ -83,7 +85,7 @@ function CollapsedBar({
       >
         {label}
       </span>
-      <Chevron className="w-3.5 h-3.5 text-slate-500" />
+      <Chevron className="w-3.5 h-3.5 text-text-muted" />
     </button>
   );
 }
@@ -124,6 +126,7 @@ export function AppLayout({
   eventLog,
   statusBar,
   centerContent,
+  taskTray,
   chatDrawerMode = 'always',
   requestRightExpandToken,
   onLayoutMetricsChange,
@@ -183,11 +186,16 @@ export function AppLayout({
     onLayoutMetricsChange?.(layoutMetrics);
   }, [layoutMetrics, onLayoutMetricsChange]);
 
-  return (
-    <div className="h-screen bg-surface text-slate-300 flex flex-col overflow-hidden relative">
-      <div className="noise" />
-      <div className="scanline" />
+  const layoutMetricVars = {
+    '--app-left-rail-width': `${layoutMetrics.leftPanelWidth}px`,
+    '--app-right-rail-width': `${layoutMetrics.rightPanelWidth}px`,
+  } as React.CSSProperties;
 
+  return (
+    <div
+      className="relative flex h-screen flex-col overflow-hidden bg-surface text-text-primary"
+      style={layoutMetricVars}
+    >
       <div className="absolute inset-0 z-0">{!centerContent && sceneCanvas}</div>
 
       <div
@@ -196,6 +204,14 @@ export function AppLayout({
       >
         {header}
       </div>
+      {taskTray ? (
+        <div
+          className="relative z-40 pointer-events-auto"
+          style={{ marginInline: 'var(--sp-lg)', marginTop: 'var(--sp-sm)' }}
+        >
+          {taskTray}
+        </div>
+      ) : null}
 
       <div
         className="flex flex-1 overflow-hidden relative z-10 pointer-events-none"
@@ -211,10 +227,9 @@ export function AppLayout({
             }}
           >
             <div
-              className={`h-full border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${leftOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
+              className={`h-full border border-border-default bg-surface-elevated/78 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${leftOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
-              {leftOpen ? (
+{leftOpen ? (
                 <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
                   {agentPanel}
                 </div>
@@ -252,10 +267,9 @@ export function AppLayout({
             }}
           >
             <div
-              className={`h-full border border-white/10 bg-black/50 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${rightOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
+              className={`h-full border border-border-default bg-surface-elevated/78 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${rightOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
-              <div
+<div
                 aria-hidden={!rightOpen}
                 className={`custom-scrollbar relative z-10 transition-opacity duration-200 ${
                   rightOpen
@@ -288,10 +302,14 @@ export function AppLayout({
 
       {chatDrawer && (chatDrawerMode === 'always' || isNarrow) ? (
         <div
-          className="absolute bottom-9 z-30 pointer-events-auto transition-all duration-300 ease-out"
+          className="pointer-events-auto absolute bottom-9 z-30 transition-all duration-300 ease-out"
           style={{
-            left: isNarrow ? '16px' : leftOpen ? '296px' : '60px',
-            right: isNarrow ? '16px' : rightOpen ? '296px' : '60px',
+            left: isNarrow
+              ? '16px'
+              : `calc(var(--app-left-rail-width) + var(--sp-lg) + var(--sp-md))`,
+            right: isNarrow
+              ? '16px'
+              : `calc(var(--app-right-rail-width) + var(--sp-lg) + var(--sp-md))`,
           }}
         >
           {chatDrawer}
