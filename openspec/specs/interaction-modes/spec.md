@@ -93,11 +93,11 @@ The 4 values SHALL appear in this exact ordering wherever the union is enumerate
 
 `packages/db-local/src/schema.ts` `meetingSessions` table SHALL include column `interaction_mode TEXT NOT NULL DEFAULT 'boss_proxy'` with index `idx_meeting_sessions_mode`.
 
-A migration file in `packages/db-local/src/migrations/` SHALL add this column via `ALTER TABLE meeting_sessions ADD COLUMN interaction_mode TEXT NOT NULL DEFAULT 'boss_proxy'`. The migration SHALL be idempotent (using `CREATE INDEX IF NOT EXISTS` and a guarded ALTER if necessary).
+`packages/db-local/src/schema.sql` SHALL include this column and index in the pre-launch bootstrap schema.
 
-#### Scenario: Existing rows backfill to default
-- **WHEN** the migration runs against a db-local with pre-existing meeting_sessions rows
-- **THEN** every row has `interaction_mode = 'boss_proxy'` afterward
+#### Scenario: Fresh bootstrap creates the default
+- **WHEN** a fresh local SQLite DB is initialized from `schema.sql`
+- **THEN** `meeting_sessions.interaction_mode` exists with default `'boss_proxy'`
 
 ### Requirement: main-graph routes by interactionMode
 

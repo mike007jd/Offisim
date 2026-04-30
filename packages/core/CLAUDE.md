@@ -53,8 +53,8 @@ LangGraph kernel, agents, services, repos (Node.js). 浏览器代码必须用 `@
   - Tier 2 `loadSkillBody(skillId)` — 读 SKILL.md 返回 body（frontmatter 剥离）
   - Tier 3 `loadSkillAsset(skillId, relPath)` — 只允许 `scripts/` / `references/` / `assets/` 前缀；IO 前拒 `..` / 绝对路径
 - `slug`：`skillSlug(name, id)` 和 `employeeSlug` 同策略（kebab-case，纯非 ASCII fallback `skill-{id前8字符}`）
-- DB 表 `skills`（migration 025 / desktop v31）：`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞
-- 旧 `runtimeSkill` 迁移：`migrateRuntimeSkills()` 扫全员 `config_json.runtimeSkill` → 生成员工 scope SKILL.md + 插 row（`source_kind='synthesized'`, `source_ref='legacy:runtimeSkill'`），strip 原字段。Guard 在 `settings.skills_migration_v1_done`（`settings` key-value 表也是 025 加的）
+- DB 表 `skills` 属于当前单基线 SQLite schema；`UNIQUE` 用两条 partial index（`WHERE employee_id IS NULL` / `IS NOT NULL`），让 `(companyId, null, slug)` 跨 company-scope 行碰撞
+- 旧 `runtimeSkill` 兼容引导：`migrateRuntimeSkills()` 扫全员 `config_json.runtimeSkill` → 生成员工 scope SKILL.md + 插 row（`source_kind='synthesized'`, `source_ref='legacy:runtimeSkill'`），strip 原字段。Guard 在 `settings.skills_migration_v1_done`（`settings` key-value 表在基线 schema 内）
 - 员工 prompt 装配：`employee-prompt-assembly.ts` 在 skillLoader 可用时注入 `## Available skills` 块（description 截 200 UTF-16）；列表空则整段不输出。**本次不注册 `activate_skill` 工具**（纯 tier-1 informational）
 - `employee-tool-kit.ts` 在 `skillStagingManager` + `skillLoader` 可用时注册 skill install/fork/edit 工具；skills 本体仍通过 prompt 的 `## Available skills` 暴露，不走 activation tool
 - `create_skill_from_scratch` 是 self-authoring 唯一入口：LLM 产完整 SKILL.md → `parseSelfAuthoredSkillMd` 白名单 → staging preview (`action='create'`) → `SkillInstallCommitter` → employee-scope vault + `skills.source_kind='self-authored'` / `source_ref='llm-author:<modelKey>'`。self-authored 禁 company scope。

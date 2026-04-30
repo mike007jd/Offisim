@@ -1,9 +1,9 @@
 /**
  * @offisim/db-local — Drizzle ORM SQLite schema
  *
- * Derived from the migration DDL files in src/migrations/.
- * Those SQL files remain the canonical source of truth for column
- * definitions, constraints, and indexes.
+ * Keep this TypeScript schema aligned with src/schema.sql. Offisim is still
+ * pre-launch, so local SQLite uses a single bootstrap schema instead of a
+ * versioned migration chain.
  */
 
 import type { AssetKind } from '@offisim/asset-schema';
@@ -965,7 +965,7 @@ export const deliverables = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// 025 — Settings (generic key-value; bootstrap migration markers)
+// Settings (generic key-value; compatibility bootstrap markers)
 // ---------------------------------------------------------------------------
 
 export const settings = sqliteTable('settings', {

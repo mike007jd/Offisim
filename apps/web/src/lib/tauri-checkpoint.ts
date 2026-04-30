@@ -97,7 +97,8 @@ function logCheckpointError(method: string, err: unknown): void {
  * Replicates the SqliteSaver logic but uses async tauri-plugin-sql
  * instead of synchronous better-sqlite3.
  *
- * Tables used (`checkpoints` + `writes`) are created by Rust migration 6.
+ * Tables used (`checkpoints` + `writes`) are created by the desktop
+ * SQLite bootstrap schema.
  */
 export class TauriCheckpointSaver extends BaseCheckpointSaver {
   async loadLatest(

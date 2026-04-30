@@ -7,8 +7,7 @@ Project rows carry an optional local `workspace_root` folder binding alongside t
 ### Requirement: `projects.workspace_root` is the SSOT field for the optional local workspace folder
 
 The `projects` table SHALL carry a nullable `workspace_root: TEXT NULL` column persisted in:
-- SQLite schema (`packages/db-local/src/schema.ts`) and migration `026_projects_workspace_root.sql`
-- Desktop embedded migrations (`apps/desktop/src-tauri/src/lib.rs::migrations()`) at the next schema version (v34)
+- SQLite schema (`packages/db-local/src/schema.ts`) and bootstrap SQL (`packages/db-local/src/schema.sql`)
 - shared-types `ProjectRow` (`packages/shared-types/src/project.ts`) with type `string | null`
 - All three repository backends (drizzle / memory / Tauri SQL) MUST read and write the field via `create` / `findById` / `findByCompany` / `findActiveByCompany` / `update`. The `update(id, patch)` mutator MUST accept `{ workspace_root: string | null }` as a valid partial patch (including explicit `null` for unbind).
 
@@ -18,9 +17,9 @@ No backfill is required — pre-existing project rows SHALL retain `workspace_ro
 - **WHEN** inspecting `packages/db-local/src/schema.ts` `projects` table definition AND `packages/shared-types/src/project.ts` `ProjectRow` interface
 - **THEN** both expose `workspace_root` as a nullable `string` field, byte-aligned in name and nullability
 
-#### Scenario: Migration 026 is forward-only and additive
-- **WHEN** applying migration 026 against an existing database with rows lacking `workspace_root`
-- **THEN** the migration adds the column with default `NULL`, keeps `idx_projects_company` intact, and pre-existing rows survive with `workspace_root = NULL`
+#### Scenario: Bootstrap schema carries workspace_root
+- **WHEN** a fresh local SQLite DB is initialized from `packages/db-local/src/schema.sql`
+- **THEN** the `projects` table contains nullable `workspace_root` and keeps `idx_projects_company`
 
 #### Scenario: All three repository backends read the field
 - **WHEN** any of `createProjectsDrizzleRepos` / `createProjectsMemoryRepos` / `createProjectsTauriRepos` returns a `ProjectRow` from `findById`, `findByCompany`, `findActiveByCompany`, or `create`

@@ -108,15 +108,10 @@ Current application/package shape:
 - Package manifest schema → `packages/asset-schema/src/schema/manifest-1.0.0.json` + `packages/asset-schema/src/manifest.types.ts`
 - Install state machine → `packages/install-core/src/state-machine.ts` + `packages/shared-types/src/install.ts`
 - Platform HTTP API → `apps/platform/src/routes/`
-- Local SQLite schema → `packages/db-local/src/schema.ts` + `packages/db-local/src/migrations/`
-- Platform Postgres schema → `packages/db-platform/src/schema.ts` + `packages/db-platform/src/migrations/`
+- Local SQLite schema → `packages/db-local/src/schema.ts` + `packages/db-local/src/schema.sql`
+- Platform Postgres schema → `packages/db-platform/src/schema.ts`
 - A2A JSON-RPC → `packages/core/src/a2a/`
 - LangGraph kernel state → `packages/core/src/graph/state.ts`
-
-### Migration packs
-
-- `Docs/03_migrations/offisim_migrations_local_v0.1/`
-- `Docs/03_migrations/offisim_migrations_platform_v0.1/`
 
 ### Working notes (evolving, not authoritative)
 
@@ -129,7 +124,7 @@ Current application/package shape:
 2. `CLAUDE.md` (root + relevant package CLAUDE.md)
 3. `openspec/specs/` for the capability being touched
 4. Code paths listed under **Live contracts** for the affected surface
-5. `Docs/03_migrations/` when the task touches persistence
+5. `packages/db-local/src/schema.sql` or `packages/db-platform/src/schema.ts` when the task touches persistence
 
 ## Document precedence
 

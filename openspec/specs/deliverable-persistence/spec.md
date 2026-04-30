@@ -8,7 +8,7 @@ Persist every `deliverable.created` runtime event so UI surfaces (chat, PitchHal
 
 Every `deliverable.created` runtime event observed on the core `EventBus` SHALL be persisted as a single row in the db-local `deliverables` table. The row SHALL carry: `deliverable_id` (PK, UUID from payload), `company_id` (from event envelope), `thread_id`, `title`, `content`, `kind` (nullable), `file_name` (nullable), `mime_type` (nullable), `contributors_json` (JSON array of `{employeeId, employeeName, sourceKind?, roleSlug}`), `created_at` (ISO-8601 string derived from payload `createdAt`). Writes SHALL be idempotent: re-emitting the same event SHALL NOT produce a duplicate row (use `INSERT OR IGNORE` semantics keyed on `deliverable_id`).
 
-The `deliverables` table SHALL be created by migration `023_deliverables.sql` and index at minimum `(company_id, created_at DESC)` and `(thread_id, created_at DESC)` for list queries.
+The `deliverables` table SHALL be present in `packages/db-local/src/schema.ts` and `packages/db-local/src/schema.sql`, with indexes at minimum `(company_id, created_at DESC)` and `(thread_id, created_at DESC)` for list queries.
 
 #### Scenario: Fresh deliverable event produces a row
 - **WHEN** an employee run emits `deliverable.created { deliverableId: 'dlv-1', content: '<html>...</html>', fileName: 'snake.html', mimeType: 'text/html' }` with `companyId: 'co-a'`
@@ -129,11 +129,11 @@ The runtime context SHALL expose `listRecentDeliverables(opts: { threadId?: stri
 
 ### Requirement: Platform database is not affected
 
-This capability SHALL NOT add tables, columns, or migrations to `@offisim/db-platform`. Marketplace-side storage SHALL remain disjoint from runtime deliverable history. Platform API endpoints for deliverables are explicitly out of scope for this capability.
+This capability SHALL NOT add tables or columns to `@offisim/db-platform`. Marketplace-side storage SHALL remain disjoint from runtime deliverable history. Platform API endpoints for deliverables are explicitly out of scope for this capability.
 
 #### Scenario: No platform schema change
-- **WHEN** inspecting `packages/db-platform/src/schema.ts` and `packages/db-platform/src/migrations/`
-- **THEN** neither file contains any reference to a `deliverables` table, a `Deliverable*` type, or a deliverables migration
+- **WHEN** inspecting `packages/db-platform/src/schema.ts`
+- **THEN** it contains no reference to a `deliverables` table or a `Deliverable*` type
 
 ### Requirement: Browser-only (non-Tauri) persistence rides the existing localStorage snapshot
 

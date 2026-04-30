@@ -274,41 +274,39 @@ The three db-local backends SHALL return byte-identical `EmployeeRow` objects fo
 
 #### Scenario: db-platform untouched
 - **WHEN** running `git diff --stat packages/db-platform/` at the end of this change
-- **THEN** the diff is empty — no schema, migration, or type changes have been applied to db-platform (it does not contain an employees table and is out of scope for this change)
+- **THEN** the diff is empty — no schema or type changes have been applied to db-platform (it does not contain an employees table and is out of scope for this change)
 
-### Requirement: Desktop migrations SQL files cover every drizzle-defined table
+### Requirement: Desktop bootstrap SQL covers every drizzle-defined table
 
-For every `sqliteTable('<name>', ...)` declaration in `packages/db-local/src/schema.ts`, the desktop-side embedded migrations set (the sum of SQL files in `Docs/03_migrations/offisim_migrations_local_v0.1/` referenced by `apps/desktop/src-tauri/src/lib.rs:fn migrations()`) SHALL contain at least one `CREATE TABLE` statement creating `<name>` with a shape that is byte-equivalent to the drizzle definition (same column names, SQL types, NOT NULL / DEFAULT / PRIMARY KEY / FK cascade attributes, and composite indexes). Temporary rename-helper tables (conventionally `<name>_new`) are allowed and not counted against parity as long as the final committed `<name>` matches drizzle. The purpose is to prevent desktop-only schema drift of the kind that caused `node_summaries` / `compact_summaries` to silently not exist on Tauri through v32.
+For every `sqliteTable('<name>', ...)` declaration in `packages/db-local/src/schema.ts`, `packages/db-local/src/schema.sql` SHALL contain at least one `CREATE TABLE IF NOT EXISTS` statement creating `<name>` with a shape that is byte-equivalent to the drizzle definition (same column names, SQL types, NOT NULL / DEFAULT / PRIMARY KEY / FK cascade attributes, and composite indexes). The purpose is to prevent desktop-only schema drift.
 
 #### Scenario: Every schema.ts sqliteTable has a desktop CREATE TABLE
 
-- **WHEN** auditing `schema.ts`'s `sqliteTable(...)` declarations against `grep -rh 'CREATE TABLE' Docs/03_migrations/offisim_migrations_local_v0.1/*.sql`
-- **THEN** every table name from the schema SHALL appear in at least one `CREATE TABLE` in the migrations set
+- **WHEN** auditing `schema.ts`'s `sqliteTable(...)` declarations against `packages/db-local/src/schema.sql`
+- **THEN** every table name from the schema SHALL appear in at least one `CREATE TABLE` in the bootstrap SQL
 - **AND** the column list and constraints SHALL be byte-equivalent to the drizzle definition
 
-#### Scenario: New table added to schema.ts requires new desktop migration
+#### Scenario: New table added to schema.ts requires schema.sql update
 
 - **WHEN** a future change adds a new `sqliteTable('new_table', ...)` declaration to `schema.ts`
-- **THEN** the same change (or a coordinated sibling change before archive) SHALL add a new versioned SQL migration file (e.g. `034_new_table.sql`) and extend `apps/desktop/src-tauri/src/lib.rs:fn migrations()` with the corresponding `Migration { version: 34, ... include_str!(...) }` entry
-- **AND** the change's archive-gate spec-consistency check SHALL fail if either the SQL file or the `lib.rs` entry is missing
+- **THEN** the same change SHALL update `packages/db-local/src/schema.sql`
+- **AND** the change's archive-gate spec-consistency check SHALL fail if the bootstrap SQL is missing the table
 
 #### Scenario: LangGraph-internal tables are excluded from parity
 
 - **WHEN** auditing parity
 - **THEN** `checkpoints` / `writes` / `graph_checkpoints` tables that are owned by `langgraph-checkpoint-sqlite` (or the self-maintained `apps/web/src/lib/tauri-checkpoint.ts` fork) SHALL NOT be required in `schema.ts` — they are LangGraph-internal persistence, not Offisim application schema
-- **AND** their desktop migration entries (currently v6 `006_langgraph_checkpoints.sql`) SHALL continue to stand independently
+- **AND** they SHALL remain present in `packages/db-local/src/schema.sql` because the desktop runtime initializes them
 
 ### Requirement: `node_summaries` and `compact_summaries` exist on desktop
 
 Desktop Tauri runtime SHALL have `node_summaries` and `compact_summaries` tables available at application start. These tables persist `NodeContextMiddleware` summaries + `ConversationBudget` summarization checkpoints. Absence of either table causes middleware `before()` to throw SQLite `no such table` errors that the middleware chain catches as warnings — the LLM call proceeds but the agent prompt's context-pack + conversation-summary budgets (default 1000 + 700 chars) are both empty, degrading agent quality and potentially triggering downstream state-mutation errors (observed symptom in T2.3 live verify: `Attempted to assign to readonly property.`).
 
-#### Scenario: Migration v33 creates both tables on existing DB
+#### Scenario: Bootstrap schema creates both tables on fresh DB
 
-- **WHEN** a user with an existing desktop DB that was created before v33 upgrades to a build containing migration v33
-- **THEN** Tauri plugin-sql (wrapping sqlx `migrate!()`) SHALL apply v33 on app start, creating both `node_summaries` and `compact_summaries`
+- **WHEN** a fresh desktop SQLite DB is initialized from `packages/db-local/src/schema.sql`
+- **THEN** both `node_summaries` and `compact_summaries` are created
 - **AND** `SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('node_summaries','compact_summaries')` SHALL return 2
-
-**Note on migration tracking** — `tauri-plugin-sql` is backed by sqlx `SqlitePool::migrate()` which maintains its own `_sqlx_migrations` table and does NOT write SQLite's `PRAGMA user_version`. Validating `user_version=33` against a real user DB is the wrong oracle and SHALL NOT be used as the archive-gate check; the authoritative signals are (a) `_sqlx_migrations` table contains a row for version 33, or (b) the target tables + indexes exist with the shape specified in the next scenario. The latter is what live-verify reports should capture.
 
 #### Scenario: Tables match drizzle shape exactly
 
@@ -322,7 +320,6 @@ Desktop Tauri runtime SHALL have `node_summaries` and `compact_summaries` tables
 
 #### Scenario: Middleware no longer warns about missing tables
 
-- **WHEN** a desktop app with v33 applied runs a chat turn that exercises summarization + node-context middleware
+- **WHEN** a desktop app initialized from the current bootstrap schema runs a chat turn that exercises summarization + node-context middleware
 - **THEN** the middleware `before()` hooks SHALL NOT throw SQLite "no such table" errors
 - **AND** DevTools Console SHALL NOT show `Middleware "summarization" before() failed — skipping` or `Middleware "node-context" before() failed — skipping`
-

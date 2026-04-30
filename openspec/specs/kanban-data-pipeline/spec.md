@@ -87,14 +87,14 @@ Indexes:
 - `idx_kanban_assignee ON (assigned_employee_id, state)`
 - `idx_kanban_task_run ON (task_run_id)`
 
-A migration SHALL create the table with `CREATE TABLE IF NOT EXISTS` and indexes with `CREATE INDEX IF NOT EXISTS`.
+`packages/db-local/src/schema.sql` SHALL create the table with `CREATE TABLE IF NOT EXISTS` and indexes with `CREATE INDEX IF NOT EXISTS`.
 
 #### Scenario: Project deletion cascades cards
 - **WHEN** a project row is deleted
 - **THEN** all `kanban_cards` with that `project_id` are deleted
 
-#### Scenario: Migration is idempotent
-- **WHEN** the kanban migration runs against a db-local that already has the table
+#### Scenario: Bootstrap schema is idempotent
+- **WHEN** the bootstrap schema runs against a db-local that already has the table
 - **THEN** no error occurs and existing rows are unchanged
 
 ### Requirement: KanbanRepo enforces state machine and emits events

@@ -247,7 +247,7 @@ The Asset-level interaction surface — prefab instance selection / drag / rotat
 #### Scenario: No new database tables or columns
 - **WHEN** this change is applied
 - **THEN** `db-local/src/schema.ts` and `db-platform/src/schema.ts` SHALL be unchanged
-- **AND** no new migration file SHALL be added under `db-local/src/migrations/` or `db-platform/src/migrations/`
+- **AND** no DB schema change SHALL be added to `packages/db-local/src/schema.sql`, `packages/db-local/src/schema.ts`, or `packages/db-platform/src/schema.ts`
 
 #### Scenario: 3D scene rendering is byte-equivalent
 - **WHEN** PlotSize, breadcrumb, and palette filter changes are applied
@@ -273,4 +273,3 @@ The identity editor SHALL NOT consume the Escape key — the existing Escape cas
 #### Scenario: Escape behavior is unchanged
 - **WHEN** the user presses Escape while focused inside the identity editor or with the identity editor visible
 - **THEN** the Studio Escape cascade behaves exactly per the existing `studio-plot-zone-hierarchy` Escape requirements (placement → asset → zone → plot); the identity editor does NOT intercept Escape
-
