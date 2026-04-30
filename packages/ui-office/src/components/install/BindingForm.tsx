@@ -54,11 +54,7 @@ export function BindingForm({
                   <span className="text-sm font-medium text-sand truncate">
                     {binding.bindingKey.split(':').pop()}
                   </span>
-                  {binding.required ? (
-                    <Badge variant="error">required</Badge>
-                  ) : (
-                    <Badge variant="secondary">optional</Badge>
-                  )}
+                  {!binding.required && <Badge variant="secondary">optional</Badge>}
                 </div>
                 {!binding.required && (
                   <Button
@@ -81,19 +77,23 @@ export function BindingForm({
                   <Input
                     placeholder="provider/model (e.g. openai/gpt-4o)"
                     value={value}
+                    error={binding.required && !value.trim()}
+                    helperText={binding.required && !value.trim() ? 'Required' : undefined}
                     onChange={(e) => onSetValue(binding.bindingKey, e.target.value)}
                   />
                   {/* Quick suggestions */}
                   <div className="flex flex-wrap gap-1">
                     {MODEL_SUGGESTIONS.map((model) => (
-                      <button
+                      <Button
                         key={model}
                         type="button"
+                        variant="outline"
+                        size="sm"
                         className="border-2 border-ocean-light px-2 py-0.5 text-xs text-shell hover:bg-ocean-mid hover:text-sand transition-colors"
                         onClick={() => onSetValue(binding.bindingKey, model)}
                       >
                         {model}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>

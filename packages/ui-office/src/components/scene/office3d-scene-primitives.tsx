@@ -1,9 +1,12 @@
+import { MOTION_DURATION, MOTION_EASING } from '@offisim/ui-core/tokens';
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import type { AgentState } from '../../runtime/use-agent-states';
+import { SceneMaterial } from '../../theme/scene-materials.js';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import type { DragState3D, FlowLineData } from './office3d-shared.js';
 
@@ -102,7 +105,7 @@ export function ZoneLabel({
               borderRadius: '8px',
               padding: '4px 14px',
               whiteSpace: 'nowrap',
-              transition: 'background 0.15s, border-color 0.15s',
+              transition: `background ${MOTION_DURATION.fast}ms ${MOTION_EASING.standard}, border-color ${MOTION_DURATION.fast}ms ${MOTION_EASING.standard}`,
             }}
           >
             <span
@@ -154,25 +157,31 @@ export function ZoneLabel({
 }
 
 export function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
+  const sc = useSceneColors();
+
   return (
     <group>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: react-three-fiber meshes are not keyboard-focusable DOM nodes. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={() => onFloorClick?.()}>
         <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <meshStandardMaterial color="#020617" roughness={0.9} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={sc.sceneBackground}
+          overrides={{ roughness: 0.92 }}
+        />
       </mesh>
-      <gridHelper args={[ROOM_W, 40, '#1e293b', '#0f172a']} position={[0, 0.01, 0]} />
+      <gridHelper args={[ROOM_W, 40, sc.wallShell, sc.sceneBackground]} position={[0, 0.01, 0]} />
       <mesh position={[0, WALL_H / 2, -ROOM_D / 2]} receiveShadow>
         <boxGeometry args={[ROOM_W, WALL_H, 0.3]} />
-        <meshStandardMaterial color="#1e293b" />
+        <SceneMaterial materialClass="plastic" color={sc.wallShell} />
       </mesh>
       <mesh position={[-ROOM_W / 2, WALL_H / 2, 0]} receiveShadow>
         <boxGeometry args={[0.3, WALL_H, ROOM_D]} />
-        <meshStandardMaterial color="#1e293b" />
+        <SceneMaterial materialClass="plastic" color={sc.wallShell} />
       </mesh>
       <mesh position={[ROOM_W / 2, WALL_H / 2, 0]} receiveShadow>
         <boxGeometry args={[0.3, WALL_H, ROOM_D]} />
-        <meshStandardMaterial color="#1e293b" />
+        <SceneMaterial materialClass="plastic" color={sc.wallShell} />
       </mesh>
     </group>
   );
@@ -184,19 +193,27 @@ export function DragGhost3D({ position }: { position: [number, number, number] }
     <group position={position}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
         <circleGeometry args={[0.6, 32]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.25} />
+        <meshBasicMaterial color={sc.sceneBackground} transparent opacity={0.25} />
       </mesh>
       <mesh position={[0, 0.75, 0]} castShadow>
         <cylinderGeometry args={[0.25, 0.3, 1.2, 12]} />
-        <meshStandardMaterial color={sc.selectionRing} transparent opacity={0.45} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={sc.selectionRing}
+          overrides={{ transparent: true, opacity: 0.45 }}
+        />
       </mesh>
       <mesh position={[0, 1.5, 0]} castShadow>
         <sphereGeometry args={[0.22, 12, 12]} />
-        <meshStandardMaterial color={sc.selectionRing} transparent opacity={0.45} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={sc.selectionRing}
+          overrides={{ transparent: true, opacity: 0.45 }}
+        />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
         <ringGeometry args={[0.45, 0.6, 32]} />
-        <meshBasicMaterial color="#60a5fa" transparent opacity={0.6} />
+        <meshBasicMaterial color={sc.selectionRing} transparent opacity={0.6} />
       </mesh>
     </group>
   );
@@ -403,8 +420,14 @@ export function MeetingParticipantLines({
   );
 }
 
-export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> }) {
-  const lightRef = useRef<THREE.AmbientLight>(null);
+export function AmbientStateLight({
+  agents,
+  maxIntensity,
+}: {
+  agents: Map<string, AgentState>;
+  maxIntensity?: number;
+}) {
+  const scene = useThree((state) => state.scene);
 
   const { targetColor, targetIntensity } = useMemo(() => {
     const values = [...agents.values()];
@@ -418,22 +441,33 @@ export function AmbientStateLight({ agents }: { agents: Map<string, AgentState> 
         : hasActive
           ? '#ffffff'
           : '#aabbcc';
-    return { targetColor: color, targetIntensity: hasMeeting ? 0.6 : 0.8 };
-  }, [agents]);
+    const rawIntensity = hasMeeting ? 0.6 : 0.8;
+    return {
+      targetColor: color,
+      targetIntensity:
+        maxIntensity === undefined ? rawIntensity : Math.min(rawIntensity, maxIntensity),
+    };
+  }, [agents, maxIntensity]);
 
   const targetColorObject = useMemo(() => new THREE.Color(targetColor), [targetColor]);
+  const currentColorRef = useRef(new THREE.Color(targetColor));
+  const currentIntensityRef = useRef(targetIntensity);
 
   useFrame(() => {
-    if (!lightRef.current) return;
-    lightRef.current.color.lerp(targetColorObject, 0.02);
-    lightRef.current.intensity = THREE.MathUtils.lerp(
-      lightRef.current.intensity,
+    currentColorRef.current.lerp(targetColorObject, 0.02);
+    currentIntensityRef.current = THREE.MathUtils.lerp(
+      currentIntensityRef.current,
       targetIntensity,
       0.02,
     );
+    scene.userData.ambientStateColor = currentColorRef.current.clone();
+    scene.userData.ambientStateIntensity = Math.min(
+      maxIntensity ?? 0.25,
+      currentIntensityRef.current,
+    );
   });
 
-  return <ambientLight ref={lightRef} intensity={0.8} color={targetColor} />;
+  return null;
 }
 
 function ZoneActivityGlow({

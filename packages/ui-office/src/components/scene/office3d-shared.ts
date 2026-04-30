@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import type { RoleSlug, Zone } from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID, resolveZoneForRole } from '@offisim/shared-types';
 import {

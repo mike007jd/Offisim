@@ -42,7 +42,7 @@ export function StreamingBubble({
       )}
       {reasoning && <ReasoningRegion reasoning={reasoning} hasContent={!!content} />}
       {(content || showPlaceholder) && (
-        <div className="max-w-[94%] border-l-2 border-blue-400/30 bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap rounded-xl">
+        <div className="max-h-[60vh] max-w-[94%] overflow-y-auto overscroll-contain rounded-xl border-l-2 border-blue-400/30 bg-white/5 px-3 py-1.5 text-sm leading-snug text-slate-200 whitespace-pre-wrap">
           {content ? (
             <>
               {content}
@@ -69,7 +69,7 @@ function ReasoningRegion({ reasoning, hasContent }: ReasoningRegionProps) {
   const expanded = expandedByUser ?? !hasContent;
 
   return (
-    <div className="mb-1 max-w-[94%] rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100/90">
+    <div className="mb-1 max-h-[40vh] max-w-[94%] overflow-y-auto overscroll-contain rounded-xl border border-indigo-400/20 bg-indigo-500/8 px-3 py-1.5 text-xs leading-snug text-indigo-100/90">
       <button
         type="button"
         onClick={() => setExpandedByUser(!expanded)}

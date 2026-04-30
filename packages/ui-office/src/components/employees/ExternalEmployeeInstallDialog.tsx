@@ -8,17 +8,15 @@ import {
 import type { RoleSlug } from '@offisim/shared-types';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  DialogShell,
   Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  ToastBanner,
+  useToasts,
 } from '@offisim/ui-core';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +28,7 @@ import {
   inferBrandKey,
 } from '../../lib/agent-card-discovery';
 import { type ExternalBrandVariant, REGISTRY } from '../../lib/brand-registry';
+import { showDiscardConfirm } from '../../lib/discard-confirm-toast';
 import { ROLE_OPTIONS } from '../../lib/roles';
 
 const BRAND_OPTIONS: ReadonlyArray<{ value: ExternalBrandVariant; label: string }> = (
@@ -57,6 +56,7 @@ export function ExternalEmployeeInstallDialog({
   onInstalled,
   onToast,
 }: ExternalEmployeeInstallDialogProps) {
+  const { toasts, addToast, dismissToast } = useToasts();
   const [step, setStep] = useState<Step>('endpoint');
   const [url, setUrl] = useState('');
   const [token, setToken] = useState('');
@@ -86,6 +86,38 @@ export function ExternalEmployeeInstallDialog({
     setIsSubmitting(false);
     submittingRef.current = false;
   }, []);
+
+  // `card` is fetched by Discover, not user-entered — exclude it from dirty so
+  // the user can back out of the post-discover step without a discard prompt.
+  const isDirty = useMemo(
+    () =>
+      url.trim().length > 0 ||
+      token.trim().length > 0 ||
+      agentId.trim().length > 0 ||
+      displayName.trim().length > 0 ||
+      brandKey !== 'custom' ||
+      roleSlug !== '',
+    [agentId, brandKey, displayName, roleSlug, token, url],
+  );
+
+  const discardAndClose = useCallback(() => {
+    resetAll();
+    onClose();
+  }, [onClose, resetAll]);
+
+  const requestClose = useCallback(() => {
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+  }, [addToast, discardAndClose, isDirty, onClose]);
+
+  const handleRequestClose = useCallback(() => {
+    if (!isDirty) return undefined;
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+    return false;
+  }, [addToast, discardAndClose, isDirty]);
 
   useEffect(() => {
     if (open) return;
@@ -209,26 +241,59 @@ export function ExternalEmployeeInstallDialog({
   ]);
 
   const brandEntry = REGISTRY[brandKey];
+  const footer =
+    step === 'endpoint' ? (
+      <>
+        <Button variant="ghost" onClick={requestClose} disabled={isDiscovering}>
+          Cancel
+        </Button>
+        <Button onClick={handleDiscover} disabled={!isValidUrl || isDiscovering}>
+          {isDiscovering ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Discovering...
+            </>
+          ) : (
+            'Discover'
+          )}
+        </Button>
+      </>
+    ) : (
+      <>
+        <Button variant="ghost" onClick={handleBackToEndpoint} disabled={isSubmitting}>
+          Back
+        </Button>
+        <Button variant="outline" onClick={requestClose} disabled={isSubmitting}>
+          Cancel
+        </Button>
+        <Button onClick={handleConfirm} disabled={!canConfirm}>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Creating...
+            </>
+          ) : (
+            'Confirm'
+          )}
+        </Button>
+      </>
+    );
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) onClose();
-      }}
-    >
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>
-            {step === 'endpoint' ? 'Connect external A2A agent' : 'Review agent card'}
-          </DialogTitle>
-          <DialogDescription>
-            {step === 'endpoint'
-              ? 'Point Offisim at a running A2A endpoint. We will fetch its agent card before anything is persisted.'
-              : 'Confirm how this agent should appear in your office before we create the employee.'}
-          </DialogDescription>
-        </DialogHeader>
-
+    <>
+      <DialogShell
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) requestClose();
+        }}
+        size="lg"
+        title={step === 'endpoint' ? 'Connect external A2A agent' : 'Review agent card'}
+        description={
+          step === 'endpoint'
+            ? 'Point Offisim at a running A2A endpoint. We will fetch its agent card before anything is persisted.'
+            : 'Confirm how this agent should appear in your office before we create the employee.'
+        }
+        footer={footer}
+        onRequestClose={handleRequestClose}
+      >
         {step === 'endpoint' && (
           <div className="mt-2 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -284,21 +349,6 @@ export function ExternalEmployeeInstallDialog({
                 {error}
               </div>
             )}
-
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={onClose} disabled={isDiscovering}>
-                Cancel
-              </Button>
-              <Button onClick={handleDiscover} disabled={!isValidUrl || isDiscovering}>
-                {isDiscovering ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Discovering…
-                  </>
-                ) : (
-                  'Discover'
-                )}
-              </Button>
-            </div>
           </div>
         )}
 
@@ -410,29 +460,10 @@ export function ExternalEmployeeInstallDialog({
                 {error}
               </div>
             )}
-
-            <div className="flex justify-between gap-2">
-              <Button variant="ghost" onClick={handleBackToEndpoint} disabled={isSubmitting}>
-                Back
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-                  Cancel
-                </Button>
-                <Button onClick={handleConfirm} disabled={!canConfirm}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Creating…
-                    </>
-                  ) : (
-                    'Confirm'
-                  )}
-                </Button>
-              </div>
-            </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </DialogShell>
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

@@ -5,6 +5,7 @@
  * a full server-room–scale representation.
  */
 
+import { SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
 
 export interface InfrastructureMesh3DProps {
@@ -27,12 +28,12 @@ export function NetworkSwitchMesh3D({
       {/* Switch body */}
       <mesh position={[0, 0.06, 0]} castShadow>
         <boxGeometry args={[1.2, 0.08, 0.4]} />
-        <meshStandardMaterial color={sc.furniture} metalness={0.6} roughness={0.3} />
+        <SceneMaterial materialClass="metal" color={sc.furniture} overrides={{ roughness: 0.3 }} />
       </mesh>
       {/* Front panel */}
       <mesh position={[0, 0.06, 0.21]}>
         <planeGeometry args={[1.1, 0.06]} />
-        <meshStandardMaterial color={sc.furnitureDark} />
+        <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
       </mesh>
       {/* Port indicators */}
       {[-0.4, -0.2, 0, 0.2, 0.4].map((x, i) => (
@@ -58,7 +59,7 @@ export function CableTrayMesh3D({
     <group position={position} rotation={[0, rotY, 0]}>
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.3, 3]} />
-        <meshStandardMaterial color={sc.furnitureDark} />
+        <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
       </mesh>
     </group>
   );

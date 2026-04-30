@@ -1,6 +1,7 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
-import { ToastBanner, useToasts } from '@offisim/ui-core';
+import { ToastBanner, WorkspacePageSkeleton, cn, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { ActivityEmptyState } from './ActivityEmptyState';
@@ -33,15 +34,21 @@ export interface ActivityLogPageProps {
   onSessionStateChange: (
     updater: (prev: ActivityLogSessionState) => ActivityLogSessionState,
   ) => void;
+  onBackToOffice?: () => void;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function ActivityLogPage({ sessionState, onSessionStateChange }: ActivityLogPageProps) {
+export function ActivityLogPage({
+  sessionState,
+  onSessionStateChange,
+  onBackToOffice,
+}: ActivityLogPageProps) {
   const { eventBus, bootstrapState } = useOffisimRuntime();
   const { toasts, addToast, dismissToast } = useToasts();
+  const { tier } = useLayoutTier();
   const agents = useAgentStates();
   const getEmployeeName = useCallback(
     (employeeId: string) => agents.get(employeeId)?.name ?? null,
@@ -54,6 +61,7 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
     [eventBus, bootstrapState],
   );
   const [events, setEvents] = useState<RuntimeEvent[]>(() => store.events);
+  const isHydrating = !bootstrapState && events.length === 0;
 
   useEffect(() => {
     setEvents(store.events);
@@ -160,18 +168,27 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
   );
 
   // 7.5 — Empty state: no events at all
+  if (isHydrating) {
+    return (
+      <div className="flex h-full flex-col" data-layout-tier={tier}>
+        <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+        <WorkspacePageSkeleton />
+      </div>
+    );
+  }
+
   if (events.length === 0) {
     return (
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col" data-layout-tier={tier}>
         <ToastBanner toasts={toasts} onDismiss={dismissToast} />
-        <ActivityEmptyState variant="no-events" />
+        <ActivityEmptyState variant="no-events" onBackToOffice={onBackToOffice} />
       </div>
     );
   }
 
   // 7.2 — Layout: filter bar + content area
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" data-layout-tier={tier}>
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
       <ActivityFilterBar
         datePreset={sessionState.datePreset}
@@ -183,11 +200,16 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
         onEventTypesChange={handleEventTypesChange}
         onActorFiltersChange={handleActorFiltersChange}
         onSearchChange={handleSearchChange}
+        variant={tier === 'narrow' ? 'narrow' : 'default'}
       />
-      <div className="flex flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1">
         {/* 7.5 — Empty state: filters yield no results */}
         {filteredEvents.length === 0 ? (
-          <ActivityEmptyState variant="no-results" onResetFilters={handleResetFilters} />
+          <ActivityEmptyState
+            variant="no-results"
+            onResetFilters={handleResetFilters}
+            onBackToOffice={onBackToOffice}
+          />
         ) : (
           <>
             {/* 7.2 — Timeline: full-width or 60% when detail open */}
@@ -195,12 +217,21 @@ export function ActivityLogPage({ sessionState, onSessionStateChange }: Activity
               groups={groups}
               selectedEventId={sessionState.selectedEventId}
               onSelectEvent={handleSelectEvent}
-              className={sessionState.selectedEventId ? 'w-3/5' : 'w-full'}
+              className={
+                sessionState.selectedEventId
+                  ? cn(tier === 'desktop' ? 'w-3/5' : tier === 'tablet' ? 'w-[70%]' : 'hidden')
+                  : 'w-full'
+              }
               getEmployeeName={getEmployeeName}
             />
             {/* 7.2 — Detail panel: 40% when event selected */}
             {sessionState.selectedEventId && focusedEvent && (
-              <div className="w-2/5 border-l border-white/10">
+              <div
+                className={cn(
+                  'border-l border-white/10',
+                  tier === 'desktop' ? 'w-2/5' : tier === 'tablet' ? 'w-[30%]' : 'w-full',
+                )}
+              >
                 <ActivityEventDetail event={focusedEvent} onClose={handleCloseDetail} />
               </div>
             )}

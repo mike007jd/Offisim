@@ -1,5 +1,5 @@
 import type { InteractionRequest } from '@offisim/shared-types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@offisim/ui-core';
+import { DialogShell } from '@offisim/ui-core';
 import { InteractionDecisionCard } from './InteractionDecisionCard';
 import { SkillInstallConfirmBubble } from './SkillInstallConfirmBubble';
 
@@ -16,14 +16,17 @@ export function InteractionPrompt({ request, employeeName, onRespond }: Interact
 
   if (request.severity === 'high') {
     return (
-      <Dialog open>
-        <DialogContent className="max-w-lg border-white/10 bg-slate-950/95">
-          <DialogHeader>
-            <DialogTitle className="text-sm text-white">Decision required</DialogTitle>
-          </DialogHeader>
-          {body}
-        </DialogContent>
-      </Dialog>
+      <DialogShell
+        open={true}
+        onOpenChange={() => {}}
+        size="sm"
+        closeOnBackdrop={false}
+        closeOnEscape={false}
+        title="Decision required"
+        className="border-white/10 bg-slate-950/95"
+      >
+        {body}
+      </DialogShell>
     );
   }
 

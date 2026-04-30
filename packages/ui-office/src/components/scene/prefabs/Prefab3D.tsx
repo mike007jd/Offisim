@@ -7,6 +7,8 @@
  */
 
 import type { PrefabDefinition } from '@offisim/shared-types';
+import { SceneMaterial } from '../../../theme/scene-materials.js';
+import { useSceneColors } from '../../../theme/use-scene-colors.js';
 import { BookshelfMesh3D } from './BookshelfMesh3D.js';
 import { DecorativeMesh3D } from './DecorativeMesh3D.js';
 import { InfrastructureMesh3D } from './InfrastructureMesh3D.js';
@@ -32,6 +34,7 @@ export interface Prefab3DProps {
  * we render a gray placeholder box.
  */
 export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state }: Prefab3DProps) {
+  const sc = useSceneColors();
   const template = definition.render2D?.template ?? definition.prefabId;
 
   switch (definition.category) {
@@ -73,7 +76,7 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
         <group position={position} rotation={[0, (rotation * Math.PI) / 180, 0]}>
           <mesh position={[0, 0.5, 0]} castShadow>
             <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial color="#6b7280" />
+            <SceneMaterial materialClass="plastic" color={sc.textMuted} />
           </mesh>
         </group>
       );

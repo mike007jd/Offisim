@@ -1,3 +1,4 @@
+import { DARK_SEMANTIC_COLORS } from '@offisim/ui-core/tokens';
 import { Html } from '@react-three/drei';
 import { CEREMONY_LABELS } from '../../lib/ceremony-labels';
 import type { AgentState } from '../../runtime/use-agent-states';
@@ -261,7 +262,9 @@ export function Office3DSceneHud({
         )}
         <div>{activeCount} employees active</div>
         {blockedCount > 0 && (
-          <div style={{ color: '#fbbf24' }}>{blockedCount} employees blocked</div>
+          <div style={{ color: DARK_SEMANTIC_COLORS.warning }}>
+            {blockedCount} employees blocked
+          </div>
         )}
       </div>
     </Html>

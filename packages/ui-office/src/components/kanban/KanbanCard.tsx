@@ -71,7 +71,7 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
         'px-2.5 py-2 space-y-1.5',
         'border-white/[0.06] bg-[var(--surface)] hover:bg-white/[0.06] hover:border-white/15',
         task.status === 'active' || task.status === 'running'
-          ? 'border-blue-500/30 shadow-[0_0_8px_rgba(59,130,246,0.08)]'
+          ? 'border-blue-500/30 shadow-glow-accent'
           : '',
         task.status === 'failed' || task.status === 'cancelled' ? 'border-red-500/20' : '',
         onClick ? 'cursor-pointer' : 'cursor-default',

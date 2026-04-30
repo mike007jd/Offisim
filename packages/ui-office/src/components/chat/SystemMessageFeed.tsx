@@ -27,7 +27,7 @@ export function SystemMessageFeed() {
       {entries.map((entry) => (
         <div
           key={entry.id}
-          className={`flex items-start gap-3 rounded-2xl border px-3 py-2.5 text-[11px] shadow-[0_8px_24px_rgba(2,6,23,0.12)] ${ENTRY_STYLES[entry.tone]}`}
+          className={`flex items-start gap-3 rounded-2xl border px-3 py-2.5 text-[11px] shadow-resting ${ENTRY_STYLES[entry.tone]}`}
         >
           {(() => {
             const Icon = ICON_MAP[entry.icon ?? 'default'];

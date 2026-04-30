@@ -1,8 +1,9 @@
 import type { RoleSlug, Zone } from '@offisim/shared-types';
 import { isInsideZone, resolveZoneForRole } from '@offisim/shared-types';
-import { Environment, OrbitControls } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import {
   type CeremonyState,
@@ -19,15 +20,12 @@ import { SeatRegistry } from '../../lib/seat-registry.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
+import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
+import { DevLightingPanel } from './DevLightingPanel.js';
 import { SceneFrameLoopController } from './SceneFrameLoopController.js';
 import { type PlacedEmployee, usePlacedEmployees } from './office3d-employees.js';
-import {
-  AmbientStateLight,
-  DragController,
-  DragGhost3D,
-  RoomShell,
-} from './office3d-scene-primitives.js';
+import { DragController, DragGhost3D, RoomShell } from './office3d-scene-primitives.js';
 import {
   Office3DEmployeeLayer,
   Office3DFlowLayer,
@@ -43,10 +41,17 @@ import {
   type Zone3D,
   toZone3DLayout,
 } from './office3d-shared.js';
-import { getOffice3DPerformanceConfig } from './scene-performance-config.js';
+import { SceneLightingRig } from './scene-lighting-rig.js';
+import {
+  type SceneLightingTier,
+  getDevLightingOverrides,
+  getRendererConfig,
+} from './scene-performance-tier.js';
+import { ScenePostprocessing } from './scene-postprocessing.js';
 import { shouldAnimateOfficeScene } from './scene-render-policy.js';
 import { useOffice3DViewState } from './useOffice3DViewState.js';
 import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
+import { useScenePerformanceTier } from './useScenePerformanceTier.js';
 
 type OrbitControlsHandle = React.ComponentRef<typeof OrbitControls>;
 
@@ -58,6 +63,7 @@ interface Office3DViewProps {
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
+  onRequestForce2D?: () => void;
   renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
 }
 
@@ -109,6 +115,7 @@ interface Office3DViewInnerProps {
   ui: Office3DSceneUiState;
   controls: Office3DSceneControls;
   actions: Office3DSceneActions;
+  onRequestForce2D?: () => void;
   renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
 }
 
@@ -120,6 +127,7 @@ export default function Office3DView({
   selectedEmployeeId: externalSelectedId = null,
   onSelectEmployee,
   onDeselectEmployee,
+  onRequestForce2D,
   renderEmployeeBadge,
 }: Office3DViewProps) {
   const agents = useAgentStates();
@@ -435,9 +443,22 @@ export default function Office3DView({
       ui={ui}
       controls={controls}
       actions={actions}
+      onRequestForce2D={onRequestForce2D}
       renderEmployeeBadge={renderEmployeeBadge}
     />
   );
+}
+
+function ScenePerformanceController({
+  onTierChange,
+  onRequestForce2D,
+}: {
+  onTierChange: (tier: SceneLightingTier) => void;
+  onRequestForce2D?: () => void;
+}) {
+  const { tier } = useScenePerformanceTier(onRequestForce2D);
+  useEffect(() => onTierChange(tier), [tier, onTierChange]);
+  return null;
 }
 
 function Office3DViewInner({
@@ -445,6 +466,7 @@ function Office3DViewInner({
   ui,
   controls,
   actions,
+  onRequestForce2D,
   renderEmployeeBadge,
 }: Office3DViewInnerProps) {
   const { agents, placed, zones3D, hasPrefabData, prefabInstances, zoneActivity, ceremony } = scene;
@@ -459,7 +481,13 @@ function Office3DViewInner({
     viewportInsets,
   } = ui;
   const { controlsRef, shouldAnimate } = controls;
-  const perfConfig = getOffice3DPerformanceConfig(import.meta.env.DEV);
+  const [lightingTier, setLightingTier] = useState<SceneLightingTier>('high');
+  const [, setDevOverrideVersion] = useState(0);
+  const sc = useSceneColors();
+  const rendererConfig = getRendererConfig(lightingTier);
+  const devLightingOverrides = getDevLightingOverrides();
+  const shadowsEnabled = devLightingOverrides.shadows ?? lightingTier !== 'off';
+  const postProcessingEnabled = devLightingOverrides.post ?? true;
   const {
     setFlowLines,
     handleDeselect,
@@ -470,36 +498,37 @@ function Office3DViewInner({
     handleDragCancel,
   } = actions;
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const refresh = () => setDevOverrideVersion((value) => value + 1);
+    window.addEventListener('offisim.scene.devOverride.change', refresh);
+    window.addEventListener('offisim.scene.devOverride.reset', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('offisim.scene.devOverride.change', refresh);
+      window.removeEventListener('offisim.scene.devOverride.reset', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
   return (
     <div
       className="w-full h-full bg-slate-950"
       style={{ position: 'relative', cursor: isDragging ? 'grabbing' : undefined }}
     >
       <Canvas
-        dpr={perfConfig.dpr}
+        dpr={rendererConfig.dpr}
         frameloop={shouldAnimate ? 'always' : 'demand'}
-        shadows={perfConfig.shadows}
+        shadows={shadowsEnabled ? { type: THREE.PCFShadowMap } : false}
         camera={{ position: [0, 22, 28], fov: 45 }}
       >
-        <SceneFrameLoopController animate={shouldAnimate} controlsRef={controlsRef} />
-        <color attach="background" args={['#020617']} />
-        <fog attach="fog" args={['#020617', 40, 100]} />
-
-        <AmbientStateLight agents={agents} />
-        <directionalLight
-          castShadow
-          position={[12, 25, 12]}
-          intensity={1.5}
-          shadow-mapSize={perfConfig.shadowMapSize}
-          shadow-bias={-0.0005}
-          shadow-camera-left={-25}
-          shadow-camera-right={25}
-          shadow-camera-top={20}
-          shadow-camera-bottom={-20}
+        <ScenePerformanceController
+          onTierChange={setLightingTier}
+          onRequestForce2D={onRequestForce2D}
         />
-        <pointLight position={[-15, 12, -10]} intensity={0.4} color="#3b82f6" />
-        <pointLight position={[15, 8, 10]} intensity={0.3} color="#06b6d4" />
-        {perfConfig.environmentPreset && <Environment preset={perfConfig.environmentPreset} />}
+        <SceneFrameLoopController animate={shouldAnimate} controlsRef={controlsRef} />
+        <color attach="background" args={[sc.sceneBackground]} />
+        <SceneLightingRig tier={lightingTier} agents={agents} devOverrides={devLightingOverrides} />
 
         <RoomShell onFloorClick={handleDeselect} />
 
@@ -554,7 +583,9 @@ function Office3DViewInner({
           maxDistance={45}
           target={[0, 0, 2]}
         />
+        <ScenePostprocessing tier={lightingTier} enabled={postProcessingEnabled} />
       </Canvas>
+      <DevLightingPanel />
     </div>
   );
 }

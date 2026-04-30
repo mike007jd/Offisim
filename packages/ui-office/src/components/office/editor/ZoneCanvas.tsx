@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import type { PrefabDefinition, ZonePreset } from '@offisim/shared-types';
 import { isRequiredArchetype } from '@offisim/shared-types';
 import { ARCHETYPE_ICONS, LOCK_ICON_PATH, getFloorPatternId } from './archetype-visuals.js';

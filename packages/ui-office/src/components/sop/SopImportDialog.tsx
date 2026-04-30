@@ -1,15 +1,9 @@
 import { SopSyncService } from '@offisim/core/browser';
 import type { SopDefinition } from '@offisim/shared-types';
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@offisim/ui-core';
+import { Button, DialogShell, ToastBanner, useToasts } from '@offisim/ui-core';
 import { Download, Link } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { showDiscardConfirm } from '../../lib/discard-confirm-toast';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 
@@ -22,6 +16,8 @@ interface SopImportDialogProps {
 export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDialogProps) {
   const { repos } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
+  const { toasts, addToast, dismissToast } = useToasts();
+  const previewDebounceRef = useRef<number | null>(null);
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +31,41 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
       }
     : null;
 
-  const handlePreview = async () => {
+  useEffect(
+    () => () => {
+      if (previewDebounceRef.current) window.clearTimeout(previewDebounceRef.current);
+    },
+    [],
+  );
+
+  const resetDraft = useCallback(() => {
+    setUrl('');
+    setError(null);
+    setPreviewData(null);
+  }, []);
+
+  const isDirty = useMemo(() => url.trim().length > 0 || previewData !== null, [previewData, url]);
+
+  const discardAndClose = useCallback(() => {
+    resetDraft();
+    onOpenChange(false);
+  }, [onOpenChange, resetDraft]);
+
+  const requestClose = useCallback(() => {
+    if (!isDirty) {
+      onOpenChange(false);
+      return;
+    }
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+  }, [addToast, discardAndClose, isDirty, onOpenChange]);
+
+  const handleRequestClose = useCallback(() => {
+    if (!isDirty) return undefined;
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+    return false;
+  }, [addToast, discardAndClose, isDirty]);
+
+  const handlePreview = useCallback(async () => {
     if (!repos?.sopTemplates || !url.trim()) return;
     setLoading(true);
     setError(null);
@@ -49,17 +79,23 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
     } finally {
       setLoading(false);
     }
-  };
+  }, [repos?.sopTemplates, url]);
 
-  const handleImport = async () => {
+  const handlePreviewEnter = useCallback(() => {
+    if (previewDebounceRef.current) window.clearTimeout(previewDebounceRef.current);
+    previewDebounceRef.current = window.setTimeout(() => {
+      void handlePreview();
+    }, 300);
+  }, [handlePreview]);
+
+  const handleImport = useCallback(async () => {
     if (!repos?.sopTemplates || !activeCompanyId || !previewData) return;
     setLoading(true);
     setError(null);
     try {
       const svc = new SopSyncService(repos.sopTemplates);
       await svc.importFromDefinition(previewData, url.trim(), activeCompanyId);
-      setUrl('');
-      setPreviewData(null);
+      resetDraft();
       onOpenChange(false);
       onImported?.();
     } catch (err) {
@@ -67,21 +103,43 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    activeCompanyId,
+    onImported,
+    onOpenChange,
+    previewData,
+    repos?.sopTemplates,
+    resetDraft,
+    url,
+  ]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+    <>
+      <DialogShell
+        open={open}
+        onOpenChange={onOpenChange}
+        size="sm"
+        title={
+          <span className="flex items-center gap-2">
             <Download className="h-4 w-4 text-blue-400" />
             Import SOP from URL
-          </DialogTitle>
-          <DialogDescription>
-            Paste a URL to a JSON SOP definition (e.g. GitHub raw file).
-          </DialogDescription>
-        </DialogHeader>
-
+          </span>
+        }
+        description="Paste a URL to a JSON SOP definition (e.g. GitHub raw file)."
+        onRequestClose={handleRequestClose}
+        footer={
+          preview ? (
+            <>
+              <Button variant="outline" size="sm" onClick={requestClose}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleImport} disabled={loading}>
+                {loading ? 'Importing...' : 'Import SOP'}
+              </Button>
+            </>
+          ) : null
+        }
+      >
         <div className="space-y-3 pt-2">
           <div className="flex items-center gap-2">
             <Link className="h-3.5 w-3.5 text-slate-500 shrink-0" />
@@ -96,7 +154,10 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
               placeholder="https://raw.githubusercontent.com/..."
               className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') void handlePreview();
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handlePreviewEnter();
+                }
               }}
             />
           </div>
@@ -128,19 +189,9 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
               <p className="text-[10px] text-slate-500">{preview.stepCount} steps</p>
             </div>
           )}
-
-          {preview && (
-            <div className="flex items-center justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleImport} disabled={loading}>
-                {loading ? 'Importing...' : 'Import SOP'}
-              </Button>
-            </div>
-          )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </DialogShell>
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

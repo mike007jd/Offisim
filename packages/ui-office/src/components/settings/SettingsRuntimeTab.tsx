@@ -23,6 +23,12 @@ const DENSITY_ITEMS = [
   { value: 'spacious', label: 'Spacious' },
 ] as const;
 
+const THEME_ITEMS = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+] as const;
+
 function BooleanSelect({
   id,
   label,
@@ -97,6 +103,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
     memoryEnabled,
     memoryInjectionEnabled,
     memoryMaxFacts,
+    resolvedTheme,
     setDensity,
     setEmployeeRuntimeDefault,
     setExecutionMode,
@@ -108,11 +115,13 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
     setSummarizationEnabled,
     setSummarizationKeepRecentMessages,
     setSummarizationTriggerTokens,
+    setTheme,
     setToolSearchEnabled,
     summarizationEnabled,
     summarizationKeepRecentMessages,
     summarizationTriggerTokens,
     toolSearchEnabled,
+    theme,
   } = controller;
 
   return (
@@ -149,6 +158,21 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
             value={gitAutoCommit}
             onChange={setGitAutoCommit}
           />
+
+          <div className="md:col-span-2 xl:col-span-3">
+            <SectionLabel htmlFor="settings-theme-group">Theme</SectionLabel>
+            <SegmentedControl
+              value={theme}
+              onChange={(next) => setTheme(next as typeof theme)}
+              items={[...THEME_ITEMS]}
+              ariaLabel="Theme"
+            />
+            {theme === 'system' ? (
+              <p className="mt-2 text-xs text-slate-500">
+                Following OS preference: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
+              </p>
+            ) : null}
+          </div>
 
           <div className="md:col-span-2 xl:col-span-3">
             <SectionLabel htmlFor="settings-density-group">Display density</SectionLabel>

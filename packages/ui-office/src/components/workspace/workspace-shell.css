@@ -3,8 +3,37 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  --workspace-min-content-height: 480px;
   pointer-events: auto;
   overflow: hidden;
+}
+
+.workspace-shell[data-workspace="office"] {
+  --workspace-min-content-height: 540px;
+}
+
+.workspace-shell[data-workspace="personnel"] {
+  --workspace-min-content-height: 600px;
+}
+
+.workspace-shell[data-workspace="sops"] {
+  --workspace-min-content-height: 540px;
+}
+
+.workspace-shell[data-workspace="market"] {
+  --workspace-min-content-height: 480px;
+}
+
+.workspace-shell[data-workspace="activity-log"] {
+  --workspace-min-content-height: 600px;
+}
+
+.workspace-shell[data-workspace="settings"] {
+  --workspace-min-content-height: 480px;
+}
+
+.workspace-shell-loading-region {
+  min-height: var(--workspace-min-content-height);
 }
 
 .workspace-shell-header {

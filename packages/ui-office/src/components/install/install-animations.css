@@ -42,7 +42,7 @@
 
 /* ANIM-022: Compatibility verdict emphasis */
 [data-verdict="fail"] {
-  border-color: var(--lobster-red, #ef4444) !important;
+  border-color: var(--color-error) !important;
   animation: verdict-pulse 0.5s ease-in-out 2;
 }
 
@@ -53,10 +53,10 @@
 @keyframes verdict-pulse {
   0%,
   100% {
-    border-color: var(--lobster-red, #ef4444);
+    border-color: var(--color-error);
   }
   50% {
-    border-color: rgba(239, 68, 68, 0.5);
+    border-color: var(--color-error-muted);
   }
 }
 
@@ -71,8 +71,8 @@
 
 /* ANIM-023: Binding required state */
 .binding-required {
-  border: 1px dashed var(--sand, #d4a76a);
-  background-color: rgba(212, 167, 106, 0.1);
+  border: 1px dashed var(--color-warning);
+  background-color: var(--color-warning-muted);
 }
 
 .binding-required-badge {

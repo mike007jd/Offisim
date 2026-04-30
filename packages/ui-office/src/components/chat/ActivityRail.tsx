@@ -68,7 +68,7 @@ export function ActivityRail({
   }
 
   return (
-    <div className="mb-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 shadow-[0_12px_32px_rgba(2,6,23,0.14)]">
+    <div className="mb-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 shadow-overlay">
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-200">
         <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-cyan-100">
           <Activity className="h-3 w-3 animate-pulse" />

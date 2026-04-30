@@ -6,6 +6,7 @@
  * Uses drei Html for DOM-in-3D rendering.
  */
 
+import { MOTION_DURATION, MOTION_EASING } from '@offisim/ui-core/tokens';
 import { Html } from '@react-three/drei';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
 import {
@@ -16,6 +17,7 @@ import {
 } from '../../lib/ceremony-visuals';
 
 const BUBBLE_POSITION: [number, number, number] = [-10, 3, -8];
+const BUBBLE_TRANSITION = `opacity ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}, transform ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}`;
 
 export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
   if (
@@ -47,7 +49,7 @@ export function MeetingBubble3D({ ceremony }: { ceremony: CeremonyState }) {
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          transition: 'opacity 0.3s, transform 0.3s',
+          transition: BUBBLE_TRANSITION,
         }}
       >
         {/* Phase indicator dot */}

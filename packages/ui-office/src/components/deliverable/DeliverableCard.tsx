@@ -302,7 +302,7 @@ function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps)
     <Card
       className={cn(
         'animate-in fade-in slide-in-from-bottom-2 duration-300 overflow-hidden bg-slate-900/50 transition-all',
-        isNew ? 'border-emerald-500/60 shadow-[0_0_8px_rgba(52,211,153,0.25)]' : 'border-slate-700',
+        isNew ? 'border-emerald-500/60 shadow-glow-success' : 'border-slate-700',
       )}
     >
       <CardHeader className="p-3 pb-1">

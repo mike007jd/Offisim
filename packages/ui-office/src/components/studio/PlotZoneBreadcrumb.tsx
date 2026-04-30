@@ -8,7 +8,7 @@ import { getBuiltinPrefab } from '@offisim/renderer';
 import { useMemo } from 'react';
 import { STUDIO_IDENTITY_HEIGHT } from './StudioCompanyIdentity.js';
 import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
-import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
+import { FONT, LAYOUT, SP, STUDIO_COLORS, STUDIO_Z_INDEX } from './studio-style-helpers.js';
 
 const SEPARATOR_CHAR = '›';
 
@@ -26,7 +26,7 @@ const CONTAINER_STYLE: React.CSSProperties = {
   borderBottom: `1px solid ${STUDIO_COLORS.border}`,
   fontFamily: FONT.family,
   fontSize: FONT.base,
-  zIndex: 25,
+  zIndex: STUDIO_Z_INDEX.sticky,
   pointerEvents: 'auto',
 };
 

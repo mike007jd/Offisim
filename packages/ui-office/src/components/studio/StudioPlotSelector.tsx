@@ -13,7 +13,7 @@ import {
   labelStyle,
   panelStyle,
   toolButtonStyle,
-} from './studio-tokens.js';
+} from './studio-style-helpers.js';
 
 // -- Component ----------------------------------------------------------------
 
@@ -55,7 +55,7 @@ export function StudioPlotSelector() {
                 color: active ? STUDIO_COLORS.accentHover : STUDIO_COLORS.textTertiary,
               }}
             >
-              {size.width}&times;{size.depth}
+              {size.width}×{size.depth}
             </span>
           </button>
         );

@@ -1,4 +1,11 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@offisim/ui-core';
+import {
+  TABS_RETAIN_STATE_CLASS,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  cn,
+} from '@offisim/ui-core';
 import { MessageSquare, Terminal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -6,6 +13,7 @@ import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { ActivityRail } from '../chat/ActivityRail';
+import { useTourTarget } from '../onboarding/tour-context';
 import { PitchHall } from '../pitch/PitchHall';
 import { TaskDashboard } from '../plan/TaskDashboard';
 
@@ -34,6 +42,7 @@ export function RightSidebar({
   const { stage } = usePipelineStage();
   const { isRunning } = useOffisimRuntimeStatus();
   const [activeTab, setActiveTab] = useState<'chat' | 'tasks'>('chat');
+  const tasksTargetRef = useTourTarget('office:tasks-tab');
   const [taskSubTab, setTaskSubTab] = useState<TaskSubTab>('plan');
 
   useEffect(() => {
@@ -71,7 +80,7 @@ export function RightSidebar({
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as 'chat' | 'tasks')}
-        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        className="flex min-h-[640px] min-h-0 flex-1 flex-col overflow-hidden"
       >
         <div className="border-b border-white/5 px-2 pt-2">
           <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 pb-2">
@@ -85,10 +94,10 @@ export function RightSidebar({
               <span>Chat</span>
             </TabsTrigger>
             <TabsTrigger
+              ref={tasksTargetRef}
               value="tasks"
               title="Tasks"
               aria-label="Tasks"
-              data-onboarding-target="tasks-tab"
               className={MAIN_TAB_TRIGGER_CLASS}
             >
               <Terminal className="h-4 w-4" />
@@ -100,7 +109,10 @@ export function RightSidebar({
         <TabsContent
           value="chat"
           forceMount
-          className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
+          className={cn(
+            'mt-0 flex min-h-0 flex-1 flex-col overflow-hidden',
+            TABS_RETAIN_STATE_CLASS,
+          )}
         >
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatPanel}</div>
         </TabsContent>
@@ -108,7 +120,10 @@ export function RightSidebar({
         <TabsContent
           value="tasks"
           forceMount
-          className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
+          className={cn(
+            'mt-0 flex min-h-0 flex-1 flex-col overflow-hidden',
+            TABS_RETAIN_STATE_CLASS,
+          )}
         >
           <Tabs
             value={taskSubTab}
@@ -131,21 +146,30 @@ export function RightSidebar({
             <TabsContent
               value="activity"
               forceMount
-              className="mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar px-3 pb-3 pt-3 data-[state=inactive]:hidden"
+              className={cn(
+                'mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar px-3 pb-3 pt-3',
+                TABS_RETAIN_STATE_CLASS,
+              )}
             >
               <ActivityRail variant="full" />
             </TabsContent>
             <TabsContent
               value="plan"
               forceMount
-              className="mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar data-[state=inactive]:hidden"
+              className={cn(
+                'mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar',
+                TABS_RETAIN_STATE_CLASS,
+              )}
             >
               <TaskDashboard agents={agents} />
             </TabsContent>
             <TabsContent
               value="outputs"
               forceMount
-              className="mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar data-[state=inactive]:hidden"
+              className={cn(
+                'mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar',
+                TABS_RETAIN_STATE_CLASS,
+              )}
             >
               <PitchHall activeThreadId={activeThreadId} />
             </TabsContent>

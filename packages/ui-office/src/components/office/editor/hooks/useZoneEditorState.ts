@@ -1,6 +1,7 @@
 import { getAllBuiltinPrefabs } from '@offisim/renderer';
 import type { PrefabDefinition, ZoneArchetype, ZonePreset } from '@offisim/shared-types';
 import { isRequiredArchetype } from '@offisim/shared-types';
+import { DARK_SEMANTIC_COLORS } from '@offisim/ui-core/tokens';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyZones } from '../../../../hooks/useCompanyZones.js';
 import { usePrefabInstances } from '../../../../hooks/usePrefabInstances.js';
@@ -234,7 +235,7 @@ export function useZoneEditorState({
       presetId: null,
       label: customLabel,
       archetype: customArchetype,
-      accentColor: '#64748b',
+      accentColor: DARK_SEMANTIC_COLORS.textMuted,
       floorColor: 0x334155,
       cx: 0,
       cz: 0,

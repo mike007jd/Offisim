@@ -1,6 +1,8 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import type { CompanyTemplate } from '@offisim/core/browser';
 import type { RoleSlug } from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID, extractZoneSlug, resolveZoneForRole } from '@offisim/shared-types';
+import { MOTION_DURATION, MOTION_EASING } from '@offisim/ui-core/tokens';
 import { useMemo, useState } from 'react';
 import {
   ROLE_DOT,
@@ -481,7 +483,7 @@ export function Office2DPreview({
                 zone.archetype === 'meeting' || zone.archetype === 'server' ? '3 1.5' : 'none'
               }
               style={{
-                transition: 'fill-opacity 0.3s, stroke-width 0.3s, stroke-opacity 0.3s',
+                transition: `fill-opacity ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}, stroke-width ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}, stroke-opacity ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}`,
               }}
             />
 

@@ -1,6 +1,7 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useListingDetail } from '../../hooks/useListingDetail.js';
 import { useMarketplace } from '../../hooks/useMarketplace.js';
 import { MarketCardGrid } from './MarketCardGrid.js';
@@ -35,6 +36,7 @@ export function MarketPage({
   onStartInstall,
 }: MarketPageProps) {
   const { toasts, addToast, dismissToast } = useToasts();
+  const { tier } = useLayoutTier();
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
   // 7.2 — useMarketplace integration
@@ -165,11 +167,11 @@ export function MarketPage({
     results.length === 0;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" data-layout-tier={tier}>
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Hide filter bar when viewing detail */}
-      {!showDetail && (
+      {/* Narrow detail is a drill-in page; tablet/desktop keep filters visible beside detail. */}
+      {(!showDetail || tier !== 'narrow') && (
         <MarketFilterBar
           mode={sessionState.mode}
           search={sessionState.search}
@@ -182,23 +184,54 @@ export function MarketPage({
           onKindChange={handleKindChange}
           onManageTabChange={handleManageTabChange}
           onPublishClick={() => setPublishDialogOpen(true)}
+          variant={tier === 'narrow' ? 'narrow' : 'default'}
         />
       )}
 
       <div className="flex-1 overflow-y-auto">
         {/* Explore: Detail view */}
-        {showDetail && (
+        {showDetail && tier === 'narrow' && (
           <MarketDetailView
             detail={detail}
             loading={detailLoading}
             unavailable={detailUnavailable}
             onBack={handleBackToListings}
             onInstall={handleInstall}
+            layout="narrow"
           />
         )}
 
+        {showDetail && tier !== 'narrow' && (
+          <div
+            className={`grid h-full min-h-0 ${
+              tier === 'desktop'
+                ? 'grid-cols-[minmax(0,3fr)_minmax(380px,2fr)]'
+                : 'grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]'
+            }`}
+          >
+            <div className="min-h-0 overflow-y-auto border-r border-white/10">
+              <MarketCardGrid
+                results={results}
+                isLoading={isLoading}
+                isLoadingMore={isLoadingMore}
+                hasMore={hasMore}
+                onSelectListing={handleSelectListing}
+                onLoadMore={loadMore}
+              />
+            </div>
+            <MarketDetailView
+              detail={detail}
+              loading={detailLoading}
+              unavailable={detailUnavailable}
+              onBack={handleBackToListings}
+              onInstall={handleInstall}
+              layout="panel"
+            />
+          </div>
+        )}
+
         {/* Explore: Error state */}
-        {showError && <MarketErrorState error={error} onRetry={refresh} />}
+        {showError && !showDetail && <MarketErrorState error={error} onRetry={refresh} />}
 
         {/* Explore: Empty state */}
         {showEmpty && (

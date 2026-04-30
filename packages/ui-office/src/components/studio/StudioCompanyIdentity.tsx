@@ -1,7 +1,14 @@
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import { useEffect, useRef, useState } from 'react';
 import { parseCompanyDescription, updateCompanyIdentity } from '../../lib/company-identity.js';
-import { FONT, LAYOUT, SP, STUDIO_COLORS, inputStyle } from './studio-tokens.js';
+import {
+  FONT,
+  LAYOUT,
+  SP,
+  STUDIO_COLORS,
+  STUDIO_Z_INDEX,
+  inputStyle,
+} from './studio-style-helpers.js';
 
 export const STUDIO_IDENTITY_HEIGHT = 56;
 
@@ -25,13 +32,13 @@ const CONTAINER_STYLE: React.CSSProperties = {
   background: STUDIO_COLORS.surface0,
   borderBottom: `1px solid ${STUDIO_COLORS.border}`,
   fontFamily: FONT.family,
-  zIndex: 24,
+  zIndex: STUDIO_Z_INDEX.sticky,
 };
 
 const FIELD_LABEL_STYLE: React.CSSProperties = {
   fontSize: FONT.xs,
   fontWeight: FONT.semibold,
-  letterSpacing: 0.6,
+  letterSpacing: 0,
   textTransform: 'uppercase' as const,
   color: STUDIO_COLORS.textTertiary,
   flexShrink: 0,
@@ -54,7 +61,7 @@ function descriptionStyle(focused: boolean): React.CSSProperties {
     top: 8,
     left: 0,
     right: 0,
-    zIndex: 1,
+    zIndex: STUDIO_Z_INDEX.elevated,
     boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
   };
 }

@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import type { FrameContext, SceneSnapshot } from '../office-2d-canvas-renderer';
 
 const BACKGROUND_COLOR = '#020617';

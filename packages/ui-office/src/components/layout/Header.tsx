@@ -5,9 +5,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@offisim/ui-core';
-import { ArrowLeft, Building2, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Building2, ChevronDown, Menu, MoreHorizontal, X } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
+import { useTourTarget } from '../onboarding/tour-context.js';
 
 type WorkspaceKey = 'office' | 'sops' | 'market' | 'personnel' | 'activity-log' | 'settings';
 
@@ -72,6 +75,180 @@ export function Header({
   officeTools,
 }: HeaderProps) {
   const isOffice = activeWorkspace === 'office';
+  const { tier } = useLayoutTier();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const providerCtaRef = useTourTarget('settings:provider-cta');
+  const projectSelectorRef = useTourTarget('office:project-selector');
+  const drawerPersonnelRef = useTourTarget('personnel:nav-button');
+  const drawerMarketRef = useTourTarget('market:nav-button');
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDrawerOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [drawerOpen]);
+
+  if (tier === 'narrow') {
+    return (
+      <>
+        <header
+          className="flex min-h-11 items-center justify-between gap-2 rounded-[18px] border border-white/10 bg-black/25 px-2 py-1.5 shadow-2xl backdrop-blur-md"
+          data-layout-tier="narrow"
+        >
+          <button
+            type="button"
+            aria-label="Open workspace menu"
+            onClick={() => setDrawerOpen(true)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+          <h1 className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-slate-100">
+            {isOffice ? companyName || 'Office' : workspaceTitle || 'Workspace'}
+          </h1>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="More actions"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-[70vh] w-72 overflow-y-auto p-2">
+              <div className="space-y-2">
+                {isOffice && viewMode && onViewModeChange ? (
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-2">
+                    <ViewModeToggle value={viewMode} onChange={onViewModeChange} />
+                  </div>
+                ) : null}
+                {isOffice && projectSlot ? (
+                  <div ref={projectSelectorRef} className="rounded-lg p-1">
+                    {projectSlot}
+                  </div>
+                ) : null}
+                {isOffice && modeSlot ? <div className="rounded-lg p-1">{modeSlot}</div> : null}
+                {isOffice && officeTools && officeTools.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-1">
+                    {officeTools.map((tool) => (
+                      <button
+                        key={tool.key}
+                        type="button"
+                        disabled={tool.disabled}
+                        onClick={() => tool.onActivate()}
+                        className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 text-left text-xs text-slate-200 disabled:opacity-50"
+                      >
+                        <tool.icon className="h-4 w-4" />
+                        <span className="truncate">{tool.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <FileImportTrigger onFileSelect={onFileImport} />
+                {notificationSlot}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
+
+        {drawerOpen && (
+          <div className="fixed inset-0 z-top" role="presentation">
+            <button
+              type="button"
+              aria-label="Close workspace menu"
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setDrawerOpen(false)}
+            />
+            <aside className="absolute inset-y-0 left-0 flex w-full max-w-sm flex-col border-r border-border-default bg-surface-elevated p-4 shadow-modal">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-wider text-text-muted">Workspace</p>
+                  <p className="truncate text-sm font-semibold text-text-primary">
+                    {companyName || 'Select Company'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close workspace menu"
+                  onClick={() => setDrawerOpen(false)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border-default text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {peerWorkspaces.map((item) => {
+                  const Icon = item.icon;
+                  const selected = item.key === activeWorkspace;
+                  return (
+                    <a
+                      key={item.key}
+                      href={workspaceHref(item.key)}
+                      ref={
+                        item.key === 'personnel'
+                          ? drawerPersonnelRef
+                          : item.key === 'market'
+                            ? drawerMarketRef
+                            : undefined
+                      }
+                      aria-current={selected ? 'page' : undefined}
+                      onClick={(event) => {
+                        activateWorkspaceLink(event, item.key, onSelectWorkspace);
+                        setDrawerOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm ${
+                        selected
+                          ? 'border-border-focus bg-accent-muted text-accent-text'
+                          : 'border-border-subtle bg-surface-muted text-text-secondary hover:border-border-default hover:bg-surface-hover hover:text-text-primary'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </a>
+                  );
+                })}
+              </div>
+              <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+                {onOpenCompanySelect && (
+                  <Button
+                    ref={providerCtaRef}
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      onOpenCompanySelect();
+                      setDrawerOpen(false);
+                    }}
+                    className="w-full justify-start"
+                  >
+                    Switch Company
+                  </Button>
+                )}
+                {needsConfig && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      onOpenSettings();
+                      setDrawerOpen(false);
+                    }}
+                    className="w-full justify-start"
+                  >
+                    Open API Settings
+                  </Button>
+                )}
+              </div>
+            </aside>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <header
@@ -141,11 +318,11 @@ export function Header({
         )}
         {needsConfig && (
           <Button
+            ref={providerCtaRef}
             type="button"
             variant="secondary"
             size="sm"
             onClick={onOpenSettings}
-            data-onboarding-target="configure-provider"
             title="Open API and model settings"
             aria-label="Open API and model settings"
             className="h-8 border-blue-400/25 bg-blue-500/14 text-blue-50 hover:border-blue-300/40 hover:bg-blue-500/22"
@@ -154,7 +331,7 @@ export function Header({
           </Button>
         )}
 
-        {isOffice && projectSlot}
+        {isOffice && projectSlot ? <span ref={projectSelectorRef}>{projectSlot}</span> : null}
       </div>
 
       <div
@@ -208,6 +385,8 @@ function PeerWorkspaceNav({
   active: WorkspaceKey;
   onSelect: (key: WorkspaceKey) => void;
 }) {
+  const personnelRef = useTourTarget('personnel:nav-button');
+  const marketRef = useTourTarget('market:nav-button');
   return (
     <nav
       aria-label="Primary workspace navigation"
@@ -217,10 +396,17 @@ function PeerWorkspaceNav({
         const selected = item.key === active;
         const Icon = item.icon;
         return (
-          <button
+          <a
             key={item.key}
-            type="button"
-            onClick={() => onSelect(item.key)}
+            href={workspaceHref(item.key)}
+            ref={
+              item.key === 'personnel'
+                ? personnelRef
+                : item.key === 'market'
+                  ? marketRef
+                  : undefined
+            }
+            onClick={(event) => activateWorkspaceLink(event, item.key, onSelect)}
             aria-label={`${item.label} workspace`}
             title={item.label}
             aria-current={selected ? 'page' : undefined}
@@ -232,11 +418,46 @@ function PeerWorkspaceNav({
           >
             <Icon className="h-3.5 w-3.5 shrink-0" />
             <span className="hidden sm:inline">{item.label}</span>
-          </button>
+          </a>
         );
       })}
     </nav>
   );
+}
+
+function workspaceHref(key: WorkspaceKey): string {
+  switch (key) {
+    case 'activity-log':
+      return '/activity';
+    case 'market':
+      return '/market/explore';
+    case 'office':
+      return '/';
+    case 'personnel':
+      return '/personnel';
+    case 'settings':
+      return '/settings/provider';
+    case 'sops':
+      return '/sops';
+  }
+}
+
+function activateWorkspaceLink(
+  event: React.MouseEvent<HTMLAnchorElement>,
+  key: WorkspaceKey,
+  onSelect: (key: WorkspaceKey) => void,
+): void {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+    return;
+  }
+  event.preventDefault();
+  const href = workspaceHref(key);
+  onSelect(key);
+  if (typeof window === 'undefined') return;
+  const current = `${window.location.pathname}${window.location.search}`;
+  if (current === href) return;
+  window.history.pushState(null, '', href);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
 const MAX_VISIBLE_OFFICE_TOOLS = 3;

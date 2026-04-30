@@ -1,38 +1,85 @@
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
-import { type ComponentPropsWithoutRef, forwardRef } from 'react';
+import {
+  type ComponentPropsWithoutRef,
+  createContext,
+  forwardRef,
+  useCallback,
+  useContext,
+  useId,
+  useState,
+} from 'react';
+import { useRegisterModal } from '../lib/modal-stack.js';
 import { cn } from '../lib/utils.js';
 
-const DropdownMenu = DropdownMenuPrimitive.Root;
+const DropdownOpenContext = createContext(false);
+
+type DropdownRootProps = ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Root>;
+
+function DropdownMenu({ open, defaultOpen, onOpenChange, children, ...props }: DropdownRootProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen ?? false);
+  const isControlled = open !== undefined;
+  const currentOpen = isControlled ? open : uncontrolledOpen;
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!isControlled) setUncontrolledOpen(next);
+      onOpenChange?.(next);
+    },
+    [isControlled, onOpenChange],
+  );
+  return (
+    <DropdownOpenContext.Provider value={currentOpen}>
+      <DropdownMenuPrimitive.Root
+        open={open}
+        defaultOpen={defaultOpen}
+        onOpenChange={handleOpenChange}
+        {...props}
+      >
+        {children}
+      </DropdownMenuPrimitive.Root>
+    </DropdownOpenContext.Provider>
+  );
+}
+
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
 const DropdownMenuContent = forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.Content>,
   ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <DropdownMenuPrimitive.Portal>
-    <DropdownMenuPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        'z-50 min-w-[8rem] overflow-hidden rounded-lg border border-white/15 bg-slate-900 p-1 shadow-xl',
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-        className,
-      )}
-      {...props}
-    />
-  </DropdownMenuPrimitive.Portal>
-));
+>(({ className, sideOffset = 4, ...props }, ref) => {
+  const open = useContext(DropdownOpenContext);
+  const id = useId();
+  useRegisterModal(open ? id : null, 'popover');
+  return (
+    <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.Content
+        ref={ref}
+        sideOffset={sideOffset}
+        className={cn(
+          'z-50 min-w-[8rem] overflow-hidden rounded-lg border border-white/15 bg-slate-900 p-1 shadow-xl',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+          className,
+        )}
+        {...props}
+      />
+    </DropdownMenuPrimitive.Portal>
+  );
+});
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
 
 const DropdownMenuItem = forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.Item>,
-  ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item>
->(({ className, ...props }, ref) => (
+  ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
+    variant?: 'default' | 'destructive';
+  }
+>(({ className, variant = 'default', ...props }, ref) => (
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
       'relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-200 outline-none transition-colors',
-      'focus:bg-white/10 focus:text-slate-100',
+      variant === 'destructive'
+        ? 'text-red-300 focus:bg-red-500/10 focus:text-red-200 hover:text-red-200 focus-visible:bg-red-500/10'
+        : 'focus:bg-white/10 focus:text-slate-100',
+      'focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-inset',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}

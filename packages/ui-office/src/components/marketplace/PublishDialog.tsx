@@ -3,11 +3,7 @@ import { serializeSkillMd } from '@offisim/core/browser';
 import type { SkillMetadata } from '@offisim/shared-types';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  DialogShell,
   Input,
   Select,
   SelectContent,
@@ -15,11 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  ToastBanner,
+  useToasts,
 } from '@offisim/ui-core';
 import { CloudUpload, Download, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePublish } from '../../hooks/usePublish.js';
 import { loadRegistryAuthToken, saveRegistryAuthToken } from '../../hooks/useRegistryClient.js';
+import { showDiscardConfirm } from '../../lib/discard-confirm-toast.js';
 import {
   type PublishMeta,
   buildEmployeePackage,
@@ -70,6 +69,7 @@ function downloadBytes(fileName: string, bytes: Uint8Array): void {
 export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   const { repos, skillLoader } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
+  const { toasts, addToast, dismissToast } = useToasts();
   const [authToken, setAuthToken] = useState<string>(loadRegistryAuthToken() ?? '');
   const [kind, setKind] = useState<PublishKind>('employee');
   const [selectedSourceId, setSelectedSourceId] = useState<string>('');
@@ -294,18 +294,84 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   const sourceLabel = kind === 'skill' ? 'Skill' : 'Employee';
   const sourcePlaceholder = kind === 'skill' ? 'Select a skill' : 'Select an employee';
   const hasMultipleKinds = employees.length > 0 && skills.length > 0;
+  const isDirty = useMemo(
+    () =>
+      selectedSourceId !== '' ||
+      kind !== 'employee' ||
+      form.title !== DEFAULT_FORM.title ||
+      form.version !== DEFAULT_FORM.version ||
+      form.summary !== DEFAULT_FORM.summary ||
+      form.description !== DEFAULT_FORM.description ||
+      form.tags !== DEFAULT_FORM.tags ||
+      form.license !== DEFAULT_FORM.license ||
+      form.riskClass !== DEFAULT_FORM.riskClass ||
+      form.artifactUrl !== DEFAULT_FORM.artifactUrl,
+    [form, kind, selectedSourceId],
+  );
+
+  const resetDraft = useCallback(() => {
+    setKind('employee');
+    setSelectedSourceId('');
+    setForm(DEFAULT_FORM);
+    setStatus(null);
+  }, []);
+
+  const discardAndClose = useCallback(() => {
+    resetDraft();
+    onOpenChange(false);
+  }, [onOpenChange, resetDraft]);
+
+  const requestClose = useCallback(() => {
+    if (!isDirty) {
+      onOpenChange(false);
+      return;
+    }
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+  }, [addToast, discardAndClose, isDirty, onOpenChange]);
+
+  const handleRequestClose = useCallback(() => {
+    if (!isDirty) return undefined;
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+    return false;
+  }, [addToast, discardAndClose, isDirty]);
+
+  const footer = (
+    <>
+      <Button type="button" variant="outline" disabled={isPackaging} onClick={requestClose}>
+        Cancel
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={isPackaging || !selectedSourceId}
+        onClick={() => void handleDownload()}
+      >
+        <Download className="h-4 w-4" />
+        {isPackaging ? 'Building...' : 'Download package'}
+      </Button>
+      <Button
+        type="button"
+        disabled={isPackaging || isSubmitting || !selectedSourceId}
+        onClick={() => void handleSubmit()}
+      >
+        <CloudUpload className="h-4 w-4" />
+        {isSubmitting ? 'Submitting...' : 'Submit draft'}
+      </Button>
+    </>
+  );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-3xl overflow-y-auto border-white/10 bg-slate-950/95">
-        <DialogHeader>
-          <DialogTitle>Publish To Market</DialogTitle>
-          <DialogDescription>
-            Build a package from an employee or a skill, download the archive, and submit a registry
-            draft that points at an external artifact URL.
-          </DialogDescription>
-        </DialogHeader>
-
+    <>
+      <DialogShell
+        open={open}
+        onOpenChange={onOpenChange}
+        size="xl"
+        title="Publish To Market"
+        description="Build a package from an employee or a skill, download the archive, and submit a registry draft that points at an external artifact URL."
+        footer={footer}
+        onRequestClose={handleRequestClose}
+        className="border-white/10 bg-slate-950/95"
+      >
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-4">
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -498,26 +564,6 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                 </p>
               </div>
 
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isPackaging || !selectedSourceId}
-                  onClick={() => void handleDownload()}
-                >
-                  <Download className="h-4 w-4" />
-                  {isPackaging ? 'Building…' : 'Download package'}
-                </Button>
-                <Button
-                  type="button"
-                  disabled={isPackaging || isSubmitting || !selectedSourceId}
-                  onClick={() => void handleSubmit()}
-                >
-                  <CloudUpload className="h-4 w-4" />
-                  {isSubmitting ? 'Submitting…' : 'Submit draft'}
-                </Button>
-              </div>
-
               {(status || error) && (
                 <p className="mt-3 text-xs leading-relaxed text-slate-300">{status ?? error}</p>
               )}
@@ -573,7 +619,8 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
             </section>
           </aside>
         </div>
-      </DialogContent>
-    </Dialog>
+      </DialogShell>
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

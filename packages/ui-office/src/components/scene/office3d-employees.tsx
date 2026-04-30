@@ -1,9 +1,11 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import type { Zone } from '@offisim/shared-types';
 import { Html } from '@react-three/drei';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import type * as THREE from 'three';
 import { useAgentAnimation } from '../../hooks/useAgentAnimation.js';
+import { useCharacterLod } from '../../hooks/useCharacterLod.js';
 import { useCharacterMovement } from '../../hooks/useCharacterMovement.js';
 import {
   registerMovementHandle,
@@ -19,10 +21,20 @@ import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
+import {
+  resolveBlockBodyType,
+  resolveBlockGender,
+  resolveBlockHairStyle,
+} from './character-mesh-builder.js';
 import type { Zone3D } from './office3d-shared.js';
 import { resolveEmployeeSceneZoneId } from './office3d-shared.js';
 
-import { resolveOutfitColor, resolveSkinTone } from '../../lib/avatar-seed.js';
+import {
+  resolveAccentColor,
+  resolveHairColor,
+  resolveOutfitColor,
+  resolveSkinTone,
+} from '../../lib/avatar-seed.js';
 import { type BrandVariant, resolveBrand } from '../../lib/brand-registry.js';
 import {
   CodexBody,
@@ -140,13 +152,25 @@ export function usePlacedEmployees(
 function LowPolyCharacter({
   outfitColor,
   skinTone,
+  hairColor,
+  accentColor,
+  bodyType,
+  gender,
+  hairStyle,
   state,
+  isBlocked,
   limbRefs,
   variant = 'default',
 }: {
   outfitColor?: string;
   skinTone?: string;
+  hairColor?: string;
+  accentColor?: string;
+  bodyType?: 'slim' | 'normal' | 'stocky';
+  gender?: 'masculine' | 'feminine' | 'neutral';
+  hairStyle?: 'short' | 'long' | 'ponytail' | 'curly' | 'bald' | 'bob' | 'spiky' | 'braids';
   state: string;
+  isBlocked?: boolean;
   limbRefs?: import('../../hooks/useCharacterMovement').CharacterLimbRefs;
   variant?: BrandVariant;
 }) {
@@ -159,7 +183,21 @@ function LowPolyCharacter({
   if (variant === 'default') {
     return (
       <group ref={groupRef}>
-        <DefaultBlockBody limbRefs={limbRefs} outfitColor={outfitColor} skinTone={skinTone} />
+        <DefaultBlockBody
+          limbRefs={limbRefs}
+          params={{
+            skinColor: skinTone ?? '#f5deb3',
+            hairColor: hairColor ?? '#1a1a1a',
+            outfitColor: outfitColor ?? '#3b82f6',
+            accentColor: accentColor ?? outfitColor ?? '#3b82f6',
+            bodyType: bodyType ?? 'normal',
+            gender: gender ?? 'neutral',
+            hairStyle: hairStyle ?? 'short',
+            state,
+            isBlocked: isBlocked ?? false,
+            accentVariant: 'vest',
+          }}
+        />
         <mesh ref={ringRef} position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.4, 0.55, 32]} />
           <meshBasicMaterial ref={ringMatRef} transparent opacity={0} toneMapped={false} />
@@ -306,8 +344,16 @@ export function EmployeeMarker({
 }) {
   const sc = useSceneColors();
   const brand = resolveBrand(emp.agent);
-  const outfit = resolveOutfitColor(emp.seed, emp.agent.appearance);
-  const skin = resolveSkinTone(emp.seed, emp.agent.appearance);
+  const appearance = emp.agent.appearance;
+  const outfit = resolveOutfitColor(emp.seed, appearance);
+  const skin = resolveSkinTone(emp.seed, appearance);
+  const hair = resolveHairColor(emp.seed, appearance);
+  const accent = resolveAccentColor(emp.seed, appearance);
+  const bodyType = resolveBlockBodyType(appearance?.bodyType);
+  const gender = resolveBlockGender(appearance?.gender);
+  const hairStyle = resolveBlockHairStyle(appearance?.hairStyle);
+  const blocked = isEmployeeBlocked(emp.agent.state);
+  const { isFar } = useCharacterLod(emp.position);
 
   const leftLegRef = useRef<THREE.Mesh>(null);
   const rightLegRef = useRef<THREE.Mesh>(null);
@@ -398,24 +444,26 @@ export function EmployeeMarker({
               <ringGeometry args={[0.6, 0.75, 32]} />
               <meshBasicMaterial color={sc.selectionRing} transparent opacity={0.8} />
             </mesh>
-            <Html position={[0, 1.85, 0]} center style={{ pointerEvents: 'none' }}>
-              <div
-                style={{
-                  background: 'rgba(59,130,246,0.85)',
-                  color: '#ffffff',
-                  fontSize: '9px',
-                  padding: '2px 8px',
-                  borderRadius: '10px',
-                  whiteSpace: 'nowrap',
-                  fontFamily: 'system-ui, sans-serif',
-                }}
-              >
-                {emp.agent.name ?? emp.id}
-              </div>
-            </Html>
+            {!isFar && (
+              <Html position={[0, 1.85, 0]} center style={{ pointerEvents: 'none' }}>
+                <div
+                  style={{
+                    background: 'rgba(59,130,246,0.85)',
+                    color: '#ffffff',
+                    fontSize: '9px',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    whiteSpace: 'nowrap',
+                    fontFamily: 'system-ui, sans-serif',
+                  }}
+                >
+                  {emp.agent.name ?? emp.id}
+                </div>
+              </Html>
+            )}
           </>
         )}
-        {badge && (
+        {!isFar && badge && (
           <Html position={[0.48, 2.05, 0]} center style={{ pointerEvents: 'none' }}>
             {badge}
           </Html>
@@ -424,7 +472,13 @@ export function EmployeeMarker({
           <LowPolyCharacter
             outfitColor={outfit}
             skinTone={skin}
+            hairColor={hair}
+            accentColor={accent}
+            bodyType={bodyType}
+            gender={gender}
+            hairStyle={hairStyle}
             state={emp.agent.state}
+            isBlocked={blocked}
             limbRefs={limbRefs}
             variant="default"
           />
@@ -442,7 +496,7 @@ export function EmployeeMarker({
           <meshBasicMaterial color={sc.textMuted} transparent opacity={0.3} />
         </mesh>
       )}
-      {emp.agent.state !== 'idle' && !isDragSource && (
+      {!isFar && emp.agent.state !== 'idle' && !isDragSource && (
         <StatusBubble3D state={emp.agent.state} taskDesc={taskDesc} subTasks={emp.agent.subTasks} />
       )}
     </group>

@@ -6,11 +6,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  ToastBanner,
   useRegisterModal,
+  useToasts,
   useTopmostEscape,
 } from '@offisim/ui-core';
 import { ArrowLeft, Dices, Rocket } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { showDiscardConfirm } from '../../lib/discard-confirm-toast';
 import { ROLE_OPTIONS } from '../../lib/roles';
 import { DicebearAvatar } from '../shared/DicebearAvatar';
 
@@ -44,6 +47,7 @@ const STEPS = ['IDENTITY', 'VISUAL'] as const;
 // ─── Component ──────────────────────────────────────────────────────────────────
 
 export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCreatorOverlayProps) {
+  const { toasts, addToast, dismissToast } = useToasts();
   const [name, setName] = useState('');
   const [role, setRole] = useState<RoleSlug>('developer');
   const [seed, setSeed] = useState('');
@@ -51,6 +55,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
 
   // Auto-generate seed from name (only when user hasn't manually edited the seed)
   const [seedManuallyEdited, setSeedManuallyEdited] = useState(false);
+  const isDirty = name.trim().length > 0 || seedManuallyEdited;
 
   useEffect(() => {
     if (!seedManuallyEdited && name.trim()) {
@@ -70,8 +75,16 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
   }, [open]);
 
   const creatorStackId = 'employee-creator';
+  const handleClose = useCallback(() => {
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    showDiscardConfirm(addToast, { onDiscard: onClose });
+  }, [addToast, isDirty, onClose]);
+
   useRegisterModal(open ? creatorStackId : null, 'overlay');
-  useTopmostEscape(open ? creatorStackId : null, onClose, { enabled: open });
+  useTopmostEscape(open ? creatorStackId : null, handleClose, { enabled: open });
 
   const effectiveSeed = seed || 'default';
 
@@ -111,7 +124,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-white/50 transition-colors hover:bg-white/[0.05] hover:text-white/80"
             aria-label="Back"
           >
@@ -147,20 +160,25 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       </div>
 
       {/* ── Main Content ─────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* ── Left Panel: Character Preview (45%) ──────────────── */}
-        <div className="flex w-full lg:w-[45%] shrink-0 flex-col items-center justify-center bg-surface max-h-[200px] lg:max-h-none">
-          <div className="flex flex-col items-center gap-6">
+        <div className="flex h-[120px] w-full shrink-0 flex-row items-center justify-between gap-3 bg-surface px-4 lg:h-auto lg:w-[45%] lg:flex-col lg:justify-center lg:px-0">
+          <div className="flex min-w-0 flex-1 items-center gap-3 lg:flex-col lg:gap-6">
             {/* Avatar Preview */}
-            <div className="relative">
-              <div className="rounded-full border-2 border-blue-500/30 shadow-[0_0_60px_rgba(59,130,246,0.12)] p-1.5">
-                <DicebearAvatar seed={effectiveSeed} size={300} className="rounded-full" />
+            <div className="relative shrink-0">
+              <div className="rounded-full border-2 border-blue-500/30 p-1 shadow-glow-accent lg:p-1.5">
+                <DicebearAvatar seed={effectiveSeed} size={64} className="rounded-full lg:hidden" />
+                <DicebearAvatar
+                  seed={effectiveSeed}
+                  size={300}
+                  className="hidden rounded-full lg:block"
+                />
               </div>
             </div>
 
             {/* Character Name */}
-            <div className="text-center">
-              <p className="min-h-[2rem] text-2xl font-bold text-white/90">
+            <div className="min-w-0 flex-1 text-left lg:text-center">
+              <p className="min-h-0 truncate text-lg font-bold text-white/90 lg:min-h-[2rem] lg:text-2xl">
                 {name || <span className="italic text-white/20">Unnamed Employee</span>}
               </p>
               <div className="mt-2 inline-flex items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-3 py-1">
@@ -169,17 +187,19 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                 </span>
               </div>
             </div>
-
-            {/* Randomize Button */}
-            <button
-              type="button"
-              onClick={handleRandomize}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm text-white/60 transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-            >
-              <Dices className="h-4 w-4" />
-              <span className="font-mono text-xs uppercase tracking-wider">Randomize</span>
-            </button>
           </div>
+
+          {/* Randomize Button */}
+          <button
+            type="button"
+            onClick={handleRandomize}
+            className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white/60 transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-white lg:px-5"
+          >
+            <Dices className="h-4 w-4" />
+            <span className="hidden font-mono text-xs uppercase tracking-wider sm:inline">
+              Randomize
+            </span>
+          </button>
         </div>
 
         {/* ── Right Panel: Configuration (55%) ─────────────────── */}
@@ -257,7 +277,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                         onClick={() => handlePresetClick(presetSeed)}
                         className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-all ${
                           seed === presetSeed
-                            ? 'border-blue-500/40 bg-blue-500/10 shadow-[0_0_12px_rgba(59,130,246,0.15)]'
+                            ? 'border-blue-500/40 bg-blue-500/10 shadow-glow-accent'
                             : 'border-white/[0.06] bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.05]'
                         }`}
                       >
@@ -290,7 +310,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       >
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="rounded-lg border border-white/10 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-white/60 transition-colors hover:bg-white/[0.05] hover:text-white sm:px-5"
         >
           Cancel
@@ -301,7 +321,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           onClick={handleDeploy}
           className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-200 sm:px-8 ${
             canDeploy
-              ? 'bg-blue-600 text-white shadow-[0_0_24px_rgba(59,130,246,0.25)] hover:bg-blue-500 hover:shadow-[0_0_32px_rgba(59,130,246,0.4)] active:scale-[0.98]'
+              ? 'bg-blue-600 text-white shadow-glow-accent hover:bg-blue-500 hover:shadow-glow-accent active:scale-[0.98]'
               : 'cursor-not-allowed bg-white/[0.04] text-white/30'
           }`}
         >
@@ -309,6 +329,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           Add Employee
         </button>
       </div>
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

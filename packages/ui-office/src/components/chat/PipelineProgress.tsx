@@ -78,7 +78,7 @@ function StageNode({ step, state }: { step: PipelineStep; state: NodeState }) {
           state === 'completed'
             ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
             : state === 'active'
-              ? 'ring-2 ring-current shadow-[0_0_8px_rgba(59,130,246,0.3)]'
+              ? 'ring-2 ring-current shadow-glow-accent'
               : state === 'error'
                 ? 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40'
                 : 'bg-white/5 text-slate-500 ring-1 ring-white/10',

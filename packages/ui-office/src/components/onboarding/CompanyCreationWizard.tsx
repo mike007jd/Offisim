@@ -1,5 +1,6 @@
 import type { CompanyTemplate } from '@offisim/core/browser';
 import { useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
+import { DARK_SEMANTIC_COLORS } from '@offisim/ui-core/tokens';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
@@ -376,7 +377,7 @@ export function CompanyCreationWizard({
                 value={companyName}
                 onChange={(event) => setCompanyName(event.target.value)}
                 placeholder="My AI Company"
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white transition-all placeholder:text-slate-700 focus:border-blue-500/40 focus:shadow-[0_0_16px_2px_rgba(59,130,246,0.1)] focus:outline-none"
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white transition-all placeholder:text-slate-700 focus:border-blue-500/40 focus:shadow-glow-accent focus:outline-none"
               />
             </div>
             <button
@@ -439,7 +440,7 @@ function BuildingAnimation() {
 function EmployeeCard({ name, role }: { name: string; role: string }) {
   const [expanded, setExpanded] = useState(false);
   const avatarUri = useMemo(() => getAvatar(name, 64), [name]);
-  const dotColor = ROLE_DOT[role] ?? '#64748b';
+  const dotColor = ROLE_DOT[role] ?? DARK_SEMANTIC_COLORS.textMuted;
   const roleLabel = ROLE_LABELS[role] ?? role;
   const bio = EMPLOYEE_BIOS[name];
 
@@ -530,7 +531,7 @@ function ProductionWorkflow({
           )}
 
           {sop.steps.map((step, idx) => {
-            const stepColor = ROLE_DOT[step.role_slug] ?? '#64748b';
+            const stepColor = ROLE_DOT[step.role_slug] ?? DARK_SEMANTIC_COLORS.textMuted;
             const stepRole = ROLE_LABELS[step.role_slug] ?? step.role_slug;
             const isLastGlobal = sopIdx === sops.length - 1 && idx === sop.steps.length - 1;
 

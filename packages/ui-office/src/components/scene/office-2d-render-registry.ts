@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 /**
  * office-2d-render-registry.ts — Maps prefab IDs and categories to canvas draw functions.
  *
@@ -105,8 +106,7 @@ function drawServerRack(
 
     // Server units
     const rows = [-40, -29, -18, -7, 4, 15, 26, 37];
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]!;
+    for (const [i, row] of rows.entries()) {
       ctx.fillStyle = '#020617';
       ctx.beginPath();
       ctx.roundRect(-14, row, 28, 9, 1);

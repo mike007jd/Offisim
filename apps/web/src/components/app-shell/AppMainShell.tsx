@@ -232,6 +232,11 @@ export function AppMainShell(props: AppMainShellProps) {
             sessionState={workspaceSessionState}
             updateWorkspaceState={updateWorkspaceState}
             marketPageProps={{ onStartInstall: onStartMarketInstall }}
+            activityLogPageProps={{ onBackToOffice: handleBackToOffice }}
+            personnelPageProps={{
+              onOpenCreator: onOpenEmployeeCreator,
+              onOpenMarket: () => onSelectWorkspace('market'),
+            }}
             settingsPageProps={{
               onBack: handleBackToOffice,
               onSave: onSaveConfig,

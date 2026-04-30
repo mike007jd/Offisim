@@ -11,24 +11,39 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '../lib/utils.js';
 
-export type ToastVariant = 'info' | 'success' | 'error';
+export type ToastVariant = 'info' | 'success' | 'warning' | 'error';
+
+export interface ToastAction {
+  label: string;
+  onAction: () => void;
+  tone?: 'primary' | 'secondary' | 'danger';
+}
 
 export interface ToastItem {
   id: string;
+  title?: string;
   message: string;
   variant: ToastVariant;
+  actions?: ToastAction[];
   /** Optional action button label */
   actionLabel?: string;
   /** Callback when action button is clicked */
   onAction?: () => void;
   /** Override auto-dismiss duration in ms (uses component default if omitted) */
-  durationMs?: number;
+  durationMs?: number | null;
 }
 
 const VARIANT_CLASSES: Record<ToastVariant, string> = {
   info: 'border-white/15 bg-slate-900/95 text-slate-200',
   success: 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300',
+  warning: 'border-amber-400/45 bg-amber-500/10 text-amber-100',
   error: 'border-red-400/40 bg-red-500/10 text-red-300',
+};
+
+const ACTION_CLASSES: Record<NonNullable<ToastAction['tone']>, string> = {
+  primary: 'border-white/20 bg-white/10 text-white hover:bg-white/15',
+  secondary: 'border-amber-300/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15',
+  danger: 'border-red-300/40 bg-red-500/10 text-red-100 hover:bg-red-500/15',
 };
 
 const DEFAULT_DURATION_MS = 5_000;
@@ -50,9 +65,16 @@ function ToastEntry({
 }) {
   const effectiveDuration = toast.durationMs ?? durationMs;
   useEffect(() => {
+    if (effectiveDuration === null || effectiveDuration === Number.POSITIVE_INFINITY) return;
     const timer = setTimeout(() => onDismiss(toast.id), effectiveDuration);
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss, effectiveDuration]);
+
+  const actions =
+    toast.actions ??
+    (toast.actionLabel && toast.onAction
+      ? [{ label: toast.actionLabel, onAction: toast.onAction, tone: 'secondary' as const }]
+      : []);
 
   return (
     // biome-ignore lint/a11y/useSemanticElements: role=status on div is the standard ARIA live region pattern; <output> is form-associated and not applicable here
@@ -60,24 +82,31 @@ function ToastEntry({
       role="status"
       aria-live="polite"
       className={cn(
-        'pointer-events-auto flex items-center justify-between gap-3 border px-4 py-2 text-xs shadow-lg rounded-lg backdrop-blur-sm',
+        'pointer-events-auto flex max-w-[min(92vw,560px)] items-start justify-between gap-3 rounded-lg border px-4 py-2 text-xs shadow-lg backdrop-blur-sm',
         VARIANT_CLASSES[toast.variant],
       )}
     >
-      <span>{toast.message}</span>
-      <div className="flex items-center gap-2 ml-2 shrink-0">
-        {toast.actionLabel && toast.onAction && (
+      <div className="min-w-0">
+        {toast.title && <p className="font-semibold">{toast.title}</p>}
+        <p className={cn('leading-relaxed', toast.title && 'mt-0.5 opacity-85')}>{toast.message}</p>
+      </div>
+      <div className="ml-2 flex shrink-0 items-center gap-2">
+        {actions.map((action) => (
           <button
+            key={action.label}
             type="button"
             onClick={() => {
-              toast.onAction?.();
+              action.onAction();
               onDismiss(toast.id);
             }}
-            className="underline underline-offset-2 opacity-80 hover:opacity-100 font-semibold"
+            className={cn(
+              'rounded-md border px-2 py-1 font-semibold transition-colors',
+              ACTION_CLASSES[action.tone ?? 'secondary'],
+            )}
           >
-            {toast.actionLabel}
+            {action.label}
           </button>
-        )}
+        ))}
         <button
           type="button"
           onClick={() => onDismiss(toast.id)}
@@ -99,7 +128,7 @@ export function ToastBanner({
   if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-col items-center gap-2 p-4">
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-top flex flex-col items-center gap-2 p-4">
       {toasts.map((t) => (
         <ToastEntry key={t.id} toast={t} onDismiss={onDismiss} durationMs={durationMs} />
       ))}
@@ -114,9 +143,11 @@ export function ToastBanner({
 let toastCounter = 0;
 
 export interface AddToastOptions {
+  title?: string;
+  actions?: ToastAction[];
   actionLabel?: string;
   onAction?: () => void;
-  durationMs?: number;
+  durationMs?: number | null;
 }
 
 export function useToasts() {

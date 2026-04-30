@@ -1,5 +1,7 @@
 import { ChevronLeft, ChevronRight, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutTier } from '../../hooks/use-layout-tier.js';
+import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
 
 interface AppLayoutProps {
   header: ReactNode;
@@ -86,10 +88,8 @@ function CollapsedBar({
   );
 }
 
-const PANEL_SHADOW = 'shadow-[0_0_40px_rgba(0,0,0,0.8)]';
-const PANEL_SHADOW_GLOW = 'shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.06)]';
-const MOBILE_BREAKPOINT = '(max-width: 768px)';
-const TABLET_BREAKPOINT = '(max-width: 1280px)';
+const PANEL_SHADOW = 'shadow-overlay';
+const PANEL_SHADOW_GLOW = 'shadow-overlay';
 const LEFT_PANEL_WIDTH = 280;
 const RIGHT_PANEL_WIDTH = 440;
 const COLLAPSED_PANEL_WIDTH = 44;
@@ -128,18 +128,18 @@ export function AppLayout({
   requestRightExpandToken,
   onLayoutMetricsChange,
 }: AppLayoutProps) {
-  const initNarrow =
-    typeof window !== 'undefined' ? window.matchMedia(MOBILE_BREAKPOINT).matches : false;
-  const initTablet =
-    typeof window !== 'undefined' ? window.matchMedia(TABLET_BREAKPOINT).matches : false;
-
-  const [isNarrow, setIsNarrow] = useState(initNarrow);
-  const [isTablet, setIsTablet] = useState(initTablet);
-  const [leftOpen, setLeftOpen] = useState(() => !initNarrow);
+  const layoutTier = useLayoutTier();
+  const isNarrow = layoutTier.tier === 'narrow';
+  const [leftRailPreference, setLeftRailPreference] = useSidebarCollapse('office');
+  const leftOpen = !isNarrow && leftRailPreference === 'expanded';
+  const setLeftOpen = useCallback(
+    (nextOpen: boolean) => setLeftRailPreference(nextOpen ? 'expanded' : 'collapsed'),
+    [setLeftRailPreference],
+  );
   const [rightOpen, setRightOpenInternal] = useState(() => {
     const stored = readStoredRightOpen();
     if (stored !== null) return stored;
-    return !initNarrow;
+    return layoutTier.rightRailDefault === 'visible';
   });
 
   const commitRightOpen = useCallback((next: boolean) => {
@@ -147,47 +147,18 @@ export function AppLayout({
     writeStoredRightOpen(next);
   }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mobileQuery = window.matchMedia(MOBILE_BREAKPOINT);
-    const tabletQuery = window.matchMedia(TABLET_BREAKPOINT);
-    const sync = () => {
-      setIsNarrow(mobileQuery.matches);
-      setIsTablet(tabletQuery.matches);
-    };
-    sync();
-    const handleChange = () => sync();
-    mobileQuery.addEventListener('change', handleChange);
-    tabletQuery.addEventListener('change', handleChange);
-    return () => {
-      mobileQuery.removeEventListener('change', handleChange);
-      tabletQuery.removeEventListener('change', handleChange);
-    };
-  }, []);
-
   // Reset to the intended default layout whenever the viewport tier changes.
-  const prevModeRef = useRef<'mobile' | 'tablet' | 'desktop'>(
-    initNarrow ? 'mobile' : initTablet ? 'tablet' : 'desktop',
-  );
+  const prevTierRef = useRef(layoutTier.tier);
   useEffect(() => {
-    const mode: 'mobile' | 'tablet' | 'desktop' = isNarrow
-      ? 'mobile'
-      : isTablet
-        ? 'tablet'
-        : 'desktop';
-
-    if (mode === prevModeRef.current) return;
-
-    if (mode === 'mobile') {
-      setLeftOpen(false);
-      // Mobile collapses regardless of stored preference — no horizontal room.
+    if (layoutTier.tier === prevTierRef.current) return;
+    if (layoutTier.tier === 'narrow') {
+      // Narrow tier collapses regardless of stored preference — no horizontal room.
       setRightOpenInternal(false);
     } else {
-      setLeftOpen(true);
       setRightOpenInternal(readStoredRightOpen() ?? true);
     }
-    prevModeRef.current = mode;
-  }, [isNarrow, isTablet]);
+    prevTierRef.current = layoutTier.tier;
+  }, [layoutTier.tier]);
 
   // Auto-expand right rail when a chat/collaboration action requests it,
   // but only if the responsive tier permits (not narrow/mobile).

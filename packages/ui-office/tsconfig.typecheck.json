@@ -9,7 +9,8 @@
       "@offisim/doc-engine": ["../doc-engine/src/index.ts"],
       "@offisim/registry-client": ["../registry-client/src/index.ts"],
       "@offisim/renderer": ["../renderer/src/index.ts"],
-      "@offisim/ui-core": ["../ui-core/src/index.ts"]
+      "@offisim/ui-core": ["../ui-core/src/index.ts"],
+      "@offisim/ui-core/tokens": ["../ui-core/src/tokens/index.ts"]
     }
   },
   "include": [

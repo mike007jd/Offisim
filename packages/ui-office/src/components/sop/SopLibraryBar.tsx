@@ -1,5 +1,5 @@
 import { Button } from '@offisim/ui-core';
-import { Download, LayoutGrid, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Download, LayoutGrid, Menu, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -14,9 +14,11 @@ export interface SopLibraryBarProps {
   onSync: () => void;
   onCreateClick: () => void;
   onImportClick: () => void;
+  onToggleSidebar?: () => void;
   editMode?: boolean;
   onEditModeToggle?: () => void;
   onAutoLayout?: () => void;
+  allowEditMode?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -31,9 +33,11 @@ export function SopLibraryBar({
   onSync,
   onCreateClick,
   onImportClick,
+  onToggleSidebar,
   editMode,
   onEditModeToggle,
   onAutoLayout,
+  allowEditMode = true,
 }: SopLibraryBarProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -48,6 +52,18 @@ export function SopLibraryBar({
 
   return (
     <div className="h-10 shrink-0 flex items-center gap-1.5 px-3 border-b border-white/5 bg-slate-900/40">
+      {onToggleSidebar && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={onToggleSidebar}
+          aria-label="Open SOP list"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+      )}
+
       {/* Action buttons */}
       <Button
         variant="default"
@@ -86,7 +102,7 @@ export function SopLibraryBar({
       )}
 
       {/* Edit mode toggle */}
-      {selectedSopId && onEditModeToggle && (
+      {allowEditMode && selectedSopId && onEditModeToggle && (
         <Button
           variant="outline"
           size="sm"
@@ -99,7 +115,7 @@ export function SopLibraryBar({
       )}
 
       {/* Auto Layout (edit mode only) */}
-      {selectedSopId && editMode && onAutoLayout && (
+      {allowEditMode && selectedSopId && editMode && onAutoLayout && (
         <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={onAutoLayout}>
           <LayoutGrid className="w-3 h-3" /> Auto Layout
         </Button>

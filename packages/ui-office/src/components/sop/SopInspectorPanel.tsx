@@ -1,4 +1,5 @@
 import type { SopDefinition } from '@offisim/shared-types';
+import { cn } from '@offisim/ui-core';
 import { Check, Copy } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type TaskInfo, usePlanStepStore } from '../../hooks/plan-step-store';
@@ -14,6 +15,7 @@ export interface SopInspectorPanelProps {
   onSelectStep: (stepId: string) => void;
   /** Set of `role_slug` values with no employee in the active company. */
   missingRoleSet?: ReadonlySet<string>;
+  className?: string;
 }
 
 const TERMINAL_FAILURE_STATES = new Set(['failed', 'cancelled']);
@@ -41,6 +43,7 @@ export function SopInspectorPanel({
   stepIds,
   onSelectStep,
   missingRoleSet,
+  className,
 }: SopInspectorPanelProps) {
   const store = usePlanStepStore();
 
@@ -90,14 +93,24 @@ export function SopInspectorPanel({
 
   if (!step) {
     return (
-      <aside className="w-[320px] shrink-0 border-l border-white/5 bg-slate-900/40 flex items-center justify-center">
+      <aside
+        className={cn(
+          'flex w-[320px] shrink-0 items-center justify-center border-l border-white/5 bg-slate-900/40',
+          className,
+        )}
+      >
         <p className="text-xs text-slate-500 px-6 text-center">Select a step to inspect</p>
       </aside>
     );
   }
 
   return (
-    <aside className="w-[320px] shrink-0 border-l border-white/5 bg-slate-900/40 overflow-y-auto">
+    <aside
+      className={cn(
+        'w-[320px] shrink-0 overflow-y-auto border-l border-white/5 bg-slate-900/40',
+        className,
+      )}
+    >
       <div className="p-4 flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <SectionLabel>Label</SectionLabel>

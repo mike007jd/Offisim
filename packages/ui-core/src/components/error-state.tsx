@@ -1,6 +1,8 @@
 import { AlertTriangle, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { isValidElement } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { cn } from '../lib/utils.js';
+import { Button } from './button.js';
 
 export interface ErrorStateAction {
   label: string;
@@ -11,28 +13,62 @@ export interface ErrorStateAction {
 
 export interface ErrorStateProps {
   title: ReactNode;
+  message?: ReactNode;
   /** User-level explanation. Avoid raw transport errors as the only content. */
   reason?: ReactNode;
   /** Optional technical detail for debugging, shown as a details block. */
   technicalDetail?: ReactNode;
-  icon?: LucideIcon;
+  icon?: LucideIcon | ComponentType<{ className?: string }> | ReactNode;
+  primaryAction?: ErrorStateAction;
   retry?: ErrorStateAction;
   secondaryAction?: ErrorStateAction;
-  variant?: 'default' | 'inline';
+  variant?: 'default' | 'inline' | 'banner' | 'page';
   className?: string;
+}
+
+function ErrorActionButton({
+  action,
+  emphasis,
+}: {
+  action: ErrorStateAction;
+  emphasis: 'primary' | 'secondary';
+}) {
+  const variant = emphasis === 'primary' ? 'default' : 'outline';
+  if (action.href) {
+    return (
+      <Button asChild variant={variant}>
+        <a href={action.href}>{action.label}</a>
+      </Button>
+    );
+  }
+  return (
+    <Button variant={variant} onClick={action.onClick} disabled={action.disabled}>
+      {action.label}
+    </Button>
+  );
+}
+
+function renderErrorIcon(icon: ErrorStateProps['icon']) {
+  if (isValidElement(icon)) return icon;
+  const Icon = (icon ?? AlertTriangle) as ComponentType<{ className?: string }>;
+  return <Icon className="h-5 w-5" />;
 }
 
 export function ErrorState({
   title,
+  message,
   reason,
   technicalDetail,
-  icon: Icon = AlertTriangle,
+  icon,
+  primaryAction,
   retry,
   secondaryAction,
   variant = 'default',
   className,
 }: ErrorStateProps) {
-  const inline = variant === 'inline';
+  const inline = variant === 'inline' || variant === 'banner';
+  const action = primaryAction ?? retry;
+  const body = message ?? reason;
   return (
     <div
       className={cn(
@@ -44,7 +80,7 @@ export function ErrorState({
       )}
     >
       <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-300">
-        <Icon className="h-5 w-5" />
+        {renderErrorIcon(icon)}
       </div>
       <div className="flex max-w-md flex-col gap-1">
         <div
@@ -55,14 +91,14 @@ export function ErrorState({
         >
           {title}
         </div>
-        {reason && (
+        {body && (
           <div
             className={cn(
               'text-slate-400',
               inline ? 'text-xs leading-relaxed' : 'text-sm leading-relaxed',
             )}
           >
-            {reason}
+            {body}
           </div>
         )}
       </div>
@@ -76,28 +112,10 @@ export function ErrorState({
           </div>
         </details>
       )}
-      {(retry || secondaryAction) && (
+      {(action || secondaryAction) && (
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-          {retry && (
-            <button
-              type="button"
-              onClick={retry.onClick}
-              disabled={retry.disabled}
-              className="inline-flex items-center justify-center rounded-lg border border-cyan-400/60 bg-cyan-500/15 px-3.5 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:opacity-50"
-            >
-              {retry.label}
-            </button>
-          )}
-          {secondaryAction && (
-            <button
-              type="button"
-              onClick={secondaryAction.onClick}
-              disabled={secondaryAction.disabled}
-              className="inline-flex items-center justify-center rounded-lg border border-white/15 bg-transparent px-3.5 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
-            >
-              {secondaryAction.label}
-            </button>
-          )}
+          {action && <ErrorActionButton action={action} emphasis="primary" />}
+          {secondaryAction && <ErrorActionButton action={secondaryAction} emphasis="secondary" />}
         </div>
       )}
     </div>

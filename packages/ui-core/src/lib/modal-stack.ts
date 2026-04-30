@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 type Listener = () => void;
-type StackEntry = { id: string; kind: 'dialog' | 'overlay' };
+type StackEntry = { id: string; kind: 'dialog' | 'overlay' | 'popover' };
 
 const stack: StackEntry[] = [];
 const listeners = new Set<Listener>();

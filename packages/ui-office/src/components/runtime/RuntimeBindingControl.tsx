@@ -1,4 +1,5 @@
 import type { EmployeeRuntimeBinding, EngineId } from '@offisim/shared-types';
+import { RadioGroup, RadioGroupItem } from '@offisim/ui-core';
 import { useAvailableEngineAdapters } from '../../runtime/offisim-runtime-context.js';
 
 export type RuntimeBindingScope = 'employee' | 'company';
@@ -111,42 +112,42 @@ export function RuntimeBindingControl({
   return (
     <fieldset className={`flex flex-col gap-3 border-0 p-0 ${className}`}>
       <legend className="sr-only">Runtime binding</legend>
-      <div className="grid gap-2 md:grid-cols-2" role="radiogroup">
+      <RadioGroup
+        value={selectedId}
+        onValueChange={(next) => onChange(optionIdToBinding(next as PickerOptionId))}
+        className="grid gap-2 md:grid-cols-2"
+      >
         {visibleOptions.map((option) => {
           const engineUnavailable =
             option.engineId !== undefined && !availableEngineAdapters.has(option.engineId);
           const isSelected = option.id === selectedId;
-          const isDisabled = engineUnavailable;
           return (
-            <button
-              key={option.id}
-              // biome-ignore lint/a11y/useSemanticElements: native <input type="radio"> can't host this multiline card layout; button + role="radio" mirrors @offisim/ui-core SegmentedControl
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              aria-disabled={isDisabled || undefined}
-              disabled={isDisabled}
-              onClick={() => {
-                if (isDisabled || isSelected) return;
-                onChange(optionIdToBinding(option.id));
-              }}
-              className={`flex flex-col items-start gap-1 rounded-2xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 ${
-                isSelected
-                  ? 'border-cyan-400/40 bg-cyan-500/10 text-cyan-50'
-                  : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.06]'
-              } ${isDisabled ? 'cursor-not-allowed opacity-50 hover:border-white/10 hover:bg-white/[0.03]' : ''}`}
-            >
-              <span className="text-sm font-medium">{option.label}</span>
-              <span className="text-[11px] leading-snug text-slate-400">{option.description}</span>
-              {engineUnavailable && (
-                <span className="mt-1 text-[10px] uppercase tracking-wider text-amber-300/80">
-                  {ENGINE_UNAVAILABLE_HINT}
+            <RadioGroupItem key={option.id} value={option.id} disabled={engineUnavailable} asChild>
+              <div
+                className={`flex h-auto w-auto flex-col items-start gap-1 rounded-2xl border px-4 py-3 text-left transition ${
+                  isSelected
+                    ? 'border-cyan-400/40 bg-cyan-500/10 text-cyan-50'
+                    : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.06]'
+                } ${
+                  engineUnavailable
+                    ? 'cursor-not-allowed opacity-50 hover:border-white/10 hover:bg-white/[0.03]'
+                    : 'cursor-pointer'
+                }`}
+              >
+                <span className="text-sm font-medium">{option.label}</span>
+                <span className="text-[11px] leading-snug text-slate-400">
+                  {option.description}
                 </span>
-              )}
-            </button>
+                {engineUnavailable && (
+                  <span className="mt-1 text-[10px] uppercase tracking-wider text-amber-300/80">
+                    {ENGINE_UNAVAILABLE_HINT}
+                  </span>
+                )}
+              </div>
+            </RadioGroupItem>
           );
         })}
-      </div>
+      </RadioGroup>
 
       {scope === 'employee' && resolvedBinding && (
         <p className="text-xs text-slate-300">

@@ -46,6 +46,7 @@
       "target",
       "*.sql",
       "*.json",
+      "apps/web/src/generated/tailwind-theme.css",
       "openspec/changes/archive",
       "packages/asset-schema/src/schema/manifest-validator.generated.js"
     ]

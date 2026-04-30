@@ -1,3 +1,4 @@
+import { Z_INDEX_SCALE } from '@offisim/ui-core/tokens';
 import { Copy, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
@@ -91,7 +92,7 @@ export function SopNodeContextMenu({
     position: 'absolute',
     left: Math.min(position.x, window.innerWidth - 160),
     top: Math.min(position.y, window.innerHeight - 140),
-    zIndex: 50,
+    zIndex: Z_INDEX_SCALE.dropdown,
   };
 
   return (

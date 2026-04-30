@@ -72,7 +72,7 @@ function SwatchRow({ label, options, selected, onSelect }: SwatchRowProps) {
             className="w-6 h-6 rounded-full border-2 transition-all shrink-0"
             style={{
               backgroundColor: numericToHex(opt.value),
-              borderColor: selected === opt.value ? '#ffffff' : 'transparent',
+              borderColor: selected === opt.value ? 'var(--color-text-primary-val)' : 'transparent',
               boxShadow: selected === opt.value ? '0 0 0 1px rgba(255,255,255,0.3)' : 'none',
             }}
           />
@@ -118,9 +118,7 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
           selected={config.clothingAccent}
           onSelect={(v) => set('clothingAccent', v)}
         />
-        <p className="mt-1 text-[10px] text-slate-500">
-          Saved with the employee — visible trim arrives in an upcoming art pass.
-        </p>
+        <p className="mt-1 text-[10px] text-slate-500">Renders as a visible vest panel.</p>
       </div>
 
       {/* Gender presentation toggle */}

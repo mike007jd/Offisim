@@ -1,19 +1,32 @@
 import { Slot } from '@radix-ui/react-slot';
 import { type VariantProps, cva } from 'class-variance-authority';
-import { type ButtonHTMLAttributes, forwardRef } from 'react';
+import { Loader2 } from 'lucide-react';
+import {
+  type ButtonHTMLAttributes,
+  Children,
+  type ReactNode,
+  forwardRef,
+  isValidElement,
+  useEffect,
+} from 'react';
 import { cn } from '../lib/utils.js';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        default: 'border border-cyan-400/60 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25',
-        destructive: 'border border-red-500/60 bg-red-500/15 text-red-200 hover:bg-red-500/25',
-        outline: 'border border-white/15 bg-transparent text-slate-200 hover:bg-white/8',
-        secondary: 'border border-white/15 bg-white/8 text-slate-200 hover:bg-white/12',
-        ghost: 'border border-transparent text-slate-300 hover:bg-white/8 hover:text-slate-100',
-        link: 'text-cyan-400 underline-offset-4 hover:underline border-0',
+        default:
+          'border border-border-focus bg-accent-muted text-accent-text hover:border-accent hover:bg-surface-hover',
+        destructive:
+          'border border-error bg-error-muted text-error hover:border-error hover:bg-surface-hover',
+        outline:
+          'border border-border-default bg-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+        secondary:
+          'border border-border-default bg-surface-muted text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+        ghost:
+          'border border-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+        link: 'border-0 text-accent underline-offset-4 hover:underline',
       },
       size: {
         default: 'h-9 px-4 py-2',
@@ -33,13 +46,64 @@ export interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /** Preserves layout, sets aria-busy, and forces disabled while async work runs. */
+  isLoading?: boolean;
+}
+
+function hasTextChildren(children: ReactNode): boolean {
+  return Children.toArray(children).some((child) => {
+    if (typeof child === 'string') return child.trim().length > 0;
+    if (typeof child === 'number') return true;
+    if (!isValidElement(child)) return false;
+    return hasTextChildren((child.props as { children?: ReactNode }).children);
+  });
+}
+
+function isDevBuild(): boolean {
+  return Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      isLoading = false,
+      disabled,
+      children,
+      'aria-label': ariaLabel,
+      'aria-describedby': ariaDescribedBy,
+      ...props
+    },
+    ref,
+  ) => {
     const Comp = asChild ? Slot : 'button';
+    useEffect(() => {
+      if (
+        isDevBuild() &&
+        size === 'icon' &&
+        !ariaLabel &&
+        !ariaDescribedBy &&
+        !hasTextChildren(children)
+      ) {
+        console.warn('[ui-core] Button size="icon" requires aria-label or aria-describedby');
+      }
+    }, [ariaDescribedBy, ariaLabel, children, size]);
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        disabled={disabled || isLoading}
+        aria-busy={isLoading || undefined}
+        aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
+        {...props}
+      >
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+        {children}
+      </Comp>
     );
   },
 );

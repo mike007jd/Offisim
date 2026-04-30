@@ -5,6 +5,7 @@
  * The `template` prop selects which decorative variant to render.
  */
 
+import { SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
 
 export interface PlantMesh3DProps {
@@ -26,15 +27,23 @@ export function PlantMesh3D({
     <group position={position} rotation={[0, rotY, 0]}>
       <mesh position={[0, 0.25, 0]} castShadow>
         <cylinderGeometry args={[0.2, 0.15, 0.5, 16]} />
-        <meshStandardMaterial color={sc.desk} roughness={0.8} />
+        <SceneMaterial materialClass="plastic" color={sc.desk} overrides={{ roughness: 0.85 }} />
       </mesh>
       <mesh position={[0, 0.6, 0]} castShadow>
         <icosahedronGeometry args={[0.3, 1]} />
-        <meshStandardMaterial color={sc.leafPrimary} roughness={0.6} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={sc.leafPrimary}
+          overrides={{ roughness: 0.65 }}
+        />
       </mesh>
       <mesh position={[-0.15, 0.5, 0.1]} castShadow>
         <icosahedronGeometry args={[0.2, 1]} />
-        <meshStandardMaterial color={sc.leafSecondary} roughness={0.6} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={sc.leafSecondary}
+          overrides={{ roughness: 0.65 }}
+        />
       </mesh>
     </group>
   );

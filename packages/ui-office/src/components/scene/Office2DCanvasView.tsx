@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 /**
  * Office2DCanvasView — HTML5 Canvas-based 2D office top-down view.
  *

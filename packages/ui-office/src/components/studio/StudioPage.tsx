@@ -37,7 +37,7 @@ import { useStudioStore } from './StudioState.js';
 import { StudioToolbar } from './StudioToolbar.js';
 import { StudioZoneGhost } from './StudioZoneGhost.js';
 import { CREATE_PLOT_KEY, readStoredPlotSize } from './studio-plot-size-storage.js';
-import { FONT, LAYOUT, SP, STUDIO_COLORS } from './studio-tokens.js';
+import { FONT, LAYOUT, SP, STUDIO_COLORS, STUDIO_Z_INDEX } from './studio-style-helpers.js';
 
 const BREADCRUMB_HEIGHT = 32;
 const TOP_CHROME_HEIGHT = LAYOUT.toolbarHeight + STUDIO_IDENTITY_HEIGHT + BREADCRUMB_HEIGHT;
@@ -67,7 +67,7 @@ const ROOT_STYLE: React.CSSProperties = {
   inset: 0,
   background: STUDIO_COLORS.canvasBg,
   fontFamily: FONT.family,
-  zIndex: 50, // above normal office UI
+  zIndex: STUDIO_Z_INDEX.dropdown,
 };
 
 const CANVAS_CONTAINER: React.CSSProperties = {
@@ -110,7 +110,7 @@ function CompanyNameModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 100,
+        zIndex: STUDIO_Z_INDEX.modal,
       }}
       role="presentation"
       onClick={onCancel}

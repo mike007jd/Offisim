@@ -18,7 +18,14 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { type StudioTool, useStudioStore } from './StudioState.js';
-import { FONT, SP, STUDIO_COLORS, kbdStyle, panelStyle, toolButtonStyle } from './studio-tokens.js';
+import {
+  FONT,
+  SP,
+  STUDIO_COLORS,
+  kbdStyle,
+  panelStyle,
+  toolButtonStyle,
+} from './studio-style-helpers.js';
 
 // -- Types --------------------------------------------------------------------
 
@@ -179,9 +186,9 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
           aria-label="Exit zone editing (Esc)"
           style={{
             ...toolButtonStyle(true),
-            borderColor: '#f59e0b',
+            borderColor: STUDIO_COLORS.warning,
             background: 'rgba(245, 158, 11, 0.12)',
-            color: '#fbbf24',
+            color: STUDIO_COLORS.warning,
             gap: SP.xs,
           }}
         >

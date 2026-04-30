@@ -1,5 +1,6 @@
 import type { EmployeeRow, EmployeeUpdate } from '@offisim/core/browser';
 import { parseEmployeeConfig, parseEmployeePersona } from '@offisim/shared-types';
+import { Button, Input, Textarea } from '@offisim/ui-core';
 import { useCallback, useRef, useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -94,24 +95,25 @@ function InlineEdit({
         setDraft(e.target.value),
       onBlur: commit,
       onKeyDown: handleKeyDown,
-      className: `w-full bg-white border border-ocean-light rounded px-1.5 py-0.5 text-sm outline-none focus:ring-1 focus:ring-lobster-red ${className}`,
+      className: `w-full bg-white text-sm text-ink focus-visible:ring-lobster-red/40 ${className}`,
       placeholder,
     };
     if (multiline) {
-      return <textarea {...shared} rows={2} style={{ resize: 'none' }} />;
+      return <Textarea {...shared} rows={2} className={`${shared.className} resize-none`} />;
     }
-    return <input {...shared} />;
+    return <Input {...shared} />;
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={startEdit}
-      title="Click to edit"
-      className={`w-full text-left cursor-text hover:bg-ocean-light/20 rounded px-1.5 py-0.5 transition-colors ${className}`}
+      aria-label="Edit field"
+      className={`h-auto w-full cursor-text justify-start whitespace-normal rounded px-1.5 py-0.5 text-left transition-colors hover:bg-ocean-light/20 ${className}`}
     >
       {value || <span className="text-shell/40 italic">{placeholder}</span>}
-    </button>
+    </Button>
   );
 }
 

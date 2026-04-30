@@ -4,8 +4,9 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 
 ## Workspace IA & Navigation
 
-- `App.tsx` 通过 `useWorkspaceSessionState()` 持有 `activeWorkspace` + per-workspace session state；workspace 切换走 `setActiveWorkspace` / `updateWorkspaceState`，不要恢复旧的 `view` 双状态或绕开 `useWorkspaceBackNavigation`
-- 不要绕过 `useWorkspaceBackNavigation` 直接操作 history
+- `App.tsx` 通过 `useWorkspaceSessionState()` 持有 `activeWorkspace` + per-workspace session state；workspace URL 由 `apps/web/src/lib/url-routing/` parser/serializer + `useUrlSync()` 统一维护。不要恢复旧的 `view` 双状态或内部 workspace history stack。
+- 浏览器 Back/Forward 是 URL parser 驱动；Escape 才允许调用 workspace 内部 drill-back helpers。`useDeepLinkInstall` 仍是 `offisim://install` async channel，独立于 URL routing。
+- 所有 peer workspace 拓扑切换消费 `useLayoutTier()` SSOT；Tailwind responsive class 只做 cosmetic，不决定桌面/平板/窄屏的信息架构。
 - `MarketplaceDetailOverlay` 仅保留给 deep-link install, 其余走 workspace page
 - `RegistryClient.hasAuthToken`: 调用认证端点（`/me`, `/drafts`）前必须检查, 无 token 时跳过请求
 - `INSTALLABLE_KINDS` (marketplace-meta.tsx): `['employee', 'skill']`。Skill 是一等可装实体，走 SKILL.md 开放标准；DB 索引在 `skills` 表（`company` / `employee` 两层 scope），磁盘源真相在 vault。`KIND_FILTERS` 已扩到 7 项（`all` / `employee` / `skill` / `sop` / `company_template` / `office_layout` / `prefab`）以配合 platform boot-time official seed 在 Market 展示全部 AssetKind；但 **`INSTALLABLE_KINDS` 仍只含 `employee` + `skill`**，其余 4 类在详情页走 `INSTALLABLE_KINDS.has(detail.kind)` gate，不渲染 install 按钮。新 kind 在 install pipeline 没接通前不要加进 `INSTALLABLE_KINDS`。`PublishDialog` 的 skill publish / install 主路径已落地；剩余是 upload affordance、Claude/Codex sync UX、evidence 收口，不要再按"schema 未落地"理解它
@@ -19,6 +20,9 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - `CeremonyState` 新增字段必须同步 `createIdleCeremonyState()` 和 `IDLE_CEREMONY`
 - `CeremonyHost` (`apps/web/src/components/office-shell/OfficeSceneSurface.tsx`) 隔离 ceremony state, 不要把 `useSceneOrchestrator` 上提到 App
 - 3D 崩溃 ≥2 次锁定 2D (`crashCountRef`)
+- 3D lighting SSOT 是 `SceneLightingRig` + `scene-performance-tier.ts`；`useScenePerformanceTier()` 管 FPS 软降级和 2D fallback request，`ScenePostprocessing` 只在 high/medium 动态加载 post chunk。
+- 3D prefab material SSOT 是 `theme/scene-materials.tsx` + `SceneMaterial`。`components/scene/prefabs/` 禁 inline hex、`meshStandardMaterial` / `meshPhysicalMaterial`、以及 inline `roughness=` / `metalness=` / `transmission=` 数值。
+- 内部员工块人几何 SSOT 是 `components/scene/character-mesh-builder.tsx`。bodyType / gender / hairStyle / clothingAccent 必须全量渲染；brand variants 只用 `<BlockCharacter variant="shared-rig-only">` 提供 limb rig，自带 torso/head/brand geometry。
 - 员工定位统一走 `SeatRegistry` (3D/2D), 不要硬编码位置或恢复 4 象限布局
 - 渲染用 `resolveEmployeeSceneZoneId()`, 不要用 `resolveEmployeeZoneDynamic()` (避免掉 UNASSIGNED_ZONE)
 - 移动路由走 `scene-behavior.ts` → `buildTransitRoute()`, 不要直接 `handle.moveTo()`
@@ -39,6 +43,19 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - UI 全英文, 不要混入中文
 - `primeEventLogStore` 按 `EVENT_PREFIXES` 创建 per-prefix 订阅, cleanup 必须调 `disposeEventLogStore` (幂等)。`EVENT_PREFIXES` + `TYPE_PREFIX_MAP` 新增 filter 时同步
 - `useRegistryClient` baseUrl: localStorage → `VITE_PLATFORM_API_URL` → localhost:4100
+
+## Layout Shift
+
+- Tabs surfaces that preserve state or host heavy content declare a fixed min-height and use `forceMount + TABS_RETAIN_STATE_CLASS`.
+- `WorkspacePageShell` loading skeletons reserve `--workspace-min-content-height` per workspace before ready content mounts.
+- Canvas / 3D / iframe slots reserve size with `aspect-ratio` or explicit min-height before the embedded runtime mounts.
+- `StreamingBubble` bounds streamed content with `max-h-[60vh]`, inner scroll, and `overscroll-contain`.
+
+## Onboarding tour
+
+- Tour slot 注册 SSOT 在 `components/onboarding/tour-context.tsx`，步骤表在 `tour-steps.ts`。需要被高亮的控件必须调用 `useTourTarget(slot)`，不要再放 `data-onboarding-target`。
+- `OnboardingTour` 只读 slot map 和 persisted onboarding state；目标未挂载时显示 workspace switch hint，不把步骤误标完成。
+- First-run welcome 只在 `welcome_seen=false`、provider 未配置、无 company、tour 未 dismissed 时显示；Skip 同时写 `welcome_seen` + `tour_dismissed`。
 
 ## Prefab 双文件
 

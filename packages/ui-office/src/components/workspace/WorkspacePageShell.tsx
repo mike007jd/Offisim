@@ -23,7 +23,7 @@ function LoadingSkeleton({ eyebrow, title }: { eyebrow: string; title: string })
         <p className="workspace-shell-eyebrow">{eyebrow}</p>
         <h1 className="workspace-shell-title">{title}</h1>
       </header>
-      <div className="px-6 py-6 space-y-4">
+      <div className="workspace-shell-loading-region px-6 py-6 space-y-4">
         <div className="h-4 w-3/4 rounded bg-white/5 animate-pulse" />
         <div className="h-4 w-1/2 rounded bg-white/5 animate-pulse" />
         <div className="h-32 w-full rounded-lg bg-white/5 animate-pulse" />

@@ -1,10 +1,11 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import { findOverlaps } from '@offisim/shared-types';
 import { Html } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
 import { toOverlapRects, useStudioStore } from './StudioState.js';
-import { FONT } from './studio-tokens.js';
+import { FONT } from './studio-style-helpers.js';
 
 function snap(v: number, grid: number): number {
   return Math.round(v / grid) * grid;

@@ -45,6 +45,7 @@ function toSopTemplate(row: SopTemplateRow): SopTemplate {
 export interface UseSopsResult {
   sops: SopTemplate[];
   loading: boolean;
+  error: string | null;
   deleteSop: (sopTemplateId: string) => Promise<void>;
   refreshSops: () => Promise<void>;
 }
@@ -54,13 +55,17 @@ export function useSops(): UseSopsResult {
   const { activeCompanyId } = useCompany();
   const [sops, setSops] = useState<SopTemplate[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const refreshSops = useCallback(async () => {
     if (!repos || !activeCompanyId) return;
     setLoading(true);
+    setError(null);
     try {
       const rows = await repos.sopTemplates.findByCompany(activeCompanyId);
       setSops(rows.map(toSopTemplate));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load SOPs.');
     } finally {
       setLoading(false);
     }
@@ -88,5 +93,5 @@ export function useSops(): UseSopsResult {
     [repos],
   );
 
-  return { sops, loading, deleteSop, refreshSops };
+  return { sops, loading, error, deleteSop, refreshSops };
 }

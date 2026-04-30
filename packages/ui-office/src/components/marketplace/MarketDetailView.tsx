@@ -1,4 +1,5 @@
 import type { ListingDetail } from '@offisim/registry-client';
+import { Skeleton, cn } from '@offisim/ui-core';
 import { ArrowLeft, Star } from 'lucide-react';
 import { PermissionsBlock } from './PermissionsBlock.js';
 import { getRarityColor } from './market-rarity.js';
@@ -10,22 +11,28 @@ export interface MarketDetailViewProps {
   readonly unavailable: boolean;
   readonly onBack: () => void;
   readonly onInstall: (listingId: string, version: string) => void;
+  readonly layout?: 'full' | 'panel' | 'narrow';
 }
 
-function DetailSkeleton() {
+function DetailSkeleton({ compact }: { compact: boolean }) {
   return (
-    <div className="flex h-full animate-pulse">
-      <div className="w-3/5 space-y-4 p-8">
-        <div className="h-7 w-24 rounded-full bg-white/10" />
-        <div className="h-8 w-2/3 rounded bg-white/10" />
-        <div className="h-5 w-full rounded bg-white/10" />
-        <div className="mt-6 h-4 w-full rounded bg-white/10" />
-        <div className="h-4 w-3/4 rounded bg-white/10" />
+    <div className={cn('flex h-full', compact && 'flex-col overflow-y-auto')}>
+      <div className={cn('space-y-4 p-8', compact ? 'w-full' : 'w-3/5')}>
+        <Skeleton className="h-7 w-24 rounded-full" />
+        <Skeleton className="h-8 w-2/3" />
+        <Skeleton className="h-5 w-full" />
+        <Skeleton className="mt-6 h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
       </div>
-      <div className="w-2/5 border-l border-white/10 space-y-4 p-8">
-        <div className="h-5 w-1/2 rounded bg-white/10" />
-        <div className="h-5 w-1/3 rounded bg-white/10" />
-        <div className="h-10 w-full rounded bg-white/10" />
+      <div
+        className={cn(
+          'space-y-4 p-8',
+          compact ? 'w-full border-t border-white/10' : 'w-2/5 border-l border-white/10',
+        )}
+      >
+        <Skeleton className="h-5 w-1/2" />
+        <Skeleton className="h-5 w-1/3" />
+        <Skeleton className="h-10 w-full" />
       </div>
     </div>
   );
@@ -37,7 +44,9 @@ export function MarketDetailView({
   unavailable,
   onBack,
   onInstall,
+  layout = 'full',
 }: MarketDetailViewProps) {
+  const compact = layout !== 'full';
   if (loading) {
     return (
       <div className="relative h-full">
@@ -47,9 +56,9 @@ export function MarketDetailView({
           className="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-sm text-slate-300 hover:bg-white/10 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to listings
+          Back
         </button>
-        <DetailSkeleton />
+        <DetailSkeleton compact={compact} />
       </div>
     );
   }
@@ -67,7 +76,7 @@ export function MarketDetailView({
           className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-4 py-2 text-sm text-slate-300 hover:bg-white/10 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to listings
+          Back
         </button>
       </div>
     );
@@ -78,18 +87,18 @@ export function MarketDetailView({
   const version = typeof detail.version === 'string' ? detail.version : detail.version.version;
 
   return (
-    <div className="relative flex h-full">
+    <div className={cn('relative flex h-full', compact && 'flex-col overflow-y-auto')}>
       <button
         type="button"
         onClick={onBack}
         className="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-sm text-slate-300 hover:bg-white/10 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to listings
+        Back
       </button>
 
       {/* Left: Hero area */}
-      <div className="w-3/5 overflow-y-auto p-8 pt-14">
+      <div className={cn('overflow-y-auto p-8 pt-14', compact ? 'w-full' : 'w-3/5')}>
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${rarity.badge}`}
         >
@@ -126,7 +135,12 @@ export function MarketDetailView({
       </div>
 
       {/* Right: Metadata */}
-      <div className="w-2/5 border-l border-white/10 overflow-y-auto p-8 pt-14">
+      <div
+        className={cn(
+          'overflow-y-auto p-8 pt-14',
+          compact ? 'w-full border-t border-white/10 pt-8' : 'w-2/5 border-l border-white/10',
+        )}
+      >
         <dl className="space-y-4 text-sm">
           <div>
             <dt className="text-xs uppercase tracking-wide text-slate-500">Version</dt>

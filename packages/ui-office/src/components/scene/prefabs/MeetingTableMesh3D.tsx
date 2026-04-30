@@ -6,6 +6,7 @@
 
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
+import { SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
 import { OfficeChair } from './WorkstationMesh3D.js';
 
@@ -34,12 +35,12 @@ export function MeetingTableMesh3D({
         castShadow
         receiveShadow
       >
-        <meshStandardMaterial color={sc.furniture} roughness={0.3} />
+        <SceneMaterial materialClass="wood" color={sc.furniture} />
       </RoundedBox>
       {/* Table base */}
       <mesh position={[0, 0.375, 0]} castShadow>
         <boxGeometry args={[4, 0.75, 0.6]} />
-        <meshStandardMaterial color={sc.furnitureDark} />
+        <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
       </mesh>
       {/* Chairs around table */}
       {[-2, -0.7, 0.7, 2].map((x) => (
@@ -52,7 +53,7 @@ export function MeetingTableMesh3D({
       <group position={[-5.5, 0, 0]}>
         <mesh position={[0, 1.8, 0]} castShadow>
           <boxGeometry args={[0.1, 1.5, 2.5]} />
-          <meshStandardMaterial color={sc.desk} roughness={0.3} />
+          <SceneMaterial materialClass="plastic" color={sc.whiteboardSurface} />
         </mesh>
         {/* Whiteboard frame */}
         <lineSegments position={[0.06, 1.8, 0]}>

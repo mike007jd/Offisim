@@ -27,12 +27,13 @@ import {
   LAYOUT,
   SP,
   STUDIO_COLORS,
+  STUDIO_TRANSITION,
   kbdStyle,
   labelStyle,
   panelStyle,
   sectionHeaderStyle,
   valueStyle,
-} from './studio-tokens.js';
+} from './studio-style-helpers.js';
 
 // -- Styles -------------------------------------------------------------------
 
@@ -61,7 +62,7 @@ const SMALL_BTN: React.CSSProperties = {
   fontWeight: FONT.semibold,
   cursor: 'pointer',
   fontFamily: FONT.family,
-  transition: 'background 0.1s',
+  transition: STUDIO_TRANSITION.backgroundInstant,
 };
 
 const DELETE_BTN: React.CSSProperties = {

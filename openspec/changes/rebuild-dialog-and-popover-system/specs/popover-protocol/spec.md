@@ -114,14 +114,14 @@ visible).
 
 ### Requirement: Popovers nest above dialog content via z-index
 
-`PopoverContent`'s default styling SHALL include `z-[60]`, placing
-the popover above `DialogShell` content (`z-50`) so a popover opened
-inside a dialog renders visually above the dialog body. Hand-rolled
-popovers using `z-50` (which would collide with the dialog overlay)
-SHALL NOT ship.
+`PopoverContent`'s default styling SHALL include the tokenized
+`z-top` layer, placing the popover above `DialogShell` content
+(`z-modal`) so a popover opened inside a dialog renders visually above
+the dialog body. Hand-rolled popovers using literal z-index classes
+that collide with the dialog overlay SHALL NOT ship.
 
 Because Radix Popover renders into a portal anchored to its parent
-and applies its own stacking context, the explicit `z-[60]` on
+and applies its own stacking context, the explicit `z-top` on
 `PopoverContent` is a defense-in-depth safeguard, not the only
 mechanism — the Radix portal already places the popover above its
 parent dialog content.
@@ -131,9 +131,9 @@ parent dialog content.
 - **THEN** the popover content's stacking context SHALL be above the dialog content
 - **AND** the popover content SHALL NOT be visually obscured by the dialog content
 
-#### Scenario: PopoverContent default class includes z-[60]
+#### Scenario: PopoverContent default class includes tokenized top layer
 - **WHEN** auditing `packages/ui-core/src/components/popover.tsx`
-- **THEN** the default className passed to `PopoverPrimitive.Content` SHALL include `z-[60]`
+- **THEN** the default className passed to `PopoverPrimitive.Content` SHALL include `z-top`
 
 ### Requirement: Popovers anchor to a trigger or to a `PopoverAnchor`
 

@@ -1,12 +1,9 @@
-import type {
-  PersonnelTabId,
-  UpdateWorkspaceStateFn,
-  WorkspaceKey,
-} from '../components/workspaces/types';
+import type { PersonnelTabId } from '../components/workspaces/types';
+import { parseUrl, serializePersonnelUrl } from './url-routing';
+import type { ParsedUrl } from './url-routing';
 
 export interface RouteToPersonnelDeps {
-  setActiveWorkspace: (key: WorkspaceKey) => void;
-  updateWorkspaceState: UpdateWorkspaceStateFn;
+  applyParsedUrl: (parsed: ParsedUrl) => void;
 }
 
 export type RouteToPersonnelFn = (employeeId: string, tab?: PersonnelTabId) => void;
@@ -17,15 +14,12 @@ export type RouteToPersonnelFn = (employeeId: string, tab?: PersonnelTabId) => v
  * route through this helper instead of opening a dialog.
  */
 export function createRouteToPersonnel({
-  setActiveWorkspace,
-  updateWorkspaceState,
+  applyParsedUrl,
 }: RouteToPersonnelDeps): RouteToPersonnelFn {
   return (employeeId, tab = 'profile') => {
-    updateWorkspaceState('personnel', (prev) => ({
-      ...prev,
-      selectedEmployeeId: employeeId,
-      activeEmployeeTab: tab,
-    }));
-    setActiveWorkspace('personnel');
+    const url = serializePersonnelUrl(employeeId, tab);
+    window.history.pushState(null, '', url);
+    const next = parseUrl(new URL(url, window.location.origin));
+    applyParsedUrl(next);
   };
 }

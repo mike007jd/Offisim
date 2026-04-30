@@ -7,6 +7,7 @@
  */
 
 import { RoundedBox } from '@react-three/drei';
+import { SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
 
 // ── Sub-components (shared with other prefabs) ────────────────────
@@ -23,11 +24,15 @@ export function OfficeChair({
     <group position={position} rotation={rotation}>
       <mesh position={[0, 0.05, 0]} castShadow>
         <cylinderGeometry args={[0.3, 0.3, 0.05, 16]} />
-        <meshStandardMaterial color={sc.furnitureDark} />
+        <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
       </mesh>
       <mesh position={[0, 0.25, 0]} castShadow>
         <cylinderGeometry args={[0.05, 0.05, 0.4, 8]} />
-        <meshStandardMaterial color={sc.furnitureLight} metalness={0.8} roughness={0.2} />
+        <SceneMaterial
+          materialClass="metal"
+          color={sc.furnitureLight}
+          overrides={{ roughness: 0.3 }}
+        />
       </mesh>
       <RoundedBox
         args={[0.5, 0.08, 0.5]}
@@ -36,7 +41,7 @@ export function OfficeChair({
         smoothness={4}
         castShadow
       >
-        <meshStandardMaterial color={sc.furniture} />
+        <SceneMaterial materialClass="leather" color={sc.furniture} />
       </RoundedBox>
       <RoundedBox
         args={[0.45, 0.5, 0.05]}
@@ -45,7 +50,7 @@ export function OfficeChair({
         smoothness={4}
         castShadow
       >
-        <meshStandardMaterial color={sc.furniture} />
+        <SceneMaterial materialClass="leather" color={sc.furniture} />
       </RoundedBox>
     </group>
   );
@@ -63,12 +68,12 @@ export function Laptop({
     <group position={position} rotation={rotation}>
       <mesh position={[0, 0.01, 0]} castShadow>
         <boxGeometry args={[0.4, 0.02, 0.3]} />
-        <meshStandardMaterial color={sc.metal} metalness={0.8} roughness={0.2} />
+        <SceneMaterial materialClass="metal" color={sc.metal} overrides={{ roughness: 0.25 }} />
       </mesh>
       <group position={[0, 0.02, -0.15]} rotation={[-0.2, 0, 0]}>
         <mesh position={[0, 0.15, 0]} castShadow>
           <boxGeometry args={[0.4, 0.3, 0.02]} />
-          <meshStandardMaterial color={sc.metal} metalness={0.8} roughness={0.2} />
+          <SceneMaterial materialClass="metal" color={sc.metal} overrides={{ roughness: 0.25 }} />
         </mesh>
         <mesh position={[0, 0.15, 0.011]}>
           <planeGeometry args={[0.38, 0.28]} />
@@ -106,41 +111,33 @@ export function WorkstationMesh3D({
         castShadow
         receiveShadow
       >
-        <meshStandardMaterial color={sc.desk} roughness={0.2} />
+        <SceneMaterial
+          materialClass="wood"
+          color={sc.desk}
+          overrides={{ useProceduralNormal: true, normalScale: 0.08 }}
+        />
       </RoundedBox>
       {/* Legs */}
       {[-1.5, 1.5].map((x) =>
         [-1.5, 1.5].map((z) => (
           <mesh key={`leg-${x}-${z}`} position={[x, 0.375, z]} castShadow>
             <cylinderGeometry args={[0.04, 0.04, 0.75, 8]} />
-            <meshStandardMaterial color={sc.deskEdge} metalness={0.5} />
+            <SceneMaterial
+              materialClass="metal"
+              color={sc.deskEdge}
+              overrides={{ roughness: 0.3 }}
+            />
           </mesh>
         )),
       )}
       {/* Glass dividers */}
       <mesh position={[0, 1.05, 0]} castShadow>
         <boxGeometry args={[3.0, 0.6, 0.05]} />
-        <meshPhysicalMaterial
-          color={sc.partition}
-          transmission={0.9}
-          opacity={1}
-          roughness={0.1}
-          ior={1.5}
-          thickness={0.05}
-          transparent
-        />
+        <SceneMaterial materialClass="glass" color={sc.partition} overrides={{ thickness: 0.05 }} />
       </mesh>
       <mesh position={[0, 1.05, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
         <boxGeometry args={[3.0, 0.6, 0.05]} />
-        <meshPhysicalMaterial
-          color={sc.partition}
-          transmission={0.9}
-          opacity={1}
-          roughness={0.1}
-          ior={1.5}
-          thickness={0.05}
-          transparent
-        />
+        <SceneMaterial materialClass="glass" color={sc.partition} overrides={{ thickness: 0.05 }} />
       </mesh>
       {/* 4 workstations — laptops face OUTWARD toward the employee/chair */}
       {(

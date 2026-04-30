@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import { truncate } from '../../../lib/format-time';
 import { drawRoundedRect } from '../canvas-primitives';
 import type {

@@ -266,7 +266,7 @@ back-compat — every surface gets the same fix at once.
     `<link rel="preload">` for Inter / JetBrains Mono variable
     woff2.
   - `apps/web/src/index.css` (lines 1, 100-105, 266-278): 2x
-    `@font-face` blocks at top, motion-timing custom properties,
+    `@font-face` blocks immediately after CSS imports, motion-timing custom properties,
     `--motion-duration-base` applied to `list-item-in` keyframe.
   - `apps/web/public/fonts/inter-var.woff2`,
     `apps/web/public/fonts/jetbrains-mono-var.woff2`: new

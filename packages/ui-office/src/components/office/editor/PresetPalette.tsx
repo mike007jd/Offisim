@@ -32,7 +32,7 @@ export function PresetPalette({
   onCreateCustom,
 }: PresetPaletteProps) {
   return (
-    <div className="w-60 shrink-0 border-r border-white/[0.06] bg-[#060a14] flex flex-col overflow-hidden">
+    <div className="flex w-60 shrink-0 flex-col overflow-hidden border-r border-white/[0.06] bg-surface">
       <div className="px-3 py-2.5 border-b border-white/[0.06]">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
           ZONE_PRESETS

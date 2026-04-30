@@ -18,9 +18,10 @@ import {
   LAYOUT,
   SP,
   STUDIO_COLORS,
+  STUDIO_TRANSITION,
   panelStyle,
   sectionHeaderStyle,
-} from './studio-tokens.js';
+} from './studio-style-helpers.js';
 
 // -- Category metadata --------------------------------------------------------
 
@@ -156,8 +157,8 @@ export function StudioPalette() {
                     : STUDIO_COLORS.textTertiary,
                 opacity: isZonesDisabled ? 0.55 : 1,
                 fontFamily: FONT.family,
-                letterSpacing: 0.3,
-                transition: 'color 0.12s, border-color 0.12s',
+                letterSpacing: 0,
+                transition: STUDIO_TRANSITION.colorBorderFast,
                 textTransform: 'capitalize' as const,
               }}
             >
@@ -218,12 +219,12 @@ export function StudioPalette() {
                     style={{
                       fontSize: FONT.xs,
                       color: STUDIO_COLORS.textTertiary,
-                      transition: 'transform 0.15s',
+                      transition: STUDIO_TRANSITION.transformFast,
                       transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
                       display: 'inline-block',
                     }}
                   >
-                    &#9660;
+                    ▼
                   </span>
                   <cat.Icon size={12} style={{ color: catColor }} />
                   <span>{cat.label}</span>
@@ -299,12 +300,12 @@ export function StudioPalette() {
                     style={{
                       fontSize: FONT.xs,
                       color: STUDIO_COLORS.textTertiary,
-                      transition: 'transform 0.15s',
+                      transition: STUDIO_TRANSITION.transformFast,
                       transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
                       display: 'inline-block',
                     }}
                   >
-                    &#9660;
+                    ▼
                   </span>
                   <span style={{ fontSize: FONT.base }}>{group.icon}</span>
                   <span>{group.label}</span>
@@ -399,7 +400,7 @@ function PrefabCard({
           : `1px solid ${STUDIO_COLORS.borderSubtle}`,
         cursor: 'pointer',
         fontFamily: FONT.family,
-        transition: 'all 0.12s',
+        transition: STUDIO_TRANSITION.allFast,
       }}
     >
       <PrefabThumbnail
@@ -466,7 +467,7 @@ function ZonePresetCard({
         cursor: 'pointer',
         fontFamily: FONT.family,
         textAlign: 'left',
-        transition: 'all 0.12s',
+        transition: STUDIO_TRANSITION.allFast,
         width: '100%',
       }}
     >

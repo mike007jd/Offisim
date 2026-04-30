@@ -80,7 +80,7 @@ export function AppOverlayHost(props: AppOverlayHostProps) {
   return (
     <>
       {activeOverlay === 'employee-creator' && (
-        <div className="fixed inset-0 z-[70]">
+        <div className="fixed inset-0 z-top">
           <Suspense fallback={null}>
             <EmployeeCreatorOverlay open onClose={closeOverlay} onDeploy={onCreatorDeploy} />
           </Suspense>

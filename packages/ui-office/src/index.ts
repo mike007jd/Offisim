@@ -54,6 +54,10 @@ export * from './components/install/ManifestReview.js';
 export * from './components/layout/AppLayout.js';
 export * from './components/notifications/NotificationCard.js';
 export * from './components/notifications/NotificationCenter.js';
+export * from './components/onboarding/OnboardingTour.js';
+export * from './components/onboarding/FirstRunWelcomeScreen.js';
+export * from './components/onboarding/tour-steps.js';
+export * from './components/onboarding/tour-context.js';
 export * from './components/project/ProjectSelector.js';
 export * from './components/project/ProjectListPanel.js';
 export * from './components/workspace/WorkspacePageShell.js';
@@ -100,6 +104,7 @@ export * from './hooks/useFirstRunGuidance.js';
 export * from './hooks/useInstallFlow.js';
 export * from './hooks/useInterviewWizard.js';
 export * from './hooks/useLibrary.js';
+export * from './hooks/use-layout-tier.js';
 export * from './hooks/useOfficeLayout.js';
 export * from './hooks/usePrefabInstances.js';
 export * from './hooks/useRackSlot.js';
@@ -117,6 +122,7 @@ export * from './hooks/useSopRuntimeState.js';
 
 // Lib
 export * from './lib/env.js';
+export * from './lib/sidebar-collapse-store.js';
 export * from './lib/desktop-mcp-registry.js';
 export * from './lib/desktop-provider-secrets.js';
 export * from './lib/provider-product-taxonomy.js';

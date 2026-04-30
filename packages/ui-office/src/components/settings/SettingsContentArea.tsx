@@ -1,3 +1,4 @@
+import { ErrorState } from '@offisim/ui-core';
 import { McpConfigPanel } from './McpConfigPanel';
 import { SettingsExternalTab } from './SettingsExternalTab';
 import { SettingsProviderTab } from './SettingsProviderTab';
@@ -45,6 +46,15 @@ export function SettingsContentArea({
         className={`flex-1 overflow-y-auto p-6 sm:p-8 ${showSaveBar ? 'pb-28' : 'pb-8'}`}
       >
         <div className="mx-auto w-full max-w-3xl">
+          {saveError && (
+            <ErrorState
+              variant="banner"
+              title="Settings update failed"
+              message={saveError}
+              primaryAction={{ label: 'Retry', onClick: () => void handleSave() }}
+              className="mb-4"
+            />
+          )}
           {activeTab === 'provider' && <SettingsProviderTab controller={controller} />}
           {activeTab === 'runtime' && <SettingsRuntimeTab controller={controller} />}
           {activeTab === 'mcp' && <McpConfigPanel />}

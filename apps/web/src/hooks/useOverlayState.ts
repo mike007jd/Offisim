@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useCallback, useState } from 'react';
+import { type Dispatch, type SetStateAction, useCallback, useMemo, useState } from 'react';
 import type { OverlayKey } from '../lib/app-view-layout';
 
 export interface OverlayStateApi {
@@ -11,9 +11,17 @@ export interface OverlayStateApi {
   openOfficeEditor: () => void;
 }
 
-export function useOverlayState(initialCompanyId: string | null): OverlayStateApi {
+export interface UseOverlayStateOptions {
+  activeCompanyId: string | null;
+  initial?: OverlayKey | null;
+}
+
+export function useOverlayState({
+  activeCompanyId,
+  initial,
+}: UseOverlayStateOptions): OverlayStateApi {
   const [activeOverlay, setActiveOverlay] = useState<OverlayKey | null>(() =>
-    initialCompanyId ? null : 'company-select',
+    activeCompanyId ? (initial ?? null) : 'company-select',
   );
   const closeOverlay = useCallback(() => setActiveOverlay(null), []);
   const openCompanySelect = useCallback(() => setActiveOverlay('company-select'), []);
@@ -21,13 +29,25 @@ export function useOverlayState(initialCompanyId: string | null): OverlayStateAp
   const openEmployeeCreator = useCallback(() => setActiveOverlay('employee-creator'), []);
   const openOfficeEditor = useCallback(() => setActiveOverlay('office-editor'), []);
 
-  return {
-    activeOverlay,
-    setActiveOverlay,
-    closeOverlay,
-    openCompanySelect,
-    openStudio,
-    openEmployeeCreator,
-    openOfficeEditor,
-  };
+  // Stable identity so consumers depending on this object as a hook dep don't
+  // re-run on every parent render.
+  return useMemo(
+    () => ({
+      activeOverlay,
+      setActiveOverlay,
+      closeOverlay,
+      openCompanySelect,
+      openStudio,
+      openEmployeeCreator,
+      openOfficeEditor,
+    }),
+    [
+      activeOverlay,
+      closeOverlay,
+      openCompanySelect,
+      openStudio,
+      openEmployeeCreator,
+      openOfficeEditor,
+    ],
+  );
 }

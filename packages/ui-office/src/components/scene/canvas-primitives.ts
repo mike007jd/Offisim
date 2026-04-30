@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 /**
  * Shared canvas drawing primitives used by multiple layers. Lives next to
  * the layer files (not in `office-2d-canvas-renderer.ts`) so layers can

@@ -1,3 +1,4 @@
+import { WorkspacePageSkeleton } from '@offisim/ui-core';
 import React, { Suspense, useCallback } from 'react';
 
 import type {
@@ -87,7 +88,9 @@ export function WorkspaceRouter({
   sessionState,
   updateWorkspaceState,
   marketPageProps,
+  activityLogPageProps,
   settingsPageProps,
+  personnelPageProps,
   children,
 }: WorkspaceRouterProps) {
   // For now we treat the transition state as idle — animation support will
@@ -157,6 +160,8 @@ export function WorkspaceRouter({
           <PersonnelPage
             sessionState={sessionState.personnel}
             onSessionStateChange={handlePersonnelChange}
+            onOpenCreator={personnelPageProps?.onOpenCreator}
+            onOpenMarket={personnelPageProps?.onOpenMarket}
           />
         )}
 
@@ -164,6 +169,7 @@ export function WorkspaceRouter({
           <ActivityLogPage
             sessionState={sessionState.activityLog}
             onSessionStateChange={handleActivityLogChange}
+            onBackToOffice={activityLogPageProps?.onBackToOffice}
           />
         )}
 
@@ -188,9 +194,5 @@ export function WorkspaceRouter({
 // ---------------------------------------------------------------------------
 
 function WorkspaceLoadingFallback() {
-  return (
-    <div data-testid="workspace-loading" style={{ padding: 24 }}>
-      Loading workspace…
-    </div>
-  );
+  return <WorkspacePageSkeleton data-testid="workspace-loading" />;
 }

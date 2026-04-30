@@ -1,9 +1,11 @@
 import type { ProjectRow } from '@offisim/shared-types';
 import type { InteractionMode } from '@offisim/shared-types';
-import { ToastBanner, useToasts } from '@offisim/ui-core';
+import { ToastBanner, TooltipProvider, useToasts } from '@offisim/ui-core';
 import {
   EmployeeInspector,
   ErrorBoundary,
+  FirstRunWelcomeScreen,
+  OnboardingTourProvider,
   ProjectCreateDialog,
   type ProviderConfig,
   ResumeBar,
@@ -17,12 +19,11 @@ import {
   useOffisimRuntime,
   useProjects,
 } from '@offisim/ui-office/web';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { OnboardingController } from './components/OnboardingController';
 import { AppGlobalDialogs } from './components/app-shell/AppGlobalDialogs';
 import { AppMainShell } from './components/app-shell/AppMainShell';
 import { AppOverlayHost } from './components/app-shell/AppOverlayHost';
-import { useWorkspaceBackNavigation } from './components/workspaces/useWorkspaceBackNavigation';
 import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSessionState';
 import { useAppKeyboardShortcuts } from './hooks/useAppKeyboardShortcuts';
 import { useAppRuntimeToasts } from './hooks/useAppRuntimeToasts';
@@ -31,8 +32,16 @@ import { useCompanyLifecycle } from './hooks/useCompanyLifecycle';
 import { useOfficeStateBindings } from './hooks/useOfficeStateBindings';
 import { useOverlayState } from './hooks/useOverlayState';
 import { getOnboardingCopy } from './lib/onboarding-prompts';
-import { markAccount } from './lib/onboarding-store';
+import {
+  dismissTour,
+  markAccount,
+  markWelcomeSeen,
+  useOnboardingState,
+} from './lib/onboarding-store';
 import { createRouteToPersonnel } from './lib/personnel-routing';
+import { parseInitialUrl, urlRequiresCompany } from './lib/url-routing';
+import type { ParsedUrl } from './lib/url-routing';
+import { useUrlSync } from './lib/url-routing/useUrlSync';
 
 interface AppProps {
   onCompanySwitch: (id: string | null) => void;
@@ -40,7 +49,25 @@ interface AppProps {
 
 export function App({ onCompanySwitch }: AppProps) {
   const { activeCompanyId, companies, switchCompany, refreshCompanies } = useCompany();
-  const overlay = useOverlayState(activeCompanyId);
+  const [initialParsedUrl] = useState(parseInitialUrl);
+  const initialUrlCompanyId = initialParsedUrl.companyId ?? null;
+  const initialCompanyMismatch =
+    initialUrlCompanyId !== null &&
+    activeCompanyId !== null &&
+    initialUrlCompanyId !== activeCompanyId;
+  const pendingInitialDeepLink =
+    (!activeCompanyId && urlRequiresCompany(initialParsedUrl)) || initialCompanyMismatch;
+  const pendingDeepLinkRef = useRef<ParsedUrl | null>(
+    pendingInitialDeepLink ? initialParsedUrl : null,
+  );
+  const [pendingDeepLinkActive, setPendingDeepLinkActive] = useState(pendingInitialDeepLink);
+  const effectiveInitialUrl = pendingInitialDeepLink
+    ? ({ workspace: 'office', sessionPatch: {}, overlay: null } satisfies ParsedUrl)
+    : initialParsedUrl;
+  const overlay = useOverlayState({
+    activeCompanyId,
+    initial: effectiveInitialUrl.overlay,
+  });
 
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(loadProviderConfig);
   const [companyWizardMode, setCompanyWizardMode] = useState<'create-new' | null>(null);
@@ -55,10 +82,60 @@ export function App({ onCompanySwitch }: AppProps) {
     activeWorkspace,
     setActiveWorkspace,
     updateWorkspaceState,
-    goBack,
-  } = useWorkspaceSessionState();
+    applyParsedUrl,
+  } = useWorkspaceSessionState({
+    initial: {
+      activeWorkspace: effectiveInitialUrl.workspace,
+      sessionPatch: effectiveInitialUrl.sessionPatch,
+    },
+  });
+  const { toasts, addToast, dismissToast } = useToasts();
+  const agents = useAgentStates();
+  const onboardingState = useOnboardingState();
 
-  useWorkspaceBackNavigation(activeWorkspace, goBack);
+  const switchToCompany = useCallback(
+    (companyId: string) => {
+      switchCompany(companyId);
+      onCompanySwitch(companyId);
+    },
+    [onCompanySwitch, switchCompany],
+  );
+
+  const applyParsedUrlAndOverlay = useCallback(
+    (parsed: ParsedUrl) => {
+      const targetCompanyId = parsed.companyId ?? null;
+      if (targetCompanyId !== null && targetCompanyId !== activeCompanyId) {
+        switchToCompany(targetCompanyId);
+        return;
+      }
+      applyParsedUrl(parsed);
+      overlay.setActiveOverlay(parsed.overlay);
+    },
+    [activeCompanyId, applyParsedUrl, overlay.setActiveOverlay, switchToCompany],
+  );
+
+  const urlFallbackRuntime = useMemo(
+    () => ({
+      agents,
+      companies,
+    }),
+    [agents, companies],
+  );
+
+  useUrlSync({
+    workspace: activeWorkspace,
+    sessionState: workspaceSessionState,
+    overlay: overlay.activeOverlay === 'company-select' ? null : overlay.activeOverlay,
+    activeCompanyId,
+    applyParsed: applyParsedUrlAndOverlay,
+    runtime: urlFallbackRuntime,
+    emitToast: ({ message, level }) => addToast(message, level),
+    onPopState: () => {
+      pendingDeepLinkRef.current = null;
+      setPendingDeepLinkActive(false);
+    },
+    enabled: !pendingDeepLinkActive,
+  });
 
   const officeState = workspaceSessionState.office;
   const isOffice = activeWorkspace === 'office';
@@ -81,12 +158,10 @@ export function App({ onCompanySwitch }: AppProps) {
   } = useOffisimRuntime();
   const installFlow = useInstallFlow();
   const routeToPersonnel = useMemo(
-    () => createRouteToPersonnel({ setActiveWorkspace, updateWorkspaceState }),
-    [setActiveWorkspace, updateWorkspaceState],
+    () => createRouteToPersonnel({ applyParsedUrl: applyParsedUrlAndOverlay }),
+    [applyParsedUrlAndOverlay],
   );
-  const { toasts, addToast, dismissToast } = useToasts();
   const { toasts: guidanceToasts, dismissToast: dismissGuidanceToast } = useFirstRunGuidance();
-  const agents = useAgentStates();
   const {
     projects,
     activeProject,
@@ -166,11 +241,12 @@ export function App({ onCompanySwitch }: AppProps) {
   });
 
   useAppKeyboardShortcuts({
+    activeWorkspace,
+    workspaceSessionState,
     isOffice,
     officeState,
     activeOverlay: overlay.activeOverlay,
     closeOverlay: overlay.closeOverlay,
-    goBack,
     setShortcutHelpOpen,
     routeToPersonnel,
     handleToggleDashboard: officeBindings.handleToggleDashboard,
@@ -183,6 +259,21 @@ export function App({ onCompanySwitch }: AppProps) {
       markAccount('provider_configured');
     }
   }, [providerConfig]);
+
+  useEffect(() => {
+    if (!pendingDeepLinkRef.current) return;
+    const pending = pendingDeepLinkRef.current;
+    const targetCompanyId = pending.companyId ?? null;
+    if (targetCompanyId !== null && targetCompanyId !== activeCompanyId) {
+      switchToCompany(targetCompanyId);
+      return;
+    }
+    if (!activeCompanyId) return;
+    pendingDeepLinkRef.current = null;
+    setPendingDeepLinkActive(false);
+    applyParsedUrl(pending);
+    overlay.setActiveOverlay(pending.overlay);
+  }, [activeCompanyId, applyParsedUrl, overlay.setActiveOverlay, switchToCompany]);
 
   useDeepLinkInstall(
     useCallback(
@@ -228,6 +319,21 @@ export function App({ onCompanySwitch }: AppProps) {
   );
 
   const onboardingCopy = useMemo(() => getOnboardingCopy(activeTemplateId), [activeTemplateId]);
+  const providerConfiguredForWelcome =
+    onboardingState.account.provider_configured || providerConfig !== null;
+  const showFirstRunWelcome = useMemo(
+    () =>
+      onboardingState.account.welcome_seen === false &&
+      providerConfiguredForWelcome === false &&
+      companies.length === 0 &&
+      onboardingState.account.tour_dismissed === false,
+    [
+      companies.length,
+      onboardingState.account.tour_dismissed,
+      onboardingState.account.welcome_seen,
+      providerConfiguredForWelcome,
+    ],
+  );
 
   const anyOverlayOpen =
     officeState.dashboardOpen ||
@@ -285,135 +391,148 @@ export function App({ onCompanySwitch }: AppProps) {
 
   return (
     <ErrorBoundary>
-      <>
-        <ToastBanner toasts={toasts} onDismiss={dismissToast} />
-        <ToastBanner toasts={guidanceToasts} onDismiss={dismissGuidanceToast} />
+      <TooltipProvider delayDuration={700}>
+        <OnboardingTourProvider>
+          <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+          <ToastBanner toasts={guidanceToasts} onDismiss={dismissGuidanceToast} />
 
-        {isOffice && unfinishedThreads.length > 0 && (
-          <div className="fixed top-2 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 px-4">
-            <ResumeBar
-              projects={unfinishedThreads}
-              onResume={(threadId: string) => void resumeThread(threadId)}
-              onDismiss={dismissUnfinishedThreads}
-            />
-          </div>
-        )}
+          {isOffice && unfinishedThreads.length > 0 && (
+            <div className="fixed top-2 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 px-4">
+              <ResumeBar
+                projects={unfinishedThreads}
+                onResume={(threadId: string) => void resumeThread(threadId)}
+                onDismiss={dismissUnfinishedThreads}
+              />
+            </div>
+          )}
 
-        <AppOverlayHost
-          activeOverlay={overlay.activeOverlay}
-          closeOverlay={overlay.closeOverlay}
-          portalPreviewCompanyId={portalPreviewCompanyId}
-          setPortalPreviewCompanyId={setPortalPreviewCompanyId}
-          onEnterCompany={lifecycle.handleSelectCompany}
-          onCreateNew={() => {
-            overlay.closeOverlay();
-            setCompanyWizardMode('create-new');
-          }}
-          onArchiveCompany={lifecycle.handleArchiveCompany}
-          officeState={officeState}
-          activeCompanyId={activeCompanyId}
-          activeProjectId={activeProjectId}
-          repos={repos}
-          activeThreadId={activeProject?.thread_id ?? null}
-          onStudioCompanyCreated={lifecycle.handleStudioCompanyCreated}
-          onCreatorDeploy={lifecycle.handleCreatorDeploy}
-          updateOfficeState={officeBindings.updateOfficeState}
-          updateWorkspaceState={updateWorkspaceState}
-          installFlow={installFlow}
-          lastUserRequest={officeBindings.lastUserRequest}
-        />
-
-        {showLayout && (
-          <AppMainShell
-            activeWorkspace={activeWorkspace}
-            isOffice={isOffice}
-            workspaceSessionState={workspaceSessionState}
-            updateWorkspaceState={updateWorkspaceState}
+          <AppOverlayHost
+            activeOverlay={overlay.activeOverlay}
+            closeOverlay={overlay.closeOverlay}
+            portalPreviewCompanyId={portalPreviewCompanyId}
+            setPortalPreviewCompanyId={setPortalPreviewCompanyId}
+            onEnterCompany={lifecycle.handleSelectCompany}
+            onCreateNew={() => {
+              overlay.closeOverlay();
+              setCompanyWizardMode('create-new');
+            }}
+            onArchiveCompany={lifecycle.handleArchiveCompany}
             officeState={officeState}
-            providerConfig={providerConfig}
-            activeCompanyName={activeCompanyName}
             activeCompanyId={activeCompanyId}
-            sceneInteractive={overlay.activeOverlay === null}
-            agents={agents}
-            onFileImport={(file) => installFlow.startFileImport(file)}
-            projects={projects}
             activeProjectId={activeProjectId}
-            setActiveProjectId={setActiveProjectId}
-            onRequestCreateProject={handleRequestCreateProject}
-            onRequestEditProject={handleRequestEditProject}
-            activeProjectStatus={activeProject?.status ?? null}
-            interactionMode={interactionMode}
-            onInteractionModeChange={handleInteractionModeChange}
-            chatOpenToken={officeBindings.chatOpenToken}
-            collaborationRailProps={collaborationRailProps}
-            handleOpenSettings={handleOpenSettings}
-            handleBackToOffice={handleBackToOffice}
-            onSelectWorkspace={setActiveWorkspace}
-            onOpenStudio={lifecycle.handleOpenStudio}
-            onOpenCompanySelect={overlay.openCompanySelect}
-            onOpenEmployeeCreator={overlay.openEmployeeCreator}
-            onToggleDashboard={officeBindings.handleToggleDashboard}
-            onToggleKanban={officeBindings.handleToggleKanban}
-            onSelectEmployee={officeBindings.handleSelectEmployee}
-            onViewModeChange={officeBindings.onViewModeChange}
-            onSceneFallbackTo2D={officeBindings.onSceneFallbackTo2D}
-            onLayoutMetricsChange={officeBindings.onLayoutMetricsChange}
-            onSaveConfig={lifecycle.handleSaveConfig}
-            onOpenActivityLog={() => setActiveWorkspace('activity-log')}
-            onFocusEmployee={onFocusEmployeeFromNotifications}
-            onStartMarketInstall={installFlow.startRegistryInstall}
-            addToast={addToast}
-            onEditExternalEmployee={(id) => routeToPersonnel(id, 'profile')}
+            repos={repos}
+            activeThreadId={activeProject?.thread_id ?? null}
+            onStudioCompanyCreated={lifecycle.handleStudioCompanyCreated}
+            onCreatorDeploy={lifecycle.handleCreatorDeploy}
+            updateOfficeState={officeBindings.updateOfficeState}
+            updateWorkspaceState={updateWorkspaceState}
+            installFlow={installFlow}
+            lastUserRequest={officeBindings.lastUserRequest}
           />
-        )}
 
-        {isOffice && (
-          <EmployeeInspector
-            employeeId={officeState.selectedEmployeeId}
-            companyId={activeCompanyId ?? ''}
-            agents={agents}
-            leftOffset={officeState.leftPanelWidth}
-            onClose={() => officeBindings.handleSelectEmployee(null)}
-            onOpenEditor={(id) => routeToPersonnel(id, 'profile')}
-            onStartChat={(id) => {
-              officeBindings.handleSelectEmployee(id);
-              officeBindings.bumpChatOpenToken();
+          {showLayout && (
+            <AppMainShell
+              activeWorkspace={activeWorkspace}
+              isOffice={isOffice}
+              workspaceSessionState={workspaceSessionState}
+              updateWorkspaceState={updateWorkspaceState}
+              officeState={officeState}
+              providerConfig={providerConfig}
+              activeCompanyName={activeCompanyName}
+              activeCompanyId={activeCompanyId}
+              sceneInteractive={overlay.activeOverlay === null}
+              agents={agents}
+              onFileImport={(file) => installFlow.startFileImport(file)}
+              projects={projects}
+              activeProjectId={activeProjectId}
+              setActiveProjectId={setActiveProjectId}
+              onRequestCreateProject={handleRequestCreateProject}
+              onRequestEditProject={handleRequestEditProject}
+              activeProjectStatus={activeProject?.status ?? null}
+              interactionMode={interactionMode}
+              onInteractionModeChange={handleInteractionModeChange}
+              chatOpenToken={officeBindings.chatOpenToken}
+              collaborationRailProps={collaborationRailProps}
+              handleOpenSettings={handleOpenSettings}
+              handleBackToOffice={handleBackToOffice}
+              onSelectWorkspace={setActiveWorkspace}
+              onOpenStudio={lifecycle.handleOpenStudio}
+              onOpenCompanySelect={overlay.openCompanySelect}
+              onOpenEmployeeCreator={overlay.openEmployeeCreator}
+              onToggleDashboard={officeBindings.handleToggleDashboard}
+              onToggleKanban={officeBindings.handleToggleKanban}
+              onSelectEmployee={officeBindings.handleSelectEmployee}
+              onViewModeChange={officeBindings.onViewModeChange}
+              onSceneFallbackTo2D={officeBindings.onSceneFallbackTo2D}
+              onLayoutMetricsChange={officeBindings.onLayoutMetricsChange}
+              onSaveConfig={lifecycle.handleSaveConfig}
+              onOpenActivityLog={() => setActiveWorkspace('activity-log')}
+              onFocusEmployee={onFocusEmployeeFromNotifications}
+              onStartMarketInstall={installFlow.startRegistryInstall}
+              addToast={addToast}
+              onEditExternalEmployee={(id) => routeToPersonnel(id, 'profile')}
+            />
+          )}
+
+          <FirstRunWelcomeScreen
+            open={showFirstRunWelcome}
+            onGetStarted={markWelcomeSeen}
+            onSkip={() => {
+              markWelcomeSeen();
+              dismissTour();
             }}
           />
-        )}
 
-        <OnboardingController
-          activeCompanyId={activeCompanyId}
-          isOfficeView={isOffice && overlay.activeOverlay === null}
-          anyOverlayOpen={anyOverlayOpen}
-          directChatActive={officeState.selectedEmployeeId !== null}
-        />
+          {isOffice && (
+            <EmployeeInspector
+              employeeId={officeState.selectedEmployeeId}
+              companyId={activeCompanyId ?? ''}
+              agents={agents}
+              leftOffset={officeState.leftPanelWidth}
+              onClose={() => officeBindings.handleSelectEmployee(null)}
+              onOpenEditor={(id) => routeToPersonnel(id, 'profile')}
+              onStartChat={(id) => {
+                officeBindings.handleSelectEmployee(id);
+                officeBindings.bumpChatOpenToken();
+              }}
+            />
+          )}
 
-        <AppGlobalDialogs
-          installFlow={installFlow}
-          shortcutHelpOpen={shortcutHelpOpen}
-          setShortcutHelpOpen={setShortcutHelpOpen}
-          isOffice={isOffice}
-          activeOverlay={overlay.activeOverlay}
-          activeCompanyId={activeCompanyId}
-          companyWizardMode={companyWizardMode}
-          onWizardComplete={lifecycle.handleWizardComplete}
-          onCreateYourOwn={lifecycle.handleCreateYourOwn}
-          onDismissWizard={() => setCompanyWizardMode(null)}
-        />
+          <OnboardingController
+            activeCompanyId={activeCompanyId}
+            activeWorkspace={activeWorkspace}
+            onSwitchWorkspace={setActiveWorkspace}
+            isOfficeView={isOffice && overlay.activeOverlay === null}
+            anyOverlayOpen={anyOverlayOpen}
+            directChatActive={officeState.selectedEmployeeId !== null}
+          />
 
-        <ProjectCreateDialog
-          open={projectDialog !== null}
-          onOpenChange={(next) => {
-            if (!next) setProjectDialog(null);
-          }}
-          mode={projectDialog?.mode ?? 'create'}
-          initial={projectDialog?.mode === 'edit' ? projectDialog.initial : null}
-          onCreate={handleProjectDialogCreate}
-          onUpdate={handleProjectDialogUpdate}
-          onCreated={(project) => setActiveProjectId(project.project_id)}
-        />
-      </>
+          <AppGlobalDialogs
+            installFlow={installFlow}
+            shortcutHelpOpen={shortcutHelpOpen}
+            setShortcutHelpOpen={setShortcutHelpOpen}
+            isOffice={isOffice}
+            activeOverlay={overlay.activeOverlay}
+            activeCompanyId={activeCompanyId}
+            companyWizardMode={companyWizardMode}
+            onWizardComplete={lifecycle.handleWizardComplete}
+            onCreateYourOwn={lifecycle.handleCreateYourOwn}
+            onDismissWizard={() => setCompanyWizardMode(null)}
+          />
+
+          <ProjectCreateDialog
+            open={projectDialog !== null}
+            onOpenChange={(next) => {
+              if (!next) setProjectDialog(null);
+            }}
+            mode={projectDialog?.mode ?? 'create'}
+            initial={projectDialog?.mode === 'edit' ? projectDialog.initial : null}
+            onCreate={handleProjectDialogCreate}
+            onUpdate={handleProjectDialogUpdate}
+            onCreated={(project) => setActiveProjectId(project.project_id)}
+          />
+        </OnboardingTourProvider>
+      </TooltipProvider>
     </ErrorBoundary>
   );
 }

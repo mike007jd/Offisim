@@ -14,6 +14,7 @@
       "@offisim/registry-client": ["../../packages/registry-client/src/index.ts"],
       "@offisim/renderer": ["../../packages/renderer/src/index.ts"],
       "@offisim/ui-core": ["../../packages/ui-core/src/index.ts"],
+      "@offisim/ui-core/tokens": ["../../packages/ui-core/src/tokens/index.ts"],
       "@offisim/ui-office": ["../../packages/ui-office/src/index.ts"],
       "@offisim/ui-office/company-editor": [
         "../../packages/ui-office/src/components/company/CompanyEditor.tsx"

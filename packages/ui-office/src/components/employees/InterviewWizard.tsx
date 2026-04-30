@@ -2,14 +2,20 @@ import {
   Alert,
   AlertDescription,
   Button,
-  Dialog,
-  DialogContent,
-  DialogTitle,
+  DialogShell,
   Progress,
+  ToastBanner,
+  useToasts,
 } from '@offisim/ui-core';
 import { cn } from '@offisim/ui-core';
 import { ArrowLeft, ArrowRight, SkipForward, UserPlus } from 'lucide-react';
-import { type UseInterviewWizardReturn, WIZARD_STEPS } from '../../hooks/useInterviewWizard';
+import { useCallback, useMemo } from 'react';
+import {
+  DEFAULT_WIZARD_FORM,
+  type UseInterviewWizardReturn,
+  WIZARD_STEPS,
+} from '../../hooks/useInterviewWizard';
+import { showDiscardConfirm } from '../../lib/discard-confirm-toast';
 import { AppearanceStep } from './interview-steps/AppearanceStep';
 import { ExpertiseStep } from './interview-steps/ExpertiseStep';
 import { HRPrompt } from './interview-steps/HRPrompt';
@@ -39,6 +45,7 @@ interface InterviewWizardProps {
 }
 
 export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProps) {
+  const { toasts, addToast, dismissToast } = useToasts();
   const {
     state,
     currentStepName,
@@ -58,10 +65,35 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
     reset,
   } = wizard;
 
-  const handleClose = () => {
+  const isDirty = useMemo(
+    () =>
+      state.currentStep !== 0 ||
+      state.completedSteps.size > 0 ||
+      JSON.stringify(state.formData) !== JSON.stringify(DEFAULT_WIZARD_FORM),
+    [state.completedSteps, state.currentStep, state.formData],
+  );
+
+  const discardAndClose = useCallback(() => {
     reset();
     onClose();
-  };
+  }, [onClose, reset]);
+
+  const requestClose = useCallback(() => {
+    if (!isDirty) {
+      discardAndClose();
+      return;
+    }
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+  }, [addToast, discardAndClose, isDirty]);
+
+  const handleRequestClose = useCallback(() => {
+    if (!isDirty) {
+      reset();
+      return undefined;
+    }
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+    return false;
+  }, [addToast, discardAndClose, isDirty, reset]);
 
   const handleSubmit = async () => {
     const ok = await submit();
@@ -69,27 +101,66 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
   };
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        if (!open) handleClose();
-      }}
-    >
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        <DialogTitle className="sr-only">Interview Onboarding Wizard</DialogTitle>
+    <>
+      <DialogShell
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) requestClose();
+        }}
+        size="lg"
+        title="Interview Onboarding Wizard"
+        description={`Step ${state.currentStep + 1} of ${WIZARD_STEPS.length}: ${STEP_LABELS[currentStepName]}`}
+        onRequestClose={handleRequestClose}
+        footer={
+          <div className="flex w-full items-center justify-between gap-3">
+            <div>
+              {!isFirstStep && (
+                <Button variant="outline" size="sm" onClick={back} disabled={isSubmitting}>
+                  <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+                  Back
+                </Button>
+              )}
+            </div>
 
-        {/* Progress bar — pinned header */}
-        <div className="shrink-0 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-monotext-slate-400 uppercase tracking-wider">
+            <div className="flex items-center gap-2">
+              {canSkip && !isLastStep && (
+                <Button variant="ghost" size="sm" onClick={skip} disabled={isSubmitting}>
+                  Skip
+                  <SkipForward className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              )}
+
+              {isLastStep ? (
+                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    'Creating...'
+                  ) : (
+                    <>
+                      <UserPlus className="mr-1 h-3.5 w-3.5" />
+                      Create Employee
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button size="sm" onClick={next} disabled={!canProceed && !canSkip}>
+                  Next
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          </div>
+        }
+      >
+        <div className="mb-4">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-mono text-slate-400 uppercase tracking-wider">
               Step {state.currentStep + 1} of {WIZARD_STEPS.length}: {STEP_LABELS[currentStepName]}
             </span>
-            <span className="text-xs font-monotext-slate-400">{Math.round(progress * 100)}%</span>
+            <span className="text-xs font-mono text-slate-400">{Math.round(progress * 100)}%</span>
           </div>
           <Progress value={progress * 100} />
 
-          {/* Step dots */}
-          <div className="flex items-center justify-center gap-1 mt-3">
+          <div className="mt-3 flex items-center justify-center gap-1">
             {WIZARD_STEPS.map((stepName, idx) => (
               <button
                 key={stepName}
@@ -101,11 +172,11 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
                   }
                 }}
                 className={cn(
-                  'w-6 h-6 rounded-full transition-colors text-[10px] font-semibold flex items-center justify-center',
+                  'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold transition-colors',
                   idx === state.currentStep
                     ? 'bg-red-500 text-white'
                     : state.completedSteps.has(idx)
-                      ? 'bg-emerald-500/80 text-white cursor-pointer hover:bg-emerald-400'
+                      ? 'cursor-pointer bg-emerald-500/80 text-white hover:bg-emerald-400'
                       : 'bg-slate-700 text-slate-500',
                 )}
                 title={STEP_LABELS[stepName]}
@@ -116,47 +187,37 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
           </div>
         </div>
 
-        {/* Scrollable middle: HR Prompt + Step Content */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {/* HR Prompt */}
-          <div className="mb-4">
-            <HRPrompt step={currentStepName} />
-          </div>
-
-          {/* Step Content */}
-          <div className="min-h-0">
-            {currentStepName === 'role' && (
-              <RoleStep formData={state.formData} updateField={updateField} />
-            )}
-            {currentStepName === 'name' && (
-              <NameStep formData={state.formData} updateField={updateField} />
-            )}
-            {currentStepName === 'expertise' && (
-              <ExpertiseStep formData={state.formData} updateField={updateField} />
-            )}
-            {currentStepName === 'style' && (
-              <StyleStep formData={state.formData} updateField={updateField} />
-            )}
-            {currentStepName === 'appearance' && (
-              <AppearanceStep formData={state.formData} updateField={updateField} />
-            )}
-            {currentStepName === 'instructions' && (
-              <InstructionsStep formData={state.formData} updateField={updateField} />
-            )}
-            {currentStepName === 'model' && (
-              <ModelStep formData={state.formData} updateField={updateField} />
-            )}
-            {currentStepName === 'preview' && <PreviewStep formData={state.formData} />}
-          </div>
+        <div className="mb-4">
+          <HRPrompt step={currentStepName} />
         </div>
-        {/* end scrollable area */}
 
-        {/* Error banner — pinned above footer */}
+        <div className="min-h-0">
+          {currentStepName === 'role' && (
+            <RoleStep formData={state.formData} updateField={updateField} />
+          )}
+          {currentStepName === 'name' && (
+            <NameStep formData={state.formData} updateField={updateField} />
+          )}
+          {currentStepName === 'expertise' && (
+            <ExpertiseStep formData={state.formData} updateField={updateField} />
+          )}
+          {currentStepName === 'style' && (
+            <StyleStep formData={state.formData} updateField={updateField} />
+          )}
+          {currentStepName === 'appearance' && (
+            <AppearanceStep formData={state.formData} updateField={updateField} />
+          )}
+          {currentStepName === 'instructions' && (
+            <InstructionsStep formData={state.formData} updateField={updateField} />
+          )}
+          {currentStepName === 'model' && (
+            <ModelStep formData={state.formData} updateField={updateField} />
+          )}
+          {currentStepName === 'preview' && <PreviewStep formData={state.formData} />}
+        </div>
+
         {error && (
-          <Alert
-            variant="destructive"
-            className="shrink-0 mt-4 flex items-start justify-between gap-3"
-          >
+          <Alert variant="destructive" className="mt-4 flex items-start justify-between gap-3">
             <AlertDescription className="flex-1 text-xs">{error}</AlertDescription>
             <button
               type="button"
@@ -167,46 +228,8 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
             </button>
           </Alert>
         )}
-
-        {/* Footer Navigation — pinned */}
-        <div className="shrink-0 flex items-center justify-between pt-4 border-t border-slate-700 mt-4">
-          <div>
-            {!isFirstStep && (
-              <Button variant="outline" size="sm" onClick={back} disabled={isSubmitting}>
-                <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-                Back
-              </Button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {canSkip && !isLastStep && (
-              <Button variant="ghost" size="sm" onClick={skip} disabled={isSubmitting}>
-                Skip
-                <SkipForward className="h-3.5 w-3.5 ml-1" />
-              </Button>
-            )}
-
-            {isLastStep ? (
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? (
-                  'Creating...'
-                ) : (
-                  <>
-                    <UserPlus className="h-3.5 w-3.5 mr-1" />
-                    Create Employee
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button size="sm" onClick={next} disabled={!canProceed && !canSkip}>
-                Next
-                <ArrowRight className="h-3.5 w-3.5 ml-1" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </DialogShell>
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

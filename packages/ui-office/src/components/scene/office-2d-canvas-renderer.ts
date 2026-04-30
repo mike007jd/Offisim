@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 /**
  * office-2d-canvas-renderer.ts — Thin orchestrator for the 2D office canvas.
  *

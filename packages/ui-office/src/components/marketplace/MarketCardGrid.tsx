@@ -1,4 +1,5 @@
 import type { ListingSummary } from '@offisim/registry-client';
+import { Skeleton } from '@offisim/ui-core';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { MarketListingCard } from './MarketListingCard.js';
@@ -25,17 +26,17 @@ export interface MarketCardGridProps {
 
 function SkeletonCard() {
   return (
-    <div className="flex h-[220px] flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-5 animate-pulse">
+    <div className="flex h-[220px] flex-col rounded-2xl border border-border-subtle bg-surface-elevated/50 p-5">
       <div className="flex items-center justify-between">
-        <div className="h-6 w-20 rounded-full bg-white/10" />
-        <div className="h-4 w-16 rounded bg-white/10" />
+        <Skeleton className="h-6 w-20 rounded-full" />
+        <Skeleton className="h-4 w-16" />
       </div>
-      <div className="mt-3 h-5 w-3/4 rounded bg-white/10" />
-      <div className="mt-2 h-4 w-full rounded bg-white/10" />
-      <div className="mt-1 h-4 w-2/3 rounded bg-white/10" />
+      <Skeleton className="mt-3 h-5 w-3/4" />
+      <Skeleton className="mt-2 h-4 w-full" />
+      <Skeleton className="mt-1 h-4 w-2/3" />
       <div className="mt-auto flex gap-4 pt-3">
-        <div className="h-4 w-12 rounded bg-white/10" />
-        <div className="h-4 w-16 rounded bg-white/10" />
+        <Skeleton className="h-4 w-12" />
+        <Skeleton className="h-4 w-16" />
       </div>
     </div>
   );

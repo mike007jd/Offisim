@@ -6,6 +6,7 @@
  */
 
 import { RoundedBox } from '@react-three/drei';
+import { SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
 import { PlantMesh3D } from './DecorativeMesh3D.js';
 import { OfficeChair } from './WorkstationMesh3D.js';
@@ -23,6 +24,7 @@ export function BookshelfMesh3D({
 }: BookshelfMesh3DProps) {
   const sc = useSceneColors();
   const rotY = (rotation * Math.PI) / 180;
+  const bookColors = sc.bookSpine;
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>
@@ -37,26 +39,25 @@ export function BookshelfMesh3D({
             smoothness={4}
             castShadow
           >
-            <meshStandardMaterial color={sc.furniture} />
+            <SceneMaterial materialClass="wood" color={sc.furniture} />
           </RoundedBox>
           {/* Shelf levels with books */}
           {[0.5, 1.1, 1.7, 2.3].map((y, shelfIndex) => (
             <group key={`books-${x}-${y}`}>
               <mesh position={[0, y, 0]} castShadow>
                 <boxGeometry args={[1.8, 0.04, 0.5]} />
-                <meshStandardMaterial color={sc.furnitureLight} />
+                <SceneMaterial materialClass="wood" color={sc.furnitureLight} />
               </mesh>
               {/* Book spines */}
               {[-0.6, -0.3, 0, 0.3, 0.6].map((bx, bookIndex) => (
                 <mesh key={`book-${x}-${y}-${bx}`} position={[bx, y + 0.15, 0]} castShadow>
                   <boxGeometry args={[0.18, 0.25, 0.35]} />
-                  <meshStandardMaterial
+                  <SceneMaterial
+                    materialClass="plastic"
                     color={
-                      ['#10b981', '#059669', '#047857', '#34d399', '#6ee7b7'][
-                        (shelfIndex + bookIndex) % 5
-                      ]
+                      bookColors[(shelfIndex + bookIndex) % bookColors.length] ?? sc.leafPrimary
                     }
-                    roughness={0.8}
+                    overrides={{ roughness: 0.85 }}
                   />
                 </mesh>
               ))}
@@ -75,7 +76,7 @@ export function BookshelfMesh3D({
             castShadow
             receiveShadow
           >
-            <meshStandardMaterial color="#064e3b" roughness={0.3} />
+            <SceneMaterial materialClass="wood" color={sc.tableReading} />
           </RoundedBox>
           {(
             [
@@ -87,7 +88,11 @@ export function BookshelfMesh3D({
           ).map(([lx, lz]) => (
             <mesh key={`tleg-${x}-${lx}-${lz}`} position={[lx, 0.36, lz]} castShadow>
               <cylinderGeometry args={[0.04, 0.04, 0.72, 8]} />
-              <meshStandardMaterial color={sc.furnitureLight} metalness={0.5} />
+              <SceneMaterial
+                materialClass="metal"
+                color={sc.furnitureLight}
+                overrides={{ roughness: 0.3 }}
+              />
             </mesh>
           ))}
           <OfficeChair position={[-0.6, 0, -1]} />

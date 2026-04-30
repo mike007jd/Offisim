@@ -18,10 +18,10 @@ if (typeof document !== 'undefined' && !document.getElementById('agent-card-keyf
 
 /** Border glow color per state category. */
 const STATE_GLOW: Record<string, string> = {
-  executing: 'shadow-[0_0_12px_rgba(16,185,129,0.25)]',
-  success: 'shadow-[0_0_12px_rgba(34,197,94,0.30)]',
-  failed: 'shadow-[0_0_12px_rgba(239,68,68,0.25)]',
-  blocked: 'shadow-[0_0_12px_rgba(245,158,11,0.25)]',
+  executing: 'shadow-glow-success',
+  success: 'shadow-glow-success',
+  failed: 'shadow-glow-error',
+  blocked: 'shadow-glow-warning',
 };
 
 interface AgentCardProps {
@@ -66,8 +66,8 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
         'bg-black/40 p-4 rounded-xl border cursor-pointer',
         'transition-all duration-300',
         isSelected
-          ? 'border-blue-500/40 bg-white/5 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
-          : 'border-white/5 hover:border-blue-500/40 hover:bg-white/5 hover:shadow-[0_0_15px_rgba(59,130,246,0.1)]',
+          ? 'border-blue-500/40 bg-white/5 shadow-glow-accent'
+          : 'border-white/5 hover:border-blue-500/40 hover:bg-white/5 hover:shadow-glow-accent',
         glowing ? glowClass : '',
       ]
         .filter(Boolean)
@@ -88,7 +88,7 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
             <EmployeeAvatar agent={agent} size={44} className="w-full h-full object-cover" />
           </div>
           <div
-            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#02040a] transition-colors duration-300 ${dotColor}`}
+            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-surface transition-colors duration-300 ${dotColor}`}
           />
         </div>
 

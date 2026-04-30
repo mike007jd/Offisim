@@ -26,7 +26,7 @@ export const HERMES_BRAND: BrandEntry = {
   displayName: 'Hermes',
   asset2dUri: svgToDataUri(HERMES_SVG),
   asset3dVariant: 'hermes',
-  accentColor: '#6366f1',
+  accentColor: '#6366f1', // raw-hex-allowed
 };
 
 export const OPENCLAW_BRAND: BrandEntry = {
@@ -34,7 +34,7 @@ export const OPENCLAW_BRAND: BrandEntry = {
   displayName: 'OpenClaw',
   asset2dUri: svgToDataUri(OPENCLAW_SVG),
   asset3dVariant: 'openclaw',
-  accentColor: '#dc2626',
+  accentColor: '#dc2626', // raw-hex-allowed
 };
 
 export const CODEX_BRAND: BrandEntry = {
@@ -42,7 +42,7 @@ export const CODEX_BRAND: BrandEntry = {
   displayName: 'Codex',
   asset2dUri: svgToDataUri(CODEX_SVG),
   asset3dVariant: 'codex',
-  accentColor: '#0ea5e9',
+  accentColor: '#0ea5e9', // raw-hex-allowed
 };
 
 export const CUSTOM_BRAND: BrandEntry = {
@@ -50,7 +50,7 @@ export const CUSTOM_BRAND: BrandEntry = {
   displayName: 'Custom',
   asset2dUri: svgToDataUri(CUSTOM_SVG),
   asset3dVariant: 'custom',
-  accentColor: '#a78bfa',
+  accentColor: '#a78bfa', // raw-hex-allowed
 };
 
 export const REGISTRY: Record<ExternalBrandVariant, BrandEntry> = {

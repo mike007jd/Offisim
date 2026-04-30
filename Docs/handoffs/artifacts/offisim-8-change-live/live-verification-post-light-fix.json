@@ -1,0 +1,244 @@
+{
+  "settings": {
+    "path": "/settings/runtime",
+    "htmlClass": "light",
+    "hasRuntime": true,
+    "samples": [
+      {
+        "text": "Office",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Settings",
+        "color": "rgb(15, 23, 42)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(15, 23, 42)"
+      },
+      {
+        "text": "Select package file",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Install Package",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(15, 23, 42, 0.12)"
+      },
+      {
+        "text": "Notifications",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "text": "Collapse settings navigation",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(15, 23, 42, 0.12)"
+      },
+      {
+        "text": "Provider",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "text": "Runtime",
+        "color": "rgb(15, 23, 42)",
+        "background": "oklab(0.999994 0.0000455678 0.0000200868 / 0.06)",
+        "border": "oklch(0.789 0.154 211.53)"
+      },
+      {
+        "text": "MCP",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "text": "External Employees",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "text": "Runtime defaults",
+        "color": "oklab(0.999994 0.0000455678 0.0000200868 / 0.9)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "oklab(0.999994 0.0000455678 0.0000200868 / 0.9)"
+      },
+      {
+        "text": "Execution mode",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Auto",
+        "color": "rgb(15, 23, 42)",
+        "background": "oklab(0.129 -0.0038832 -0.0418201 / 0.7)",
+        "border": "rgba(15, 23, 42, 0.12)"
+      },
+      {
+        "text": "Tool search",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Enabled",
+        "color": "rgb(15, 23, 42)",
+        "background": "oklab(0.129 -0.0038832 -0.0418201 / 0.7)",
+        "border": "rgba(15, 23, 42, 0.12)"
+      },
+      {
+        "text": "Git auto-commit",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Enabled",
+        "color": "rgb(15, 23, 42)",
+        "background": "oklab(0.129 -0.0038832 -0.0418201 / 0.7)",
+        "border": "rgba(15, 23, 42, 0.12)"
+      },
+      {
+        "text": "Theme",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "System",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Light",
+        "color": "rgb(71, 85, 105)",
+        "background": "oklab(0.715 -0.116822 -0.0824726 / 0.2)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Dark",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Display density",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Compact",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Normal",
+        "color": "rgb(71, 85, 105)",
+        "background": "oklab(0.715 -0.116822 -0.0824726 / 0.2)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Spacious",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Default employee runtime",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(71, 85, 105)"
+      },
+      {
+        "text": "Provider gatewayRun inside the Offisim LangGraph employee node via the configure",
+        "color": "rgb(71, 85, 105)",
+        "background": "oklab(0.715 -0.116822 -0.0824726 / 0.2)",
+        "border": "oklab(0.789 -0.131264 -0.0805335 / 0.6)"
+      },
+      {
+        "text": "Claude engineDelegate the assigned task to the Claude Agent runtime sidecar.Avai",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgb(241, 245, 249)",
+        "border": "rgba(15, 23, 42, 0.12)"
+      },
+      {
+        "text": "Codex engineDelegate the assigned task to the Codex Agent runtime sidecar.Availa",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgb(241, 245, 249)",
+        "border": "rgba(15, 23, 42, 0.12)"
+      },
+      {
+        "text": "Conversation memory & summarization",
+        "color": "oklab(0.999994 0.0000455678 0.0000200868 / 0.9)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "oklab(0.999994 0.0000455678 0.0000200868 / 0.9)"
+      }
+    ]
+  },
+  "drawer": {
+    "drawerOpen": true,
+    "hasMenu": true,
+    "htmlClass": "light",
+    "links": [
+      {
+        "text": "",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(15, 23, 42, 0.12)"
+      },
+      {
+        "text": "Office",
+        "color": "rgb(30, 64, 175)",
+        "background": "rgba(37, 99, 235, 0.12)",
+        "border": "rgba(37, 99, 235, 0.55)"
+      },
+      {
+        "text": "SOPs",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgb(241, 245, 249)",
+        "border": "rgba(15, 23, 42, 0.06)"
+      },
+      {
+        "text": "Market",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgb(241, 245, 249)",
+        "border": "rgba(15, 23, 42, 0.06)"
+      },
+      {
+        "text": "Personnel",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgb(241, 245, 249)",
+        "border": "rgba(15, 23, 42, 0.06)"
+      },
+      {
+        "text": "Activity",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgb(241, 245, 249)",
+        "border": "rgba(15, 23, 42, 0.06)"
+      },
+      {
+        "text": "Settings",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgb(241, 245, 249)",
+        "border": "rgba(15, 23, 42, 0.06)"
+      },
+      {
+        "text": "Switch Company",
+        "color": "rgb(71, 85, 105)",
+        "background": "rgb(241, 245, 249)",
+        "border": "rgba(15, 23, 42, 0.12)"
+      }
+    ]
+  }
+}

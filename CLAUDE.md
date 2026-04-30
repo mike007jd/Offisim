@@ -105,8 +105,8 @@ catalog/
 
 - `WorkspaceKey` = `'office' | 'sops' | 'market' | 'personnel' | 'activity-log' | 'settings'`
 - `OverlayKey` = `'employee-creator' | 'office-editor' | 'company-select' | 'studio'`（正交于 workspace；员工 edit 不再走 overlay，统一路由 Personnel）
-- `useWorkspaceSessionState`: updater `(prev: T) => T`, `updateWorkspaceState(key, updater)` 唯一写入路径
-- `useWorkspaceBackNavigation`: 浏览器 history 集成, 先 unwind 内部状态再切 workspace
+- URL routing SSOT 在 `apps/web/src/lib/url-routing/`：workspace 切换、primary entity、overlay、filter/search 状态先序列化到 URL，再由 `useUrlSync()` 统一写 `history.pushState/replaceState`；不要恢复旧的内部 workspace history stack。
+- `useWorkspaceSessionState`: updater `(prev: T) => T`, `updateWorkspaceState(key, updater)` 仍是 session state 唯一写入路径；Escape 可做 workspace 内部 drill-back，浏览器 Back/Forward 走 URL parser。
 - 响应式: `computeLayoutTier()` → desktop(>1280) / tablet(769-1280) / narrow(≤768)
 
 ## Key Files
@@ -118,6 +118,7 @@ catalog/
 | Workspace types | `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state, layout tier |
 | Personnel page | `packages/ui-office/src/components/employees/PersonnelPage.tsx` | List + detail + 6-tab inspector (employee edit lives here) |
 | Personnel routing | `apps/web/src/lib/personnel-routing.ts` | `routeToPersonnel(id, tab)` — single entry for cross-surface employee edit |
+| URL routing | `apps/web/src/lib/url-routing/` | parser + serializer + fallback + `useUrlSync`; deep links / Back / Forward 的 canonical path |
 | Project create/edit | `packages/ui-office/src/components/project/ProjectCreateDialog.tsx` | Single dialog for both create + edit modes; opened from header selector + chat strip |
 | Project context strip | `packages/ui-office/src/components/project/ProjectContextStrip.tsx` | Strip at top of ChatPanel; `Project · {name} · {folder?}` + Open folder + Edit |
 | Folder picker bridge | `packages/ui-office/src/lib/folder-picker.ts` | `pickWorkspaceFolder` / `revealWorkspaceFolder` SSOT — Tauri dialog + opener plugins; web throws `FolderPickerUnavailableError` |
@@ -175,6 +176,9 @@ catalog/
 - **2026-04-28 起 deterministic harness 是允许形态**: `packages/core/harness/scenarios/*.json` + `packages/core/src/testing/{scenario-runner,invariant-assertions,fake-gateway,replay-gateway,trace-recorder}` + `scripts/harness-{contract,replay,provider-adapter}.mjs`。新增 graph / permission / plan-review / DAG / LLM record-replay 不变量走这条。生产 hash/canonical helper 在 `packages/core/src/utils/`，`testing/canonical-json` 和 `testing/hash` 只保留兼容 re-export；删 testing 文件夹时不要误删生产 util。
 - **2D office 方向已改判并已完成主路径切换**: 旧 SVG 2D 路径已经删除。后续不要复活 SVG scene grammar；2D 场景主渲染保持 `canvas`, DOM 只保留文字/tooltip/panel/按钮等交互壳。
 - **Project = name + description + 可选 workspace_root + 专属 thread**：`projects.workspace_root` 是 nullable TEXT 列（migration 026 / desktop v34）。Tauri 端 `tauri-plugin-dialog` + `tauri-plugin-opener` 已注册，capabilities 含 `dialog:allow-open` / `opener:allow-reveal-item-in-dir` / `opener:allow-open-path`。folder picker SSOT 在 `packages/ui-office/src/lib/folder-picker.ts`（其他组件不直接 import `@tauri-apps/plugin-{dialog,opener}`）。Web 端 vite alias 把这两个 plugin stub 到 `apps/web/src/polyfills/` 下空函数，folder UI 走 disabled hint。`ProjectService.createProject` 改成对象参数 `{ name, description?, workspaceRoot? }`（不再 positional）。Project picker 已交付 desktop workspace file tree：`project_list_dir` + `project_read_file` 受 workspace_root 约束，浏览器显示 desktop-only 状态。
+- **Layout-shift contract**: `layout-shift-stability` capability owns CLS budgets. Tabs unmount policy SSOT is `TABS_RETAIN_STATE_CLASS` in `@offisim/ui-core`; web self-hosts Inter + JetBrains Mono variable woff2 with `font-display: swap`.
+- **3D lighting/material contract**: `SceneLightingRig` + `scene-performance-tier.ts` own 3D light tiers, FPS soft downgrade, dev hot toggles, PCF soft shadows, and post-processing. Prefab 3D materials must go through `theme/scene-materials.tsx`; no inline prefab hex / `roughness=` / `metalness=` / `transmission=` literals.
+- **Responsive workspace contract**: workspace topology uses `useLayoutTier()` as SSOT. Tailwind breakpoints are cosmetic only; peer workspace layout changes must satisfy desktop/tablet/narrow decision rows.
 
 ## Ground Truth
 
@@ -223,7 +227,7 @@ Open source (MIT), BYO-key. 浏览器直调 vendor API, 无代理。
 - `web` live：真实 MiniMax 请求跑通，底部 token / cost / latency 都是真值
 - **Agent SDK execution lanes 已正式开放（commits `3e99f940` `feat: add agent sdk execution lanes` + `d5e0f4c9` `Add SOP-driven dual runtime engine support`）**：核心员工 runtime 现走 4 lane —— `gateway`（默认 HTTP）、`claude-agent-sdk`、`codex-agent-sdk`、`openai-agents-sdk`。Tauri 侧统一注册在 `apps/web/src/lib/tauri-engine-adapters.ts`；trusted host 命令对应 `claude_agent_execute` / `codex_agent_execute`，sidecars 在 `apps/desktop/src-tauri/src/{claude,codex}_agent_host.rs` + `resources/codex-agent-host.mjs`；Web 不注入 fetch 仍走 SDK 默认 transport。Provider 元数据 catalog 在 `catalog/provider-source-registry/` (commit `61427aab`)。**1.0 交付口径**：SDK lane 是 text/reasoning-only，不是 Offisim tool lane；文件、shell、memory、todo、skill、MCP、builtin tool 只允许在 `gateway` lane 暴露和验收，不能把 SDK lane 文本回复当作工具执行证据。SDK adapter 收到 tool request 必须 fail closed；local file/shell routing 不能选择 external A2A 员工。
 - chat 一轮 streaming fix 已落（`fix-chat-streaming-ux` archived），但仍非强感知 streaming；二次迭代目标是正文 chunk 在气泡里增长
-- 2D DiceBear 卡通头像和 3D 块人两种渲染引擎，颜色优先级（自 C1 起）= `persona_json.appearance` 在则用 appearance；不在则 fallback `outfitColorFromSeed(seed)` / `skinToneFromSeed(seed)` SSOT bridge（2D shirt = 3D body 字节等价）。统一入口 `resolveOutfitColor(seed, appearance?)` / `resolveSkinTone(seed, appearance?)`。DiceBear `top` 走 `HAIR_STYLE_TO_AVATAARS_TOP` v9 enum 映射（bald → `topProbability: 0`，v9 无 `noHair` 令牌）。3D 块人 C1 只消费 skin / clothing color；hairStyle/bodyType/gender/clothingAccent 持久化但渲染待 GPT 5.5 art pass。`AgentState` 携带 pre-resolved `avatarSeed` + parsed `appearance`，不再保留 `persona_json` 镜像
+- 2D DiceBear 卡通头像和 3D 块人两种渲染引擎，颜色优先级 = `persona_json.appearance` 在则用 appearance；不在则 fallback `outfitColorFromSeed(seed)` / `skinToneFromSeed(seed)` / `hairColorFromSeed(seed)` / accent seed resolver。统一入口 `resolveOutfitColor(seed, appearance?)` / `resolveSkinTone(seed, appearance?)` / `resolveHairColor(seed, appearance?)` / `resolveAccentColor(seed, appearance?)`。DiceBear `top` 走 `HAIR_STYLE_TO_AVATAARS_TOP` v9 enum 映射（bald → `topProbability: 0`）。3D 内部员工几何 SSOT 是 `character-mesh-builder.tsx`：bodyType / gender / hairStyle / clothingAccent 全量渲染；品牌外包员工只复用 shared rig，不消费内部员工发型/五官/vest。`AgentState` 携带 pre-resolved `avatarSeed` + parsed `appearance`，不再保留 `persona_json` 镜像
 - A2A 产品抽象 = **品牌外观外包员工**（external employee with brand avatar）。接不同 A2A 产品 → 办公室场景出现对应品牌员工 avatar（OpenClaw / Hermes / Codex 等，发版带内置 **支持列表**；没命中的走 **custom** 通用外包样式）。走员工语义：席位 / zone / ceremony 和内部员工一致，仅 2D+3D 渲染按 brandKey 分支。**不与 DiceBear / 块人内部员工共用资产** —— DiceBear + 块人专供内部员工（核心逻辑），外包员工每 brand 独立 2D+3D 资产
 - 历史误判：2026-04-18 前代码里按"外包 department"抽象落过一轮（`ExternalDepartmentDefinition` / `department_dispatcher` / `sourceKind:'department'` / `assigneeKind:'department'`）。**产品没有"外包 department"概念**，只有内部 department 是正常业务抽象。Phase 2b 3-change 翻盘：schema + dispatch → brand avatar → install 入口
 

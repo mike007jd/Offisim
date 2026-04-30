@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import { drawAvatarCircle, drawNamePill, drawRoundedRect } from '../canvas-primitives';
 import { EMPLOYEE_RADIUS } from '../office-2d-canvas-geometry';
 import {

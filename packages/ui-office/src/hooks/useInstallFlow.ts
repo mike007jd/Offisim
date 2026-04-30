@@ -55,6 +55,7 @@ export interface InstallFlowActions {
   confirmInstall: () => void;
   submitBindings: () => void;
   setBindingValue: (key: string, value: string) => void;
+  restart: () => void;
   cancel: () => void;
   close: () => void;
 }
@@ -69,6 +70,15 @@ interface PendingInstallIntent {
   version: string;
   storedAt: number;
 }
+
+type InstallRetryIntent =
+  | { kind: 'file'; file: File; options?: InstallImportOptions }
+  | {
+      kind: 'upgrade';
+      file: File;
+      currentManifest: import('@offisim/asset-schema').PackageManifest;
+    }
+  | { kind: 'registry'; listingId: string; version: string };
 
 function readPendingInstallIntent(): PendingInstallIntent | null {
   if (typeof window === 'undefined') return null;
@@ -139,6 +149,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
   const { activeCompanyId } = useCompany();
   const registryClient = useRegistryClient();
   const sourceRefRef = useRef<string | null>(null);
+  const retryIntentRef = useRef<InstallRetryIntent | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<InstallStep>('idle');
@@ -212,6 +223,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
 
   const startFileImport = useCallback(
     (file: File, options?: InstallImportOptions) => {
+      retryIntentRef.current = { kind: 'file', file, options };
       // Validate file size (applies to both real and mock paths)
       if (file.size > MAX_FILE_SIZE) {
         setIsOpen(true);
@@ -266,6 +278,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
    */
   const startUpgrade = useCallback(
     (file: File, currentManifest: import('@offisim/asset-schema').PackageManifest) => {
+      retryIntentRef.current = { kind: 'upgrade', file, currentManifest };
       currentManifestRef.current = currentManifest;
       setUpgradeDiff(null);
 
@@ -337,6 +350,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
    */
   const startRegistryInstall = useCallback(
     (listingId: string, version: string) => {
+      retryIntentRef.current = { kind: 'registry', listingId, version };
       // Prevent concurrent installs — if a transaction is already active, ignore.
       if (txnIdRef.current) return;
 
@@ -584,6 +598,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     txnIdRef.current = null;
     currentManifestRef.current = null;
     sourceRefRef.current = null;
+    retryIntentRef.current = null;
     setIsOpen(false);
     setStep('idle');
     setPlan(null);
@@ -596,6 +611,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     txnIdRef.current = null;
     currentManifestRef.current = null;
     sourceRefRef.current = null;
+    retryIntentRef.current = null;
     setIsOpen(false);
     setStep('idle');
     setPlan(null);
@@ -603,6 +619,32 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     setBindingValues(new Map());
     setUpgradeDiff(null);
   }, []);
+
+  const restart = useCallback(() => {
+    const intent = retryIntentRef.current;
+    if (!intent) {
+      setIsOpen(true);
+      setStep('error');
+      setError('No install request is available to retry.');
+      return;
+    }
+    txnIdRef.current = null;
+    setBindingValues(new Map());
+    setUpgradeDiff(null);
+    switch (intent.kind) {
+      case 'file':
+        startFileImport(intent.file, intent.options);
+        return;
+      case 'upgrade':
+        startUpgrade(intent.file, intent.currentManifest);
+        return;
+      case 'registry':
+        startRegistryInstall(intent.listingId, intent.version);
+        return;
+      default:
+        return;
+    }
+  }, [startFileImport, startRegistryInstall, startUpgrade]);
 
   return {
     isOpen,
@@ -617,6 +659,7 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
     confirmInstall,
     submitBindings,
     setBindingValue,
+    restart,
     cancel,
     close,
   };

@@ -1,11 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@offisim/ui-core';
+import { Button, DialogShell, ToastBanner, useToasts } from '@offisim/ui-core';
 /**
  * InstallDialog — shadcn Dialog wrapper that renders different content
  * based on the current install flow step.
@@ -16,7 +9,9 @@ import {
 
 import './install-animations.css';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { useCallback } from 'react';
 import type { InstallFlowActions, InstallFlowState } from '../../hooks/useInstallFlow.js';
+import { showDiscardConfirm } from '../../lib/discard-confirm-toast.js';
 import { BindingForm } from './BindingForm.js';
 import { InstallProgress } from './InstallProgress.js';
 import { ManifestReview } from './ManifestReview.js';
@@ -52,15 +47,26 @@ function DoneContent({ onClose, isUpgrade = false }: { onClose: () => void; isUp
   );
 }
 
-function ErrorContent({ error, onCancel }: { error: string; onCancel: () => void }) {
+function ErrorContent({
+  error,
+  onCancel,
+  onRetry,
+}: {
+  error: string;
+  onCancel: () => void;
+  onRetry: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
       <XCircle className="h-10 w-10 text-error" />
       <h3 className="text-base font-semibold text-sand">Installation Failed</h3>
       <p className="text-sm text-error text-center">{error}</p>
-      <Button variant="outline" onClick={onCancel} className="mt-2">
-        Close
-      </Button>
+      <div className="mt-2 flex items-center gap-2">
+        <Button variant="outline" onClick={onCancel}>
+          Close
+        </Button>
+        <Button onClick={onRetry}>Retry</Button>
+      </div>
     </div>
   );
 }
@@ -85,7 +91,22 @@ function getDialogTitle(step: InstallDialogProps['step'], isUpgrade: boolean): s
   }
 }
 
+function getDialogDescription(
+  step: InstallDialogProps['step'],
+  hasUpgradeDiff: boolean,
+  hasPlan: boolean,
+): string | undefined {
+  if (step === 'review' && hasPlan) {
+    return hasUpgradeDiff
+      ? 'Review the changes before upgrading.'
+      : 'Review the package details before installing.';
+  }
+  if (step === 'bindings') return 'Configure model bindings for this package.';
+  return undefined;
+}
+
 export function InstallDialog(props: InstallDialogProps) {
+  const { toasts, addToast, dismissToast } = useToasts();
   const {
     isOpen,
     step,
@@ -94,11 +115,31 @@ export function InstallDialog(props: InstallDialogProps) {
     bindingValues,
     upgradeDiff,
     confirmInstall,
+    restart,
     submitBindings,
     setBindingValue,
     cancel,
     close,
   } = props;
+  const isBlockingStep = step === 'loading' || step === 'installing';
+  const isDirty = step === 'bindings' && bindingValues.size > 0;
+  const description = getDialogDescription(step, !!upgradeDiff, !!plan);
+
+  const requestClose = useCallback(() => {
+    if (isBlockingStep) return;
+    if (!isDirty) {
+      cancel();
+      return;
+    }
+    showDiscardConfirm(addToast, { onDiscard: cancel });
+  }, [addToast, cancel, isBlockingStep, isDirty]);
+
+  const handleRequestClose = useCallback(() => {
+    if (isBlockingStep) return false;
+    if (!isDirty) return undefined;
+    showDiscardConfirm(addToast, { onDiscard: cancel });
+    return false;
+  }, [addToast, cancel, isBlockingStep, isDirty]);
 
   // Don't render dialog in idle state
   if (step === 'idle' && !isOpen) return null;
@@ -116,11 +157,11 @@ export function InstallDialog(props: InstallDialogProps) {
               diff={upgradeDiff}
               packageTitle={plan.manifest.package.title}
               onConfirm={confirmInstall}
-              onCancel={cancel}
+              onCancel={requestClose}
             />
           );
         }
-        return <ManifestReview plan={plan} onApprove={confirmInstall} onCancel={cancel} />;
+        return <ManifestReview plan={plan} onApprove={confirmInstall} onCancel={requestClose} />;
 
       case 'bindings':
         if (!plan) return <LoadingContent />;
@@ -130,7 +171,7 @@ export function InstallDialog(props: InstallDialogProps) {
             bindingValues={bindingValues}
             onSetValue={setBindingValue}
             onSubmit={submitBindings}
-            onCancel={cancel}
+            onCancel={requestClose}
           />
         );
 
@@ -141,7 +182,13 @@ export function InstallDialog(props: InstallDialogProps) {
         return <DoneContent onClose={close} isUpgrade={!!upgradeDiff} />;
 
       case 'error':
-        return <ErrorContent error={error ?? 'Unknown error'} onCancel={cancel} />;
+        return (
+          <ErrorContent
+            error={error ?? 'Unknown error'}
+            onCancel={requestClose}
+            onRetry={restart}
+          />
+        );
 
       default:
         return null;
@@ -149,28 +196,20 @@ export function InstallDialog(props: InstallDialogProps) {
   }
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        if (!open) cancel();
-      }}
-    >
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{getDialogTitle(step, !!upgradeDiff)}</DialogTitle>
-          {step === 'review' && plan && (
-            <DialogDescription>
-              {upgradeDiff
-                ? 'Review the changes before upgrading.'
-                : 'Review the package details before installing.'}
-            </DialogDescription>
-          )}
-          {step === 'bindings' && (
-            <DialogDescription>Configure model bindings for this package.</DialogDescription>
-          )}
-        </DialogHeader>
+    <>
+      <DialogShell
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) cancel();
+        }}
+        size="md"
+        title={getDialogTitle(step, !!upgradeDiff)}
+        description={description}
+        onRequestClose={handleRequestClose}
+      >
         {renderContent()}
-      </DialogContent>
-    </Dialog>
+      </DialogShell>
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

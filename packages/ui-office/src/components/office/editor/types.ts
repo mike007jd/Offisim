@@ -5,6 +5,7 @@ import type {
   ZoneArchetype,
   ZoneKind,
 } from '@offisim/shared-types';
+import { CATEGORY_COLORS_DARK } from '@offisim/ui-core/tokens';
 
 /** A zone placed on the editor canvas. */
 export interface EditorZone {
@@ -72,13 +73,5 @@ export function editorZoneRect(z: EditorZone) {
 }
 
 export function prefabColor(category: SemanticCategory): string {
-  const colors: Record<SemanticCategory, string> = {
-    workspace: '#3b82f6',
-    compute: '#06b6d4',
-    knowledge: '#10b981',
-    collaboration: '#a855f7',
-    infrastructure: '#f59e0b',
-    decorative: '#84cc16',
-  };
-  return colors[category] ?? '#64748b';
+  return CATEGORY_COLORS_DARK[category] ?? CATEGORY_COLORS_DARK.workspace;
 }

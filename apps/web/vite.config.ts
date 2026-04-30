@@ -351,6 +351,12 @@ export default defineConfig(({ command, mode }) => {
               return 'vendor-llm';
             }
 
+            // Post-processing remains a second lazy 3D chunk; Office3DView loads it only
+            // for high/medium lighting tiers after the Canvas is already active.
+            if (id.includes('/@react-three/postprocessing/') || id.includes('/postprocessing/')) {
+              return 'vendor-postprocessing';
+            }
+
             // Three.js + React Three Fiber (lazy on 3D view toggle)
             if (id.includes('/three/') || id.includes('/@react-three/')) {
               return 'vendor-3d';

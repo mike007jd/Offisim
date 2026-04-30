@@ -1,9 +1,12 @@
 import { SopSyncService } from '@offisim/core/browser';
 import type { SopDefinition, SopStep } from '@offisim/shared-types';
-import { ToastBanner, useToasts } from '@offisim/ui-core';
+import { Button, ErrorState, ToastBanner, useToasts } from '@offisim/ui-core';
+import { PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
 import { useSops } from '../../hooks/useSops';
+import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
 import { parseSopDefinition } from '../../lib/sop-utils';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
@@ -33,6 +36,7 @@ import {
 
 export type SopSessionState = {
   selectedSopId: string | null;
+  focusedStepId: string | null;
   search: string;
 };
 
@@ -84,7 +88,9 @@ function validateNoCycles(def: SopDefinition): boolean {
 // ---------------------------------------------------------------------------
 
 export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSurfaceProps) {
-  const { sops, loading, deleteSop, refreshSops } = useSops();
+  const { tier } = useLayoutTier();
+  const [persistedSidebar, setPersistedSidebar] = useSidebarCollapse('sops');
+  const { sops, loading, error, deleteSop, refreshSops } = useSops();
   const { sendMessage, repos } = useOffisimRuntime();
   const { toasts, addToast, dismissToast } = useToasts();
 
@@ -93,6 +99,8 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
   const [nlInput, setNlInput] = useState('');
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Add step popover state
@@ -214,7 +222,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
 
   const handleSelectSop = useCallback(
     (sopId: string) => {
-      onSessionStateChange((prev) => ({ ...prev, selectedSopId: sopId }));
+      onSessionStateChange((prev) => ({ ...prev, selectedSopId: sopId, focusedStepId: null }));
       setSelectedStepId(null);
       setNlInput('');
     },
@@ -257,13 +265,28 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
   const handleStepClick = useCallback(
     (stepId: string) => {
       setSelectedStepId(stepId);
+      onSessionStateChange((prev) => ({ ...prev, focusedStepId: stepId }));
       const step = definition?.steps.find((s) => s.step_id === stepId);
       if (step) {
         setNlInput(formatStepClickPrefill(step.label, step.role_slug));
       }
     },
-    [definition],
+    [definition, onSessionStateChange],
   );
+
+  useEffect(() => {
+    if (!sessionState.focusedStepId) {
+      setSelectedStepId(null);
+      return;
+    }
+    if (!stepIds.includes(sessionState.focusedStepId)) {
+      onSessionStateChange((prev) =>
+        prev.focusedStepId ? { ...prev, focusedStepId: null } : prev,
+      );
+      return;
+    }
+    setSelectedStepId(sessionState.focusedStepId);
+  }, [onSessionStateChange, sessionState.focusedStepId, stepIds]);
 
   const handleNlSubmit = useCallback(
     (text: string) => {
@@ -492,22 +515,55 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
   );
 
   const showEmpty = !sessionState.selectedSopId || !layout;
+  const sidebarCollapsed = tier === 'tablet' && persistedSidebar === 'collapsed';
+  const showInlineSidebar = tier !== 'narrow';
+  const showInlineInspector = tier === 'desktop' && !showEmpty;
+  const showInspectorHandle = tier === 'tablet' && !showEmpty;
+  const showInspectorSheet = tier === 'narrow' && !showEmpty && inspectorOpen;
+  const showInspectorOverlay = tier === 'tablet' && !showEmpty && inspectorOpen;
+
+  useEffect(() => {
+    if (tier === 'narrow' && editMode) setEditMode(false);
+  }, [editMode, tier]);
+
+  useEffect(() => {
+    if (tier !== 'desktop' && selectedStepId) setInspectorOpen(true);
+  }, [selectedStepId, tier]);
+
+  const toggleSidebarCollapse = useCallback(() => {
+    setPersistedSidebar(persistedSidebar === 'collapsed' ? 'expanded' : 'collapsed');
+  }, [persistedSidebar, setPersistedSidebar]);
+
+  const sidebar = (
+    <SopSidebar
+      sops={sops}
+      selectedSopId={sessionState.selectedSopId}
+      search={sessionState.search}
+      loading={loading}
+      onSelectSop={(sopId) => {
+        handleSelectSop(sopId);
+        setSidebarDrawerOpen(false);
+      }}
+      onSearchChange={handleSearchChange}
+      onCreateClick={() => {
+        setEditorOpen(true);
+        setSidebarDrawerOpen(false);
+      }}
+      onImportClick={() => {
+        setImportOpen(true);
+        setSidebarDrawerOpen(false);
+      }}
+      collapsed={sidebarCollapsed}
+      onToggleCollapse={tier === 'tablet' ? toggleSidebarCollapse : undefined}
+    />
+  );
 
   return (
-    <div className="flex h-full">
+    <div className="relative flex h-full overflow-hidden" data-layout-tier={tier}>
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
       {/* Left sidebar — SOP list */}
-      <SopSidebar
-        sops={sops}
-        selectedSopId={sessionState.selectedSopId}
-        search={sessionState.search}
-        loading={loading}
-        onSelectSop={handleSelectSop}
-        onSearchChange={handleSearchChange}
-        onCreateClick={() => setEditorOpen(true)}
-        onImportClick={() => setImportOpen(true)}
-      />
+      {showInlineSidebar && sidebar}
 
       {/* Right panel — toolbar + canvas + command bar */}
       <div className="relative flex-1 flex flex-col min-w-0">
@@ -519,10 +575,23 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
           onSync={handleSync}
           onCreateClick={() => setEditorOpen(true)}
           onImportClick={() => setImportOpen(true)}
-          editMode={editMode}
-          onEditModeToggle={handleEditModeToggle}
+          onToggleSidebar={tier === 'narrow' ? () => setSidebarDrawerOpen(true) : undefined}
+          editMode={tier === 'narrow' ? false : editMode}
+          onEditModeToggle={tier === 'narrow' ? undefined : handleEditModeToggle}
           onAutoLayout={handleAutoLayout}
+          allowEditMode={tier !== 'narrow'}
         />
+
+        {error && (
+          <ErrorState
+            variant="banner"
+            className="m-3"
+            title="Couldn't load SOPs"
+            message="The SOP library could not be refreshed."
+            technicalDetail={error}
+            primaryAction={{ label: 'Retry', onClick: () => void refreshSops() }}
+          />
+        )}
 
         {saveStatus !== 'idle' && (
           <div className="pointer-events-none absolute right-4 top-14 z-10">
@@ -587,7 +656,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
       </div>
 
       {/* Right inspector — mounted whenever a SOP is selected */}
-      {!showEmpty && (
+      {showInlineInspector && (
         <SopInspectorPanel
           definition={definition}
           selectedStepId={selectedStepId}
@@ -598,13 +667,104 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
         />
       )}
 
+      {showInspectorHandle && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute right-3 top-14 z-overlay h-9 w-9 rounded-full border border-border-subtle bg-surface-elevated shadow-modal"
+          onClick={() => setInspectorOpen((prev) => !prev)}
+          aria-label={inspectorOpen ? 'Close SOP inspector' : 'Open SOP inspector'}
+        >
+          {inspectorOpen ? (
+            <PanelRightClose className="h-4 w-4" />
+          ) : (
+            <PanelRightOpen className="h-4 w-4" />
+          )}
+        </Button>
+      )}
+
+      {showInspectorOverlay && (
+        <div className="absolute inset-y-10 right-3 z-overlay w-[340px] overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-modal">
+          <div className="flex h-9 items-center justify-end border-b border-border-subtle px-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setInspectorOpen(false)}
+              aria-label="Close SOP inspector"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <SopInspectorPanel
+            definition={definition}
+            selectedStepId={selectedStepId}
+            runtimeState={runtimeState}
+            stepIds={stepIds}
+            onSelectStep={handleStepClick}
+            missingRoleSet={missingRoleSet}
+            className="h-[calc(100%-2.25rem)] w-full border-l-0"
+          />
+        </div>
+      )}
+
+      {sidebarDrawerOpen && tier === 'narrow' && (
+        <div className="absolute inset-0 z-modal flex">
+          <button
+            type="button"
+            aria-label="Close SOP list"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setSidebarDrawerOpen(false)}
+          />
+          <div className="relative z-10 h-full shadow-modal">{sidebar}</div>
+        </div>
+      )}
+
+      {showInspectorSheet && (
+        <div className="absolute inset-x-0 bottom-0 z-overlay max-h-[52vh] overflow-hidden rounded-t-2xl border-t border-border-subtle bg-surface-elevated shadow-modal">
+          <div className="flex h-10 items-center justify-between border-b border-border-subtle px-3">
+            <span className="text-xs font-semibold text-text-secondary">Step inspector</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setInspectorOpen(false)}
+              aria-label="Close SOP inspector"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <SopInspectorPanel
+            definition={definition}
+            selectedStepId={selectedStepId}
+            runtimeState={runtimeState}
+            stepIds={stepIds}
+            onSelectStep={handleStepClick}
+            missingRoleSet={missingRoleSet}
+            className="max-h-[calc(52vh-2.5rem)] w-full border-l-0"
+          />
+        </div>
+      )}
+
       <SopEditorDialog open={editorOpen} onOpenChange={setEditorOpen} onCreated={handleCreated} />
       <SopImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={handleCreated} />
 
       {/* Add/Edit step popover */}
       {addStepPopover && (
         <SopAddStepPopover
-          position={{ x: addStepPopover.screenX, y: addStepPopover.screenY }}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setAddStepPopover(null);
+          }}
+          anchor={
+            <div
+              className="fixed h-px w-px"
+              style={{ left: addStepPopover.screenX, top: addStepPopover.screenY }}
+            />
+          }
           initialValues={
             addStepPopover.editStepId
               ? (() => {
@@ -622,8 +782,8 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
               : undefined
           }
           submitLabel={addStepPopover.editStepId ? 'Save' : 'Add'}
+          stackId={`sop-step-popover-${addStepPopover.editStepId ?? 'create'}`}
           onSubmit={handleAddStepSubmit}
-          onCancel={() => setAddStepPopover(null)}
         />
       )}
 

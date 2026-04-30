@@ -160,6 +160,7 @@ export function SceneCanvas({
                   selectedEmployeeId={selectedEmployeeId}
                   onSelectEmployee={onSelectEmployee}
                   onDeselectEmployee={onDeselectEmployee}
+                  onRequestForce2D={() => setForce2D(true)}
                   renderEmployeeBadge={renderEmployeeBadge}
                 />
               </Suspense>

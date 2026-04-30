@@ -1,0 +1,121 @@
+{
+  "path": "/settings/runtime",
+  "htmlClass": "light",
+  "hasRuntime": true,
+  "headings": [
+    {
+      "text": "Settings",
+      "color": "rgb(15, 23, 42)"
+    },
+    {
+      "text": "Runtime defaults",
+      "color": "rgb(15, 23, 42)"
+    },
+    {
+      "text": "Conversation memory & summarization",
+      "color": "rgb(15, 23, 42)"
+    }
+  ],
+  "controls": [
+    {
+      "text": "Office",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Select package file",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Install Package",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Notifications",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Collapse settings navigation",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Provider",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Runtime",
+      "color": "rgb(15, 23, 42)",
+      "background": "oklab(0.999994 0.0000455678 0.0000200868 / 0.06)"
+    },
+    {
+      "text": "MCP",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "External Employees",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Auto",
+      "color": "rgb(15, 23, 42)",
+      "background": "color(srgb 1 1 1 / 0.92)"
+    },
+    {
+      "text": "Enabled",
+      "color": "rgb(15, 23, 42)",
+      "background": "color(srgb 1 1 1 / 0.92)"
+    },
+    {
+      "text": "Enabled",
+      "color": "rgb(15, 23, 42)",
+      "background": "color(srgb 1 1 1 / 0.92)"
+    },
+    {
+      "text": "System",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Light",
+      "color": "rgb(71, 85, 105)",
+      "background": "oklab(0.715 -0.116822 -0.0824726 / 0.2)"
+    },
+    {
+      "text": "Dark",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Compact",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Normal",
+      "color": "rgb(71, 85, 105)",
+      "background": "oklab(0.715 -0.116822 -0.0824726 / 0.2)"
+    },
+    {
+      "text": "Spacious",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "text": "Provider gatewayRun inside the Offisim LangGraph employee node via the configure",
+      "color": "rgb(71, 85, 105)",
+      "background": "oklab(0.715 -0.116822 -0.0824726 / 0.2)"
+    },
+    {
+      "text": "Claude engineDelegate the assigned task to the Claude Agent runtime sidecar.Avai",
+      "color": "rgb(71, 85, 105)",
+      "background": "rgb(241, 245, 249)"
+    }
+  ]
+}

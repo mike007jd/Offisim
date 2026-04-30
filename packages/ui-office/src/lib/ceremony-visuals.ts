@@ -28,21 +28,21 @@ export function getPhaseIcon(phase: CeremonyPhase): string {
 export function getPhaseColor(phase: CeremonyPhase): string {
   switch (phase) {
     case 'gathering':
-      return '#f59e0b';
+      return '#f59e0b'; // raw-hex-allowed
     case 'analyzing':
-      return '#818cf8';
+      return '#818cf8'; // raw-hex-allowed
     case 'planning':
-      return '#3b82f6';
+      return '#3b82f6'; // raw-hex-allowed
     case 'dispatching':
-      return '#22c55e';
+      return '#22c55e'; // raw-hex-allowed
     case 'working':
-      return '#10b981';
+      return '#10b981'; // raw-hex-allowed
     case 'reporting':
-      return '#06b6d4';
+      return '#06b6d4'; // raw-hex-allowed
     case 'dismissing':
-      return '#94a3b8';
+      return '#94a3b8'; // raw-hex-allowed
     default:
-      return '#64748b';
+      return '#64748b'; // raw-hex-allowed
   }
 }
 

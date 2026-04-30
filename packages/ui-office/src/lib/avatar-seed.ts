@@ -5,14 +5,22 @@ import { parseEmployeePersona } from '@offisim/shared-types';
 
 // Tuple SSOT — add/reorder entries here; derived arrays stay index-aligned structurally.
 const OUTFIT_PALETTE = [
-  ['#3b82f6', 'Blue'],
-  ['#a855f7', 'Purple'],
-  ['#22c55e', 'Green'],
-  ['#818cf8', 'Indigo'],
-  ['#f97316', 'Orange'],
-  ['#ef4444', 'Red'],
-  ['#06b6d4', 'Cyan'],
-  ['#f59e0b', 'Amber'],
+  ['#3b82f6', 'Blue'], // raw-hex-allowed
+  ['#a855f7', 'Purple'], // raw-hex-allowed
+  ['#22c55e', 'Green'], // raw-hex-allowed
+  ['#818cf8', 'Indigo'], // raw-hex-allowed
+  ['#f97316', 'Orange'], // raw-hex-allowed
+  ['#ef4444', 'Red'], // raw-hex-allowed
+  ['#06b6d4', 'Cyan'], // raw-hex-allowed
+  ['#f59e0b', 'Amber'], // raw-hex-allowed
+  ['#0ea5e9', 'Sky'], // raw-hex-allowed
+  ['#14b8a6', 'Teal'], // raw-hex-allowed
+  ['#84cc16', 'Lime'], // raw-hex-allowed
+  ['#eab308', 'Yellow'], // raw-hex-allowed
+  ['#ec4899', 'Pink'], // raw-hex-allowed
+  ['#f43f5e', 'Rose'], // raw-hex-allowed
+  ['#8b5cf6', 'Violet'], // raw-hex-allowed
+  ['#64748b', 'Slate'], // raw-hex-allowed
 ] as const satisfies ReadonlyArray<readonly [`#${string}`, string]>;
 
 export const OUTFIT_COLORS: readonly string[] = OUTFIT_PALETTE.map(([hex]) => hex);
@@ -24,14 +32,39 @@ export const OUTFIT_COLORS_NUMERIC: readonly number[] = OUTFIT_PALETTE.map(([hex
 export const OUTFIT_LABELS: readonly string[] = OUTFIT_PALETTE.map(([, label]) => label);
 
 export const SKIN_TONES = [
-  '#fce7f3',
-  '#fef3c7',
-  '#92400e',
-  '#fdf2f8',
-  '#fff1f2',
-  '#d4a574',
-  '#f5deb3',
-];
+  '#fce7f3', // raw-hex-allowed
+  '#fef3c7', // raw-hex-allowed
+  '#92400e', // raw-hex-allowed
+  '#fdf2f8', // raw-hex-allowed
+  '#fff1f2', // raw-hex-allowed
+  '#d4a574', // raw-hex-allowed
+  '#f5deb3', // raw-hex-allowed
+  '#fde68a', // raw-hex-allowed
+  '#fed7aa', // raw-hex-allowed
+  '#fdba74', // raw-hex-allowed
+  '#fb923c', // raw-hex-allowed
+  '#c2410c', // raw-hex-allowed
+  '#9a3412', // raw-hex-allowed
+  '#7c2d12', // raw-hex-allowed
+  '#78350f', // raw-hex-allowed
+  '#713f12', // raw-hex-allowed
+  '#451a03', // raw-hex-allowed
+  '#3b1d0b', // raw-hex-allowed
+  '#24130a', // raw-hex-allowed
+] as const;
+
+export const HAIR_COLORS_SEED_PALETTE = [
+  '#1a1a1a', // raw-hex-allowed
+  '#6b3f1e', // raw-hex-allowed
+  '#d4a843', // raw-hex-allowed
+  '#b03020', // raw-hex-allowed
+  '#9e9e9e', // raw-hex-allowed
+  '#3d6bce', // raw-hex-allowed
+  '#f8fafc', // raw-hex-allowed
+  '#64748b', // raw-hex-allowed
+] as const;
+
+export const KNUTH_PRIME = 2654435761;
 
 export function resolveAvatarSeed(agent: {
   name: string;
@@ -49,12 +82,23 @@ function hashSeed(seed: string): number {
   return Math.abs(hash);
 }
 
+export function paletteIndex(seed: string, paletteLength: number): number {
+  return Math.abs((hashSeed(seed) * KNUTH_PRIME) >>> 0) % paletteLength;
+}
+
 export function outfitColorFromSeed(seed: string): string {
-  return OUTFIT_COLORS[hashSeed(seed) % OUTFIT_COLORS.length] ?? '#3b82f6';
+  return OUTFIT_COLORS[paletteIndex(seed, OUTFIT_COLORS.length)] ?? '#3b82f6'; // raw-hex-allowed
 }
 
 export function skinToneFromSeed(seed: string): string {
-  return SKIN_TONES[hashSeed(`skin:${seed}`) % SKIN_TONES.length] ?? '#fce7f3';
+  return SKIN_TONES[paletteIndex(`skin:${seed}`, SKIN_TONES.length)] ?? '#fce7f3'; // raw-hex-allowed
+}
+
+export function hairColorFromSeed(seed: string): string {
+  return (
+    HAIR_COLORS_SEED_PALETTE[paletteIndex(`hair:${seed}`, HAIR_COLORS_SEED_PALETTE.length)] ??
+    '#111827' // raw-hex-allowed
+  );
 }
 
 export function numericToHex(n: number): string {
@@ -73,6 +117,20 @@ export function resolveSkinTone(seed: string, appearance?: EmployeeAppearance | 
     return numericToHex(appearance.skinColor);
   }
   return skinToneFromSeed(seed);
+}
+
+export function resolveHairColor(seed: string, appearance?: EmployeeAppearance | null): string {
+  if (appearance && typeof appearance.hairColor === 'number') {
+    return numericToHex(appearance.hairColor);
+  }
+  return hairColorFromSeed(seed);
+}
+
+export function resolveAccentColor(seed: string, appearance?: EmployeeAppearance | null): string {
+  if (appearance && typeof appearance.clothingAccent === 'number') {
+    return numericToHex(appearance.clothingAccent);
+  }
+  return outfitColorFromSeed(`accent:${seed}`);
 }
 
 /**

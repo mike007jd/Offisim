@@ -41,7 +41,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     icon: <FlaskConical className="h-4 w-4" />,
     iconLg: <FlaskConical className="h-8 w-8" />,
     accent: 'text-blue-400',
-    accentHex: '#3b82f6',
+    accentHex: '#3b82f6', // raw-hex-allowed
     accentBg: 'bg-blue-500/10 border-blue-500/30',
     tagline: 'Build software with a full engineering team',
     bestFor: ['Software Development', 'Full Stack', 'Enterprise'],
@@ -54,7 +54,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     icon: <PenTool className="h-4 w-4" />,
     iconLg: <PenTool className="h-8 w-8" />,
     accent: 'text-emerald-400',
-    accentHex: '#10b981',
+    accentHex: '#10b981', // raw-hex-allowed
     accentBg: 'bg-emerald-500/10 border-emerald-500/30',
     tagline: 'Create, edit, and publish content at scale',
     bestFor: ['Content Marketing', 'Publishing', 'Creative'],
@@ -67,7 +67,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     icon: <Rocket className="h-4 w-4" />,
     iconLg: <Rocket className="h-8 w-8" />,
     accent: 'text-violet-400',
-    accentHex: '#8b5cf6',
+    accentHex: '#8b5cf6', // raw-hex-allowed
     accentBg: 'bg-violet-500/10 border-violet-500/30',
     tagline: 'Design and ship products from research to launch',
     bestFor: ['Product Strategy', 'Design Thinking', 'Agile'],
@@ -80,7 +80,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     icon: <Briefcase className="h-4 w-4" />,
     iconLg: <Briefcase className="h-8 w-8" />,
     accent: 'text-amber-400',
-    accentHex: '#f59e0b',
+    accentHex: '#f59e0b', // raw-hex-allowed
     accentBg: 'bg-amber-500/10 border-amber-500/30',
     tagline: 'Lean team for client projects and quick deliveries',
     bestFor: ['Client Work', 'Freelance', 'Fast Delivery'],
@@ -93,7 +93,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     icon: <Brain className="h-4 w-4" />,
     iconLg: <Brain className="h-8 w-8" />,
     accent: 'text-cyan-400',
-    accentHex: '#06b6d4',
+    accentHex: '#06b6d4', // raw-hex-allowed
     accentBg: 'bg-cyan-500/10 border-cyan-500/30',
     tagline: 'Research-first team pushing the boundaries of AI',
     bestFor: ['Machine Learning', 'Research', 'Data Science'],
@@ -106,7 +106,7 @@ export const TEMPLATE_META: Record<string, TemplateMeta> = {
     icon: <Wrench className="h-4 w-4" />,
     iconLg: <Wrench className="h-8 w-8" />,
     accent: 'text-emerald-400',
-    accentHex: '#34d399',
+    accentHex: '#34d399', // raw-hex-allowed
     accentBg: 'bg-emerald-500/10',
     tagline: 'Design your office from scratch',
     bestFor: ['Custom layout', 'Full creative control'],
@@ -142,27 +142,27 @@ export const ROLE_LABELS: Record<string, string> = {
 };
 
 export const ROLE_DOT: Record<string, string> = {
-  developer: '#3b82f6',
-  backend: '#3b82f6',
-  frontend: '#60a5fa',
-  fullstack: '#60a5fa',
-  pm: '#8b5cf6',
-  product_manager: '#8b5cf6',
-  manager: '#a78bfa',
-  designer: '#f59e0b',
-  ui_designer: '#fbbf24',
-  ux_designer: '#f97316',
-  artist: '#f97316',
-  analyst: '#10b981',
-  qa: '#34d399',
-  researcher: '#06b6d4',
-  devops: '#94a3b8',
-  engineering_manager: '#a78bfa',
-  writer: '#10b981',
-  seo_specialist: '#f97316',
-  project_manager: '#a78bfa',
-  account_manager: '#ec4899',
-  graphic_designer: '#f97316',
+  developer: '#3b82f6', // raw-hex-allowed
+  backend: '#3b82f6', // raw-hex-allowed
+  frontend: '#60a5fa', // raw-hex-allowed
+  fullstack: '#60a5fa', // raw-hex-allowed
+  pm: '#8b5cf6', // raw-hex-allowed
+  product_manager: '#8b5cf6', // raw-hex-allowed
+  manager: '#a78bfa', // raw-hex-allowed
+  designer: '#f59e0b', // raw-hex-allowed
+  ui_designer: '#fbbf24', // raw-hex-allowed
+  ux_designer: '#f97316', // raw-hex-allowed
+  artist: '#f97316', // raw-hex-allowed
+  analyst: '#10b981', // raw-hex-allowed
+  qa: '#34d399', // raw-hex-allowed
+  researcher: '#06b6d4', // raw-hex-allowed
+  devops: '#94a3b8', // raw-hex-allowed
+  engineering_manager: '#a78bfa', // raw-hex-allowed
+  writer: '#10b981', // raw-hex-allowed
+  seo_specialist: '#f97316', // raw-hex-allowed
+  project_manager: '#a78bfa', // raw-hex-allowed
+  account_manager: '#ec4899', // raw-hex-allowed
+  graphic_designer: '#f97316', // raw-hex-allowed
 };
 
 export interface EmployeeBio {

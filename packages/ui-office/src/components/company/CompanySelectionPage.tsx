@@ -283,7 +283,7 @@ export function CompanySelectionPage({
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#07101d] text-white lg:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden bg-surface text-white lg:flex-row">
       {creatingNew && (
         <CompanyCreationWizard
           mode="create-new"
@@ -508,7 +508,7 @@ function CompanyRow({
       }}
       className={`group w-full rounded-xl border p-3 text-left transition lg:p-4 ${
         isPreview
-          ? 'border-blue-400/40 bg-blue-500/10 shadow-[0_0_0_1px_rgba(96,165,250,0.2)]'
+          ? 'border-blue-400/40 bg-blue-500/10 shadow-glow-accent'
           : 'border-white/8 bg-white/[0.03] hover:border-white/14 hover:bg-white/[0.05]'
       } ${isRenaming ? 'cursor-default' : 'cursor-pointer'}`}
     >

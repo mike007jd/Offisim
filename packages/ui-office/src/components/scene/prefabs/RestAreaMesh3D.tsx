@@ -5,6 +5,7 @@
  */
 
 import { RoundedBox } from '@react-three/drei';
+import { SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
 import { PlantMesh3D } from './DecorativeMesh3D.js';
 
@@ -27,52 +28,52 @@ export function RestAreaMesh3D({
       {/* Carpet */}
       <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[10, 6]} />
-        <meshStandardMaterial color={sc.furnitureLight} roughness={0.9} />
+        <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
       </mesh>
       {/* Sofa set 1 - L shape */}
       <RoundedBox args={[4, 0.4, 1.2]} position={[-1, 0.2, -2.2]} radius={0.1} castShadow>
-        <meshStandardMaterial color={sc.ledAmber} roughness={0.7} />
+        <SceneMaterial materialClass="fabric" color={sc.ledAmber} />
       </RoundedBox>
       <RoundedBox args={[4, 0.6, 0.3]} position={[-1, 0.5, -2.75]} radius={0.1} castShadow>
-        <meshStandardMaterial color={sc.ledAmber} roughness={0.7} />
+        <SceneMaterial materialClass="fabric" color={sc.ledAmber} />
       </RoundedBox>
       {/* Sofa set 2 */}
       <RoundedBox args={[3, 0.4, 1]} position={[1, 0.2, 2]} radius={0.1} castShadow>
-        <meshStandardMaterial color="#d97706" roughness={0.7} />
+        <SceneMaterial materialClass="fabric" color={sc.accentWarm} />
       </RoundedBox>
       <RoundedBox args={[3, 0.6, 0.3]} position={[1, 0.5, 2.45]} radius={0.1} castShadow>
-        <meshStandardMaterial color="#d97706" roughness={0.7} />
+        <SceneMaterial materialClass="fabric" color={sc.accentWarm} />
       </RoundedBox>
       {/* Coffee table */}
       <mesh position={[0, 0.3, 0]} castShadow>
         <cylinderGeometry args={[0.8, 0.8, 0.05, 32]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.2} />
+        <SceneMaterial materialClass="plastic" color={sc.whiteboardSurface} />
       </mesh>
       <mesh position={[0, 0.15, 0]} castShadow>
         <cylinderGeometry args={[0.4, 0.2, 0.3, 16]} />
-        <meshStandardMaterial color={sc.furnitureDark} />
+        <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
       </mesh>
       {/* Vending machine */}
       <group position={[5.5, 0, -2]}>
         <RoundedBox args={[1, 2.2, 0.8]} position={[0, 1.1, 0]} radius={0.05} castShadow>
-          <meshStandardMaterial color={sc.furniture} metalness={0.4} roughness={0.3} />
+          <SceneMaterial
+            materialClass="plastic"
+            color={sc.furniture}
+            overrides={{ metalness: 0.4 }}
+          />
         </RoundedBox>
         {/* Screen */}
         <mesh position={[0, 1.4, 0.41]}>
           <planeGeometry args={[0.7, 0.5]} />
-          <meshBasicMaterial color={sc.ledAmber} />
+          <meshBasicMaterial color={sc.vendingScreen} />
         </mesh>
         {/* Product window */}
         <mesh position={[0, 0.8, 0.41]}>
           <planeGeometry args={[0.7, 0.8]} />
-          <meshPhysicalMaterial
+          <SceneMaterial
+            materialClass="glass"
             color={sc.partition}
-            transmission={0.8}
-            opacity={1}
-            roughness={0.1}
-            ior={1.5}
-            thickness={0.05}
-            transparent
+            overrides={{ thickness: 0.05 }}
           />
         </mesh>
       </group>

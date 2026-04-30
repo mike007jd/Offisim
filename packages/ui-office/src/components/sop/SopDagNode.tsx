@@ -7,16 +7,16 @@ import type { SopStepStatus } from './sop-dag-layout';
 // ---------------------------------------------------------------------------
 
 const ROLE_COLORS: Record<string, string> = {
-  developer: '#3b82f6',
-  designer: '#a855f7',
-  pm: '#f59e0b',
-  qa: '#10b981',
-  devops: '#ef4444',
-  default: '#64748b',
+  developer: '#3b82f6', // raw-hex-allowed
+  designer: '#a855f7', // raw-hex-allowed
+  pm: '#f59e0b', // raw-hex-allowed
+  qa: '#10b981', // raw-hex-allowed
+  devops: '#ef4444', // raw-hex-allowed
+  default: '#64748b', // raw-hex-allowed
 };
 
 function getRoleColor(roleSlug: string): string {
-  return ROLE_COLORS[roleSlug] ?? ROLE_COLORS.default ?? '#64748b';
+  return ROLE_COLORS[roleSlug] ?? ROLE_COLORS.default ?? '#64748b'; // raw-hex-allowed
 }
 
 // ---------------------------------------------------------------------------

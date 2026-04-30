@@ -1,15 +1,22 @@
 import { getTopmostModalId, isAnyModalOpen } from '@offisim/ui-core';
 import { useEffect } from 'react';
-import type { OfficeSessionState, UpdateWorkspaceStateFn } from '../components/workspaces/types';
+import type {
+  OfficeSessionState,
+  UpdateWorkspaceStateFn,
+  WorkspaceKey,
+  WorkspaceSessionState,
+} from '../components/workspaces/types';
+import { tryWorkspaceInternalBack } from '../components/workspaces/useWorkspaceSessionState';
 import type { OverlayKey } from '../lib/app-view-layout';
 import type { RouteToPersonnelFn } from '../lib/personnel-routing';
 
 export interface AppKeyboardShortcutsDeps {
+  activeWorkspace: WorkspaceKey;
+  workspaceSessionState: WorkspaceSessionState;
   isOffice: boolean;
   officeState: OfficeSessionState;
   activeOverlay: OverlayKey | null;
   closeOverlay: () => void;
-  goBack: () => void;
   setShortcutHelpOpen: (updater: boolean | ((prev: boolean) => boolean)) => void;
   routeToPersonnel: RouteToPersonnelFn;
   handleToggleDashboard: () => void;
@@ -19,11 +26,12 @@ export interface AppKeyboardShortcutsDeps {
 
 export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
   const {
+    activeWorkspace,
+    workspaceSessionState,
     isOffice,
     officeState,
     activeOverlay,
     closeOverlay,
-    goBack,
     setShortcutHelpOpen,
     routeToPersonnel,
     handleToggleDashboard,
@@ -108,17 +116,47 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
           closeOverlay();
           return;
         }
-        goBack();
+        const [consumed, nextSessionState] = tryWorkspaceInternalBack(
+          activeWorkspace,
+          workspaceSessionState,
+        );
+        if (consumed) {
+          e.preventDefault();
+          updateWorkspaceState(activeWorkspace, (prev) => {
+            switch (activeWorkspace) {
+              case 'office':
+                return nextSessionState.office as typeof prev;
+              case 'sops':
+                return nextSessionState.sops as typeof prev;
+              case 'market':
+                return nextSessionState.market as typeof prev;
+              case 'personnel':
+                return nextSessionState.personnel as typeof prev;
+              case 'activity-log':
+                return nextSessionState.activityLog as typeof prev;
+              case 'settings':
+                return nextSessionState.settings as typeof prev;
+              default: {
+                // Exhaustiveness guard: TS will error here if a new WorkspaceKey
+                // is added without a matching case above.
+                const _exhaustive: never = activeWorkspace;
+                return _exhaustive;
+              }
+            }
+          });
+          return;
+        }
+        return;
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
+    activeWorkspace,
     activeOverlay,
     closeOverlay,
     isOffice,
     routeToPersonnel,
-    goBack,
     handleToggleDashboard,
     handleToggleKanban,
     officeState.dashboardOpen,
@@ -126,5 +164,6 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     officeState.selectedEmployeeId,
     setShortcutHelpOpen,
     updateWorkspaceState,
+    workspaceSessionState,
   ]);
 }

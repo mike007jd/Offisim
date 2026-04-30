@@ -40,7 +40,7 @@ export function SurfaceCard({
 }) {
   return (
     <section
-      className={`rounded-[24px] border border-white/10 bg-slate-950/45 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl ${className}`}
+      className={`rounded-[24px] border border-white/10 bg-slate-950/45 p-5 shadow-modal backdrop-blur-xl ${className}`}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>

@@ -28,7 +28,7 @@ export function ZoneInspector({
 
   return (
     <div
-      className={`shrink-0 border-l border-white/[0.06] bg-[#060a14] flex flex-col transition-all duration-200 overflow-hidden ${zone ? 'w-64 opacity-100' : 'w-0 opacity-0 border-l-0'}`}
+      className={`flex shrink-0 flex-col overflow-hidden border-l border-white/[0.06] bg-surface transition-all duration-200 ${zone ? 'w-64 opacity-100' : 'w-0 border-l-0 opacity-0'}`}
     >
       {zone && (
         <>

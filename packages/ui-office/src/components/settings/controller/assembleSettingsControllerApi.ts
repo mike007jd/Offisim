@@ -2,7 +2,7 @@ import {
   resolveAvailableExecutionLanes,
   resolveProviderConfig,
 } from '../../../lib/provider-config';
-import type { Density } from '../../../theme';
+import type { Density, ResolvedTheme, Theme } from '../../../theme';
 import {
   getAvailableProviderPresets,
   getProviderPreset,
@@ -22,7 +22,10 @@ import type { useSettingsSaveOrchestrator } from './useSettingsSaveOrchestrator'
 
 interface AssembleApiInput {
   density: Density;
+  resolvedTheme: ResolvedTheme;
   setDensity: (density: Density) => void;
+  setTheme: (theme: Theme) => void;
+  theme: Theme;
   provider: ReturnType<typeof useSettingsProviderState>;
   runtimePolicy: ReturnType<typeof useSettingsRuntimePolicy>;
   save: ReturnType<typeof useSettingsSaveOrchestrator>;
@@ -44,7 +47,10 @@ function parseDefaultHeaders(value: string): Record<string, string> | undefined 
 
 export function assembleSettingsControllerApi({
   density,
+  resolvedTheme,
   setDensity,
+  setTheme,
+  theme,
   provider,
   runtimePolicy,
   save,
@@ -109,6 +115,7 @@ export function assembleSettingsControllerApi({
     availableProviderVariants,
     defaultHeaders: provider.defaultHeaders,
     density,
+    resolvedTheme,
     effectiveEndpoint,
     endpointOverride: provider.endpointOverride,
     executionLane: provider.executionLane,
@@ -150,6 +157,7 @@ export function assembleSettingsControllerApi({
     setApiKey: provider.setApiKey,
     setDefaultHeaders: provider.setDefaultHeaders,
     setDensity,
+    setTheme,
     setEndpointOverride: provider.setEndpointOverride,
     setExecutionLane: provider.setExecutionLane,
     employeeRuntimeDefault: runtimePolicy.employeeRuntimeDefault,
@@ -174,6 +182,7 @@ export function assembleSettingsControllerApi({
     summarizationKeepRecentMessages: runtimePolicy.summarizationKeepRecentMessages,
     summarizationTriggerTokens: runtimePolicy.summarizationTriggerTokens,
     toolSearchEnabled: runtimePolicy.toolSearchEnabled,
+    theme,
     verifiedExecutionLanes,
   };
 }

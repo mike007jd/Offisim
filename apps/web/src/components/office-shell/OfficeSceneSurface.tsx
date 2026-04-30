@@ -81,7 +81,7 @@ export function OfficeSceneSurface({
   );
 
   return (
-    <div className="h-full w-full" data-onboarding-target="scene-surface">
+    <div className="h-full w-full">
       <CeremonyHost>
         <Suspense fallback={<div className="h-full w-full animate-pulse bg-ocean-deep" />}>
           <SceneCanvas

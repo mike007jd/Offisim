@@ -266,8 +266,9 @@ CSS already references both families. We add:
   (JetBrains Mono v2.304 variable, `wght 100-800`, Latin subset,
   ≈ 75 KB).
 
-`apps/web/src/index.css` adds two `@font-face` blocks at the top
-(line 1, before `@import "tailwindcss"`):
+`apps/web/src/index.css` adds two `@font-face` blocks immediately
+after the required CSS `@import` lines. The imports must stay first so
+browser CSS parsing keeps Tailwind active:
 
 ```css
 @font-face {

@@ -30,7 +30,7 @@ export function EmployeeBadgeOverlay({ employeeId }: { employeeId: string }) {
         height: '18px',
         borderRadius: '9999px',
         background: 'var(--color-kelp-green)',
-        color: '#ffffff',
+        color: 'var(--color-text-inverse-val)',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',

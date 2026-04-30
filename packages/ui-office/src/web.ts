@@ -15,6 +15,15 @@ export { Header } from './components/layout/Header.js';
 export { RightSidebar } from './components/layout/RightSidebar.js';
 export { StatusBar } from './components/layout/StatusBar.js';
 export { NotificationCenter } from './components/notifications/NotificationCenter.js';
+export { OnboardingTour } from './components/onboarding/OnboardingTour.js';
+export { FirstRunWelcomeScreen } from './components/onboarding/FirstRunWelcomeScreen.js';
+export {
+  OnboardingTourProvider,
+  useTourTarget,
+  useTourTarget as useOnboardingTourTarget,
+} from './components/onboarding/tour-context.js';
+export { TOUR_STEPS } from './components/onboarding/tour-steps.js';
+export type { TourStep, TourSlot } from './components/onboarding/tour-steps.js';
 export { ProjectCreateDialog } from './components/project/ProjectCreateDialog.js';
 export type { ProjectCreateDialogCreateInput } from './components/project/ProjectCreateDialog.js';
 export { ProjectSelector } from './components/project/ProjectSelector.js';
@@ -38,12 +47,27 @@ export { useDeepLinkInstall } from './hooks/useDeepLinkInstall.js';
 export { useEmployeeEditor } from './hooks/useEmployeeEditor.js';
 export { useFirstRunGuidance } from './hooks/useFirstRunGuidance.js';
 export { useInstallFlow } from './hooks/useInstallFlow.js';
+export {
+  computeLayoutTier,
+  type LayoutTier,
+  type LayoutTierConfig,
+  useLayoutTier,
+} from './hooks/use-layout-tier.js';
 export { usePrefabInstances } from './hooks/usePrefabInstances.js';
 export { PlanStepStoreProvider, usePlanStepStore } from './hooks/plan-step-store.js';
 export { useProjects } from './hooks/useProjects.js';
 export { useReducedMotion } from './hooks/use-reduced-motion.js';
 export { useSceneOrchestrator } from './hooks/useSceneOrchestrator.js';
 export { isTauri } from './lib/env.js';
+export {
+  getSidebarCollapse,
+  setSidebarCollapse,
+  useSidebarCollapse,
+} from './lib/sidebar-collapse-store.js';
+export type {
+  SidebarCollapseValue,
+  SidebarWorkspaceKey,
+} from './lib/sidebar-collapse-store.js';
 export { stripLegacySpeakerPrefix } from './lib/legacy-speaker-prefix.js';
 export {
   canPreviewDeliverable,

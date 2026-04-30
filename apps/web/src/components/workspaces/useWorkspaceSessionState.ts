@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import { type ParsedUrl, mergeSessionPatch } from '../../lib/url-routing';
 import type { SessionStateKeyMap, WorkspaceKey, WorkspaceSessionState } from './types';
 import { SESSION_KEY, createDefaultSessionState } from './types';
 
@@ -17,7 +18,6 @@ type StateFor<K extends WorkspaceKey> = WorkspaceSessionState[StateKeyFor<K>];
 interface InternalState {
   activeWorkspace: WorkspaceKey;
   sessionState: WorkspaceSessionState;
-  historyStack: WorkspaceKey[];
 }
 
 export type BackNavigationOutcome = 'internal' | 'workspace' | 'none';
@@ -26,7 +26,13 @@ interface BackNavigationResolution {
   outcome: BackNavigationOutcome;
   activeWorkspace: WorkspaceKey;
   sessionState: WorkspaceSessionState;
-  historyStack: WorkspaceKey[];
+}
+
+export interface UseWorkspaceSessionStateOptions {
+  initial?: {
+    activeWorkspace?: WorkspaceKey;
+    sessionPatch?: ParsedUrl['sessionPatch'];
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +121,6 @@ export function hasInternalDrillIn(
 export function resolveBackNavigation(
   activeWorkspace: WorkspaceKey,
   sessionState: WorkspaceSessionState,
-  historyStack: WorkspaceKey[],
 ): BackNavigationResolution {
   const [consumed, nextSessionState] = tryWorkspaceInternalBack(activeWorkspace, sessionState);
 
@@ -124,27 +129,13 @@ export function resolveBackNavigation(
       outcome: 'internal',
       activeWorkspace,
       sessionState: nextSessionState,
-      historyStack,
     };
   }
-
-  if (historyStack.length === 0) {
-    return {
-      outcome: 'none',
-      activeWorkspace,
-      sessionState,
-      historyStack,
-    };
-  }
-
-  const nextHistoryStack = historyStack.slice(0, -1);
-  const previousWorkspace = historyStack[historyStack.length - 1]!;
 
   return {
-    outcome: 'workspace',
-    activeWorkspace: previousWorkspace,
+    outcome: typeof window !== 'undefined' && window.history.length > 1 ? 'workspace' : 'none',
+    activeWorkspace,
     sessionState,
-    historyStack: nextHistoryStack,
   };
 }
 
@@ -152,11 +143,10 @@ export function resolveBackNavigation(
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useWorkspaceSessionState() {
+export function useWorkspaceSessionState(options: UseWorkspaceSessionStateOptions = {}) {
   const [internal, setInternal] = useState<InternalState>(() => ({
-    activeWorkspace: 'office',
-    sessionState: createDefaultSessionState(),
-    historyStack: [],
+    activeWorkspace: options.initial?.activeWorkspace ?? 'office',
+    sessionState: mergeSessionPatch(createDefaultSessionState(), options.initial?.sessionPatch),
   }));
 
   // ── setActiveWorkspace ──────────────────────────────────────────────
@@ -190,7 +180,6 @@ export function useWorkspaceSessionState() {
       return {
         activeWorkspace: targetKey,
         sessionState: nextSessionState,
-        historyStack: [...prev.historyStack, prev.activeWorkspace],
       };
     });
   }, []);
@@ -216,31 +205,27 @@ export function useWorkspaceSessionState() {
   const canGoBack = useMemo(
     () =>
       hasInternalDrillIn(internal.activeWorkspace, internal.sessionState) ||
-      internal.historyStack.length > 0,
-    [internal.activeWorkspace, internal.sessionState, internal.historyStack],
+      (typeof window !== 'undefined' && window.history.length > 1),
+    [internal.activeWorkspace, internal.sessionState],
   );
 
   // ── goBack ──────────────────────────────────────────────────────────
-  // Uses a ref to read the latest outcome synchronously while keeping
-  // the setState call functional (avoids stale-closure race).
-  const outcomeRef = useRef<BackNavigationOutcome>('none');
-
   const goBack = useCallback((): BackNavigationOutcome => {
-    setInternal((prev) => {
-      const resolution = resolveBackNavigation(
-        prev.activeWorkspace,
-        prev.sessionState,
-        prev.historyStack,
-      );
-      outcomeRef.current = resolution.outcome;
-      if (resolution.outcome === 'none') return prev;
-      return {
-        activeWorkspace: resolution.activeWorkspace,
-        sessionState: resolution.sessionState,
-        historyStack: resolution.historyStack,
-      };
-    });
-    return outcomeRef.current;
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back();
+      return 'workspace';
+    }
+    return 'none';
+  }, []);
+
+  // Merge URL-derived patch on top of current in-memory state so Back/Forward
+  // navigation preserves caller-only prefs (panel widths, scroll offsets, etc.)
+  // that the URL grammar does not encode.
+  const applyParsedUrl = useCallback((parsed: ParsedUrl) => {
+    setInternal((prev) => ({
+      activeWorkspace: parsed.workspace,
+      sessionState: mergeSessionPatch(prev.sessionState, parsed.sessionPatch),
+    }));
   }, []);
 
   return {
@@ -248,6 +233,7 @@ export function useWorkspaceSessionState() {
     activeWorkspace: internal.activeWorkspace,
     setActiveWorkspace,
     updateWorkspaceState,
+    applyParsedUrl,
     canGoBack,
     goBack,
   };

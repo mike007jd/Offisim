@@ -1,4 +1,131 @@
 @import "tailwindcss";
+@import "./generated/tailwind-theme.css";
+
+@layer utilities {
+  .z-base {
+    z-index: var(--z-base);
+  }
+
+  .z-elevated {
+    z-index: var(--z-elevated);
+  }
+
+  .z-sticky {
+    z-index: var(--z-sticky);
+  }
+
+  .z-dropdown {
+    z-index: var(--z-dropdown);
+  }
+
+  .z-modal {
+    z-index: var(--z-modal);
+  }
+
+  .z-top {
+    z-index: var(--z-top);
+  }
+
+  .light
+    :where(
+      .text-white,
+      .text-white\/90,
+      .text-white\/80,
+      .text-slate-50,
+      .text-slate-100,
+      .text-slate-200
+    ) {
+    color: var(--color-text-primary);
+  }
+
+  .light
+    :where(
+      .text-slate-300,
+      .text-slate-400,
+      .text-slate-500,
+      .text-slate-600,
+      .text-blue-100,
+      .text-cyan-100,
+      .text-indigo-100,
+      .text-violet-100
+    ) {
+    color: var(--color-text-secondary);
+  }
+
+  .light :where(.text-slate-500\/80, .text-slate-400\/80, .text-slate-300\/80, .text-white\/70) {
+    color: var(--color-text-muted);
+  }
+
+  .light
+    :where(
+      .border-white\/5,
+      .border-white\/10,
+      .border-white\/15,
+      .border-white\/20,
+      .border-slate-700,
+      .border-slate-800
+    ) {
+    border-color: var(--color-border-default);
+  }
+
+  .light
+    :where(
+      .bg-black\/20,
+      .bg-black\/25,
+      .bg-black\/30,
+      .bg-black\/35,
+      .bg-black\/40,
+      .bg-black\/50,
+      .bg-black\/60,
+      .bg-black\/80,
+      .bg-slate-700,
+      .bg-slate-800,
+      .bg-slate-800\/70,
+      .bg-slate-800\/80,
+      .bg-slate-900,
+      .bg-slate-900\/80,
+      .bg-slate-900\/90,
+      .bg-slate-950\/40,
+      .bg-slate-950\/60,
+      .bg-slate-950\/70,
+      .bg-slate-950\/80,
+      .bg-slate-950\/90
+    ) {
+    background-color: color-mix(in srgb, var(--color-surface-elevated) 92%, transparent);
+  }
+
+  .light :where(.bg-white\/5, .bg-white\/8, .bg-white\/10, .bg-white\/12) {
+    background-color: var(--color-surface-muted);
+  }
+
+  .light :where(.bg-blue-500\/14, .bg-blue-500\/15, .bg-cyan-500\/15) {
+    background-color: var(--color-accent-muted);
+  }
+
+  .light :where(.hover\:bg-white\/5:hover, .hover\:bg-white\/8:hover, .hover\:bg-white\/10:hover) {
+    background-color: var(--color-surface-hover);
+  }
+
+  .light :where(.hover\:text-slate-100:hover, .hover\:text-white:hover) {
+    color: var(--color-text-primary);
+  }
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-var.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-var.woff2") format("woff2-variations");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* Scan monorepo packages for Tailwind classes in production builds */
 @source "../../../packages/ui-office/src/**/*.tsx";
@@ -7,112 +134,9 @@
 @source "../../../packages/ui-core/src/**/*.ts";
 
 /*
- * Offisim Web Shell — Dark-only theme tokens.
- * ThemeProvider in @offisim/ui-office keeps the root in dark mode.
+ * Offisim Web Shell theme variables are generated from
+ * packages/ui-core/src/tokens.
  */
-
-:root {
-  --surface: #0c1118;
-  --surface-light: #151d2e;
-  --surface-lighter: #1e293b;
-  --surface-mid: #334155;
-  --border-val: rgba(255, 255, 255, 0.1);
-  --text-primary-val: #f1f5f9;
-  --text-secondary-val: #94a3b8;
-  --text-muted-val: #64748b;
-  --accent-val: #3b82f6;
-  --accent-hover-val: #2563eb;
-  --success-val: #10b981;
-  --warning-val: #f59e0b;
-  --error-val: #ef4444;
-  --info-val: #3b82f6;
-  --glass-bg: rgba(0, 0, 0, 0.4);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --scrollbar-thumb: rgba(148, 163, 184, 0.2);
-  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.4);
-  --sp-xs: 4px;
-  --sp-sm: 8px;
-  --sp-md: 12px;
-  --sp-lg: 16px;
-  --sp-xl: 20px;
-  --sp-xxl: 24px;
-  --sp-xxxl: 32px;
-}
-
-:root[data-density="compact"] {
-  --sp-xs: 2px;
-  --sp-sm: 4px;
-  --sp-md: 8px;
-  --sp-lg: 12px;
-  --sp-xl: 16px;
-  --sp-xxl: 20px;
-  --sp-xxxl: 24px;
-}
-
-:root[data-density="spacious"] {
-  --sp-xs: 6px;
-  --sp-sm: 12px;
-  --sp-md: 16px;
-  --sp-lg: 20px;
-  --sp-xl: 28px;
-  --sp-xxl: 32px;
-  --sp-xxxl: 40px;
-}
-
-@theme inline {
-  /* ── Semantic surface tokens ── */
-  --color-surface: var(--surface);
-  --color-surface-light: var(--surface-light);
-  --color-surface-lighter: var(--surface-lighter);
-  --color-surface-mid: var(--surface-mid);
-  --color-border: var(--border-val);
-  --color-text-primary: var(--text-primary-val);
-  --color-text-secondary: var(--text-secondary-val);
-  --color-text-muted: var(--text-muted-val);
-  --color-accent: var(--accent-val);
-  --color-accent-hover: var(--accent-hover-val);
-  --color-success: var(--success-val);
-  --color-warning: var(--warning-val);
-  --color-error: var(--error-val);
-  --color-info: var(--info-val);
-
-  /* ── Legacy aliases (existing components reference these) ── */
-  --color-hud-black: var(--surface);
-  --color-hud-dark: var(--surface-light);
-  --color-hud-mid: var(--surface-lighter);
-  --color-hud-light: var(--surface-mid);
-  --color-hud-lighter: #475569;
-  --color-hud-border: var(--border-val);
-  --color-ocean-deep: var(--surface-light);
-  --color-ocean-mid: var(--surface-lighter);
-  --color-ocean-light: var(--surface-mid);
-  --color-sand: #f8fafc;
-  --color-shell: #94a3b8;
-  --color-lobster-red: var(--error-val);
-  --color-coral-orange: #f97316;
-  --color-kelp-green: var(--success-val);
-  --color-sea-blue: var(--accent-val);
-  --color-abyss: #020617;
-  --color-pearl: #ffffff;
-  --color-foam: #cbd5e1;
-  --color-coral: #f97316;
-
-  /* ── Fonts ── */
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-pixel-display: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-pixel-body: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-pixel-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-
-  /* ── Density spacing tokens ── */
-  --spacing-sp-xs: var(--sp-xs);
-  --spacing-sp-sm: var(--sp-sm);
-  --spacing-sp-md: var(--sp-md);
-  --spacing-sp-lg: var(--sp-lg);
-  --spacing-sp-xl: var(--sp-xl);
-  --spacing-sp-xxl: var(--sp-xxl);
-  --spacing-sp-xxxl: var(--sp-xxxl);
-}
 
 /* ── Base styles ── */
 body {
@@ -152,7 +176,7 @@ body {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  transition: all 0.3s;
+  transition: all var(--duration-slow) var(--ease-standard);
   cursor: pointer;
 }
 .cyber-button:hover {
@@ -166,7 +190,7 @@ body {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 9999;
+  z-index: var(--z-top);
   opacity: 0.015;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
@@ -176,7 +200,7 @@ body {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 9998;
+  z-index: var(--z-top);
   opacity: 0.02;
   background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
     linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.04));
@@ -248,20 +272,6 @@ body {
   transform: scale(0.98);
 }
 
-/* ── Game UI glow utilities ── */
-.glow-accent {
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.1), inset 0 0 15px rgba(59, 130, 246, 0.03);
-}
-.glow-success {
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.12), inset 0 0 12px rgba(16, 185, 129, 0.03);
-}
-.glow-error {
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.12), inset 0 0 12px rgba(239, 68, 68, 0.03);
-}
-.glow-warning {
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.1), inset 0 0 10px rgba(245, 158, 11, 0.03);
-}
-
 /* ── Stagger animation for list items ── */
 @keyframes list-item-in {
   from {
@@ -273,14 +283,19 @@ body {
     transform: translateY(0);
   }
 }
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
 .animate-list-item {
-  animation: list-item-in 200ms ease-out both;
+  animation: list-item-in var(--duration-normal) var(--ease-decelerate) both;
 }
 
 /* ── Focus visible ring for accessibility ── */
 .focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2px var(--color-border-focus-val);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -307,7 +322,7 @@ body {
     rgba(148, 163, 184, 0.18) 50%,
     transparent 100%
   );
-  animation: streaming-shimmer 1.6s ease-in-out infinite;
+  animation: streaming-shimmer var(--shimmer-duration) ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

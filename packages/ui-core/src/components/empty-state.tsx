@@ -1,6 +1,7 @@
 import { isValidElement } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { cn } from '../lib/utils.js';
+import { Button } from './button.js';
 
 export interface EmptyStateAction {
   label: string;
@@ -16,6 +17,7 @@ export interface EmptyStateProps {
   description?: ReactNode;
   icon?: ComponentType<{ className?: string }> | ReactNode;
   primaryAction?: EmptyStateAction;
+  secondaryAction?: EmptyStateAction;
   secondaryActions?: EmptyStateAction[];
   /** Compact renders a slim inline block; default fills the container. */
   variant?: 'default' | 'compact';
@@ -38,34 +40,23 @@ function ActionButton({
   action,
   emphasis,
 }: { action: EmptyStateAction; emphasis: 'primary' | 'secondary' }) {
-  const base =
-    'inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:opacity-50 disabled:cursor-not-allowed';
-  const tone =
-    emphasis === 'primary'
-      ? 'border border-cyan-400/60 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25'
-      : 'border border-white/15 bg-transparent text-slate-200 hover:bg-white/8';
-  const content = (
-    <span className="inline-flex items-center gap-2">
-      <span>{action.label}</span>
-    </span>
-  );
+  const variant = emphasis === 'primary' ? 'default' : 'outline';
   if (action.href) {
     return (
-      <a className={cn(base, tone)} href={action.href} title={action.disabledReason}>
-        {content}
-      </a>
+      <Button asChild variant={variant} title={action.disabledReason}>
+        <a href={action.href}>{action.label}</a>
+      </Button>
     );
   }
   return (
-    <button
-      type="button"
+    <Button
+      variant={variant}
       onClick={action.onClick}
       disabled={action.disabled}
       title={action.disabledReason}
-      className={cn(base, tone)}
     >
-      {content}
-    </button>
+      {action.label}
+    </Button>
   );
 }
 
@@ -74,6 +65,7 @@ export function EmptyState({
   description,
   icon,
   primaryAction,
+  secondaryAction,
   secondaryActions,
   variant = 'default',
   className,
@@ -111,9 +103,10 @@ export function EmptyState({
           </div>
         )}
       </div>
-      {(primaryAction || (secondaryActions && secondaryActions.length > 0)) && (
+      {(primaryAction || secondaryAction || (secondaryActions && secondaryActions.length > 0)) && (
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
           {primaryAction && <ActionButton action={primaryAction} emphasis="primary" />}
+          {secondaryAction && <ActionButton action={secondaryAction} emphasis="secondary" />}
           {secondaryActions?.map((action) => (
             <ActionButton key={action.label} action={action} emphasis="secondary" />
           ))}

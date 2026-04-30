@@ -35,7 +35,7 @@ import {
 } from '../../lib/prefab-spatial.js';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
 import { useStudioStore } from './StudioState.js';
-import { STUDIO_COLORS } from './studio-tokens.js';
+import { STUDIO_COLORS } from './studio-style-helpers.js';
 
 function snap(v: number, grid: number): number {
   return Math.round(v / grid) * grid;

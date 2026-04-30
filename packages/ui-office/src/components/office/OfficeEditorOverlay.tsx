@@ -44,7 +44,7 @@ export function OfficeEditorOverlay({ open, onClose }: OfficeEditorOverlayProps)
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-[#020409]">
+    <div className="fixed inset-0 z-modal flex flex-col bg-surface">
       <EditorToolbar
         selectedZoneLabel={state.selectedZone?.label ?? null}
         dirty={state.dirty}

@@ -31,7 +31,7 @@ export function useSettingsWorkspaceController({
   onSaveSuccess,
   onToast,
 }: SettingsWorkspaceControllerOptions) {
-  const { density, setDensity } = useTheme();
+  const { density, resolvedTheme, setDensity, setTheme, theme } = useTheme();
   const provider = useSettingsProviderState();
   const runtimePolicy = useSettingsRuntimePolicy();
   const selectedProduct = getProviderPreset(provider.productId);
@@ -73,7 +73,10 @@ export function useSettingsWorkspaceController({
   });
   return assembleSettingsControllerApi({
     density,
+    resolvedTheme,
     setDensity,
+    setTheme,
+    theme,
     provider,
     runtimePolicy,
     save,

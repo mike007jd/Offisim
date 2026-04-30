@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 /**
  * PrefabThumbnail — SVG top-down plan view thumbnails for each prefab type.
  *
@@ -5,7 +6,8 @@
  * Each prefab gets a unique simplified floor-plan icon.
  */
 
-import { STUDIO_COLORS } from './studio-tokens.js';
+import { memo } from 'react';
+import { STUDIO_COLORS } from './studio-style-helpers.js';
 
 interface PrefabThumbnailProps {
   prefabId: string;
@@ -13,7 +15,13 @@ interface PrefabThumbnailProps {
   color?: string;
 }
 
-export function PrefabThumbnail({ prefabId, size = 36, color }: PrefabThumbnailProps) {
+// memo: thumbnails are pure SVG renders keyed by prefabId; palette re-renders
+// (search box, hover, collapse) shouldn't recompute every icon.
+export const PrefabThumbnail = memo(function PrefabThumbnail({
+  prefabId,
+  size = 36,
+  color,
+}: PrefabThumbnailProps) {
   const c = color ?? STUDIO_COLORS.textSecondary;
   const render: SvgRenderer = THUMBNAILS[prefabId] ?? DEFAULT_THUMBNAIL;
   return (
@@ -28,7 +36,7 @@ export function PrefabThumbnail({ prefabId, size = 36, color }: PrefabThumbnailP
       {render(c)}
     </svg>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // SVG renderers per prefab — simplified top-down plan views

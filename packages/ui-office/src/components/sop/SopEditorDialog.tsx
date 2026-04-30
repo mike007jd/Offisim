@@ -1,15 +1,9 @@
 import { SopService, generateId } from '@offisim/core/browser';
 import type { RoleSlug, SopDefinition, SopStep } from '@offisim/shared-types';
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@offisim/ui-core';
+import { Button, DialogShell, ToastBanner, useToasts } from '@offisim/ui-core';
 import { Plus, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { showDiscardConfirm } from '../../lib/discard-confirm-toast';
 import { HIREABLE_ROLES } from '../../lib/roles';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
@@ -43,6 +37,7 @@ interface SopEditorDialogProps {
 export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDialogProps) {
   const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
+  const { toasts, addToast, dismissToast } = useToasts();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [steps, setSteps] = useState<StepDraft[]>([makeEmptyStep(0)]);
@@ -53,6 +48,46 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
     if (!repos?.sopTemplates) return null;
     return new SopService(repos.sopTemplates, eventBus);
   }, [repos, eventBus]);
+
+  const resetDraft = useCallback(() => {
+    setName('');
+    setDescription('');
+    setSteps([makeEmptyStep(0)]);
+    setErrors([]);
+  }, []);
+
+  const isDirty = useMemo(
+    () =>
+      name.trim().length > 0 ||
+      description.trim().length > 0 ||
+      steps.some(
+        (step, index) =>
+          step.label.trim().length > 0 ||
+          step.instruction.trim().length > 0 ||
+          step.role_slug !== 'developer' ||
+          (index > 0 && step.dependencies.length > 0),
+      ),
+    [description, name, steps],
+  );
+
+  const discardAndClose = useCallback(() => {
+    resetDraft();
+    onOpenChange(false);
+  }, [onOpenChange, resetDraft]);
+
+  const requestClose = useCallback(() => {
+    if (!isDirty) {
+      onOpenChange(false);
+      return;
+    }
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+  }, [addToast, discardAndClose, isDirty, onOpenChange]);
+
+  const handleRequestClose = useCallback(() => {
+    if (!isDirty) return undefined;
+    showDiscardConfirm(addToast, { onDiscard: discardAndClose });
+    return false;
+  }, [addToast, discardAndClose, isDirty]);
 
   const updateStep = useCallback((index: number, patch: Partial<StepDraft>) => {
     setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
@@ -118,27 +153,45 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
         version: null,
         last_synced_at: null,
       });
-      // Reset
-      setName('');
-      setDescription('');
-      setSteps([makeEmptyStep(0)]);
-      setErrors([]);
+      resetDraft();
       onOpenChange(false);
       onCreated?.();
     } finally {
       setSaving(false);
     }
-  }, [repos, activeCompanyId, validate, name, description, steps, onOpenChange, onCreated]);
+  }, [
+    repos,
+    activeCompanyId,
+    validate,
+    name,
+    description,
+    steps,
+    resetDraft,
+    onOpenChange,
+    onCreated,
+  ]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Create SOP</DialogTitle>
-          <DialogDescription>Define a reusable Standard Operating Procedure.</DialogDescription>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto space-y-3 py-2">
+    <>
+      <DialogShell
+        open={open}
+        onOpenChange={onOpenChange}
+        size="md"
+        title="Create SOP"
+        description="Define a reusable Standard Operating Procedure."
+        onRequestClose={handleRequestClose}
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={requestClose}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
+              {saving ? 'Saving...' : 'Create SOP'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 py-2">
           {/* Name & Description */}
           <div className="space-y-1.5">
             <input
@@ -259,16 +312,8 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
             </div>
           )}
         </div>
-
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/5">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
-            {saving ? 'Saving...' : 'Create SOP'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </DialogShell>
+      <ToastBanner toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

@@ -19,7 +19,7 @@ import {
 } from '../../lib/prefab-spatial.js';
 import { Prefab3D } from '../scene/prefabs/Prefab3D.js';
 import { type PlacedInstance, useStudioStore } from './StudioState.js';
-import { STUDIO_COLORS } from './studio-tokens.js';
+import { STUDIO_COLORS } from './studio-style-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Highlight ring constants
@@ -83,7 +83,7 @@ const PlacedPrefabItem = memo(function PlacedPrefabItem({
       (e as unknown as { eventObject: THREE.Group }).eventObject.traverse((child) => {
         if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
           child.material.emissiveIntensity = 0.08;
-          child.material.emissive.set('#ffffff');
+          child.material.emissive.set(STUDIO_COLORS.textPrimary);
         }
       });
       gl.domElement.style.cursor = 'pointer';
@@ -174,7 +174,7 @@ export function StudioPlacedPrefabs() {
   const highlightRingMat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: '#6366f1',
+        color: STUDIO_COLORS.accent,
         transparent: true,
         opacity: 0.7,
         side: THREE.DoubleSide,

@@ -1,9 +1,21 @@
+import { DARK_SCENE_3D } from '@offisim/ui-core/tokens';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
+import * as THREE from 'three';
 import type { UseEmployeeEditorReturn } from '../../../hooks/useEmployeeEditor';
-import { resolveOutfitColor, resolveSkinTone } from '../../../lib/avatar-seed';
+import {
+  resolveAccentColor,
+  resolveHairColor,
+  resolveOutfitColor,
+  resolveSkinTone,
+} from '../../../lib/avatar-seed';
 import { type BrandVariant, lookupExternalBrand } from '../../../lib/brand-registry';
+import {
+  resolveBlockBodyType,
+  resolveBlockGender,
+  resolveBlockHairStyle,
+} from '../../scene/character-mesh-builder';
 import {
   CodexBody,
   CustomBody,
@@ -67,6 +79,8 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
             <Preview3DCanvas
               isExternal={isExternal}
               brandKey={formData.brandKey}
+              appearance={isExternal ? null : formData.appearance}
+              seed={formData.name || 'preview'}
               outfitColor={resolveOutfitColor(
                 formData.name || 'preview',
                 isExternal ? null : formData.appearance,
@@ -89,7 +103,9 @@ function PreviewCard({ label, children }: { label: string; children: React.React
       <p className="self-start text-[10px] font-medium uppercase tracking-wider text-slate-400">
         {label}
       </p>
-      <div className="flex h-[200px] w-full items-center justify-center">{children}</div>
+      <div className="flex aspect-[256/200] min-h-[200px] w-full max-w-[256px] items-center justify-center">
+        {children}
+      </div>
     </div>
   );
 }
@@ -97,11 +113,15 @@ function PreviewCard({ label, children }: { label: string; children: React.React
 function Preview3DCanvas({
   isExternal,
   brandKey,
+  seed,
+  appearance,
   outfitColor,
   skinTone,
 }: {
   isExternal: boolean;
   brandKey: string | null;
+  seed: string;
+  appearance: UseEmployeeEditorReturn['formData']['appearance'] | null;
   outfitColor: string;
   skinTone: string;
 }) {
@@ -110,18 +130,27 @@ function Preview3DCanvas({
     : 'default';
   return (
     <Canvas
-      shadows
+      shadows={{ type: THREE.PCFShadowMap }}
       camera={{ position: [0, 1.5, 3], fov: 35 }}
-      style={{ width: 256, height: 200, background: 'transparent' }}
+      style={{ background: 'transparent' }}
     >
       <Suspense fallback={null}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[3, 5, 4]} intensity={0.9} castShadow />
         <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[6, 6]} />
-          <meshStandardMaterial color="#0f172a" roughness={1} />
+          <meshStandardMaterial color={DARK_SCENE_3D.serverBody} roughness={1} />
         </mesh>
-        <PreviewFigure variant={variant} outfitColor={outfitColor} skinTone={skinTone} />
+        <PreviewFigure
+          variant={variant}
+          outfitColor={outfitColor}
+          skinTone={skinTone}
+          hairColor={resolveHairColor(seed, appearance)}
+          accentColor={resolveAccentColor(seed, appearance)}
+          bodyType={resolveBlockBodyType(appearance?.bodyType)}
+          gender={resolveBlockGender(appearance?.gender)}
+          hairStyle={resolveBlockHairStyle(appearance?.hairStyle)}
+        />
         <OrbitControls enableZoom={false} target={[0, 0.9, 0]} />
       </Suspense>
     </Canvas>
@@ -132,13 +161,38 @@ function PreviewFigure({
   variant,
   outfitColor,
   skinTone,
+  hairColor,
+  accentColor,
+  bodyType,
+  gender,
+  hairStyle,
 }: {
   variant: BrandVariant;
   outfitColor: string;
   skinTone: string;
+  hairColor: string;
+  accentColor: string;
+  bodyType: 'slim' | 'normal' | 'stocky';
+  gender: 'masculine' | 'feminine' | 'neutral';
+  hairStyle: 'short' | 'long' | 'ponytail' | 'curly' | 'bald' | 'bob' | 'spiky' | 'braids';
 }) {
   if (variant === 'default') {
-    return <DefaultBlockBody outfitColor={outfitColor} skinTone={skinTone} />;
+    return (
+      <DefaultBlockBody
+        params={{
+          skinColor: skinTone,
+          hairColor,
+          outfitColor,
+          accentColor,
+          bodyType,
+          gender,
+          hairStyle,
+          state: 'idle',
+          isBlocked: false,
+          accentVariant: 'vest',
+        }}
+      />
+    );
   }
   if (variant === 'hermes') return <HermesBody />;
   if (variant === 'openclaw') return <OpenClawBody />;

@@ -1,3 +1,4 @@
+// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import type { Zone } from '@offisim/shared-types';
 import { computeOverlapMap } from '@offisim/shared-types';
 import { Grid, Html, OrbitControls, TransformControls } from '@react-three/drei';
@@ -5,7 +6,7 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { toOverlapRects, useStudioStore } from './StudioState.js';
-import { STUDIO_COLORS } from './studio-tokens.js';
+import { STUDIO_COLORS, STUDIO_TRANSITION } from './studio-style-helpers.js';
 
 type OrbitControlsRef = React.ComponentRef<typeof OrbitControls>;
 
@@ -441,18 +442,20 @@ function ZoneFloor({
               style={{
                 fontSize: 11,
                 fontWeight: 700,
-                letterSpacing: '0.05em',
-                color: '#fff',
+                letterSpacing: 0,
+                color: STUDIO_COLORS.textPrimary,
                 background: zone.accentColor,
                 padding: isFocused ? '3px 10px' : '2px 8px',
                 borderRadius: 4,
-                border: isFocused ? '2px solid #fff' : '2px solid transparent',
+                border: isFocused
+                  ? `2px solid ${STUDIO_COLORS.textPrimary}`
+                  : '2px solid transparent',
                 opacity: labelOpacity,
                 whiteSpace: 'nowrap',
                 cursor: isDragging ? 'grabbing' : 'pointer',
                 userSelect: 'none',
                 textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                transition: 'all 0.15s ease',
+                transition: STUDIO_TRANSITION.allFast,
               }}
             >
               {isFocused ? `✦ ${zone.label}` : zone.label}
