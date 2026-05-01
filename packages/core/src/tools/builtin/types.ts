@@ -2,6 +2,7 @@ import type { ToolDef } from '../../llm/gateway.js';
 
 export interface ShellExecOptions {
   cwd?: string;
+  threadId?: string;
   timeoutMs?: number;
   maxOutputBytes?: number;
 }
@@ -14,16 +15,16 @@ export interface ShellExecResult {
 }
 
 export interface FsAdapter {
-  readFile(path: string): Promise<string>;
-  writeFile(path: string, content: string): Promise<void>;
-  exists(path: string): Promise<boolean>;
+  readFile(path: string, options?: { threadId?: string }): Promise<string>;
+  writeFile(path: string, content: string, options?: { threadId?: string }): Promise<void>;
+  exists(path: string, options?: { threadId?: string }): Promise<boolean>;
 }
 
 export type ShellExec = (command: string, options: ShellExecOptions) => Promise<ShellExecResult>;
 
 export interface BuiltinTool {
   readonly def: ToolDef;
-  execute(args: Record<string, unknown>): Promise<unknown>;
+  execute(args: Record<string, unknown>, context?: { threadId?: string }): Promise<unknown>;
 }
 
 export type WebSearchFn = (query: string) => Promise<string>;

@@ -16,6 +16,7 @@ import type {
   PlanStepCompletedPayload,
   PlanStepStartedPayload,
   RuntimeEvent,
+  WorkspaceBindingUnavailablePayload,
   WorkspaceStalenessDetectedPayload,
 } from '@offisim/shared-types';
 
@@ -186,6 +187,23 @@ export function workspaceStalenessDetected(
   return {
     type: 'workspace.staleness.detected',
     entityId: threadId,
+    entityType: 'runtime',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
+export function workspaceBindingUnavailable(
+  companyId: string,
+  projectId: string,
+  payload: WorkspaceBindingUnavailablePayload,
+  threadId?: string,
+): RuntimeEvent<WorkspaceBindingUnavailablePayload> {
+  return {
+    type: 'workspace-binding.unavailable',
+    entityId: projectId,
     entityType: 'runtime',
     companyId,
     threadId,

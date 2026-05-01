@@ -33,6 +33,7 @@ export type SkillResolverErrorKind =
   | 'upload-subpath-not-found'
   | 'upload-unsupported-format'
   | 'not-supported-in-web'
+  | 'desktop-only-tool'
   | 'sync-too-many-candidates'
   | 'sync-empty'
   | 'skill-md-invalid'

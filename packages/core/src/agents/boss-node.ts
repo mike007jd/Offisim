@@ -1,15 +1,22 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { AGENT_QUESTION_REQUIRED, type BossRouteAction } from '@offisim/shared-types';
-import { bossRouteDecided, graphNodeEntered } from '../events/event-factories.js';
-import type { OffisimGraphState } from '../graph/state.js';
+import {
+  bossEmployeeContextEmpty,
+  bossRouteDecided,
+  graphNodeEntered,
+} from '../events/event-factories.js';
+import type { EventBus } from '../events/event-bus.js';
 import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
+import type { EmployeeRow } from '../runtime/repositories.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import { ProjectService } from '../services/project-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
 import { detectTaskToolIntent, isLocalToolAssignableEmployee } from './task-tool-intent.js';
 
 interface BossDecision {
@@ -53,6 +60,7 @@ Rules:
 - "delegate": for complex tasks requiring planning, multi-step work, or coordination between multiple employees
 - "direct_reply": for simple greetings, status questions, or conversational messages that do NOT involve work. NEVER use direct_reply when the user asks someone to build, create, implement, write, design, fix, or perform any task.
 - "direct_delegate": for straightforward single-employee tasks where you can immediately identify the right person. Use this when: (1) the task is simple and self-contained, (2) only one employee is clearly suited, (3) no multi-step planning is needed. You MUST include "targetEmployeeId" with the chosen employee's ID.
+- Skill mutation requests such as "sync skills from Claude Code", "install skill", "import skill", "fork skill", "edit skill", or "create a skill" are real work. Route them to direct_delegate when a skill-capable employee is available; do not ask what "skills" means.
 - "meeting": when the user explicitly asks for a team meeting or discussion
 - "hire_or_assess": for hiring requests, recruitment needs, team assessment, or staffing questions (e.g. "hire a designer", "what roles are we missing", "assess the team", "we need more people")
 - "isNewProject": set to true when the user describes a substantial project, multi-phase work, or long-term initiative (NOT a simple question or single task). Examples: "build a full e-commerce site", "launch a new product", "create a complete mobile app". Single tasks like "fix this bug" or "write a summary" should be false.
@@ -85,6 +93,60 @@ Rules:
 - Answer directly in natural language
 - Do not mention internal routing, plans, or delegation logic
 - If the user is greeting or asking a simple question, respond naturally and briefly`;
+
+const emittedEmptyBossEmployeeContextCompanyIds = new Set<string>();
+
+function formatBossEmployeeRosterSection(employees: readonly EmployeeRow[]): {
+  section: string;
+  injectedCount: number;
+} {
+  if (employees.length === 0) return { section: '', injectedCount: 0 };
+  const lines = employees.map((employee) => {
+    const employeeId = sanitizeForPrompt(employee.employee_id, 100);
+    const name = sanitizeForPrompt(employee.name || employee.employee_id, 120);
+    const roleSlug = sanitizeForPrompt(employee.role_slug, 80);
+    const brand =
+      employee.is_external === 1
+        ? `, external brand: ${sanitizeForPrompt(employee.brand_key ?? 'custom', 80)}`
+        : '';
+    return `- ${employeeId}: ${name} (${roleSlug}${brand})`;
+  });
+  return {
+    section: `\n\nActive company employee roster:\n${lines.join('\n')}`,
+    injectedCount: lines.length,
+  };
+}
+
+function emitBossEmployeeContextEmptyIfNeeded(input: {
+  companyId: string;
+  threadId: string;
+  dbEmployeeCount: number;
+  injectedCount: number;
+  eventBus: EventBus;
+}): void {
+  if (input.dbEmployeeCount === 0 || input.injectedCount > 0) return;
+  if (emittedEmptyBossEmployeeContextCompanyIds.has(input.companyId)) return;
+  emittedEmptyBossEmployeeContextCompanyIds.add(input.companyId);
+  input.eventBus.emit(bossEmployeeContextEmpty(input.companyId, input.threadId));
+}
+
+function isSkillMutationRequest(content: string): boolean {
+  const normalized = content.toLowerCase();
+  return (
+    /\b(sync|install|import|fork|edit|create)\b[\s\S]{0,80}\bskills?\b/i.test(normalized) ||
+    /\bskills?\b[\s\S]{0,80}\b(sync|install|import|fork|edit|create)\b/i.test(normalized) ||
+    /\bclaude code\b[\s\S]{0,80}\bskills?\b/i.test(normalized)
+  );
+}
+
+function chooseSkillToolEmployee(employees: readonly EmployeeRow[]): EmployeeRow | undefined {
+  return (
+    employees.find((employee) => employee.role_slug === 'yolo_master') ??
+    employees.find((employee) => employee.name.toLowerCase().includes('yolo')) ??
+    employees.find((employee) => /\b(skill|developer|fullstack|frontend|backend)\b/i.test(employee.role_slug)) ??
+    employees[0]
+  );
+}
 
 function parseBossDecision(content: string): BossDecision | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
@@ -164,6 +226,15 @@ export async function bossNode(
     runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId),
     runtimeCtx.repos.sopTemplates.findByCompany(runtimeCtx.companyId),
   ]);
+  const enabledEmployees = employees.filter((employee) => employee.enabled !== 0);
+  const bossEmployeeRoster = formatBossEmployeeRosterSection(enabledEmployees);
+  emitBossEmployeeContextEmptyIfNeeded({
+    companyId: runtimeCtx.companyId,
+    threadId: state.threadId,
+    dbEmployeeCount: enabledEmployees.length,
+    injectedCount: bossEmployeeRoster.injectedCount,
+    eventBus: runtimeCtx.eventBus,
+  });
   const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(userContent);
   const localToolRequired = taskToolIntent.requiresLocalTools;
   const nonManagerEmployees = employees.filter(
@@ -180,7 +251,7 @@ export async function bossNode(
     const localToolNote = localToolRequired
       ? "\n\nLocal Offisim file/shell tools are required for this request. External A2A employees are omitted because they cannot execute this app instance's read_file/write_file/bash tools."
       : '';
-    rosterSection = `\n\nAvailable employees:\n${roster}${localToolNote}`;
+    rosterSection = `\n\nAvailable employees for assignment:\n${roster}${localToolNote}`;
   }
 
   // Inject available SOPs so boss can choose use_sop when a match exists
@@ -199,7 +270,10 @@ export async function bossNode(
     runtimeCtx,
     {
       messages: [
-        { role: 'system', content: BOSS_SYSTEM_PROMPT + rosterSection + sopSection },
+        {
+          role: 'system',
+          content: BOSS_SYSTEM_PROMPT + bossEmployeeRoster.section + rosterSection + sopSection,
+        },
         { role: 'user', content: userContent },
       ],
       model: resolved.model,
@@ -212,16 +286,32 @@ export async function bossNode(
   );
 
   const decision = parseBossDecision(routingStreamResult.fullContent);
+  const skillMutationRequest = isSkillMutationRequest(userContent);
+  const skillToolEmployee = skillMutationRequest
+    ? chooseSkillToolEmployee(nonManagerEmployees)
+    : undefined;
 
   // Fallback: if LLM didn't return valid JSON, default to delegate
   let route = decision ? mapActionToRoute(decision.action) : 'delegate_manager';
-  const needsClarification =
+  let needsClarification =
     decision?.needsClarification === true && typeof decision.clarificationQuestion === 'string';
+
+  if (skillToolEmployee) {
+    route = 'direct_delegate';
+    needsClarification = false;
+    if (decision) {
+      decision.action = 'direct_delegate';
+      decision.targetEmployeeId = skillToolEmployee.employee_id;
+      decision.needsClarification = false;
+      decision.clarificationQuestion = undefined;
+      decision.reason = decision.reason ?? `Skill tool request routed to ${skillToolEmployee.name}.`;
+    }
+  }
 
   // Defensive override: catch weaker models that misroute task requests as direct_reply.
   if (route === 'direct_reply' && !needsClarification) {
     const TASK_KEYWORDS =
-      /\b(build|create|implement|write|design|develop|fix|deploy|test|refactor|code|plan|launch|ship)\b/i;
+      /\b(build|create|implement|write|design|develop|fix|deploy|test|refactor|code|plan|launch|ship|sync)\b/i;
     const lowerContent = userContent.toLowerCase();
     const mentionsEmployee = nonManagerEmployees.some((e) =>
       new RegExp(`\\b${e.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(
@@ -314,7 +404,7 @@ export async function bossNode(
       runtimeCtx,
       {
         messages: [
-          { role: 'system', content: BOSS_DIRECT_REPLY_PROMPT },
+          { role: 'system', content: BOSS_DIRECT_REPLY_PROMPT + bossEmployeeRoster.section },
           {
             role: 'user',
             content: `User request:\n${userContent}\n\nPlanned response intent:\n${replyContent}`,

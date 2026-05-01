@@ -147,6 +147,16 @@ export async function employeeNode(
         break;
       }
 
+      if (outcome.kind === 'typed_reply') {
+        recentToolResults = appendRecentToolResults(recentToolResults, outcome.recentToolResults);
+        llmResponse = {
+          content: outcome.content,
+          toolCalls: [],
+          usage: { inputTokens: 0, outputTokens: 0 },
+        };
+        break;
+      }
+
       workingHistory = outcome.nextHistory;
       recentToolResults = appendRecentToolResults(recentToolResults, outcome.recentToolResults);
       llmResponse = await runEmployeeTurn(workingHistory, { taskRunId });

@@ -143,6 +143,22 @@
       "invariants": ["skill.create_requires_real_llm_tool_call", "skill.create_preview_interaction"]
     },
     {
+      "id": "skill-create-target-employee-mismatch",
+      "category": "skill-install",
+      "invariants": [
+        "skill.create_rejects_target_employee_mismatch",
+        "skill.create_mismatch_does_not_stage_preview"
+      ]
+    },
+    {
+      "id": "boss-tool-routing-sync-from-claude-code-web",
+      "category": "skill-install",
+      "invariants": [
+        "skill.sync_from_claude_code_exposed_to_web_tool_turn",
+        "skill.desktop_only_tool_surfaces_typed_reply"
+      ]
+    },
+    {
       "id": "yolo-mode-skips-boss-chain",
       "category": "interaction-modes",
       "invariants": ["graph.first_node_yolo_master"]

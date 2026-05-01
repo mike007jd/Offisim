@@ -19,6 +19,7 @@ const EVENT_PREFIXES = [
   'employee.',
   'install.',
   'execution.',
+  'workspace-binding.',
 ] as const;
 
 type MemoryRepos = ReturnType<typeof createMemoryRepositories>;

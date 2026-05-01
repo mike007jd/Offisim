@@ -19,11 +19,15 @@ export function createFileWriteTool(config: BuiltinToolConfig): BuiltinTool | nu
         required: ['path', 'content'],
       },
     },
-    async execute(args) {
+    async execute(args, context) {
       const path = args.path as string;
       const content = args.content as string;
       try {
-        await fs.writeFile(path, content);
+        await fs.writeFile(
+          path,
+          content,
+          context?.threadId ? { threadId: context.threadId } : undefined,
+        );
         return `Successfully wrote ${content.length} bytes to ${path}`;
       } catch (err) {
         return `Error writing file: ${err instanceof Error ? err.message : String(err)}`;

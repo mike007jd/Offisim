@@ -31,6 +31,10 @@ Tauri 2 桌面壳，零 npm deps，frontendDist 直接指 `../../web/dist`。改
 
 所有 path 必须 resolve 在 project `workspace_root` 内，越界拒绝。
 
+Project workspace file browsing from the webview must use the sandboxed Tauri commands `project_list_dir` / `project_read_file` / `project_read_file_preview` with a selected project `workspace_root`. Do not use `tauri-plugin-fs` directly for repo/project paths; plugin-fs is for app-owned/vault paths, not arbitrary workspace traversal.
+
+Release/live validation is release `.app` only: rebuild `@offisim/ui-office` and `@offisim/desktop`, launch `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app` via `open -b com.offisim.desktop`, and capture Offisim window screenshots. Dev webview/browser results do not satisfy desktop runtime verification.
+
 ## Credential isolation
 
 `src-tauri/src/llm_transport.rs` + `runtime_secrets.rs` 让 LLM key 不越 Rust→JS 边界：

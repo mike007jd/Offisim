@@ -5,6 +5,7 @@
 import type {
   DirectChatCompletedPayload,
   DirectChatStartedPayload,
+  BossEmployeeContextEmptyPayload,
   EmployeeCreatedPayload,
   EmployeeDeletedPayload,
   EmployeeInstalledPayload,
@@ -129,6 +130,21 @@ export function employeeVersionCreated(
     companyId,
     timestamp: Date.now(),
     payload: { employeeId, versionNum, changeType },
+  };
+}
+
+export function bossEmployeeContextEmpty(
+  companyId: string,
+  threadId?: string,
+): RuntimeEvent<BossEmployeeContextEmptyPayload> {
+  return {
+    type: 'boss.employee-context.empty',
+    entityId: companyId,
+    entityType: 'company',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload: { companyId, employeeCount: 0, expectedAtLeast: 1 },
   };
 }
 

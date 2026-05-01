@@ -1,0 +1,51 @@
+{
+  "id": "boss-tool-routing-sync-from-claude-code-web",
+  "category": "skill-install",
+  "entryMode": "boss_chat",
+  "interactionMode": "boss_proxy",
+  "skillInstallRuntime": "web",
+  "seed": {
+    "company": {
+      "companyId": "company-boss-tool-routing-sync-web",
+      "name": "Boss Tool Routing Harness Co"
+    },
+    "thread": {
+      "threadId": "thread-boss-tool-routing-sync-web",
+      "status": "running"
+    },
+    "employees": [{ "id": "emp-skill-sync", "name": "Sam", "role": "engineer" }]
+  },
+  "llmTurns": [
+    {
+      "id": "boss-routes-sync-request-to-work",
+      "match": {
+        "contains": "sync skills from Claude Code"
+      },
+      "content": "{\"action\":\"direct_delegate\",\"targetEmployeeId\":\"emp-skill-sync\",\"reason\":\"The request needs the skill sync tool exposed to an employee turn\",\"isNewProject\":false}"
+    },
+    {
+      "id": "employee-invokes-sync-from-claude-code",
+      "match": {
+        "contains": "sync skills from Claude Code",
+        "toolNames": ["sync_from_claude_code"]
+      },
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call-sync-claude-code",
+          "name": "sync_from_claude_code",
+          "arguments": {}
+        }
+      ]
+    }
+  ],
+  "initialState": {
+    "messages": [{ "role": "user", "content": "sync skills from Claude Code" }]
+  },
+  "assertions": [
+    { "kind": "firstGraphNodeIs", "nodeName": "boss" },
+    { "kind": "llmCalls", "count": 2 },
+    { "kind": "threadStatusIs", "status": "completed" },
+    { "kind": "finalOutputContains", "contains": "This skill source requires the desktop app." }
+  ]
+}

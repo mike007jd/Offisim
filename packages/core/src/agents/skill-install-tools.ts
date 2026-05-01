@@ -70,6 +70,29 @@ function validateScope(
   return { ok: true, scope: 'company', identifier: null };
 }
 
+function syncFilterTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/u)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function filterSyncCandidates<T extends { slug: string; name: string; description: string; path: string }>(
+  candidates: readonly T[],
+  filter: string | null,
+): T[] {
+  if (!filter) return [...candidates];
+  const tokens = syncFilterTokens(filter);
+  if (tokens.length === 0) return [...candidates];
+  return candidates.filter((candidate) => {
+    const haystack = `${candidate.slug} ${candidate.name} ${candidate.description} ${candidate.path}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/gu, ' ');
+    return tokens.every((token) => haystack.includes(token));
+  });
+}
+
 async function resolveTargetEmployee(
   ctx: RuntimeContext,
   identifier: string | null,
@@ -678,21 +701,45 @@ async function handleSkillInstallToolInner(
     }
 
     case 'sync_from_claude_code': {
+      const filter = typeof rawArgs.filter === 'string' ? rawArgs.filter.trim() || null : null;
       const result = await resolveClaudeCodeSync({
         runtime: env.runtime,
         ...(env.localDir !== undefined ? { localDir: env.localDir } : {}),
         ...(env.repoRoot !== undefined ? { repoRoot: env.repoRoot } : {}),
       });
       if (isResolverError(result)) return JSON.stringify(result);
+      const selected = filterSyncCandidates(result.candidates, filter);
+      const [onlyCandidate] = selected;
+      if (selected.length === 1 && onlyCandidate) {
+        return JSON.stringify(
+          await stageAndEmit({
+            ctx,
+            tree: {
+              files: [{ path: 'SKILL.md', content: new TextEncoder().encode(onlyCandidate.skillMd) }],
+            },
+            scan: {
+              root: onlyCandidate.path,
+              skillMdPath: 'SKILL.md',
+              assetPaths: [],
+            },
+            source: { kind: 'claude-code', path: onlyCandidate.path },
+            scope: 'company',
+            employeeId: null,
+            employeeName: null,
+          }),
+        );
+      }
       return JSON.stringify({
         kind: 'sync-candidates',
         source: 'claude-code',
-        candidates: result.candidates.map((c) => ({
+        candidates: selected.map((c) => ({
           slug: c.slug,
           name: c.name,
           description: c.description,
           path: c.path,
         })),
+        totalCandidates: result.candidates.length,
+        ...(filter ? { filter } : {}),
       });
     }
 

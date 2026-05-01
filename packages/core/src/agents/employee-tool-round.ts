@@ -27,6 +27,7 @@ export interface HandoffArgs {
 
 export type ToolRoundOutcome =
   | { kind: 'handoff'; args: HandoffArgs }
+  | { kind: 'typed_reply'; content: string; recentToolResults: RecentToolResult[] }
   | { kind: 'continue'; nextHistory: LlmMessage[]; recentToolResults: RecentToolResult[] };
 
 export interface ToolRoundContext {
@@ -127,6 +128,7 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
         name: toolCall.name,
         arguments: toolCall.arguments,
         nodeName: 'employee',
+        threadId: ctx.state.threadId,
         employeeId: employee.employee_id,
         employeeConfigJson: employee.config_json,
         taskRunId: taskRunId ?? undefined,
@@ -154,6 +156,16 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
     logger.warn('Tool call failed', { toolName: tc.name, error: errMsg });
     return { callId: tc.id, name: tc.name, result: `Tool execution failed: ${errMsg}` };
   });
+
+  const typedReply = typedReplyFromToolResults(toolResults);
+  const recentToolResults = toolResults.map((result) => ({
+    toolName: result.name,
+    success: toolResultSucceeded(result.result),
+    bytes: toolResultBytes(result.result),
+  }));
+  if (typedReply) {
+    return { kind: 'typed_reply', content: typedReply, recentToolResults };
+  }
 
   const nextHistory: LlmMessage[] = [...conversationHistory];
   nextHistory.push({
@@ -184,11 +196,7 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
   return {
     kind: 'continue',
     nextHistory: trimmedHistory,
-    recentToolResults: toolResults.map((result) => ({
-      toolName: result.name,
-      success: toolResultSucceeded(result.result),
-      bytes: toolResultBytes(result.result),
-    })),
+    recentToolResults,
   };
 }
 
@@ -214,4 +222,36 @@ function toolResultSucceeded(result: unknown): boolean {
     return (result as { success?: unknown }).success === true;
   }
   return !(typeof result === 'string' && result.startsWith('Tool execution failed:'));
+}
+
+function typedReplyFromToolResults(
+  toolResults: readonly { name: string; result: unknown }[],
+): string | null {
+  for (const toolResult of toolResults) {
+    const parsed = parseStructuredToolResult(toolResult.result);
+    if (toolResult.name === 'sync_from_claude_code' && parsed?.kind === 'desktop-only-tool') {
+      return 'This skill source requires the desktop app.';
+    }
+    if (
+      toolResult.name === 'create_skill_from_scratch' &&
+      parsed?.kind === 'target-employee-mismatch'
+    ) {
+      return 'Skill author must match the active chat employee.';
+    }
+  }
+  return null;
+}
+
+function parseStructuredToolResult(result: unknown): { kind?: unknown } | null {
+  const value =
+    typeof result === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(result) as unknown;
+          } catch {
+            return null;
+          }
+        })()
+      : result;
+  return value && typeof value === 'object' ? (value as { kind?: unknown }) : null;
 }

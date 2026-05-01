@@ -27,6 +27,7 @@ import { type RuntimeContext, createRuntimeContext } from '../runtime/runtime-co
 import type { RuntimeDeterminism } from '../runtime/runtime-context.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { InteractionService } from '../services/interaction-service.js';
+import type { SkillInstallEnvironment } from '../skills/skill-install-environment.js';
 import { SkillLoader } from '../skills/skill-loader.js';
 import { SkillStagingManager } from '../skills/skill-staging.js';
 import type { BuiltinTool } from '../tools/builtin/types.js';
@@ -71,6 +72,7 @@ export interface DeterministicScenario {
   readonly builtinTools?: readonly ToolDef[];
   readonly llmToolCallsEnabled?: boolean;
   readonly toolFixtures?: Record<string, readonly ToolResultFixture[]>;
+  readonly skillInstallRuntime?: SkillInstallEnvironment['runtime'];
   readonly llmTurns?: readonly ScenarioLlmTurn[];
   readonly interactionMode?: InteractionMode;
   readonly runs?: readonly ScenarioRun[];
@@ -220,6 +222,7 @@ export async function runDeterministicScenario(
         interactionService,
         skillLoader,
         skillStagingManager,
+        skillInstallRuntime: scenario.skillInstallRuntime,
         builtinTools: scenario.builtinTools ?? [],
         llmToolCallsEnabled: scenario.llmToolCallsEnabled ?? true,
         determinism,
@@ -574,6 +577,7 @@ function createScenarioRuntime(params: {
   readonly interactionService: InteractionService;
   readonly skillLoader: SkillLoader | null;
   readonly skillStagingManager: SkillStagingManager | null;
+  readonly skillInstallRuntime: SkillInstallEnvironment['runtime'] | undefined;
   readonly builtinTools: readonly ToolDef[];
   readonly llmToolCallsEnabled: boolean;
   readonly determinism: RuntimeDeterminism;
@@ -610,7 +614,28 @@ function createScenarioRuntime(params: {
     interactionService: params.interactionService,
     ...(params.skillLoader ? { skillLoader: params.skillLoader } : {}),
     ...(params.skillStagingManager ? { skillStagingManager: params.skillStagingManager } : {}),
+    ...(params.skillInstallRuntime
+      ? {
+          skillInstallEnvironment: createScenarioSkillInstallEnvironment(
+            params.skillInstallRuntime,
+          ),
+        }
+      : {}),
   });
+}
+
+function createScenarioSkillInstallEnvironment(
+  runtime: SkillInstallEnvironment['runtime'],
+): SkillInstallEnvironment {
+  return {
+    runtime,
+    httpFetch: async () => ({
+      ok: false,
+      status: 404,
+      headers: new Headers(),
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }),
+  };
 }
 
 function createScenarioDeterminism(scenarioId: string): RuntimeDeterminism {

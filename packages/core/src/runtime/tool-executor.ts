@@ -6,6 +6,8 @@ export interface ToolCallRequest {
   readonly arguments: Record<string, unknown>;
   /** Graph node issuing the tool call. */
   readonly nodeName?: string;
+  /** Runtime thread issuing the tool call. Project-scoped chats use the project thread. */
+  readonly threadId?: string;
   /** The employee that initiated this tool call (used for scene feedback). */
   readonly employeeId?: string;
   /** The task run that initiated this tool call, when available. */

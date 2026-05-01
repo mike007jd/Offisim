@@ -89,4 +89,6 @@ export type EventFamily =
   | 'interaction.resolved'
   | 'interaction.mode.changed'
   | 'boss.route.decided'
+  | 'boss.employee-context.empty'
+  | 'workspace-binding.unavailable'
   | 'vault.sync.failed';

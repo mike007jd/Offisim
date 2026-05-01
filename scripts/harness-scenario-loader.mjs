@@ -27,6 +27,8 @@ export const REPLAY_SCENARIO_IDS = [
   'manager-rerouted-event-fires',
   'sanitize-rebind-uses-recommended-order',
   'skill-create-real-tool-call',
+  'skill-create-target-employee-mismatch',
+  'boss-tool-routing-sync-from-claude-code-web',
   'step-advance-segregates-blocked-from-completed',
   'tool-kit-without-builtins-omits-fs-shell',
   'yolo-mode-skips-boss-chain',

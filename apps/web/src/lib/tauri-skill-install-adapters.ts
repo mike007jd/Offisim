@@ -23,6 +23,14 @@ type PathModule = {
   tempDir: () => Promise<string>;
   homeDir: () => Promise<string>;
 };
+type ProjectDirEntry = {
+  name: string;
+  path: string;
+  isFile: boolean;
+  isDirectory: boolean;
+  isSymlink: boolean;
+  size?: number | null;
+};
 
 let invokePromise: Promise<InvokeFn> | null = null;
 let fsPromise: Promise<FsModule> | null = null;
@@ -49,6 +57,15 @@ function path(): Promise<PathModule> {
 
 function normalize(p: string): string {
   return p.replace(/\\/g, '/');
+}
+
+function relativeToRoot(absPath: string, root: string): string | null {
+  const normalizedPath = normalize(absPath).replace(/\/+$/u, '');
+  const normalizedRoot = normalize(root).replace(/\/+$/u, '');
+  if (normalizedPath === normalizedRoot) return '.';
+  const prefix = `${normalizedRoot}/`;
+  if (!normalizedPath.startsWith(prefix)) return null;
+  return normalizedPath.slice(prefix.length) || '.';
 }
 
 async function readTreeRecursive(rootAbs: string): Promise<VirtualTree> {
@@ -130,9 +147,23 @@ export function createTauriGitLocalFsAdapter(): GitLocalFsAdapter {
   };
 }
 
-export function createTauriLocalDirAdapter(): LocalDirAdapter {
+export function createTauriLocalDirAdapter(opts?: { projectRoot?: string }): LocalDirAdapter {
+  const projectRoot = opts?.projectRoot ? normalize(opts.projectRoot) : undefined;
   return {
     async listSubdirs(absPath) {
+      const rel = projectRoot ? relativeToRoot(absPath, projectRoot) : null;
+      if (rel) {
+        const inv = await invoke();
+        try {
+          const entries = await inv<ProjectDirEntry[]>('project_list_dir', {
+            path: rel,
+            cwd: projectRoot,
+          });
+          return entries.filter((e) => e.isDirectory).map((e) => e.name);
+        } catch {
+          return [];
+        }
+      }
       const f = await fs();
       try {
         const entries = await f.readDir(absPath);
@@ -142,6 +173,14 @@ export function createTauriLocalDirAdapter(): LocalDirAdapter {
       }
     },
     async readText(absPath) {
+      const rel = projectRoot ? relativeToRoot(absPath, projectRoot) : null;
+      if (rel) {
+        const inv = await invoke();
+        return inv<string>('project_read_file', {
+          path: rel,
+          cwd: projectRoot,
+        });
+      }
       const f = await fs();
       return f.readTextFile(absPath);
     },

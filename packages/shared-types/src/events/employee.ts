@@ -47,3 +47,9 @@ export interface EmployeeVersionCreatedPayload {
   readonly versionNum: number;
   readonly changeType: 'create' | 'update' | 'rollback';
 }
+
+export interface BossEmployeeContextEmptyPayload {
+  readonly companyId: string;
+  readonly employeeCount: number;
+  readonly expectedAtLeast: 1;
+}

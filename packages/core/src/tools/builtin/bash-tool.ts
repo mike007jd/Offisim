@@ -24,10 +24,15 @@ export function createBashTool(config: BuiltinToolConfig): BuiltinTool | null {
         required: ['command'],
       },
     },
-    async execute(args) {
+    async execute(args, context) {
       const command = args.command as string;
       const cwd = args.cwd as string | undefined;
-      const result = await shellExec(command, { cwd, timeoutMs, maxOutputBytes: maxOutput });
+      const result = await shellExec(command, {
+        cwd,
+        ...(context?.threadId ? { threadId: context.threadId } : {}),
+        timeoutMs,
+        maxOutputBytes: maxOutput,
+      });
 
       let output = result.stdout;
       if (result.stderr) {

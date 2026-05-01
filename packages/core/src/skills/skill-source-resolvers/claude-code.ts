@@ -70,7 +70,7 @@ export async function resolveClaudeCodeSync(
 ): Promise<SyncResolverResult | SkillResolverError> {
   if (deps.runtime !== 'desktop' || !deps.localDir) {
     return {
-      kind: 'not-supported-in-web',
+      kind: 'desktop-only-tool',
       message: 'sync_from_claude_code requires the desktop runtime.',
     };
   }

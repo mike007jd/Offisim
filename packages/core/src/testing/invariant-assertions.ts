@@ -21,6 +21,11 @@ export type ScenarioAssertion =
       readonly status?: string;
       readonly payloadType?: string;
     }
+  | {
+      readonly kind: 'interactionHistoryCount';
+      readonly interactionKind: string;
+      readonly count: number;
+    }
   | { readonly kind: 'noEmployeeAfterCancel' }
   | {
       readonly kind: 'mcpAuditContains';
@@ -165,6 +170,8 @@ async function evaluateAssertion(
       return assertTaskStateEvent(ctx.events, assertion);
     case 'interactionHistoryContains':
       return assertInteractionHistory(ctx.repos, ctx.threadId, assertion);
+    case 'interactionHistoryCount':
+      return assertInteractionHistoryCount(ctx.repos, ctx.threadId, assertion);
     case 'noEmployeeAfterCancel':
       return assertNoEmployeeAfterCancel(ctx);
     case 'mcpAuditContains':
@@ -564,6 +571,20 @@ async function assertInteractionHistory(
     return true;
   });
   if (!found) throw new Error(`Missing interaction history row for ${assertion.interactionKind}`);
+}
+
+async function assertInteractionHistoryCount(
+  repos: RuntimeRepositories,
+  threadId: string,
+  assertion: Extract<ScenarioAssertion, { kind: 'interactionHistoryCount' }>,
+): Promise<void> {
+  const rows = await repos.interactionHistory.listByThread(threadId);
+  const count = rows.filter((row) => row.kind === assertion.interactionKind).length;
+  if (count !== assertion.count) {
+    throw new Error(
+      `Expected ${assertion.count} interaction history row(s) for ${assertion.interactionKind}, got ${count}`,
+    );
+  }
 }
 
 async function assertNoEmployeeAfterCancel(ctx: ScenarioAssertionContext): Promise<void> {

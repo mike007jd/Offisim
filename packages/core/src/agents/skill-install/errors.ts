@@ -7,6 +7,7 @@ export const SKILL_INSTALL_ERROR_KINDS = [
   'skill-md-invalid',
   'skill-frontmatter-error',
   'skill-install-crashed',
+  'desktop-only-tool',
   'missing-argument',
   'upload-not-available',
   'upload-ref-unknown',

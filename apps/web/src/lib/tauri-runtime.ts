@@ -8,6 +8,7 @@ import {
   installStateChanged,
   marketListingInstalled,
   onVaultReadyForSkills,
+  workspaceBindingUnavailable,
 } from '@offisim/core/browser';
 import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/core/browser';
 // Heavy imports — direct dist paths to bypass the @offisim/core barrel alias.
@@ -53,7 +54,11 @@ import type {
 import { CompositeToolExecutor } from '@offisim/core/dist/tools/composite-tool-executor.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
-import type { InteractionMode } from '@offisim/shared-types';
+import type {
+  InteractionMode,
+  RuntimeEvent,
+  WorkspaceBindingUnavailableMissingAt,
+} from '@offisim/shared-types';
 import {
   getInstallEnvironmentForExecutionMode,
   getTrustedHostProductStatus,
@@ -107,6 +112,49 @@ function authSchemeFor(provider: ResolvedProviderConfig['provider'], baseURL?: s
   // OpenAI and every OpenAI-compatible endpoint (Kimi / OpenRouter / Gemini
   // compat / Zai / MiniMax openai-compat / LM Studio / etc.) use Bearer.
   return 'bearer';
+}
+
+const PERSISTED_RUNTIME_EVENT_PREFIXES = [
+  'boss.employee-context.',
+  'workspace-binding.',
+] as const;
+
+const persistedRuntimeEventBuses = new WeakSet<EventBus>();
+
+function runtimeEventId(event: RuntimeEvent): string {
+  const suffix =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `evt-${event.type.replace(/[^a-z0-9]+/giu, '-')}-${event.timestamp}-${suffix}`;
+}
+
+function runtimeEventSeverity(event: RuntimeEvent): 'info' | 'warn' | 'error' {
+  if (event.type === 'workspace-binding.unavailable') return 'error';
+  if (event.type === 'boss.employee-context.empty') return 'warn';
+  return 'info';
+}
+
+function persistSelectedRuntimeEvents(repos: RuntimeRepositories, eventBus: EventBus): void {
+  if (persistedRuntimeEventBuses.has(eventBus)) return;
+  persistedRuntimeEventBuses.add(eventBus);
+  for (const prefix of PERSISTED_RUNTIME_EVENT_PREFIXES) {
+    eventBus.on(prefix, (event: RuntimeEvent) => {
+      void repos.events
+        .insert({
+          event_id: runtimeEventId(event),
+          company_id: event.companyId,
+          thread_id: event.threadId ?? null,
+          event_type: event.type,
+          severity: runtimeEventSeverity(event),
+          payload_json: JSON.stringify(event.payload),
+          created_at: new Date(event.timestamp).toISOString(),
+        })
+        .catch((err) => {
+          console.error(`[tauri-runtime] failed to persist runtime event ${event.type}`, err);
+        });
+    });
+  }
 }
 
 function createTauriExecutionAdapter(
@@ -216,50 +264,137 @@ async function workspaceRootsFor(
   return [...roots];
 }
 
+const WORKSPACE_BINDING_UNAVAILABLE_MESSAGE =
+  'No project workspace root is bound for file/shell tools.';
+
+interface WorkspaceRootResolverDeps {
+  repos: RuntimeRepositories;
+  eventBus: EventBus;
+  companyId: string;
+  companyRoot: string | null;
+  emittedBindingMisses: Set<string>;
+}
+
+function emitWorkspaceBindingUnavailable(
+  deps: WorkspaceRootResolverDeps,
+  input: {
+    projectId: string;
+    expectedWorkspaceRoot: string | null;
+    missingAt: WorkspaceBindingUnavailableMissingAt;
+    threadId?: string;
+  },
+) {
+  const key = `${deps.companyId}:${input.projectId}`;
+  if (deps.emittedBindingMisses.has(key)) return;
+  deps.emittedBindingMisses.add(key);
+  deps.eventBus.emit(
+    workspaceBindingUnavailable(
+      deps.companyId,
+      input.projectId,
+      {
+        companyId: deps.companyId,
+        projectId: input.projectId,
+        expectedWorkspaceRoot: input.expectedWorkspaceRoot,
+        missingAt: input.missingAt,
+      },
+      input.threadId,
+    ),
+  );
+}
+
+async function projectWorkspaceRootForThread(
+  deps: WorkspaceRootResolverDeps,
+  threadId: string | undefined,
+): Promise<string | null> {
+  if (!threadId) return null;
+  const thread = await deps.repos.threads.findById(threadId);
+  const project = thread?.project_id
+    ? await deps.repos.projects.findById(thread.project_id)
+    : (await deps.repos.projects.findByCompany(deps.companyId)).find(
+        (candidate) => candidate.thread_id === threadId,
+      );
+  if (!project) return null;
+  const root = project.workspace_root?.trim() || null;
+  if (root) return root;
+  emitWorkspaceBindingUnavailable(deps, {
+    projectId: project.project_id,
+    expectedWorkspaceRoot: null,
+    missingAt: 'runtime-context',
+    threadId,
+  });
+  throw new Error(WORKSPACE_BINDING_UNAVAILABLE_MESSAGE);
+}
+
+async function optionalWorkspaceRootForThread(
+  deps: WorkspaceRootResolverDeps,
+  threadId: string,
+): Promise<string | undefined> {
+  const thread = await deps.repos.threads.findById(threadId);
+  const project = thread?.project_id
+    ? await deps.repos.projects.findById(thread.project_id)
+    : (await deps.repos.projects.findByCompany(deps.companyId)).find(
+        (candidate) => candidate.thread_id === threadId,
+      );
+  const projectRoot = project?.workspace_root?.trim();
+  if (projectRoot) return projectRoot;
+
+  const roots = await workspaceRootsFor(deps.repos, deps.companyId, deps.companyRoot);
+  return roots.length === 1 ? roots[0] : undefined;
+}
+
 async function defaultWorkspaceRoot(
-  repos: RuntimeRepositories,
-  companyId: string,
-  companyRoot: string | null,
+  deps: WorkspaceRootResolverDeps,
+  threadId?: string,
 ): Promise<string> {
+  const projectRoot = await projectWorkspaceRootForThread(deps, threadId);
+  if (projectRoot) return projectRoot;
+
+  const { repos, companyId, companyRoot } = deps;
   const roots = await workspaceRootsFor(repos, companyId, companyRoot);
   if (roots.length === 1 && roots[0]) return roots[0];
   if (roots.length === 0) {
-    throw new Error('No project workspace root is bound for file/shell tools.');
+    const activeProjects = await repos.projects.findActiveByCompany(companyId);
+    const [project] = activeProjects;
+    if (activeProjects.length === 1 && project) {
+      emitWorkspaceBindingUnavailable(deps, {
+        projectId: project.project_id,
+        expectedWorkspaceRoot: project.workspace_root?.trim() || null,
+        missingAt: 'runtime-context',
+        ...(threadId ? { threadId } : {}),
+      });
+    }
+    throw new Error(WORKSPACE_BINDING_UNAVAILABLE_MESSAGE);
   }
   throw new Error('Multiple workspace roots are bound; pass an absolute path or cwd.');
 }
 
-function createTauriBuiltinFs(
-  repos: RuntimeRepositories,
-  companyId: string,
-  companyRoot: string | null,
-): FsAdapter {
+function createTauriBuiltinFs(deps: WorkspaceRootResolverDeps): FsAdapter {
   return {
-    async readFile(path) {
+    async readFile(path, options) {
       const { invoke } = (await import('@tauri-apps/api/core')) as {
         invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
       };
       const cwd = (await isAbsolutePath(path))
         ? undefined
-        : await defaultWorkspaceRoot(repos, companyId, companyRoot);
+        : await defaultWorkspaceRoot(deps, options?.threadId);
       return invoke<string>('project_read_file', { path, cwd });
     },
-    async writeFile(path, content) {
+    async writeFile(path, content, options) {
       const { invoke } = (await import('@tauri-apps/api/core')) as {
         invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
       };
       const cwd = (await isAbsolutePath(path))
         ? undefined
-        : await defaultWorkspaceRoot(repos, companyId, companyRoot);
+        : await defaultWorkspaceRoot(deps, options?.threadId);
       await invoke<void>('project_write_file', { path, content, cwd });
     },
-    async exists(path) {
+    async exists(path, options) {
       const { invoke } = (await import('@tauri-apps/api/core')) as {
         invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
       };
       const cwd = (await isAbsolutePath(path))
         ? undefined
-        : await defaultWorkspaceRoot(repos, companyId, companyRoot);
+        : await defaultWorkspaceRoot(deps, options?.threadId);
       try {
         await invoke<string>('project_read_file', { path, cwd });
         return true;
@@ -270,16 +405,12 @@ function createTauriBuiltinFs(
   };
 }
 
-function createTauriShellExec(
-  repos: RuntimeRepositories,
-  companyId: string,
-  companyRoot: string | null,
-): ShellExec {
+function createTauriShellExec(deps: WorkspaceRootResolverDeps): ShellExec {
   return async (command, options): Promise<ShellExecResult> => {
     const { invoke } = (await import('@tauri-apps/api/core')) as {
       invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
     };
-    const root = await defaultWorkspaceRoot(repos, companyId, companyRoot);
+    const root = await defaultWorkspaceRoot(deps, options.threadId);
     const cwd = options.cwd
       ? (await isAbsolutePath(options.cwd))
         ? options.cwd
@@ -389,6 +520,7 @@ export async function createTauriRuntime(
   const threadId = `thread-${companyId}`;
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db, eventBus);
+  persistSelectedRuntimeEvents(repos, eventBus);
   await ensureYoloMasterForActiveCompanies(repos);
   const company = await repos.companies.findById(companyId);
   if (!company) {
@@ -438,12 +570,19 @@ export async function createTauriRuntime(
         ? new BrowserMcpClientFactory()
         : new TauriMcpClientFactory(),
   });
+  const workspaceRootResolverDeps: WorkspaceRootResolverDeps = {
+    repos,
+    eventBus,
+    companyId,
+    companyRoot: company.workspace_root,
+    emittedBindingMisses: new Set(),
+  };
   const builtinTools: Map<string, BuiltinTool> =
     resolvedProvider.executionLane === 'gateway'
       ? createBuiltinTools({
           executionMode: 'desktop-trusted',
-          fs: createTauriBuiltinFs(repos, companyId, company.workspace_root),
-          shellExec: createTauriShellExec(repos, companyId, company.workspace_root),
+          fs: createTauriBuiltinFs(workspaceRootResolverDeps),
+          shellExec: createTauriShellExec(workspaceRootResolverDeps),
           bashTimeoutMs: 30_000,
           maxOutputBytes: 1024 * 1024,
         })
@@ -466,12 +605,19 @@ export async function createTauriRuntime(
   const skillLoader = SkillLoader.forRepos(repos, createSkillMarketEmitter(eventBus));
   const skillStagingManager = new SkillStagingManager();
   const uploadRefResolver = new InMemoryUploadRefResolver();
-  void prefetchTauriHomeDir();
+  await prefetchTauriHomeDir();
+  const skillInstallRepoRoot = await optionalWorkspaceRootForThread(
+    workspaceRootResolverDeps,
+    threadId,
+  );
   const skillInstallEnvironment = createTauriSkillInstallEnvironment({
     clone: createTauriGitCloneAdapter(),
     gitFs: createTauriGitLocalFsAdapter(),
-    localDir: createTauriLocalDirAdapter(),
+    localDir: createTauriLocalDirAdapter(
+      skillInstallRepoRoot ? { projectRoot: skillInstallRepoRoot } : undefined,
+    ),
     uploadResolver: uploadRefResolver,
+    ...(skillInstallRepoRoot ? { repoRoot: skillInstallRepoRoot } : {}),
   });
   const skillInstallCommitter = skillLoader
     ? new SkillInstallCommitter({

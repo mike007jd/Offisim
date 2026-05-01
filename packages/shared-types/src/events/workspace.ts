@@ -15,6 +15,18 @@ export interface WorkspaceStalenessDetectedPayload {
   readonly currentStatusLines: number | null;
 }
 
+export type WorkspaceBindingUnavailableMissingAt =
+  | 'rust-state'
+  | 'runtime-context'
+  | 'project-switch';
+
+export interface WorkspaceBindingUnavailablePayload {
+  readonly companyId: string;
+  readonly projectId: string;
+  readonly expectedWorkspaceRoot: string | null;
+  readonly missingAt: WorkspaceBindingUnavailableMissingAt;
+}
+
 export interface GitAutoCommittedPayload {
   readonly stepIndex: number;
   readonly fileCount: number;
