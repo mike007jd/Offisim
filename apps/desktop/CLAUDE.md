@@ -46,9 +46,14 @@ Secret 落 `<app_local_data_dir>/runtime_secret.txt`（mode 0600，atomic tmp+re
 
 未上线口径单基线 schema：`packages/db-local/src/schema.sql`，`local_db.rs` 启动时直接 bootstrap，不保留 migration 链（commit `ba7788c9`）。改 schema → 同步 `packages/db-local/src/schema.ts` + `schema.sql`。预发版需要清脏数据走 release run action（仓库已提供），不要手写 migration。
 
-## Release CSP
+## Release CSP / platform CORS coupling
 
-release `.app` 的 `connect-src` 必须包含 `http://localhost:4100` / `https://localhost:4100` / `tauri://localhost`，与 `apps/platform/src/startup.ts` dev CORS 口径一起维护。Platform 默认端口 4100；非白名单端口（如 `127.0.0.1:43177`）会被 CSP 直接拒。
+Tauri release `.app` CSP `connect-src` 与 `apps/platform/src/startup.ts` `DEV_DEFAULT_ORIGINS` 是两条**独立但成对**的 allowlist：
+
+- **Invariant A** — CSP `connect-src` ⊇ platform listen origins（`http://localhost:4100` / `https://localhost:4100` / `tauri://localhost`）
+- **Invariant B** — platform CORS ⊇ `tauri://localhost`
+
+任一侧漂移会被 `scripts/check-platform-tauri-origin-sync.mjs` 在 `apps/desktop` / `apps/platform` 的 `prebuild` 拦下。完整规范见 `openspec/specs/desktop-llm-credential-isolation/spec.md` 的 `Tauri release \`.app\` CSP SHALL allow platform endpoint origins` Requirement。
 
 ## Rust 模块速查
 

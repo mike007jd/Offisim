@@ -108,6 +108,7 @@ catalog/
 - URL routing SSOT 在 `apps/web/src/lib/url-routing/`：workspace 切换、primary entity、overlay、filter/search 状态先序列化到 URL，再由 `useUrlSync()` 统一写 `history.pushState/replaceState`；不要恢复旧的内部 workspace history stack。
 - `useWorkspaceSessionState`: updater `(prev: T) => T`, `updateWorkspaceState(key, updater)` 仍是 session state 唯一写入路径；Escape 可做 workspace 内部 drill-back，浏览器 Back/Forward 走 URL parser。
 - 响应式: `computeLayoutTier()` → desktop(>1280) / tablet(769-1280) / narrow(≤768)
+- **narrow tier (`390x844`) 验证目标 = web SPA in browser**，不是 Tauri release `.app`。Tauri 桌面壳强制 desktop product floor (`minWidth ≥ 1024`)，不需要也不要靠拖窗到 phone-portrait 来验 narrow drawer。规范见 `openspec/specs/responsive-app-shell/spec.md` 的 `Narrow tier verification scope is the web SPA in browser` Requirement。
 
 ## Key Files
 
@@ -147,7 +148,7 @@ catalog/
 - Dev 端口锁定: web=5176, launcher=4200, platform=4100 (strictPort)
 - 修改 `shared-types` 后必须先 `pnpm --filter @offisim/shared-types build`
 - **验证命令按依赖顺序串行跑**: `shared-types -> ui-core -> core -> ui-office -> web`。不要并行跑 `core/ui-office/web`; `web build` 会读 `core/dist`，并行时容易拿到旧产物产生假失败/假通过。
-- **Tauri release CSP 与 platform dev origin 必须同步**: release `.app` 的 `connect-src` 至少包含 `http://localhost:4100` / `https://localhost:4100` / `tauri://localhost`，与 `apps/platform/src/startup.ts` 的 dev CORS 口径一起维护；不要为了过 CSP 放开任意 localhost 端口。
+- **Tauri release CSP ↔ platform CORS 双向耦合**：CSP `connect-src` ⊇ platform listen origins (Invariant A)、platform CORS ⊇ `tauri://localhost` (Invariant B)。任一侧漂移由 `scripts/check-platform-tauri-origin-sync.mjs` 在 `apps/desktop` / `apps/platform` 的 `prebuild` 拦下；规范见 `openspec/specs/desktop-llm-credential-isolation/spec.md`。
 - `tauri-repos.test.ts` 依赖 `@offisim/db-local` 构建产物
 - Linux/CI 必须 `--filter '!@offisim/desktop' --filter '!@offisim/launcher'` 跳过 Tauri
 - Three.js 非真实运行时对象可能不完整, 代码里要做 defensive cast / null guard, 不要假设测试环境会替你兜底

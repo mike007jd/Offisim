@@ -13,6 +13,7 @@ Hono API 服务端, Drizzle + PostgreSQL。
 - 没有后台队列: POST `/submit` 路由同步调 `processModerationJob()` 立即返 202
 - SHA-256 哈希存 API token (不是明文); Better Auth 自动 upsert Offisim user
 - fork 谱系用 `WITH RECURSIVE lineage_chain` CTE 上下追 10 层 (GET `/listings/:listingId/lineage`)
+- `DEV_DEFAULT_ORIGINS` 与 Tauri release `.app` CSP `connect-src` 双向耦合（Invariant A: CSP ⊇ platform listen origins / Invariant B: CORS ⊇ `tauri://localhost`），由 `scripts/check-platform-tauri-origin-sync.mjs` 在 prebuild 强制；完整规范见 `openspec/specs/desktop-llm-credential-isolation/spec.md`
 
 ## Boot-time official seed
 
