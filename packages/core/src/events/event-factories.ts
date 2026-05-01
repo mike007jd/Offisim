@@ -78,6 +78,7 @@ export {
 export {
   installStateChanged,
   bindingStateChanged,
+  marketListingInstalled,
 } from './install-events.js';
 
 export {

@@ -208,6 +208,7 @@ export {
   toolExecutionTelemetry,
   installStateChanged,
   bindingStateChanged,
+  marketListingInstalled,
   planCreated,
   planStepStarted,
   planStepCompleted,

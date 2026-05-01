@@ -8,6 +8,7 @@ import type {
   BindingType,
   InstallState,
   InstallStatePayload,
+  MarketListingInstalledPayload,
   RuntimeEvent,
 } from '@offisim/shared-types';
 
@@ -28,6 +29,30 @@ export function installStateChanged(
     threadId,
     timestamp: Date.now(),
     payload: { installTxnId, prev, next, packageId, errorCode },
+  };
+}
+
+export function marketListingInstalled(
+  companyId: string,
+  listingId: string,
+  kind: 'employee' | 'skill',
+  extras?: { installedPackageId?: string; skillId?: string; threadId?: string },
+): RuntimeEvent<MarketListingInstalledPayload> {
+  return {
+    type: 'market.listing-installed',
+    entityId: listingId,
+    entityType: 'install',
+    companyId,
+    threadId: extras?.threadId,
+    timestamp: Date.now(),
+    payload: {
+      listingId,
+      kind,
+      ...(extras?.installedPackageId !== undefined
+        ? { installedPackageId: extras.installedPackageId }
+        : {}),
+      ...(extras?.skillId !== undefined ? { skillId: extras.skillId } : {}),
+    },
   };
 }
 

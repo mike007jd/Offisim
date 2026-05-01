@@ -3,6 +3,7 @@
  * Wraps MarketDetailView in a full-screen overlay.
  */
 import { X } from 'lucide-react';
+import { useInstalledListings } from '../../hooks/useInstalledListings.js';
 import { useListingDetail } from '../../hooks/useListingDetail.js';
 import { MarketDetailView } from './MarketDetailView.js';
 
@@ -18,6 +19,7 @@ export function MarketplaceDetailOverlay({
   onInstall,
 }: MarketplaceDetailOverlayProps) {
   const { detail, loading, unavailable } = useListingDetail(listingId);
+  const { installedListingIds } = useInstalledListings();
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-surface-elevated text-text-primary backdrop-blur-sm">
@@ -37,6 +39,7 @@ export function MarketplaceDetailOverlay({
           unavailable={unavailable}
           onBack={onClose}
           onInstall={onInstall}
+          installedListingIds={installedListingIds}
         />
       </div>
     </div>

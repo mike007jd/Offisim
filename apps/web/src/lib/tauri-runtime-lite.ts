@@ -5,7 +5,11 @@
  * and editing without requiring an API key. Data persists to SQLite so it
  * survives reinitRuntime() calls.
  */
-import { DeliverablePersistenceService, SkillLoader } from '@offisim/core/browser';
+import {
+  DeliverablePersistenceService,
+  SkillLoader,
+  marketListingInstalled,
+} from '@offisim/core/browser';
 import type { InMemoryEventBus } from '@offisim/core/browser';
 import { ensureYoloMasterForActiveCompanies } from '@offisim/core/dist/runtime/ensure-yolo-master.js';
 import type { RuntimeBundle } from './browser-runtime';
@@ -33,7 +37,11 @@ export async function createTauriRuntimeReposOnly(
   const vaultActivation = companyId
     ? await tryActivateTauriVault({ eventBus, repos, companyId })
     : null;
-  const skillLoader = SkillLoader.forRepos(repos);
+  const skillLoader = SkillLoader.forRepos(repos, {
+    emitMarketListingInstalled(cid, listingId, kind, extras) {
+      eventBus.emit(marketListingInstalled(cid, listingId, kind, extras));
+    },
+  });
   if (vaultActivation && skillLoader) {
     skillLoader.setFs(vaultActivation.fs);
   }

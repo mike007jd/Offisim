@@ -1,16 +1,23 @@
 import type { ListingSummary } from '@offisim/registry-client';
 import { Star } from 'lucide-react';
 import { getRarityColor } from './market-rarity.js';
-import { KIND_ICON, formatInstallCount } from './marketplace-meta.js';
+import { INSTALLABLE_KINDS, KIND_ICON, formatInstallCount } from './marketplace-meta.js';
 
 export interface MarketListingCardProps {
   readonly listing: ListingSummary;
   readonly onClick: (listingId: string) => void;
+  /**
+   * When true, renders an `Installed` badge alongside the platform-global
+   * install_count line (does not replace it). Sourced from
+   * `useInstalledListings` and gated by `INSTALLABLE_KINDS`.
+   */
+  readonly installed?: boolean;
 }
 
-export function MarketListingCard({ listing, onClick }: MarketListingCardProps) {
+export function MarketListingCard({ listing, onClick, installed }: MarketListingCardProps) {
   const rarity = getRarityColor(listing.kind);
   const Icon = KIND_ICON[listing.kind];
+  const showInstalled = installed === true && INSTALLABLE_KINDS.has(listing.kind);
 
   return (
     <button
@@ -39,6 +46,11 @@ export function MarketListingCard({ listing, onClick }: MarketListingCardProps) 
           {listing.rating.toFixed(1)}
         </span>
         <span>{formatInstallCount(listing.install_count)} installs</span>
+        {showInstalled && (
+          <span className="ml-auto inline-flex items-center rounded-full border border-success bg-success-muted px-2 py-0.5 text-[11px] font-medium text-success">
+            Installed
+          </span>
+        )}
       </div>
     </button>
   );

@@ -18,10 +18,26 @@ import { skillSlug } from './skill-slug.js';
 
 const ASSET_SUBTREE_PREFIXES = ['scripts/', 'references/', 'assets/'];
 
+/**
+ * Narrow event facade so the skill loader can announce "marketplace install
+ * landed" without taking a hard dependency on `@offisim/core` EventBus. The
+ * runtime adapter wires this to `market.listing-installed` events; harness /
+ * tests can pass a noop or omit the dep.
+ */
+export interface SkillMarketEventEmitter {
+  emitMarketListingInstalled(
+    companyId: string,
+    listingId: string,
+    kind: 'skill',
+    extras?: { skillId?: string },
+  ): void;
+}
+
 export interface SkillLoaderDeps {
   skills: SkillRepository;
   employees: EmployeeRepository;
   fs: VaultFileSystem;
+  events?: SkillMarketEventEmitter;
 }
 
 function rowToMetadata(row: SkillRow): SkillMetadata {
@@ -199,12 +215,14 @@ function validateAssetPath(relPath: string): void {
 export class SkillLoader {
   private readonly skills: SkillRepository;
   private readonly employees: EmployeeRepository;
+  private readonly events: SkillMarketEventEmitter | undefined;
   private fs: VaultFileSystem;
 
   constructor(deps: SkillLoaderDeps) {
     this.skills = deps.skills;
     this.employees = deps.employees;
     this.fs = deps.fs;
+    this.events = deps.events;
   }
 
   /**
@@ -212,12 +230,16 @@ export class SkillLoader {
    * a stub fs until the vault activates. Returns `null` when the repos bundle
    * lacks the skills table (backwards-compat / lite runtime scenarios).
    */
-  static forRepos(repos: RuntimeRepositories): SkillLoader | null {
+  static forRepos(
+    repos: RuntimeRepositories,
+    events?: SkillMarketEventEmitter,
+  ): SkillLoader | null {
     if (!repos.skills) return null;
     return new SkillLoader({
       skills: repos.skills,
       employees: repos.employees,
       fs: createStubVaultFs('Vault not activated yet'),
+      ...(events !== undefined ? { events } : {}),
     });
   }
 
@@ -431,6 +453,15 @@ export class SkillLoader {
         updated_at: ts,
       };
       await this.skills.insert(row);
+      // Only marketplace installs surface to the Market UI's installed-state
+      // signal — git / upload / fork / claude-code / codex / self-authored
+      // sources have no listing to map to. Emit happens after the row insert
+      // so subscribers can trust the DB matches the event.
+      if (args.source.kind === 'marketplace' && this.events) {
+        this.events.emitMarketListingInstalled(args.companyId, args.source.listingId, 'skill', {
+          skillId: row.skill_id,
+        });
+      }
       return { row, wasExisting: false };
     } catch (err) {
       for (const written of writtenPaths.reverse()) {

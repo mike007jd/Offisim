@@ -305,6 +305,21 @@ export class InstallService {
     // Clean up cache
     this.planCache.delete(installTxnId);
 
+    // Surface the listing-installed signal for Market UI consumers. Employee
+    // packages finish materialization here; skill packages still need their
+    // post-materialize vault write — the skill pipeline emits its own event
+    // after `installSkill` so timing matches "user can see the result".
+    const installedListingId = provenance?.originListingId;
+    if (
+      installedListingId &&
+      plan.manifest.package.kind === 'employee' &&
+      this.events.emitMarketListingInstalled
+    ) {
+      this.events.emitMarketListingInstalled(this.companyId, installedListingId, 'employee', {
+        installedPackageId: result.installedPackageId,
+      });
+    }
+
     // Emit binding state events for confirmed bindings
     const bindingReqs = plan.bindings;
     for (let i = 0; i < result.bindingIds.length; i++) {

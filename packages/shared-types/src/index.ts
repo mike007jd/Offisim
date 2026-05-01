@@ -53,6 +53,7 @@ export type {
   InteractionModeChangedPayload,
   InstallStatePayload,
   BindingStatePayload,
+  MarketListingInstalledPayload,
   PlanCreatedPayload,
   PlanStepStartedPayload,
   PlanStepCompletedPayload,

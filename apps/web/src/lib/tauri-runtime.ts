@@ -6,6 +6,7 @@ import {
   SkillStagingManager,
   bindingStateChanged,
   installStateChanged,
+  marketListingInstalled,
   onVaultReadyForSkills,
 } from '@offisim/core/browser';
 import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/core/browser';
@@ -330,6 +331,22 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
     emitBindingState(companyId, bindingId, txnId, type, key, prev, next) {
       eventBus.emit(bindingStateChanged(companyId, bindingId, txnId, type, key, prev, next));
     },
+    emitMarketListingInstalled(companyId, listingId, kind, extras) {
+      eventBus.emit(marketListingInstalled(companyId, listingId, kind, extras));
+    },
+  };
+}
+
+function createSkillMarketEmitter(eventBus: EventBus) {
+  return {
+    emitMarketListingInstalled(
+      companyId: string,
+      listingId: string,
+      kind: 'skill',
+      extras?: { skillId?: string },
+    ) {
+      eventBus.emit(marketListingInstalled(companyId, listingId, kind, extras));
+    },
   };
 }
 
@@ -446,7 +463,7 @@ export async function createTauriRuntime(
   const interactionBox = { pending: null };
   const hookRegistry = new HookRegistry();
   const scratchpad = new Scratchpad();
-  const skillLoader = SkillLoader.forRepos(repos);
+  const skillLoader = SkillLoader.forRepos(repos, createSkillMarketEmitter(eventBus));
   const skillStagingManager = new SkillStagingManager();
   const uploadRefResolver = new InMemoryUploadRefResolver();
   void prefetchTauriHomeDir();

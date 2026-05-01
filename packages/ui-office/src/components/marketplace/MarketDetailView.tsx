@@ -12,6 +12,12 @@ export interface MarketDetailViewProps {
   readonly onBack: () => void;
   readonly onInstall: (listingId: string, version: string) => void;
   readonly layout?: 'full' | 'panel' | 'narrow';
+  /**
+   * Per-company set of marketplace listing ids that the active company has
+   * already installed. When the current detail's listing is in the set, the
+   * install button renders as a disabled `Installed` affordance.
+   */
+  readonly installedListingIds?: ReadonlySet<string>;
 }
 
 function DetailSkeleton({ compact }: { compact: boolean }) {
@@ -45,6 +51,7 @@ export function MarketDetailView({
   onBack,
   onInstall,
   layout = 'full',
+  installedListingIds,
 }: MarketDetailViewProps) {
   const compact = layout !== 'full';
   if (loading) {
@@ -85,6 +92,9 @@ export function MarketDetailView({
   const rarity = getRarityColor(detail.kind);
   const Icon = KIND_ICON[detail.kind];
   const version = typeof detail.version === 'string' ? detail.version : detail.version.version;
+  const isInstallable = INSTALLABLE_KINDS.has(detail.kind);
+  const isInstalled =
+    isInstallable && (installedListingIds?.has(detail.listing_id) ?? false);
 
   return (
     <div
@@ -158,19 +168,29 @@ export function MarketDetailView({
             <MetaRow label="Installs" value={formatInstallCount(detail.install_count)} />
           </dl>
 
-          {INSTALLABLE_KINDS.has(detail.kind) ? (
-            <button
-              type="button"
-              onClick={() =>
-                onInstall(
-                  detail.listing_id,
-                  typeof detail.version === 'string' ? detail.version : detail.version.version,
-                )
-              }
-              className={`mt-5 w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${rarity.accent}`}
-            >
-              Install
-            </button>
+          {isInstallable ? (
+            isInstalled ? (
+              <button
+                type="button"
+                disabled
+                className="mt-5 w-full cursor-not-allowed rounded-lg bg-surface-muted px-4 py-2.5 text-sm font-semibold text-text-muted"
+              >
+                Installed
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() =>
+                  onInstall(
+                    detail.listing_id,
+                    typeof detail.version === 'string' ? detail.version : detail.version.version,
+                  )
+                }
+                className={`mt-5 w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${rarity.accent}`}
+              >
+                Install
+              </button>
+            )
           ) : (
             <p className="mt-5 text-center text-xs text-text-muted">
               Install not supported for {detail.kind}.

@@ -17,6 +17,7 @@ import {
   bindingStateChanged,
   createMemoryRepositories,
   installStateChanged,
+  marketListingInstalled,
   onVaultReadyForSkills,
 } from '@offisim/core/browser';
 import type {
@@ -104,6 +105,22 @@ function createEventEmitterAdapter(eventBus: EventBus): InstallEventEmitter {
     },
     emitBindingState(companyId, bindingId, txnId, type, key, prev, next) {
       eventBus.emit(bindingStateChanged(companyId, bindingId, txnId, type, key, prev, next));
+    },
+    emitMarketListingInstalled(companyId, listingId, kind, extras) {
+      eventBus.emit(marketListingInstalled(companyId, listingId, kind, extras));
+    },
+  };
+}
+
+function createSkillMarketEmitter(eventBus: EventBus) {
+  return {
+    emitMarketListingInstalled(
+      companyId: string,
+      listingId: string,
+      kind: 'skill',
+      extras?: { skillId?: string },
+    ) {
+      eventBus.emit(marketListingInstalled(companyId, listingId, kind, extras));
     },
   };
 }
@@ -221,7 +238,7 @@ export async function createBrowserRuntime(
   }
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
-  const skillLoader = SkillLoader.forRepos(repos);
+  const skillLoader = SkillLoader.forRepos(repos, createSkillMarketEmitter(eventBus));
   const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId, {
     onActivate: (activation) => {
       void onVaultReadyForSkills(skillLoader, repos, activation.fs);
@@ -467,7 +484,7 @@ export async function createBrowserRuntimeReposOnly(
   await ensureYoloMasterForActiveCompanies(repos);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
-  const liteSkillLoader = SkillLoader.forRepos(repos);
+  const liteSkillLoader = SkillLoader.forRepos(repos, createSkillMarketEmitter(eventBus));
   const browserVault = await createDefaultBrowserVaultController(eventBus, repos, companyId, {
     onActivate: (activation) => {
       void onVaultReadyForSkills(liteSkillLoader, repos, activation.fs);

@@ -1,6 +1,7 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useInstalledListings } from '../../hooks/useInstalledListings.js';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useListingDetail } from '../../hooks/useListingDetail.js';
 import { useMarketplace } from '../../hooks/useMarketplace.js';
@@ -52,6 +53,8 @@ export function MarketPage({
     loadMore,
     refresh,
   } = useMarketplace();
+
+  const { installedListingIds } = useInstalledListings();
 
   // Sync sessionState → hook
   useEffect(() => {
@@ -198,6 +201,7 @@ export function MarketPage({
             onBack={handleBackToListings}
             onInstall={handleInstall}
             layout="narrow"
+            installedListingIds={installedListingIds}
           />
         )}
 
@@ -217,6 +221,7 @@ export function MarketPage({
                 hasMore={hasMore}
                 onSelectListing={handleSelectListing}
                 onLoadMore={loadMore}
+                installedListingIds={installedListingIds}
               />
             </div>
             <MarketDetailView
@@ -226,6 +231,7 @@ export function MarketPage({
               onBack={handleBackToListings}
               onInstall={handleInstall}
               layout="panel"
+              installedListingIds={installedListingIds}
             />
           </div>
         )}
@@ -251,6 +257,7 @@ export function MarketPage({
             hasMore={hasMore}
             onSelectListing={handleSelectListing}
             onLoadMore={loadMore}
+            installedListingIds={installedListingIds}
           />
         )}
 

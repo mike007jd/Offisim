@@ -22,6 +22,7 @@ export interface MarketCardGridProps {
   readonly hasMore: boolean;
   readonly onSelectListing: (listingId: string) => void;
   readonly onLoadMore: () => void;
+  readonly installedListingIds?: ReadonlySet<string>;
 }
 
 function SkeletonCard() {
@@ -49,6 +50,7 @@ export function MarketCardGrid({
   hasMore,
   onSelectListing,
   onLoadMore,
+  installedListingIds,
 }: MarketCardGridProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const onLoadMoreRef = useRef(onLoadMore);
@@ -87,7 +89,12 @@ export function MarketCardGrid({
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5 p-6">
       {results.map((listing) => (
-        <MarketListingCard key={listing.listing_id} listing={listing} onClick={onSelectListing} />
+        <MarketListingCard
+          key={listing.listing_id}
+          listing={listing}
+          onClick={onSelectListing}
+          installed={installedListingIds?.has(listing.listing_id) ?? false}
+        />
       ))}
 
       {/* Sentinel for infinite scroll */}
