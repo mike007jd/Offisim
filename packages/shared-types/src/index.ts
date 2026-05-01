@@ -54,6 +54,8 @@ export type {
   InstallStatePayload,
   BindingStatePayload,
   MarketListingInstalledPayload,
+  SkillInstallOutcomeKind,
+  SkillInstallOutcomePayload,
   PlanCreatedPayload,
   PlanStepStartedPayload,
   PlanStepCompletedPayload,
@@ -113,6 +115,7 @@ export type {
   TaskSubtaskProgressPayload,
 } from './events.js';
 export { TASK_ASSIGNMENT_REROUTED } from './events/task.js';
+export { SKILL_INSTALL_OUTCOME, skillInstallOutcomeLabel } from './events/install.js';
 export type {
   ToolExecutionTelemetryPayload,
   VaultSyncFailedPayload,

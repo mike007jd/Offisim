@@ -3,6 +3,7 @@ import type {
   InteractionRequest,
   InteractionResponse,
   InteractionScope,
+  SkillInstallOutcomeKind,
 } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import {
@@ -10,6 +11,7 @@ import {
   interactionRequested,
   interactionResolved,
   interactionRestored,
+  skillInstallOutcome,
 } from '../events/event-factories.js';
 import type { HookRegistry } from '../runtime/hook-registry.js';
 import type {
@@ -47,13 +49,7 @@ export interface InteractionPendingStore {
   pending: InteractionRequest | null;
 }
 
-export type SkillInstallConfirmOutcome =
-  | { kind: 'installed'; skillId: string; wasExisting: boolean }
-  | { kind: 'created'; skillId: string; wasExisting: boolean }
-  | { kind: 'edited'; skillId: string }
-  | { kind: 'cancelled' }
-  | { kind: 'staging-expired' }
-  | { kind: 'error'; errorKind: string; message: string };
+export type SkillInstallConfirmOutcome = SkillInstallOutcomeKind;
 
 export interface SkillInstallConfirmHandler {
   handle(
@@ -246,7 +242,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     await this.applyGrants(pending, response);
     this.applyPlanReviewDecision(pending, response, payload);
     this.clearPayload(pending);
-    const skillInstallOutcome = await this.applySkillInstallConfirm(pending, response);
+    const outcome = await this.applySkillInstallConfirm(pending, response);
     await this.deps.hookRegistry?.emit('interaction.resolved', {
       interactionId: pending.interactionId,
       threadId: pending.threadId,
@@ -257,10 +253,18 @@ export class InteractionService implements ToolPermissionGrantResolver {
     this.deps.eventBus.emit(
       interactionResolved(this.deps.companyId, this.deps.threadId, pending, response),
     );
+    if (outcome) {
+      this.deps.eventBus.emit(
+        skillInstallOutcome(this.deps.companyId, this.deps.threadId, {
+          ...outcome,
+          interactionId: pending.interactionId,
+        }),
+      );
+    }
     this.resolveResolutionWaiter(pending.interactionId, response);
     return {
       request: pending,
-      ...(skillInstallOutcome ? { skillInstallOutcome } : {}),
+      ...(outcome ? { skillInstallOutcome: outcome } : {}),
     };
   }
 

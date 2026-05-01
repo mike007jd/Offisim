@@ -1,14 +1,12 @@
 import type { SkillInstallConfirmOutcome } from '@offisim/core/browser';
 import type { InteractionRequest } from '@offisim/shared-types';
+import { skillInstallOutcomeLabel } from '@offisim/shared-types';
 
 export type InteractionFollowUp =
   | { mode: 'none' }
   | { mode: 'retry_last_message' }
   | { mode: 'resend_with_clarification' }
   | { mode: 'message'; message: string };
-
-const SKILL_INSTALL_CANCELLED_MESSAGE = 'Skill install cancelled.';
-const SKILL_CREATION_CANCELLED_MESSAGE = 'Skill creation cancelled.';
 
 function getSkillInstallConfirmFollowUp(
   request: InteractionRequest,
@@ -23,37 +21,13 @@ function getSkillInstallConfirmFollowUp(
       message: 'Retry requested. Ask the employee to generate a corrected SKILL.md.',
     };
   }
-  if (selectedOptionId !== 'confirm') {
-    return {
-      mode: 'message',
-      message:
-        action === 'create' ? SKILL_CREATION_CANCELLED_MESSAGE : SKILL_INSTALL_CANCELLED_MESSAGE,
-    };
-  }
-  switch (skillInstallOutcome?.kind) {
-    case 'created':
-      return { mode: 'message', message: 'Skill created.' };
-    case 'edited':
-      return { mode: 'message', message: 'Skill updated.' };
-    case 'staging-expired':
-      return {
-        mode: 'message',
-        message: 'That skill preview expired. Ask again to generate a fresh preview.',
-      };
-    case 'error':
-      return {
-        mode: 'message',
-        message: `Skill change failed: ${skillInstallOutcome.message}`,
-      };
-    case 'cancelled':
-      return {
-        mode: 'message',
-        message:
-          action === 'create' ? SKILL_CREATION_CANCELLED_MESSAGE : SKILL_INSTALL_CANCELLED_MESSAGE,
-      };
-    default:
-      return { mode: 'message', message: 'Skill installed.' };
-  }
+  // The committer is the source of truth — use its outcome whenever it
+  // returned one. Fall back to a synthesized cancelled outcome only when the
+  // user dismissed without ever invoking the committer (e.g., resolver said
+  // no handler was wired).
+  const outcome: SkillInstallConfirmOutcome =
+    skillInstallOutcome ?? { kind: 'cancelled' };
+  return { mode: 'message', message: skillInstallOutcomeLabel(outcome) };
 }
 
 export function getInteractionFollowUp(

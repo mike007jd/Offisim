@@ -79,6 +79,7 @@ export {
   installStateChanged,
   bindingStateChanged,
   marketListingInstalled,
+  skillInstallOutcome,
 } from './install-events.js';
 
 export {

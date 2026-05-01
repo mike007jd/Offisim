@@ -4,13 +4,24 @@ import type {
   InteractionResolvedPayload,
   InteractionRestoredPayload,
   RuntimeEvent,
+  SkillInstallOutcomePayload,
 } from '@offisim/shared-types';
+import { SKILL_INSTALL_OUTCOME, skillInstallOutcomeLabel } from '@offisim/shared-types';
 import {
   interactionRequestedLabel,
   interactionResolvedLabel,
   interactionRestoredLabel,
 } from '../../runtime-activity-formatters';
-import type { ActivityEventBus, ActivityMapperSink } from '../activity-types';
+import type { ActivityEventBus, ActivityMapperSink, RuntimeActivityTone } from '../activity-types';
+
+const SKILL_OUTCOME_TONE: Record<SkillInstallOutcomePayload['kind'], RuntimeActivityTone> = {
+  installed: 'success',
+  created: 'success',
+  edited: 'success',
+  cancelled: 'info',
+  'staging-expired': 'warning',
+  error: 'warning',
+};
 
 export function subscribeInteractionMappers(
   eventBus: ActivityEventBus,
@@ -35,6 +46,9 @@ export function subscribeInteractionMappers(
   const offResolved = eventBus.on(
     'interaction.resolved',
     (event: RuntimeEvent<InteractionResolvedPayload>) => {
+      // skill_install_confirm has its own outcome-driven path via
+      // `skill.install.outcome` — skip here to avoid double-logging.
+      if (event.payload.request.kind === 'skill_install_confirm') return;
       sink.push({
         id: `interaction-resolved-${event.payload.request.interactionId}`,
         kind: 'system',
@@ -45,6 +59,20 @@ export function subscribeInteractionMappers(
         ),
         timestamp: event.timestamp,
         employeeId: event.payload.request.employeeId,
+      });
+    },
+  );
+
+  const offSkillOutcome = eventBus.on(
+    SKILL_INSTALL_OUTCOME,
+    (event: RuntimeEvent<SkillInstallOutcomePayload>) => {
+      const payload = event.payload;
+      sink.push({
+        id: `skill-outcome-${payload.interactionId}`,
+        kind: 'system',
+        tone: SKILL_OUTCOME_TONE[payload.kind],
+        label: skillInstallOutcomeLabel(payload),
+        timestamp: event.timestamp,
       });
     },
   );
@@ -81,6 +109,7 @@ export function subscribeInteractionMappers(
   return () => {
     offRequested();
     offResolved();
+    offSkillOutcome();
     offRestored();
     offMode();
   };

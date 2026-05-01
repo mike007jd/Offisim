@@ -143,8 +143,6 @@ export function interactionResolvedLabel(kind: InteractionKind, selectedOptionId
       return `Plan review: ${action}`;
     case 'agent_question':
       return `Clarification received: ${action}`;
-    case 'skill_install_confirm':
-      return selectedOptionId === 'confirm' ? 'Skill install confirmed' : 'Skill install cancelled';
     default:
       return `Decision received: ${action}`;
   }

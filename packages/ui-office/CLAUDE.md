@@ -41,6 +41,10 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - Chat direct target SSOT：`ChatPanel` 里 direct chat 必须以 `selectedEmployeeId` 为唯一 dispatch target；缺失/错配要抛 `Direct chat target missing — selectedEmployeeId not propagated`，不要 fallback 到 active / first / boss employee。
 - Chat assistant commit SSOT：同一 `conversationKey + runId` 只能有一条 assistant message。streaming segment、abort/error、final response 都要收敛到 `finalizeAssistantMessage()`，不要在 UI 层靠隐藏重复气泡兜底。
 - `SkillInstallConfirmBubble` 支持 `action='install' | 'fork' | 'edit' | 'create'`；`create` 分支只预览 LLM 生成的完整 SKILL.md，不做 inline edit，frontmatter 错误只显示 reason + Retry/Cancel。
+- Skill install outcome 双面 SSOT：copy 由 `@offisim/shared-types.skillInstallOutcomeLabel(outcome)` 唯一产出。chat assistant message (`apps/web/src/runtime/interaction-follow-up.ts`) 和 activity rail (`subscribeInteractionMappers` 订阅 `SKILL_INSTALL_OUTCOME`) 都消费同一函数；slug 由 `SkillInstallCommitter` 从 `row.slug` 填进 outcome，render 时不查 repo。
+- Skill install 双 log 防御：`interaction.resolved` mapper 对 `kind === 'skill_install_confirm'` 显式 skip；`interactionResolvedLabel` 不含 skill_install_confirm 分支。`SKILL_OUTCOME_TONE` Record 在 mapper 里；6 种 kind 加新分支需同步该表（编译期强制覆盖）。
+- ChatPanel `handleInteractionRespond` 路由：startRun / addMessage / finalizeActiveRun 都用当前视图的 `conversationKey`（`getScopedConversationKey(activeThreadId, targetKey)`），不要用 interaction owner 的 employeeId 拼 key — team chat 时会写到员工 direct chat、用户看不到。`resolveDirectChatTarget` 仍当 safety guard 用（direct chat 视图对不上 interaction owner 时抛错）。
+- ChatPanel skill_install_confirm 例外：followUp 是静态一行字，agent resume 会 startRun 自己的 activeRun race 我们的 — 直接 `addMessage(targetKey, { role: 'assistant', ... })`，不进 startRun/finalize 链。其余 interaction kind（permission/plan/agent_question）继续用 startRun + finalize（runtime 驱动的 retry/resend 需要 activeRun）。
 - UI 全英文, 不要混入中文
 - `primeEventLogStore` 按 `EVENT_PREFIXES` 创建 per-prefix 订阅, cleanup 必须调 `disposeEventLogStore` (幂等)。`EVENT_PREFIXES` + `TYPE_PREFIX_MAP` 新增 filter 时同步
 - `useRegistryClient` baseUrl: localStorage → `VITE_PLATFORM_API_URL` → localhost:4100

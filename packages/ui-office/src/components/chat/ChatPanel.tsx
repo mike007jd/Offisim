@@ -290,17 +290,41 @@ export function ChatPanel({
   ): Promise<void> {
     const pending = pendingInteraction;
     if (!pending || !respondToInteraction) return;
-    const interactionTarget = resolveDirectChatTarget(
+
+    // Direct-chat safety: bubble shows globally based on `pendingInteraction`,
+    // but if the user navigated into a different employee's direct chat the
+    // followUp would silently route to the wrong place. Keep the existing
+    // hard-error guard (uses the same resolution as the pre-refactor code).
+    resolveDirectChatTarget(
       selectedEmployeeId,
       resolveInteractionTargetEmployeeId(pending) ?? interactionTargetRef.current ?? targetKey,
     );
 
     const trimmedResponse = freeformResponse?.trim();
     if (pending.kind === 'agent_question' && selectedOptionId !== 'cancel' && trimmedResponse) {
-      addMessage(interactionTarget, { id: genMsgId(), role: 'user', content: trimmedResponse });
+      addMessage(targetKey, { id: genMsgId(), role: 'user', content: trimmedResponse });
     }
 
-    startRun(getScopedConversationKey(activeThreadId, interactionTarget));
+    // skill_install_confirm followUp is a static one-liner; the agent
+    // resumes (boss/employee summary) under its own runtime-driven activeRun
+    // separately. Wrapping our followUp in startRun/finalizeActiveRun races
+    // with that resume — activeRun gets replaced or cleared during the await
+    // and the followUp silently drops. addMessage commits directly to the
+    // current view (where the bubble was rendered).
+    if (pending.kind === 'skill_install_confirm') {
+      const response = await respondToInteraction(selectedOptionId, trimmedResponse);
+      if (response) {
+        addMessage(targetKey, {
+          id: genMsgId(),
+          role: 'assistant',
+          content: response,
+          status: 'completed',
+        });
+      }
+      return;
+    }
+
+    startRun(conversationKey);
     const response = await respondToInteraction(selectedOptionId, trimmedResponse);
     finalizeActiveRun(response);
   }

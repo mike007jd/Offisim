@@ -209,6 +209,7 @@ export {
   installStateChanged,
   bindingStateChanged,
   marketListingInstalled,
+  skillInstallOutcome,
   planCreated,
   planStepStarted,
   planStepCompleted,

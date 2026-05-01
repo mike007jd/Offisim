@@ -120,6 +120,7 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
     return {
       kind: staged.action === 'create' ? 'created' : 'installed',
       skillId: row.skill_id,
+      skillSlug: row.slug,
       wasExisting,
     };
   }
@@ -138,6 +139,6 @@ export class SkillInstallCommitter implements SkillInstallConfirmHandler {
         /* best-effort */
       }
     }
-    return { kind: 'edited', skillId: row.skill_id };
+    return { kind: 'edited', skillId: row.skill_id, skillSlug: row.slug };
   }
 }
