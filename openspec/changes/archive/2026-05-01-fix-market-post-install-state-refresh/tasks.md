@@ -43,4 +43,4 @@
 - [x] 6.1 跨读 proposal / design / spec / 涉及代码注释 / `apps/desktop/CLAUDE.md` / `packages/ui-office/CLAUDE.md`，确认无过期 claim（特别是 `INSTALLABLE_KINDS` 的描述、Market workspace IA 段，若有需要同 change 内对齐）。`packages/ui-office/CLAUDE.md` 加了 `useInstalledListings` SSOT 段，记录 emit 站点 + 守卫规则。
 - [x] 6.2 `pnpm openspec validate fix-market-post-install-state-refresh --strict` 通过。
 - [x] 6.3 协议台账 `openspec/protocols-ledger.md`：本 change 是 UI + 内部事件，不动外部协议；row 不需要更新（confirm only）。
-- [ ] 6.4 commit + `/opsx:archive`。
+- [x] 6.4 commit + `/opsx:archive`。Commit `a0a4ed5f` "Refresh Market UI on per-company listing install"。
