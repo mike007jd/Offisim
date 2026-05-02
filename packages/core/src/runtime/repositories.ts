@@ -990,6 +990,15 @@ export interface DeliverableContributor {
   employeeName: string;
   sourceKind?: 'employee';
   roleSlug: RoleSlug;
+  isExternal: boolean;
+  brandKey: string | null;
+}
+
+export function employeeBrandFields(e: {
+  is_external: number;
+  brand_key: string | null;
+}): { isExternal: boolean; brandKey: string | null } {
+  return { isExternal: e.is_external === 1, brandKey: e.brand_key ?? null };
 }
 
 export interface DeliverableRow {

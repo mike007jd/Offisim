@@ -22,7 +22,7 @@ import {
 import { openDesktopLocalPath, saveDesktopDeliverable } from '../../lib/desktop-local-paths';
 import { isTauri } from '../../lib/env';
 import { truncate } from '../../lib/format-time';
-import { DicebearAvatar } from '../shared/DicebearAvatar';
+import { EmployeeAvatar } from '../shared/EmployeeAvatar';
 
 const EXPORT_FORMATS: { value: ExportFormat; label: string }[] = [
   { value: 'docx', label: 'DOCX' },
@@ -101,7 +101,6 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
   const shown = contributors.slice(0, 3);
   const overflow = contributors.slice(3);
   const overflowLabel = overflow.map((c) => c.employeeName).join(', ');
-  // TODO(phase-2b-#2-followup): contributor metadata lacks isExternal/brandKey — external contributors render DiceBear until the shape grows those fields.
   return (
     <div className="flex items-center -space-x-1.5">
       {shown.map((emp) => (
@@ -110,7 +109,16 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
           className="inline-block rounded-full ring-1 ring-slate-900"
           title={emp.employeeName}
         >
-          <DicebearAvatar seed={emp.employeeName} size={size} />
+          <EmployeeAvatar
+            agent={{
+              isExternal: emp.isExternal,
+              brandKey: emp.brandKey,
+              name: emp.employeeName,
+              avatarSeed: emp.employeeName,
+              appearance: null,
+            }}
+            size={size}
+          />
         </span>
       ))}
       {overflow.length > 0 && (

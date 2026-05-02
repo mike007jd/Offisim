@@ -94,7 +94,16 @@ Rules:
 - Do not mention internal routing, plans, or delegation logic
 - If the user is greeting or asking a simple question, respond naturally and briefly`;
 
-const emittedEmptyBossEmployeeContextCompanyIds = new Set<string>();
+const emittedEmptyBossEmployeeContextByBus = new WeakMap<EventBus, Set<string>>();
+
+function getEmittedEmptyBossContextSet(bus: EventBus): Set<string> {
+  let set = emittedEmptyBossEmployeeContextByBus.get(bus);
+  if (!set) {
+    set = new Set<string>();
+    emittedEmptyBossEmployeeContextByBus.set(bus, set);
+  }
+  return set;
+}
 
 function formatBossEmployeeRosterSection(employees: readonly EmployeeRow[]): {
   section: string;
@@ -125,8 +134,9 @@ function emitBossEmployeeContextEmptyIfNeeded(input: {
   eventBus: EventBus;
 }): void {
   if (input.dbEmployeeCount === 0 || input.injectedCount > 0) return;
-  if (emittedEmptyBossEmployeeContextCompanyIds.has(input.companyId)) return;
-  emittedEmptyBossEmployeeContextCompanyIds.add(input.companyId);
+  const emitted = getEmittedEmptyBossContextSet(input.eventBus);
+  if (emitted.has(input.companyId)) return;
+  emitted.add(input.companyId);
   input.eventBus.emit(bossEmployeeContextEmpty(input.companyId, input.threadId));
 }
 
@@ -140,11 +150,13 @@ function isSkillMutationRequest(content: string): boolean {
 }
 
 function chooseSkillToolEmployee(employees: readonly EmployeeRow[]): EmployeeRow | undefined {
+  const internal = employees.filter((employee) => employee.is_external !== 1);
+  if (internal.length === 0) return undefined;
   return (
-    employees.find((employee) => employee.role_slug === 'yolo_master') ??
-    employees.find((employee) => employee.name.toLowerCase().includes('yolo')) ??
-    employees.find((employee) => /\b(skill|developer|fullstack|frontend|backend)\b/i.test(employee.role_slug)) ??
-    employees[0]
+    internal.find((employee) => employee.role_slug === 'yolo_master') ??
+    internal.find((employee) => employee.name.toLowerCase().includes('yolo')) ??
+    internal.find((employee) => /\b(skill|developer|fullstack|frontend|backend)\b/i.test(employee.role_slug)) ??
+    internal[0]
   );
 }
 
@@ -286,25 +298,29 @@ export async function bossNode(
   );
 
   const decision = parseBossDecision(routingStreamResult.fullContent);
-  const skillMutationRequest = isSkillMutationRequest(userContent);
-  const skillToolEmployee = skillMutationRequest
-    ? chooseSkillToolEmployee(nonManagerEmployees)
-    : undefined;
 
   // Fallback: if LLM didn't return valid JSON, default to delegate
   let route = decision ? mapActionToRoute(decision.action) : 'delegate_manager';
   let needsClarification =
     decision?.needsClarification === true && typeof decision.clarificationQuestion === 'string';
 
-  if (skillToolEmployee) {
-    route = 'direct_delegate';
-    needsClarification = false;
-    if (decision) {
-      decision.action = 'direct_delegate';
-      decision.targetEmployeeId = skillToolEmployee.employee_id;
-      decision.needsClarification = false;
-      decision.clarificationQuestion = undefined;
-      decision.reason = decision.reason ?? `Skill tool request routed to ${skillToolEmployee.name}.`;
+  // Defensive override (skill mutation): only kick in when the LLM misrouted
+  // a skill request as direct_reply — same shape as the TASK_KEYWORDS fallback
+  // below. Trust the LLM's `delegate` / `direct_delegate` / clarification calls.
+  if (
+    route === 'direct_reply' &&
+    !needsClarification &&
+    isSkillMutationRequest(userContent)
+  ) {
+    const skillToolEmployee = chooseSkillToolEmployee(nonManagerEmployees);
+    if (skillToolEmployee) {
+      route = 'direct_delegate';
+      if (decision) {
+        decision.action = 'direct_delegate';
+        decision.targetEmployeeId = skillToolEmployee.employee_id;
+        decision.reason =
+          decision.reason ?? `Skill tool request routed to ${skillToolEmployee.name}.`;
+      }
     }
   }
 

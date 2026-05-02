@@ -19,6 +19,8 @@ export interface Deliverable {
     employeeName: string;
     sourceKind?: 'employee';
     roleSlug: RoleSlug;
+    isExternal: boolean;
+    brandKey: string | null;
   }>;
   createdAt: number;
 }

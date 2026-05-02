@@ -64,7 +64,9 @@
         "roleSlug": "engineer",
         "content": "Implementation finished",
         "taskRunId": "tr-step-ok",
-        "stepIndex": 0
+        "stepIndex": 0,
+        "isExternal": false,
+        "brandKey": null
       },
       {
         "employeeId": "emp-step-blocked",
@@ -73,7 +75,9 @@
         "roleSlug": "qa",
         "content": "Verification blocked",
         "taskRunId": "tr-step-blocked",
-        "stepIndex": 0
+        "stepIndex": 0,
+        "isExternal": false,
+        "brandKey": null
       }
     ]
   },

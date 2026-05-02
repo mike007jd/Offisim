@@ -59,7 +59,9 @@
         "roleSlug": "engineer",
         "content": "A_OUTPUT",
         "taskRunId": "task-a",
-        "stepIndex": 0
+        "stepIndex": 0,
+        "isExternal": false,
+        "brandKey": null
       },
       {
         "employeeId": "emp-b",
@@ -68,7 +70,9 @@
         "roleSlug": "designer",
         "content": "B_OUTPUT",
         "taskRunId": "task-b",
-        "stepIndex": 1
+        "stepIndex": 1,
+        "isExternal": false,
+        "brandKey": null
       }
     ]
   },

@@ -5,9 +5,7 @@
 Offisim 的 modal dialog / full-screen overlay / 大表面 panel 之前各自写 height/max-height/overflow，结果 tab 切换时外层高度跳变、长表单溢出 viewport、sticky footer 盖最后一字段、cards-in-cards 三层圆角嵌套盖过内容。本 capability 立全局 panel/dialog **尺寸 + 内部滚动 + tab 切换不跳高 + cards-in-cards 容器层级** 契约，覆盖第一批表面（主 app shell / Company creation / Employee Editor / Company Profile）。后续表面（SOP / Market / Activity / Studio / Settings）按 UX overhaul phase 各自接入同一份契约。
 
 实现层 SSOT 在 `packages/ui-core/src/components/dialog-shell.tsx`，导出 `DIALOG_SIZING_CLASS`（外层 clamp）、`DIALOG_TABS_ROOT_CLASS`（`flex flex-col flex-1 min-h-0`）、`DIALOG_TABS_CONTENT_CLASS`（`flex-1 min-h-0 overflow-y-auto`）三个共享 className 常量；任一新 dialog 接 Radix Tabs 时直接 import 这三个常量，不重复写 clamp 表达式。
-
 ## Requirements
-
 ### Requirement: Dialogs declare clamp-based min and max height
 
 Every modal dialog and full-screen overlay touched by this capability SHALL declare both `min-height` and `max-height` using viewport-clamp expressions on the outer dialog container, so the outer height never collapses below a readable floor and never exceeds the visible viewport. Recommended canonical clamp on **modal dialogs** (Employee Editor, future small/medium modals): `min-height: clamp(360px, 60vh, 720px)` and `max-height: min(720px, 92vh)`. **Full-screen overlay surfaces** (Company creation wizard, Company Profile / Studio Profile editor) MAY satisfy the contract via `fixed inset-0` positioning or explicit `h-[calc(100vh-…)]` — both pin the outer rendered height to the viewport, which trivially satisfies the floor and ceiling. Surfaces MUST NOT ship without either (a) a viewport-clamp expression on `min-height` + `max-height` or (b) viewport-pinned positioning that yields the same bounded height. Naked `max-height: 100vh` with no min-height SHALL NOT ship for modal dialogs.
@@ -114,6 +112,13 @@ Every requirement in this capability SHALL be falsifiable by reading computed st
 
 The canonical clamp expression and the Tabs flex-column className convention SHALL live as exported constants in `packages/ui-core/src/components/dialog-shell.tsx`: `DIALOG_SIZING_CLASS`, `DIALOG_TABS_ROOT_CLASS`, and `DIALOG_TABS_CONTENT_CLASS`. Touched dialogs SHALL import these constants rather than re-write the clamp expression or the `flex-1 min-h-0 overflow-y-auto` string. New dialogs added by future phases SHALL also import these constants. The `DialogShell` primitive's inner flex column SHALL itself apply `DIALOG_SIZING_CLASS` so any caller that wraps `DialogShell` inherits the contract for free. The previously listed `EmployeeEditorDialog` audit scenario no longer applies because the dialog has been removed in favor of the Personnel workspace surface; new dialogs that re-introduce a tabbed shell SHALL still import the three sizing constants.
 
+The `DialogShell` primitive SHALL be the only modal Dialog primitive
+shipped from `@offisim/ui-core`. The legacy
+`packages/ui-core/src/components/dialog.tsx` and its `Dialog` /
+`DialogContent` / `DialogHeader` / `DialogTitle` / `DialogDescription`
+/ `DialogClose` exports SHALL NOT exist after this change. Every
+product dialog SHALL import `DialogShell` from `@offisim/ui-core`.
+
 #### Scenario: Sizing primitive constants are exported
 - **WHEN** auditing `packages/ui-core/src/components/dialog-shell.tsx`
 - **THEN** the file SHALL export `DIALOG_SIZING_CLASS`, `DIALOG_TABS_ROOT_CLASS`, and `DIALOG_TABS_CONTENT_CLASS` as string constants
@@ -129,3 +134,227 @@ The canonical clamp expression and the Tabs flex-column className convention SHA
 - **WHEN** searching the repository for `packages/ui-office/src/components/employees/EmployeeEditorDialog.tsx`
 - **THEN** the file SHALL NOT exist
 - **AND** the sizing audit that previously targeted it SHALL be considered obsolete; the Personnel surface inherits page-level scroll containers rather than a dialog clamp expression
+
+#### Scenario: Legacy Dialog primitive is gone
+- **WHEN** searching `packages/ui-core/src/components/` for `dialog.tsx`
+- **THEN** the file SHALL NOT exist
+- **AND** `packages/ui-core/src/index.ts` SHALL export only `DialogShell` (and `DialogShellClose`) as the Dialog primitive
+
+### Requirement: `DIALOG_TABS_CONTENT_CLASS` SHALL declare min-height floor of 320 px
+
+The `DIALOG_TABS_CONTENT_CLASS` constant exported from `packages/ui-core/src/components/dialog-shell.tsx` SHALL be the literal string `'flex-1 min-h-[320px] overflow-y-auto'`. The previous value `'flex-1 min-h-0 overflow-y-auto'` SHALL be replaced; `min-h-0` is incompatible with the layout-shift contract because it allows tab bodies to collapse to zero on empty content.
+
+The 320 px value is empirical, derived from the floor of all current dialog tab bodies (Project create ≈ 220 px, Studio Asset inspector ≈ 280 px, Settings legacy dialogs ≈ 320 px). Future dialog tab bodies SHALL design within this floor or revisit the constant in a follow-up change.
+
+#### Scenario: Constant value matches contract
+
+- **WHEN** auditing `packages/ui-core/src/components/dialog-shell.tsx`
+- **THEN** `DIALOG_TABS_CONTENT_CLASS` SHALL be exported as `'flex-1 min-h-[320px] overflow-y-auto'`
+- **AND** zero matches for the legacy literal `'flex-1 min-h-0 overflow-y-auto'` SHALL exist in the file
+
+#### Scenario: Change F may revisit the floor
+
+- **WHEN** a future change identifies a dialog tab body that legitimately requires < 320 px floor (e.g. a tiny confirm dialog with Tabs)
+- **THEN** that change MAY update the constant value with a written rationale
+- **AND** SHALL re-audit all existing callers for the new floor
+
+### Requirement: `TABS_RETAIN_STATE_CLASS` SHALL be exported as the SSOT for state-preserving Tabs
+
+`packages/ui-core/src/components/dialog-shell.tsx` SHALL export a sibling constant `TABS_RETAIN_STATE_CLASS` with value `'data-[state=inactive]:hidden'`. This constant SHALL be used in conjunction with the Radix `forceMount` prop on `<TabsContent>` to keep all Tabs mounted in the DOM and toggle visibility — the canonical pattern for state-preserving Tabs and layout-stable Tabs.
+
+Touched dialogs and panels that use state-preserving Tabs SHALL apply this constant via `cn(...)` rather than inlining the literal `'data-[state=inactive]:hidden'`.
+
+The two SSOT constants pair as follows:
+
+- `forceMount + TABS_RETAIN_STATE_CLASS`: state-preserving (Personnel inspector, RightSidebar, Settings sub-tabs, future Tabs with embedded canvas / iframe / heavy content).
+- `DIALOG_TABS_CONTENT_CLASS` alone (no `forceMount`): default Radix unmount, cheap rebuild, no shift / state concern.
+
+Both constants SHALL be documented via JSDoc in `dialog-shell.tsx` describing when to use which.
+
+#### Scenario: Constant is exported and importable
+
+- **WHEN** importing `TABS_RETAIN_STATE_CLASS` from `@offisim/ui-core`
+- **THEN** the import SHALL resolve to a `string` constant equal to `'data-[state=inactive]:hidden'`
+- **AND** the constant SHALL be co-exported with `DIALOG_TABS_CONTENT_CLASS` and `DIALOG_TABS_ROOT_CLASS`
+
+#### Scenario: JSDoc documents the policy pair
+
+- **WHEN** auditing `packages/ui-core/src/components/dialog-shell.tsx`
+- **THEN** JSDoc on `TABS_RETAIN_STATE_CLASS` SHALL describe its pairing with `forceMount` for state-preserving Tabs
+- **AND** JSDoc SHALL reference the `layout-shift-stability` capability for the rationale
+
+#### Scenario: Touched callers use the constant, not literals
+
+- **WHEN** auditing `packages/ui-office/src/components/employees/PersonnelPage.tsx` and `packages/ui-office/src/components/layout/RightSidebar.tsx` after this change
+- **THEN** zero matches for the literal string `'data-[state=inactive]:hidden'` SHALL exist
+- **AND** every `<TabsContent forceMount>` SHALL apply `TABS_RETAIN_STATE_CLASS` via `cn(...)`
+
+### Requirement: Motion duration SHALL bind to `--motion-duration-base` token (interim)
+
+The 200 ms duration applied to dialog enter/exit (currently the literal `duration-200` Tailwind class at `dialog-shell.tsx:138`) SHALL be documented via JSDoc as the literal binding of the `--motion-duration-base` custom property declared in `apps/web/src/index.css`. The Tailwind class SHALL remain literal in this change (no Tailwind theme rewrite); Change F (`unify-design-token-system`) is responsible for rebinding the class to a Tailwind theme token that resolves to the variable.
+
+Three custom properties SHALL be declared in `apps/web/src/index.css` `:root`:
+
+- `--motion-duration-fast: 120ms`
+- `--motion-duration-base: 200ms`
+- `--motion-duration-slow: 320ms`
+- `--motion-easing-standard: cubic-bezier(0.2, 0, 0, 1)`
+
+The `list-item-in` keyframe in the same CSS file SHALL bind to `var(--motion-duration-base)` and `var(--motion-easing-standard)`.
+
+#### Scenario: Motion tokens declared
+
+- **WHEN** auditing `apps/web/src/index.css` `:root` block
+- **THEN** the four motion custom properties SHALL be declared
+- **AND** the `list-item-in` keyframe rule SHALL use `var(--motion-duration-base)` and `var(--motion-easing-standard)`
+
+#### Scenario: DialogShell duration documented
+
+- **WHEN** auditing `packages/ui-core/src/components/dialog-shell.tsx` near the `duration-200` Tailwind class
+- **THEN** a JSDoc note SHALL document that 200 ms maps to `var(--motion-duration-base)` and that Change F will rebind via Tailwind theme
+- **AND** the literal `duration-200` Tailwind class SHALL remain as-is until Change F lands
+
+### Requirement: New panels with internal Tabs SHALL import the SSOT constants from `@offisim/ui-core`
+
+Any new panel, dialog, or workspace surface added in future changes that includes a `Tabs.Root` SHALL import `TABS_RETAIN_STATE_CLASS` and / or `DIALOG_TABS_CONTENT_CLASS` from `@offisim/ui-core` rather than inline the class strings.
+
+Inline literals of `'data-[state=inactive]:hidden'` or `'flex-1 min-h-[320px] overflow-y-auto'` outside the SSOT module SHALL be flagged in code review.
+
+#### Scenario: Future Tabs caller imports constants
+
+- **WHEN** a new component with internal Tabs is added in a future change
+- **THEN** the file SHALL import the SSOT constants from `@offisim/ui-core`
+- **AND** SHALL apply them via `cn(...)` or direct className binding
+- **AND** zero inline literals of the SSOT class strings SHALL appear in the file
+
+### Requirement: Dialog size preset map covers `xs` through `full`
+
+The `SIZE_CLASS` map in `dialog-shell.tsx` SHALL declare the following
+size keys and Tailwind max-width classes:
+
+| Size key | Tailwind class | Effective max-width |
+|---|---|---|
+| `xs` | `max-w-xs` | 20rem / 320px |
+| `sm` | `max-w-sm` | 24rem / 384px |
+| `md` | `max-w-lg` | 32rem / 512px |
+| `lg` | `max-w-2xl` | 42rem / 672px |
+| `xl` | `max-w-4xl` | 56rem / 896px |
+| `full` | `max-w-[min(960px,calc(100vw-2rem))]` | clamp |
+
+The `DialogSize` TypeScript union SHALL be `'xs' | 'sm' | 'md' | 'lg'
+| 'xl' | 'full'`. Callers SHALL pick from this set; caller `className`
+SHALL NOT override `max-width` (callers MAY adjust other surface
+properties such as background colour and border).
+
+#### Scenario: SIZE_CLASS includes xs preset
+- **WHEN** auditing `dialog-shell.tsx`'s `SIZE_CLASS` constant
+- **THEN** the map SHALL include the entry `xs: 'max-w-xs'`
+- **AND** the `DialogSize` type SHALL include `'xs'` in its union
+
+#### Scenario: Confirm-style dialog uses xs
+- **WHEN** a future small confirm dialog (e.g. delete confirmation) is added
+- **THEN** the caller SHALL pass `size="xs"` to `DialogShell` rather than overriding `className` with `max-w-xs`
+
+#### Scenario: PublishDialog uses xl preset
+- **WHEN** auditing `packages/ui-office/src/components/marketplace/PublishDialog.tsx`
+- **THEN** the `DialogShell` invocation SHALL pass `size="xl"`
+- **AND** the file SHALL NOT contain `max-w-3xl` or `max-h-[calc(100vh-2rem)]` directly on `DialogShell` content
+
+### Requirement: Dialogs ship a sticky three-region layout
+
+Every dialog rendered through `DialogShell` SHALL render with the
+following region structure inside the inner flex column:
+
+1. **Header region** (top, sticky): rendered when `title`,
+   `description`, or `showCloseButton` is set; contains title,
+   description, and the close X button. The header SHALL have
+   `border-b` (visual divider) and SHALL NOT scroll.
+2. **Body region** (middle, scrolls): rendered for `children`;
+   `flex-1 min-h-0 overflow-y-auto` so it is the only scrollable
+   region in the dialog.
+3. **Footer region** (bottom, sticky): rendered when `footer` is
+   provided; contains action buttons (Cancel, Submit, etc.). The
+   footer SHALL have `border-t` (visual divider) and SHALL NOT scroll.
+
+Caller-provided `className` SHALL NOT introduce additional
+`overflow-y-auto` on `DialogShell`'s outer content. The only scroll
+container in a dialog SHALL be the body region.
+
+The body region SHALL reserve enough bottom padding so the last form
+field, validation message, or preview is fully visible above the
+sticky footer at every supported viewport. Because `DIALOG_SIZING_CLASS`
+clamps the dialog max-height to the viewport and the body uses
+`flex-1 min-h-0`, the footer is automatically sticky at the dialog
+bottom; the spacing requirement is satisfied by the body's natural
+bottom padding (`py-4` per current shell implementation) without
+additional reservation.
+
+#### Scenario: Dialog body owns the only scroll
+- **WHEN** opening any dialog with a long body (e.g. `PublishDialog` filled past 1 viewport height)
+- **THEN** the dialog body region SHALL scroll vertically
+- **AND** the dialog header, footer, and outer content SHALL NOT scroll
+- **AND** `getComputedStyle(headerEl).overflowY` SHALL be `'visible'` and `getComputedStyle(footerEl).overflowY` SHALL be `'visible'`
+
+#### Scenario: Footer stays visible while body scrolls
+- **WHEN** the user scrolls the body region of `PublishDialog` to the bottom at viewport `1024×600`
+- **THEN** the footer (Submit / Download / Cancel button row) SHALL remain visible at the bottom of the dialog
+- **AND** the last form field SHALL be reachable above the footer
+
+#### Scenario: PublishDialog inline overflow is removed
+- **WHEN** auditing `PublishDialog.tsx`
+- **THEN** the file SHALL NOT apply `max-h-[calc(100vh-2rem)]` or `overflow-y-auto` directly to `DialogShell`'s content
+- **AND** the Submit / Download row SHALL be rendered via `DialogShell`'s `footer` prop, not inline at the bottom of the body
+
+### Requirement: Dialog renders responsively on narrow viewports (≤ 768 px)
+
+`DialogShell` SHALL render with responsive width classes so 320px
+viewports get usable interior width:
+
+- Below the `sm` Tailwind breakpoint (`< 640px`), the dialog content
+  SHALL apply `w-[calc(100%-1rem)]` (16px gutter on each side).
+- At the `sm` breakpoint and above, the dialog content SHALL apply
+  `sm:w-[calc(100%-2rem)]` (32px gutter on each side).
+
+The built-in close X button SHALL meet WCAG 2.5.5 minimum touch target
+(44×44 CSS pixels) on narrow tier:
+
+- The visible button SHALL be `h-8 w-8` (32×32) for visual restraint.
+- A `before:` pseudo-element SHALL extend the hit area to 44×44 on
+  narrow tier (`before:absolute before:inset-[-6px]
+  before:content-['']`), with the pseudo restricted to narrow tier
+  via `sm:before:hidden` so desktop trackpad users get the visible
+  32×32 only.
+- The pseudo-element SHALL NOT capture pointer events outside the
+  intended hit zone (`before:pointer-events-auto` only within the
+  inset-[-6px] box; if needed, use `before:pointer-events-none` plus
+  an outer wrapper).
+
+Dialogs whose body composes side-by-side panes (e.g. avatar +
+form) SHALL stack the panes vertically below the `lg` breakpoint
+(`< 1024px`) so only one vertical scroller exists. Two stacked
+vertical scrollers SHALL NOT ship in any dialog or full-screen
+overlay covered by this change.
+
+#### Scenario: Dialog interior width on iPhone-SE viewport
+- **WHEN** a `DialogShell`-backed dialog is open at viewport `320×568` (iPhone SE)
+- **THEN** the `DialogPrimitive.Content` element's computed `width` SHALL be `304px` (`100% - 1rem`)
+- **AND** the dialog content SHALL have `≥ 16px` gutter on each side
+
+#### Scenario: Close button hit area on narrow tier
+- **WHEN** the dialog is open at viewport `≤ 640px` and the user clicks within `6px` of the visible close X edge
+- **THEN** the close action SHALL fire (the `before:` pseudo-element extends the hit area)
+- **AND** at viewport `> 640px` the hit area SHALL match the visible 32×32 button (no extension)
+
+#### Scenario: EmployeeCreatorOverlay narrow tier stacks vertically
+- **WHEN** `EmployeeCreatorOverlay` is open at viewport `≤ 1024px`
+- **THEN** the avatar pane SHALL render as a horizontal header row at the top (height `≤ 120px`)
+- **AND** the form pane SHALL render below the avatar pane with `flex-1 overflow-y-auto`
+- **AND** there SHALL be exactly one vertical scrollbar in the overlay (the form pane's scrollbar)
+- **AND** the avatar pane SHALL NOT have `max-h-[200px]` (the cap that previously capped the avatar pane on narrow tier is removed)
+
+#### Scenario: EmployeeCreatorOverlay Back button checks dirty
+- **WHEN** the user has typed any character into the name field of `EmployeeCreatorOverlay` and clicks Back
+- **THEN** a discard-confirm toast SHALL appear (using the shared `discard-confirm-toast` helper)
+- **AND** clicking `Discard` in the toast SHALL call the `onClose` prop
+- **AND** clicking `Keep editing` SHALL dismiss the toast and leave the overlay open
+

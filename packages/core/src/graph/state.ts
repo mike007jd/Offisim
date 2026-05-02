@@ -76,6 +76,8 @@ export interface StepTaskOutput {
   content: string;
   taskRunId: string;
   stepIndex: number;
+  isExternal: boolean;
+  brandKey: string | null;
   artifact?:
     | {
         kind: 'file';

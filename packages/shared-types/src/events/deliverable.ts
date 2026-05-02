@@ -13,6 +13,8 @@ export interface DeliverableCreatedPayload {
     readonly employeeName: string;
     readonly sourceKind?: 'employee';
     readonly roleSlug: RoleSlug;
+    readonly isExternal: boolean;
+    readonly brandKey: string | null;
   }>;
   readonly createdAt: number;
 }

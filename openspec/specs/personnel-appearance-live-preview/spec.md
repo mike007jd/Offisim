@@ -3,7 +3,6 @@
 ## Purpose
 
 Defines the contract for the Personnel `Appearance` tab as a live customizer + preview surface, the rule that `formData.appearance` is the authoritative customization source for renderers, and the cross-surface propagation requirements after save. Internal employees see a left-rail `AvatarCustomizer` plus a stacked 2D DiceBear / 3D `LowPolyCharacter` preview that updates synchronously on every swatch change without round-tripping through save. External employees see the read-only brand-managed banner and brand-variant preview. C1 scope is skin + clothing color in 3D; `hairStyle` / `bodyType` / `gender` / `clothingAccent` persist in `persona_json.appearance` but are visualized only in 2D until a follow-up art pass extends 3D differentiation.
-
 ## Requirements
 ### Requirement: Appearance tab is a live customizer + preview surface
 
@@ -56,40 +55,71 @@ The `AvatarCustomizer` component SHALL NOT render inside the `Profile` tab. The 
 
 ### Requirement: Save round-trip propagates appearance to all employee surfaces
 
-When the user saves an internal employee with a changed `appearance`, every UI surface that renders that employee's avatar SHALL re-render with the new appearance on the next event tick after `useEmployeeEditor.save()` completes. Surfaces in scope: Personnel list rail row, Personnel detail header, Office 2D canvas (`use-scene-snapshot` avatar cache), Office 3D scene `EmployeeMarker`, chat avatars, and any other consumer of `EmployeeAvatar` or `EmployeeMarker`.
+When the user saves an internal employee with a changed `appearance`, every UI surface that renders that employee's 2D or 3D avatar SHALL re-render with the new appearance on the next event tick after `useEmployeeEditor.save()` completes. The propagation SHALL cover all seven `EmployeeAppearance` fields: `skinColor`, `hairColor`, `hairStyle`, `clothingColor`, `clothingAccent`, `bodyType`, `gender`. This requirement REPLACES the prior "Save round-trip propagates appearance to all employee surfaces" requirement to cover the full schema.
 
-#### Scenario: List rail row reflects new clothing color after save
-- **WHEN** the user changes `clothingColor`, clicks Save, and the save resolves
-- **THEN** the corresponding row in the Personnel list rail SHALL re-render its `EmployeeAvatar` with the new clothing color on the next `eventBus` `employee` event tick
-- **AND** the avatar in the row SHALL byte-match the right-top preview
+Surfaces in scope SHALL include: Personnel list rail row, Personnel detail header, Office 2D canvas (`use-scene-snapshot` avatar cache), Office 3D scene `EmployeeMarker`, chat avatars, and AppearanceTab live preview.
 
-#### Scenario: Office 3D scene reflects new skin color after save
-- **WHEN** the user changes `skinColor`, clicks Save, and switches to the Office workspace
-- **THEN** the `EmployeeMarker` for that employee SHALL render with the new skin color on the next render tick
-- **AND** SHALL NOT require a workspace reload
+#### Scenario: Office 3D scene reflects new bodyType after save
+- **WHEN** the user changes `bodyType` from `normal` to `stocky`, clicks Save, and switches to the Office workspace
+- **THEN** the `EmployeeMarker` for that employee SHALL render with `BODY_TYPE_FACTORS['stocky']` width factors on the next render tick
 
-#### Scenario: Office 2D canvas cache invalidates only the changed employee
-- **WHEN** the user saves an appearance change for one employee
+#### Scenario: Office 3D scene reflects new hairStyle after save
+- **WHEN** the user changes `hairStyle` from `short` to `braids`, clicks Save
+- **THEN** the `EmployeeMarker` SHALL render the braids hair composition (cap + 2 side cylinders) on the next render tick
+
+#### Scenario: Office 3D scene reflects new clothingAccent after save
+- **WHEN** the user changes `clothingAccent` to a value different from `clothingColor`, clicks Save
+- **THEN** the `EmployeeMarker` SHALL render the vest accent overlay with the new color on the next render tick
+
+#### Scenario: 2D avatar cache key invalidates on hairColor change
+- **WHEN** the user changes `hairColor` and saves
 - **THEN** the `office-2d-avatar-cache` entry for that employee SHALL be replaced with a new SVG
-- **AND** other employees' cache entries SHALL NOT be invalidated
+- **AND** the cache key SHALL include `hairColor` in its appearance fingerprint
 
 ### Requirement: 3D scope in C1 is skin and clothing color only
 
-In this change, the `LowPolyCharacter` `default` variant SHALL consume only `skinColor` and `clothingColor` from the resolved appearance. `hairStyle`, `bodyType`, `gender`, and `clothingAccent` SHALL persist in `persona_json.appearance` but SHALL NOT alter the 3D figure's geometry, proportions, or color in this change. A follow-up art pass SHALL deliver 3D differentiation for those fields.
+In this change, the `LowPolyCharacter` `default` variant SHALL consume ALL seven appearance fields from `EmployeeAppearance`: `skinColor`, `hairColor`, `hairStyle`, `clothingColor`, `clothingAccent`, `bodyType`, `gender`. Every customizer change SHALL update the 3D preview geometry, materials, or both within one render frame.
 
-#### Scenario: Body type change does not alter 3D geometry in C1
+This requirement REPLACES the prior "3D scope in C1 is skin and clothing color only" requirement. The deferred-to-art-pass scope no longer exists — `hairStyle`, `bodyType`, `gender`, and `clothingAccent` SHALL drive 3D geometry per the `character-3d-rendering` capability.
+
+The customizer copy line "Saved with the employee — visible trim arrives in an upcoming art pass" SHALL be removed from `AvatarCustomizer.tsx`. If a clarifier line is desired, it SHALL describe the rendering location of the accent (e.g. "Renders as a vest accent panel.") rather than promising a future art pass.
+
+#### Scenario: Body type change alters 3D geometry live
 - **WHEN** the user changes `bodyType` from `normal` to `slim`
-- **THEN** the 3D preview SHALL render the same default block-figure geometry
-- **AND** `bodyType: 'slim'` SHALL persist in `persona_json.appearance` after save
+- **THEN** the 3D preview's torso `boxGeometry` x-arg shrinks by the `BODY_TYPE_FACTORS['slim'].torso = 0.85` factor within one frame
+- **AND** the arm `boxGeometry` x-arg shrinks by the `BODY_TYPE_FACTORS['slim'].arm = 0.85` factor
+- **AND** `bodyType: 'slim'` persists in `persona_json.appearance` after save
 
-#### Scenario: Hair style change does not alter 3D geometry in C1
+#### Scenario: Hair style change alters 3D geometry live
 - **WHEN** the user changes `hairStyle` from `short` to `bob`
-- **THEN** the 3D preview SHALL render the same default block-figure geometry (no hair mesh added)
-- **AND** the change SHALL still update the 2D DiceBear preview
+- **THEN** the 3D preview's hair mesh transitions from the cap box `(0.32 × 0.16 × 0.32)` to the bob box `(0.36 × 0.22 × 0.34)` within one frame
+- **AND** the 2D DiceBear preview also updates per its existing `top` token mapping
 
-#### Scenario: clothingAccent persists but is unused in renderers
-- **WHEN** the user changes `clothingAccent` and saves
-- **THEN** `persona_json.appearance.clothingAccent` SHALL contain the new value
-- **AND** neither the 2D DiceBear preview nor the 3D figure SHALL render any visual difference
-- **AND** the customizer's `Clothing accent` swatch SHALL display copy indicating the trim is applied in a future art pass
+#### Scenario: Gender change alters 3D shoulder/hip ratio live
+- **WHEN** the user changes `gender` from `neutral` to `feminine`
+- **THEN** the 3D preview's upper-torso x-arg scales by `GENDER_FACTORS['feminine'].shoulder = 0.85`
+- **AND** the lower-torso x-arg scales by `GENDER_FACTORS['feminine'].hip = 1.10`
+- **AND** the upper-torso y-arg scales by `GENDER_FACTORS['feminine'].aspect = 0.95`
+- **AND** `gender: 'feminine'` persists in `persona_json.appearance` after save
+
+#### Scenario: clothingAccent renders vest live
+- **WHEN** the user clicks a `Clothing accent` swatch with a color different from current `clothingColor`
+- **THEN** the 3D preview adds (or updates the color of) the vest accent box at `(0, 0.78, 0.105)` within one frame
+- **AND** `persona_json.appearance.clothingAccent` updates to the new value
+- **AND** the 2D DiceBear preview SHALL be unchanged (DiceBear has no equivalent vest layer)
+
+#### Scenario: Matching clothingAccent hides vest
+- **WHEN** the user clicks a `Clothing accent` swatch matching the current `clothingColor`
+- **THEN** the 3D preview's vest accent mesh is removed within one frame (or never mounts)
+- **AND** the torso renders solid in `clothingColor`
+
+#### Scenario: Customizer copy reflects new visible behavior
+- **WHEN** auditing `AvatarCustomizer.tsx` for the `Clothing accent` `SwatchRow`
+- **THEN** the row is NOT followed by "Saved with the employee — visible trim arrives in an upcoming art pass"
+- **AND** if a clarifier line exists it describes the visible vest panel location
+
+#### Scenario: All seven fields propagate to Office scene after save
+- **WHEN** the user changes any subset of `(skinColor, hairColor, hairStyle, clothingColor, clothingAccent, bodyType, gender)` and clicks Save
+- **THEN** the Office workspace `EmployeeMarker` for that employee re-renders with the new appearance values on the next event tick
+- **AND** all seven schema fields drive the rendered `<BlockCharacter>` params
 

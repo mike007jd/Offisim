@@ -245,6 +245,8 @@ export async function bossSummaryNode(
       employeeName: o.employeeName,
       sourceKind: o.sourceKind,
       roleSlug: o.roleSlug,
+      isExternal: o.isExternal,
+      brandKey: o.brandKey,
     }));
     const title = state.taskPlan?.summary ?? stripLegacySpeakerPrefix(finalContent).slice(0, 80);
     const inferredFile = inferDeliverableFile(title, finalContent);

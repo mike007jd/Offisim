@@ -9,7 +9,7 @@ import {
   taskSubtaskProgress,
 } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
-import type { EmployeeRow } from '../runtime/repositories.js';
+import { type EmployeeRow, employeeBrandFields } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
@@ -280,6 +280,7 @@ export async function runEmployeeA2A(
             employeeName: employee.name,
             sourceKind: 'employee',
             roleSlug: employee.role_slug,
+            ...employeeBrandFields(employee),
           },
         ],
         normalizedArtifact,
@@ -316,6 +317,7 @@ export async function runEmployeeA2A(
         content: output.content,
         taskRunId: taskRunId ?? '',
         stepIndex: preflight.stepIndex,
+        ...employeeBrandFields(employee),
         artifact: normalizedArtifact
           ? {
               kind: 'file',

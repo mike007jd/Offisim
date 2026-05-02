@@ -65,7 +65,11 @@ function relativeToRoot(absPath: string, root: string): string | null {
   if (normalizedPath === normalizedRoot) return '.';
   const prefix = `${normalizedRoot}/`;
   if (!normalizedPath.startsWith(prefix)) return null;
-  return normalizedPath.slice(prefix.length) || '.';
+  const rel = normalizedPath.slice(prefix.length) || '.';
+  // Defense in depth: reject `..` segments so a path like `<root>/../etc/passwd`
+  // can't escape the sandbox via project_list_dir / project_read_file.
+  if (rel === '..' || rel.startsWith('../') || rel.includes('/../')) return null;
+  return rel;
 }
 
 async function readTreeRecursive(rootAbs: string): Promise<VirtualTree> {

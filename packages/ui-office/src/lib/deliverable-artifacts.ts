@@ -251,10 +251,26 @@ export function canPreviewDeliverable(artifact: DeliverableArtifact): boolean {
   );
 }
 
+// Legacy rows pre-date contributor-brand fields; default missing values to
+// internal so EmployeeAvatar falls back to DiceBear without throwing.
 function safeParseContributors(json: string): ReadonlyArray<DeliverableContributor> {
   try {
     const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? (parsed as DeliverableContributor[]) : [];
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as Partial<DeliverableContributor>[]).map((c) => {
+      const hasExternal = typeof c.isExternal === 'boolean';
+      const hasBrand = typeof c.brandKey === 'string' || c.brandKey === null;
+      if (hasExternal && hasBrand) return c as DeliverableContributor;
+      return {
+        employeeId: c.employeeId ?? '',
+        employeeName: c.employeeName ?? '',
+        sourceKind: c.sourceKind,
+        roleSlug:
+          typeof c.roleSlug === 'string' ? c.roleSlug : ('' as DeliverableContributor['roleSlug']),
+        isExternal: hasExternal ? (c.isExternal as boolean) : false,
+        brandKey: hasBrand ? (c.brandKey as string | null) : null,
+      };
+    });
   } catch {
     return [];
   }

@@ -10,6 +10,7 @@ import type { CitationRef, OffisimGraphState } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
 import { type VerifyOutcome, verifyCompletion } from '../runtime/completion-verifier.js';
 import type { TaskCompletionVerifyingPayload } from '../runtime/hook-registry.js';
+import { employeeBrandFields } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { Logger } from '../services/logger.js';
@@ -342,6 +343,7 @@ export async function finalizeEmployeeSuccess(
             employeeName: employee.name,
             sourceKind: 'employee',
             roleSlug: employee.role_slug,
+            ...employeeBrandFields(employee),
           },
         ],
         {
@@ -362,6 +364,7 @@ export async function finalizeEmployeeSuccess(
     content: finalResponseContent,
     taskRunId: taskRunId ?? '',
     stepIndex: preflight.stepIndex,
+    ...employeeBrandFields(employee),
     artifact: materializedDeliverable
       ? {
           kind: 'file' as const,

@@ -37,6 +37,38 @@ function ensureString(data: Uint8Array | string): string {
   return new TextDecoder().decode(data);
 }
 
+// Legacy checkpoints pre-date contributor-brand fields; default missing values
+// to internal so strict types resolve and rendering falls back to DiceBear.
+function hydrateLegacyStepOutputs(state: OffisimGraphState): OffisimGraphState {
+  const outputs = (state as { currentStepOutputs?: unknown }).currentStepOutputs;
+  if (!Array.isArray(outputs) || outputs.length === 0) return state;
+  const allShaped = outputs.every((entry) => {
+    if (!entry || typeof entry !== 'object') return true;
+    const o = entry as Record<string, unknown>;
+    return (
+      typeof o.isExternal === 'boolean' && (typeof o.brandKey === 'string' || o.brandKey === null)
+    );
+  });
+  if (allShaped) return state;
+  const hydrated = outputs.map((entry) => {
+    if (!entry || typeof entry !== 'object') return entry;
+    const o = entry as Record<string, unknown>;
+    return {
+      ...o,
+      isExternal: typeof o.isExternal === 'boolean' ? o.isExternal : false,
+      brandKey: typeof o.brandKey === 'string' || o.brandKey === null ? o.brandKey : null,
+    };
+  });
+  return { ...state, currentStepOutputs: hydrated } as OffisimGraphState;
+}
+
+function hydrateLegacyCheckpoint(checkpoint: Checkpoint): Checkpoint {
+  const rawState = (checkpoint as { channel_values?: unknown }).channel_values;
+  if (!rawState || typeof rawState !== 'object') return checkpoint;
+  const state = hydrateLegacyStepOutputs(rawState as OffisimGraphState);
+  return { ...checkpoint, channel_values: state };
+}
+
 /** Shape of a checkpoint row returned from SQLite select. */
 interface CheckpointRow {
   thread_id: string;
@@ -110,8 +142,9 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       channel_values?: unknown;
       ts?: string | number;
     };
-    const state = checkpoint.channel_values as OffisimGraphState | undefined;
-    if (!state) return null;
+    const rawState = checkpoint.channel_values as OffisimGraphState | undefined;
+    if (!rawState) return null;
+    const state = hydrateLegacyStepOutputs(rawState);
     const parsedTs =
       typeof checkpoint.ts === 'number'
         ? checkpoint.ts
@@ -189,10 +222,9 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
       ]),
     );
 
-    const checkpoint = (await this.serde.loadsTyped(
-      row.type ?? 'json',
-      row.checkpoint,
-    )) as Checkpoint;
+    const checkpoint = hydrateLegacyCheckpoint(
+      await this.serde.loadsTyped(row.type ?? 'json', row.checkpoint),
+    ) as Checkpoint;
 
     return {
       checkpoint,
@@ -279,10 +311,9 @@ export class TauriCheckpointSaver extends BaseCheckpointSaver {
         ]),
       );
 
-      const checkpoint = (await this.serde.loadsTyped(
-        row.type ?? 'json',
-        row.checkpoint,
-      )) as Checkpoint;
+      const checkpoint = hydrateLegacyCheckpoint(
+        await this.serde.loadsTyped(row.type ?? 'json', row.checkpoint),
+      ) as Checkpoint;
 
       yield {
         config: {
