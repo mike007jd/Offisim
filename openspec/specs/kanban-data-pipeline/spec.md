@@ -30,6 +30,10 @@ Allowed transitions are:
 - **THEN** exactly one transition succeeds
 - **AND** the other request is rejected as stale instead of silently overwriting the first result.
 
+#### Scenario: Transition tables match shared JSON
+- **WHEN** the harness contract loads
+- **THEN** the TypeScript transition table and Rust generated table match `kanban-state-machine.json` exactly
+
 ### Requirement: Kanban UI SHALL expose only allowed next transitions
 
 Kanban UI controls SHALL be derived from the same shared transition table as the repositories. A card SHALL only render actions for states that are allowed from its current state. Terminal `done` cards SHALL render a terminal-state affordance and SHALL NOT render controls that could ask for `todo`, `doing`, `blocked`, or `review`.

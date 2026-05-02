@@ -3,9 +3,7 @@
 ## Purpose
 
 Centralised, typed parsers for the three JSON blob fields stored on employee and prefab rows (`employees.persona_json`, `employees.config_json`, `prefab_instances.bindings_json`). Eliminates scattered `JSON.parse` call sites, gives `@offisim/core` and `@offisim/ui-office` a single typed source of truth, and keeps the UI form wrappers (`parsePersonaJson` / `parseConfigJson` in `useEmployeeEditor.ts`) as a thin default-filling layer on top.
-
 ## Requirements
-
 ### Requirement: Typed parser for employee persona_json
 `parseEmployeePersona(raw: string | null): EmployeePersona` SHALL return an `EmployeePersona` object with all fields optional. It SHALL return an empty object `{}` when `raw` is null or invalid JSON or a non-object payload.
 
@@ -22,6 +20,7 @@ Centralised, typed parsers for the three JSON blob fields stored on employee and
 - **THEN** returns `{}`
 
 ### Requirement: Typed parser for employee config_json
+
 `parseEmployeeConfig(raw: string | null): EmployeeConfig` SHALL return an `EmployeeConfig` object with all fields optional. The accepted config fields are `modelPreference`, `temperature`, `maxTokens`, and `toolPermissionPolicy`. It SHALL validate `toolPermissionPolicy` shapes before returning them and drop malformed nested payloads.
 
 #### Scenario: Parses modelPreference and toolPermissionPolicy
@@ -51,6 +50,7 @@ The typed parsers SHALL be defined in `@offisim/shared-types` (`packages/shared-
 - **THEN** both import `parseEmployeePersona` from `@offisim/shared-types`
 
 ### Requirement: UI form wrappers preserve form defaults
+
 `parsePersonaJson` / `parseConfigJson` in `packages/ui-office/src/hooks/useEmployeeEditor.ts` SHALL continue returning form-ready data with UI default values (empty strings, `'medium'`, `'balanced'`, `'collaborative'`, `DEFAULT_APPEARANCE`, `0.7`, `4096`, `null` for unset tool-permission policy), built as a layer on top of the shared parsers. Their call signatures and return shapes SHALL NOT change.
 
 #### Scenario: Missing field gets form default

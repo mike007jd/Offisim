@@ -4,6 +4,28 @@
 
 Defines long-running graph execution invariants for Offisim employee work, especially completion truth, blocked work propagation, stale checkpoint isolation, and deterministic harness coverage.
 ## Requirements
+
+### Requirement: Deterministic harness scenarios cannot self-attest LLM mock text
+
+The harness contract SHALL reject any scenario where a `finalOutputContains` assertion exactly equals an LLM fixture response. Structural assertions and product-generated final strings SHALL be used instead.
+
+#### Scenario: Self-attest scenario fails during load
+- **WHEN** a scenario asserts that final output contains text exactly equal to an `llmTurns[].content` value
+- **THEN** `scripts/harness-contract.mjs` exits non-zero during load
+
+### Requirement: Long-running runtime hot paths remain bounded
+
+Soak execution SHALL aggregate leak and latency results without retaining every trace report in memory. PM heartbeat SHALL skip database scans when the plan progress snapshot has not changed. Plan persistence SHALL create task-run rows and kanban rows in bounded parallel batches rather than serial per-step awaits.
+
+#### Scenario: Soak leak samples are bounded
+- **WHEN** soak runs multiple iterations with concurrency
+- **THEN** the retained sample failure list is capped
+- **AND** memory growth remains bounded for the configured run
+
+#### Scenario: Heartbeat no-op does not scan task runs
+- **WHEN** dispatched, completed, blocked, and plan signatures are unchanged since the last heartbeat
+- **THEN** the heartbeat returns without scanning task-run or agent-event repositories
+
 ### Requirement: Boss summary SHALL NOT mark empty or blocked work as completed
 
 Boss summary SHALL mark a thread completed only when the active plan has terminal success for all steps. Empty employee outputs, pending steps, blocked steps, or stale checkpoint state SHALL keep the thread non-completed and expose an actionable interruption reason.
@@ -141,11 +163,11 @@ When plan progress has not changed and there are no unresolved dispatched tasks,
 
 `packages/core/src/runtime/completion-verifier.ts` SHALL export `verifyCompletion(input, opts)` returning `ok: true` only if at least one entry in the last `windowSize` (default 12) `recentToolResults` is `success === true` and `toolName` is in `evidenceTools` (default `['pnpm-test', 'pnpm-typecheck', 'pnpm-lint', 'harness-contract']`).
 
-`packages/core/src/agents/employee-completion.ts` SHALL derive the required evidence tools from the task description. File and workspace-read tasks SHALL require successful `read_file` evidence; file-create/write tasks SHALL require successful `write_file` evidence; shell/command tasks SHALL require successful `bash` evidence; explicit verification tasks SHALL require the default verification evidence tools.
+`packages/core/src/agents/employee-completion.ts` SHALL derive the required evidence tools from `state.taskToolIntent` via `evidenceToolsForIntent(state.taskToolIntent)` (see `task-tool-intent` capability) — NOT from a parallel inline regex. If `state.taskToolIntent` is `null` (legacy path or unhandled entry point), the verifier SHALL fall back to a fresh `detectTaskToolIntent(taskDescription)` call so behavior is identical, but the SSOT call MUST be the same `task-tool-intent` module the routing nodes use. There SHALL be no second keyword vocabulary in the completion-verifier code path.
 
 Plain SOP text-deliverable tasks that do not ask for verification evidence, local file work, or shell work SHALL NOT be blocked merely because no tool ran. The verifier MUST NOT force fake `read_file`, `bash`, or harness evidence into ordinary text handoff steps.
 
-The evidence classifier SHALL recognize the same local-tool intent in Chinese user/task wording as in English wording, so Chinese file or shell requests cannot pass on a text-only claim.
+The evidence classifier SHALL recognize the same local-tool intent in Chinese user/task wording as in English wording, so Chinese file or shell requests cannot pass on a text-only claim. (This requirement is satisfied structurally because the `task-tool-intent` SSOT covers both languages — there is no separate classifier to keep in sync.)
 
 `packages/core/src/agents/employee-tool-round.ts` SHALL push `{ toolName, success, bytes }` into `state.recentToolResults` (ring buffer of size 32) after every tool invocation.
 
@@ -179,6 +201,11 @@ The evidence classifier SHALL recognize the same local-tool intent in Chinese us
 - **WHEN** an employee declares completion for a Chinese task that asks to read or write a workspace file
 - **THEN** completion requires a successful matching file tool result
 - **AND** a Chinese text-only claim does not complete the task.
+
+#### Scenario: Routing-evidence parity is structural
+- **WHEN** comparing the routing decision `state.taskToolIntent.requiresLocalTools` with the completion verifier's required `evidenceTools` for the same task description
+- **THEN** if routing required local tools AND the gate selected an internal employee, the completion verifier requires at least one entry from the matching evidence-tool family (`read_file` for needsRead, `write_file` for needsWrite, `bash` for needsBash)
+- **AND** there is no path where routing fires on a text and completion-verifier does not, or vice versa, due to vocabulary drift.
 
 ### Requirement: ResumeCoordinator restores conversation from latest checkpoint
 
@@ -232,3 +259,22 @@ PM planner persistence SHALL create task-run rows for the plan in parallel batch
 - **WHEN** a plan has multiple steps and tasks
 - **THEN** task-run rows are persisted as an independent batch
 - **AND** kanban rows are persisted as an independent batch after task-run IDs are assigned.
+
+### Requirement: Long-running harness scenarios cover routing/evidence parity and reroute observability
+
+The following scenarios SHALL exist in `packages/core/harness/scenarios/` and pass under `pnpm harness:contract`:
+
+- `routing-rejects-bare-noun-prose.json` — fixture with user message `Please describe the workspace and file a bug if anything looks off.`; invariant: `state.taskToolIntent.requiresLocalTools === false` AND no `task.assignment.rerouted` event fires AND direct chat with an external A2A employee dispatches successfully.
+- `routing-accepts-verb-object-imperative.json` — fixture with user message `Read README.md and quote the install section.`; invariant: `state.taskToolIntent.requiresLocalTools === true`, `needsRead: true`, AND completion-verifier requires `read_file` evidence for the resulting task.
+- `manager-rerouted-event-fires.json` — fixture where the LLM's manager `decision.assignments` references an external A2A employee for a `read_file` task; invariant: `task.assignment.rerouted` event present with `source: 'manager'`, `reason: 'requires-local-tools'`, and the dispatched employee is the internal fallback.
+- `sanitize-rebind-uses-recommended-order.json` — fixture where `sanitizePlanEmployees` encounters a missing employee and the plan has a `recommendedEmployees` ordering; invariant: the swap picks the first valid recommended employee (NOT iteration order), AND a `task.assignment.rerouted` event fires with `source: 'pm-planner'`, `reason: 'employee-not-found'`.
+
+`packages/core/src/testing/invariant-assertions.ts` SHALL add `assertEventEmitted(trace, eventType, predicate?)` if no equivalent helper exists.
+
+#### Scenario: Bare-noun fixture passes routing rejection
+- **WHEN** running `pnpm harness:contract routing-rejects-bare-noun-prose.json`
+- **THEN** the trace records `state.taskToolIntent.requiresLocalTools === false` AND zero `task.assignment.rerouted` events
+
+#### Scenario: Manager reroute fixture asserts event payload
+- **WHEN** running `pnpm harness:contract manager-rerouted-event-fires.json`
+- **THEN** the trace contains exactly one `task.assignment.rerouted` event with the asserted source, reason, requestedEmployeeId, resolvedEmployeeId fields

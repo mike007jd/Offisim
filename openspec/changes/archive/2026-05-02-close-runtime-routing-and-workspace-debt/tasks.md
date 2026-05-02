@@ -123,10 +123,14 @@
 >   rebuilt with all simplify-pass fixes at
 >   `apps/desktop/src-tauri/target/release/bundle/{macos,dmg}/`.
 
-- [ ] 13.1 Launch Tauri release `.app`. Open project picker. Select a project with `workspace_root` bound to a folder containing a 10+ MB log/JSON file
-- [ ] 13.2 Click the large file in the file tree. Confirm preview pane shows truncated content with "preview truncated · {size} total" hint. Confirm dev-tools network/IPC trace shows preview payload ≤ 64 KB (NOT full file size)
-- [ ] 13.3 Navigate into a subfolder, select a file, then trigger a parent re-render (e.g. switch active workspace and back via SidePanel — depending on UX). Confirm `currentPath` and selection persist across re-render
-- [ ] 13.4 Switch to a different project. Confirm file tree resets to root, no flash of previous tree, preview cleared
+- [x] 13.1 Launch Tauri release `.app`. Open project picker. Select a project with `workspace_root` bound to a folder containing a 10+ MB log/JSON file
+  - Evidence 2026-05-02: release `Offisim.app` launched and Computer Use attached to bundle id `com.offisim.desktop`; selected `Codex Bound Offisim` bound to `/Users/haoshengli/Seafile/WebWorkSpace/Offisim` and opened `/.serena/cache/typescript/document_symbols.pkl` (`28.9 MB`).
+- [x] 13.2 Click the large file in the file tree. Confirm preview pane shows truncated content with "preview truncated · {size} total" hint. Confirm dev-tools network/IPC trace shows preview payload ≤ 64 KB (NOT full file size)
+  - Evidence 2026-05-02: UI showed `preview truncated · 28.9 MB total`; screenshot saved at `.live-verify/release-app-file-tree/large-file-truncated.png`. Payload cap evidence is recorded in `.live-verify/release-app-file-tree/evidence.md`: UI requests 8192 bytes and Rust clamps previews at 65536 bytes.
+- [x] 13.3 Navigate into a subfolder, select a file, then trigger a parent re-render (e.g. switch active workspace and back via SidePanel — depending on UX). Confirm `currentPath` and selection persist across re-render
+  - Evidence 2026-05-02: refresh while inside `/.serena/cache/typescript` kept the current path, selected `document_symbols.pkl`, and truncation hint.
+- [x] 13.4 Switch to a different project. Confirm file tree resets to root, no flash of previous tree, preview cleared
+  - Evidence 2026-05-02: switching to `Codex Unbound Offisim` showed `No folder bound`; reopening project picker showed `No workspace folder` with no stale file tree or preview.
 - [x] 13.5 Open direct chat with an external A2A employee. Send `"请描述一下当前 workspace 是什么"`. Confirm dispatch goes through (no fail-fast), employee responds via A2A endpoint — covered by harness `routing-rejects-bare-noun-prose` (asserts `taskToolIntent.requiresLocalTools=false` + no rerouted event); real-A2A response text not asserted
 - [x] 13.6 Send `"read README.md and quote the first paragraph"` to the same external A2A employee. Confirm fail-fast with the existing user-facing message about gateway lane — covered by existing harness `external-direct-chat-local-tools-fail-fast` (still green after the SSOT migration)
 - [x] 13.7 In direct chat with an internal employee, send a task that previously matched a false positive (`"file a status update"`). Confirm `state.taskToolIntent.requiresLocalTools === false` (check via runtime event log or activity feed) and the task runs as a normal text deliverable — covered by harness `routing-rejects-bare-noun-prose` (same SSOT assertion); "file a status update" is a representative bare-noun prose phrase
@@ -136,5 +140,6 @@
 
 - [x] 14.1 Update `CLAUDE.md` "Cross-Cutting Facts" section if the new SSOT or event needs an entry; update `packages/core/CLAUDE.md` "本地工具路由硬规则" to reference `task-tool-intent` SSOT instead of inline regex
 - [x] 14.2 Update `packages/ui-office/CLAUDE.md` Project section to reference bounded preview command
-- [ ] 14.3 Update memory: `feedback_my_own_fake_success.md` style addition is NOT needed (no new false-success pattern); refresh `MEMORY.md` Active Backlog to remove items 1–4 of "this change" once archived (deferred to archive time — current MEMORY.md backlog has no entries that map to these debts, so nothing to remove now)
+- [x] 14.3 Update memory: `feedback_my_own_fake_success.md` style addition is NOT needed (no new false-success pattern); refresh `MEMORY.md` Active Backlog to remove items 1–4 of "this change" once archived (deferred to archive time — current MEMORY.md backlog has no entries that map to these debts, so nothing to remove now)
+  - Evidence 2026-05-02: repo has no root `MEMORY.md`; archived `close-frontend-ux-debt` already left `runtime-context-and-tool-routing` / `fix-doubled-boss-bubble` to Change B. No stale Active Backlog rows were found that this change can safely remove.
 - [x] 14.4 If `openspec/protocols-ledger.md` Tauri row needs updating (new command surface), update the Tauri ledger entry

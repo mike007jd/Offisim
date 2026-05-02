@@ -205,24 +205,42 @@ The counts SHALL come from existing thread-scoped task / deliverable repos; this
 
 When a selected project has `workspace_root` and the app is running in desktop mode, `ProjectListPanel` SHALL render a compact workspace file tree in the selected-summary block.
 
-The file tree SHALL list directory entries through the Tauri `project_list_dir` command and SHALL read text previews through `project_read_file`. It SHALL NOT use `tauri-plugin-fs` to directly read arbitrary workspace paths from the webview. Both commands SHALL remain constrained by the same workspace-root sandbox and redacted error behavior as gateway file tools.
+The file tree SHALL list directory entries through the Tauri `project_list_dir` command. For text previews shown inside the file tree, the tree SHALL use the bounded `project_read_file_preview(path, cwd, max_bytes)` command — NOT the unbounded `project_read_file` command. `project_read_file` remains available for agent tool calls (`read_file` builtin) where the tool schema enforces the byte budget; the file-tree UI MUST NOT call it. Both commands SHALL remain constrained by the same workspace-root sandbox and redacted error behavior as gateway file tools.
 
 In browser mode the file tree SHALL render a desktop-only state and SHALL NOT invoke Tauri APIs.
+
+The `<ProjectWorkspaceFiles>` component SHALL persist its navigation state (current path, selection, scroll position) across parent re-renders within the same `projectId`. Switching to a different project SHALL reset navigation state via the prop-driven effect (`workspaceRoot` change), NOT via `key=` re-mount.
 
 #### Scenario: Desktop file tree lists project workspace
 - **WHEN** a selected desktop project has `workspace_root='/Users/me/work/acme'`
 - **THEN** the selected summary calls `project_list_dir` with `cwd='/Users/me/work/acme'`
 - **AND** renders directory and file rows from the returned entries.
 
-#### Scenario: File preview uses sandboxed read command
+#### Scenario: File preview uses bounded preview command
 - **WHEN** the user selects a file row in the desktop file tree
-- **THEN** the UI calls `project_read_file` with the selected relative path and the project's workspace root
-- **AND** the preview renders returned text without bypassing the workspace sandbox.
+- **THEN** the UI calls `project_read_file_preview` with the selected relative path, the project's workspace root, and a `max_bytes` budget no larger than 8192
+- **AND** the preview renders the returned `content` and shows a "preview truncated · {totalSize} bytes total" hint when `truncated === true`
+- **AND** the UI MUST NOT call `project_read_file` for file-tree previews
+
+#### Scenario: Large file preview does not stream full file across IPC
+- **WHEN** the user selects a 10 MB log file
+- **THEN** the IPC payload from `project_read_file_preview` is at most `MAX_PREVIEW_BYTES` (64 KB hard cap)
+- **AND** the preview displays the first chunk with truncation hint
+- **AND** total IPC bytes for that selection are bounded by the cap, NOT by file size
 
 #### Scenario: Browser file tree is disabled
 - **WHEN** the same project is viewed in browser mode
 - **THEN** the summary shows a desktop-only file state
 - **AND** no Tauri invoke or plugin-fs filesystem read is attempted.
+
+#### Scenario: Nav state survives parent re-render
+- **WHEN** the user navigates into a subfolder, selects a file, then the parent `ProjectListPanel` re-renders (e.g. via project list refetch returning a new project row reference for the same id)
+- **THEN** `currentPath`, the selected file, and the preview remain visible
+- **AND** the file tree does NOT re-fetch the directory listing solely because of the parent re-render
+
+#### Scenario: Project switch resets nav state
+- **WHEN** the user switches to a different project (different `projectId` and / or different `workspace_root`)
+- **THEN** `currentPath` resets to the workspace root, selection clears, and the directory listing for the new workspace is fetched
 
 ### Requirement: Platform branching is centralized in `folder-picker.ts`
 
@@ -243,27 +261,41 @@ No other module under `packages/ui-office/src/components/project/**` SHALL impor
 
 ### Requirement: Active project's `workspace_root` SHALL reach the desktop builtin tool sandbox
 
-When a Tauri desktop runtime is active AND the active project has a non-null `workspace_root`, the path SHALL reach the Rust-side builtin tool sandbox (`apps/desktop/src-tauri/src/builtin_tools.rs`) before any builtin tool (`read_file` / `write_file` / `bash`) is invoked. The runtime SHALL NOT throw `'no project workspace root is bound'` when the data layer has a bound `workspace_root` for the active project.
+When a Tauri desktop runtime is active AND the active project has a non-null `workspace_root`, that active project SHALL be the only source for the Rust-side builtin tool sandbox (`apps/desktop/src-tauri/src/builtin_tools.rs`) before any builtin tool (`read_file` / `write_file` / `bash`) is invoked. The runtime SHALL NOT throw `'no project workspace root is bound'` when the data layer has a bound `workspace_root` for the active project. Desktop commands SHALL bind `company_id` and `project_id` together before accepting a workspace root, so a stale or cross-company project ID cannot widen the sandbox.
 
 The binding SHALL be re-applied on:
 - Initial runtime activation
-- Active project switch (within the same company)
-- Active company switch (when the new active company has a default project with `workspace_root`)
+- Active project switch within the same company
+- Active company switch when the new active company has an active/default project with `workspace_root`
 - Project edit that changes `workspace_root` from null to non-null OR between two non-null values
+
+`ProjectService.activateProject()` SHALL emit a project-activated runtime signal after the DB status update and SHALL synchronize runtime context `activeProjectId` before the next builtin tool invocation. The desktop builtin-tool layer SHALL receive the active project ID and active company ID through trusted IPC/context propagation or through an equivalent trusted active-project pointer, and `workspace_roots()` SHALL resolve only that active company's active project's `workspace_root`; it MUST NOT scan all projects and accept stale roots from inactive projects.
 
 #### Scenario: Builtin tool succeeds when active project has bound workspace_root
 - **WHEN** the active project has `workspace_root = '/Users/x/proj-a'` AND the user asks the boss to read a file under that path
-- **THEN** the builtin `read_file` tool runs successfully against the real filesystem (subject to existing 8 MB read cap and path-sandbox guards)
+- **THEN** the builtin `read_file` tool runs successfully against the real filesystem (subject to existing read caps and path-sandbox guards)
 - **AND** does NOT throw `'no project workspace root is bound'`
 
 #### Scenario: Project switch re-binds workspace_root in Rust state
 - **WHEN** the user switches the active project from one with `workspace_root = '/path/a'` to one with `workspace_root = '/path/b'`
-- **THEN** subsequent builtin tool invocations resolve relative to `/path/b`, not `/path/a`
+- **THEN** runtime context `activeProjectId` changes to the second project before the next builtin tool invocation
+- **AND** subsequent builtin tool invocations resolve relative to `/path/b`, not `/path/a`
+
+#### Scenario: Old project root is blocked after switch
+- **WHEN** the user switches the active project from `/path/a` to `/path/b`
+- **AND** a builtin tool request attempts to read `/path/a/secret.txt`
+- **THEN** the request is rejected by the workspace sandbox
+- **AND** `/path/a` is not present in the Rust-side allowed root set for that invocation
 
 #### Scenario: Switching to project with null workspace_root surfaces typed error
 - **WHEN** the user switches to a project whose `workspace_root` is null
 - **THEN** subsequent builtin tool invocations throw a typed error of the form `'no project workspace root is bound'`
-- **AND** that error category is observable in the runtime event stream (see next requirement)
+- **AND** that error category is observable in the runtime event stream
+
+#### Scenario: Harness proves project switch rebinds workspace root
+- **WHEN** deterministic harness scenario `switch-project-rebinds-workspace-root` switches from project A to project B
+- **THEN** the recorded builtin tool context contains project B's root
+- **AND** the scenario asserts project A's root is no longer readable
 
 ### Requirement: Workspace-binding gaps SHALL emit an observable runtime event
 
@@ -281,4 +313,101 @@ When a builtin tool invocation fails because no `workspace_root` is bound, the r
 #### Scenario: Active company switch resets the suppression cache
 - **WHEN** the user switches to a different active company and a binding miss occurs in the new company
 - **THEN** the new company's first miss emits an event (suppression cache is per-`(companyId, projectId)`, not global)
+
+### Requirement: Tauri `project_read_file_preview` command SHALL provide bounded text preview reads
+
+`apps/desktop/src-tauri/src/builtin_tools.rs` SHALL export a Tauri command `project_read_file_preview(path: String, cwd: Option<String>, max_bytes: u32) -> Result<ProjectFilePreview, String>` where:
+- `max_bytes` SHALL be clamped at the Rust side to `MAX_PREVIEW_BYTES = 65536` (64 KB hard cap) regardless of caller request
+- The command SHALL read at most the clamped `max_bytes` from disk (using a bounded reader, NOT a full-file read followed by slice)
+- The returned `ProjectFilePreview { content: String, truncated: bool, total_size: u64 }` SHALL contain valid UTF-8 in `content`
+- If the byte slice ends mid-codepoint, the implementation SHALL walk back to the last valid UTF-8 boundary; if walk-back fails (binary file or pathological multi-byte content), it SHALL return `truncated: true` with `content: ''`
+- `total_size` SHALL be the file's full size on disk (from `metadata().len()`) so the UI can show "X bytes total · preview truncated"
+- The command SHALL respect the same `workspace_roots` sandbox as `project_read_file` (path canonicalization, parent-dir rejection, overbroad-root rejection, redacted errors)
+- The command SHALL be added to the allowlist in `apps/desktop/src-tauri/permissions/fs-shell.toml` so the existing `offisim:fs-shell` capability covers it
+
+`packages/ui-office/src/lib/project-workspace-files.ts` SHALL export `readProjectWorkspaceFilePreview(input: { workspaceRoot: string; path: string; maxBytes?: number }): Promise<ProjectFilePreview>` that calls the new command with a default `maxBytes: 8192`.
+
+#### Scenario: Hard cap enforced server-side
+- **WHEN** the JS caller invokes `project_read_file_preview` with `max_bytes: 1_000_000`
+- **THEN** the Rust handler clamps the request to 65536 bytes before reading
+- **AND** the returned `content.length` (in bytes when re-encoded) is at most 65536
+
+#### Scenario: Truncation flag and total size returned for oversize file
+- **WHEN** previewing a file whose on-disk size is 50 MB with `max_bytes: 8192`
+- **THEN** the response has `truncated: true` and `total_size: 52428800` (or the actual byte count)
+- **AND** the response payload across IPC is on the order of 8 KB, NOT 50 MB
+
+#### Scenario: Small file returns un-truncated content
+- **WHEN** previewing a 1 KB file with `max_bytes: 8192`
+- **THEN** the response has `truncated: false`, `total_size: 1024` (approx), and `content` is the full file
+
+#### Scenario: UTF-8 boundary safety
+- **WHEN** the byte slice would end mid-codepoint (e.g. previewing a UTF-8 file with `max_bytes` chosen to cut a 3-byte sequence)
+- **THEN** the returned `content` ends at the last valid UTF-8 boundary before the cut
+- **AND** `truncated: true`
+
+#### Scenario: Workspace sandbox enforced
+- **WHEN** the caller passes `path: '../../etc/passwd'` (parent-dir traversal)
+- **THEN** the command returns an error with the same redacted-path semantics as `project_read_file`
+- **AND** no read is performed
+
+#### Scenario: Capability allowlist update
+- **WHEN** inspecting `apps/desktop/src-tauri/permissions/fs-shell.toml`
+- **THEN** the allowlist contains `project_read_file_preview` alongside `project_read_file` and `project_list_dir`
+
+### Requirement: `ProjectWorkspaceFiles` SHALL hold selection in a single state machine
+
+`packages/ui-office/src/components/project/ProjectWorkspaceFiles.tsx` SHALL represent file selection as a single union-typed state (not as multiple coupled `useState`s):
+
+```ts
+type Selection =
+  | null
+  | { kind: 'loading'; path: string }
+  | { kind: 'ready'; path: string; preview: string; truncated: boolean; totalSize: number }
+  | { kind: 'error'; path: string; message: string };
+```
+
+Selection SHALL be managed by a `useReducer` (or equivalent state machine) with at minimum these actions: `select(path)` → `loading`, `previewLoaded(path, preview, truncated, totalSize)` → `ready`, `previewFailed(path, message)` → `error`, `clear()` → `null`. The component SHALL NOT keep parallel `selectedFile`, `preview`, `previewLoading`, and selection-error scalar `useState`s — invalid intermediate states (e.g. `previewLoading: true && selectedFile: null`) SHALL be unrepresentable.
+
+The directory-loading state (`entries`, `directoryLoading`, `directoryError`) MAY remain a separate concern from selection, since they have independent lifecycles.
+
+`<ProjectWorkspaceFiles>` SHALL NOT receive a `key=` prop from `ProjectListPanel`. Instead, an internal `useEffect` keyed on `workspaceRoot` SHALL reset `currentPath` to `''` and dispatch `clear()` on selection when the prop changes. This preserves project-switch-resets-state behavior without forcing remount on every parent re-render.
+
+#### Scenario: Selection state machine has no invalid intermediates
+- **WHEN** auditing `ProjectWorkspaceFiles.tsx` for selection-related `useState` calls
+- **THEN** at most one `useState` / `useReducer` manages the selection union; no parallel `selectedFile` / `preview` / `previewLoading` scalars exist
+
+#### Scenario: Loading transitions to ready on success
+- **WHEN** the user clicks a file row and `readProjectWorkspaceFilePreview` resolves successfully
+- **THEN** the selection transitions `null → loading → ready` with the path consistent across all states
+- **AND** the preview pane shows `content` with truncation hint if `truncated === true`
+
+#### Scenario: Loading transitions to error on failure
+- **WHEN** the preview IPC call rejects
+- **THEN** the selection transitions `loading → error` carrying the error message
+- **AND** the preview pane shows the error in a styled error block
+
+#### Scenario: Parent re-render preserves selection
+- **WHEN** the parent `ProjectListPanel` re-renders without changing `workspaceRoot` or `projectId`
+- **THEN** the file tree's `currentPath`, selection (including `ready` preview content), and scroll position remain unchanged
+- **AND** the directory listing is NOT re-fetched solely because of the parent re-render
+
+#### Scenario: Workspace switch resets via prop effect
+- **WHEN** the parent passes a different `workspaceRoot` value
+- **THEN** an internal effect resets `currentPath` to `''` and clears the selection
+- **AND** a directory listing for the new workspace is fetched
+
+### Requirement: Workspace-relative path adapters SHALL reject path escape attempts
+
+Any UI or skill-install adapter that accepts a workspace-relative file path SHALL reject `..` traversal, absolute-path substitution, and encoded path segments that escape the active project workspace root. This includes `apps/web/src/lib/tauri-skill-install-adapters.ts`; the implementation MUST keep the current path-escape defense as a durable workspace-sandbox invariant.
+
+#### Scenario: `..` path is rejected before Tauri invocation
+- **WHEN** a skill-install adapter is asked to write `../outside/SKILL.md`
+- **THEN** the adapter rejects the request before invoking any Tauri command
+- **AND** no file outside the active project workspace root is read or written
+
+#### Scenario: Encoded traversal is rejected
+- **WHEN** a workspace-relative path contains an encoded traversal segment such as `%2e%2e/outside.txt`
+- **THEN** the adapter normalizes or rejects the segment so it cannot escape the active workspace root
+- **AND** the failure is surfaced as a sandbox/path validation error, not as a silent fallback
 

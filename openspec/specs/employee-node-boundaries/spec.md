@@ -6,7 +6,7 @@
 ## Requirements
 ### Requirement: employee-node.ts is a thin orchestration barrel
 
-`packages/core/src/agents/employee-node.ts` SHALL contain no more than 200 non-blank, non-comment lines. It SHALL only: (a) import from single-responsibility `employee-*.ts` sibling modules, (b) re-export the public symbols `employeeNode` and `extractUsedCitations`, (c) declare the `employeeNode` function body which acts as the control-flow orchestrator — preflight → A2A branch → engine branch → prompt → tool-kit → turn-runner → tool-loop (with handoff early return) → completion / error-finalize. Inline helper functions, skill prompt-section formatters, tool definition builders, engine event mapping, `runEmployeeTurn` closure body, tool-call result dispatcher bodies, and completion side-effect emission sequences SHALL NOT live in this file.
+`packages/core/src/agents/employee-node.ts` SHALL contain no more than 200 non-blank, non-comment lines. It SHALL only: (a) import from single-responsibility `employee-*.ts` sibling modules, (b) re-export the public symbols `employeeNode` and `extractUsedCitations`, (c) declare the `employeeNode` function body which acts as the control-flow orchestrator — preflight → prompt → tool-kit → turn-runner → tool-loop (with handoff early return) → completion / error-finalize. Inline helper functions, skill prompt-section formatters, tool definition builders, `runEmployeeTurn` closure body, tool-call result dispatcher bodies, and completion side-effect emission sequences SHALL NOT live in this file.
 
 #### Scenario: Barrel size gate
 - **WHEN** `grep -cvE '^\s*(//|$|/\*|\*)' packages/core/src/agents/employee-node.ts` is run after refactor
@@ -51,11 +51,11 @@ System prompt composition (employee prompt, `## Available skills` section popula
 
 ### Requirement: Tool kit assembly is a standalone module
 
-Tool list construction (memory virtual tools via `buildMemoryTools()`, skill install/fork/edit tools via `buildSkillInstallTools()` when `skillStagingManager` and `skillLoader` are present, `handoff_to` tool gated on `!isDirectChatTask && handoffCount < MAX_HANDOFF_COUNT && colleagues.length > 0`, workstation-scoped MCP tools via `workstationToolResolver.resolveForEmployee` OR fallback `toolExecutor.listAvailable`) SHALL live in `packages/core/src/agents/employee-tool-kit.ts`. The module SHALL return `{ virtualTools, mcpTools, allTools, allowedMcpToolNames }`.
+Tool list construction (memory virtual tools via `buildMemoryTools()`, skill-mutation tools via `buildSkillInstallTools()` when `skillStagingManager` and `skillLoader` are present, `handoff_to` tool gated on `!isDirectChatTask && handoffCount < MAX_HANDOFF_COUNT && colleagues.length > 0`, workstation-scoped MCP tools via `workstationToolResolver.resolveForEmployee` OR fallback `toolExecutor.listAvailable`) SHALL live in `packages/core/src/agents/employee-tool-kit.ts`. The module SHALL return `{ virtualTools, mcpTools, allTools, allowedMcpToolNames }`.
 
-#### Scenario: Skill install/fork/edit tools are gated by runtime capability
+#### Scenario: Skill-mutation tools are gated by runtime capability
 - **WHEN** `runtimeCtx.skillStagingManager` and `runtimeCtx.skillLoader` are both present
-- **THEN** the tool kit includes the tool family produced by `buildSkillInstallTools()`
+- **THEN** the tool kit includes the skill install/fork/edit tool family produced by `buildSkillInstallTools()`
 - **AND** no `activate_skill_context` tool is added
 
 #### Scenario: Handoff tool gating
@@ -204,6 +204,8 @@ After preflight, `employee-node.ts` SHALL route in this order: external employee
 
 The boss agent's system prompt assembly SHALL include the active company's employee roster (employee_id, name, role_slug, brand_key for external employees) whenever the active company has at least one employee in `repos.employees.findByCompany(activeCompanyId)`. The boss SHALL NOT respond `"no employee database access"` (or equivalent) when the data layer reports a non-empty roster.
 
+The runtime context `companyId` used by Boss prompt assembly SHALL be synchronized on active company changes. `repos.employees.findByCompany(runtimeCtx.companyId)` SHALL therefore use the same active-company boundary as the UI employee list. Boss prompt assembly MUST NOT reuse a stale company ID after the user switches company.
+
 The roster injection SHALL be re-derived on:
 - Active company switch
 - Employee created / dismissed / hard-deleted within the active company
@@ -223,11 +225,23 @@ The roster injection SHALL be re-derived on:
 - **THEN** the roster section is empty / absent
 - **AND** no `boss.employee-context.empty` event fires (empty company is not a regression)
 
+#### Scenario: Active company switch refreshes Boss runtime context
+- **WHEN** the user switches from company A to company B
+- **AND** company B's UI employee list contains `Alex Chen`
+- **THEN** the next Boss team-chat prompt uses company B as `runtimeCtx.companyId`
+- **AND** the prompt roster contains the same employees shown by the UI list for company B
+
+#### Scenario: Multi-company roster does not leak
+- **WHEN** company A has employee `Maya Lin` and company B has employee `Alex Chen`
+- **AND** the user switches from company A to company B before asking Boss `"who's on my team?"`
+- **THEN** the Boss prompt roster contains `Alex Chen`
+- **AND** it does not contain `Maya Lin`
+
 ### Requirement: Boss employee-context regressions SHALL emit an observable runtime event
 
 When the data layer reports a non-empty employee roster for the active company but the boss's assembled system prompt receives 0 employees, the runtime SHALL emit a `runtime_event` with `event_type='boss.employee-context.empty'` and payload `{ companyId, employeeCount, expectedAtLeast: 1 }`. This event distinguishes a true regression (DB has employees, prompt has zero) from a benign empty company.
 
-The event SHALL fire at most once per `companyId` per session to avoid log spam.
+The event SHALL fire at most once per `companyId` per `EventBus` session to avoid log spam. Suppression state MUST be isolated per event bus and MUST NOT use one global set shared across independent sessions.
 
 #### Scenario: True regression fires the event
 - **WHEN** `repos.employees.findByCompany(activeCompanyId)` returns 3 rows AND the boss prompt assembly receives 0 employees
@@ -236,6 +250,12 @@ The event SHALL fire at most once per `companyId` per session to avoid log spam.
 #### Scenario: Benign empty company does NOT fire the event
 - **WHEN** `repos.employees.findByCompany(activeCompanyId)` returns 0 rows AND the boss prompt assembly receives 0 employees
 - **THEN** no `boss.employee-context.empty` event is emitted (empty roster matches DB state, not a regression)
+
+#### Scenario: Suppression is isolated per event bus
+- **WHEN** one runtime event bus has already emitted `boss.employee-context.empty` for company A
+- **AND** a second independent event bus hits the same regression for company A
+- **THEN** the second event bus still emits its own first diagnostic event
+- **AND** the first event bus continues suppressing duplicate diagnostics for its own session
 
 ### Requirement: Deliverable event carries contributor brand fields across all emit sites
 
@@ -252,4 +272,24 @@ When a materialized deliverable produces a `deliverable.created` event from any 
 #### Scenario: employee-a2a-executor direct artifact emit carries fields
 - **WHEN** `employee-a2a-executor.ts` emits `deliverable.created` directly for an external A2A artifact (bypassing boss-summary)
 - **THEN** the single contributor element carries `isExternal: true` + `brandKey` from the external A2A employee's row (a registered brand key, or `null` for unknown / custom external)
+
+### Requirement: Boss skill-mutation routing SHALL stay internal and narrowly defensive
+
+When Boss chooses an employee to handle skill mutation work, the routing helper SHALL exclude employees with `is_external === 1`; external A2A employees MUST NOT receive skill install, edit, fork, create, or sync mutation tasks. If the LLM wrong-routes a skill mutation as `direct_reply`, the defensive override SHALL reroute only that skill-mutation direct-reply case. It SHALL NOT override unrelated direct replies.
+
+#### Scenario: External employee is not selected for skill mutation
+- **WHEN** the active company roster contains one internal employee and one external A2A employee
+- **AND** Boss needs to route a `create_skill_from_scratch` or `edit_skill_body` task
+- **THEN** the selected employee is internal
+- **AND** the external employee is not assigned the skill mutation
+
+#### Scenario: Direct-reply override applies only to skill mutation
+- **WHEN** the LLM returns `direct_reply` for a request that requires a skill mutation
+- **THEN** Boss reroutes to the internal skill-mutation employee
+- **AND** emits the normal runtime activity for the reroute
+
+#### Scenario: Normal direct reply is not overridden
+- **WHEN** the LLM returns `direct_reply` for a normal informational team-chat answer
+- **THEN** Boss keeps the direct reply
+- **AND** no skill-mutation defensive override is applied
 
