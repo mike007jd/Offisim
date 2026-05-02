@@ -23,5 +23,6 @@
 - 验收前先执行桌面 release build，再启动 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`。
 - 若 dev 能跑但 release `.app` 不可交互、黑屏、或 Computer Use 无法附着，按 release 桌面阻塞处理，先查清原因再继续依赖桌面验收结论。
 - 修改 `packages/ui-office` 后，先跑 `pnpm --filter @offisim/ui-office build`，再跑 `pnpm --filter @offisim/desktop build`；桌面 release 读取的是已构建 UI 产物，不能用旧 dist 做验收。
-- release `.app` 附着优先用 `open -b com.offisim.desktop`；如果 Computer Use 仍附不上，修 release window / capability / reopen 链路，不要降级成 dev webview 结果。
+- release `.app` 启动必须用当前 worktree 的精确 `.app` 路径，不能用 `open -b com.offisim.desktop` 这类 bundle id 方式；多个 worktree 共享 bundle id 时会误附着旧包。
+- release `.app` 的窗口附着、截图、点击、关闭、前台切换必须用 Computer Use；不要用 `osascript` / AppleScript 充当桌面验收或窗口控制工具。
 - Project workspace 文件浏览必须走 `project_list_dir` / `project_read_file` 这组受 `workspace_root` sandbox 约束的 Tauri command；不要在 webview 里直接用 `tauri-plugin-fs` 读项目目录。

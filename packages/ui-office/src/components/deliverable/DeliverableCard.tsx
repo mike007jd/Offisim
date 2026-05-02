@@ -33,12 +33,11 @@ const EXPORT_FORMATS: { value: ExportFormat; label: string }[] = [
   { value: 'txt', label: 'TXT' },
 ];
 
-const COMPACT_ACTION_CLASS = 'h-6 px-2 text-[10px] text-slate-300 hover:text-pearl';
-const FULL_ACTION_CLASS = 'h-6 px-2 text-[10px] text-slate-400/70 hover:text-pearl';
+const ACTION_CLASS = 'h-6 px-2 text-[10px] text-text-secondary hover:text-text-primary';
 const SOP_DEFAULT_CLASS =
-  'h-6 px-2 text-[10px] text-slate-400/70 hover:text-emerald-400 disabled:opacity-50';
+  'h-6 px-2 text-[10px] text-text-secondary hover:text-success disabled:opacity-50';
 const SOP_PROMOTED_CLASS =
-  'h-6 px-2 text-[10px] bg-emerald-600/80 hover:bg-emerald-500 text-white animate-pulse';
+  'h-6 px-2 text-[10px] bg-success text-text-inverse hover:bg-success animate-pulse';
 
 function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -106,7 +105,7 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
       {shown.map((emp) => (
         <span
           key={emp.employeeId}
-          className="inline-block rounded-full ring-1 ring-slate-900"
+          className="inline-block rounded-full ring-1 ring-border-default"
           title={emp.employeeName}
         >
           <EmployeeAvatar
@@ -124,7 +123,7 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
       {overflow.length > 0 && (
         <span
           title={overflowLabel}
-          className="flex min-w-5 items-center justify-center rounded-full bg-slate-700 px-1 text-[9px] text-slate-300 ring-1 ring-slate-900"
+          className="flex min-w-5 items-center justify-center rounded-full bg-surface-muted px-1 text-[9px] text-text-secondary ring-1 ring-border-default"
           style={{ height: size, minHeight: size }}
         >
           +{overflow.length}
@@ -142,11 +141,11 @@ function DeliverableHeader({ item }: DeliverableHeaderProps) {
   const Icon = mimeTypeToIcon(item.artifact.mimeType);
   return (
     <div className="flex items-start gap-2 min-w-0">
-      <Icon className="h-4 w-4 shrink-0 text-slate-400 mt-px" />
+      <Icon className="h-4 w-4 shrink-0 text-text-muted mt-px" />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-xs font-medium text-pearl">{item.title}</span>
-          <span className="shrink-0 text-[10px] text-slate-500 tabular-nums">
+          <span className="truncate text-xs font-medium text-text-primary">{item.title}</span>
+          <span className="shrink-0 text-[10px] text-text-muted tabular-nums">
             {formatDeliverableBytes(item.contentSize)} · {formatTimeAgo(item.createdAt)}
           </span>
         </div>
@@ -193,22 +192,22 @@ function CompactCard({ item, employeeLabel }: CompactCardProps) {
   const { content, mimeType } = item.artifact;
 
   return (
-    <div className="mt-2 max-w-[94%] rounded-xl border border-emerald-400/20 bg-emerald-500/5 px-3 py-2">
+    <div className="mt-2 max-w-[94%] rounded-xl border border-success bg-success-muted px-3 py-2">
       <DeliverableHeader item={item} />
       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px]">
-        <span className="inline-flex items-center rounded bg-emerald-500/15 px-1.5 py-px font-medium text-emerald-200">
+        <span className="inline-flex items-center rounded border border-success bg-surface px-1.5 py-px font-medium text-success">
           {fileName}
         </span>
-        {mimeType && <span className="text-slate-400">{mimeType}</span>}
-        {employeeLabel && <span className="text-slate-500">· {employeeLabel}</span>}
+        {mimeType && <span className="text-text-secondary">{mimeType}</span>}
+        {employeeLabel && <span className="text-text-muted">· {employeeLabel}</span>}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
-        <CopyButton content={item.content} className={COMPACT_ACTION_CLASS} />
+        <CopyButton content={item.content} className={ACTION_CLASS} />
         {canPreview && (
           <Button
             variant="ghost"
             size="sm"
-            className={COMPACT_ACTION_CLASS}
+            className={ACTION_CLASS}
             onClick={() => previewInNewTab(content, mimeType)}
           >
             Open
@@ -217,7 +216,7 @@ function CompactCard({ item, employeeLabel }: CompactCardProps) {
         <Button
           variant="ghost"
           size="sm"
-          className={COMPACT_ACTION_CLASS}
+          className={ACTION_CLASS}
           onClick={() => downloadArtifactContent(content, fileName, mimeType)}
         >
           Download
@@ -309,25 +308,25 @@ function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps)
   return (
     <Card
       className={cn(
-        'animate-in fade-in slide-in-from-bottom-2 duration-300 overflow-hidden bg-slate-900/50 transition-all',
-        isNew ? 'border-emerald-500/60 shadow-glow-success' : 'border-slate-700',
+        'animate-in fade-in slide-in-from-bottom-2 duration-300 overflow-hidden bg-surface-muted transition-all',
+        isNew ? 'border-success shadow-glow-success' : 'border-border-subtle',
       )}
     >
       <CardHeader className="p-3 pb-1">
         <DeliverableHeader item={item} />
       </CardHeader>
       <CardContent className="p-3 pt-1">
-        <p className="font-mono text-[11px] leading-relaxed text-slate-400/80 whitespace-pre-wrap break-words">
+        <p className="font-mono text-[11px] leading-relaxed text-text-secondary whitespace-pre-wrap break-words">
           {truncate(content, 200)}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-1">
-          <CopyButton content={content} className={FULL_ACTION_CLASS} />
+          <CopyButton content={content} className={ACTION_CLASS} />
           {!isFileArtifact && (
             <Select
               value={selectedFormat}
               onValueChange={(v: string) => setSelectedFormat(v as ExportFormat)}
             >
-              <SelectTrigger className="h-6 w-[64px] text-[10px] text-slate-400/70 border-shell/20 bg-transparent">
+              <SelectTrigger className="h-6 w-[64px] border-border-subtle bg-surface text-[10px] text-text-secondary">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -343,7 +342,7 @@ function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps)
             <Button
               variant="ghost"
               size="sm"
-              className={FULL_ACTION_CLASS}
+              className={ACTION_CLASS}
               onClick={() => previewInNewTab(content, mimeType)}
             >
               Preview
@@ -352,7 +351,7 @@ function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps)
           <Button
             variant="ghost"
             size="sm"
-            className={FULL_ACTION_CLASS}
+            className={ACTION_CLASS}
             onClick={handleDownload}
             disabled={exporting}
           >
@@ -362,7 +361,7 @@ function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps)
             <Button
               variant="ghost"
               size="sm"
-              className={FULL_ACTION_CLASS}
+              className={ACTION_CLASS}
               onClick={() =>
                 localPath ? void openDesktopLocalPath(localPath) : void handleSaveLocal()
               }
@@ -375,7 +374,7 @@ function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps)
             <Button
               variant="ghost"
               size="sm"
-              className={FULL_ACTION_CLASS}
+              className={ACTION_CLASS}
               onClick={() => void openDesktopLocalPath(`${desktopVaultRoot}/deliverables`)}
             >
               Open folder

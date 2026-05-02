@@ -63,7 +63,7 @@ catalog/
 - **验证统一用 live agent 手测**（功能验收）：真实浏览器 / 真实桌面 runtime / 真实用户流，边操作边观察，不靠自动断言自证。
 - 绿 typecheck / build / harness contract 只代表代码能编 + graph 不变量没破，不代表功能完成。功能完成必须有 live runtime 证据。
 - 若需要记录验证结果，把步骤、观察、截图/日志写进 memory 或 handoff；不要回补 product 自动测试。
-- **验证层级不能越界**：web 页面问题只用浏览器层工具（snapshot / screenshot / console / network）。不要为 web 流程调用 AppleScript、系统级前台切换或原生窗口自动化。AppleScript 只允许用于 Tauri / macOS 原生壳验证。
+- **验证层级不能越界**：web 页面问题只用浏览器层工具（snapshot / screenshot / console / network）。桌面 release `.app` 验收用 Computer Use 附着、操作和截图；不要用 AppleScript / `osascript` 做窗口控制、前台切换、关闭或截图。
 
 ## Product Closure Bar
 
@@ -77,6 +77,7 @@ catalog/
 - **known limitation 不是验收证据**。如果 live 验证暴露新 blocker，先修能修的真实问题；不能修的直接 surface，不得缩小 scope、口头解释或用 fallback 路径替代原验收。
 - **本地工具任务不能错投外包/SDK**。涉及 workspace 文件、路径、shell、bash、pnpm/cargo/npm、越界拒绝、timeout 的任务只能由 internal + gateway 工具员工执行。external A2A 员工和 `claude-agent-sdk` / `codex-agent-sdk` / `openai-agents-sdk` lane 不能被当成本机文件/命令执行者。
 - **release 桌面验收要用新 UI dist**。只要改过 `packages/ui-office`，必须先 `pnpm --filter @offisim/ui-office build`，再 `pnpm --filter @offisim/desktop build`，否则 release `.app` 可能还是旧 Kanban/Settings UI。
+- **多 worktree 桌面验收不能靠 bundle id**。启动 release `.app` 必须用当前 worktree 的精确 `.app` 路径；不要用 `open -b com.offisim.desktop`，否则可能附着到另一个 worktree 的旧包。
 
 ## Repository Hygiene
 
@@ -120,8 +121,8 @@ catalog/
 | Personnel page | `packages/ui-office/src/components/employees/PersonnelPage.tsx` | List + detail + 6-tab inspector (employee edit lives here) |
 | Personnel routing | `apps/web/src/lib/personnel-routing.ts` | `routeToPersonnel(id, tab)` — single entry for cross-surface employee edit |
 | URL routing | `apps/web/src/lib/url-routing/` | parser + serializer + fallback + `useUrlSync`; deep links / Back / Forward 的 canonical path |
-| Project create/edit | `packages/ui-office/src/components/project/ProjectCreateDialog.tsx` | Single dialog for both create + edit modes; opened from header selector + chat strip |
-| Project context strip | `packages/ui-office/src/components/project/ProjectContextStrip.tsx` | Strip at top of ChatPanel; `Project · {name} · {folder?}` + Open folder + Edit |
+| Project create/edit | `packages/ui-office/src/components/project/ProjectCreateDialog.tsx` | Single dialog for both create + edit modes; opened from the Workspace Project selector |
+| Project workspace control | `packages/ui-office/src/components/project/ProjectSelector.tsx` | Workspace-scoped Project selector; selected summary owns folder/counts/Open/Edit |
 | Folder picker bridge | `packages/ui-office/src/lib/folder-picker.ts` | `pickWorkspaceFolder` / `revealWorkspaceFolder` SSOT — Tauri dialog + opener plugins; web throws `FolderPickerUnavailableError` |
 | LangGraph kernel | `packages/core/src/graph/` | Boss/manager/employee nodes |
 | Runtime bridge | `packages/ui-office/src/runtime/offisim-runtime-context.tsx` | React↔core |
@@ -180,6 +181,7 @@ catalog/
 - **Project = name + description + 可选 workspace_root + 专属 thread**：`projects.workspace_root` 是 nullable TEXT 列，属于当前单基线 SQLite schema。Tauri 端 `tauri-plugin-dialog` + `tauri-plugin-opener` 已注册，capabilities 含 `dialog:allow-open` / `opener:allow-reveal-item-in-dir` / `opener:allow-open-path`。folder picker SSOT 在 `packages/ui-office/src/lib/folder-picker.ts`（其他组件不直接 import `@tauri-apps/plugin-{dialog,opener}`）。Web 端 vite alias 把这两个 plugin stub 到 `apps/web/src/polyfills/` 下空函数，folder UI 走 disabled hint。`ProjectService.createProject` 改成对象参数 `{ name, description?, workspaceRoot? }`（不再 positional）。Project picker 已交付 desktop workspace file tree：`project_list_dir` + `project_read_file` 受 workspace_root 约束，浏览器显示 desktop-only 状态。
 - **Layout-shift contract**: `layout-shift-stability` capability owns CLS budgets. Tabs unmount policy SSOT is `TABS_RETAIN_STATE_CLASS` in `@offisim/ui-core`; web self-hosts Inter + JetBrains Mono variable woff2 with `font-display: swap`.
 - **3D lighting/material contract**: `SceneLightingRig` + `scene-performance-tier.ts` own 3D light tiers, FPS soft downgrade, dev hot toggles, PCF soft shadows, and post-processing. Prefab 3D materials must go through `theme/scene-materials.tsx`; no inline prefab hex / `roughness=` / `metalness=` / `transmission=` literals.
+- **3D art-direction contract**: `scene-art-direction.ts` owns room/camera/layer constants, `scene-room-shell.tsx` owns the production room shell, and `Scene3DColors` owns 3D art tokens. Keep Office 3D procedural and product-grade: no GLB dependency, no `gridHelper` debug room, no duplicated camera/layer constants in `Office3DView`.
 - **Responsive workspace contract**: workspace topology uses `useLayoutTier()` as SSOT. Tailwind breakpoints are cosmetic only; peer workspace layout changes must satisfy desktop/tablet/narrow decision rows.
 
 ## Ground Truth

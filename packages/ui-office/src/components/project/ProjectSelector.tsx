@@ -42,6 +42,10 @@ interface ProjectSelectorProps {
   onRequestCreate?: () => void;
   /** Open the ProjectCreateDialog in edit mode for the selected project. */
   onRequestEditProject?: (project: ProjectRow) => void;
+  /** Toast surface for project folder failures. */
+  onProjectError?: (message: string) => void;
+  /** Keep workspace file browsing out of transient dropdowns by default. */
+  summaryMode?: 'none' | 'compact';
 }
 
 function projectItem(project: ProjectRow): EntityDropdownItem {
@@ -64,6 +68,8 @@ export function ProjectSelector({
   onSelect,
   onRequestCreate,
   onRequestEditProject,
+  onProjectError,
+  summaryMode = 'none',
 }: ProjectSelectorProps) {
   const [open, setOpen] = useState(false);
   const activeProject = projects.find((p) => p.project_id === activeProjectId) ?? null;
@@ -101,22 +107,24 @@ export function ProjectSelector({
   const trigger = (
     <button
       type="button"
-      className="flex h-7 items-center gap-1.5 rounded-full border border-border-default bg-surface-muted px-2.5 text-xs text-text-secondary transition-colors hover:border-border-strong hover:bg-surface-hover hover:text-text-primary"
+      className="flex h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-full border border-border-default bg-surface-muted px-2.5 text-xs text-text-secondary transition-colors hover:border-border-strong hover:bg-surface-hover hover:text-text-primary"
       title="Select project context"
     >
-      <BriefcaseBusiness className="h-3.5 w-3.5 flex-shrink-0 text-info" />
-      {activeProject ? (
-        <>
-          <span
-            className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[activeProject.status]}`}
-          />
-          <span className="max-w-[120px] truncate">{activeProject.name}</span>
-        </>
-      ) : (
-        <span className="text-text-muted">All</span>
-      )}
+      <span className="flex min-w-0 items-center gap-1.5">
+        <BriefcaseBusiness className="h-3.5 w-3.5 flex-shrink-0 text-info" />
+        {activeProject ? (
+          <>
+            <span
+              className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[activeProject.status]}`}
+            />
+            <span className="min-w-0 truncate">{activeProject.name}</span>
+          </>
+        ) : (
+          <span className="text-text-muted">All</span>
+        )}
+      </span>
       <ChevronDown
-        className={`h-3 w-3 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`}
+        className={`h-3 w-3 flex-shrink-0 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`}
       />
     </button>
   );
@@ -135,11 +143,15 @@ export function ProjectSelector({
       onSelect={handleSelect}
       emptyText="No projects yet. Create one below."
       bodyExtras={
-        activeProject ? (
-          <ProjectSelectedSummary
-            project={activeProject}
-            onRequestEdit={onRequestEditProject}
-          />
+        summaryMode === 'compact' && activeProject ? (
+          <div className="mt-2">
+            <ProjectSelectedSummary
+              project={activeProject}
+              onRequestEdit={onRequestEditProject}
+              onError={onProjectError}
+              showWorkspaceFiles={false}
+            />
+          </div>
         ) : null
       }
       footerAction={

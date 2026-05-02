@@ -3,6 +3,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -28,6 +29,22 @@ function mapsEqual(a: Map<TourSlot, HTMLElement>, b: Map<TourSlot, HTMLElement>)
   return true;
 }
 
+function isVisibleTourTarget(element: HTMLElement): boolean {
+  if (!element.isConnected) return false;
+  if (element.closest('[aria-hidden="true"], [hidden], [inert]')) return false;
+  if (element.getClientRects().length === 0) return false;
+  if (typeof window === 'undefined') return true;
+
+  let current: HTMLElement | null = element;
+  while (current) {
+    const style = window.getComputedStyle(current);
+    if (style.display === 'none') return false;
+    if (style.visibility === 'hidden' || style.visibility === 'collapse') return false;
+    current = current.parentElement;
+  }
+  return true;
+}
+
 export function OnboardingTourProvider({ children }: { children: ReactNode }) {
   const [targets, setTargets] = useState(() => new Map<TourSlot, HTMLElement>());
   const registryRef = useRef(new Map<TourSlot, Set<HTMLElement>>());
@@ -43,8 +60,8 @@ export function OnboardingTourProvider({ children }: { children: ReactNode }) {
         continue;
       }
       registryRef.current.set(slot, new Set(connected));
-      const first = connected[0];
-      if (first) next.set(slot, first);
+      const firstVisible = connected.find(isVisibleTourTarget);
+      if (firstVisible) next.set(slot, firstVisible);
     }
     setTargets((prev) => (mapsEqual(prev, next) ? prev : next));
   }, []);
@@ -85,12 +102,34 @@ export function useTourTarget(slot: TourSlot): (el: HTMLElement | null) => void 
   const ctx = useContext(TourContext);
   const register = ctx?.register;
   const lastElementRef = useRef<HTMLElement | null>(null);
+  const [observedElement, setObservedElement] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!observedElement || !register || typeof ResizeObserver === 'undefined') return;
+    const refresh = () => register(slot, observedElement, observedElement);
+    const resizeObserver = new ResizeObserver(refresh);
+    resizeObserver.observe(observedElement);
+
+    const mutationObserver =
+      typeof MutationObserver === 'undefined' ? null : new MutationObserver(refresh);
+    mutationObserver?.observe(observedElement, {
+      attributes: true,
+      attributeFilter: ['aria-hidden', 'hidden', 'inert'],
+    });
+
+    refresh();
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver?.disconnect();
+    };
+  }, [observedElement, register, slot]);
 
   return useCallback(
     (el: HTMLElement | null) => {
       const previousElement = lastElementRef.current;
       if (previousElement === el) return;
       lastElementRef.current = el;
+      setObservedElement(el);
       register?.(slot, el, previousElement);
     },
     [register, slot],
@@ -99,5 +138,6 @@ export function useTourTarget(slot: TourSlot): (el: HTMLElement | null) => void 
 
 export function useTourTargetElement(slot: TourSlot): HTMLElement | null {
   const ctx = useContext(TourContext);
-  return ctx?.targets.get(slot) ?? null;
+  const target = ctx?.targets.get(slot) ?? null;
+  return target && isVisibleTourTarget(target) ? target : null;
 }

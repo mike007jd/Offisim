@@ -106,7 +106,6 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
   ) => {
     const generatedId = useId();
     const id = stackId ?? generatedId;
-    const titleId = `${generatedId}-title`;
     useRegisterModal(open ? id : null, 'dialog');
 
     const requestClose = useCallback(() => {
@@ -136,7 +135,6 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
           {/* Radix Dialog.Content sets role="dialog" and aria-modal="true". */}
           <DialogPrimitive.Content
             ref={ref}
-            aria-labelledby={title || description ? titleId : undefined}
             onEscapeKeyDown={(event) => {
               if (!closeOnEscape) {
                 event.preventDefault();
@@ -161,20 +159,17 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
             )}
           >
             <div className={cn('flex flex-col', DIALOG_SIZING_CLASS)}>
+              {!title && (
+                <DialogPrimitive.Title className="sr-only">
+                  {visuallyHiddenLabel ?? 'Dialog'}
+                </DialogPrimitive.Title>
+              )}
               {(title || description || showCloseButton) && (
                 <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 pb-3 pt-5">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     {title && (
-                      <DialogPrimitive.Title
-                        id={titleId}
-                        className="text-base font-semibold leading-tight text-text-primary"
-                      >
+                      <DialogPrimitive.Title className="text-base font-semibold leading-tight text-text-primary">
                         {title}
-                      </DialogPrimitive.Title>
-                    )}
-                    {!title && description && (
-                      <DialogPrimitive.Title id={titleId} className="sr-only">
-                        {visuallyHiddenLabel ?? 'Dialog'}
                       </DialogPrimitive.Title>
                     )}
                     {description && (

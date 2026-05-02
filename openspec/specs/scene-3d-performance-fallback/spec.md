@@ -1,7 +1,8 @@
 # scene-3d-performance-fallback Specification
 
 ## Purpose
-TBD - created by archiving change upgrade-3d-scene-lighting-and-materials. Update Purpose after archive.
+
+Defines the Office 3D performance fallback contract: frame sampling, hysteresis-based lighting-tier changes, development overrides, and the 2D fallback request path when WebGL repeatedly fails or cannot sustain the required frame rate.
 ## Requirements
 ### Requirement: useScenePerformanceTier SHALL sample FPS in a 60-frame window
 
@@ -237,4 +238,3 @@ import); the chunk SHALL NOT appear in the main entry bundle.
 - **WHEN** the session starts at `tier='low'` and never enters
   high or medium
 - **THEN** no post-processing chunk is requested by the network
-

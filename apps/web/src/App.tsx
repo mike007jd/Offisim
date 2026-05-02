@@ -194,7 +194,7 @@ export function App({ onCompanySwitch }: AppProps) {
     ) => updateProject(projectId, patch),
     [updateProject],
   );
-  const handleProjectStripError = useCallback(
+  const handleProjectWorkspaceError = useCallback(
     (message: string) => addToast(message, 'error'),
     [addToast],
   );
@@ -357,14 +357,14 @@ export function App({ onCompanySwitch }: AppProps) {
       onToggleKanban: officeBindings.handleToggleKanban,
       onUserMessage: officeBindings.handleUserMessage,
       onRequestEditProject: handleRequestEditProject,
-      onProjectStripError: handleProjectStripError,
+      onProjectError: handleProjectWorkspaceError,
       selectedEmployeeId: officeState.selectedEmployeeId,
       selectedEmployeeName,
     }),
     [
       activeProject,
       handleOpenSettings,
-      handleProjectStripError,
+      handleProjectWorkspaceError,
       handleRequestEditProject,
       lifecycle.handleOpenStudio,
       officeBindings.chatOpenToken,

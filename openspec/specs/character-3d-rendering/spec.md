@@ -1,7 +1,8 @@
 # character-3d-rendering Specification
 
 ## Purpose
-TBD - created by archiving change upgrade-3d-character-rendering-1.0. Update Purpose after archive.
+
+Defines the Office 3D employee rendering contract: internal employees use the `<BlockCharacter>` geometry SSOT, external brand employees share the limb rig while supplying brand-owned body geometry, and the rendered identity stays consistent with the 2D avatar appearance model.
 ## Requirements
 ### Requirement: `<BlockCharacter>` SSOT owns internal-employee 3D geometry
 
@@ -36,13 +37,13 @@ The `<BlockCharacter variant='default'>` rendering SHALL include 2 eye spheres a
 
 | Element | Position (world) | Geometry | Material |
 |---------|------------------|----------|----------|
-| Left eye | `(-0.07, 1.30, 0.16)` | `sphereGeometry args={[0.025, 8, 6]}` | `meshStandardMaterial` color `#222222`, emissive state-driven |
+| Left eye | `(-0.07, 1.30, 0.16)` | `sphereGeometry args={[0.025, 8, 6]}` | `SceneMaterial` color `#222222`, emissive state-driven |
 | Right eye | `(0.07, 1.30, 0.16)` | `sphereGeometry args={[0.025, 8, 6]}` | same as left |
-| Mouth | `(0, 1.21, 0.155)` | `boxGeometry args={[0.06, 0.012, 0.005]}` | `meshStandardMaterial` color `#7a3a3a`, no emissive |
+| Mouth | `(0, 1.21, 0.155)` | `boxGeometry args={[0.06, 0.012, 0.005]}` | `SceneMaterial` color `#7a3a3a`, no emissive |
 
 Eye and mouth SHALL NOT render for `variant='shared-rig-only'`.
 
-The eye `meshStandardMaterial.emissive` and `emissiveIntensity` SHALL be derived from `STATE_TO_EYE_EMISSIVE[params.state]` when `params.isBlocked === false`, else from `STATE_TO_EYE_EMISSIVE['blocked']`.
+The eye `SceneMaterial` emissive overrides SHALL be derived from `STATE_TO_EYE_EMISSIVE[params.state]` when `params.isBlocked === false`, else from `STATE_TO_EYE_EMISSIVE['blocked']`.
 
 #### Scenario: Default internal employee renders eyes and mouth
 - **WHEN** rendering an internal employee via `<BlockCharacter variant='default' params={...}>`
@@ -154,7 +155,7 @@ The final upper torso width SHALL equal `0.36 × bodyTypeFactor.torso × genderF
 
 ### Requirement: hairStyle renders 8 distinct geometries
 
-For `variant='default'`, the `<BlockCharacter>` SHALL render hair geometry per `params.hairStyle` per the following table. All hair meshes SHALL share one `meshStandardMaterial` with color = `params.hairColor`.
+For `variant='default'`, the `<BlockCharacter>` SHALL render hair geometry per `params.hairStyle` per the following table. All hair meshes SHALL use `SceneMaterial` with color = `params.hairColor`.
 
 | `hairStyle` | Composition |
 |-------------|-------------|
@@ -189,13 +190,13 @@ Hair geometries SHALL NOT vary per employee within the same hairStyle — the ge
 
 #### Scenario: Hair color is byte-equal to params.hairColor
 - **WHEN** rendering any hairStyle other than `bald` with `params.hairColor === '#3d6bce'`
-- **THEN** every hair sub-mesh's `meshStandardMaterial.color` equals `new Color('#3d6bce')`
+- **THEN** every hair sub-mesh's `SceneMaterial.color` equals `new Color('#3d6bce')`
 
 ### Requirement: clothingAccent renders as vest overlay (1.0 ships `vest` only)
 
 For `variant='default'`, the `<BlockCharacter>` SHALL render a vest accent overlay when `params.accentColor !== params.outfitColor`. Geometry:
 
-`boxGeometry args={[0.32 × bodyTypeFactor.torso × genderFactor.shoulder, 0.40, 0.005]}` at position `(0, 0.78, 0.105)` with `meshStandardMaterial` color `params.accentColor` and `roughness: 0.7`.
+`boxGeometry args={[0.32 × bodyTypeFactor.torso × genderFactor.shoulder, 0.40, 0.005]}` at position `(0, 0.78, 0.105)` with `SceneMaterial` color `params.accentColor`.
 
 When `params.accentColor === params.outfitColor`, the vest mesh SHALL NOT render.
 
@@ -221,9 +222,9 @@ When `params.accentColor === params.outfitColor`, the vest mesh SHALL NOT render
 
 The rendered identity for the same `(seed, appearance)` SHALL be recognizable as the same employee across the 2D DiceBear avatar (`createOffisimAvatar`) and the 3D `<BlockCharacter variant='default'>` figure. The following four axes SHALL be byte-equal:
 
-1. **skinColor**: `resolveSkinTone(seed, appearance)` SHALL produce the same `#RRGGBB` consumed by both the 2D `avataaars` `skinColor` config and the 3D head/arm `meshStandardMaterial.color`.
-2. **hairColor**: `resolveHairColor(seed, appearance)` SHALL produce the same `#RRGGBB` consumed by both the 2D `avataaars` `hairColor` config and the 3D hair-style `meshStandardMaterial.color`.
-3. **clothingColor**: `resolveOutfitColor(seed, appearance)` SHALL produce the same `#RRGGBB` consumed by both the 2D `avataaars` `clothesColor` config and the 3D upper+lower torso `meshStandardMaterial.color`.
+1. **skinColor**: `resolveSkinTone(seed, appearance)` SHALL produce the same `#RRGGBB` consumed by both the 2D `avataaars` `skinColor` config and the 3D head/arm `SceneMaterial.color`.
+2. **hairColor**: `resolveHairColor(seed, appearance)` SHALL produce the same `#RRGGBB` consumed by both the 2D `avataaars` `hairColor` config and the 3D hair-style `SceneMaterial.color`.
+3. **clothingColor**: `resolveOutfitColor(seed, appearance)` SHALL produce the same `#RRGGBB` consumed by both the 2D `avataaars` `clothesColor` config and the 3D upper+lower torso `SceneMaterial.color`.
 4. **eye-axis symmetry**: 2D DiceBear renders eyes symmetric about the head's vertical centerline. The 3D figure SHALL place its 2 eyes symmetric about `x = 0` (i.e. at `±0.07`).
 
 Hair *style* MAY differ between 2D (DiceBear `top` token) and 3D (block-figure geometry) since they are structurally different rendering primitives. The mapping is via `HAIR_STYLE_TO_AVATAARS_TOP` (existing, not modified by this change).
@@ -231,17 +232,17 @@ Hair *style* MAY differ between 2D (DiceBear `top` token) and 3D (block-figure g
 #### Scenario: Skin color byte-equal across 2D and 3D
 - **WHEN** an employee has `appearance.skinColor === 0xfdbcb4`
 - **THEN** the 2D DiceBear avatar `skinColor` config receives `'fdbcb4'`
-- **AND** the 3D head box `meshStandardMaterial.color` is `new Color('#fdbcb4')`
+- **AND** the 3D head box `SceneMaterial.color` is `new Color('#fdbcb4')`
 
 #### Scenario: Hair color byte-equal across 2D and 3D
 - **WHEN** an employee has `appearance.hairColor === 0x6b3f1e`
 - **THEN** the 2D DiceBear avatar `hairColor` config receives `'6b3f1e'`
-- **AND** the 3D hair-style sub-meshes' `meshStandardMaterial.color` is `new Color('#6b3f1e')`
+- **AND** the 3D hair-style sub-meshes' `SceneMaterial.color` is `new Color('#6b3f1e')`
 
 #### Scenario: Outfit color byte-equal across 2D and 3D
 - **WHEN** an employee has `appearance.clothingColor === 0x22c55e`
 - **THEN** the 2D DiceBear avatar `clothesColor` config receives `'22c55e'`
-- **AND** the 3D upper torso AND lower torso `meshStandardMaterial.color` are both `new Color('#22c55e')`
+- **AND** the 3D upper torso AND lower torso `SceneMaterial.color` are both `new Color('#22c55e')`
 
 #### Scenario: Eye axis symmetric in 3D
 - **WHEN** auditing the eye sphere positions in `<BlockCharacter variant='default'>`
@@ -322,4 +323,3 @@ External employees SHALL render with their hand-authored brand silhouette per ex
 - **WHEN** an external employee has `appearance.clothingAccent === 0xff00ff` (vivid magenta) saved
 - **THEN** the rendered scene graph contains no vest mesh
 - **AND** the brand body's existing torso/emblem colors are unchanged
-

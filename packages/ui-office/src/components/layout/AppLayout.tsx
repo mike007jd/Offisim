@@ -203,15 +203,15 @@ export function AppLayout({
         style={{ marginInline: 'var(--sp-lg)', marginTop: 'var(--sp-lg)' }}
       >
         {header}
+        {taskTray ? (
+          <div
+            className="absolute left-0 right-0 top-full z-40 pointer-events-auto"
+            style={{ marginTop: 'var(--sp-sm)' }}
+          >
+            {taskTray}
+          </div>
+        ) : null}
       </div>
-      {taskTray ? (
-        <div
-          className="relative z-40 pointer-events-auto"
-          style={{ marginInline: 'var(--sp-lg)', marginTop: 'var(--sp-sm)' }}
-        >
-          {taskTray}
-        </div>
-      ) : null}
 
       <div
         className="flex flex-1 overflow-hidden relative z-10 pointer-events-none"
@@ -229,7 +229,7 @@ export function AppLayout({
             <div
               className={`h-full border border-border-default bg-surface-elevated/78 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${leftOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
             >
-{leftOpen ? (
+              {leftOpen ? (
                 <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
                   {agentPanel}
                 </div>
@@ -269,7 +269,7 @@ export function AppLayout({
             <div
               className={`h-full border border-border-default bg-surface-elevated/78 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${rightOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
             >
-<div
+              <div
                 aria-hidden={!rightOpen}
                 className={`custom-scrollbar relative z-10 transition-opacity duration-200 ${
                   rightOpen
@@ -306,10 +306,10 @@ export function AppLayout({
           style={{
             left: isNarrow
               ? '16px'
-              : `calc(var(--app-left-rail-width) + var(--sp-lg) + var(--sp-md))`,
+              : 'calc(var(--app-left-rail-width) + var(--sp-lg) + var(--sp-md))',
             right: isNarrow
               ? '16px'
-              : `calc(var(--app-right-rail-width) + var(--sp-lg) + var(--sp-md))`,
+              : 'calc(var(--app-right-rail-width) + var(--sp-lg) + var(--sp-md))',
           }}
         >
           {chatDrawer}

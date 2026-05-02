@@ -20,13 +20,13 @@ import { SeatRegistry } from '../../lib/seat-registry.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
-import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useTheme } from '../../theme/theme-provider.js';
+import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
 import { DevLightingPanel } from './DevLightingPanel.js';
 import { SceneFrameLoopController } from './SceneFrameLoopController.js';
 import { type PlacedEmployee, usePlacedEmployees } from './office3d-employees.js';
-import { DragController, DragGhost3D, RoomShell } from './office3d-scene-primitives.js';
+import { DragController, DragGhost3D } from './office3d-scene-primitives.js';
 import {
   Office3DEmployeeLayer,
   Office3DFlowLayer,
@@ -42,6 +42,7 @@ import {
   type Zone3D,
   toZone3DLayout,
 } from './office3d-shared.js';
+import { OFFICE_CAMERA_PRESET } from './scene-art-direction.js';
 import { SceneLightingRig } from './scene-lighting-rig.js';
 import {
   type SceneLightingTier,
@@ -50,6 +51,7 @@ import {
 } from './scene-performance-tier.js';
 import { ScenePostprocessing } from './scene-postprocessing.js';
 import { shouldAnimateOfficeScene } from './scene-render-policy.js';
+import { RoomShell } from './scene-room-shell.js';
 import { useOffice3DViewState } from './useOffice3DViewState.js';
 import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
 import { useScenePerformanceTier } from './useScenePerformanceTier.js';
@@ -526,7 +528,7 @@ function Office3DViewInner({
         dpr={rendererConfig.dpr}
         frameloop={shouldAnimate ? 'always' : 'demand'}
         shadows={shadowsEnabled ? { type: THREE.PCFShadowMap } : false}
-        camera={{ position: [0, 22, 28], fov: 45 }}
+        camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
       >
         <ScenePerformanceController
           onTierChange={setLightingTier}
@@ -585,9 +587,9 @@ function Office3DViewInner({
           makeDefault
           minPolarAngle={0}
           maxPolarAngle={Math.PI / 2 - 0.1}
-          minDistance={5}
-          maxDistance={45}
-          target={[0, 0, 2]}
+          minDistance={OFFICE_CAMERA_PRESET.minDistance}
+          maxDistance={OFFICE_CAMERA_PRESET.maxDistance}
+          target={OFFICE_CAMERA_PRESET.target}
         />
         <ScenePostprocessing tier={lightingTier} enabled={postProcessingEnabled} />
       </Canvas>

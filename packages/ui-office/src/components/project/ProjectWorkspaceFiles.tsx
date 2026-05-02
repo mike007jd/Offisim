@@ -151,7 +151,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
 
   if (!workspaceRoot) {
     return (
-      <div className="border-t border-border-subtle pt-2 text-[11px] text-text-muted">
+      <div className="border-t border-border-subtle pt-2 text-[11px] text-text-secondary">
         <div className="flex items-center gap-1.5">
           <Folder className="h-3 w-3" />
           <span>No workspace folder</span>
@@ -162,7 +162,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
 
   if (!desktopMode) {
     return (
-      <div className="border-t border-border-subtle pt-2 text-[11px] text-text-muted">
+      <div className="border-t border-border-subtle pt-2 text-[11px] text-text-secondary">
         <div className="flex items-center gap-1.5">
           <Folder className="h-3 w-3" />
           <span>Desktop files only</span>
@@ -211,7 +211,9 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
             type="button"
             key={entry.path || entry.name}
             className={`flex w-full min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-surface-hover ${
-              selectedFilePath === entry.path ? 'bg-accent-muted text-accent-text' : 'text-text-secondary'
+              selectedFilePath === entry.path
+                ? 'bg-accent-muted text-accent-text'
+                : 'text-text-secondary'
             }`}
             onClick={() => {
               if (entry.isDirectory) {

@@ -15,9 +15,15 @@ interface FileImportTriggerProps {
   onFileSelect: (file: File) => void;
   /** Show an inline drag-and-drop zone */
   showDropZone?: boolean;
+  /** Render an icon-only trigger for constrained chrome such as the app header. */
+  compact?: boolean;
 }
 
-export function FileImportTrigger({ onFileSelect, showDropZone = false }: FileImportTriggerProps) {
+export function FileImportTrigger({
+  onFileSelect,
+  showDropZone = false,
+  compact = false,
+}: FileImportTriggerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -93,12 +99,12 @@ export function FileImportTrigger({ onFileSelect, showDropZone = false }: FileIm
         variant="outline"
         size="sm"
         onClick={openFilePicker}
-        className="h-8"
+        className={compact ? 'h-8 w-8 px-0' : 'h-8'}
         title="Install package from file"
         aria-label="Install package from file"
       >
         <Package className="h-4 w-4" />
-        Install Package
+        {!compact && 'Install Package'}
       </Button>
 
       {/* Optional drop zone */}

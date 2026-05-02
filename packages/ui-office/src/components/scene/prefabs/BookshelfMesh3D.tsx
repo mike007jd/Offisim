@@ -78,6 +78,22 @@ export function BookshelfMesh3D({
           >
             <SceneMaterial materialClass="wood" color={sc.tableReading} />
           </RoundedBox>
+          <mesh position={[0, 0.755, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[1.9, 0.78]} />
+            <SceneMaterial
+              materialClass="fabric"
+              color={sc.workMat}
+              overrides={{ transparent: true, opacity: 0.58 }}
+            />
+          </mesh>
+          <mesh position={[0, 0.84, 0]}>
+            <cylinderGeometry args={[0.16, 0.16, 0.045, 18]} />
+            <SceneMaterial materialClass="metal" color={sc.metal} />
+          </mesh>
+          <mesh position={[0, 0.89, 0]}>
+            <cylinderGeometry args={[0.1, 0.14, 0.08, 18]} />
+            <meshBasicMaterial color={sc.ledAmber} transparent opacity={0.7} />
+          </mesh>
           {(
             [
               [-1, -0.5],

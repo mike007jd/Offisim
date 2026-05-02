@@ -48,8 +48,6 @@ export const MATERIAL_PRESETS: Record<MaterialClass, MaterialPreset> = {
     component: 'standard',
     roughness: 0.34,
     metalness: 0,
-    clearcoat: 0.45,
-    clearcoatRoughness: 0.4,
     envMapIntensity: 0.45,
   },
   fabric: { component: 'standard', roughness: 0.82, metalness: 0, envMapIntensity: 0.18 },
@@ -63,6 +61,40 @@ type MaterialOverrides = Partial<
   normalScale?: number;
 };
 
+const STANDARD_OVERRIDE_KEYS = [
+  'alphaTest',
+  'blending',
+  'colorWrite',
+  'depthTest',
+  'depthWrite',
+  'emissive',
+  'emissiveIntensity',
+  'flatShading',
+  'fog',
+  'name',
+  'polygonOffset',
+  'polygonOffsetFactor',
+  'polygonOffsetUnits',
+  'side',
+  'toneMapped',
+  'transparent',
+  'vertexColors',
+  'visible',
+  'wireframe',
+] as const;
+
+function pickStandardOverrides(
+  overrides: Omit<MaterialOverrides, 'useProceduralNormal' | 'normalScale'>,
+) {
+  const picked: Partial<ThreeElements['meshStandardMaterial']> = {};
+  for (const key of STANDARD_OVERRIDE_KEYS) {
+    if (key in overrides) {
+      (picked as Record<string, unknown>)[key] = overrides[key as keyof typeof overrides];
+    }
+  }
+  return picked;
+}
+
 export function useMaterial(
   materialClass: MaterialClass,
   color: string,
@@ -70,13 +102,29 @@ export function useMaterial(
 ) {
   const sc = useSceneColors();
   const preset = MATERIAL_PRESETS[materialClass];
+  const {
+    useProceduralNormal,
+    normalScale: overrideNormalScale,
+    roughness,
+    metalness,
+    envMapIntensity,
+    clearcoat,
+    clearcoatRoughness,
+    transmission,
+    ior,
+    opacity,
+    attenuationColor,
+    attenuationDistance,
+    transparent,
+    ...materialOverrides
+  } = overrides;
   const normalKind =
-    overrides.useProceduralNormal === false
+    useProceduralNormal === false
       ? undefined
-      : preset.useProceduralNormal === 'wood' || overrides.useProceduralNormal === true
+      : preset.useProceduralNormal === 'wood' || useProceduralNormal === true
         ? 'wood'
         : preset.useProceduralNormal;
-  const normalScale = overrides.normalScale ?? preset.normalScale;
+  const normalScale = overrideNormalScale ?? preset.normalScale;
   const normalMap = useMemo(() => {
     if (normalKind === 'wood') return getWoodGrainNormalTexture();
     if (normalKind === 'dust') return getDustNormalTexture();
@@ -88,27 +136,31 @@ export function useMaterial(
   );
 
   const common = {
+    ...pickStandardOverrides(materialOverrides),
     color,
-    roughness: overrides.roughness ?? preset.roughness,
-    metalness: overrides.metalness ?? preset.metalness,
-    envMapIntensity: overrides.envMapIntensity ?? preset.envMapIntensity,
+    roughness: roughness ?? preset.roughness,
+    metalness: metalness ?? preset.metalness,
+    envMapIntensity: envMapIntensity ?? preset.envMapIntensity,
     normalMap,
     normalScale: normalScaleVector,
-    clearcoat: overrides.clearcoat ?? preset.clearcoat,
-    clearcoatRoughness: overrides.clearcoatRoughness ?? preset.clearcoatRoughness,
-    ...overrides,
+    opacity,
+    transparent,
   };
 
   if (preset.component === 'physical') {
+    const defaultTransparent =
+      preset.transmission !== undefined || preset.opacity !== undefined ? true : undefined;
     return (
       <meshPhysicalMaterial
         {...common}
-        transmission={overrides.transmission ?? preset.transmission}
-        ior={overrides.ior ?? preset.ior}
-        opacity={overrides.opacity ?? preset.opacity}
-        attenuationColor={overrides.attenuationColor ?? sc.partition}
-        attenuationDistance={overrides.attenuationDistance ?? 2}
-        transparent={overrides.transparent ?? true}
+        clearcoat={clearcoat ?? preset.clearcoat}
+        clearcoatRoughness={clearcoatRoughness ?? preset.clearcoatRoughness}
+        transmission={transmission ?? preset.transmission}
+        ior={ior ?? preset.ior}
+        opacity={opacity ?? preset.opacity}
+        attenuationColor={attenuationColor ?? sc.partition}
+        attenuationDistance={attenuationDistance ?? 2}
+        transparent={transparent ?? defaultTransparent}
       />
     );
   }

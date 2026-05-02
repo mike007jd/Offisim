@@ -1,4 +1,6 @@
+import { useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
 import { ChevronDown, ChevronUp, Trello } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { CreateKanbanInput, KanbanCardData, KanbanState } from './KanbanBoard';
 import { KanbanBoard } from './KanbanBoard';
@@ -21,15 +23,35 @@ export function KanbanTray({
   onToggle,
 }: KanbanTrayProps) {
   const agents = useAgentStates();
+  const trayRef = useRef<HTMLElement | null>(null);
   const cardCount = cards?.length ?? 0;
   const hasContext = cardCount > 0 || Boolean(requestText);
+  const stackId = expanded ? 'office:project-board' : null;
+
+  useRegisterModal(stackId, 'overlay');
+  useTopmostEscape(stackId, onToggle, { enabled: expanded });
+
+  useEffect(() => {
+    if (!expanded) return;
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (trayRef.current?.contains(target)) return;
+      onToggle();
+    }
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [expanded, onToggle]);
 
   if (!expanded && !hasContext) return null;
 
   return (
     <section
+      ref={trayRef}
       aria-label="Project board tray"
-      className="overflow-hidden rounded-xl border border-border-default bg-surface-elevated/92 shadow-overlay backdrop-blur-md"
+      className="overflow-hidden rounded-xl border border-border-default bg-surface-elevated/95 shadow-overlay backdrop-blur-md"
       data-expanded={expanded ? 'true' : 'false'}
     >
       <button
@@ -54,7 +76,7 @@ export function KanbanTray({
       </button>
 
       {expanded ? (
-        <div className="h-[320px] min-h-0 border-t border-border-subtle bg-surface">
+        <div className="h-[min(360px,48vh)] min-h-0 border-t border-border-subtle bg-surface">
           <KanbanBoard
             agents={agents}
             requestText={requestText}

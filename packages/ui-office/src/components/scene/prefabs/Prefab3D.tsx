@@ -14,9 +14,9 @@ import { DecorativeMesh3D } from './DecorativeMesh3D.js';
 import { InfrastructureMesh3D } from './InfrastructureMesh3D.js';
 import { MeetingTableMesh3D } from './MeetingTableMesh3D.js';
 import { RestAreaMesh3D } from './RestAreaMesh3D.js';
-import { ServerRackMesh3D } from './ServerRackMesh3D.js';
+import { ServerRackMesh3D, ServerRackUnit3D } from './ServerRackMesh3D.js';
 import { WhiteboardMesh3D } from './WhiteboardMesh3D.js';
-import { WorkstationMesh3D } from './WorkstationMesh3D.js';
+import { WorkstationMesh3D, WorkstationUnit3D } from './WorkstationMesh3D.js';
 
 export interface Prefab3DProps {
   definition: PrefabDefinition;
@@ -35,13 +35,56 @@ export interface Prefab3DProps {
  */
 export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state }: Prefab3DProps) {
   const sc = useSceneColors();
-  const template = definition.render2D?.template ?? definition.prefabId;
+  const prefabId = definition.prefabId;
+  const template = definition.render2D?.template ?? prefabId;
 
   switch (definition.category) {
     case 'workspace':
+      if (prefabId === 'workstation-compact') {
+        return (
+          <WorkstationUnit3D
+            position={position}
+            rotation={rotation}
+            variant="compact"
+            state={state}
+          />
+        );
+      }
+      if (prefabId === 'workstation-dual') {
+        return (
+          <WorkstationUnit3D position={position} rotation={rotation} variant="dual" state={state} />
+        );
+      }
+      if (prefabId === 'workstation-standard') {
+        return <WorkstationUnit3D position={position} rotation={rotation} state={state} />;
+      }
       return <WorkstationMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'compute':
+      if (prefabId === 'server-rack-4u') {
+        return (
+          <ServerRackUnit3D
+            position={position}
+            rotation={rotation}
+            heightScale={1.24}
+            state={state}
+          />
+        );
+      }
+      if (prefabId === 'server-rack-2u') {
+        return <ServerRackUnit3D position={position} rotation={rotation} state={state} />;
+      }
+      if (prefabId === 'gpu-cluster') {
+        return (
+          <group position={position} rotation={[0, (rotation * Math.PI) / 180, 0]}>
+            <group scale={[0.94, 1, 0.94]}>
+              <ServerRackUnit3D position={[-0.95, 0, 0]} state={state} />
+              <ServerRackUnit3D position={[0, 0, 0]} heightScale={1.12} state={state} />
+              <ServerRackUnit3D position={[0.95, 0, 0]} state={state} />
+            </group>
+          </group>
+        );
+      }
       return <ServerRackMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'knowledge':
@@ -51,6 +94,11 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
       return <BookshelfMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'collaboration':
+      if (prefabId === 'meeting-table-4') {
+        return (
+          <MeetingTableMesh3D position={position} rotation={rotation} capacity={4} state={state} />
+        );
+      }
       return <MeetingTableMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'infrastructure':
@@ -58,7 +106,7 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
 
     case 'decorative':
       // Rest area is a composite decorative prefab with its own mesh
-      if (template === 'sofa-set') {
+      if (prefabId === 'sofa-set') {
         return <RestAreaMesh3D position={position} rotation={rotation} state={state} />;
       }
       return (
@@ -66,7 +114,7 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
           position={position}
           rotation={rotation}
           state={state}
-          template={template}
+          template={prefabId === 'plant-small' || prefabId === 'plant-large' ? prefabId : template}
         />
       );
 

@@ -12,6 +12,7 @@ export interface PlantMesh3DProps {
   position?: [number, number, number];
   rotation?: number;
   state?: string;
+  scale?: number;
 }
 
 /** Standalone plant mesh — pot + foliage. */
@@ -19,12 +20,13 @@ export function PlantMesh3D({
   position = [0, 0, 0],
   rotation = 0,
   state: _state,
+  scale = 1,
 }: PlantMesh3DProps) {
   const sc = useSceneColors();
   const rotY = (rotation * Math.PI) / 180;
 
   return (
-    <group position={position} rotation={[0, rotY, 0]}>
+    <group position={position} rotation={[0, rotY, 0]} scale={[scale, scale, scale]}>
       <mesh position={[0, 0.25, 0]} castShadow>
         <cylinderGeometry args={[0.2, 0.15, 0.5, 16]} />
         <SceneMaterial materialClass="plastic" color={sc.desk} overrides={{ roughness: 0.85 }} />
@@ -42,6 +44,14 @@ export function PlantMesh3D({
         <SceneMaterial
           materialClass="plastic"
           color={sc.leafSecondary}
+          overrides={{ roughness: 0.65 }}
+        />
+      </mesh>
+      <mesh position={[0.16, 0.48, -0.1]} castShadow>
+        <icosahedronGeometry args={[0.18, 1]} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={sc.leafTertiary}
           overrides={{ roughness: 0.65 }}
         />
       </mesh>
@@ -70,11 +80,12 @@ export function DecorativeMesh3D({
 }: DecorativeMesh3DProps) {
   switch (template) {
     case 'plant':
-    case 'plant-small':
-    case 'plant-large':
       return <PlantMesh3D position={position} rotation={rotation} state={state} />;
+    case 'plant-small':
+      return <PlantMesh3D position={position} rotation={rotation} state={state} scale={0.72} />;
+    case 'plant-large':
+      return <PlantMesh3D position={position} rotation={rotation} state={state} scale={1.35} />;
     default:
-      // Unknown decorative template — render as a plant fallback
       return <PlantMesh3D position={position} rotation={rotation} state={state} />;
   }
 }

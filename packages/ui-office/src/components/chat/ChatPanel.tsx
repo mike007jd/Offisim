@@ -18,7 +18,6 @@ import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContentForConversation } from '../../runtime/use-streaming-content';
 import { ErrorBanner } from '../error/ErrorBanner';
-import { ProjectContextStrip } from '../project/ProjectContextStrip';
 import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
 import { InteractionPrompt } from './InteractionPrompt';
@@ -57,10 +56,6 @@ interface ChatPanelProps {
   onOpenStudio?: () => void;
   /** Active project — when set, all messages use the project's threadId. */
   activeProject?: ProjectRow | null;
-  /** Open ProjectCreateDialog in edit mode for the active project. */
-  onRequestEditProject?: (project: ProjectRow) => void;
-  /** Toast surface for project context strip errors (e.g. "Folder not found"). */
-  onProjectStripError?: (message: string) => void;
   /** Called when the user sends a message (provides the raw text for Kanban board etc.) */
   onUserMessage?: (text: string) => void;
   /** Template-aware starter prompts for the chat empty state. */
@@ -133,8 +128,6 @@ export function ChatPanel({
   onOpenEditor,
   onOpenStudio,
   activeProject,
-  onRequestEditProject,
-  onProjectStripError,
   onUserMessage,
   onboardingStarterPrompts,
   compact = false,
@@ -490,15 +483,6 @@ export function ChatPanel({
             Settings
           </button>
         </div>
-      )}
-
-      {/* Project context strip — visible across team + direct chat sub-tabs. */}
-      {activeProject && onRequestEditProject && (
-        <ProjectContextStrip
-          activeProject={activeProject}
-          onRequestEdit={onRequestEditProject}
-          onError={onProjectStripError}
-        />
       )}
 
       {/* Direct chat header — single compact line */}

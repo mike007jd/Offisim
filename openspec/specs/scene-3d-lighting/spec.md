@@ -1,7 +1,8 @@
 # scene-3d-lighting Specification
 
 ## Purpose
-TBD - created by archiving change upgrade-3d-scene-lighting-and-materials. Update Purpose after archive.
+
+Defines the Office 3D lighting contract: `SceneLightingRig` is the only light tree, performance tiers own shadow/post-processing cost, and Office plus preview canvases use stable PCF shadows for the production 3D surface.
 ## Requirements
 ### Requirement: SceneLightingRig SHALL be the SSOT for 3D office lighting
 
@@ -152,11 +153,11 @@ production would render it.
   the literal `'DevLightingPanel'`
 - **THEN** zero JS chunks contain the symbol
 
-### Requirement: Shadow map type is PCFSoftShadowMap and bias is computed
+### Requirement: Shadow map type is PCFShadowMap and bias is computed
 
-The Canvas SHALL set `gl.shadowMap.type = THREE.PCFSoftShadowMap`
+The Canvas SHALL set `gl.shadowMap.type = THREE.PCFShadowMap`
 via `<Canvas onCreated={({ gl }) => { gl.shadowMap.type =
-THREE.PCFSoftShadowMap; }}>`. The shadow bias for the key
+THREE.PCFShadowMap; }}>`. The shadow bias for the key
 directional light SHALL be computed via the helper
 `computeShadowBias({ lightDistance, sceneScale })` exported from
 `packages/ui-office/src/lib/shadow-bias.ts`, which SHALL implement
@@ -166,11 +167,11 @@ The hardcoded `shadow-bias={-0.0005}` form SHALL NOT appear in
 `Office3DView.tsx` or `scene-lighting-rig.tsx`. Other lights that
 do not cast shadows MAY omit `shadow-bias` entirely.
 
-#### Scenario: PCFSoftShadowMap is set on Canvas creation
+#### Scenario: PCFShadowMap is set on Canvas creation
 
 - **WHEN** `<Canvas onCreated={...} />` invokes the `onCreated`
   handler
-- **THEN** `gl.shadowMap.type === THREE.PCFSoftShadowMap`
+- **THEN** `gl.shadowMap.type === THREE.PCFShadowMap`
 - **AND** `gl.shadowMap.enabled === true` when any tier is high /
   medium / low
 
@@ -280,4 +281,3 @@ analysis (camera at `[0, 22, 28]`, target `[0, 0, 2]`, room depth
 - **WHEN** the rig is mounted
 - **THEN** `state.scene.fog.near === 20`
 - **AND** `state.scene.fog.far === 120`
-

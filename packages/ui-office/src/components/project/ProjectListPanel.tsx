@@ -1,21 +1,28 @@
 import { type ProjectRow, formatWorkspaceRootHint } from '@offisim/shared-types';
-import { Pencil } from 'lucide-react';
+import { ExternalLink, FolderOpen, Pencil } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useDeliverables } from '../../hooks/useDeliverables';
+import { isFolderPickerAvailable, revealWorkspaceFolder } from '../../lib/folder-picker.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { ProjectWorkspaceFiles } from './ProjectWorkspaceFiles.js';
 
 export function ProjectSelectedSummary({
   project,
   onRequestEdit,
+  onError,
+  showWorkspaceFiles = true,
 }: {
   project: ProjectRow;
   onRequestEdit?: (project: ProjectRow) => void;
+  onError?: (message: string) => void;
+  showWorkspaceFiles?: boolean;
 }) {
   const { repos } = useOffisimRuntime();
   const allDeliverables = useDeliverables();
   const [taskCount, setTaskCount] = useState<number | null>(null);
+  const [openingFolder, setOpeningFolder] = useState(false);
   const threadId = project.thread_id;
+  const canOpenFolder = isFolderPickerAvailable() && Boolean(project.workspace_root);
 
   useEffect(() => {
     if (!threadId || !repos?.taskRuns) {
@@ -36,14 +43,32 @@ export function ProjectSelectedSummary({
     return allDeliverables.filter((d) => d.threadId === threadId).length;
   }, [allDeliverables, threadId]);
 
+  async function handleOpenFolder() {
+    if (!project.workspace_root || openingFolder) return;
+    setOpeningFolder(true);
+    try {
+      await revealWorkspaceFolder(project.workspace_root);
+    } catch {
+      onError?.(`Folder not found at ${project.workspace_root}. Edit project to rebind.`);
+    } finally {
+      setOpeningFolder(false);
+    }
+  }
+
   return (
-    <div className="mt-2 flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-[11px] text-text-secondary">
+    <div className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-[11px] text-text-secondary">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-text-secondary">Project</span>
+        <span className="min-w-0 truncate text-right font-medium text-text-primary">
+          {project.name}
+        </span>
+      </div>
       <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] uppercase tracking-wider text-text-muted">
+        <span className="text-[10px] uppercase tracking-wider text-text-secondary">
           Workspace folder
         </span>
         <span
-          className={project.workspace_root ? 'text-text-primary' : 'text-text-muted'}
+          className={project.workspace_root ? 'text-text-primary' : 'text-text-secondary'}
           title={project.workspace_root ?? undefined}
         >
           {formatWorkspaceRootHint(project.workspace_root)}
@@ -57,19 +82,33 @@ export function ProjectSelectedSummary({
           <span className="text-text-primary font-medium">{deliverableCount}</span> deliverables
         </span>
       </div>
-      {onRequestEdit && (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => onRequestEdit(project)}
-            className="inline-flex items-center gap-1 rounded-md border border-border-default bg-surface px-2 py-0.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
-          >
-            <Pencil className="h-3 w-3" />
-            Edit project
-          </button>
+      {(canOpenFolder || onRequestEdit) && (
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {canOpenFolder && (
+            <button
+              type="button"
+              onClick={handleOpenFolder}
+              disabled={openingFolder}
+              className="inline-flex items-center gap-1 rounded-md border border-border-default bg-surface px-2 py-0.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50"
+            >
+              <FolderOpen className="h-3 w-3" />
+              Open
+              <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+            </button>
+          )}
+          {onRequestEdit && (
+            <button
+              type="button"
+              onClick={() => onRequestEdit(project)}
+              className="inline-flex items-center gap-1 rounded-md border border-border-default bg-surface px-2 py-0.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit
+            </button>
+          )}
         </div>
       )}
-      <ProjectWorkspaceFiles workspaceRoot={project.workspace_root} />
+      {showWorkspaceFiles ? <ProjectWorkspaceFiles workspaceRoot={project.workspace_root} /> : null}
     </div>
   );
 }

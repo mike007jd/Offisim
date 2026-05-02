@@ -1,7 +1,8 @@
 # design-token-foundation Specification
 
 ## Purpose
-TBD - created by archiving change unify-design-token-system. Update Purpose after archive.
+
+Defines the design-token foundation for shared UI, 3D scene colors, semantic colors, spacing, radius, motion, typography, z-index, Tailwind emission, and renderer compatibility exports.
 ## Requirements
 ### Requirement: `packages/ui-core/src/tokens/` SHALL be the single source of truth for all design tokens
 
@@ -73,28 +74,28 @@ The `accent` field SHALL be `#3b82f6` in dark mode (production CSS variable wins
 
 ### Requirement: `colors-3d.ts` SHALL define complete light and dark variants for every 3D scene color
 
-`Scene3DColors` SHALL include exactly the following 20 fields: `floor`, `desk`, `deskEdge`, `furniture`, `furnitureDark`, `furnitureLight`, `partition`, `screen`, `metal`, `serverBody`, `ledCyan`, `ledGreen`, `ledBlue`, `ledAmber`, `potBase`, `leafPrimary`, `leafSecondary`, `leafTertiary`, `text`, `textMuted`, `selectionRing` (21 with selectionRing — the spec lists 21).
+`Scene3DColors` SHALL include the following fields: `floor`, `desk`, `deskEdge`, `furniture`, `furnitureDark`, `furnitureLight`, `partition`, `screen`, `metal`, `serverBody`, `ledCyan`, `ledGreen`, `ledBlue`, `ledAmber`, `potBase`, `leafPrimary`, `leafSecondary`, `leafTertiary`, `text`, `textMuted`, `selectionRing`, `sceneBackground`, `wallShell`, `bookSpine`, `cableChannel`, `vendingScreen`, `tableReading`, `whiteboardSurface`, `whiteboardMarker`, `accentWarm`, `accentCool`, `floorTile`, `floorTileAlt`, `floorGrid`, `floorBorder`, `wallPanel`, `wallTrim`, `wallShadow`, `zoneRug`, `zoneLabelBg`, `zoneLabelText`, `labelGlow`, `workMat`, `cableAccent`, `characterShoe`, `characterHand`, and `brandNeutral`.
 
 Both `LIGHT_SCENE_3D` and `DARK_SCENE_3D` SHALL be complete `Record<keyof Scene3DColors, string>` objects.
 
 `STATE_COLORS_LIGHT` and `STATE_COLORS_DARK` SHALL each be a `Record<EmployeeState, number>` (numeric hex form — `0xRRGGBB`) covering all 12 employee states defined in `@offisim/shared-types`.
 
-`DARK_SCENE_3D` SHALL be byte-equivalent to today's `DARK_SCENE` constant in `packages/ui-office/src/theme/use-scene-colors.ts` — no field values change in dark mode.
+Legacy `DARK_SCENE_3D` fields that existed before the 3D art-direction pass SHALL remain byte-equivalent to today's `DARK_SCENE` constant in `packages/ui-office/src/theme/use-scene-colors.ts`; added art-direction fields SHALL be explicit token values in both light and dark variants.
 
 `STATE_COLORS_DARK` SHALL be byte-equivalent to today's `STATE_COLORS` in `packages/renderer/src/tokens/colors.ts` — no field values change in dark mode.
 
 `CATEGORY_COLORS_LIGHT` and `CATEGORY_COLORS_DARK` SHALL each be a `Record<'workspace'|'compute'|'knowledge'|'collaboration'|'infrastructure'|'decorative', string>`. `CATEGORY_COLORS_DARK` SHALL be byte-equivalent to today's `STUDIO_COLORS.cat*` fields.
 
-#### Scenario: Dark scene byte-equivalence
+#### Scenario: Dark scene legacy byte-equivalence
 
 - **WHEN** comparing `DARK_SCENE_3D.floor` to today's `DARK_SCENE.floor` value `#253347`
 - **THEN** the values are identical
-- **AND** the same byte equivalence holds for every other `Scene3DColors` field
+- **AND** the same byte equivalence holds for every legacy `Scene3DColors` field
 
 #### Scenario: Light scene completeness
 
 - **WHEN** iterating over `LIGHT_SCENE_3D`
-- **THEN** every contracted field is present with a non-empty hex value
+- **THEN** every contracted field is present with a non-empty color string
 
 #### Scenario: STATE_COLORS_DARK preserves existing 3D ring colors
 
@@ -325,4 +326,3 @@ Renderer consumers that need theme-aware 3D state colors SHALL import `STATE_COL
 
 - **WHEN** importing `import { STATE_COLORS } from '@offisim/renderer/tokens'`
 - **THEN** the import succeeds and the value matches the dark numeric hex map
-

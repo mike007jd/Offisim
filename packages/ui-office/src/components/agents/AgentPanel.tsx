@@ -30,9 +30,9 @@ export function AgentPanel({
   return (
     <div className="flex h-full flex-col bg-surface-elevated text-text-primary">
       {/* Header */}
-      <div className="border-b border-border-default" style={{ padding: 'var(--sp-xl)' }}>
-        <div className="flex items-center justify-between" style={{ marginBottom: 'var(--sp-lg)' }}>
-          <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-text-secondary">
+      <div className="border-b border-border-default" style={{ padding: 'var(--sp-lg)' }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 'var(--sp-md)' }}>
+          <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-text-secondary">
             <Users className="w-3 h-3" />
             <span>Team</span>
           </h2>
@@ -55,8 +55,8 @@ export function AgentPanel({
 
       {/* Employee list */}
       <div
-        className="custom-scrollbar flex-1 space-y-3 overflow-y-auto"
-        style={{ padding: 'var(--sp-lg)' }}
+        className="custom-scrollbar flex-1 space-y-1.5 overflow-y-auto"
+        style={{ padding: 'var(--sp-sm)' }}
       >
         {filteredEntries.map(([id, agent], idx) => (
           <div key={id} className="animate-list-item" style={{ animationDelay: `${idx * 30}ms` }}>
@@ -68,10 +68,18 @@ export function AgentPanel({
             />
           </div>
         ))}
+        {filteredEntries.length === 0 && (
+          <div className="px-3 py-8 text-center text-xs text-text-muted">
+            {search ? 'No employees match this search.' : 'No employees yet.'}
+          </div>
+        )}
       </div>
 
       {/* Bottom action — direct to employee creator */}
-      <div className="border-t border-border-default bg-surface" style={{ padding: 'var(--sp-lg)' }}>
+      <div
+        className="border-t border-border-default bg-surface"
+        style={{ padding: 'var(--sp-lg)' }}
+      >
         <button
           type="button"
           className="group flex h-10 w-full items-center justify-center rounded-lg border border-border-default bg-surface-muted text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary transition hover:border-border-focus hover:bg-accent-muted hover:text-accent-text"

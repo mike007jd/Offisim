@@ -32,6 +32,22 @@ export interface Scene3DColors {
   whiteboardMarker: readonly [string, string, string];
   accentWarm: string;
   accentCool: string;
+  floorTile: string;
+  floorTileAlt: string;
+  floorGrid: string;
+  floorBorder: string;
+  wallPanel: string;
+  wallTrim: string;
+  wallShadow: string;
+  zoneRug: string;
+  zoneLabelBg: string;
+  zoneLabelText: string;
+  labelGlow: string;
+  workMat: string;
+  cableAccent: string;
+  characterShoe: string;
+  characterHand: string;
+  brandNeutral: string;
 }
 
 export const DARK_SCENE_3D: Scene3DColors = {
@@ -66,6 +82,22 @@ export const DARK_SCENE_3D: Scene3DColors = {
   whiteboardMarker: ['#06b6d4', '#334155', '#f97316'],
   accentWarm: '#d97706',
   accentCool: '#06b6d4',
+  floorTile: '#1f2a36',
+  floorTileAlt: '#2a3442',
+  floorGrid: '#536172',
+  floorBorder: '#8b7355',
+  wallPanel: '#2e3a4a',
+  wallTrim: '#4b5563',
+  wallShadow: '#111827',
+  zoneRug: '#263241',
+  zoneLabelBg: 'rgba(14,18,25,0.82)',
+  zoneLabelText: '#e5edf7',
+  labelGlow: '#67e8f9',
+  workMat: '#1f6f5b',
+  cableAccent: '#d97706',
+  characterShoe: '#111827',
+  characterHand: '#f2c6b6',
+  brandNeutral: '#64748b',
 };
 
 export const LIGHT_SCENE_3D: Scene3DColors = {
@@ -100,6 +132,22 @@ export const LIGHT_SCENE_3D: Scene3DColors = {
   whiteboardMarker: ['#0891b2', '#475569', '#ea580c'],
   accentWarm: '#ea580c',
   accentCool: '#0891b2',
+  floorTile: '#d8dee7',
+  floorTileAlt: '#cbd5e1',
+  floorGrid: '#94a3b8',
+  floorBorder: '#9a7b4f',
+  wallPanel: '#dbe2ec',
+  wallTrim: '#94a3b8',
+  wallShadow: '#64748b',
+  zoneRug: '#e4ebf3',
+  zoneLabelBg: 'rgba(248,250,252,0.86)',
+  zoneLabelText: '#172033',
+  labelGlow: '#0891b2',
+  workMat: '#b7e4d2',
+  cableAccent: '#ea580c',
+  characterShoe: '#1e293b',
+  characterHand: '#f2c6b6',
+  brandNeutral: '#64748b',
 };
 
 export const STATE_COLORS_DARK: Record<EmployeeState, number> = {

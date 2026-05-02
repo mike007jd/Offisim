@@ -9,10 +9,7 @@ import type { AgentState } from '../../runtime/use-agent-states';
 import { SceneMaterial } from '../../theme/scene-materials.js';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import type { DragState3D, FlowLineData } from './office3d-shared.js';
-
-const ROOM_W = 40;
-const ROOM_D = 30;
-const WALL_H = 5;
+import { SCENE_LAYER_Y, getZoneBorderOpacity, getZoneRugOpacity } from './scene-art-direction.js';
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -20,18 +17,106 @@ const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const intersectPoint = new THREE.Vector3();
 const htmlProjectPoint = new THREE.Vector3();
 const HTML_LABEL_HALF_WIDTH = 92;
+const COMPACT_HTML_LABEL_HALF_WIDTH = 58;
+const HTML_LABEL_HALF_HEIGHT = 18;
 const HTML_LABEL_MARGIN = 18;
+const HTML_LABEL_ROW_OFFSET = 34;
+const HTML_LABEL_OFFSCREEN = -10000;
+const COMPACT_LABEL_AVAILABLE_WIDTH = 680;
+const LABEL_ROW_OFFSETS = [0, -1, 1, -2, 2, -3, 3] as const;
 
-function createInsetAwareHtmlPosition(leftInset: number, rightInset: number) {
+const COMPACT_ZONE_LABELS: Record<string, string> = {
+  'ART & DESIGN': 'ART',
+  DEVELOPMENT: 'DEV',
+  'MEETING ROOM': 'MEET',
+  'REST AREA': 'REST',
+  'SERVER ROOM': 'SERVER',
+};
+
+interface LabelRect {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+export interface LabelLayoutAccumulator {
+  key: string;
+  rects: LabelRect[];
+}
+
+export function createLabelLayoutAccumulator(): LabelLayoutAccumulator {
+  return { key: '', rects: [] };
+}
+
+function rectsOverlap(a: LabelRect, b: LabelRect) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+interface LabelLayoutSlot {
+  index: number;
+  count: number;
+  accumulator: LabelLayoutAccumulator;
+}
+
+function createInsetAwareHtmlPosition(
+  leftInset: number,
+  rightInset: number,
+  labelHalfWidth = HTML_LABEL_HALF_WIDTH,
+  layout?: LabelLayoutSlot,
+) {
   return (el: THREE.Object3D, camera: THREE.Camera, size: { width: number; height: number }) => {
+    if (layout) {
+      const sizeKey = `${size.width}:${size.height}:${layout.count}`;
+      const acc = layout.accumulator;
+      if (layout.index === 0 || sizeKey !== acc.key || acc.rects.length >= layout.count) {
+        acc.key = sizeKey;
+        acc.rects = [];
+      }
+    }
+
     htmlProjectPoint.setFromMatrixPosition(el.matrixWorld).project(camera);
     const projectedX = (htmlProjectPoint.x * 0.5 + 0.5) * size.width;
     const projectedY = (htmlProjectPoint.y * -0.5 + 0.5) * size.height;
-    const minX = leftInset + HTML_LABEL_HALF_WIDTH + HTML_LABEL_MARGIN;
-    const maxX = size.width - rightInset - HTML_LABEL_HALF_WIDTH - HTML_LABEL_MARGIN;
+    const minX = leftInset + labelHalfWidth + HTML_LABEL_MARGIN;
+    const maxX = size.width - rightInset - labelHalfWidth - HTML_LABEL_MARGIN;
     const clampedX = minX <= maxX ? THREE.MathUtils.clamp(projectedX, minX, maxX) : size.width / 2;
-    return [clampedX, THREE.MathUtils.clamp(projectedY, 20, size.height - 20)];
+    const minY = HTML_LABEL_MARGIN + HTML_LABEL_HALF_HEIGHT;
+    const maxY = size.height - HTML_LABEL_MARGIN - HTML_LABEL_HALF_HEIGHT;
+
+    if (!layout) {
+      return [clampedX, THREE.MathUtils.clamp(projectedY, minY, maxY)];
+    }
+
+    const rects = layout.accumulator.rects;
+    for (const row of LABEL_ROW_OFFSETS) {
+      const candidateY = THREE.MathUtils.clamp(
+        projectedY + row * HTML_LABEL_ROW_OFFSET,
+        minY,
+        maxY,
+      );
+      const rect = {
+        left: clampedX - labelHalfWidth,
+        right: clampedX + labelHalfWidth,
+        top: candidateY - HTML_LABEL_HALF_HEIGHT,
+        bottom: candidateY + HTML_LABEL_HALF_HEIGHT,
+      };
+      if (!rects.some((placed) => rectsOverlap(rect, placed))) {
+        rects.push(rect);
+        return [clampedX, candidateY];
+      }
+    }
+
+    return [HTML_LABEL_OFFSCREEN, HTML_LABEL_OFFSCREEN];
   };
+}
+
+function getCompactZoneLabel(name: string, isCompact: boolean) {
+  if (!isCompact) return name;
+  const normalized = name.trim().toUpperCase();
+  if (COMPACT_ZONE_LABELS[normalized]) return COMPACT_ZONE_LABELS[normalized];
+  if (normalized.length <= 10) return normalized;
+  return normalized.split(/\s+/)[0]?.slice(0, 10) ?? normalized.slice(0, 10);
 }
 
 export function ZoneLabel({
@@ -46,6 +131,9 @@ export function ZoneLabel({
   hasBlocked,
   isMeetingActive,
   viewportInsets,
+  labelLayoutIndex,
+  labelLayoutCount,
+  labelLayoutAccumulator,
 }: {
   position: [number, number, number];
   size: [number, number];
@@ -61,22 +149,78 @@ export function ZoneLabel({
     left: number;
     right: number;
   };
+  labelLayoutIndex?: number;
+  labelLayoutCount?: number;
+  labelLayoutAccumulator?: LabelLayoutAccumulator;
 }) {
-  const floorOpacity = isDragging ? (isHovered && !isSource ? 0.35 : isSource ? 0.08 : 0.2) : 0.12;
-  const borderOpacity = isDragging ? (isHovered && !isSource ? 0.9 : isSource ? 0.3 : 0.6) : 0.4;
+  const sc = useSceneColors();
+  const canvasSize = useThree((state) => state.size);
+  const visibleLabelWidth = canvasSize.width - viewportInsets.left - viewportInsets.right;
+  const isCompactLabel =
+    canvasSize.width < 520 || visibleLabelWidth < COMPACT_LABEL_AVAILABLE_WIDTH;
+  const displayName = getCompactZoneLabel(name, isCompactLabel);
+  const floorOpacity = getZoneRugOpacity({
+    isDragging: Boolean(isDragging),
+    isHovered: Boolean(isHovered),
+    isSource: Boolean(isSource),
+    activityCount: activityCount ?? 0,
+  });
+  const borderOpacity = getZoneBorderOpacity({
+    isDragging: Boolean(isDragging),
+    isHovered: Boolean(isHovered),
+    isSource: Boolean(isSource),
+  });
 
   const edgePlaneGeo = useMemo(() => new THREE.PlaneGeometry(size[0], size[1]), [size[0], size[1]]);
   const htmlPosition = useMemo(
-    () => createInsetAwareHtmlPosition(viewportInsets.left, viewportInsets.right),
-    [viewportInsets.left, viewportInsets.right],
+    () =>
+      createInsetAwareHtmlPosition(
+        viewportInsets.left,
+        viewportInsets.right,
+        isCompactLabel ? COMPACT_HTML_LABEL_HALF_WIDTH : HTML_LABEL_HALF_WIDTH,
+        labelLayoutAccumulator !== undefined &&
+          labelLayoutIndex !== undefined &&
+          labelLayoutCount !== undefined
+          ? {
+              index: labelLayoutIndex,
+              count: labelLayoutCount,
+              accumulator: labelLayoutAccumulator,
+            }
+          : undefined,
+      ),
+    [
+      viewportInsets.left,
+      viewportInsets.right,
+      isCompactLabel,
+      labelLayoutIndex,
+      labelLayoutCount,
+      labelLayoutAccumulator,
+    ],
+  );
+  const dropHtmlPosition = useMemo(
+    () =>
+      createInsetAwareHtmlPosition(
+        viewportInsets.left,
+        viewportInsets.right,
+        isCompactLabel ? COMPACT_HTML_LABEL_HALF_WIDTH : HTML_LABEL_HALF_WIDTH,
+      ),
+    [viewportInsets.left, viewportInsets.right, isCompactLabel],
   );
   useEffect(() => () => edgePlaneGeo.dispose(), [edgePlaneGeo]);
 
   return (
     <group position={position}>
-      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh position={[0, SCENE_LAYER_Y.zoneRug, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[Math.max(0.8, size[0] - 0.35), Math.max(0.8, size[1] - 0.35)]} />
+        <SceneMaterial
+          materialClass="fabric"
+          color={color}
+          overrides={{ transparent: true, opacity: floorOpacity, roughness: 0.92 }}
+        />
+      </mesh>
+      <mesh position={[0, SCENE_LAYER_Y.zoneBorder, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={size} />
-        <meshStandardMaterial color={color} transparent opacity={floorOpacity} />
+        <meshBasicMaterial color={sc.zoneRug} transparent opacity={0.05} />
         <lineSegments>
           <edgesGeometry args={[edgePlaneGeo]} />
           <lineBasicMaterial color={color} transparent opacity={borderOpacity} />
@@ -95,13 +239,13 @@ export function ZoneLabel({
           position={[0, 0.8, 0]}
           center
           style={{ pointerEvents: 'none' }}
-          calculatePosition={htmlPosition}
+          calculatePosition={dropHtmlPosition}
         >
           <div
             style={{
-              background: isHovered ? 'rgba(30,64,175,0.85)' : 'rgba(0,0,0,0.5)',
+              background: isHovered ? color : sc.zoneLabelBg,
               backdropFilter: 'blur(4px)',
-              border: `1px solid ${isHovered ? '#60a5fa' : `${color}40`}`,
+              border: `1px solid ${isHovered ? color : `${color}66`}`,
               borderRadius: '8px',
               padding: '4px 14px',
               whiteSpace: 'nowrap',
@@ -110,7 +254,7 @@ export function ZoneLabel({
           >
             <span
               style={{
-                color: isHovered ? '#ffffff' : color,
+                color: isHovered ? sc.sceneBackground : color,
                 fontSize: '11px',
                 fontWeight: 700,
                 fontFamily: 'Inter, system-ui, sans-serif',
@@ -130,59 +274,31 @@ export function ZoneLabel({
         <div
           data-zone-label={name}
           style={{
-            background: 'rgba(0,0,0,0.75)',
+            background: sc.zoneLabelBg,
             backdropFilter: 'blur(8px)',
-            border: `1px solid ${color}40`,
+            border: `1px solid ${color}66`,
             borderRadius: '8px',
-            padding: '4px 12px',
+            maxWidth: isCompactLabel ? '116px' : undefined,
+            overflow: 'hidden',
+            padding: isCompactLabel ? '4px 10px' : '4px 12px',
+            boxShadow: `0 10px 28px ${sc.wallShadow}80, 0 0 16px ${sc.labelGlow}22`,
             whiteSpace: 'nowrap',
           }}
         >
           <span
             style={{
-              color,
-              fontSize: '11px',
+              color: sc.zoneLabelText,
+              fontSize: isCompactLabel ? '10px' : '11px',
               fontWeight: 900,
-              letterSpacing: '3px',
+              letterSpacing: 0,
               textTransform: 'uppercase',
               fontFamily: 'Inter, system-ui, sans-serif',
             }}
           >
-            {name}
+            {displayName}
           </span>
         </div>
       </Html>
-    </group>
-  );
-}
-
-export function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
-  const sc = useSceneColors();
-
-  return (
-    <group>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: react-three-fiber meshes are not keyboard-focusable DOM nodes. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={() => onFloorClick?.()}>
-        <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <SceneMaterial
-          materialClass="plastic"
-          color={sc.sceneBackground}
-          overrides={{ roughness: 0.92 }}
-        />
-      </mesh>
-      <gridHelper args={[ROOM_W, 40, sc.wallShell, sc.sceneBackground]} position={[0, 0.01, 0]} />
-      <mesh position={[0, WALL_H / 2, -ROOM_D / 2]} receiveShadow>
-        <boxGeometry args={[ROOM_W, WALL_H, 0.3]} />
-        <SceneMaterial materialClass="plastic" color={sc.wallShell} />
-      </mesh>
-      <mesh position={[-ROOM_W / 2, WALL_H / 2, 0]} receiveShadow>
-        <boxGeometry args={[0.3, WALL_H, ROOM_D]} />
-        <SceneMaterial materialClass="plastic" color={sc.wallShell} />
-      </mesh>
-      <mesh position={[ROOM_W / 2, WALL_H / 2, 0]} receiveShadow>
-        <boxGeometry args={[0.3, WALL_H, ROOM_D]} />
-        <SceneMaterial materialClass="plastic" color={sc.wallShell} />
-      </mesh>
     </group>
   );
 }
@@ -523,7 +639,7 @@ function MeetingActiveLabel() {
             color: sc.text,
             fontSize: '10px',
             fontWeight: 900,
-            letterSpacing: '3px',
+            letterSpacing: 0,
             textTransform: 'uppercase',
             fontFamily: 'Inter, system-ui, sans-serif',
           }}

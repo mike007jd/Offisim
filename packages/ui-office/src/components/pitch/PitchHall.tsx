@@ -111,12 +111,12 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
   if (deliverables.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-8 text-center p-3">
-        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-          <FileOutput className="w-5 h-5 text-slate-500" />
+        <div className="w-10 h-10 rounded-xl bg-surface-muted border border-border-subtle flex items-center justify-center">
+          <FileOutput className="w-5 h-5 text-text-muted" />
         </div>
         <div className="px-2">
-          <p className="text-[11px] font-semibold text-slate-400">No Outputs Yet</p>
-          <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+          <p className="text-[11px] font-semibold text-text-secondary">No Outputs Yet</p>
+          <p className="text-[10px] text-text-muted mt-1.5 leading-relaxed">
             Deliverables will appear here as your AI employees complete tasks. You can copy, export,
             or save them as SOPs.
           </p>
@@ -128,8 +128,8 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
   return (
     <div className="flex flex-col gap-2 p-3 overflow-hidden">
       <div className="flex items-center justify-between">
-        <h2 className="text-[8px] uppercase tracking-wider text-slate-400">Outputs</h2>
-        <span className="text-[10px] text-slate-500">{deliverables.length}</span>
+        <h2 className="text-[8px] uppercase tracking-wider text-text-muted">Outputs</h2>
+        <span className="text-[10px] text-text-muted">{deliverables.length}</span>
       </div>
       {deliverables.map((item) => (
         <DeliverableCard

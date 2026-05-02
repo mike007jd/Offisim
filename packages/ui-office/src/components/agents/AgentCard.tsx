@@ -1,20 +1,11 @@
 import { Badge } from '@offisim/ui-core';
-import { Wrench } from 'lucide-react';
+import { ChevronDown, ChevronUp, Wrench } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { truncate } from '../../lib/format-time';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
-import type { AgentState } from '../../runtime/use-agent-states';
+import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
-
-// Inject @keyframes once at module level (not per card instance)
-if (typeof document !== 'undefined' && !document.getElementById('agent-card-keyframes')) {
-  const style = document.createElement('style');
-  style.id = 'agent-card-keyframes';
-  style.textContent =
-    '@keyframes slideInRight { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }';
-  document.head.appendChild(style);
-}
 
 /** Border glow color per state category. */
 const STATE_GLOW: Record<string, string> = {
@@ -52,8 +43,7 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
 
   const task = agent.currentTask;
   const hasTask = task && task.totalSteps > 0;
-  const isComplete = agent.state === 'success';
-  const isFailed = agent.state === 'failed';
+  const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
 
   return (
     <div
@@ -63,11 +53,11 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
       aria-label={isInteractive ? `${agent.name} employee card` : undefined}
       aria-pressed={isInteractive ? (isSelected ?? false) : undefined}
       className={[
-        'min-h-[96px] rounded-xl border bg-surface p-3 cursor-pointer',
-        'transition-all duration-300',
+        'group min-h-[76px] rounded-lg border px-2.5 py-2 cursor-pointer',
+        'transition-colors duration-200',
         isSelected
-          ? 'border-border-focus bg-accent-muted shadow-glow-accent'
-          : 'border-border-default hover:border-border-focus hover:bg-surface-hover hover:shadow-glow-accent',
+          ? 'border-border-focus bg-accent-muted'
+          : 'border-border-subtle/70 bg-surface-muted/70 hover:border-border-default hover:bg-surface-hover',
         glowing ? glowClass : '',
       ]
         .filter(Boolean)
@@ -81,20 +71,17 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
         }
       }}
     >
-      <div className="flex items-start gap-3">
-        {/* Avatar with status dot */}
-        <div className="relative flex-shrink-0">
-          <div className="h-11 w-11 overflow-hidden rounded-full border border-border-default bg-surface-muted">
-            <EmployeeAvatar agent={agent} size={44} className="w-full h-full object-cover" />
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="relative flex h-[52px] w-[52px] flex-shrink-0 items-center justify-center">
+          <EmployeeAvatar agent={agent} size={52} className="h-[52px] w-[52px] object-cover" />
           <div
-            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-surface transition-colors duration-300 ${dotColor}`}
+            className={`absolute bottom-1 right-0 h-3 w-3 rounded-full border-2 border-surface-elevated transition-colors duration-300 ${dotColor}`}
           />
         </div>
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <div className="mb-1 flex items-start justify-between gap-2">
+          <div className="flex items-start justify-between gap-2">
             <span className="min-w-0 truncate text-sm font-semibold text-text-primary">
               {agent.name}
             </span>
@@ -107,51 +94,36 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
               </Badge>
             </div>
           </div>
-          <p className="flex items-center gap-1 truncate text-xs text-text-secondary">
-            {ROLE_LABELS[agent.role] ?? agent.role}
+          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-text-secondary">
+            {roleLabel}
             <Wrench className="inline h-2.5 w-2.5 flex-shrink-0 text-text-muted" />
           </p>
+          <div className="mt-1.5 flex min-w-0 flex-wrap gap-1">
+            <span className="rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[10px] leading-none text-text-muted">
+              {agent.isExternal ? 'External' : 'Internal'}
+            </span>
+            {hasTask && (
+              <span className="max-w-[132px] truncate rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[10px] leading-none text-text-secondary">
+                {task.stepIndex + 1}/{task.totalSteps} {truncate(task.stepLabel, 18)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ── Task progress bar (slides in from right) ── */}
-      {hasTask && (
-        <div
-          className={[
-            'mt-2 flex items-center gap-1.5 text-[10px] font-mono',
-            'transform transition-all duration-300',
-            isComplete ? 'text-success' : isFailed ? 'text-error' : 'text-text-secondary',
-          ].join(' ')}
-          style={{
-            animation: 'slideInRight 0.3s ease-out',
-          }}
-        >
-          <span>{isComplete ? '✓' : isFailed ? '✗' : '📋'}</span>
-          <span>
-            {task.stepIndex + 1}/{task.totalSteps}
-          </span>
-          <span className="max-w-[120px] truncate">{truncate(task.stepLabel, 25)}</span>
-        </div>
-      )}
-
-      {/* ── Sub-task expandable list ── */}
       <SubTaskList subTasks={agent.subTasks} />
     </div>
   );
 }
 
-// ── Sub-task expandable list ────────────────────────────────────
-
-const STATUS_ICON: Record<string, string> = {
-  done: '✅',
-  running: '⚙️',
-  queued: '⏳',
-  failed: '❌',
+const STATUS_ICON: Record<SubTaskInfo['status'], string> = {
+  done: 'done',
+  running: 'run',
+  queued: 'wait',
+  failed: 'fail',
 };
 
-function SubTaskList({
-  subTasks,
-}: { subTasks?: import('../../runtime/use-agent-states').SubTaskInfo[] }) {
+function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
   const [expanded, setExpanded] = useState(false);
   // Tick every second to update running task elapsed time
   const [, setTick] = useState(0);
@@ -171,7 +143,6 @@ function SubTaskList({
 
   return (
     <div className="mt-1.5">
-      {/* Summary header — clickable to expand */}
       <button
         type="button"
         className="flex w-full items-center justify-between text-[10px] font-mono text-text-muted transition-colors hover:text-text-secondary"
@@ -181,16 +152,15 @@ function SubTaskList({
         }}
       >
         <span>
-          📋 {completedCount}/{totalCount} tasks
+          {completedCount}/{totalCount} tasks
         </span>
-        <span className="text-[8px]">{expanded ? '▲' : '▼'}</span>
+        {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
       </button>
 
-      {/* Task list */}
       <div className="mt-1 space-y-0.5">
         {visibleTasks.map((st) => (
           <div key={st.stepIndex} className="flex items-center gap-1 text-[10px] font-mono">
-            <span className="flex-shrink-0">{STATUS_ICON[st.status] ?? '⏳'}</span>
+            <span className="flex-shrink-0">{STATUS_ICON[st.status]}</span>
             <span
               className={[
                 'truncate max-w-[130px]',

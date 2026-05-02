@@ -1,0 +1,150 @@
+{
+  "desktop": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "visibleLabels": [
+      {
+        "name": "DEVELOPMENT",
+        "left": 334.4453125,
+        "right": 445.5546875,
+        "top": 549.6309814453125,
+        "bottom": 583.6309814453125,
+        "width": 111.109375,
+        "height": 34
+      },
+      {
+        "name": "PRODUCT",
+        "left": 679.6171875,
+        "right": 760.3828125,
+        "top": 549.6309814453125,
+        "bottom": 583.6309814453125,
+        "width": 80.765625,
+        "height": 34
+      },
+      {
+        "name": "ART & DESIGN",
+        "left": 838.171875,
+        "right": 941.828125,
+        "top": 481.6309814453125,
+        "bottom": 515.6309814453125,
+        "width": 103.65625,
+        "height": 34
+      },
+      {
+        "name": "LIBRARY",
+        "left": 384.4147644042969,
+        "right": 458.7897644042969,
+        "top": 354.148681640625,
+        "bottom": 388.148681640625,
+        "width": 74.375,
+        "height": 34
+      },
+      {
+        "name": "REST AREA",
+        "left": 845.6328125,
+        "right": 934.3671875,
+        "top": 354.148681640625,
+        "bottom": 388.148681640625,
+        "width": 88.734375,
+        "height": 34
+      },
+      {
+        "name": "MEETING ROOM",
+        "left": 411.6531066894531,
+        "right": 526.293701171875,
+        "top": 220.73265075683594,
+        "bottom": 254.73265075683594,
+        "width": 114.64059448242188,
+        "height": 34
+      },
+      {
+        "name": "SERVER ROOM",
+        "left": 836.4375,
+        "right": 943.5625,
+        "top": 220.73265075683594,
+        "bottom": 254.73265075683594,
+        "width": 107.125,
+        "height": 34
+      }
+    ],
+    "overlapCount": 0,
+    "overlaps": [],
+    "bodyText": "DEVELOPMENT\nPRODUCT\nART & DESIGN\nLIBRARY\nREST AREA\nMEETING ROOM\nSERVER ROOM\n0 employees active\nDEV: tier=auto · hemi=auto · env=auto · shadows=auto · post=auto · Reset\n3D\n2D\n3D Polish Verify\nAll\nOffice\nSOPs\nMarket\nPersonnel\nActivity\nSettings\nAPI Settings\nSOP\nInstall Package\nTEAM\n9 members\nAlex Chen\nidle\n\nDeveloper\n\nMaya Lin\nidle\n\nFrontend Dev\n\nMarcus Johnson\nidle\n\nBackend Dev\n\nKai Nakamura\nidle\n\nFullstack Dev\n\nSophie Park\nidle\n\nProject Manager\n\nRyan Torres\nidle\n\nQA\n\nZara Okafor\nidle\n\nUX Designer\n\nJamie Reeves\nidle\n\nUI Designer\n\nYOLO Master\nidle\n\nYOLO Master\n\nADD EMPLOYEE\n\nWORKSPACE\n\nChat\nTasks\nConfigure an API key to enable AI collaboration.\nSettings\nConfigure an API Key in Settings to start chatting.\nREADY\n0/9P\nProxy\nHuman\nv1.0.0-rc.1"
+  },
+  "mobile": {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "visibleLabels": [
+      {
+        "name": "DEVELOPMENT",
+        "left": 98.34375,
+        "right": 141.65625,
+        "top": 514.3739624023438,
+        "bottom": 548.3739624023438,
+        "width": 43.3125,
+        "height": 34
+      },
+      {
+        "name": "PRODUCT",
+        "left": 159.109375,
+        "right": 230.890625,
+        "top": 446.37396240234375,
+        "bottom": 480.37396240234375,
+        "width": 71.78125,
+        "height": 34
+      },
+      {
+        "name": "ART & DESIGN",
+        "left": 248.25,
+        "right": 291.75,
+        "top": 514.3739624023438,
+        "bottom": 548.3739624023438,
+        "width": 43.5,
+        "height": 34
+      },
+      {
+        "name": "LIBRARY",
+        "left": 87.0078125,
+        "right": 152.9921875,
+        "top": 331.0549621582031,
+        "bottom": 365.0549621582031,
+        "width": 65.984375,
+        "height": 34
+      },
+      {
+        "name": "REST AREA",
+        "left": 245.828125,
+        "right": 294.171875,
+        "top": 331.0549621582031,
+        "bottom": 365.0549621582031,
+        "width": 48.34375,
+        "height": 34
+      },
+      {
+        "name": "MEETING ROOM",
+        "left": 94.65625,
+        "right": 145.34375,
+        "top": 205.94039916992188,
+        "bottom": 239.94039916992188,
+        "width": 50.6875,
+        "height": 34
+      },
+      {
+        "name": "SERVER ROOM",
+        "left": 239,
+        "right": 301,
+        "top": 205.94039916992188,
+        "bottom": 239.94039916992188,
+        "width": 62,
+        "height": 34
+      }
+    ],
+    "overlapCount": 0,
+    "overlaps": [],
+    "bodyText": "DEV\nPRODUCT\nART\nLIBRARY\nREST\nMEET\nSERVER\n0 employees active\nDEV: tier=auto · hemi=auto · env=auto · shadows=auto · post=auto · Reset\n3D Polish Verify\nPERSONNEL\n\nWORKSPACE\n\nChat\nTasks\nConfigure an API key to enable AI collaboration.\nSettings\nConfigure an API Key in Settings to start chatting.\nCOLLABORATION\nChat\nConfigure an API key to enable AI collaboration.\nSettings\nEnter a task to start collaborating.\nConfigure an API Key in Settings to start chatting.\nREADY\n0/9P\nProxy\nHuman\nv1.0.0-rc.1"
+  }
+}

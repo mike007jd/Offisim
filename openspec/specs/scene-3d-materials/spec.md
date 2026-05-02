@@ -1,7 +1,8 @@
 # scene-3d-materials Specification
 
 ## Purpose
-TBD - created by archiving change upgrade-3d-scene-lighting-and-materials. Update Purpose after archive.
+
+Defines the Office 3D material contract: production prefab and character surfaces route through the closed `SceneMaterial` material system, while unlit `meshBasicMaterial` remains limited to intentional screens, LEDs, labels, helpers, and invisible placeholders.
 ## Requirements
 ### Requirement: Six closed material classes drive PBR parameters
 
@@ -10,31 +11,33 @@ TBD - created by archiving change upgrade-3d-scene-lighting-and-materials. Updat
 `MATERIAL_PRESETS: Record<MaterialClass, MaterialPreset>` SHALL
 populate exactly the following defaults:
 
-- **wood** — `meshStandardMaterial`, `roughness=0.55`,
-  `metalness=0.0`, `envMapIntensity=0.6`,
+- **wood** — `meshStandardMaterial`, `roughness=0.42`,
+  `metalness=0.0`, `envMapIntensity=0.35`,
   `useProceduralNormal=true` (wood-grain texture),
-  `normalScale=0.08`
-- **metal** — `meshStandardMaterial`, `roughness=0.22`,
-  `metalness=0.85`, `envMapIntensity=1.0`
-- **glass** — `meshPhysicalMaterial`, `roughness=0.18`,
-  `metalness=0.0`, `transmission=0.78`, `ior=1.5`, `opacity=1`,
+  `normalScale=0.05`
+- **metal** — `meshStandardMaterial`, `roughness=0.28`,
+  `metalness=0.72`, `envMapIntensity=0.9`
+- **glass** — `meshPhysicalMaterial`, `roughness=0.08`,
+  `metalness=0.0`, `transmission=0.9`, `ior=1.5`, `opacity=1`,
   `transparent=true`, `useProceduralNormal=true` (dust-scatter
-  texture), `normalScale=0.05`, `attenuationColor` defaulting
+  texture), `normalScale=0.025`, `attenuationColor` defaulting
   to `useSceneColors().partition`, `attenuationDistance=2.0`
-- **leather** — `meshPhysicalMaterial`, `roughness=0.78`,
-  `metalness=0.05`, `clearcoat=0.25`, `clearcoatRoughness=0.6`,
-  `envMapIntensity=0.7`
-- **fabric** — `meshStandardMaterial`, `roughness=0.92`,
-  `metalness=0.0`, `envMapIntensity=0.3`
-- **plastic** — `meshStandardMaterial`, `roughness=0.45`,
-  `metalness=0.0`, `envMapIntensity=0.5`
+- **leather** — `meshStandardMaterial`, `roughness=0.34`,
+  `metalness=0.0`, `envMapIntensity=0.45`
+- **fabric** — `meshStandardMaterial`, `roughness=0.82`,
+  `metalness=0.0`, `envMapIntensity=0.18`
+- **plastic** — `meshStandardMaterial`, `roughness=0.58`,
+  `metalness=0.0`, `envMapIntensity=0.35`
 
 Per-instance variance within a class SHALL be supplied through
 the third argument `overrides` of `useMaterial(materialClass,
-color, overrides?)`. Overrides SHALL clamp roughness adjustments
-to ±0.10 of the class default; metalness adjustments SHALL clamp
-to ±0.10. Out-of-range overrides SHALL throw at module load time
-in development builds and silently clamp in production.
+color, overrides?)`. Internal material-control fields such as
+`useProceduralNormal` and numeric `normalScale` SHALL be consumed
+by `SceneMaterial` and SHALL NOT be forwarded to the underlying
+Three.js material node. Deliberate per-instance roughness,
+metalness, transparency, and transmission values MAY be supplied
+through `overrides` when they describe a specific surface finish
+within the same closed material class.
 
 #### Scenario: All six classes have explicit preset entries
 
@@ -49,19 +52,17 @@ in development builds and silently clamp in production.
 
 - **WHEN** `useMaterial('glass', '#94a3b8')` is invoked
 - **THEN** the returned JSX is a `<meshPhysicalMaterial>` element
-- **AND** its `transmission` prop is `0.78`
-- **AND** its `roughness` prop is `0.18`
+- **AND** its `transmission` prop is `0.9`
+- **AND** its `roughness` prop is `0.08`
 - **AND** its `ior` prop is `1.5`
 
-#### Scenario: Override variance clamps at ±0.10
+#### Scenario: Internal material controls are not forwarded
 
-- **WHEN** in development mode `useMaterial('wood', '#fff',
-  { roughness: 0.95 })` is invoked
-- **THEN** the call throws an error referencing the ±0.10 clamp
-  rule
-- **WHEN** in production mode the same call is invoked
-- **THEN** the resulting material has `roughness === 0.65`
-  (wood default 0.55 plus the +0.10 cap)
+- **WHEN** `useMaterial('wood', '#fff',
+  { useProceduralNormal: true, normalScale: 0.08 })` is invoked
+- **THEN** the returned material receives a Three.js `normalMap`
+  and `normalScale` vector
+- **AND** it does not receive a `useProceduralNormal` prop
 
 ### Requirement: All prefab materials SHALL route through useMaterial
 
@@ -70,11 +71,10 @@ instantiation of these material types SHALL NOT appear in
 prefab files. `meshBasicMaterial` (unlit, used for emissive LEDs
 and screens) is exempt — it's not a PBR surface.
 
-`useMaterial` SHALL return a stable element across renders for
-the same `(materialClass, color, overrides)` triple, using
-`useMemo` keyed on a JSON-stringified key. Re-renders of a
-prefab SHALL NOT cause material churn or three.js material
-disposal/recreation.
+`SceneMaterial` SHALL be the public component wrapper around
+`useMaterial`. Prefab, character, and room-shell production
+surfaces SHALL use `<SceneMaterial ... />` rather than raw
+`meshStandardMaterial` / `meshPhysicalMaterial` JSX.
 
 #### Scenario: No raw meshStandardMaterial in prefabs
 
@@ -82,14 +82,12 @@ disposal/recreation.
   packages/ui-office/src/components/scene/prefabs/`
 - **THEN** zero matches outside of import statements
 
-#### Scenario: useMaterial output is stable across renders
+#### Scenario: Production surfaces use SceneMaterial
 
-- **WHEN** a prefab renders twice with identical
-  `(materialClass, color, overrides)` props
-- **THEN** the returned material element is the same React
-  reference (memoized)
-- **AND** the underlying three.js material is reused (no
-  `dispose()` between renders)
+- **WHEN** auditing 3D prefab and character source files
+- **THEN** production surfaces use `<SceneMaterial>`
+- **AND** raw standard or physical material JSX appears only in
+  `theme/scene-materials.tsx`
 
 ### Requirement: Prefab files SHALL NOT contain inline numeric PBR literals or hex color literals
 
@@ -133,19 +131,23 @@ this requirement to migrate.
   `wallShell`, `bookSpine: readonly string[5]`, `cableChannel`,
   `vendingScreen`, `tableReading`, `whiteboardSurface`,
   `whiteboardMarker: readonly string[3]`, `accentWarm`,
-  `accentCool`
+  `accentCool`, `floorTile`, `floorTileAlt`, `floorGrid`,
+  `floorBorder`, `wallPanel`, `wallTrim`, `wallShadow`,
+  `zoneRug`, `zoneLabelBg`, `zoneLabelText`, `labelGlow`,
+  `workMat`, `cableAccent`, `characterShoe`, `characterHand`,
+  `brandNeutral`
 - **AND** the existing fields (`floor`, `desk`, `furniture`, etc.)
   are unchanged
 
 ### Requirement: Glass material uses tinted transmission with attenuation
 
 The `glass` material class SHALL produce a `meshPhysicalMaterial`
-with `transmission=0.78` (not 0.9), `roughness=0.18` (not 0.1),
+with `transmission=0.9`, `roughness=0.08`,
 `attenuationColor` defaulting to `useSceneColors().partition`,
 and `attenuationDistance=2.0`. A procedural dust-scatter normal
 map (`getDustNormalTexture()` from
 `packages/ui-office/src/lib/scene-procedural-textures.ts`) SHALL
-be applied with `normalScale=0.05` so glass reads as glass with
+be applied with `normalScale=0.025` so glass reads as glass with
 visible dust speckles, not as missing geometry.
 
 #### Scenario: Glass divider visibly tints surfaces behind it
@@ -288,36 +290,37 @@ variation comes through color (`sc.desk` vs `sc.tableReading` vs
 - **THEN** both use `useMaterial('wood', <color>)`
 - **AND** the desk color is `sc.desk` and the reading table
   color is `sc.tableReading`
-- **AND** both surfaces share the same `roughness=0.55`
+- **AND** both surfaces share the same `roughness=0.42`
   default
 
 ### Requirement: Material system supports overrides for per-surface variance
 
 `useMaterial(materialClass, color, overrides?)` SHALL accept an
-`overrides` argument of partial shape extending the
-`MaterialPreset` type. Common overrides include `roughness` (±0.10
-within class), `metalness` (±0.10 within class), `thickness` (for
-glass), `clearcoat` and `clearcoatRoughness` (for leather), and
-`envMapIntensity`. Overrides SHALL NOT change the material
-component type — `useMaterial('wood', color, { transmission: 0.5 })`
-SHALL ignore `transmission` (or throw in dev) because wood is
-`meshStandardMaterial`, not `meshPhysicalMaterial`.
+`overrides` argument matching the applicable Three material prop
+shape plus internal controls (`useProceduralNormal`,
+`normalScale`). Common overrides include `roughness`, `metalness`,
+`thickness` (for glass), `opacity`, and `envMapIntensity`. Overrides SHALL NOT
+change the material component type: physical-only props are not
+forwarded to standard material classes.
 
 #### Scenario: Glass thickness override applies
 
 - **WHEN** `useMaterial('glass', sc.partition, { thickness: 0.05 })`
   is invoked
 - **THEN** the returned material has `thickness === 0.05`
-- **AND** all other glass defaults remain (transmission=0.78,
-  roughness=0.18, ior=1.5)
+- **AND** all other glass defaults remain (transmission=0.9,
+  roughness=0.08, ior=1.5)
 
-#### Scenario: Wood with transmission override is ignored or throws
+#### Scenario: Wood with transmission override is not forwarded
 
-- **WHEN** in development mode `useMaterial('wood', sc.desk,
-  { transmission: 0.5 })` is invoked
-- **THEN** the call throws an error referencing the
-  meshStandardMaterial does not support transmission
-- **WHEN** in production mode the same call is invoked
-- **THEN** the override is silently ignored and the resulting
-  material has no transmission property
+- **WHEN** `useMaterial('wood', sc.desk, { transmission: 0.5 })`
+  is invoked
+- **THEN** the returned standard material has no transmission
+  property
 
+#### Scenario: Leather remains a lightweight standard material
+
+- **WHEN** `useMaterial('leather', sc.furniture, { clearcoat: 0.45 })`
+  is invoked
+- **THEN** the returned material is `meshStandardMaterial`
+- **AND** the physical-only `clearcoat` prop is not forwarded

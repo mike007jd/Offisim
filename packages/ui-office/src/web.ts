@@ -27,6 +27,7 @@ export { TOUR_STEPS } from './components/onboarding/tour-steps.js';
 export type { TourStep, TourSlot } from './components/onboarding/tour-steps.js';
 export { ProjectCreateDialog } from './components/project/ProjectCreateDialog.js';
 export type { ProjectCreateDialogCreateInput } from './components/project/ProjectCreateDialog.js';
+export { ProjectSelectedSummary } from './components/project/ProjectListPanel.js';
 export { ProjectSelector } from './components/project/ProjectSelector.js';
 export { ResumeBar } from './components/project/ResumeBar.js';
 export { KeyboardShortcutsDialog } from './components/shared/KeyboardShortcutsDialog.js';

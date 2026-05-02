@@ -6,6 +6,7 @@ import {
   Header,
   KanbanTray,
   NotificationCenter,
+  ProjectSelectedSummary,
   ProjectSelector,
   type ProviderConfig,
   StatusBar,
@@ -129,6 +130,28 @@ export function AppMainShell(props: AppMainShellProps) {
     lastUserRequest,
   } = props;
   const kanban = useKanbanStream(officeState.kanbanOpen ? activeProjectId : null);
+  const activeProject = useMemo(
+    () => projects.find((project) => project.project_id === activeProjectId) ?? null,
+    [activeProjectId, projects],
+  );
+  const projectSelectorProps = useMemo(
+    () => ({
+      projects,
+      activeProjectId,
+      onSelect: setActiveProjectId,
+      onRequestCreate: onRequestCreateProject,
+      onRequestEditProject,
+      onProjectError: collaborationRailProps.onProjectError,
+    }),
+    [
+      activeProjectId,
+      collaborationRailProps.onProjectError,
+      onRequestCreateProject,
+      onRequestEditProject,
+      projects,
+      setActiveProjectId,
+    ],
+  );
 
   const officeToolItems = useMemo(
     () =>
@@ -145,7 +168,6 @@ export function AppMainShell(props: AppMainShellProps) {
     <AppLayout
       header={
         <Header
-          providerName={providerConfig?.model}
           companyName={activeCompanyName}
           onOpenSettings={handleOpenSettings}
           onOpenCompanySelect={onOpenCompanySelect}
@@ -156,15 +178,7 @@ export function AppMainShell(props: AppMainShellProps) {
               onOpenActivityLog={onOpenActivityLog}
             />
           }
-          projectSlot={
-            <ProjectSelector
-              projects={projects}
-              activeProjectId={activeProjectId}
-              onSelect={setActiveProjectId}
-              onRequestCreate={onRequestCreateProject}
-              onRequestEditProject={onRequestEditProject}
-            />
-          }
+          projectSlot={<ProjectSelector {...projectSelectorProps} summaryMode="compact" />}
           modeSlot={
             <SessionModeSwitcher current={interactionMode} onChange={onInteractionModeChange} />
           }
@@ -172,7 +186,6 @@ export function AppMainShell(props: AppMainShellProps) {
           onViewModeChange={onViewModeChange}
           needsConfig={!providerConfig}
           activeWorkspace={activeWorkspace}
-          onBackToOffice={handleBackToOffice}
           workspaceTitle={WORKSPACE_TITLES[activeWorkspace]}
           peerWorkspaces={PEER_WORKSPACE_ITEMS}
           onSelectWorkspace={onSelectWorkspace}
@@ -226,7 +239,20 @@ export function AppMainShell(props: AppMainShellProps) {
       eventLog={
         isOffice ? (
           <Suspense fallback={null}>
-            <CollaborationSidebar {...collaborationRailProps} />
+            <CollaborationSidebar
+              {...collaborationRailProps}
+              projectSlot={<ProjectSelector {...projectSelectorProps} summaryMode="none" />}
+              projectSummarySlot={
+                activeProject ? (
+                  <ProjectSelectedSummary
+                    project={activeProject}
+                    onRequestEdit={onRequestEditProject}
+                    onError={collaborationRailProps.onProjectError}
+                    showWorkspaceFiles
+                  />
+                ) : null
+              }
+            />
           </Suspense>
         ) : null
       }

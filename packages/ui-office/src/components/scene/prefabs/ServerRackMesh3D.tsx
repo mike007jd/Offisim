@@ -18,6 +18,79 @@ export interface ServerRackMesh3DProps {
   state?: string;
 }
 
+export interface ServerRackUnit3DProps {
+  position?: [number, number, number];
+  rotation?: number;
+  heightScale?: number;
+  state?: string;
+}
+
+export function ServerRackUnit3D({
+  position = [0, 0, 0],
+  rotation = 0,
+  heightScale = 1,
+  state: _state,
+}: ServerRackUnit3DProps) {
+  const sc = useSceneColors();
+  const rotY = (rotation * Math.PI) / 180;
+  const height = 2.35 * heightScale;
+  const centerY = height / 2;
+  const ledRows =
+    heightScale > 1 ? [0.36, 0.72, 1.08, 1.44, 1.8, 2.16, 2.52] : [0.4, 0.8, 1.2, 1.6, 2.0];
+  const pickUnitLedColor = (i: number) => {
+    switch (i % 3) {
+      case 0:
+        return sc.ledCyan;
+      case 1:
+        return sc.ledGreen;
+      default:
+        return sc.ledBlue;
+    }
+  };
+
+  return (
+    <group position={position} rotation={[0, rotY, 0]}>
+      <RoundedBox
+        args={[0.82, height, 0.76]}
+        position={[0, centerY, 0]}
+        radius={0.025}
+        smoothness={4}
+        castShadow
+      >
+        <SceneMaterial
+          materialClass="metal"
+          color={sc.serverBody}
+          overrides={{ roughness: 0.32 }}
+        />
+      </RoundedBox>
+      <mesh position={[0, centerY, 0.39]}>
+        <planeGeometry args={[0.68, Math.max(1.9, height - 0.22)]} />
+        <SceneMaterial materialClass="metal" color={sc.furniture} overrides={{ roughness: 0.42 }} />
+      </mesh>
+      {ledRows.map((y, rowIndex) => (
+        <group key={`unit-led-row-${y}`}>
+          {[-0.22, 0, 0.22].map((x, ledIndex) => (
+            <mesh key={`unit-led-${y}-${x}`} position={[x, Math.min(y, height - 0.18), 0.405]}>
+              <circleGeometry args={[0.026, 8]} />
+              <meshBasicMaterial color={pickUnitLedColor(rowIndex + ledIndex)} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      {[0.42, 1.18, 1.94].map((y) => (
+        <mesh key={`unit-vent-${y}`} position={[0, Math.min(y, height - 0.22), 0.41]}>
+          <planeGeometry args={[0.5, 0.045]} />
+          <SceneMaterial
+            materialClass="metal"
+            color={sc.furnitureLight}
+            overrides={{ roughness: 0.5 }}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 export function ServerRackMesh3D({
   position = [0, 0, 0],
   rotation = 0,
@@ -30,6 +103,16 @@ export function ServerRackMesh3D({
   const bakedTexture = useMemo(() => buildServerRackBakedTexture(sc), [sc]);
   // Reusable scratch vector — getWorldPosition allocates if no out-arg is passed.
   const worldPosRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const pickRackLedColor = (i: number) => {
+    switch (i % 3) {
+      case 0:
+        return sc.ledCyan;
+      case 1:
+        return sc.leafPrimary;
+      default:
+        return sc.ledBlue;
+    }
+  };
 
   useFrame((state) => {
     const group = groupRef.current;
@@ -77,15 +160,7 @@ export function ServerRackMesh3D({
                   {[-0.4, -0.2, 0, 0.2, 0.4].map((lx, ledIndex) => (
                     <mesh key={`led-${x}-${y}-${lx}`} position={[lx, y, 0.52]}>
                       <circleGeometry args={[0.03, 8]} />
-                      <meshBasicMaterial
-                        color={
-                          (rowIndex + ledIndex) % 3 === 0
-                            ? sc.ledCyan
-                            : (rowIndex + ledIndex) % 3 === 1
-                              ? sc.leafPrimary
-                              : sc.ledBlue
-                        }
-                      />
+                      <meshBasicMaterial color={pickRackLedColor(rowIndex + ledIndex)} />
                     </mesh>
                   ))}
                 </group>

@@ -1,4 +1,3 @@
-import { DARK_SCENE_3D } from '@offisim/ui-core/tokens';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
@@ -11,6 +10,8 @@ import {
   resolveSkinTone,
 } from '../../../lib/avatar-seed';
 import { type BrandVariant, lookupExternalBrand } from '../../../lib/brand-registry';
+import { SceneMaterial } from '../../../theme/scene-materials';
+import { useSceneColors } from '../../../theme/use-scene-colors';
 import {
   resolveBlockBodyType,
   resolveBlockGender,
@@ -45,10 +46,7 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0">
           {isExternal ? (
-            <p
-              data-testid="external-avatar-disabled"
-              className="text-xs text-text-muted"
-            >
+            <p data-testid="external-avatar-disabled" className="text-xs text-text-muted">
               Brand avatar — appearance is fixed.
             </p>
           ) : (
@@ -121,6 +119,7 @@ function Preview3DCanvas({
   const variant: BrandVariant = isExternal
     ? lookupExternalBrand(brandKey).asset3dVariant
     : 'default';
+  const sc = useSceneColors();
   return (
     <Canvas
       shadows={{ type: THREE.PCFShadowMap }}
@@ -129,10 +128,19 @@ function Preview3DCanvas({
     >
       <Suspense fallback={null}>
         <ambientLight intensity={0.6} />
-        <directionalLight position={[3, 5, 4]} intensity={0.9} castShadow />
+        <directionalLight
+          position={[3, 5, 4]}
+          intensity={0.9}
+          castShadow
+          shadow-mapSize={[512, 512]}
+        />
         <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[6, 6]} />
-          <meshStandardMaterial color={DARK_SCENE_3D.serverBody} roughness={1} />
+          <SceneMaterial
+            materialClass="plastic"
+            color={sc.floorTile}
+            overrides={{ roughness: 1 }}
+          />
         </mesh>
         <PreviewFigure
           variant={variant}

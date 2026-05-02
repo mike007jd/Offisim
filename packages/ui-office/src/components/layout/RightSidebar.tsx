@@ -19,6 +19,8 @@ import { TaskDashboard } from '../plan/TaskDashboard';
 
 interface RightSidebarProps {
   chatPanel: ReactNode;
+  projectSlot?: ReactNode;
+  projectSummarySlot?: ReactNode;
   focusTasksToken?: number;
   requestChatToken?: number;
   /** Filter outputs to this thread only. Null shows all. */
@@ -34,6 +36,8 @@ const SUB_TAB_TRIGGER_CLASS = `${PILL_TRIGGER_BASE} px-3 py-1 text-[10px] upperc
 
 export function RightSidebar({
   chatPanel,
+  projectSlot,
+  projectSummarySlot,
   focusTasksToken,
   requestChatToken,
   activeThreadId,
@@ -42,6 +46,7 @@ export function RightSidebar({
   const { stage } = usePipelineStage();
   const { isRunning } = useOffisimRuntimeStatus();
   const [activeTab, setActiveTab] = useState<'chat' | 'tasks'>('chat');
+  const projectSelectorRef = useTourTarget('office:project-selector');
   const tasksTargetRef = useTourTarget('office:tasks-tab');
   const [taskSubTab, setTaskSubTab] = useState<TaskSubTab>('plan');
 
@@ -68,14 +73,26 @@ export function RightSidebar({
     <div className="flex h-full flex-col overflow-hidden bg-surface-elevated text-text-primary">
       <div className="border-b border-border-default px-3 py-2.5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-text-muted">Workspace</p>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-text-secondary">Workspace</p>
           {workflowLabel && activeTab === 'tasks' && (
             <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-text-muted">
               {workflowLabel}
             </span>
           )}
         </div>
+        {projectSlot ? (
+          <div className="mt-2 flex min-w-0 items-center gap-2" ref={projectSelectorRef}>
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+              Project
+            </span>
+            <div className="min-w-0 flex-1">{projectSlot}</div>
+          </div>
+        ) : null}
       </div>
+
+      {projectSummarySlot ? (
+        <div className="border-b border-border-default px-3 py-2.5">{projectSummarySlot}</div>
+      ) : null}
 
       <Tabs
         value={activeTab}
@@ -85,9 +102,9 @@ export function RightSidebar({
         <div className="border-b border-border-default px-2 pt-2">
           <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 pb-2 text-text-secondary">
             <TabsTrigger
-            value="chat"
-            title="Chat"
-            aria-label="Chat"
+              value="chat"
+              title="Chat"
+              aria-label="Chat"
               className={MAIN_TAB_TRIGGER_CLASS}
             >
               <MessageSquare className="h-4 w-4" />

@@ -8,11 +8,17 @@
 export { Prefab3D } from './Prefab3D.js';
 export type { Prefab3DProps } from './Prefab3D.js';
 
-export { WorkstationMesh3D, OfficeChair, Laptop } from './WorkstationMesh3D.js';
-export type { WorkstationMesh3DProps } from './WorkstationMesh3D.js';
+export {
+  WorkstationMesh3D,
+  WorkstationUnit3D,
+  WorkSurfaceAccent3D,
+  OfficeChair,
+  Laptop,
+} from './WorkstationMesh3D.js';
+export type { WorkstationMesh3DProps, WorkstationUnit3DProps } from './WorkstationMesh3D.js';
 
-export { ServerRackMesh3D } from './ServerRackMesh3D.js';
-export type { ServerRackMesh3DProps } from './ServerRackMesh3D.js';
+export { ServerRackMesh3D, ServerRackUnit3D } from './ServerRackMesh3D.js';
+export type { ServerRackMesh3DProps, ServerRackUnit3DProps } from './ServerRackMesh3D.js';
 
 export { BookshelfMesh3D } from './BookshelfMesh3D.js';
 export type { BookshelfMesh3DProps } from './BookshelfMesh3D.js';

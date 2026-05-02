@@ -11,13 +11,13 @@ import {
   useRegisterModal,
   useTopmostEscape,
 } from '@offisim/ui-core';
-import { ArrowLeft, Building2, ChevronDown, Menu, MoreHorizontal, X } from 'lucide-react';
+import { Building2, ChevronDown, Menu, MoreHorizontal, X } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
+import { useCompany } from '../company/CompanyContext.js';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 import { useTourTarget } from '../onboarding/tour-context.js';
-import { useCompany } from '../company/CompanyContext.js';
 
 type WorkspaceKey = 'office' | 'sops' | 'market' | 'personnel' | 'activity-log' | 'settings';
 
@@ -41,7 +41,6 @@ export interface HeaderOfficeToolItem {
 }
 
 interface HeaderProps {
-  providerName?: string;
   companyName?: string;
   onOpenSettings: () => void;
   onOpenCompanySelect?: () => void;
@@ -53,7 +52,6 @@ interface HeaderProps {
   onViewModeChange?: (mode: '2D' | '3D') => void;
   needsConfig?: boolean;
   activeWorkspace?: WorkspaceKey;
-  onBackToOffice?: () => void;
   workspaceTitle?: string;
   /** Peer workspace navigation (Office/SOPs/Market/Activity/Settings). Always visible. */
   peerWorkspaces: ReadonlyArray<HeaderPeerWorkspaceItem>;
@@ -66,12 +64,10 @@ const DRAWER_STACK_ID = 'header:workspace-drawer';
 
 interface HeaderSlots {
   title: string;
-  backButton: ReactNode;
   viewMode: ReactNode;
   company: ReactNode;
   project: ReactNode;
   peerNav: ReactNode;
-  providerBadge: ReactNode;
   apiSettings: ReactNode;
   mode: ReactNode;
   officeTools: ReactNode;
@@ -80,7 +76,6 @@ interface HeaderSlots {
 }
 
 export function Header({
-  providerName,
   companyName,
   onOpenSettings,
   onOpenCompanySelect,
@@ -92,7 +87,6 @@ export function Header({
   onViewModeChange,
   needsConfig,
   activeWorkspace = 'office',
-  onBackToOffice,
   workspaceTitle,
   peerWorkspaces,
   onSelectWorkspace,
@@ -116,17 +110,6 @@ export function Header({
 
   const slots: HeaderSlots = {
     title: isOffice ? companyName || 'Office' : workspaceTitle || 'Workspace',
-    backButton:
-      !isOffice && onBackToOffice ? (
-        <button
-          type="button"
-          onClick={onBackToOffice}
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Office
-        </button>
-      ) : null,
     viewMode:
       isOffice && viewMode && onViewModeChange ? (
         <ViewModeToggle value={viewMode} onChange={onViewModeChange} />
@@ -145,17 +128,6 @@ export function Header({
         marketRef={marketRef}
       />
     ),
-    providerBadge: providerName ? (
-      <div
-        className="hidden max-w-[180px] items-center gap-2 rounded-full border border-success/20 bg-success-muted px-2.5 py-1 md:inline-flex"
-        title={`Current provider: ${providerName}`}
-      >
-        <div className="h-1.5 w-1.5 rounded-full bg-success" />
-        <span className="truncate font-mono text-xs uppercase tracking-wider text-success">
-          {providerName}
-        </span>
-      </div>
-    ) : null,
     apiSettings: needsConfig ? (
       <Button
         ref={providerCtaRef}
@@ -174,7 +146,7 @@ export function Header({
       isOffice && officeTools && officeTools.length > 0 ? (
         <OfficeToolBar items={officeTools} />
       ) : null,
-    fileImport: <FileImportTrigger onFileSelect={onFileImport} />,
+    fileImport: <FileImportTrigger onFileSelect={onFileImport} compact />,
     notification: notificationSlot,
   };
 
@@ -214,34 +186,25 @@ export function Header({
 function DesktopHeader({ slots, isOffice }: { slots: HeaderSlots; isOffice: boolean }) {
   return (
     <header
-      className="grid min-h-11 grid-cols-[minmax(260px,auto)_minmax(520px,1fr)_minmax(260px,auto)] items-center gap-3 rounded-[18px] border border-border-default bg-surface-elevated/92 text-text-primary shadow-overlay backdrop-blur-md xl:grid-cols-[minmax(340px,auto)_minmax(560px,1fr)_minmax(340px,auto)]"
-      style={{ paddingInline: 'var(--sp-md)', paddingBlock: '0.375rem' }}
+      className="grid h-14 grid-cols-[minmax(250px,320px)_minmax(540px,1fr)_minmax(260px,360px)] items-center gap-3 rounded-[18px] border border-border-default bg-surface-elevated/92 text-text-primary shadow-overlay backdrop-blur-md"
+      style={{ paddingInline: 'var(--sp-md)' }}
     >
-      <div
-        className="flex min-w-0 flex-wrap items-center"
-        style={{ columnGap: '0.5rem', rowGap: '0.25rem' }}
-      >
-        {!isOffice && slots.backButton && (
-          <>
-            {slots.backButton}
-            <div className="h-5 w-px bg-border-subtle" />
-            <h1 className="truncate text-sm font-semibold tracking-wide text-text-primary">
-              {slots.title}
-            </h1>
-          </>
+      <div className="flex min-w-0 items-center overflow-hidden" style={{ columnGap: '0.5rem' }}>
+        {!isOffice && (
+          <h1 className="truncate text-sm font-semibold tracking-wide text-text-primary">
+            {slots.title}
+          </h1>
         )}
         {slots.viewMode}
         {slots.company}
-        {slots.project}
       </div>
 
       <div className="flex min-w-0 justify-center">{slots.peerNav}</div>
 
       <div
-        className="flex min-w-0 shrink-0 flex-wrap items-center justify-end"
-        style={{ columnGap: 'var(--sp-sm)', rowGap: '0.25rem' }}
+        className="flex min-w-0 shrink-0 items-center justify-end overflow-hidden"
+        style={{ columnGap: 'var(--sp-sm)' }}
       >
-        {slots.providerBadge}
         {slots.apiSettings}
         {slots.mode}
         {slots.officeTools}
@@ -344,9 +307,7 @@ function NarrowHeader({
               {isOffice && slots.project ? (
                 <div className="rounded-lg p-1">{slots.project}</div>
               ) : null}
-              {isOffice && slots.mode ? (
-                <div className="rounded-lg p-1">{slots.mode}</div>
-              ) : null}
+              {isOffice && slots.mode ? <div className="rounded-lg p-1">{slots.mode}</div> : null}
               {isOffice && slots.officeTools ? (
                 <div className="rounded-lg p-1">{slots.officeTools}</div>
               ) : null}
@@ -490,9 +451,7 @@ function CompanySwitcher({
   onManageCompanies: () => void;
 }) {
   const { companies, activeCompanyId, switchCompany } = useCompany();
-  const visibleCompanies = companies
-    .filter((company) => company.status !== 'archived')
-    .slice(0, 8);
+  const visibleCompanies = companies.filter((company) => company.status !== 'archived').slice(0, 8);
 
   const items: EntityDropdownItem[] = visibleCompanies.map((company) => ({
     id: company.company_id,
@@ -605,13 +564,7 @@ function activateWorkspaceLink(
     return;
   }
   event.preventDefault();
-  const href = workspaceHref(key);
   onSelect(key);
-  if (typeof window === 'undefined') return;
-  const current = `${window.location.pathname}${window.location.search}`;
-  if (current === href) return;
-  window.history.pushState(null, '', href);
-  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
 const MAX_VISIBLE_OFFICE_TOOLS = 3;

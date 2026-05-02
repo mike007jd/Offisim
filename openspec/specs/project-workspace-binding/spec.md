@@ -1,7 +1,7 @@
 # project-workspace-binding Specification
 
 ## Purpose
-Project rows carry an optional local `workspace_root` folder binding alongside their dedicated chat thread. On desktop the folder is chosen and revealed through Tauri's dialog + opener plugins; the binding surfaces in the ChatPanel project context strip and in the project selector / list summary. On the web frontend the folder field is a disabled hint, since File System Access semantics do not match the absolute-path model. This capability covers the schema column, the `ProjectService.createProject` object-input shape, the platform-branched folder-picker SSOT, the create / edit / unbind / reveal UI flows, and the desktop workspace file tree + text preview surface.
+Project rows carry an optional local `workspace_root` folder binding alongside their dedicated chat thread. On desktop the folder is chosen and revealed through Tauri's dialog + opener plugins; the binding surfaces in the Office Workspace Project control, with the selector kept as a lightweight switcher and the folder/file context shown in the persistent Workspace summary. On the web frontend the folder field is a disabled hint, since File System Access semantics do not match the absolute-path model. This capability covers the schema column, the `ProjectService.createProject` object-input shape, the platform-branched folder-picker SSOT, the create / edit / unbind / reveal UI flows, and the desktop workspace file tree + text preview surface.
 ## Requirements
 ### Requirement: `projects.workspace_root` is the SSOT field for the optional local workspace folder
 
@@ -96,7 +96,7 @@ In browser mode (no `__TAURI_INTERNALS__`), `ProjectCreateDialog` SHALL render t
 - on submit (edit) call `repos.projects.update(initial.project_id, { name, description, workspace_root })` and close
 - on Esc / Cancel discard local state without persistence
 
-The legacy inline-create form on `ProjectSelector` SHALL be removed; "New Project…" SHALL open this dialog. An "Edit" entry on `ProjectContextStrip` SHALL open the dialog in edit mode pre-populated from `activeProject`.
+The legacy inline-create form on `ProjectSelector` SHALL be removed; "New Project…" SHALL open this dialog. The Workspace Project control's "Edit" entry SHALL open the dialog in edit mode pre-populated from `activeProject`.
 
 #### Scenario: Create flow happy path with folder
 - **WHEN** the user opens "New Project…", types "Acme", picks `/Users/me/work/acme`, and clicks Create
@@ -108,11 +108,11 @@ The legacy inline-create form on `ProjectSelector` SHALL be removed; "New Projec
 
 #### Scenario: Edit mode rebinds folder
 - **WHEN** the user opens edit mode on an existing project, picks a different folder, and clicks Save
-- **THEN** `repos.projects.update` is invoked with the new `workspace_root` and the dialog closes; ProjectContextStrip reflects the new path
+- **THEN** `repos.projects.update` is invoked with the new `workspace_root` and the dialog closes; the Workspace Project control reflects the new path
 
 #### Scenario: Edit mode unbinds folder via Clear
 - **WHEN** the user opens edit mode on a project that has a folder bound and clicks "Clear" then Save
-- **THEN** `repos.projects.update(id, { workspace_root: null })` is invoked and ProjectContextStrip drops the folder segment
+- **THEN** `repos.projects.update(id, { workspace_root: null })` is invoked and the Workspace Project control drops the folder segment
 
 #### Scenario: Empty name disables CTA
 - **WHEN** the name input is empty or whitespace-only
@@ -134,32 +134,41 @@ The CTA SHALL NOT replicate first-run wizard / onboarding cards — the empty st
 - **WHEN** the user has at least one project
 - **THEN** the dropdown shows the project list and the legacy "All / New Project…" affordances; the guided empty state is not rendered
 
-### Requirement: `ProjectContextStrip` exposes Project context above ChatPanel
+### Requirement: Workspace Project control exposes Project context
 
-A new `ProjectContextStrip` component SHALL render at the top of `ChatPanel.tsx`, above its existing tab strip, only when `activeProject != null`. The strip SHALL:
-- read `Project · {name}` and, when `workspace_root` is set, append `· {formatWorkspaceRootHint(workspace_root)}` (truncated mid-path so head + tail are visible, ~32 chars total)
-- expose an "Open folder" button on desktop only when `workspace_root` is set
+The Office Workspace panel SHALL own the active Project control. The desktop app header SHALL NOT render the Project selector in its main row, because Project is workspace context rather than global chrome. On narrow layouts, the Project selector MAY remain in the header overflow menu so the control is still reachable without a right rail.
+
+The Workspace Project control SHALL:
+- render in the right Workspace panel header when Office is active
+- show the active Project selector as a lightweight switcher
+- show the selected Project summary persistently in the Workspace panel below the selector and above the chat / task tabs
+- show `Project · {name}` and, when `workspace_root` is set, append `· {formatWorkspaceRootHint(workspace_root)}` inside the selected summary
+- expose an "Open" folder button on desktop only when `workspace_root` is set
 - expose an "Edit" button that opens `ProjectCreateDialog` in `mode='edit'` for the active project
-- be invisible (zero rendered DOM, no empty row) when `activeProject == null`
-- render identically for team chat and direct chat tabs (chat sub-tab change does not hide it)
+- keep the desktop header free of Project context, while narrow header overflow may show a compact Project summary with no workspace file tree
+- be scoped to Workspace and not duplicate itself at the top of `ChatPanel`
 
 `formatWorkspaceRootHint` SHALL live in `packages/shared-types/src/project.ts` so it is shared by other future surfaces.
 
-#### Scenario: Strip appears with active project
+#### Scenario: Workspace control appears with active project
 - **WHEN** the user selects a project that has `name='Acme'` and `workspace_root='/Users/me/work/acme'`
-- **THEN** ChatPanel renders a single-row strip "Project · Acme · /Users/…/work/acme" with Open folder + Edit affordances
+- **THEN** the Workspace Project selector summary shows "Project · Acme · /Users/…/work/acme" with Open + Edit affordances
 
-#### Scenario: Strip hides folder segment when unbound
+#### Scenario: Workspace control hides folder segment when unbound
 - **WHEN** the active project has `workspace_root = null`
-- **THEN** the strip shows "Project · Acme · No folder bound" with no Open folder button (Edit remains visible)
+- **THEN** the selected summary shows "Project · Acme · No folder bound" with no Open button (Edit remains visible)
 
-#### Scenario: Strip vanishes when no active project
+#### Scenario: ChatPanel has no duplicated project row
 - **WHEN** `activeProjectId` is null
-- **THEN** ChatPanel renders no project strip and no empty placeholder row above the tabs
+- **THEN** ChatPanel renders no project strip and no empty placeholder row above the message area
 
-#### Scenario: Strip persists across team / direct chat
+#### Scenario: Project control persists across chat / task tabs
 - **WHEN** the user toggles between team chat and direct chat tabs while an active project is set
-- **THEN** the strip remains visible with the same content; switching tabs never collapses it
+- **THEN** the Workspace Project control remains visible with the same content; switching chat/task tabs never collapses it
+
+#### Scenario: Project selector dropdown stays lightweight
+- **WHEN** the user opens the Project selector
+- **THEN** the dropdown lists projects and may show compact metadata, but it does not host the workspace file tree or file preview navigation
 
 ### Requirement: Open folder action goes through Tauri opener plugin with explicit failure feedback
 
@@ -173,25 +182,27 @@ If the OS reveal call fails (path not found, permission denied), the UI SHALL su
 
 #### Scenario: Open folder fails with toast guidance
 - **WHEN** the user clicks Open folder on desktop with a `workspace_root` that no longer exists on disk
-- **THEN** a toast reading "Folder not found at <path>. Edit project to rebind." appears and the strip remains as-is
+- **THEN** a toast reading "Folder not found at <path>. Edit project to rebind." appears and the Workspace Project control remains as-is
 
 #### Scenario: Open folder hidden in browser mode
-- **WHEN** the user views ProjectContextStrip in browser mode
+- **WHEN** the user views the Workspace Project control in browser mode
 - **THEN** no Open folder button is rendered regardless of `workspace_root` value
 
-### Requirement: `ProjectListPanel` summary surface exposes folder + counts
+### Requirement: Project selected summary exposes folder + counts
 
-`ProjectListPanel` right-side detail summary SHALL, for the selected project:
+`ProjectSelectedSummary` SHALL, for the selected project:
+- show the selected project name as Project context
 - show `workspace_root` (or "No folder bound" when null) as a labeled row
 - show task count and deliverable count for the project's `thread_id`
-- expose the same Edit affordance as `ProjectContextStrip`
-- include the desktop workspace file tree when a workspace folder is bound
+- expose the same Edit affordance as the Workspace Project control
+- include the desktop workspace file tree when a workspace folder is bound and the summary is rendered in the persistent Workspace panel
+- omit the desktop workspace file tree when the summary is rendered inside a transient selector dropdown
 
 The counts SHALL come from existing thread-scoped task / deliverable repos; this requirement does not introduce a new event subscription channel — it surfaces existing data.
 
 #### Scenario: Selected project shows folder row
-- **WHEN** the user opens `ProjectListPanel` and selects a project with `workspace_root='/Users/me/work/acme'`
-- **THEN** the right-side summary shows a "Workspace folder" labeled row with `/Users/me/work/acme` and an Edit button
+- **WHEN** the user opens the Project selector and selects a project with `workspace_root='/Users/me/work/acme'`
+- **THEN** the selected summary shows a "Workspace folder" labeled row with `/Users/me/work/acme` and an Edit button
 
 #### Scenario: Project without folder shows fallback text
 - **WHEN** the selected project has `workspace_root = null`
@@ -203,7 +214,7 @@ The counts SHALL come from existing thread-scoped task / deliverable repos; this
 
 ### Requirement: Desktop project picker SHALL include a workspace file tree
 
-When a selected project has `workspace_root` and the app is running in desktop mode, `ProjectListPanel` SHALL render a compact workspace file tree in the selected-summary block.
+When a selected project has `workspace_root` and the app is running in desktop mode, `ProjectListPanel` SHALL render a compact workspace file tree in the persistent Workspace selected-summary block. Project selector dropdown summaries SHALL NOT render the file tree.
 
 The file tree SHALL list directory entries through the Tauri `project_list_dir` command. For text previews shown inside the file tree, the tree SHALL use the bounded `project_read_file_preview(path, cwd, max_bytes)` command — NOT the unbounded `project_read_file` command. `project_read_file` remains available for agent tool calls (`read_file` builtin) where the tool schema enforces the byte budget; the file-tree UI MUST NOT call it. Both commands SHALL remain constrained by the same workspace-root sandbox and redacted error behavior as gateway file tools.
 
@@ -410,4 +421,3 @@ Any UI or skill-install adapter that accepts a workspace-relative file path SHAL
 - **WHEN** a workspace-relative path contains an encoded traversal segment such as `%2e%2e/outside.txt`
 - **THEN** the adapter normalizes or rejects the segment so it cannot escape the active workspace root
 - **AND** the failure is surfaced as a sandbox/path validation error, not as a silent fallback
-

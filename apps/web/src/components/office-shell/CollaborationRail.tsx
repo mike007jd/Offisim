@@ -1,5 +1,6 @@
 import type { ProjectRow } from '@offisim/shared-types';
 import { ChatDrawer, ChatPanel, RightSidebar } from '@offisim/ui-office/web';
+import type { ReactNode } from 'react';
 import type { StarterPrompt } from '../../lib/onboarding-prompts';
 
 interface CollaborationRailProps {
@@ -16,10 +17,15 @@ interface CollaborationRailProps {
   onUserMessage: (text: string) => void;
   /** Open ProjectCreateDialog in edit mode for the active project. */
   onRequestEditProject?: (project: ProjectRow) => void;
-  /** Toast surface for ProjectContextStrip "folder not found" feedback. */
-  onProjectStripError?: (message: string) => void;
+  /** Toast surface for Workspace Project open-folder feedback. */
+  onProjectError?: (message: string) => void;
   selectedEmployeeId: string | null;
   selectedEmployeeName: string | null;
+}
+
+interface CollaborationSidebarProps extends CollaborationRailProps {
+  projectSlot?: ReactNode;
+  projectSummarySlot?: ReactNode;
 }
 
 function renderChatPanel({
@@ -32,8 +38,6 @@ function renderChatPanel({
   onToggleDashboard,
   onToggleKanban,
   onUserMessage,
-  onRequestEditProject,
-  onProjectStripError,
   selectedEmployeeId,
   selectedEmployeeName,
   compact,
@@ -58,8 +62,6 @@ function renderChatPanel({
       onOpenEditor={onOpenOfficeEditor}
       onOpenStudio={onOpenStudio}
       activeProject={activeProject}
-      onRequestEditProject={onRequestEditProject}
-      onProjectStripError={onProjectStripError}
       onUserMessage={onUserMessage}
       onboardingStarterPrompts={chatOnboardingStarterPrompts}
       showPipelineProgress={showPipelineProgress}
@@ -85,9 +87,11 @@ export function ChatDock(props: CollaborationRailProps) {
   );
 }
 
-export function CollaborationSidebar(props: CollaborationRailProps) {
+export function CollaborationSidebar(props: CollaborationSidebarProps) {
   return (
     <RightSidebar
+      projectSlot={props.projectSlot}
+      projectSummarySlot={props.projectSummarySlot}
       chatPanel={renderChatPanel({
         ...props,
         showPipelineProgress: false,
