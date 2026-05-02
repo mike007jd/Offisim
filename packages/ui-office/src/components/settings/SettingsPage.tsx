@@ -1,7 +1,6 @@
 import { cn } from '@offisim/ui-core';
 import { useEffect, useRef } from 'react';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
-import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
 import { SettingsContentArea } from './SettingsContentArea';
 import { SettingsTabNav } from './SettingsTabNav';
 import { type SettingsTab, useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
@@ -30,8 +29,6 @@ export function SettingsPage({
   onEditExternalEmployee,
 }: SettingsPageProps) {
   const { tier } = useLayoutTier();
-  const [navCollapse, setNavCollapse] = useSidebarCollapse('settings');
-  const navCollapsed = tier !== 'narrow' && navCollapse === 'collapsed';
   const controller = useSettingsWorkspaceController({
     isActive: true,
     onDismiss: onBack,
@@ -70,12 +67,6 @@ export function SettingsPage({
       <SettingsTabNav
         activeTab={sessionState.activeTab}
         orientation={tier === 'narrow' ? 'horizontal' : 'vertical'}
-        collapsed={navCollapsed}
-        onToggleCollapse={
-          tier === 'narrow'
-            ? undefined
-            : () => setNavCollapse(navCollapse === 'collapsed' ? 'expanded' : 'collapsed')
-        }
         onTabChange={(tab) => onSessionStateChange((prev) => ({ ...prev, activeTab: tab }))}
       />
       <SettingsContentArea

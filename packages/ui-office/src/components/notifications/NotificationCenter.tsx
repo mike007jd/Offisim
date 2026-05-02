@@ -1,4 +1,4 @@
-import { Badge, Button, ScrollArea } from '@offisim/ui-core';
+import { Button, ScrollArea } from '@offisim/ui-core';
 import { Bell, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -54,18 +54,19 @@ export function NotificationCenter({
         variant="ghost"
         size="icon"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
-        <Bell className="h-4 w-4" />
-        {unreadCount > 0 && (
-          <Badge
-            variant="error"
-            className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[10px] flex items-center justify-center"
-          >
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </Badge>
-        )}
+        <span className="relative inline-flex h-5 w-5 items-center justify-center">
+          <Bell className="h-4 w-4" />
+          {unreadCount > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-error px-1 text-[9px] font-semibold leading-none text-text-inverse ring-2 ring-surface-elevated"
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </span>
       </Button>
 
       {isOpen && (

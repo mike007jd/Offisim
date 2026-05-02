@@ -83,6 +83,8 @@ export function ChatInput({
   const [mentionStartPos, setMentionStartPos] = useState(-1);
 
   const menuRef = useRef<HTMLDivElement>(null);
+  const slashItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const mentionItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   // ── Mention options ─────────────────────────────────────────────
   const mentionOptions: MentionOption[] = useMemo(() => {
@@ -133,6 +135,17 @@ export function ChatInput({
     if (mentionIndex >= filteredMentions.length)
       setMentionIndex(Math.max(0, filteredMentions.length - 1));
   }, [filteredMentions.length, mentionIndex]);
+
+  // ── Scroll active row into view (kbd nav) ──────────────────────
+  useEffect(() => {
+    if (!showSlashMenu) return;
+    slashItemRefs.current[slashIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [slashIndex, showSlashMenu]);
+
+  useEffect(() => {
+    if (!showMentionMenu) return;
+    mentionItemRefs.current[mentionIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [mentionIndex, showMentionMenu]);
 
   // ── Input change handler ────────────────────────────────────────
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -310,6 +323,9 @@ export function ChatInput({
             {filteredSlash.map((cmd, i) => (
               <button
                 key={cmd.name}
+                ref={(el) => {
+                  slashItemRefs.current[i] = el;
+                }}
                 type="button"
                 className={`flex h-8 w-full items-center gap-2.5 px-3 text-left transition-colors ${
                   i === slashIndex
@@ -347,6 +363,9 @@ export function ChatInput({
             {filteredMentions.map((opt, i) => (
               <button
                 key={opt.id}
+                ref={(el) => {
+                  mentionItemRefs.current[i] = el;
+                }}
                 type="button"
                 className={`flex h-8 w-full items-center gap-2.5 px-3 text-left transition-colors ${
                   i === mentionIndex
