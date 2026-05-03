@@ -286,17 +286,7 @@ export function AppMainShell(props: AppMainShellProps) {
               />
             ) : null
           }
-          gitBranchSlot={
-            isOffice && activeProject?.workspace_root ? (
-              <span
-                className="inline-flex h-6 items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 text-[10px] uppercase tracking-wider text-text-secondary"
-                title={`Workspace root: ${activeProject.workspace_root}`}
-              >
-                <span className="font-mono lowercase tracking-normal text-text-muted">⎇</span>
-                <span className="truncate">main</span>
-              </span>
-            ) : null
-          }
+          gitBranchSlot={null}
         />
       }
       chatDrawerMode="mobile-only"

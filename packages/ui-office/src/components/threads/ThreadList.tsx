@@ -19,7 +19,7 @@ const ROW_IDLE = 'text-text-secondary hover:bg-surface-hover hover:text-text-pri
 export function ThreadList({ projectId, selectedThreadId, onSelectThread }: ThreadListProps) {
   const { repos } = useOffisimRuntime();
   const [threads, setThreads] = useState<ChatThread[]>([]);
-  const [renaming, setRenaming] = useState<{ threadId: string; draft: string } | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!repos?.chatThreads || !projectId) {
@@ -40,21 +40,23 @@ export function ThreadList({ projectId, selectedThreadId, onSelectThread }: Thre
       thread_id: generateId('thread'),
       project_id: projectId,
     });
-    await refresh();
+    setThreads((prev) => [created, ...prev]);
     onSelectThread(created.thread_id);
-  }, [repos, projectId, refresh, onSelectThread]);
+  }, [repos, projectId, onSelectThread]);
 
-  const handleRenameSubmit = useCallback(async () => {
-    if (!repos?.chatThreads || !renaming) return;
-    const title = renaming.draft.trim();
-    if (!title) {
-      setRenaming(null);
-      return;
-    }
-    await repos.chatThreads.updateTitle(renaming.threadId, title, { byUser: true });
-    setRenaming(null);
-    await refresh();
-  }, [repos, renaming, refresh]);
+  const handleRenameSubmit = useCallback(
+    async (threadId: string, nextTitle: string) => {
+      if (!repos?.chatThreads) return;
+      const title = nextTitle.trim();
+      setRenamingId(null);
+      if (!title) return;
+      await repos.chatThreads.updateTitle(threadId, title, { byUser: true });
+      setThreads((prev) =>
+        prev.map((t) => (t.thread_id === threadId ? { ...t, title } : t)),
+      );
+    },
+    [repos],
+  );
 
   if (!projectId) return null;
 
@@ -81,43 +83,20 @@ export function ThreadList({ projectId, selectedThreadId, onSelectThread }: Thre
         ) : (
           threads.map((t) => {
             const isActive = t.thread_id === selectedThreadId;
-            const isRenaming = renaming?.threadId === t.thread_id;
+            const isRenaming = renamingId === t.thread_id;
             return (
               <div key={t.thread_id} className="flex items-center gap-1">
                 {isRenaming ? (
-                  <div className="flex flex-1 items-center gap-1">
-                    <input
-                      autoFocus
-                      value={renaming.draft}
-                      onChange={(e) => setRenaming({ ...renaming, draft: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void handleRenameSubmit();
-                        if (e.key === 'Escape') setRenaming(null);
-                      }}
-                      className="flex-1 rounded border border-border-default bg-surface-default px-2 py-1 text-[12px] text-text-primary outline-none focus:border-border-focus"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void handleRenameSubmit()}
-                      className="rounded p-1 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-                      aria-label="Save"
-                    >
-                      <Check className="h-3 w-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRenaming(null)}
-                      className="rounded p-1 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-                      aria-label="Cancel"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
+                  <RenameInput
+                    initial={t.title}
+                    onSubmit={(next) => void handleRenameSubmit(t.thread_id, next)}
+                    onCancel={() => setRenamingId(null)}
+                  />
                 ) : (
                   <button
                     type="button"
                     onClick={() => onSelectThread(t.thread_id)}
-                    onDoubleClick={() => setRenaming({ threadId: t.thread_id, draft: t.title })}
+                    onDoubleClick={() => setRenamingId(t.thread_id)}
                     className={cn(ROW_BASE, isActive ? ROW_ACTIVE : ROW_IDLE)}
                   >
                     <span className="min-w-0 flex-1 truncate">{t.title}</span>
@@ -128,6 +107,46 @@ export function ThreadList({ projectId, selectedThreadId, onSelectThread }: Thre
           })
         )}
       </div>
+    </div>
+  );
+}
+
+interface RenameInputProps {
+  initial: string;
+  onSubmit: (nextTitle: string) => void;
+  onCancel: () => void;
+}
+
+function RenameInput({ initial, onSubmit, onCancel }: RenameInputProps) {
+  const [draft, setDraft] = useState(initial);
+  return (
+    <div className="flex flex-1 items-center gap-1">
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onSubmit(draft);
+          if (e.key === 'Escape') onCancel();
+        }}
+        className="flex-1 rounded border border-border-default bg-surface-default px-2 py-1 text-[12px] text-text-primary outline-none focus:border-border-focus"
+      />
+      <button
+        type="button"
+        onClick={() => onSubmit(draft)}
+        className="rounded p-1 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+        aria-label="Save"
+      >
+        <Check className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded p-1 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+        aria-label="Cancel"
+      >
+        <X className="h-3 w-3" />
+      </button>
     </div>
   );
 }

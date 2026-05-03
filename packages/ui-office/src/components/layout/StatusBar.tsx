@@ -37,11 +37,8 @@ const DIVIDER_CLS = 'h-3 w-px bg-border-subtle';
 interface StatusBarProps {
   modelName?: string;
   activeProjectStatus?: ProjectStatus | null;
-  /** Dashboard slot — typically a toggle button. Hidden when null. */
   dashboardSlot?: ReactNode;
-  /** Notification slot — typically the NotificationCenter trigger. Hidden when null. */
   notificationSlot?: ReactNode;
-  /** Git branch slot — workspace_root-bound branch label. Hidden when null. */
   gitBranchSlot?: ReactNode;
 }
 

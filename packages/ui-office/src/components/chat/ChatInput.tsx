@@ -67,7 +67,6 @@ export interface ChatInputProps {
   placeholder?: string;
   agents?: Map<string, AgentState>;
   disabledReason?: string;
-  /** Right-aligned chip in the hint row — typically the session-mode chip. */
   modeChip?: ReactNode;
 }
 

@@ -8,6 +8,10 @@ const TITLE_PROMPT =
 
 const TITLE_MAX_LEN = 60;
 const FALLBACK_TITLE = 'New thread';
+const PER_MESSAGE_CHAR_CAP = 400;
+const PROMPT_TOTAL_CAP = 2400;
+
+const lockedThreadIds = new Set<string>();
 
 function isHumanMessage(m: unknown): m is HumanMessage {
   return (
@@ -30,9 +34,24 @@ function clampTitle(value: string): string {
   return trimmed.slice(0, TITLE_MAX_LEN);
 }
 
+function buildSummarizerPrompt(state: OffisimGraphState, fallback: string): string {
+  const joined = state.messages
+    .slice(-6)
+    .map((m) => {
+      const role = m._getType() === 'human' ? 'user' : 'assistant';
+      const text = typeof m.content === 'string' ? m.content : '';
+      if (!text) return '';
+      return `${role}: ${text.slice(0, PER_MESSAGE_CHAR_CAP)}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+  return (joined || fallback).slice(0, PROMPT_TOTAL_CAP);
+}
+
 export function autoTitleThread(ctx: RuntimeContext, state: OffisimGraphState): void {
   const chatThreadId = state.chatThreadId;
   if (!chatThreadId) return;
+  if (lockedThreadIds.has(chatThreadId)) return;
   if (!ctx.repos.chatThreads) return;
 
   const userPrompt = firstUserPrompt(state);
@@ -41,18 +60,14 @@ export function autoTitleThread(ctx: RuntimeContext, state: OffisimGraphState): 
   void (async () => {
     try {
       const existing = await ctx.repos.chatThreads.findById(chatThreadId);
-      if (!existing || existing.title_set_by_user === 1) return;
+      if (!existing) return;
+      if (existing.title_set_by_user === 1) {
+        lockedThreadIds.add(chatThreadId);
+        return;
+      }
 
       const resolved = ctx.modelResolver.resolve(null, 'boss');
-      const messages = state.messages
-        .slice(-6)
-        .map((m) => {
-          const role = m._getType() === 'human' ? 'user' : 'assistant';
-          const text = typeof m.content === 'string' ? m.content : '';
-          return text ? `${role}: ${text}` : '';
-        })
-        .filter(Boolean)
-        .join('\n');
+      const summarizerInput = buildSummarizerPrompt(state, userPrompt);
 
       let summary = fallback;
       try {
@@ -61,7 +76,7 @@ export function autoTitleThread(ctx: RuntimeContext, state: OffisimGraphState): 
           {
             messages: [
               { role: 'system', content: TITLE_PROMPT },
-              { role: 'user', content: messages || userPrompt },
+              { role: 'user', content: summarizerInput },
             ],
             model: resolved.model,
             temperature: 0.2,
@@ -71,13 +86,13 @@ export function autoTitleThread(ctx: RuntimeContext, state: OffisimGraphState): 
         );
         const candidate = clampTitle(response.content ?? '');
         if (candidate) summary = candidate;
-      } catch {
-        // Fall back to truncated first prompt — never block the chat reply.
+      } catch (err) {
+        console.warn('[auto-title-thread] LLM summarizer failed; using fallback', err);
       }
 
       await ctx.repos.chatThreads.updateTitle(chatThreadId, summary, { byUser: false });
-    } catch {
-      // Best-effort — auto-title must never raise into the chat path.
+    } catch (err) {
+      console.warn('[auto-title-thread] best-effort title rewrite failed', err);
     }
   })();
 }

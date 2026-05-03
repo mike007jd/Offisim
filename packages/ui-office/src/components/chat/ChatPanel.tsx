@@ -1,3 +1,4 @@
+import { DEFAULT_INTERACTION_MODE } from '@offisim/shared-types';
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft } from 'lucide-react';
@@ -734,7 +735,7 @@ export function ChatPanel({
           modeChip={
             setInteractionMode ? (
               <SessionModeChip
-                current={interactionMode ?? 'boss_proxy'}
+                current={interactionMode ?? DEFAULT_INTERACTION_MODE}
                 onChange={setInteractionMode}
               />
             ) : null

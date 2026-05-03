@@ -91,7 +91,7 @@ export function WorkspaceSearch({
     return [...matchedThreads, ...matchedEmployees];
   }, [debounced, threads, agents]);
 
-  const showPanel = open && debounced.length > 0 && results.length > 0;
+  const showPanel = open && debounced.length > 0;
 
   return (
     <div
@@ -115,6 +115,9 @@ export function WorkspaceSearch({
       </div>
       {showPanel ? (
         <div className="absolute left-0 right-0 top-full z-overlay mt-1 max-h-72 overflow-y-auto rounded-md border border-border-default bg-surface-elevated p-1 shadow-overlay">
+          {results.length === 0 ? (
+            <div className="px-2 py-2 text-[11px] text-text-muted">No matches.</div>
+          ) : null}
           {results.map((r) => (
             <button
               key={`${r.kind}:${r.kind === 'thread' ? r.threadId : r.employeeId}`}

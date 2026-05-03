@@ -28,17 +28,12 @@ interface RightSidebarProps {
   projectSummarySlot?: ReactNode;
   focusTasksToken?: number;
   requestChatToken?: number;
-  /** Filter outputs to this thread only. Null shows all. */
   activeThreadId?: string | null;
-  /** Active project id for the thread list subscription. */
   activeProjectId?: string | null;
-  /** Thread switch handler — must call updateWorkspaceState('office', …). */
+  /** Thread switch must go through `updateWorkspaceState('office', …)` (SSOT). */
   onSelectThread?: (threadId: string) => void;
-  /** Number of kanban cards. When > 0, render the Board chip. */
   kanbanCardCount?: number;
-  /** Kanban tray rendered when the chip is expanded. */
   kanbanSlot?: ReactNode;
-  /** Routes a workspace-search employee hit to the Personnel tab. */
   onSelectEmployee?: (employeeId: string) => void;
 }
 
