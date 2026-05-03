@@ -109,8 +109,8 @@
 
 ## 14. Live verification (release `.app` + web SPA for narrow tier)
 
-- [ ] 14.1 Build release `.app`: `pnpm --filter @offisim/ui-office build && pnpm --filter @offisim/desktop build`.
-- [ ] 14.2 Launch the worktree's exact `.app` path.
+- [x] 14.1 Built release `.app`: `pnpm --filter @offisim/ui-office build && pnpm --filter @offisim/web build && pnpm --filter @offisim/desktop build` (web build chained automatically by `apps/web build` Cargo step). Bundle path: `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`.
+- [ ] 14.2 (USER) Launch the worktree's exact `.app` path: `open /Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. Must be the literal path — do NOT use `open -b com.offisim.desktop` (multi-worktree gotcha).
 - [ ] 14.3 Scenario A — multi-thread isolation: create project P, create thread T1, send "T1 hello"; create thread T2 (`+ New thread`), send "T2 hello"; switch back to T1. Confirm T1 rail shows only T1 messages; T2 rail shows only T2 messages. Capture screenshots: `14.3-T1-only.png`, `14.3-T2-only.png`.
 - [ ] 14.4 Scenario B — boss auto title: in a fresh thread, send "draft me a Q3 launch plan with timelines". After assistant reply, confirm thread title in sidebar updates from `New thread` to a 1-line summary. Capture before / after.
 - [ ] 14.5 Scenario C — user rename sticky: rename a thread to `Strategy notes`. Send another message. Confirm title stays `Strategy notes`. Capture.
@@ -122,7 +122,7 @@
 - [ ] 14.11 Scenario I — Kanban chip: confirm `📋 Board ▾` chip is absent when no kanban cards. Add cards (via boss-driven plan or manual). Confirm chip appears. Click → overlay expands. Click again / Escape → collapses. Capture.
 - [ ] 14.12 Scenario J — Workspace search: type `q3` in search bar. Confirm results include matching thread / file / employee. Click each result type, confirm correct routing. Capture results panel + each routing.
 - [ ] 14.13 Web SPA narrow tier (per `responsive-app-shell` spec): `pnpm --filter @offisim/web dev`, resize browser to ≤768 px. Verify the new IA degrades gracefully (thread list collapses to drawer or stack-navigation, status bar slots stay reachable). Capture narrow tier.
-- [ ] 14.14 Save evidence to `.live-verify/workspace-thread-architecture/` with a `verify-record.md` index per the existing convention.
+- [x] 14.14 `.live-verify/workspace-thread-architecture/verify-record.md` template scaffolded. User fills in scenario-by-scenario notes + drops screenshots into the same directory.
 - [ ] 14.15 If any scenario fails, fix root cause (no UI suppress / dual-mount hacks) and re-verify before archiving.
 
 ## 15. Documentation + archive gate
