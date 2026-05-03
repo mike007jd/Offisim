@@ -1,7 +1,7 @@
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft } from 'lucide-react';
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { useMeeting } from '../../hooks/useMeeting.js';
@@ -62,6 +62,8 @@ interface ChatPanelProps {
   onOpenStudio?: () => void;
   /** Active project — when set, all messages use the project's threadId. */
   activeProject?: ProjectRow | null;
+  /** Active product chat_threads.thread_id (SSOT: OfficeSessionState.selectedThreadId). */
+  activeThreadId?: string | null;
   /** Called when the user sends a message (provides the raw text for Kanban board etc.) */
   onUserMessage?: (text: string) => void;
   /** Template-aware starter prompts for the chat empty state. */
@@ -136,6 +138,7 @@ export function ChatPanel({
   onOpenEditor,
   onOpenStudio,
   activeProject,
+  activeThreadId: activeThreadIdProp,
   onUserMessage,
   onboardingStarterPrompts,
   compact = false,
@@ -154,7 +157,6 @@ export function ChatPanel({
     abortExecution,
     pendingInteraction,
     respondToInteraction,
-    repos,
   } = useOffisimRuntime();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
@@ -174,29 +176,7 @@ export function ChatPanel({
 
   // Current target key
   const activeProjectId = activeProject?.project_id ?? null;
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  // TODO Section 6: replace this local fetch with reading
-  // `OfficeSessionState.selectedThreadId` (single SSOT). Until that lands,
-  // ChatPanel itself ensures the project has a chat_thread and uses the most
-  // recently updated one.
-  useEffect(() => {
-    if (!activeProjectId || !repos?.chatThreads) {
-      setActiveThreadId(null);
-      return;
-    }
-    let cancelled = false;
-    void repos.chatThreads
-      .ensureProjectHasAtLeastOneThread(activeProjectId)
-      .then((row) => {
-        if (!cancelled) setActiveThreadId(row.thread_id);
-      })
-      .catch(() => {
-        if (!cancelled) setActiveThreadId(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeProjectId, repos]);
+  const activeThreadId = activeThreadIdProp ?? null;
   const targetKey = selectedEmployeeId ?? null;
   const conversationKey = getScopedConversationKey(activeProjectId, activeThreadId, targetKey);
   const failedConversationKey = failedRunError?.conversationKey ?? null;

@@ -1,4 +1,5 @@
 import {
+  Button,
   TABS_RETAIN_STATE_CLASS,
   Tabs,
   TabsContent,
@@ -6,16 +7,19 @@ import {
   TabsTrigger,
   cn,
 } from '@offisim/ui-core';
-import { MessageSquare, Terminal } from 'lucide-react';
+import { ClipboardList, MessageSquare, Terminal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useDeliverables } from '../../hooks/useDeliverables';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
+import { usePlanStepStore } from '../../hooks/plan-step-store';
 import { useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { ActivityRail } from '../chat/ActivityRail';
 import { useTourTarget } from '../onboarding/tour-context';
 import { PitchHall } from '../pitch/PitchHall';
 import { TaskDashboard } from '../plan/TaskDashboard';
+import { ThreadList } from '../threads/ThreadList';
 
 interface RightSidebarProps {
   chatPanel: ReactNode;
@@ -25,14 +29,19 @@ interface RightSidebarProps {
   requestChatToken?: number;
   /** Filter outputs to this thread only. Null shows all. */
   activeThreadId?: string | null;
+  /** Active project id for the thread list subscription. */
+  activeProjectId?: string | null;
+  /** Thread switch handler — must call updateWorkspaceState('office', …). */
+  onSelectThread?: (threadId: string) => void;
+  /** Number of kanban cards. When > 0, render the Board chip. */
+  kanbanCardCount?: number;
+  /** Kanban tray rendered when the chip is expanded. */
+  kanbanSlot?: ReactNode;
 }
-
-type TaskSubTab = 'activity' | 'plan' | 'outputs';
 
 const PILL_TRIGGER_BASE =
   'h-auto min-w-fit shrink-0 rounded-full border border-transparent text-text-secondary data-[state=active]:border-border-focus data-[state=active]:bg-accent-muted data-[state=active]:text-accent-text hover:bg-surface-hover hover:text-text-primary';
 const MAIN_TAB_TRIGGER_CLASS = `${PILL_TRIGGER_BASE} gap-1.5 px-3 py-2 text-[11px]`;
-const SUB_TAB_TRIGGER_CLASS = `${PILL_TRIGGER_BASE} px-3 py-1 text-[10px] uppercase tracking-[0.18em]`;
 
 export function RightSidebar({
   chatPanel,
@@ -41,6 +50,10 @@ export function RightSidebar({
   focusTasksToken,
   requestChatToken,
   activeThreadId,
+  activeProjectId,
+  onSelectThread,
+  kanbanCardCount = 0,
+  kanbanSlot,
 }: RightSidebarProps) {
   const agents = useAgentStates();
   const { stage } = usePipelineStage();
@@ -48,7 +61,14 @@ export function RightSidebar({
   const [activeTab, setActiveTab] = useState<'chat' | 'tasks'>('chat');
   const projectSelectorRef = useTourTarget('office:project-selector');
   const tasksTargetRef = useTourTarget('office:tasks-tab');
-  const [taskSubTab, setTaskSubTab] = useState<TaskSubTab>('plan');
+
+  const planSteps = usePlanStepStore().steps;
+  const deliverables = useDeliverables(activeThreadId ?? null);
+  const [kanbanOpen, setKanbanOpen] = useState(false);
+
+  const hasPlan = planSteps.length > 0 || stage === 'planning';
+  const hasOutputs = deliverables.length > 0;
+  const hasKanban = kanbanCardCount > 0;
 
   useEffect(() => {
     if (focusTasksToken) {
@@ -61,6 +81,10 @@ export function RightSidebar({
       setActiveTab('chat');
     }
   }, [requestChatToken]);
+
+  useEffect(() => {
+    if (!hasKanban) setKanbanOpen(false);
+  }, [hasKanban]);
 
   const workflowLabel = useMemo(() => {
     if (!stage && !isRunning) return null;
@@ -92,6 +116,16 @@ export function RightSidebar({
 
       {projectSummarySlot ? (
         <div className="border-b border-border-default px-3 py-2.5">{projectSummarySlot}</div>
+      ) : null}
+
+      {activeProjectId && onSelectThread ? (
+        <div className="border-b border-border-default">
+          <ThreadList
+            projectId={activeProjectId}
+            selectedThreadId={activeThreadId ?? null}
+            onSelectThread={onSelectThread}
+          />
+        </div>
       ) : null}
 
       <Tabs
@@ -142,55 +176,49 @@ export function RightSidebar({
             TABS_RETAIN_STATE_CLASS,
           )}
         >
-          <Tabs
-            value={taskSubTab}
-            onValueChange={(value) => setTaskSubTab(value as TaskSubTab)}
-            className="flex min-h-0 flex-1 flex-col overflow-hidden"
-          >
-            <div className="border-b border-border-default px-2 pt-2">
-              <TabsList className="flex h-auto w-full justify-start gap-1 rounded-none border-0 bg-transparent p-0 pb-2 text-text-secondary">
-                <TabsTrigger value="activity" className={SUB_TAB_TRIGGER_CLASS}>
-                  Activity
-                </TabsTrigger>
-                <TabsTrigger value="plan" className={SUB_TAB_TRIGGER_CLASS}>
-                  Plan
-                </TabsTrigger>
-                <TabsTrigger value="outputs" className={SUB_TAB_TRIGGER_CLASS}>
-                  Outputs
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent
-              value="activity"
-              forceMount
-              className={cn(
-                'mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar px-3 pb-3 pt-3',
-                TABS_RETAIN_STATE_CLASS,
-              )}
-            >
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto custom-scrollbar">
+            <section className="border-b border-border-default px-3 py-3">
+              <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                Activity
+              </h3>
               <ActivityRail variant="full" />
-            </TabsContent>
-            <TabsContent
-              value="plan"
-              forceMount
-              className={cn(
-                'mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar',
-                TABS_RETAIN_STATE_CLASS,
-              )}
-            >
-              <TaskDashboard agents={agents} />
-            </TabsContent>
-            <TabsContent
-              value="outputs"
-              forceMount
-              className={cn(
-                'mt-0 min-h-0 flex-1 overflow-y-auto custom-scrollbar',
-                TABS_RETAIN_STATE_CLASS,
-              )}
-            >
-              <PitchHall activeThreadId={activeThreadId} />
-            </TabsContent>
-          </Tabs>
+            </section>
+
+            {hasPlan ? (
+              <section className="border-b border-border-default px-3 py-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                  Plan
+                </h3>
+                <TaskDashboard agents={agents} />
+              </section>
+            ) : null}
+
+            {hasOutputs ? (
+              <section className="border-b border-border-default px-3 py-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                  Outputs
+                </h3>
+                <PitchHall activeThreadId={activeThreadId ?? null} />
+              </section>
+            ) : null}
+
+            {hasKanban ? (
+              <section className="px-3 py-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-[11px]"
+                  onClick={() => setKanbanOpen((v) => !v)}
+                  aria-expanded={kanbanOpen}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  <span>Board</span>
+                  <span className="text-text-muted">{kanbanOpen ? '▴' : '▾'}</span>
+                </Button>
+                {kanbanOpen && kanbanSlot ? <div className="mt-2">{kanbanSlot}</div> : null}
+              </section>
+            ) : null}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

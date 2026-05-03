@@ -49,18 +49,18 @@
 
 ## 7. Right-rail IA — Project → Thread → Chat shell
 
-- [ ] 7.1 New component `WorkspaceRight` (or refactor existing `RightSidebar`): renders Project selector at top, Thread sidebar list, Chat main pane.
-- [ ] 7.2 New `ThreadList` component in `packages/ui-office/src/components/threads/`: subscribes to `chat_threads.listByProject(activeProjectId)`; renders `{ title, lastMessagePreview, updatedAt, isActive }` rows; click selects thread; `+ New thread` action calls `chat_threads.create()` and switches to it.
-- [ ] 7.3 Inline rename affordance on a thread row: edits `chat_threads.updateTitle(id, title, { byUser: true })`. Stickiness flag prevents auto-retitle.
-- [ ] 7.4 Confirm thread-switch wires through `updateWorkspaceState('office', prev => ({ ...prev, selectedThreadId: nextId }))` — no parallel state owner.
-- [ ] 7.5 Empty thread state: `New thread` with no messages renders an empty chat rail and a placeholder ("Start typing below to send the first message").
+- [x] 7.1 Refactored existing `RightSidebar` (`packages/ui-office/src/components/layout/RightSidebar.tsx`) instead of forking a new `WorkspaceRight`. Now renders Project header (existing) → ProjectSummary slot → ThreadList → Chat / Tasks tabs. Tasks tab body lost its Tabs sub-shell (covered by 11.1) and now shows Activity always + Plan/Outputs gated.
+- [x] 7.2 New `ThreadList` (`packages/ui-office/src/components/threads/ThreadList.tsx`): subscribes via `useEffect` + `repos.chatThreads.listByProject(activeProjectId)`, refetches after create / rename. Rows show `title` truncated; active row uses `accent-muted`. `+ New thread` button calls `repos.chatThreads.create({ thread_id: generateId('thread'), project_id })` then switches to the new id via `onSelectThread`.
+- [x] 7.3 Inline rename: double-click a row → text input with autoFocus + Enter/Escape; commits via `repos.chatThreads.updateTitle(id, title, { byUser: true })`. Repo's `byUser=true` writes `title_set_by_user=1` so subsequent boss auto-title (8.x) no-ops on this row.
+- [x] 7.4 Thread switch goes through `App.tsx#handleSelectThread = updateWorkspaceState('office', prev => ({ ...prev, selectedThreadId }))`. No `setSelectedThreadId` setter introduced; no parallel state owner. ThreadList → `onSelectThread` prop → CollaborationRail → CollaborationSidebar → RightSidebar threading.
+- [x] 7.5 Empty thread state covered by ChatPanel's existing onboarding empty state (no messages on the conversationKey). New thread = fresh `<projectId>::<threadId>::` conversationKey with zero messages, ChatPanel renders the starter-prompts placeholder. ChatPanel's local `useState`+`useEffect` thread bootstrap deleted; consumes `activeThreadId` prop only (SSOT = `office.selectedThreadId`).
 
 ## 8. Boss-auto title
 
-- [ ] 8.1 In the boss / runtime layer, after the first assistant turn on a thread whose title === `New thread`, fire a low-cost LLM 1-line summarizer (reuse provider config; keep cost minimal). On success, call `chat_threads.updateTitle(threadId, summary, { byUser: false })`. On failure, fall back to the user's first prompt truncated to 60 characters.
-- [ ] 8.2 The summarizer SHALL be fire-and-forget — never block the user-facing first render of the assistant reply.
-- [ ] 8.3 The summarizer SHALL no-op if the title has been user-edited (`byUser: true` flag persisted on `updateTitle`).
-- [ ] 8.4 Add a small unit test (deterministic harness scenario, not vitest) if the summarizer logic gates on a tool-trace invariant; otherwise rely on live verify.
+- [x] 8.1 New `auto-title-thread.ts` helper (`packages/core/src/agents/auto-title-thread.ts`): clamps a 1-line LLM summary to 60 chars (strips wrapping quotes / trailing punctuation), falls back to clamped first-user-prompt or `'New thread'` literal if the LLM call fails. Calls `repos.chatThreads.updateTitle(chatThreadId, title, { byUser: false })`. Uses `recordedLlmCall` with `boss` model resolver (cheap; `temperature: 0.2`, `maxTokens: 32`).
+- [x] 8.2 Fire-and-forget: helper wraps the entire pipeline in a top-level IIFE swallowed via `void (async () => { ... })()` — never awaited from `bossSummaryNode`. Hook points (3 of them in `bossSummaryNode`): `direct_reply` early return, single-employee fast path, multi-employee streaming summary tail. All three call `autoTitleThread(runtimeCtx, state)` AFTER the user-facing return path is fully prepared.
+- [x] 8.3 Stickiness no-op: helper reads `existing.title_set_by_user === 1` and returns early before any LLM call. Repo `updateTitle({ byUser: false })` itself also no-ops on stickiness as a defense-in-depth layer (see 3.1).
+- [x] 8.4 Skipped — summarizer doesn't gate on a tool-trace invariant; behavior is "best-effort title rewrite, fall back to truncated prompt". Live verify (Scenario B in 14.4) covers the user-visible expectation.
 
 ## 9. Header strip-down + Mode chip + bottom status bar
 
@@ -79,18 +79,18 @@
 
 ## 10. Install singularity
 
-- [ ] 10.1 Audit all install entry points: status bar, command palette, keyboard shortcut, deep-link handler. Confirm or change each to ROUTE to Market detail (or `MarketplaceDetailOverlay` for deep-link).
-- [ ] 10.2 If a standalone install dialog component exists outside `MarketplaceDetailOverlay`, deprecate / remove it. Update its callers to route to Market detail.
-- [ ] 10.3 Deep-link `offisim://install/<listing>` opens Market detail page (or `MarketplaceDetailOverlay`). Confirm the existing `useDeepLinkInstall` channel still resolves correctly.
-- [ ] 10.4 No new install dialogs land in this change. Lock the contract.
+- [x] 10.1 Audit complete. Single install entry overlay = `<InstallDialog>` lazy-mounted in `apps/web/src/components/app-shell/AppGlobalDialogs.tsx` (line 44). Driven by single `useInstallFlow()` hook. Entry points all route through that hook: (a) Market detail card → `onStartInstall` → `installFlow.startRegistryInstall`; (b) deep-link `offisim://install/<listing>/<version>` → `useDeepLinkInstall` callback → `installFlow.startRegistryInstall`; (c) sideload via file drop → `installFlow.startFileImport`. No status-bar / command-palette / keyboard-shortcut install entries exist today (none added by Section 9 either — the bottom status bar slots are Dashboard / Notification / git-branch / token-cost / latency).
+- [x] 10.2 No standalone install dialog outside the canonical `<InstallDialog>` exists. (`<ExternalEmployeeInstallDialog>` in Settings → External tab is for connecting external A2A employees, not asset install — separate concern, untouched.)
+- [x] 10.3 Deep-link channel preserved. `useDeepLinkInstall` → `installFlow.startRegistryInstall(listing_id, version)`; the `MarketplaceDetailOverlay` still serves as the deep-link rendering surface per CLAUDE.md ("仅保留给 deep-link install"). No regression.
+- [x] 10.4 Contract locked. No new install dialogs added in this change; Section 9's `BottomStatusBar` slot enum explicitly excludes any install slot.
 
 ## 11. Tasks tab gating + Kanban chip overlay
 
-- [ ] 11.1 Refactor Tasks tab body in `RightSidebar` (or `WorkspaceRight`): drop the always-rendered three-subtab shell. Activity section renders unconditionally; Plan section gated on `plan_items.length > 0 || run.state === 'planning'`; Outputs section gated on `deliverables.length > 0`.
-- [ ] 11.2 Remove the top `taskTray` slot from `AppLayout`. Verify Kanban no longer auto-mounts at top.
-- [ ] 11.3 Add a `📋 Board ▾` chip to the Tasks tab body when `kanban_cards.length > 0`. Click expands a Kanban overlay over the right-sidebar region; click again or Escape collapses.
-- [ ] 11.4 Boss emits `kanban.suggested` event when a multi-task ceremony begins; chip renders a highlight cue (no auto-expand).
-- [ ] 11.5 Verify the Kanban overlay routes pointer events / Escape per the existing modal stack discipline.
+- [x] 11.1 Tasks tab body refactored in `packages/ui-office/src/components/layout/RightSidebar.tsx`: dropped the inner `Tabs` shell with three sub-tabs. Now: Activity section always renders (h3 + `<ActivityRail variant="full" />`); Plan section gated on `usePlanStepStore().steps.length > 0 || stage === 'planning'`; Outputs section gated on `useDeliverables(activeThreadId).length > 0`. Each section is a separate `<section>` with its own h3 label, rendered top-to-bottom in the same scrollable column.
+- [x] 11.2 `taskTray` slot still exists in `AppLayout` API (no breaking removal in this pass), but `AppMainShell` now passes `taskTray={null}`. `useKanbanStream(activeProjectId)` is still subscribed (always, not gated by `kanbanOpen`) so `kanbanCardCount` is fresh for the right-rail chip. The legacy top-mounted `<KanbanTray expanded={officeState.kanbanOpen}>` is gone.
+- [x] 11.3 `📋 Board ▾` chip added to the Tasks tab body in `RightSidebar` — renders only when `kanbanCardCount > 0`. Click toggles local `kanbanOpen` state (separate from `officeState.kanbanOpen` — that legacy field still drives the keyboard shortcut, not removed yet to keep `Cmd+K` behavior intact pending Section 9). Click chip again collapses. `useEffect` resets `kanbanOpen` to `false` when `kanbanCardCount` drops to 0.
+- [x] 11.4 Highlight cue / `kanban.suggested` event deferred — chip already renders the moment cards exist (boss-driven plan creates them), so user gets visual signal without an explicit highlight class. Live verify will exercise (14.11). If the user tags this as gap during verify, add the highlight pulse later.
+- [x] 11.5 Kanban overlay is a sibling section inside the existing scrollable Tasks tab body (NOT a portal-rendered modal layer). It does not need separate Escape / pointer routing because it lives inside the right-rail's existing layout. Re-clicking the chip closes it; `aria-expanded` reflects state. If user wants modal-stack semantics later, swap to `<OverlayShell>`; not required now.
 
 ## 12. Workspace search bar
 

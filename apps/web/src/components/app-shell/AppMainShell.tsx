@@ -11,6 +11,7 @@ import {
   type ProviderConfig,
   StatusBar,
 } from '@offisim/ui-office/web';
+import type { CreateKanbanCardInput, KanbanState } from '../workspaces/kanban/types';
 import React, { Suspense, useMemo } from 'react';
 import { PEER_WORKSPACE_ITEMS, buildOfficeToolItems } from '../../lib/workspace-navigation';
 import { useKanbanStream } from '../../runtime/useKanbanStream';
@@ -133,7 +134,7 @@ export function AppMainShell(props: AppMainShellProps) {
     onEditExternalEmployee,
     lastUserRequest,
   } = props;
-  const kanban = useKanbanStream(officeState.kanbanOpen ? activeProjectId : null);
+  const kanban = useKanbanStream(activeProjectId);
   const activeProject = useMemo(
     () => projects.find((project) => project.project_id === activeProjectId) ?? null,
     [activeProjectId, projects],
@@ -197,18 +198,7 @@ export function AppMainShell(props: AppMainShellProps) {
           officeTools={officeToolItems}
         />
       }
-      taskTray={
-        isOffice ? (
-          <KanbanTray
-            expanded={officeState.kanbanOpen}
-            requestText={lastUserRequest ?? undefined}
-            cards={kanban.cards}
-            onMove={kanban.move}
-            onCreate={kanban.create}
-            onToggle={onToggleKanban}
-          />
-        ) : null
-      }
+      taskTray={null}
       agentPanel={
         isOffice ? (
           <AgentPanel
@@ -257,6 +247,17 @@ export function AppMainShell(props: AppMainShellProps) {
                     showWorkspaceFiles
                   />
                 ) : null
+              }
+              kanbanCardCount={kanban.cards.length}
+              kanbanSlot={
+                <KanbanTray
+                  expanded
+                  requestText={lastUserRequest ?? undefined}
+                  cards={kanban.cards}
+                  onMove={kanban.move as (id: string, next: KanbanState) => Promise<void>}
+                  onCreate={kanban.create as (input: CreateKanbanCardInput) => Promise<void>}
+                  onToggle={onToggleKanban}
+                />
               }
             />
           </Suspense>

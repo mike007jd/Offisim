@@ -357,9 +357,19 @@ export function App({ onCompanySwitch }: AppProps) {
     shortcutHelpOpen ||
     companyWizardMode !== null;
 
+  const handleSelectThread = useCallback(
+    (threadId: string) =>
+      updateWorkspaceState('office', (prev) =>
+        prev.selectedThreadId === threadId ? prev : { ...prev, selectedThreadId: threadId },
+      ),
+    [updateWorkspaceState],
+  );
+
   const collaborationRailProps = useMemo(
     () => ({
       activeProject,
+      activeThreadId: officeState.selectedThreadId,
+      onSelectThread: handleSelectThread,
       chatOnboardingStarterPrompts: onboardingCopy.starterPrompts,
       chatOpenToken: officeBindings.chatOpenToken,
       focusOutputsToken: officeBindings.focusOutputsToken,
@@ -380,6 +390,7 @@ export function App({ onCompanySwitch }: AppProps) {
       handleOpenSettings,
       handleProjectWorkspaceError,
       handleRequestEditProject,
+      handleSelectThread,
       lifecycle.handleOpenStudio,
       officeBindings.chatOpenToken,
       officeBindings.focusOutputsToken,
@@ -388,6 +399,7 @@ export function App({ onCompanySwitch }: AppProps) {
       officeBindings.handleToggleKanban,
       officeBindings.handleUserMessage,
       officeState.selectedEmployeeId,
+      officeState.selectedThreadId,
       onboardingCopy.starterPrompts,
       overlay.openOfficeEditor,
       selectedEmployeeName,

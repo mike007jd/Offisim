@@ -14,6 +14,7 @@ import { EventConsolidator } from '../services/event-consolidator.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
+import { autoTitleThread } from './auto-title-thread.js';
 import { inferDeliverableFile } from './infer-deliverable-file.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
@@ -167,6 +168,7 @@ export async function bossSummaryNode(
 
   // If there's already a direct reply from boss, just mark completed
   if (state.routeDecision === 'direct_reply') {
+    if (runtimeCtx) autoTitleThread(runtimeCtx, state);
     return { completed: true };
   }
 
@@ -290,6 +292,7 @@ export async function bossSummaryNode(
         eventType: 'action',
         payload: { action: 'summary', employeeResultCount: 1, outputLength: content.length },
       });
+      autoTitleThread(runtimeCtx, state);
     }
     return {
       completed: true,
@@ -338,6 +341,7 @@ export async function bossSummaryNode(
       outputLength: finalContent.length,
     },
   });
+  autoTitleThread(runtimeCtx, state);
 
   return {
     completed: true,

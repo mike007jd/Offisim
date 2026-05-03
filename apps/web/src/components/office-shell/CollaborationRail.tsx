@@ -5,6 +5,8 @@ import type { StarterPrompt } from '../../lib/onboarding-prompts';
 
 interface CollaborationRailProps {
   activeProject: ProjectRow | null;
+  activeThreadId: string | null;
+  onSelectThread: (threadId: string) => void;
   chatOnboardingStarterPrompts?: readonly StarterPrompt[];
   chatOpenToken: number;
   focusOutputsToken: number;
@@ -26,10 +28,13 @@ interface CollaborationRailProps {
 interface CollaborationSidebarProps extends CollaborationRailProps {
   projectSlot?: ReactNode;
   projectSummarySlot?: ReactNode;
+  kanbanCardCount?: number;
+  kanbanSlot?: ReactNode;
 }
 
 function renderChatPanel({
   activeProject,
+  activeThreadId,
   chatOnboardingStarterPrompts,
   onOpenOfficeEditor,
   onOpenSettings,
@@ -62,6 +67,7 @@ function renderChatPanel({
       onOpenEditor={onOpenOfficeEditor}
       onOpenStudio={onOpenStudio}
       activeProject={activeProject}
+      activeThreadId={activeThreadId}
       onUserMessage={onUserMessage}
       onboardingStarterPrompts={chatOnboardingStarterPrompts}
       showPipelineProgress={showPipelineProgress}
@@ -88,6 +94,7 @@ export function ChatDock(props: CollaborationRailProps) {
 }
 
 export function CollaborationSidebar(props: CollaborationSidebarProps) {
+  const projectId = props.activeProject?.project_id ?? null;
   return (
     <RightSidebar
       projectSlot={props.projectSlot}
@@ -100,7 +107,11 @@ export function CollaborationSidebar(props: CollaborationSidebarProps) {
       })}
       focusTasksToken={props.focusOutputsToken}
       requestChatToken={props.chatOpenToken}
-      activeThreadId={null}
+      activeThreadId={props.activeThreadId}
+      activeProjectId={projectId}
+      onSelectThread={props.onSelectThread}
+      kanbanCardCount={props.kanbanCardCount}
+      kanbanSlot={props.kanbanSlot}
     />
   );
 }
