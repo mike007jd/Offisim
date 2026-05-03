@@ -32,80 +32,58 @@ export const DEGRADED_THRESHOLD = 50;
 // ── Token-driven palette contract ────────────────────────────────────
 
 /**
- * Narrow `Scene3DColors` view exposing exactly the 30 2D-canvas-only fields.
- * Layer + helper fns receive this through `FrameContext.palette`; the React
- * caller picks it once per frame from `useSceneColors()`.
+ * Narrow `Scene3DColors` view exposing exactly the 2D-canvas fields.
+ * Single source of truth: `SCENE_CANVAS_PALETTE_KEYS` drives both the
+ * `SceneCanvasPalette` type and `pickSceneCanvasPalette`'s runtime projection
+ * — adding a key only requires touching this tuple.
+ *
+ * Layer + helper fns receive the projected palette through
+ * `FrameContext.palette`; the React caller picks it once per frame from
+ * `useSceneColors()`.
  */
-export type SceneCanvasPalette = Pick<
-  Scene3DColors,
-  | 'canvasBackground'
-  | 'canvasGrid'
-  | 'deskSurface'
-  | 'deskScreen'
-  | 'deskBezel'
-  | 'pillBg'
-  | 'pillBgStroke'
-  | 'pillText'
-  | 'dotRing'
-  | 'nameLabelMuted'
-  | 'meetingBubbleBg'
-  | 'meetingBubbleStroke'
-  | 'meetingBubbleTitle'
-  | 'meetingBubbleParticipantText'
-  | 'meetingBubbleWaitingText'
-  | 'meetingBubbleExtraText'
-  | 'managerMarkerFill'
-  | 'managerMarkerStroke'
-  | 'managerMarkerLabel'
-  | 'selectionRing2D'
-  | 'dragGhostShadow'
-  | 'prefabSilhouetteDegraded'
-  | 'stateBadgeBg'
-  | 'stateBadgeStroke'
-  | 'stateBadgeText'
-  | 'stateBadgeBgBlocked'
-  | 'stateBadgeStrokeBlocked'
-  | 'stateBadgeTextBlocked'
-  | 'stateBadgeBgSuccess'
-  | 'stateBadgeStrokeSuccess'
-  | 'stateBadgeTextSuccess'
->;
+export const SCENE_CANVAS_PALETTE_KEYS = [
+  'canvasBackground',
+  'canvasGrid',
+  'deskSurface',
+  'deskScreen',
+  'deskBezel',
+  'pillBg',
+  'pillBgStroke',
+  'pillText',
+  'dotRing',
+  'nameLabelMuted',
+  'meetingBubbleBg',
+  'meetingBubbleStroke',
+  'meetingBubbleTitle',
+  'meetingBubbleParticipantText',
+  'meetingBubbleWaitingText',
+  'meetingBubbleExtraText',
+  'managerMarkerFill',
+  'managerMarkerStroke',
+  'managerMarkerLabel',
+  'selectionRing2D',
+  'dragGhostShadow',
+  'prefabSilhouetteDegraded',
+  'stateBadgeBg',
+  'stateBadgeStroke',
+  'stateBadgeText',
+  'stateBadgeBgBlocked',
+  'stateBadgeStrokeBlocked',
+  'stateBadgeTextBlocked',
+  'stateBadgeBgSuccess',
+  'stateBadgeStrokeSuccess',
+  'stateBadgeTextSuccess',
+] as const satisfies readonly (keyof Scene3DColors)[];
+
+export type SceneCanvasPalette = Pick<Scene3DColors, (typeof SCENE_CANVAS_PALETTE_KEYS)[number]>;
 
 /** Build the canvas palette from full `Scene3DColors` (the React caller does this once per redraw). */
 export function pickSceneCanvasPalette(colors: Scene3DColors): SceneCanvasPalette {
-  return {
-    canvasBackground: colors.canvasBackground,
-    canvasGrid: colors.canvasGrid,
-    deskSurface: colors.deskSurface,
-    deskScreen: colors.deskScreen,
-    deskBezel: colors.deskBezel,
-    pillBg: colors.pillBg,
-    pillBgStroke: colors.pillBgStroke,
-    pillText: colors.pillText,
-    dotRing: colors.dotRing,
-    nameLabelMuted: colors.nameLabelMuted,
-    meetingBubbleBg: colors.meetingBubbleBg,
-    meetingBubbleStroke: colors.meetingBubbleStroke,
-    meetingBubbleTitle: colors.meetingBubbleTitle,
-    meetingBubbleParticipantText: colors.meetingBubbleParticipantText,
-    meetingBubbleWaitingText: colors.meetingBubbleWaitingText,
-    meetingBubbleExtraText: colors.meetingBubbleExtraText,
-    managerMarkerFill: colors.managerMarkerFill,
-    managerMarkerStroke: colors.managerMarkerStroke,
-    managerMarkerLabel: colors.managerMarkerLabel,
-    selectionRing2D: colors.selectionRing2D,
-    dragGhostShadow: colors.dragGhostShadow,
-    prefabSilhouetteDegraded: colors.prefabSilhouetteDegraded,
-    stateBadgeBg: colors.stateBadgeBg,
-    stateBadgeStroke: colors.stateBadgeStroke,
-    stateBadgeText: colors.stateBadgeText,
-    stateBadgeBgBlocked: colors.stateBadgeBgBlocked,
-    stateBadgeStrokeBlocked: colors.stateBadgeStrokeBlocked,
-    stateBadgeTextBlocked: colors.stateBadgeTextBlocked,
-    stateBadgeBgSuccess: colors.stateBadgeBgSuccess,
-    stateBadgeStrokeSuccess: colors.stateBadgeStrokeSuccess,
-    stateBadgeTextSuccess: colors.stateBadgeTextSuccess,
-  };
+  const palette = {} as { [K in keyof SceneCanvasPalette]: SceneCanvasPalette[K] };
+  for (const key of SCENE_CANVAS_PALETTE_KEYS) {
+    palette[key] = colors[key];
+  }
+  return palette;
 }
 
 // ── Status colors (token-driven, theme-aware) ─────────────────────────
