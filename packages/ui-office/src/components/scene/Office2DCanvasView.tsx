@@ -1,4 +1,3 @@
-// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 /**
  * Office2DCanvasView — HTML5 Canvas-based 2D office top-down view.
  *
@@ -13,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
 import { useCanvasInteraction } from './hooks/useCanvasInteraction';
 import { useCanvasRedrawLoop } from './hooks/useCanvasRedrawLoop';
@@ -35,6 +35,7 @@ export default function Office2DCanvasView({
 }: Office2DCanvasViewProps) {
   const { activeCompanyId } = useCompany();
   const { eventBus } = useOffisimRuntime();
+  const sceneColors = useSceneColors();
   const companyId = activeCompanyId ?? '';
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -142,7 +143,10 @@ export default function Office2DCanvasView({
 
   if (hasCanvasContextError) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-[#020617] text-white">
+      <div
+        className="w-full h-full flex items-center justify-center text-white"
+        style={{ backgroundColor: sceneColors.canvasBackground }}
+      >
         <div className="text-center p-4">
           <p className="text-sm text-red-400">Canvas Error</p>
           <p className="text-xs text-gray-400 mt-1">
@@ -156,8 +160,8 @@ export default function Office2DCanvasView({
   return (
     <div
       ref={containerRef}
-      className="w-full h-full bg-[#020617] overflow-hidden select-none relative"
-      style={{ cursor }}
+      className="w-full h-full overflow-hidden select-none relative"
+      style={{ cursor, backgroundColor: sceneColors.canvasBackground }}
       onPointerDown={handlers.onPointerDown}
       onPointerMove={handlers.onPointerMove}
       onPointerUp={handlers.onPointerUp}

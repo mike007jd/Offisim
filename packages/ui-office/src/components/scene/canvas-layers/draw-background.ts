@@ -1,9 +1,6 @@
-// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import type { FrameContext, SceneSnapshot } from '../office-2d-canvas-renderer';
 
-const BACKGROUND_COLOR = '#020617';
 const GRID_SPACING = 50;
-const GRID_COLOR = 'rgba(148, 163, 184, 0.06)';
 const ROOM_W = 2000;
 const ROOM_H = 1500;
 
@@ -13,11 +10,11 @@ export function drawBackground(
   frame: FrameContext,
 ): void {
   const { width, height, devicePixelRatio } = frame.canvasSize;
-  const { transform } = frame;
+  const { transform, palette } = frame;
 
   // Pass 1: clear in dpr-only coord space so viewport pan/zoom cannot leave stale pixels.
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-  ctx.fillStyle = BACKGROUND_COLOR;
+  ctx.fillStyle = palette.canvasBackground;
   ctx.fillRect(0, 0, width, height);
 
   // Switch to world transform (dpr * scale + dpr * pan); subsequent layers trust this state.
@@ -30,7 +27,7 @@ export function drawBackground(
     devicePixelRatio * transform.y,
   );
 
-  ctx.strokeStyle = GRID_COLOR;
+  ctx.strokeStyle = palette.canvasGrid;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = 0; x <= ROOM_W; x += GRID_SPACING) {

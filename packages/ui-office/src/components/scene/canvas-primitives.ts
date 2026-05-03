@@ -1,10 +1,11 @@
-// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 /**
  * Shared canvas drawing primitives used by multiple layers. Lives next to
  * the layer files (not in `office-2d-canvas-renderer.ts`) so layers can
  * import these without pulling the orchestrator, and so orchestrator stays
  * minimal. Functions here are pure — they only touch `ctx`.
  */
+
+import type { SceneCanvasPalette } from './office-2d-canvas-renderer';
 
 interface RoundedRectOpts {
   fill?: string;
@@ -49,11 +50,12 @@ interface AvatarCircleOpts {
   statusColor: string;
   avatarImage: HTMLImageElement | ImageBitmap | null;
   lineWidth?: number;
-  bgFill?: string;
+  /** Pill background fill. Required — caller pulls from `palette.pillBg`. */
+  bgFill: string;
 }
 
 /**
- * Draw the "employee circle" shape: `#1e293b` base circle + colored status
+ * Draw the "employee circle" shape: pill-bg base circle + colored status
  * stroke + clipped avatar. The blank-fallback branch mirrors the old
  * `drawEmployeeNode` / `drawDragGhost` behaviour (image-not-yet-decoded).
  */
@@ -64,7 +66,7 @@ export function drawAvatarCircle(
   r: number,
   opts: AvatarCircleOpts,
 ): void {
-  ctx.fillStyle = opts.bgFill ?? '#1e293b';
+  ctx.fillStyle = opts.bgFill;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.fill();
@@ -90,24 +92,27 @@ export function drawAvatarCircle(
   }
 }
 
-/** Name pill (rounded rect + white text) used under employee + drag-ghost circles. */
+type NamePillPalette = Pick<SceneCanvasPalette, 'pillBg' | 'pillBgStroke' | 'pillText'>;
+
+/** Name pill (rounded rect + label text) used under employee + drag-ghost circles. */
 export function drawNamePill(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
   text: string,
   width: number,
+  palette: NamePillPalette,
   opts: { bgAlpha?: number } = {},
 ): void {
   const first = text.split(' ')[0] ?? text;
   drawRoundedRect(ctx, cx - width / 2, cy - 8, width, 16, {
-    fill: '#1e293b',
-    stroke: 'rgba(255, 255, 255, 0.08)',
+    fill: palette.pillBg,
+    stroke: palette.pillBgStroke,
     lineWidth: 0.5,
     alpha: opts.bgAlpha ?? 0.85,
     radius: 8,
   });
-  ctx.fillStyle = '#f8fafc';
+  ctx.fillStyle = palette.pillText;
   ctx.font = 'bold 9px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

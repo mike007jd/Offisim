@@ -1,12 +1,18 @@
-// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 /**
  * office-2d-render-registry.ts — Maps prefab IDs and categories to canvas draw functions.
  *
  * Replaces the removed SVG prefab lookup tables with Canvas 2D API draw
- * functions that render simple silhouettes on a dark
- * background (#020617). Each draw function receives a canvas context,
- * center position, and rotation angle.
+ * functions that render simple silhouettes. Each draw function receives a
+ * canvas context, center position, rotation angle, and the active
+ * `Scene3DColors` palette resolved from `useSceneColors()` upstream.
+ *
+ * Color contract: prefab silhouettes derive every color from
+ * `Scene3DColors` (3D + shared scene tokens). For alpha-modulated tints
+ * (generic prefab fill / stroke), use `ctx.globalAlpha` scoping with a
+ * solid token color so we stay literal-free.
  */
+
+import type { Scene3DColors } from '@offisim/ui-core/tokens';
 
 // ── Type ────────────────────────────────────────────────────────────
 
@@ -16,6 +22,7 @@ export type PrefabDrawFn = (
   x: number,
   y: number,
   rotation: number,
+  colors: Scene3DColors,
 ) => void;
 
 // ── Draw helpers ────────────────────────────────────────────────────
@@ -42,11 +49,12 @@ function drawWorkstation(
   x: number,
   y: number,
   rotation: number,
+  colors: Scene3DColors,
 ): void {
   withRotation(ctx, x, y, rotation, () => {
     // Desk surface
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#334155';
+    ctx.fillStyle = colors.furnitureDark;
+    ctx.strokeStyle = colors.metal;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.roundRect(-22, -18, 44, 36, 2);
@@ -54,13 +62,13 @@ function drawWorkstation(
     ctx.stroke();
 
     // Inner area
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = colors.serverBody;
     ctx.beginPath();
     ctx.roundRect(-18, -14, 36, 28, 1);
     ctx.fill();
 
     // Divider lines
-    ctx.strokeStyle = '#334155';
+    ctx.strokeStyle = colors.metal;
     ctx.lineWidth = 0.5;
     ctx.beginPath();
     ctx.moveTo(0, -18);
@@ -77,8 +85,8 @@ function drawWorkstation(
       [10, 8],
     ];
     for (const [cx, cy] of chairs) {
-      ctx.fillStyle = '#334155';
-      ctx.strokeStyle = '#1e293b';
+      ctx.fillStyle = colors.metal;
+      ctx.strokeStyle = colors.furnitureDark;
       ctx.lineWidth = 0.5;
       ctx.beginPath();
       ctx.arc(cx, cy, 3, 0, Math.PI * 2);
@@ -93,11 +101,12 @@ function drawServerRack(
   x: number,
   y: number,
   rotation: number,
+  colors: Scene3DColors,
 ): void {
   withRotation(ctx, x, y, rotation, () => {
     // Rack body
-    ctx.fillStyle = '#0f172a';
-    ctx.strokeStyle = '#1e293b';
+    ctx.fillStyle = colors.serverBody;
+    ctx.strokeStyle = colors.furnitureDark;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.roundRect(-18, -45, 36, 90, 3);
@@ -107,13 +116,13 @@ function drawServerRack(
     // Server units
     const rows = [-40, -29, -18, -7, 4, 15, 26, 37];
     for (const [i, row] of rows.entries()) {
-      ctx.fillStyle = '#020617';
+      ctx.fillStyle = colors.canvasBackground;
       ctx.beginPath();
       ctx.roundRect(-14, row, 28, 9, 1);
       ctx.fill();
 
       // Status LED
-      ctx.fillStyle = i % 3 === 0 ? '#fbbf24' : '#22c55e';
+      ctx.fillStyle = i % 3 === 0 ? colors.ledAmber : colors.ledGreen;
       ctx.beginPath();
       ctx.arc(10, row + 4, 2, 0, Math.PI * 2);
       ctx.fill();
@@ -126,13 +135,14 @@ function drawBookshelf(
   x: number,
   y: number,
   rotation: number,
+  colors: Scene3DColors,
 ): void {
-  const bookColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#a855f7', '#06b6d4'];
+  const bookColors = colors.bookSpine;
 
   withRotation(ctx, x, y, rotation, () => {
     // Shelf frame
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#334155';
+    ctx.fillStyle = colors.furnitureDark;
+    ctx.strokeStyle = colors.metal;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.roundRect(-25, -35, 50, 70, 3);
@@ -142,12 +152,12 @@ function drawBookshelf(
     // Shelves and books
     for (let shelf = 0; shelf < 4; shelf++) {
       // Shelf line
-      ctx.fillStyle = '#334155';
+      ctx.fillStyle = colors.metal;
       ctx.fillRect(-23, -30 + shelf * 17, 46, 1);
 
       // Books
       for (let b = 0; b < 7; b++) {
-        ctx.fillStyle = bookColors[(shelf * 7 + b) % bookColors.length] ?? '#64748b';
+        ctx.fillStyle = bookColors[(shelf * 7 + b) % bookColors.length] ?? colors.brandNeutral;
         ctx.beginPath();
         ctx.roundRect(-21 + b * 6.5, -28 + shelf * 17, 5, 14, 0.5);
         ctx.fill();
@@ -161,11 +171,12 @@ function drawMeetingTable(
   x: number,
   y: number,
   rotation: number,
+  colors: Scene3DColors,
 ): void {
   withRotation(ctx, x, y, rotation, () => {
     // Table surface
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#334155';
+    ctx.fillStyle = colors.furnitureDark;
+    ctx.strokeStyle = colors.metal;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(-100, -35, 200, 70, 20);
@@ -173,7 +184,7 @@ function drawMeetingTable(
     ctx.stroke();
 
     // Inner surface
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = colors.serverBody;
     ctx.beginPath();
     ctx.roundRect(-85, -25, 170, 50, 12);
     ctx.fill();
@@ -181,8 +192,8 @@ function drawMeetingTable(
     // Chairs
     const chairPositions = [-60, -20, 20, 60];
     for (const cx of chairPositions) {
-      ctx.fillStyle = '#0f172a';
-      ctx.strokeStyle = '#334155';
+      ctx.fillStyle = colors.serverBody;
+      ctx.strokeStyle = colors.metal;
       ctx.lineWidth = 1;
       // Top chair
       ctx.beginPath();
@@ -198,10 +209,16 @@ function drawMeetingTable(
   });
 }
 
-function drawSofa(ctx: CanvasRenderingContext2D, x: number, y: number, rotation: number): void {
+function drawSofa(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  rotation: number,
+  colors: Scene3DColors,
+): void {
   withRotation(ctx, x, y, rotation, () => {
-    // Seat body
-    ctx.fillStyle = '#92400e';
+    // Seat body — sofa visual identity uses warm accent for both themes
+    ctx.fillStyle = colors.cableAccent;
     ctx.beginPath();
     ctx.moveTo(-50, -20);
     ctx.lineTo(50, -20);
@@ -215,7 +232,7 @@ function drawSofa(ctx: CanvasRenderingContext2D, x: number, y: number, rotation:
     ctx.fill();
 
     // Left armrest
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = colors.serverBody;
     ctx.beginPath();
     ctx.roundRect(-55, -20, 10, 30, 4);
     ctx.fill();
@@ -227,11 +244,17 @@ function drawSofa(ctx: CanvasRenderingContext2D, x: number, y: number, rotation:
   });
 }
 
-function drawPlant(ctx: CanvasRenderingContext2D, x: number, y: number, rotation: number): void {
+function drawPlant(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  rotation: number,
+  colors: Scene3DColors,
+): void {
   withRotation(ctx, x, y, rotation, () => {
     // Pot
-    ctx.fillStyle = '#334155';
-    ctx.strokeStyle = '#475569';
+    ctx.fillStyle = colors.potBase;
+    ctx.strokeStyle = colors.partition;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(0, 5, 12, 0, Math.PI * 2);
@@ -239,7 +262,7 @@ function drawPlant(ctx: CanvasRenderingContext2D, x: number, y: number, rotation
     ctx.stroke();
 
     // Leaves
-    ctx.fillStyle = '#10b981';
+    ctx.fillStyle = colors.leafPrimary;
     for (let i = 0; i < 5; i++) {
       const angle = (i * 72 * Math.PI) / 180;
       ctx.save();
@@ -258,11 +281,12 @@ function drawCoffeeTable(
   x: number,
   y: number,
   rotation: number,
+  colors: Scene3DColors,
 ): void {
   withRotation(ctx, x, y, rotation, () => {
     // Outer circle
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#334155';
+    ctx.fillStyle = colors.furnitureDark;
+    ctx.strokeStyle = colors.metal;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(0, 0, 25, 0, Math.PI * 2);
@@ -270,7 +294,7 @@ function drawCoffeeTable(
     ctx.stroke();
 
     // Inner circle
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = colors.serverBody;
     ctx.beginPath();
     ctx.arc(0, 0, 12, 0, Math.PI * 2);
     ctx.fill();
@@ -282,11 +306,12 @@ function drawVendingMachine(
   x: number,
   y: number,
   rotation: number,
+  colors: Scene3DColors,
 ): void {
   withRotation(ctx, x, y, rotation, () => {
     // Machine body
-    ctx.fillStyle = '#1e293b';
-    ctx.strokeStyle = '#334155';
+    ctx.fillStyle = colors.furnitureDark;
+    ctx.strokeStyle = colors.metal;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.roundRect(-16, -30, 32, 60, 4);
@@ -294,15 +319,16 @@ function drawVendingMachine(
     ctx.stroke();
 
     // Display window
-    ctx.fillStyle = '#0ea5e9';
+    const prevAlpha = ctx.globalAlpha;
+    ctx.fillStyle = colors.screen;
     ctx.globalAlpha = 0.5;
     ctx.beginPath();
     ctx.roundRect(-12, -26, 24, 25, 2);
     ctx.fill();
-    ctx.globalAlpha = 1.0;
+    ctx.globalAlpha = prevAlpha;
 
     // Dispenser slot
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = colors.serverBody;
     ctx.beginPath();
     ctx.roundRect(-10, 5, 20, 8, 2);
     ctx.fill();
@@ -314,11 +340,12 @@ function drawWhiteboard(
   x: number,
   y: number,
   rotation: number,
+  colors: Scene3DColors,
 ): void {
   withRotation(ctx, x, y, rotation, () => {
     // Board surface
-    ctx.fillStyle = '#e2e8f0';
-    ctx.strokeStyle = '#334155';
+    ctx.fillStyle = colors.whiteboardSurface;
+    ctx.strokeStyle = colors.metal;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.roundRect(-30, -20, 60, 40, 2);
@@ -326,7 +353,7 @@ function drawWhiteboard(
     ctx.stroke();
 
     // Text lines
-    ctx.strokeStyle = '#94a3b8';
+    ctx.strokeStyle = colors.partition;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(-25, -10);
@@ -344,15 +371,22 @@ function drawGenericPrefab(
   x: number,
   y: number,
   rotation: number,
+  colors: Scene3DColors,
 ): void {
   withRotation(ctx, x, y, rotation, () => {
-    ctx.fillStyle = 'rgba(100, 116, 139, 0.15)';
-    ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
+    const prevAlpha = ctx.globalAlpha;
+    ctx.fillStyle = colors.brandNeutral;
+    ctx.strokeStyle = colors.brandNeutral;
     ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.15;
     ctx.beginPath();
     ctx.roundRect(-15, -15, 30, 30, 3);
     ctx.fill();
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.roundRect(-15, -15, 30, 30, 3);
     ctx.stroke();
+    ctx.globalAlpha = prevAlpha;
   });
 }
 

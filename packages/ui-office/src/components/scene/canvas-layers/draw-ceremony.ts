@@ -1,27 +1,31 @@
-// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import { truncate } from '../../../lib/format-time';
 import { drawRoundedRect } from '../canvas-primitives';
 import type {
   FrameContext,
   ManagerMarkerData,
   MeetingBubbleData,
+  SceneCanvasPalette,
   SceneSnapshot,
 } from '../office-2d-canvas-renderer';
 
 export function drawCeremony(
   ctx: CanvasRenderingContext2D,
   snapshot: SceneSnapshot,
-  _frame: FrameContext,
+  frame: FrameContext,
 ): void {
-  if (snapshot.managerMarker) drawManagerMarker(ctx, snapshot.managerMarker);
-  if (snapshot.meetingBubble) drawMeetingBubble(ctx, snapshot.meetingBubble);
+  if (snapshot.managerMarker) drawManagerMarker(ctx, snapshot.managerMarker, frame.palette);
+  if (snapshot.meetingBubble) drawMeetingBubble(ctx, snapshot.meetingBubble, frame.palette);
 }
 
-function drawManagerMarker(ctx: CanvasRenderingContext2D, marker: ManagerMarkerData): void {
+function drawManagerMarker(
+  ctx: CanvasRenderingContext2D,
+  marker: ManagerMarkerData,
+  palette: SceneCanvasPalette,
+): void {
   const size = 12;
   ctx.save();
-  ctx.fillStyle = 'rgba(168, 85, 247, 0.15)';
-  ctx.strokeStyle = '#a855f7';
+  ctx.fillStyle = palette.managerMarkerFill;
+  ctx.strokeStyle = palette.managerMarkerStroke;
   ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(marker.x, marker.y - size);
@@ -31,7 +35,7 @@ function drawManagerMarker(ctx: CanvasRenderingContext2D, marker: ManagerMarkerD
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = palette.managerMarkerLabel;
   ctx.font = '8px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -39,7 +43,11 @@ function drawManagerMarker(ctx: CanvasRenderingContext2D, marker: ManagerMarkerD
   ctx.restore();
 }
 
-function drawMeetingBubble(ctx: CanvasRenderingContext2D, bubble: MeetingBubbleData): void {
+function drawMeetingBubble(
+  ctx: CanvasRenderingContext2D,
+  bubble: MeetingBubbleData,
+  palette: SceneCanvasPalette,
+): void {
   ctx.save();
   const bx = bubble.x;
   const by = bubble.y;
@@ -50,8 +58,8 @@ function drawMeetingBubble(ctx: CanvasRenderingContext2D, bubble: MeetingBubbleD
   const totalH = bubbleH + extraH;
 
   drawRoundedRect(ctx, bx - bubbleW / 2, by - 16, bubbleW, totalH, {
-    fill: 'rgba(0, 0, 0, 0.65)',
-    stroke: 'rgba(255, 255, 255, 0.10)',
+    fill: palette.meetingBubbleBg,
+    stroke: palette.meetingBubbleStroke,
     lineWidth: 1,
     radius: 16,
   });
@@ -64,14 +72,14 @@ function drawMeetingBubble(ctx: CanvasRenderingContext2D, bubble: MeetingBubbleD
   ctx.fill();
   ctx.globalAlpha = prevAlpha;
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.fillStyle = palette.meetingBubbleTitle;
   ctx.font = '600 12px monospace';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(truncate(bubble.bubbleText, 35), bx - bubbleW / 2 + 32, by);
 
   if (bubble.participantCount > 0) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.fillStyle = palette.meetingBubbleParticipantText;
     ctx.font = '9px monospace';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
@@ -79,7 +87,7 @@ function drawMeetingBubble(ctx: CanvasRenderingContext2D, bubble: MeetingBubbleD
   }
 
   for (let i = 0; i < bubble.waitingLabels.length; i++) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.fillStyle = palette.meetingBubbleWaitingText;
     ctx.font = '9px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
@@ -87,7 +95,7 @@ function drawMeetingBubble(ctx: CanvasRenderingContext2D, bubble: MeetingBubbleD
   }
 
   if (bubble.extraWaitingCount > 0) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.fillStyle = palette.meetingBubbleExtraText;
     ctx.font = '9px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';

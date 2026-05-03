@@ -1,4 +1,3 @@
-// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 /**
  * office-2d-canvas-renderer.ts — Thin orchestrator for the 2D office canvas.
  *
@@ -14,6 +13,8 @@
  * downstream layer trusts the ctx is already in world coords.
  */
 
+import type { EmployeeState } from '@offisim/shared-types';
+import { STATE_COLORS_DARK, STATE_COLORS_LIGHT, type Scene3DColors } from '@offisim/ui-core/tokens';
 import { drawBackground } from './canvas-layers/draw-background';
 import { drawCeremony } from './canvas-layers/draw-ceremony';
 import { drawDragOverlay } from './canvas-layers/draw-drag-overlay';
@@ -28,27 +29,122 @@ export type { ViewportTransform } from './office-2d-canvas-geometry';
 /** Degraded-rendering threshold: switch to cheap silhouettes past this many employees. */
 export const DEGRADED_THRESHOLD = 50;
 
-// ── Status colors ─────────────────────────────────────────────────────
+// ── Token-driven palette contract ────────────────────────────────────
 
-export const STATUS_COLORS: Record<string, string> = {
-  idle: '#64748b',
-  assigned: '#3b82f6',
-  thinking: '#818cf8',
-  searching: '#c084fc',
-  executing: '#10b981',
-  blocked: '#ef4444',
-  waiting: '#f59e0b',
-  reporting: '#06b6d4',
-  success: '#22c55e',
-  failed: '#ef4444',
-};
+/**
+ * Narrow `Scene3DColors` view exposing exactly the 30 2D-canvas-only fields.
+ * Layer + helper fns receive this through `FrameContext.palette`; the React
+ * caller picks it once per frame from `useSceneColors()`.
+ */
+export type SceneCanvasPalette = Pick<
+  Scene3DColors,
+  | 'canvasBackground'
+  | 'canvasGrid'
+  | 'deskSurface'
+  | 'deskScreen'
+  | 'deskBezel'
+  | 'pillBg'
+  | 'pillBgStroke'
+  | 'pillText'
+  | 'dotRing'
+  | 'nameLabelMuted'
+  | 'meetingBubbleBg'
+  | 'meetingBubbleStroke'
+  | 'meetingBubbleTitle'
+  | 'meetingBubbleParticipantText'
+  | 'meetingBubbleWaitingText'
+  | 'meetingBubbleExtraText'
+  | 'managerMarkerFill'
+  | 'managerMarkerStroke'
+  | 'managerMarkerLabel'
+  | 'selectionRing2D'
+  | 'dragGhostShadow'
+  | 'prefabSilhouetteDegraded'
+  | 'stateBadgeBg'
+  | 'stateBadgeStroke'
+  | 'stateBadgeText'
+  | 'stateBadgeBgBlocked'
+  | 'stateBadgeStrokeBlocked'
+  | 'stateBadgeTextBlocked'
+  | 'stateBadgeBgSuccess'
+  | 'stateBadgeStrokeSuccess'
+  | 'stateBadgeTextSuccess'
+>;
 
-const DEFAULT_STATUS_COLOR = '#64748b';
+/** Build the canvas palette from full `Scene3DColors` (the React caller does this once per redraw). */
+export function pickSceneCanvasPalette(colors: Scene3DColors): SceneCanvasPalette {
+  return {
+    canvasBackground: colors.canvasBackground,
+    canvasGrid: colors.canvasGrid,
+    deskSurface: colors.deskSurface,
+    deskScreen: colors.deskScreen,
+    deskBezel: colors.deskBezel,
+    pillBg: colors.pillBg,
+    pillBgStroke: colors.pillBgStroke,
+    pillText: colors.pillText,
+    dotRing: colors.dotRing,
+    nameLabelMuted: colors.nameLabelMuted,
+    meetingBubbleBg: colors.meetingBubbleBg,
+    meetingBubbleStroke: colors.meetingBubbleStroke,
+    meetingBubbleTitle: colors.meetingBubbleTitle,
+    meetingBubbleParticipantText: colors.meetingBubbleParticipantText,
+    meetingBubbleWaitingText: colors.meetingBubbleWaitingText,
+    meetingBubbleExtraText: colors.meetingBubbleExtraText,
+    managerMarkerFill: colors.managerMarkerFill,
+    managerMarkerStroke: colors.managerMarkerStroke,
+    managerMarkerLabel: colors.managerMarkerLabel,
+    selectionRing2D: colors.selectionRing2D,
+    dragGhostShadow: colors.dragGhostShadow,
+    prefabSilhouetteDegraded: colors.prefabSilhouetteDegraded,
+    stateBadgeBg: colors.stateBadgeBg,
+    stateBadgeStroke: colors.stateBadgeStroke,
+    stateBadgeText: colors.stateBadgeText,
+    stateBadgeBgBlocked: colors.stateBadgeBgBlocked,
+    stateBadgeStrokeBlocked: colors.stateBadgeStrokeBlocked,
+    stateBadgeTextBlocked: colors.stateBadgeTextBlocked,
+    stateBadgeBgSuccess: colors.stateBadgeBgSuccess,
+    stateBadgeStrokeSuccess: colors.stateBadgeStrokeSuccess,
+    stateBadgeTextSuccess: colors.stateBadgeTextSuccess,
+  };
+}
 
+// ── Status colors (token-driven, theme-aware) ─────────────────────────
+
+const DEFAULT_STATUS_COLOR_NUMERIC = 0x64748b;
+
+function numericToHex(n: number): string {
+  return `#${n.toString(16).padStart(6, '0')}`;
+}
+
+/** Build the per-employee status color map (hex strings) for the active theme. */
+export function buildStatusColors(theme: 'light' | 'dark'): Record<EmployeeState, string> {
+  const source = theme === 'light' ? STATE_COLORS_LIGHT : STATE_COLORS_DARK;
+  const out = {} as Record<EmployeeState, string>;
+  for (const key of Object.keys(source) as EmployeeState[]) {
+    out[key] = numericToHex(source[key]);
+  }
+  return out;
+}
+
+/** Resolve a status string (loose key) to the active palette's hex string, with fallback. */
+export function resolveStatusColor(
+  state: string,
+  statusColors: Record<EmployeeState, string>,
+): string {
+  return Object.prototype.hasOwnProperty.call(statusColors, state)
+    ? statusColors[state as EmployeeState]
+    : numericToHex(DEFAULT_STATUS_COLOR_NUMERIC);
+}
+
+/**
+ * Legacy non-React helper kept for compatibility. Returns the dark-theme
+ * status color for a given state — callers running inside React should
+ * prefer `buildStatusColors(theme)` + `resolveStatusColor` instead so the
+ * value follows the active theme.
+ */
+const DARK_STATUS_COLORS = buildStatusColors('dark');
 export function getStatusColor(state: string): string {
-  return Object.prototype.hasOwnProperty.call(STATUS_COLORS, state)
-    ? (STATUS_COLORS[state] as string)
-    : DEFAULT_STATUS_COLOR;
+  return resolveStatusColor(state, DARK_STATUS_COLORS);
 }
 
 // ── Stable scene data (SSOT rebuilt only when scene inputs change) ────
@@ -142,6 +238,10 @@ export interface FrameContext {
   animationTime: number;
   canvasSize: { width: number; height: number; devicePixelRatio: number };
   transform: ViewportTransform;
+  /** Scene color palette resolved from `useSceneColors()` for the active theme. */
+  palette: SceneCanvasPalette;
+  /** Full scene colors — used by prefab silhouettes that need broader 3D tokens. */
+  sceneColors: Scene3DColors;
 }
 
 // ── Legacy / compatibility exports ────────────────────────────────────

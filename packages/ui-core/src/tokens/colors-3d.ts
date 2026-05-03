@@ -48,6 +48,38 @@ export interface Scene3DColors {
   characterShoe: string;
   characterHand: string;
   brandNeutral: string;
+  // 2D canvas-only fields (added by `scene-2d-theme-tokens` capability)
+  canvasBackground: string;
+  canvasGrid: string;
+  deskSurface: string;
+  deskScreen: string;
+  deskBezel: string;
+  pillBg: string;
+  pillBgStroke: string;
+  pillText: string;
+  dotRing: string;
+  nameLabelMuted: string;
+  meetingBubbleBg: string;
+  meetingBubbleStroke: string;
+  meetingBubbleTitle: string;
+  meetingBubbleParticipantText: string;
+  meetingBubbleWaitingText: string;
+  meetingBubbleExtraText: string;
+  managerMarkerFill: string;
+  managerMarkerStroke: string;
+  managerMarkerLabel: string;
+  selectionRing2D: string;
+  dragGhostShadow: string;
+  prefabSilhouetteDegraded: string;
+  stateBadgeBg: string;
+  stateBadgeStroke: string;
+  stateBadgeText: string;
+  stateBadgeBgBlocked: string;
+  stateBadgeStrokeBlocked: string;
+  stateBadgeTextBlocked: string;
+  stateBadgeBgSuccess: string;
+  stateBadgeStrokeSuccess: string;
+  stateBadgeTextSuccess: string;
 }
 
 export const DARK_SCENE_3D: Scene3DColors = {
@@ -98,6 +130,38 @@ export const DARK_SCENE_3D: Scene3DColors = {
   characterShoe: '#111827',
   characterHand: '#f2c6b6',
   brandNeutral: '#64748b',
+  // 2D canvas-only fields (byte-equivalent to pre-tokenization literals)
+  canvasBackground: '#020617',
+  canvasGrid: 'rgba(148, 163, 184, 0.06)',
+  deskSurface: 'rgba(30, 41, 59, 0.6)',
+  deskScreen: 'rgba(14, 165, 233, 0.5)',
+  deskBezel: 'rgba(51, 65, 85, 1)',
+  pillBg: '#1e293b',
+  pillBgStroke: 'rgba(255, 255, 255, 0.08)',
+  pillText: '#f8fafc',
+  dotRing: '#1e293b',
+  nameLabelMuted: '#f8fafc',
+  meetingBubbleBg: 'rgba(0, 0, 0, 0.65)',
+  meetingBubbleStroke: 'rgba(255, 255, 255, 0.10)',
+  meetingBubbleTitle: 'rgba(255, 255, 255, 0.85)',
+  meetingBubbleParticipantText: 'rgba(255, 255, 255, 0.35)',
+  meetingBubbleWaitingText: 'rgba(255, 255, 255, 0.55)',
+  meetingBubbleExtraText: 'rgba(255, 255, 255, 0.45)',
+  managerMarkerFill: 'rgba(168, 85, 247, 0.15)',
+  managerMarkerStroke: '#a855f7',
+  managerMarkerLabel: '#ffffff',
+  selectionRing2D: '#6366f1',
+  dragGhostShadow: 'rgba(0, 0, 0, 0.3)',
+  prefabSilhouetteDegraded: 'rgba(100, 116, 139, 0.1)',
+  stateBadgeBg: 'rgba(0, 0, 0, 0.7)',
+  stateBadgeStroke: 'rgba(255, 255, 255, 0.1)',
+  stateBadgeText: 'rgba(255, 255, 255, 0.8)',
+  stateBadgeBgBlocked: 'rgba(239, 68, 68, 0.25)',
+  stateBadgeStrokeBlocked: 'rgba(239, 68, 68, 0.4)',
+  stateBadgeTextBlocked: '#fca5a5',
+  stateBadgeBgSuccess: 'rgba(34, 197, 94, 0.25)',
+  stateBadgeStrokeSuccess: 'rgba(34, 197, 94, 0.4)',
+  stateBadgeTextSuccess: '#86efac',
 };
 
 export const LIGHT_SCENE_3D: Scene3DColors = {
@@ -148,6 +212,38 @@ export const LIGHT_SCENE_3D: Scene3DColors = {
   characterShoe: '#1e293b',
   characterHand: '#f2c6b6',
   brandNeutral: '#64748b',
+  // 2D canvas-only fields (theme-correct light values preserving visual semantics)
+  canvasBackground: '#e8edf4',
+  canvasGrid: 'rgba(71, 85, 105, 0.10)',
+  deskSurface: 'rgba(226, 232, 240, 0.85)',
+  deskScreen: 'rgba(2, 132, 199, 0.55)',
+  deskBezel: 'rgba(148, 163, 184, 0.95)',
+  pillBg: '#ffffff',
+  pillBgStroke: 'rgba(15, 23, 42, 0.10)',
+  pillText: '#0f172a',
+  dotRing: '#ffffff',
+  nameLabelMuted: '#0f172a',
+  meetingBubbleBg: 'rgba(248, 250, 252, 0.95)',
+  meetingBubbleStroke: 'rgba(15, 23, 42, 0.10)',
+  meetingBubbleTitle: 'rgba(15, 23, 42, 0.90)',
+  meetingBubbleParticipantText: 'rgba(15, 23, 42, 0.50)',
+  meetingBubbleWaitingText: 'rgba(15, 23, 42, 0.65)',
+  meetingBubbleExtraText: 'rgba(15, 23, 42, 0.55)',
+  managerMarkerFill: 'rgba(124, 58, 237, 0.18)',
+  managerMarkerStroke: '#7c3aed',
+  managerMarkerLabel: '#0f172a',
+  selectionRing2D: '#2563eb',
+  dragGhostShadow: 'rgba(15, 23, 42, 0.20)',
+  prefabSilhouetteDegraded: 'rgba(100, 116, 139, 0.18)',
+  stateBadgeBg: 'rgba(255, 255, 255, 0.90)',
+  stateBadgeStroke: 'rgba(15, 23, 42, 0.12)',
+  stateBadgeText: 'rgba(15, 23, 42, 0.80)',
+  stateBadgeBgBlocked: 'rgba(220, 38, 38, 0.18)',
+  stateBadgeStrokeBlocked: 'rgba(220, 38, 38, 0.45)',
+  stateBadgeTextBlocked: '#991b1b',
+  stateBadgeBgSuccess: 'rgba(22, 163, 74, 0.18)',
+  stateBadgeStrokeSuccess: 'rgba(22, 163, 74, 0.45)',
+  stateBadgeTextSuccess: '#15803d',
 };
 
 export const STATE_COLORS_DARK: Record<EmployeeState, number> = {

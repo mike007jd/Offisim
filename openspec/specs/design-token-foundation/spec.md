@@ -74,13 +74,19 @@ The `accent` field SHALL be `#3b82f6` in dark mode (production CSS variable wins
 
 ### Requirement: `colors-3d.ts` SHALL define complete light and dark variants for every 3D scene color
 
-`Scene3DColors` SHALL include the following fields: `floor`, `desk`, `deskEdge`, `furniture`, `furnitureDark`, `furnitureLight`, `partition`, `screen`, `metal`, `serverBody`, `ledCyan`, `ledGreen`, `ledBlue`, `ledAmber`, `potBase`, `leafPrimary`, `leafSecondary`, `leafTertiary`, `text`, `textMuted`, `selectionRing`, `sceneBackground`, `wallShell`, `bookSpine`, `cableChannel`, `vendingScreen`, `tableReading`, `whiteboardSurface`, `whiteboardMarker`, `accentWarm`, `accentCool`, `floorTile`, `floorTileAlt`, `floorGrid`, `floorBorder`, `wallPanel`, `wallTrim`, `wallShadow`, `zoneRug`, `zoneLabelBg`, `zoneLabelText`, `labelGlow`, `workMat`, `cableAccent`, `characterShoe`, `characterHand`, and `brandNeutral`.
+`Scene3DColors` SHALL include the following fields:
 
-Both `LIGHT_SCENE_3D` and `DARK_SCENE_3D` SHALL be complete `Record<keyof Scene3DColors, string>` objects.
+**3D and shared scene fields**: `floor`, `desk`, `deskEdge`, `furniture`, `furnitureDark`, `furnitureLight`, `partition`, `screen`, `metal`, `serverBody`, `ledCyan`, `ledGreen`, `ledBlue`, `ledAmber`, `potBase`, `leafPrimary`, `leafSecondary`, `leafTertiary`, `text`, `textMuted`, `selectionRing`, `sceneBackground`, `wallShell`, `bookSpine`, `cableChannel`, `vendingScreen`, `tableReading`, `whiteboardSurface`, `whiteboardMarker`, `accentWarm`, `accentCool`, `floorTile`, `floorTileAlt`, `floorGrid`, `floorBorder`, `wallPanel`, `wallTrim`, `wallShadow`, `zoneRug`, `zoneLabelBg`, `zoneLabelText`, `labelGlow`, `workMat`, `cableAccent`, `characterShoe`, `characterHand`, and `brandNeutral`.
+
+**2D canvas-only fields** (added by the `scene-2d-theme-tokens` capability): `canvasBackground`, `canvasGrid`, `deskSurface`, `deskScreen`, `deskBezel`, `pillBg`, `pillBgStroke`, `pillText`, `dotRing`, `nameLabelMuted`, `meetingBubbleBg`, `meetingBubbleStroke`, `meetingBubbleTitle`, `meetingBubbleParticipantText`, `meetingBubbleWaitingText`, `meetingBubbleExtraText`, `managerMarkerFill`, `managerMarkerStroke`, `managerMarkerLabel`, `selectionRing2D`, `dragGhostShadow`, `prefabSilhouetteDegraded`, `stateBadgeBg`, `stateBadgeStroke`, `stateBadgeText`, `stateBadgeBgBlocked`, `stateBadgeStrokeBlocked`, `stateBadgeTextBlocked`, `stateBadgeBgSuccess`, `stateBadgeStrokeSuccess`, `stateBadgeTextSuccess`.
+
+Both `LIGHT_SCENE_3D` and `DARK_SCENE_3D` SHALL be complete `Record<keyof Scene3DColors, string>` objects covering both groups.
 
 `STATE_COLORS_LIGHT` and `STATE_COLORS_DARK` SHALL each be a `Record<EmployeeState, number>` (numeric hex form — `0xRRGGBB`) covering all 12 employee states defined in `@offisim/shared-types`.
 
-Legacy `DARK_SCENE_3D` fields that existed before the 3D art-direction pass SHALL remain byte-equivalent to today's `DARK_SCENE` constant in `packages/ui-office/src/theme/use-scene-colors.ts`; added art-direction fields SHALL be explicit token values in both light and dark variants.
+Legacy `DARK_SCENE_3D` fields that existed before the 3D art-direction pass SHALL remain byte-equivalent to today's `DARK_SCENE` constant in `packages/ui-office/src/theme/use-scene-colors.ts`; added art-direction fields and the new 2D-canvas-only fields SHALL be explicit token values in both light and dark variants.
+
+The new 2D-canvas-only `DARK_SCENE_3D` field values SHALL be byte-equivalent to today's hard-coded literals in `packages/ui-office/src/components/scene/Office2DCanvasView.tsx`, `packages/ui-office/src/components/scene/canvas-primitives.ts`, and `packages/ui-office/src/components/scene/canvas-layers/*.ts`, preserving dark-mode visual continuity (e.g., `canvasBackground = '#020617'`, `pillBg = '#1e293b'`, `managerMarkerStroke = '#a855f7'`).
 
 `STATE_COLORS_DARK` SHALL be byte-equivalent to today's `STATE_COLORS` in `packages/renderer/src/tokens/colors.ts` — no field values change in dark mode.
 
@@ -95,7 +101,13 @@ Legacy `DARK_SCENE_3D` fields that existed before the 3D art-direction pass SHAL
 #### Scenario: Light scene completeness
 
 - **WHEN** iterating over `LIGHT_SCENE_3D`
-- **THEN** every contracted field is present with a non-empty color string
+- **THEN** every contracted field (3D, shared, and 2D-canvas-only) is present with a non-empty color string
+
+#### Scenario: 2D canvas-only dark byte-equivalence
+
+- **WHEN** comparing `DARK_SCENE_3D.canvasBackground` to today's `BACKGROUND_COLOR` literal `#020617` in `canvas-layers/draw-background.ts`
+- **THEN** the values are identical
+- **AND** the same byte equivalence holds for every other 2D-canvas-only field's pre-tokenization literal
 
 #### Scenario: STATE_COLORS_DARK preserves existing 3D ring colors
 
@@ -299,6 +311,11 @@ The CI gate `pnpm tokens:lint-hex` SHALL enforce this rule. The gate SHALL print
 - **WHEN** grepping `packages/ui-office/src/components/scene/SceneCanvas.tsx` for `^// raw-hex-allowed-file:`
 - **THEN** zero matches exist
 - **AND** `pnpm tokens:lint-hex` runs the full per-line gate over that file
+
+#### Scenario: 2D office canvas files are no longer file-level exempt
+
+- **WHEN** grepping the 11 files listed in the `scene-2d-theme-tokens` capability for `^// raw-hex-allowed-file:`
+- **THEN** zero matches exist, and `pnpm tokens:lint-hex` runs the full per-line gate over those files
 
 ### Requirement: Studio inline-style consumers SHALL migrate from `studio-tokens.ts` to `@offisim/ui-core/tokens`
 

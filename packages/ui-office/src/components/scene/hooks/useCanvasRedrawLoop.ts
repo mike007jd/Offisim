@@ -1,11 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
+import { useSceneColors } from '../../../theme/use-scene-colors.js';
 import type { ViewportTransform } from '../office-2d-canvas-geometry';
 import {
   type FrameContext,
   type InteractionState,
   type SceneSnapshot,
   drawScene,
+  pickSceneCanvasPalette,
 } from '../office-2d-canvas-renderer';
 
 interface Params {
@@ -23,6 +25,11 @@ interface Params {
  * rAF callback always reads the latest snapshot without capturing stale
  * closures. Invokes `drawScene` when `needsRedrawRef` is set, or every
  * frame while blocked/failed employees need their pulse animation.
+ *
+ * Theme-awareness: reads `useSceneColors()` (theme-resolved Scene3DColors)
+ * and rebuilds the canvas palette on theme change; flips
+ * `needsRedrawRef.current = true` so the next rAF tick rasters with the
+ * fresh palette.
  */
 export function useCanvasRedrawLoop({
   canvasRef,
@@ -33,11 +40,25 @@ export function useCanvasRedrawLoop({
   needsRedrawRef,
 }: Params): void {
   const sceneDataRef = useRef<SceneSnapshot>(sceneData);
+  const sceneColors = useSceneColors();
+  const palette = useMemo(() => pickSceneCanvasPalette(sceneColors), [sceneColors]);
+  const paletteRef = useRef(palette);
+  const sceneColorsRef = useRef(sceneColors);
 
   useEffect(() => {
     sceneDataRef.current = sceneData;
     needsRedrawRef.current = true;
   }, [sceneData, needsRedrawRef]);
+
+  // Theme switch → dirty redraw + refresh palette refs so the next frame
+  // sees the new palette. `palette` already changes identity when theme
+  // flips (it's derived from `sceneColors` via useMemo), so watching
+  // `palette` + `sceneColors` is sufficient — `resolvedTheme` is implied.
+  useEffect(() => {
+    paletteRef.current = palette;
+    sceneColorsRef.current = sceneColors;
+    needsRedrawRef.current = true;
+  }, [palette, sceneColors, needsRedrawRef]);
 
   useEffect(() => {
     let mounted = true;
@@ -65,6 +86,8 @@ export function useCanvasRedrawLoop({
               devicePixelRatio: dpr,
             },
             transform: viewportRef.current,
+            palette: paletteRef.current,
+            sceneColors: sceneColorsRef.current,
           };
           drawScene(ctx, scene, frame);
         }

@@ -1,4 +1,3 @@
-// raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import { EMPLOYEE_RADIUS } from '../office-2d-canvas-geometry';
 import type { FrameContext, SceneSnapshot } from '../office-2d-canvas-renderer';
 
@@ -15,7 +14,7 @@ export function drawInteractions(
     const isSelected = selectedEmployeeId === emp.employeeId;
     const isHovered = hoveredEmployeeId === emp.employeeId;
     if (isSelected) {
-      ctx.strokeStyle = '#6366f1';
+      ctx.strokeStyle = frame.palette.selectionRing2D;
       ctx.lineWidth = 2.5;
       ctx.globalAlpha = 0.9;
       ctx.beginPath();

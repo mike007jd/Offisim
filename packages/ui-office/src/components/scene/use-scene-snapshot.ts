@@ -13,6 +13,7 @@ import { SeatRegistry } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import { type AgentState, useAgentStates } from '../../runtime/use-agent-states';
+import { useTheme } from '../../theme/theme-provider.js';
 import { useCompany } from '../company/CompanyContext.js';
 import { getAvatarImage, getBrandAvatarImage } from './office-2d-avatar-cache';
 import { EMPLOYEE_RADIUS, worldToCanvas, zoneToCanvasRect } from './office-2d-canvas-geometry';
@@ -21,7 +22,8 @@ import {
   type PrefabRenderData,
   type SceneSnapshot,
   type ZoneRenderData,
-  getStatusColor,
+  buildStatusColors,
+  resolveStatusColor,
 } from './office-2d-canvas-renderer';
 import { SceneHitMap } from './office-2d-hitmap';
 import { ARCHETYPE_FALLBACK_MAP, archetypeToCategory } from './office-2d-render-registry';
@@ -45,7 +47,9 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
   const { activeCompanyId } = useCompany();
   const { zones } = useCompanyZones();
   const { instances: prefabInstances } = usePrefabInstances();
+  const { resolvedTheme } = useTheme();
   const companyId = activeCompanyId ?? '';
+  const statusColors = useMemo(() => buildStatusColors(resolvedTheme), [resolvedTheme]);
 
   const seatRegistry = useMemo(
     () =>
@@ -222,7 +226,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
         y: entry.y,
         name: agent.name,
         avatarImage: loadAvatar(agent, entry.seed, companyId),
-        statusColor: getStatusColor(agent.state),
+        statusColor: resolveStatusColor(agent.state, statusColors),
         state: agent.state,
         stateLabel: STATE_LABELS[agent.state] ?? null,
         isBlocked: isEmployeeBlocked(agent.state),
@@ -271,6 +275,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     agents,
     companyId,
     loadAvatar,
+    statusColors,
   ]);
 
   const sceneData: SceneSnapshot = useMemo(() => {
