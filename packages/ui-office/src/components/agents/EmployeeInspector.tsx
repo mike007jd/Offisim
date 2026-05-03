@@ -1,5 +1,5 @@
 import type { EmployeeRow, MemoryEntryRow } from '@offisim/core/browser';
-import { Badge, Button, isAnyModalOpen } from '@offisim/ui-core';
+import { Badge, Button, cn, isAnyModalOpen } from '@offisim/ui-core';
 import {
   Brain,
   BriefcaseBusiness,
@@ -11,8 +11,11 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useEmployeeMemories } from '../../hooks/useEmployeeMemories';
+import { useEmployeeMemories } from '../../hooks/useEmployeeMemories.js';
+import { useLayoutTier } from '../../hooks/use-layout-tier.js';
+import type { AddToast } from '../../lib/discard-confirm-toast.js';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
@@ -31,14 +34,12 @@ export interface EmployeeInspectorProps {
   onOpenEditor?: (id: string) => void;
   onStartChat?: (id: string) => void;
   leftOffset?: number;
+  /** Surface mutation failures via the runtime toast channel. */
+  addToast?: AddToast;
 }
 
 // ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Category badge colors
+// Tokens
 // ---------------------------------------------------------------------------
 
 const CATEGORY_COLORS: Record<MemoryEntryRow['category'], string> = {
@@ -48,13 +49,17 @@ const CATEGORY_COLORS: Record<MemoryEntryRow['category'], string> = {
   preference: 'text-accent',
 };
 
-const INSPECTOR_SECTION_CLASS =
-  'rounded-xl border border-border-subtle bg-surface-muted px-3 py-2';
 const INSPECTOR_LABEL_CLASS =
   'flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-text-muted';
 
+const SECTION_ROW_CLASS = 'border-t border-border-subtle';
+const SECTION_PADDING_STYLE = {
+  paddingInline: 'var(--sp-lg)',
+  paddingBlock: 'var(--sp-md)',
+} as const;
+
 // ---------------------------------------------------------------------------
-// MemoriesSection — collapsible, top-5 by importance, Forget per entry
+// MemoriesSection — <details> disclosure, no inner card
 // ---------------------------------------------------------------------------
 
 function MemoriesSection({
@@ -65,13 +70,12 @@ function MemoriesSection({
   companyId: string;
 }) {
   const { memories, isLoading, deleteMemory } = useEmployeeMemories(employeeId, companyId);
-  const [expanded, setExpanded] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const sorted = useMemo(
     () => [...memories].sort((a, b) => b.importance - a.importance),
     [memories],
   );
-  const visible = expanded ? sorted : sorted.slice(0, 5);
   const total = memories.length;
 
   const handleForget = useCallback(
@@ -81,76 +85,93 @@ function MemoriesSection({
     [deleteMemory],
   );
 
-  if (isLoading) {
-    return (
-      <div className={INSPECTOR_SECTION_CLASS}>
-        <div className={INSPECTOR_LABEL_CLASS}>
-          <Brain className="h-3 w-3" />
-          Memories
-        </div>
-        <p className="mt-2 text-xs text-text-muted">Loading...</p>
-      </div>
-    );
-  }
-
-  if (total === 0) {
-    return (
-      <div className={INSPECTOR_SECTION_CLASS}>
-        <div className={INSPECTOR_LABEL_CLASS}>
-          <Brain className="h-3 w-3" />
-          Memories
-        </div>
-        <p className="mt-2 text-xs text-text-secondary">No memories yet.</p>
-      </div>
-    );
-  }
+  const summaryLabel = isLoading ? 'Memories' : `Memories (${total})`;
 
   return (
-    <div className={INSPECTOR_SECTION_CLASS}>
-      <button
-        type="button"
-        className="flex w-full items-center justify-between"
-        onClick={() => setExpanded(!expanded)}
-      >
+    <details
+      className={SECTION_ROW_CLASS}
+      style={SECTION_PADDING_STYLE}
+      open={isOpen}
+      onToggle={(event) => setIsOpen((event.target as HTMLDetailsElement).open)}
+    >
+      <summary className="flex w-full cursor-pointer select-none items-center justify-between marker:hidden [&::-webkit-details-marker]:hidden">
         <div className={INSPECTOR_LABEL_CLASS}>
           <Brain className="h-3 w-3" />
-          Memories ({total})
+          {summaryLabel}
         </div>
-        <span className="text-[10px] text-text-muted">{expanded ? '▾' : '▸'}</span>
-      </button>
-      <div className="mt-2 flex flex-col gap-1.5">
-        {visible.map((m) => (
-          <div key={m.memory_id} className="group flex items-start gap-1.5">
-            <span className="mt-0.5 text-[10px] text-text-muted">★</span>
-            <div className="min-w-0 flex-1">
-              <p className="break-words text-xs leading-relaxed text-text-primary">{m.content}</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className={`text-[9px] ${CATEGORY_COLORS[m.category]}`}>{m.category}</span>
-                <span className="text-[9px] text-text-muted">{m.importance.toFixed(2)}</span>
+        <span className="text-[10px] text-text-muted">{isOpen ? '▾' : '▸'}</span>
+      </summary>
+      <div className="mt-2">
+        {isLoading ? (
+          <p className="text-xs text-text-muted">Loading...</p>
+        ) : total === 0 ? (
+          <p className="text-xs text-text-secondary">No memories yet.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {sorted.map((m) => (
+              <div key={m.memory_id} className="group flex items-start gap-1.5">
+                <span className="mt-0.5 text-[10px] text-text-muted">★</span>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-xs leading-relaxed text-text-primary">
+                    {m.content}
+                  </p>
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <span className={`text-[9px] ${CATEGORY_COLORS[m.category]}`}>
+                      {m.category}
+                    </span>
+                    <span className="text-[9px] text-text-muted">{m.importance.toFixed(2)}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleForget(m.memory_id)}
+                  className="p-0.5 text-text-muted opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
+                  title="Forget this memory"
+                  aria-label={`Forget memory: ${m.content.slice(0, 30)}`}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleForget(m.memory_id)}
-              className="p-0.5 text-text-muted opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
-              title="Forget this memory"
-              aria-label={`Forget memory: ${m.content.slice(0, 30)}`}
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
+            ))}
           </div>
-        ))}
+        )}
       </div>
-      {total > 5 && !expanded && (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="mt-1.5 text-[10px] text-text-muted transition-colors hover:text-text-primary"
-        >
-          Show all {total} memories
-        </button>
-      )}
-    </div>
+    </details>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// InspectorFooterButton — icon-only at tablet/narrow tiers
+// ---------------------------------------------------------------------------
+
+function InspectorFooterButton({
+  icon,
+  label,
+  onClick,
+  disabled,
+  showLabel,
+  className,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  showLabel: boolean;
+  className?: string;
+}) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className={cn('flex-1 gap-1.5 text-xs', className)}
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+    >
+      {icon}
+      {showLabel ? label : null}
+    </Button>
   );
 }
 
@@ -166,11 +187,14 @@ export function EmployeeInspector({
   onOpenEditor,
   onStartChat,
   leftOffset = 280,
+  addToast,
 }: EmployeeInspectorProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const { repos } = useOffisimRuntime();
   const [employee, setEmployee] = useState<EmployeeRow | null>(null);
   const [isUpdatingEnabled, setIsUpdatingEnabled] = useState(false);
+  const layoutTier = useLayoutTier();
+  const showFooterLabels = layoutTier.tier === 'desktop';
 
   // Close on Escape. Inspector is a popover (not stack-registered), so it must
   // ignore Escape when any modal above it owns keyboard input.
@@ -255,13 +279,22 @@ export function EmployeeInspector({
   async function updateEnabled(nextEnabled: 0 | 1) {
     if (!repos?.employees || isUpdatingEnabled) return;
     const targetId = resolvedEmployeeId;
+    const previousEnabled: 0 | 1 = nextEnabled === 0 ? 1 : 0;
     setIsUpdatingEnabled(true);
+    // Optimistic flip — update local state in the same render as the click.
+    setEmployee((prev) =>
+      prev && prev.employee_id === targetId ? { ...prev, enabled: nextEnabled } : prev,
+    );
     try {
       await repos.employees.update(targetId, { enabled: nextEnabled });
-      // Only update local state if still viewing the same employee
+    } catch (err) {
+      // Roll back only the matching employee — the user may have navigated away.
       setEmployee((prev) =>
-        prev && prev.employee_id === targetId ? { ...prev, enabled: nextEnabled } : prev,
+        prev && prev.employee_id === targetId ? { ...prev, enabled: previousEnabled } : prev,
       );
+      const message =
+        err instanceof Error && err.message ? err.message : 'Failed to update employee status';
+      addToast?.(message, 'error');
     } finally {
       setIsUpdatingEnabled(false);
     }
@@ -282,6 +315,8 @@ export function EmployeeInspector({
     void updateEnabled(1);
   }
 
+  const hasMetadataRow = Boolean(agent.taskRunId || agent.workstationId);
+
   return (
     <div
       ref={panelRef}
@@ -292,7 +327,7 @@ export function EmployeeInspector({
       role="dialog"
       aria-label={`Inspecting ${agent.name}`}
     >
-      {/* Floating card */}
+      {/* Single elevated SurfaceCard — sections are dividers, never nested cards. */}
       <div className="rounded-xl border border-border-default bg-surface-elevated text-text-primary shadow-2xl backdrop-blur-md">
         {/* Header row */}
         <div
@@ -315,7 +350,7 @@ export function EmployeeInspector({
           </button>
         </div>
 
-        {/* Identity section */}
+        {/* Identity row — first content row, no border-t (header has border-b). */}
         <div
           className="flex items-center gap-3"
           style={{
@@ -340,127 +375,120 @@ export function EmployeeInspector({
             <p className="truncate text-sm font-semibold text-text-primary">{agent.name}</p>
             <p className="truncate font-mono text-xs text-text-secondary">{roleLabel}</p>
           </div>
-          <Badge variant={variant} className="text-xs flex-shrink-0">
+          <Badge variant={variant} className="flex-shrink-0 text-xs">
             {agent.state}
           </Badge>
         </div>
 
-        {/* Details */}
-        <div
-          className="flex flex-col gap-1"
-          style={{ paddingInline: 'var(--sp-lg)', paddingBottom: 'var(--sp-md)' }}
-        >
-          {isDismissed ? (
-            <div className="rounded-xl border border-error bg-error-muted px-3 py-2">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-error">Dismissed</div>
-              <p className="mt-2 text-sm text-error">
-                This employee is hidden from the office. Their memories are preserved.
-              </p>
-            </div>
-          ) : null}
+        {/* Dismissed banner — flat row with error tone, no nested card. */}
+        {isDismissed ? (
+          <div className={SECTION_ROW_CLASS} style={SECTION_PADDING_STYLE}>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-error">Dismissed</div>
+            <p className="mt-2 text-sm text-error">
+              This employee is hidden from the office. Their memories are preserved.
+            </p>
+          </div>
+        ) : null}
 
+        {/* Current focus row */}
+        <div className={SECTION_ROW_CLASS} style={SECTION_PADDING_STYLE}>
+          <div className={INSPECTOR_LABEL_CLASS}>
+            <BriefcaseBusiness className="h-3 w-3" />
+            Current Focus
+          </div>
           {currentTaskLabel ? (
-            <div className={INSPECTOR_SECTION_CLASS}>
-              <div className={INSPECTOR_LABEL_CLASS}>
-                <BriefcaseBusiness className="h-3 w-3" />
-                Current Focus
-              </div>
+            <>
               <p className="mt-2 text-sm font-medium leading-relaxed text-text-primary">
                 {currentTaskLabel}
               </p>
               {stepProgress ? (
                 <p className="mt-1 text-xs text-text-secondary">{stepProgress}</p>
               ) : null}
-            </div>
+            </>
           ) : (
-            <div className={INSPECTOR_SECTION_CLASS}>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
-                Current Focus
-              </div>
-              <p className="mt-2 text-sm text-text-secondary">Available for the next assignment.</p>
-            </div>
-          )}
-
-          {subTaskTotal > 0 ? (
-            <div className={INSPECTOR_SECTION_CLASS}>
-              <div className={INSPECTOR_LABEL_CLASS}>
-                <ListChecks className="h-3 w-3" />
-                Subtasks
-              </div>
-              <p className="mt-2 text-sm text-text-primary">
-                {completedSubTasks}/{subTaskTotal} complete
-              </p>
-              {runningSubTask ? (
-                <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                  In progress: {runningSubTask.label}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <MemoriesSection employeeId={employeeId} companyId={companyId} />
-
-          {agent.taskRunId && (
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-text-muted">Task ID</span>
-              <span className="max-w-[140px] truncate font-mono text-text-secondary">
-                {agent.taskRunId.slice(0, 12)}...
-              </span>
-            </div>
-          )}
-          {agent.workstationId && (
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-text-muted">Workstation</span>
-              <span className="font-mono text-text-secondary">{agent.workstationId}</span>
-            </div>
+            <p className="mt-2 text-sm text-text-secondary">Available for the next assignment.</p>
           )}
         </div>
 
-        {/* Actions */}
+        {/* Subtasks row (only when present) */}
+        {subTaskTotal > 0 ? (
+          <div className={SECTION_ROW_CLASS} style={SECTION_PADDING_STYLE}>
+            <div className={INSPECTOR_LABEL_CLASS}>
+              <ListChecks className="h-3 w-3" />
+              Subtasks
+            </div>
+            <p className="mt-2 text-sm text-text-primary">
+              {completedSubTasks}/{subTaskTotal} complete
+            </p>
+            {runningSubTask ? (
+              <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                In progress: {runningSubTask.label}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Memories disclosure — collapsed by default. */}
+        <MemoriesSection employeeId={employeeId} companyId={companyId} />
+
+        {/* Metadata row (Task ID / Workstation) */}
+        {hasMetadataRow ? (
+          <div
+            className={`${SECTION_ROW_CLASS} flex flex-col gap-1`}
+            style={SECTION_PADDING_STYLE}
+          >
+            {agent.taskRunId ? (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-text-muted">Task ID</span>
+                <span className="max-w-[140px] truncate font-mono text-text-secondary">
+                  {agent.taskRunId.slice(0, 12)}...
+                </span>
+              </div>
+            ) : null}
+            {agent.workstationId ? (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-text-muted">Workstation</span>
+                <span className="font-mono text-text-secondary">{agent.workstationId}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Footer actions — flex-wrap, icon-only at tablet/narrow tiers. */}
         <div
-          className="flex gap-2 border-t border-border-subtle"
+          className="flex flex-wrap gap-2 border-t border-border-subtle"
           style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-md)' }}
         >
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-1.5 text-xs"
+          <InspectorFooterButton
+            icon={<MessageSquare className="h-3 w-3" />}
+            label="Message"
+            showLabel={showFooterLabels}
             onClick={() => onStartChat?.(resolvedEmployeeId)}
-          >
-            <MessageSquare className="h-3 w-3" />
-            Message
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-1.5 text-xs"
+          />
+          <InspectorFooterButton
+            icon={<Pencil className="h-3 w-3" />}
+            label="Edit Details"
+            showLabel={showFooterLabels}
             onClick={() => onOpenEditor?.(resolvedEmployeeId)}
-          >
-            <Pencil className="h-3 w-3" />
-            Edit Details
-          </Button>
+          />
           {isDismissed ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 gap-1.5 text-xs text-success hover:text-success"
+            <InspectorFooterButton
+              icon={<UserPlus className="h-3 w-3" />}
+              label="Re-enable"
+              showLabel={showFooterLabels}
               disabled={isUpdatingEnabled}
               onClick={handleReenable}
-            >
-              <UserPlus className="h-3 w-3" />
-              Re-enable
-            </Button>
+              className="text-success hover:text-success"
+            />
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 gap-1.5 text-xs text-error hover:bg-error-muted hover:text-error"
+            <InspectorFooterButton
+              icon={<UserMinus className="h-3 w-3" />}
+              label="Dismiss"
+              showLabel={showFooterLabels}
               disabled={isUpdatingEnabled}
               onClick={handleDismiss}
-            >
-              <UserMinus className="h-3 w-3" />
-              Dismiss
-            </Button>
+              className="text-error hover:bg-error-muted hover:text-error"
+            />
           )}
         </div>
       </div>

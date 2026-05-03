@@ -497,6 +497,7 @@ export function App({ onCompanySwitch }: AppProps) {
                 officeBindings.handleSelectEmployee(id);
                 officeBindings.bumpChatOpenToken();
               }}
+              addToast={addToast}
             />
           )}
 
