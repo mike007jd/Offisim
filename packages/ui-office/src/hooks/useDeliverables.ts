@@ -1,5 +1,5 @@
 import type { DeliverableCreatedPayload, RoleSlug, RuntimeEvent } from '@offisim/shared-types';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   type DeliverableArtifact,
   getDeliverableDisplayTitle,
@@ -9,7 +9,15 @@ import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
 
 export interface Deliverable {
   id: string;
+  /** Runtime graph_threads.thread_id (conversationKey shape for chat-driven runs). */
   threadId: string;
+  /**
+   * Product-layer chat_threads.thread_id; null when the deliverable was
+   * produced outside a chat run (background_sync, install_flow). Right-rail
+   * consumers filter by this; the dashboard/pitch-hall company-wide views
+   * pass `null` to bypass the filter.
+   */
+  chatThreadId: string | null;
   title: string;
   content: string;
   contentSize: number;
@@ -43,7 +51,15 @@ function upsertDeliverable(list: Deliverable[], next: Deliverable): Deliverable[
   return merged;
 }
 
-export function useDeliverables(): Deliverable[] {
+/**
+ * Subscribe to deliverable events for the active company.
+ *
+ * @param filterChatThreadId — when a chat thread is active, scope the result
+ *   to deliverables that originated from that thread (`chatThreadId` matches).
+ *   Pass `null`/`undefined` for company-wide views (DashboardOverlay,
+ *   PitchHall in cross-thread mode) to receive every deliverable.
+ */
+export function useDeliverables(filterChatThreadId?: string | null): Deliverable[] {
   const { eventBus, listRecentDeliverables } = useOffisimRuntime();
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
 
@@ -54,11 +70,13 @@ export function useDeliverables(): Deliverable[] {
     // Subscribe BEFORE awaiting hydrate so live events that arrive mid-hydrate
     // are captured. `upsertDeliverable` dedups by id regardless of order.
     const off = eventBus.on('deliverable.created', (e: RuntimeEvent<DeliverableCreatedPayload>) => {
-      const { deliverableId, threadId, title, contributingEmployees, createdAt } = e.payload;
+      const { deliverableId, threadId, chatThreadId, title, contributingEmployees, createdAt } =
+        e.payload;
       const artifact = resolveDeliverableArtifact(e.payload);
       const row: Deliverable = {
         id: deliverableId,
         threadId,
+        chatThreadId: chatThreadId ?? null,
         title: getDeliverableDisplayTitle(title, artifact),
         content: artifact.content,
         contentSize: artifact.content.length,
@@ -88,5 +106,8 @@ export function useDeliverables(): Deliverable[] {
     };
   }, [eventBus, listRecentDeliverables]);
 
-  return deliverables;
+  return useMemo(() => {
+    if (filterChatThreadId == null) return deliverables;
+    return deliverables.filter((d) => d.chatThreadId === filterChatThreadId);
+  }, [deliverables, filterChatThreadId]);
 }

@@ -238,10 +238,8 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
 
   const handleRun = useCallback(() => {
     if (!selectedSop) return;
-    // Missing-role warnings are now a persistent on-graph chip + inspector
-    // row driven by `missingRoleSet`; the previous one-shot toast was racy
-    // (would disappear before the user could read it). Run dispatch path
-    // is unchanged — runtime fallback to any available employee preserved.
+    // SOP runs are unscoped until OfficeSessionState.selectedThreadId exists;
+    // deliverables land in the cross-thread bucket (chatThreadId=null).
     void sendMessage(formatRunCommand(selectedSop.name));
   }, [selectedSop, sendMessage]);
 

@@ -306,6 +306,7 @@ export function interactionResolved(
   threadId: string,
   request: InteractionRequest,
   response: InteractionResponse,
+  runScope?: RunScope | null,
 ): RuntimeEvent<InteractionResolvedPayload> {
   return {
     type: 'interaction.resolved',
@@ -314,7 +315,11 @@ export function interactionResolved(
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { request, response },
+    payload: {
+      request,
+      response,
+      ...chatScopeFields(runScope),
+    },
   };
 }
 

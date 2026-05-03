@@ -55,6 +55,7 @@ export function useInteractionSync({
     options?: {
       targetEmployeeId?: string;
       threadId?: string;
+      projectId?: string | null;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
       conversationKey?: string;
       runScope?: RunScope;
@@ -164,6 +165,7 @@ export function useInteractionSync({
         return sendMessage(`${last.text}\n\nUser clarification: ${answer}`, {
           targetEmployeeId: last.targetEmployeeId,
           threadId: last.threadId,
+          projectId: last.projectId ?? null,
           entryMode: last.entryMode,
           conversationKey: last.conversationKey,
           ...(options?.runScope ? { runScope: options.runScope } : {}),

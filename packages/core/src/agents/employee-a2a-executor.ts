@@ -283,7 +283,7 @@ export async function runEmployeeA2A(
             ...employeeBrandFields(employee),
           },
         ],
-        normalizedArtifact,
+        { ...normalizedArtifact, chatThreadId: state.chatThreadId ?? null },
       ),
     );
   }

@@ -297,6 +297,14 @@ function summaryRowToPayload(
 export interface DeliverableHookRow {
   id: string;
   threadId: string;
+  /**
+   * Persistent layer (`deliverables` table) does not store the product-layer
+   * chat_threads.thread_id today, so historical hydrate rows always surface
+   * `null` here. Live `deliverable.created` events carry the real value via
+   * `DeliverableCreatedPayload.chatThreadId`. Right-rail consumers that
+   * filter strictly will see history rows under the cross-thread bucket.
+   */
+  chatThreadId: string | null;
   title: string;
   content: string;
   contentSize: number;
@@ -311,6 +319,7 @@ export function mapDeliverableSummaryToHookRow(row: DeliverableSummaryRow): Deli
   return {
     id: row.deliverable_id,
     threadId: row.thread_id ?? '',
+    chatThreadId: null,
     title: getDeliverableDisplayTitle(payload.title, artifact),
     content: '',
     contentSize: row.content_size ?? 0,
@@ -336,6 +345,7 @@ export function mapDeliverableFullRowToHookRow(row: DeliverableRow): Deliverable
   return {
     id: row.deliverable_id,
     threadId: payload.threadId,
+    chatThreadId: null,
     title: getDeliverableDisplayTitle(payload.title, artifact),
     content: artifact.content,
     contentSize: artifact.content.length,

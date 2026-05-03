@@ -279,6 +279,13 @@ export interface ThreadRepository {
   updateInteractionMode(threadId: string, interactionMode: InteractionMode): Promise<void>;
   updateSynopsis(threadId: string, synopsisJson: string | null): Promise<void>;
   updateCompactBaseline(threadId: string, compactBaselineJson: string | null): Promise<void>;
+  /**
+   * Backfill a graph_threads row's project_id when a chat turn first arrives
+   * with one. The Tauri builtin-tool sandbox derives workspace_root via this
+   * column, so a row created before plumbing existed (or by background_sync)
+   * needs to be re-stamped on first chat use.
+   */
+  updateProject(threadId: string, projectId: string | null): Promise<void>;
 }
 
 export interface TaskRunRepository {

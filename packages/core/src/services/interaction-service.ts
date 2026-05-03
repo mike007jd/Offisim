@@ -88,6 +88,13 @@ export class InteractionService implements ToolPermissionGrantResolver {
   private readonly threadGrants = new Set<string>();
   private readonly sessionGrants = new Set<string>();
   private readonly activePayloads = new Map<string, unknown>();
+  /**
+   * RunScope captured at request time so resolve() can re-emit it on
+   * `interaction.resolved`. Lets `useInteractionSync` dispatch the follow-up
+   * message back onto the originating chat thread without user code threading
+   * scope through the response.
+   */
+  private readonly activeRunScopes = new Map<string, RunScope>();
   private readonly planReviewDecisions = new Map<string, PlanReviewDecision>();
   private resolutionWaiter: InteractionResolutionWaiter | null = null;
 
@@ -165,6 +172,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
     await this.persistHistory(pending, null, 'cancelled');
     this.clearPayload(pending);
+    this.activeRunScopes.delete(pending.interactionId);
     this.rejectResolutionWaiter(
       pending.interactionId,
       new Error('Interaction request was cancelled before it was resolved.'),
@@ -180,6 +188,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     if (replaced) {
       await this.persistHistory(replaced, null, 'superseded');
       this.clearPayload(replaced);
+      this.activeRunScopes.delete(replaced.interactionId);
       this.rejectResolutionWaiter(
         replaced.interactionId,
         new Error('Interaction request was superseded before it was resolved.'),
@@ -207,6 +216,9 @@ export class InteractionService implements ToolPermissionGrantResolver {
       severity: request.severity,
       requestedByNode: request.requestedByNode,
     });
+    if (options.runScope) {
+      this.activeRunScopes.set(request.interactionId, options.runScope);
+    }
     this.deps.eventBus.emit(
       interactionRequested(
         this.deps.companyId,
@@ -260,8 +272,16 @@ export class InteractionService implements ToolPermissionGrantResolver {
       kind: pending.kind,
       selectedOptionId: response.selectedOptionId,
     });
+    const runScope = this.activeRunScopes.get(pending.interactionId) ?? null;
+    this.activeRunScopes.delete(pending.interactionId);
     this.deps.eventBus.emit(
-      interactionResolved(this.deps.companyId, this.deps.threadId, pending, response),
+      interactionResolved(
+        this.deps.companyId,
+        this.deps.threadId,
+        pending,
+        response,
+        runScope,
+      ),
     );
     if (outcome) {
       this.deps.eventBus.emit(
@@ -348,6 +368,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
     await this.deps.activeRepo?.deleteByThread(this.deps.threadId);
     await this.persistHistory(pending, null, 'cancelled', payload);
     this.clearPayload(pending);
+    this.activeRunScopes.delete(interactionId);
   }
 
   private async applySkillInstallConfirm(

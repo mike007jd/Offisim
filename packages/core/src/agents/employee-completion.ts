@@ -350,6 +350,7 @@ export async function finalizeEmployeeSuccess(
           kind: 'file',
           fileName: materializedDeliverable.fileName,
           mimeType: materializedDeliverable.mimeType,
+          chatThreadId: state.chatThreadId ?? null,
         },
       ),
     );

@@ -5,21 +5,17 @@ import type {
   SopDefinition,
 } from '@offisim/shared-types';
 import { FileOutput } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 import { DeliverableCard } from '../deliverable/DeliverableCard';
 
 export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }) {
-  const allDeliverables = useDeliverables();
-  const deliverables = useMemo(
-    () =>
-      activeThreadId
-        ? allDeliverables.filter((d) => d.threadId === activeThreadId)
-        : allDeliverables,
-    [allDeliverables, activeThreadId],
-  );
+  // `activeThreadId` is the product-layer chat_threads.thread_id (RunScope.threadId).
+  // Pass it as the `useDeliverables` filter so the right-rail Outputs panel scopes
+  // to the active thread; pass null in cross-thread surfaces to see everything.
+  const deliverables = useDeliverables(activeThreadId ?? null);
   const { repos, eventBus, desktopVaultRoot } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const listBottomRef = useRef<HTMLDivElement>(null);

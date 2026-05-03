@@ -10,6 +10,7 @@ import type { InteractionMode, RunScope } from '@offisim/shared-types';
 import {
   type DeliverableHookRow,
   disposeEventLogStore,
+  getConversationKey,
   isTauri,
   loadProviderConfig,
   loadStoredBrowserMcpServers,
@@ -34,11 +35,7 @@ import {
 } from '../../lib/browser-runtime-storage';
 import { listDesktopMcpServers } from '../../lib/desktop-mcp-registry';
 import { isNoCredentialError } from '../../lib/tauri-llm-fetch';
-import {
-  type FailedRunState,
-  type LastFailedMessage,
-  getFailedConversationKey,
-} from '../last-failed-message';
+import { type FailedRunState, type LastFailedMessage } from '../last-failed-message';
 
 type DesktopMcpServerConfig = McpServerConfig & { registeredServerId?: string };
 
@@ -249,6 +246,7 @@ export function useRuntimeInit({
       options?: {
         targetEmployeeId?: string;
         threadId?: string;
+        projectId?: string | null;
         entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
         conversationKey?: string;
         runScope?: RunScope;
@@ -292,6 +290,7 @@ export function useRuntimeInit({
           messages: [new HumanMessage(text)],
           targetEmployeeId: options?.targetEmployeeId ?? null,
           threadId: options?.threadId,
+          projectId: options?.projectId ?? null,
           ...(options?.runScope ? { runScope: options.runScope } : {}),
         });
         const msgs = result.messages ?? [];
@@ -309,10 +308,12 @@ export function useRuntimeInit({
           text,
           targetEmployeeId: options?.targetEmployeeId,
           threadId: options?.threadId,
+          projectId: options?.projectId ?? null,
           entryMode: options?.entryMode,
           conversationKey:
             options?.conversationKey ??
-            getFailedConversationKey({
+            getConversationKey({
+              projectId: options?.projectId,
               threadId: options?.threadId,
               targetEmployeeId: options?.targetEmployeeId,
             }),
@@ -349,6 +350,7 @@ export function useRuntimeInit({
       return sendMessage(last.text, {
         targetEmployeeId: last.targetEmployeeId,
         threadId: last.threadId,
+        projectId: last.projectId ?? null,
         entryMode: last.entryMode,
         conversationKey: last.conversationKey,
         ...(options?.runScope ? { runScope: options.runScope } : {}),

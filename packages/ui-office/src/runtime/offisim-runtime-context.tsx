@@ -64,6 +64,8 @@ export interface OffisimRuntimeValue {
     options?: {
       targetEmployeeId?: string;
       threadId?: string;
+      /** Active project id; written into graph_threads.project_id + OffisimGraphState.projectId. */
+      projectId?: string | null;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
       conversationKey?: string;
       /** Per-execution chat run scope; threaded into graph config.configurable.runScope. */

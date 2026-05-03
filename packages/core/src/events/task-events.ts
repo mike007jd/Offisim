@@ -181,6 +181,8 @@ export function deliverableCreated(
     kind?: DeliverableCreatedPayload['kind'];
     fileName?: string | null;
     mimeType?: string | null;
+    /** Product-layer chat_threads.thread_id (from RunScope.threadId or graph state.chatThreadId). */
+    chatThreadId?: string | null;
   },
 ): RuntimeEvent<DeliverableCreatedPayload> {
   const now = Date.now();
@@ -194,6 +196,7 @@ export function deliverableCreated(
     payload: {
       deliverableId,
       threadId,
+      chatThreadId: options?.chatThreadId ?? null,
       title,
       content,
       kind: options?.kind,

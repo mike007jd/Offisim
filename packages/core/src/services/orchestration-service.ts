@@ -279,6 +279,14 @@ export class OrchestrationService {
     /** Override runtimeCtx.threadId — useful when service is long-lived across multiple threads. */
     threadId?: string;
     /**
+     * Active project id; written into `graph_threads.project_id` on first use
+     * and into `OffisimGraphState.projectId`. Required by the Tauri
+     * builtin-tool sandbox (`project_id → workspace_root`); also threaded into
+     * `RunScope`-derived events so deliverables / activity / SOP can scope by
+     * project. `null` for non-chat invocations (background_sync, install_flow).
+     */
+    projectId?: string | null;
+    /**
      * Per-execution chat run scope. Set by `ChatPanel.handleSend` for user-initiated
      * chat turns. Background invocations (`background_sync`, `pm_heartbeat`) pass
      * `undefined` so chat-affecting events emit unscoped and the UI listener drops them.
@@ -375,11 +383,13 @@ export class OrchestrationService {
     meetingId?: string | null;
     meetingInterrupt?: MeetingInterrupt | null;
     threadId: string;
+    projectId?: string | null;
     signal: AbortSignal;
     runScope?: RunScope;
   }): Promise<OffisimGraphState> {
     const threadId = input.threadId;
-    await this.ensureExecutionThread(threadId, input.entryMode);
+    const projectId = input.projectId ?? null;
+    await this.ensureExecutionThread(threadId, input.entryMode, projectId);
     const fullInput: Partial<OffisimGraphState> = {
       threadId,
       companyId: this.runtimeCtx.companyId,
@@ -388,6 +398,8 @@ export class OrchestrationService {
       targetEmployeeId: input.targetEmployeeId ?? null,
       meetingId: input.meetingId ?? null,
       meetingInterrupt: input.meetingInterrupt ?? null,
+      ...(projectId ? { projectId } : {}),
+      ...(input.runScope?.threadId ? { chatThreadId: input.runScope.threadId } : {}),
     };
     return this._executeStateInner(fullInput, threadId, input.signal, input.runScope ?? null);
   }
@@ -395,10 +407,17 @@ export class OrchestrationService {
   private async ensureExecutionThread(
     threadId: string,
     entryMode: OffisimGraphState['entryMode'],
+    projectId: string | null,
   ): Promise<void> {
     if (this.ensuredThreads.has(threadId)) return;
     const existing = await this.runtimeCtx.repos.threads.findById(threadId);
     if (existing) {
+      // Backfill project_id when an older row (or background_sync row) is
+      // first hit by a chat turn — the workspace_root resolver in
+      // `apps/web/src/lib/tauri-runtime.ts` only follows graph_threads.project_id.
+      if (projectId && !existing.project_id) {
+        await this.runtimeCtx.repos.threads.updateProject(threadId, projectId);
+      }
       this.ensuredThreads.add(threadId);
       return;
     }
@@ -408,6 +427,7 @@ export class OrchestrationService {
       entry_mode: entryMode,
       root_task_id: null,
       status: 'queued',
+      project_id: projectId,
     });
     this.ensuredThreads.add(threadId);
   }

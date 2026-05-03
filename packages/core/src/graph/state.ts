@@ -145,6 +145,15 @@ export const OffisimGraphAnnotation = Annotation.Root({
     default: () => null,
   }),
 
+  // Product-layer chat thread id (chat_threads.thread_id). Mirrors
+  // RunScope.threadId so emit-side consumers (deliverable / activity / SOP)
+  // can scope events to the active thread without parsing conversationKey.
+  // null for non-chat invocations (background_sync, install_flow).
+  chatThreadId: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+
   // Direct chat target
   targetEmployeeId: Annotation<string | null>({
     reducer: (_prev, next) => next,

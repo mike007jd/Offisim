@@ -258,7 +258,7 @@ export async function bossSummaryNode(
         title,
         finalContent,
         contributingEmployees,
-        inferredFile ?? undefined,
+        { ...(inferredFile ?? {}), chatThreadId: state.chatThreadId ?? null },
       ),
     );
   };

@@ -406,6 +406,7 @@ export function ChatPanel({
         entryMode: options?.entryMode,
         targetEmployeeId: resolvedTargetEmployeeId ?? undefined,
         threadId: runThreadId,
+        projectId: activeProjectId,
         conversationKey: runConversationKey,
         runScope,
       });
@@ -462,6 +463,7 @@ export function ChatPanel({
     sendMessage(lastUserMsg.content, {
       targetEmployeeId: employeeId,
       threadId: nextThreadId,
+      projectId: activeProjectId,
       conversationKey: nextConversationKey,
       runScope,
     }).then((response) => {

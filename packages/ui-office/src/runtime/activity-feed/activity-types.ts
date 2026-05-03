@@ -13,6 +13,14 @@ export interface RuntimeActivityEntry {
   label: string;
   timestamp: number;
   employeeId?: string | null;
+  /**
+   * Product-layer chat_threads.thread_id this entry was scoped to (from the
+   * source event's `chatThreadId` payload field). `null` when the event was
+   * unscoped (background_sync, install_flow, pm_heartbeat). Right-rail UIs
+   * filter by `entry.chatThreadId === activeChatThreadId`; the global
+   * Activity Log workspace ignores this and shows everything.
+   */
+  chatThreadId?: string | null;
   burstKey?: string;
   burstCount?: number;
 }

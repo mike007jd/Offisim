@@ -3,6 +3,7 @@ export { AgentPanel } from './components/agents/AgentPanel.js';
 export { EmployeeInspector } from './components/agents/EmployeeInspector.js';
 export { ChatDrawer } from './components/chat/ChatDrawer.js';
 export { ChatPanel } from './components/chat/ChatPanel.js';
+export { getConversationKey } from './components/chat/chat-session-store.js';
 export { CompanyProvider, useCompany } from './components/company/CompanyContext.js';
 export { CompanySelectionPage } from './components/company/CompanySelectionPage.js';
 export {

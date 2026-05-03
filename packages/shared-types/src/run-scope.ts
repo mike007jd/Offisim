@@ -21,17 +21,23 @@ export interface RunScope {
 }
 
 /**
- * Project a `RunScope` into the optional event-payload fields the five
- * chat-affecting payload types carry (`chatConversationKey` + `chatRunId`).
- * Returns an empty object when scope is absent so callers can spread
- * unconditionally.
+ * Project a `RunScope` into the optional event-payload fields the
+ * chat-affecting payload types carry (`chatConversationKey` + `chatRunId` +
+ * `chatThreadId`). Returns an empty object when scope is absent so callers
+ * can spread unconditionally.
+ *
+ * `chatThreadId` is the product-layer `chat_threads.thread_id`; downstream
+ * consumers (deliverable feed, activity log, interaction follow-up) use it
+ * to land events on the correct thread's right rail without parsing the
+ * conversationKey middle segment.
  */
 export function chatScopeFields(
   runScope?: RunScope | null,
-): { chatConversationKey?: string; chatRunId?: string } {
+): { chatConversationKey?: string; chatRunId?: string; chatThreadId?: string } {
   if (!runScope) return {};
   return {
     chatConversationKey: runScope.conversationKey,
     chatRunId: runScope.runId,
+    chatThreadId: runScope.threadId,
   };
 }

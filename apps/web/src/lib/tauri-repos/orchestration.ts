@@ -122,6 +122,12 @@ export function createOrchestrationTauriRepos(db: TauriDrizzleDb): Orchestration
         .set({ compact_baseline_json: compactBaselineJson, updated_at: now() })
         .where(eq(schema.graphThreads.thread_id, id));
     },
+    async updateProject(id, projectId) {
+      await db
+        .update(schema.graphThreads)
+        .set({ project_id: projectId, updated_at: now() })
+        .where(eq(schema.graphThreads.thread_id, id));
+    },
     async findByCompanyAndStatus(companyId, status) {
       return (await db
         .select()
