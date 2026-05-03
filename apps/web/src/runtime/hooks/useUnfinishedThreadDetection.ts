@@ -52,8 +52,9 @@ export function useUnfinishedThreadDetection({
           return;
         }
         const allProjects = await runtime.repos.projects.findByCompany(companyId);
+        const projectsById = new Map(allProjects.map((entry) => [entry.project_id, entry]));
         const enriched: UnfinishedThread[] = threads.map((thread) => {
-          const project = allProjects.find((entry) => entry.thread_id === thread.thread_id);
+          const project = thread.project_id ? projectsById.get(thread.project_id) : undefined;
           return {
             threadId: thread.thread_id,
             projectName: project?.name ?? thread.thread_id,

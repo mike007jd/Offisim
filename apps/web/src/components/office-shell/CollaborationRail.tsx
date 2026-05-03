@@ -100,7 +100,7 @@ export function CollaborationSidebar(props: CollaborationSidebarProps) {
       })}
       focusTasksToken={props.focusOutputsToken}
       requestChatToken={props.chatOpenToken}
-      activeThreadId={props.activeProject?.thread_id ?? null}
+      activeThreadId={null}
     />
   );
 }

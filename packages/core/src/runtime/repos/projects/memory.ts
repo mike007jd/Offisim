@@ -1,5 +1,7 @@
 import { ACTIVE_PROJECT_STATUSES } from '@offisim/shared-types';
 import type {
+  ChatThread,
+  NewChatThread,
   NewProject,
   NewProjectAssignment,
   ProjectAssignmentRow,
@@ -7,7 +9,12 @@ import type {
   ProjectStatus,
   ProjectUpdatePatch,
 } from '@offisim/shared-types';
-import type { ProjectAssignmentRepository, ProjectRepository } from '../../repositories.js';
+import { generateId } from '../../../utils/generate-id.js';
+import type {
+  ChatThreadRepository,
+  ProjectAssignmentRepository,
+  ProjectRepository,
+} from '../../repositories.js';
 import type { MemoryRepositoriesSnapshot } from '../memory-types.js';
 
 function cloneRows<T extends object>(rows: Iterable<T>): T[] {
@@ -124,9 +131,101 @@ export class MemoryProjectAssignmentRepository implements ProjectAssignmentRepos
   }
 }
 
+export class MemoryChatThreadRepository implements ChatThreadRepository {
+  private readonly store = new Map<string, ChatThread>();
+
+  constructor(initialRows?: Iterable<ChatThread>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.thread_id, { ...row });
+    }
+  }
+
+  async create(input: NewChatThread): Promise<ChatThread> {
+    const ts = new Date().toISOString();
+    const row: ChatThread = {
+      thread_id: input.thread_id,
+      project_id: input.project_id,
+      title: input.title ?? 'New thread',
+      title_set_by_user: 0,
+      summary: null,
+      archived_at: null,
+      created_at: ts,
+      updated_at: ts,
+    };
+    this.store.set(row.thread_id, row);
+    return { ...row };
+  }
+
+  async findById(threadId: string): Promise<ChatThread | null> {
+    const row = this.store.get(threadId);
+    return row ? { ...row } : null;
+  }
+
+  async listByProject(projectId: string): Promise<ChatThread[]> {
+    return [...this.store.values()]
+      .filter((t) => t.project_id === projectId && t.archived_at == null)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .map((t) => ({ ...t }));
+  }
+
+  async updateTitle(
+    threadId: string,
+    title: string,
+    opts: { byUser: boolean },
+  ): Promise<{ title: string; title_set_by_user: 0 | 1 }> {
+    const row = this.store.get(threadId);
+    if (!row) {
+      return { title, title_set_by_user: opts.byUser ? 1 : 0 };
+    }
+    if (!opts.byUser && row.title_set_by_user === 1) {
+      return { title: row.title, title_set_by_user: 1 };
+    }
+    const next: ChatThread = {
+      ...row,
+      title,
+      title_set_by_user: opts.byUser ? 1 : 0,
+      updated_at: new Date().toISOString(),
+    };
+    this.store.set(threadId, next);
+    return { title: next.title, title_set_by_user: next.title_set_by_user };
+  }
+
+  async touch(threadId: string): Promise<void> {
+    const row = this.store.get(threadId);
+    if (!row) return;
+    this.store.set(threadId, { ...row, updated_at: new Date().toISOString() });
+  }
+
+  async archive(threadId: string): Promise<void> {
+    const row = this.store.get(threadId);
+    if (!row || row.archived_at != null) return;
+    const ts = new Date().toISOString();
+    this.store.set(threadId, { ...row, archived_at: ts, updated_at: ts });
+  }
+
+  async ensureProjectHasAtLeastOneThread(projectId: string): Promise<ChatThread> {
+    const existing = await this.listByProject(projectId);
+    if (existing.length > 0) {
+      const head = existing[0];
+      if (!head) throw new Error('listByProject returned empty array after length check');
+      return head;
+    }
+    return this.create({
+      thread_id: generateId('thread'),
+      project_id: projectId,
+    });
+  }
+
+  snapshot(): ChatThread[] {
+    return cloneRows(this.store.values());
+  }
+}
+
 export interface ProjectsMemoryRepos {
   projects: MemoryProjectRepository;
   projectAssignments: MemoryProjectAssignmentRepository;
+  chatThreads: MemoryChatThreadRepository;
 }
 
 export function createProjectsMemoryRepos(
@@ -134,5 +233,6 @@ export function createProjectsMemoryRepos(
 ): ProjectsMemoryRepos {
   const projects = new MemoryProjectRepository(snapshot?.projects);
   const projectAssignments = new MemoryProjectAssignmentRepository(snapshot?.projectAssignments);
-  return { projects, projectAssignments };
+  const chatThreads = new MemoryChatThreadRepository(snapshot?.chatThreads);
+  return { projects, projectAssignments, chatThreads };
 }

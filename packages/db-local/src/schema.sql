@@ -313,14 +313,24 @@ CREATE TABLE IF NOT EXISTS "graph_threads" (
 CREATE TABLE IF NOT EXISTS projects (
   project_id  TEXT PRIMARY KEY,
   company_id  TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-  thread_id   TEXT UNIQUE REFERENCES graph_threads(thread_id) ON DELETE SET NULL,
   name        TEXT NOT NULL,
   description TEXT,
   status      TEXT NOT NULL DEFAULT 'planning'
     CHECK(status IN ('planning', 'active', 'paused', 'completed', 'archived')),
+  workspace_root TEXT,
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL
-  , workspace_root TEXT);
+);
+CREATE TABLE IF NOT EXISTS chat_threads (
+  thread_id         TEXT PRIMARY KEY,
+  project_id        TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  title             TEXT NOT NULL DEFAULT 'New thread',
+  title_set_by_user INTEGER NOT NULL DEFAULT 0 CHECK (title_set_by_user IN (0, 1)),
+  summary           TEXT,
+  archived_at       TEXT,
+  created_at        TEXT NOT NULL,
+  updated_at        TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS project_assignments (
   assignment_id TEXT PRIMARY KEY,
   project_id    TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
@@ -566,6 +576,10 @@ CREATE INDEX IF NOT EXISTS idx_prefab_instances_zone
 CREATE INDEX IF NOT EXISTS idx_graph_threads_company ON graph_threads(company_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_projects_company
   ON projects(company_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_threads_project_updated
+  ON chat_threads(project_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_threads_project_active
+  ON chat_threads(project_id, archived_at, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_project_assignments_project
   ON project_assignments(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_assignments_employee

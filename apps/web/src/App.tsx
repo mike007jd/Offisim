@@ -294,7 +294,12 @@ export function App({ onCompanySwitch }: AppProps) {
   const selectedEmployeeName = officeState.selectedEmployeeId
     ? (agents.get(officeState.selectedEmployeeId)?.name ?? null)
     : null;
-  const activeConversationId = activeProject?.thread_id ?? null;
+  // TODO Section 6: derive activeConversationId from `OfficeSessionState.selectedThreadId`
+  // (the active product chat_thread.thread_id). For now `set_session_mode` is a no-op
+  // until the thread layer settles — the IPC sets graph_thread interaction_mode and
+  // needs to be re-keyed to either (a) the active conversationKey-derived runtime
+  // thread, or (b) a project-wide policy applied across all chat_thread runtimes.
+  const activeConversationId: string | null = null;
   const handleInteractionModeChange = useCallback(
     async (mode: InteractionMode) => {
       setInteractionMode?.(mode);
@@ -421,7 +426,7 @@ export function App({ onCompanySwitch }: AppProps) {
             officeState={officeState}
             activeCompanyId={activeCompanyId}
             repos={repos}
-            activeThreadId={activeProject?.thread_id ?? null}
+            activeThreadId={null}
             onStudioCompanyCreated={lifecycle.handleStudioCompanyCreated}
             onCreatorDeploy={lifecycle.handleCreatorDeploy}
             updateOfficeState={officeBindings.updateOfficeState}

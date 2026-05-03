@@ -269,7 +269,6 @@ export const projects = sqliteTable(
     company_id: text('company_id')
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
-    thread_id: text('thread_id'),
     name: text('name').notNull(),
     description: text('description'),
     status: text('status').notNull().default('planning'),
@@ -278,6 +277,37 @@ export const projects = sqliteTable(
     updated_at: text('updated_at').notNull(),
   },
   (table) => [index('idx_projects_company').on(table.company_id, table.status, table.updated_at)],
+);
+
+// ---------------------------------------------------------------------------
+// 010b — Chat threads (product-layer thread metadata; decoupled from
+// graph_threads on purpose — see openspec/specs/workspace-thread-architecture
+// Decision 2: one chat_thread backs many runtime graph_threads rows over
+// its lifetime, one per (team-chat | direct-chat target) conversationKey.)
+// ---------------------------------------------------------------------------
+
+export const chatThreads = sqliteTable(
+  'chat_threads',
+  {
+    thread_id: text('thread_id').primaryKey(),
+    project_id: text('project_id')
+      .notNull()
+      .references(() => projects.project_id, { onDelete: 'cascade' }),
+    title: text('title').notNull().default('New thread'),
+    title_set_by_user: integer('title_set_by_user').notNull().default(0),
+    summary: text('summary'),
+    archived_at: text('archived_at'),
+    created_at: text('created_at').notNull(),
+    updated_at: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_chat_threads_project_updated').on(table.project_id, table.updated_at),
+    index('idx_chat_threads_project_active').on(
+      table.project_id,
+      table.archived_at,
+      table.updated_at,
+    ),
+  ],
 );
 
 // ---------------------------------------------------------------------------

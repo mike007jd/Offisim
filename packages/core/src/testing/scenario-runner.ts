@@ -96,7 +96,6 @@ interface SeedProject {
   readonly description?: string | null;
   readonly status?: ProjectStatus;
   readonly workspaceRoot?: string | null;
-  readonly threadId?: string | null;
 }
 
 interface SeedEmployee {
@@ -734,7 +733,6 @@ async function seedScenario(params: {
     await params.repos.projects.create({
       project_id: project.id,
       company_id: params.companyId,
-      thread_id: project.threadId ?? params.threadId,
       name: project.name,
       description: project.description ?? null,
       status: project.status ?? 'active',

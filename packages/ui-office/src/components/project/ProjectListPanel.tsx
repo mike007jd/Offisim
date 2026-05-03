@@ -1,7 +1,6 @@
 import { type ProjectRow, formatWorkspaceRootHint } from '@offisim/shared-types';
 import { ExternalLink, FolderOpen, Pencil } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { useDeliverables } from '../../hooks/useDeliverables';
+import { useEffect, useState } from 'react';
 import { isFolderPickerAvailable, revealWorkspaceFolder } from '../../lib/folder-picker.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { ProjectWorkspaceFiles } from './ProjectWorkspaceFiles.js';
@@ -18,30 +17,23 @@ export function ProjectSelectedSummary({
   showWorkspaceFiles?: boolean;
 }) {
   const { repos } = useOffisimRuntime();
-  const allDeliverables = useDeliverables();
-  const [taskCount, setTaskCount] = useState<number | null>(null);
+  const [threadCount, setThreadCount] = useState<number | null>(null);
   const [openingFolder, setOpeningFolder] = useState(false);
-  const threadId = project.thread_id;
   const canOpenFolder = isFolderPickerAvailable() && Boolean(project.workspace_root);
 
   useEffect(() => {
-    if (!threadId || !repos?.taskRuns) {
-      setTaskCount(null);
+    if (!repos?.chatThreads) {
+      setThreadCount(null);
       return;
     }
     let cancelled = false;
-    void repos.taskRuns.findByThread(threadId).then((rows) => {
-      if (!cancelled) setTaskCount(rows.length);
+    void repos.chatThreads.listByProject(project.project_id).then((rows) => {
+      if (!cancelled) setThreadCount(rows.length);
     });
     return () => {
       cancelled = true;
     };
-  }, [threadId, repos]);
-
-  const deliverableCount = useMemo(() => {
-    if (!threadId) return 0;
-    return allDeliverables.filter((d) => d.threadId === threadId).length;
-  }, [allDeliverables, threadId]);
+  }, [project.project_id, repos]);
 
   async function handleOpenFolder() {
     if (!project.workspace_root || openingFolder) return;
@@ -76,10 +68,7 @@ export function ProjectSelectedSummary({
       </div>
       <div className="flex items-center gap-3 text-text-secondary">
         <span>
-          <span className="text-text-primary font-medium">{taskCount ?? '—'}</span> tasks
-        </span>
-        <span>
-          <span className="text-text-primary font-medium">{deliverableCount}</span> deliverables
+          <span className="text-text-primary font-medium">{threadCount ?? '—'}</span> threads
         </span>
       </div>
       {(canOpenFolder || onRequestEdit) && (

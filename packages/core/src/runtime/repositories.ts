@@ -10,6 +10,8 @@ import type {
   SkillSourceKind,
 } from '@offisim/shared-types';
 import type {
+  ChatThread,
+  NewChatThread,
   NewProject,
   NewProjectAssignment,
   ProjectAssignmentRow,
@@ -31,6 +33,8 @@ export type {
   ProjectUpdatePatch,
   ProjectAssignmentRow,
   NewProjectAssignment,
+  ChatThread,
+  NewChatThread,
 };
 
 /** Row types — mirror db-local schema shapes */
@@ -938,6 +942,44 @@ export interface ProjectAssignmentRepository {
 }
 
 // ---------------------------------------------------------------------------
+// Chat threads (product-layer thread metadata; decoupled from graph_threads)
+// ---------------------------------------------------------------------------
+
+export interface ChatThreadRepository {
+  create(input: NewChatThread): Promise<ChatThread>;
+  findById(threadId: string): Promise<ChatThread | null>;
+  /** Non-archived threads for the project, ordered by `updated_at DESC`. */
+  listByProject(projectId: string): Promise<ChatThread[]>;
+  /**
+   * Update the thread title.
+   *
+   * - When `byUser === true`, persist the title and set `title_set_by_user = 1`.
+   * - When `byUser === false`, no-op if the row already has `title_set_by_user = 1`
+   *   (preserves a user-set rename); otherwise persist the title and keep
+   *   `title_set_by_user = 0`.
+   *
+   * Returns the row's persisted `title_set_by_user` after the call so callers
+   * (e.g. boss auto-title) can detect a no-op without re-reading.
+   */
+  updateTitle(
+    threadId: string,
+    title: string,
+    opts: { byUser: boolean },
+  ): Promise<{ title: string; title_set_by_user: 0 | 1 }>;
+  /** Bumps `updated_at`. Used after activity on the thread. */
+  touch(threadId: string): Promise<void>;
+  /** Sets `archived_at` to now. Idempotent — no-op when already archived. */
+  archive(threadId: string): Promise<void>;
+  /**
+   * Idempotent: if the project has zero non-archived `chat_threads` rows,
+   * insert one with `title = 'New thread'`. Returns the most-recently-updated
+   * non-archived thread for the project (the freshly-created one or the
+   * existing one).
+   */
+  ensureProjectHasAtLeastOneThread(projectId: string): Promise<ChatThread>;
+}
+
+// ---------------------------------------------------------------------------
 // Agent events (event sourcing)
 // ---------------------------------------------------------------------------
 
@@ -1144,6 +1186,7 @@ export interface RuntimeRepositories {
   zones: ZoneRepository;
   projects: ProjectRepository;
   projectAssignments: ProjectAssignmentRepository;
+  chatThreads: ChatThreadRepository;
   kanban: KanbanRepository;
   /** User-level preferences — optional for backward compatibility. */
   userPreferences?: UserPreferenceRepository;

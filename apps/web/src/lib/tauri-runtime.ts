@@ -310,9 +310,7 @@ async function projectWorkspaceRootForThread(
   const thread = await deps.repos.threads.findById(threadId);
   const project = thread?.project_id
     ? await deps.repos.projects.findById(thread.project_id)
-    : (await deps.repos.projects.findByCompany(deps.companyId)).find(
-        (candidate) => candidate.thread_id === threadId,
-      );
+    : null;
   if (!project) return null;
   const root = project.workspace_root?.trim() || null;
   if (root) return root;
@@ -332,9 +330,7 @@ async function optionalWorkspaceRootForThread(
   const thread = await deps.repos.threads.findById(threadId);
   const project = thread?.project_id
     ? await deps.repos.projects.findById(thread.project_id)
-    : (await deps.repos.projects.findByCompany(deps.companyId)).find(
-        (candidate) => candidate.thread_id === threadId,
-      );
+    : null;
   const projectRoot = project?.workspace_root?.trim();
   if (projectRoot) return projectRoot;
 

@@ -38,6 +38,7 @@ interface ChatConversationState {
 interface ActiveChatRunState {
   runId: string;
   conversationKey: string;
+  threadId: string;
   startedAt: number;
 }
 
@@ -77,11 +78,23 @@ interface ChatSessionStore {
   reset: () => void;
 }
 
+/**
+ * Compose the runtime conversationKey: `<projectId>::<threadId>::<employeeId?>`.
+ *
+ * - The trailing `<employeeId>` segment is empty for team chat and present for
+ *   direct chat (per `chat-streaming-ux` Direct chat partitioning Requirement).
+ * - When `projectId` is null/missing, falls back to the literal `unscoped` so
+ *   the parser can still split on `::` deterministically.
+ */
 export function getConversationKey(options: {
+  projectId?: string | null;
   threadId?: string | null;
   targetEmployeeId?: string | null;
 }): string {
-  return `${options.threadId ?? 'unscoped'}::${options.targetEmployeeId ?? 'team'}`;
+  const project = options.projectId ?? 'unscoped';
+  const thread = options.threadId ?? 'unscoped';
+  const employee = options.targetEmployeeId ?? '';
+  return `${project}::${thread}::${employee}`;
 }
 
 function genAssistantMessageId(): string {
@@ -265,6 +278,7 @@ function reduceChatSession(
         activeRun: {
           runId: action.scope.runId,
           conversationKey: action.scope.conversationKey,
+          threadId: action.scope.threadId,
           startedAt: Date.now(),
         },
         conversations: {

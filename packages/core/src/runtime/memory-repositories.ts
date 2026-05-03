@@ -161,6 +161,7 @@ export function createMemoryRepositories(
         zones: workspaceFamily.zones.snapshot(),
         projects: projectsFamily.projects.snapshot(),
         projectAssignments: projectsFamily.projectAssignments.snapshot(),
+        chatThreads: projectsFamily.chatThreads.snapshot(),
         kanbanCards: kanbanFamily.kanbanStorage.snapshot(),
         agentEvents: agentEventsFamily.agentEvents.snapshot(),
         recoveryKnowledge: agentEventsFamily.recoveryKnowledge.snapshot(),

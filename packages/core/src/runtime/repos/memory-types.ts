@@ -1,4 +1,4 @@
-import type { ZoneRow } from '@offisim/shared-types';
+import type { ChatThread, ZoneRow } from '@offisim/shared-types';
 import type { InMemoryMemoryRepository } from '../../repositories/memory-memory-repository.js';
 import type { MemoryInstallRepositoriesSnapshot } from '../memory-install-repos.js';
 import type { createMemoryPrefabRepository } from '../memory-prefab-repository.js';
@@ -75,6 +75,7 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   prefabInstances: ReturnType<ReturnType<typeof createMemoryPrefabRepository>['snapshot']>;
   projects: ProjectRow[];
   projectAssignments: ProjectAssignmentRow[];
+  chatThreads: ChatThread[];
   kanbanCards: KanbanCardRow[];
   agentEvents: AgentEventRow[];
   recoveryKnowledge: RecoveryKnowledgeRow[];

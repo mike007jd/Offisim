@@ -1,7 +1,7 @@
 import { trimToNull } from '@offisim/shared-types';
-import type { ProjectRow } from '../runtime/repositories.js';
+import type { ChatThread, ProjectRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-import { generateId, projectThreadId } from '../utils/generate-id.js';
+import { generateId } from '../utils/generate-id.js';
 
 export interface CreateProjectInput {
   name: string;
@@ -13,40 +13,37 @@ export class ProjectService {
   constructor(private readonly runtimeCtx: RuntimeContext) {}
 
   /**
-   * Create a new project with its dedicated execution thread.
-   * The thread is created first because projects.thread_id has a FK reference to graph_threads.
+   * Create a new project with one default chat_threads row.
+   * Runtime `graph_threads` rows are created lazily via
+   * `OrchestrationService.ensureGraphThread()` on first chat send.
    */
-  async createProject(input: CreateProjectInput): Promise<ProjectRow> {
+  async createProject(input: CreateProjectInput): Promise<{
+    project: ProjectRow;
+    defaultThread: ChatThread;
+  }> {
     const name = input.name.trim();
     if (!name) {
       throw new Error('Project name must not be empty');
     }
 
     const projectId = generateId('proj');
-    const threadId = projectThreadId(projectId);
     const companyId = this.runtimeCtx.companyId;
 
-    // Create thread first — projects.thread_id references graph_threads
-    await this.runtimeCtx.repos.threads.create({
-      thread_id: threadId,
-      company_id: companyId,
-      entry_mode: 'boss_chat',
-      root_task_id: null,
-      status: 'queued',
-    });
-
-    // Create the project linked to its thread
     const project = await this.runtimeCtx.repos.projects.create({
       project_id: projectId,
       company_id: companyId,
-      thread_id: threadId,
       name,
       description: trimToNull(input.description),
       status: 'planning',
       workspace_root: trimToNull(input.workspaceRoot),
     });
 
-    return project;
+    const defaultThread = await this.runtimeCtx.repos.chatThreads.create({
+      thread_id: generateId('thread'),
+      project_id: projectId,
+    });
+
+    return { project, defaultThread };
   }
 
   async activateProject(projectId: string): Promise<void> {

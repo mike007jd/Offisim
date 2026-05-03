@@ -1,11 +1,11 @@
 import type { RuntimeRepositories } from '@offisim/core/browser';
-import { generateId, projectThreadId } from '@offisim/core/browser';
+import { generateId } from '@offisim/core/browser';
 import { type ProjectRow, trimToNull } from '@offisim/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 
 interface UseProjectsOptions {
   repos:
-    | (Pick<RuntimeRepositories, 'projects'> & Partial<Pick<RuntimeRepositories, 'threads'>>)
+    | (Pick<RuntimeRepositories, 'projects'> & Partial<Pick<RuntimeRepositories, 'chatThreads'>>)
     | null;
   companyId: string;
 }
@@ -50,37 +50,27 @@ export function useProjects({ repos, companyId }: UseProjectsOptions) {
 
   const createProject = useCallback(
     async (input: CreateProjectInput): Promise<ProjectRow> => {
-      if (!repos?.threads) throw new Error('Runtime not ready');
+      if (!repos?.projects || !repos?.chatThreads) throw new Error('Runtime not ready');
       const name = input.name.trim();
       if (!name) throw new Error('Project name must not be empty');
 
       const pid = generateId('proj');
-      const tid = projectThreadId(pid);
-      // Thread first — projects.thread_id FK references graph_threads
-      await repos.threads.create({
-        thread_id: tid,
+      const project = await repos.projects.create({
+        project_id: pid,
         company_id: companyId,
-        entry_mode: 'boss_chat',
-        root_task_id: null,
-        status: 'queued',
+        name,
+        description: trimToNull(input.description),
+        status: 'planning',
+        workspace_root: trimToNull(input.workspaceRoot),
       });
-      try {
-        const project = await repos.projects.create({
-          project_id: pid,
-          company_id: companyId,
-          thread_id: tid,
-          name,
-          description: trimToNull(input.description),
-          status: 'planning',
-          workspace_root: trimToNull(input.workspaceRoot),
-        });
-        setProjects((prev) => [...prev, project]);
-        return project;
-      } catch (err) {
-        // Best-effort cleanup of orphaned thread
-        await repos.threads.updateStatus(tid, 'completed').catch(() => {});
-        throw err;
-      }
+      // Bootstrap the project's first chat thread; runtime graph_threads are
+      // created lazily on first chat send via OrchestrationService.ensureGraphThread.
+      await repos.chatThreads.create({
+        thread_id: generateId('thread'),
+        project_id: pid,
+      });
+      setProjects((prev) => [...prev, project]);
+      return project;
     },
     [repos, companyId],
   );

@@ -1,7 +1,7 @@
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft } from 'lucide-react';
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { useMeeting } from '../../hooks/useMeeting.js';
@@ -83,10 +83,12 @@ function genMsgId(): string {
 }
 
 function getScopedConversationKey(
+  projectId: string | null | undefined,
   threadId: string | null | undefined,
   targetEmployeeId: string | null,
 ): string {
   return getConversationKey({
+    projectId: projectId ?? null,
     threadId: threadId ?? null,
     targetEmployeeId,
   });
@@ -152,6 +154,7 @@ export function ChatPanel({
     abortExecution,
     pendingInteraction,
     respondToInteraction,
+    repos,
   } = useOffisimRuntime();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
@@ -170,9 +173,32 @@ export function ChatPanel({
   const interactionTargetRef = useRef<string | null>(null);
 
   // Current target key
-  const activeThreadId = activeProject?.thread_id ?? null;
+  const activeProjectId = activeProject?.project_id ?? null;
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  // TODO Section 6: replace this local fetch with reading
+  // `OfficeSessionState.selectedThreadId` (single SSOT). Until that lands,
+  // ChatPanel itself ensures the project has a chat_thread and uses the most
+  // recently updated one.
+  useEffect(() => {
+    if (!activeProjectId || !repos?.chatThreads) {
+      setActiveThreadId(null);
+      return;
+    }
+    let cancelled = false;
+    void repos.chatThreads
+      .ensureProjectHasAtLeastOneThread(activeProjectId)
+      .then((row) => {
+        if (!cancelled) setActiveThreadId(row.thread_id);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveThreadId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProjectId, repos]);
   const targetKey = selectedEmployeeId ?? null;
-  const conversationKey = getScopedConversationKey(activeThreadId, targetKey);
+  const conversationKey = getScopedConversationKey(activeProjectId, activeThreadId, targetKey);
   const failedConversationKey = failedRunError?.conversationKey ?? null;
   const failedTargetEmployeeId = failedRunError?.targetEmployeeId ?? null;
   const interactionEmployeeId = resolveInteractionTargetEmployeeId(pendingInteraction);
@@ -278,9 +304,12 @@ export function ChatPanel({
 
   const addMessage = useCallback(
     (targetEmployeeId: string | null, msg: ChatMessage) => {
-      appendMessage(getScopedConversationKey(activeThreadId, targetEmployeeId), msg);
+      appendMessage(
+        getScopedConversationKey(activeProjectId, activeThreadId, targetEmployeeId),
+        msg,
+      );
     },
-    [activeThreadId, appendMessage],
+    [activeProjectId, activeThreadId, appendMessage],
   );
 
   async function handleInteractionRespond(
@@ -323,7 +352,8 @@ export function ChatPanel({
       return;
     }
 
-    const runScope: RunScope = { conversationKey, runId: genRunId() };
+    if (!activeThreadId) return;
+    const runScope: RunScope = { conversationKey, runId: genRunId(), threadId: activeThreadId };
     startRun(runScope);
     const response = await respondToInteraction(selectedOptionId, trimmedResponse, { runScope });
     finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
@@ -353,11 +383,23 @@ export function ChatPanel({
         selectedEmployeeId ?? targetHint ?? null,
       );
       const runConversationTarget = selectedEmployeeId ? resolvedTargetEmployeeId : targetKey;
-      const runConversationKey = getScopedConversationKey(activeThreadId, runConversationTarget);
-      const runThreadId = selectedEmployeeId ? runConversationKey : (activeThreadId ?? undefined);
+      const runConversationKey = getScopedConversationKey(
+        activeProjectId,
+        activeThreadId,
+        runConversationTarget,
+      );
+      // Runtime graph_thread.thread_id is now always derived from conversationKey
+      // (team chat under a thread uses `<P>::<T>::`; direct chat under a thread
+      // uses `<P>::<T>::<E>` — both unique runtime threads keyed by the chat scope).
+      const runThreadId = runConversationKey;
 
       addMessage(runConversationTarget ?? null, { id: genMsgId(), role: 'user', content: text });
-      const runScope: RunScope = { conversationKey: runConversationKey, runId: genRunId() };
+      if (!activeThreadId) return;
+      const runScope: RunScope = {
+        conversationKey: runConversationKey,
+        runId: genRunId(),
+        threadId: activeThreadId,
+      };
       startRun(runScope);
 
       const response = await sendMessage(text, {
@@ -370,6 +412,7 @@ export function ChatPanel({
       finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
     },
     [
+      activeProjectId,
       activeThreadId,
       addMessage,
       agents,
@@ -383,8 +426,12 @@ export function ChatPanel({
   );
 
   async function handleRetry() {
-    if (!failedConversationKey) return;
-    const runScope: RunScope = { conversationKey: failedConversationKey, runId: genRunId() };
+    if (!failedConversationKey || !activeThreadId) return;
+    const runScope: RunScope = {
+      conversationKey: failedConversationKey,
+      runId: genRunId(),
+      threadId: activeThreadId,
+    };
     startRun(runScope);
     const response = await retryLastMessage({ runScope });
     finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
@@ -399,9 +446,18 @@ export function ChatPanel({
     clearError();
 
     addMessage(employeeId, { id: genMsgId(), role: 'user', content: lastUserMsg.content });
-    const nextConversationKey = getScopedConversationKey(activeThreadId, employeeId);
+    const nextConversationKey = getScopedConversationKey(
+      activeProjectId,
+      activeThreadId,
+      employeeId,
+    );
     const nextThreadId = nextConversationKey;
-    const runScope: RunScope = { conversationKey: nextConversationKey, runId: genRunId() };
+    if (!activeThreadId) return;
+    const runScope: RunScope = {
+      conversationKey: nextConversationKey,
+      runId: genRunId(),
+      threadId: activeThreadId,
+    };
     startRun(runScope);
     sendMessage(lastUserMsg.content, {
       targetEmployeeId: employeeId,

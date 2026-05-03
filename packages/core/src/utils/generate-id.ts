@@ -8,11 +8,3 @@
 export function generateId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
-
-/**
- * Derive the canonical threadId for a project's primary execution thread.
- * Every project owns exactly one deterministic thread that survives restarts.
- */
-export function projectThreadId(projectId: string): string {
-  return `project-${projectId}`;
-}

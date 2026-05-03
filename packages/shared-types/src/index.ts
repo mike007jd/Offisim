@@ -234,6 +234,8 @@ export type {
   ProjectUpdatePatch,
   ProjectAssignmentRow,
   NewProjectAssignment,
+  ChatThread,
+  NewChatThread,
 } from './project.js';
 export {
   ACTIVE_PROJECT_STATUSES,

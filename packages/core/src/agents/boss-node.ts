@@ -448,7 +448,7 @@ export async function bossNode(
   let projectId: string | null = state.projectId ?? null;
   if (decision?.isNewProject && decision.projectName && !state.projectId) {
     const projectService = new ProjectService(runtimeCtx);
-    const project = await projectService.createProject({
+    const { project } = await projectService.createProject({
       name: decision.projectName,
       // Pass the user's original message as description for context
       description: finalReplyContent,

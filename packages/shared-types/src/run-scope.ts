@@ -6,10 +6,18 @@
  * Lives in `config.configurable.runScope` (core) and `chatSessionStore.activeRun`
  * (ui), never on long-lived state — see `chat-streaming-ux/spec.md` Requirement
  * "Chat events and store actions enforce run-level isolation".
+ *
+ * `threadId` is the product-layer `chat_threads.thread_id` resolved from
+ * `OfficeSessionState.selectedThreadId` at submit time; it is the same value
+ * embedded in the middle segment of `conversationKey` (`<projectId>::<threadId>::<employeeId?>`).
+ * It is duplicated here so downstream consumers (deliverables, SOP runtime,
+ * activity log, interaction-follow-up) can scope by thread without parsing
+ * `conversationKey`.
  */
 export interface RunScope {
   readonly conversationKey: string;
   readonly runId: string;
+  readonly threadId: string;
 }
 
 /**

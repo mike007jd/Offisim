@@ -14,7 +14,6 @@ export const COMPLETED_PROJECT_STATUSES: readonly ProjectStatus[] = [
 export interface ProjectRow {
   project_id: string;
   company_id: string;
-  thread_id: string | null;
   name: string;
   description: string | null;
   status: ProjectStatus;
@@ -39,6 +38,36 @@ export interface ProjectAssignmentRow {
 }
 
 export type NewProjectAssignment = Omit<ProjectAssignmentRow, 'assigned_at'>;
+
+/**
+ * Product-layer chat thread metadata. Decoupled from `graph_threads` (runtime
+ * thread) on purpose — one chat thread backs many runtime threads (one per
+ * `<projectId>::<threadId>::<employeeId?>` conversationKey: team chat + each
+ * direct-chat target). See openspec/specs/workspace-thread-architecture
+ * Decision 2.
+ */
+export interface ChatThread {
+  thread_id: string;
+  project_id: string;
+  title: string;
+  /** 1 = user-set (sticky against boss-driven retitle); 0 = system-set. */
+  title_set_by_user: 0 | 1;
+  summary: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Insert shape for `chat_threads`. `title` is optional (defaults to
+ * `'New thread'`); the timestamps + stickiness flag + nullable metadata
+ * are filled in by the repo.
+ */
+export interface NewChatThread {
+  thread_id: string;
+  project_id: string;
+  title?: string;
+}
 
 /**
  * Trim a nullable string and coerce empty / whitespace-only results to `null`.
