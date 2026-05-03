@@ -390,6 +390,7 @@ export class OrchestrationService {
     const threadId = input.threadId;
     const projectId = input.projectId ?? null;
     await this.ensureExecutionThread(threadId, input.entryMode, projectId);
+    const interactionMode = this.runtimeCtx.interactionService?.getMode();
     const fullInput: Partial<OffisimGraphState> = {
       threadId,
       companyId: this.runtimeCtx.companyId,
@@ -400,6 +401,7 @@ export class OrchestrationService {
       meetingInterrupt: input.meetingInterrupt ?? null,
       ...(projectId ? { projectId } : {}),
       ...(input.runScope?.threadId ? { chatThreadId: input.runScope.threadId } : {}),
+      ...(interactionMode ? { interactionMode } : {}),
     };
     return this._executeStateInner(fullInput, threadId, input.signal, input.runScope ?? null);
   }
