@@ -13,6 +13,7 @@ import {
 import type { CreateKanbanCardInput, KanbanState } from '../workspaces/kanban/types';
 import React, { Suspense, useMemo } from 'react';
 import { PEER_WORKSPACE_ITEMS } from '../../lib/workspace-navigation';
+import { useGitBranch } from '../../runtime/useGitBranch';
 import { useKanbanStream } from '../../runtime/useKanbanStream';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
 import type {
@@ -129,6 +130,7 @@ export function AppMainShell(props: AppMainShellProps) {
     () => projects.find((project) => project.project_id === activeProjectId) ?? null,
     [activeProjectId, projects],
   );
+  const gitBranch = useGitBranch(activeProject?.workspace_root ?? null);
   const projectSelectorProps = useMemo(
     () => ({
       projects,
@@ -286,7 +288,17 @@ export function AppMainShell(props: AppMainShellProps) {
               />
             ) : null
           }
-          gitBranchSlot={null}
+          gitBranchSlot={
+            isOffice && gitBranch ? (
+              <span
+                className="inline-flex h-6 items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 text-[10px] uppercase tracking-wider text-text-secondary"
+                title={`Workspace ${activeProject?.workspace_root ?? ''} · branch ${gitBranch}`}
+              >
+                <span className="font-mono lowercase tracking-normal text-text-muted">⎇</span>
+                <span className="truncate">{gitBranch}</span>
+              </span>
+            ) : null
+          }
         />
       }
       chatDrawerMode="mobile-only"
