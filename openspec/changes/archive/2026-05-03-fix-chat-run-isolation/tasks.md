@@ -107,8 +107,14 @@
 
 ## 9. Documentation + archive gate
 
-- [ ] 9.1 Update `MEMORY.md` 9-bucket queue entry to mark 桶 3 archived with this change name + commit SHA + canonical capability `chat-streaming-ux`.
-- [ ] 9.2 If `fix-doubled-boss-bubble` collapses into this change, remove from MEMORY active backlog and `.live-verify/fix-doubled-boss-bubble/` evidence. If it splits, leave in backlog with note "different root cause from fix-chat-run-isolation, see live verify T0.5".
-- [ ] 9.3 OpenSpec Archive Gate three-check: spec consistency / tasks consistency / docs consistency. Verify `chat-streaming-ux/spec.md` after merge reflects new Requirement and existing turn-singleton requirement is unchanged.
-- [ ] 9.4 Protocols ledger (`openspec/protocols-ledger.md`): no protocol touched (LangGraph config is pre-existing API surface; no upstream contract changes). Leave entry unchanged.
-- [ ] 9.5 Run `/opsx:archive fix-chat-run-isolation` after live verification scenarios all pass and verify-record.md is in the change dir.
+- [x] 9.1 Update `MEMORY.md` 9-bucket queue entry to mark 桶 3 archived with this change name + commit SHA + canonical capability `chat-streaming-ux`.
+  - Evidence 2026-05-03: `~/.claude/projects/-Users-haoshengli-Seafile-WebWorkSpace-Offisim/memory/project_ux_9_bucket_queue.md` marks 桶 3 archived via `fix-chat-run-isolation` with commit `db75dfe9` and canonical capability `chat-streaming-ux`.
+- [x] 9.2 If `fix-doubled-boss-bubble` collapses into this change, remove from MEMORY active backlog and `.live-verify/fix-doubled-boss-bubble/` evidence. If it splits, leave in backlog with note "different root cause from fix-chat-run-isolation, see live verify T0.5".
+  - MEMORY active backlog entry removed 2026-05-03; `~/.claude/.../MEMORY.md` now records collapse into `fix-chat-run-isolation`.
+  - `.live-verify/fix-doubled-boss-bubble/` deleted 2026-05-03 with explicit user confirmation.
+- [x] 9.3 OpenSpec Archive Gate three-check: spec consistency / tasks consistency / docs consistency. Verify `chat-streaming-ux/spec.md` after merge reflects new Requirement and existing turn-singleton requirement is unchanged.
+  - `openspec validate fix-chat-run-isolation --strict` → "Change is valid". New "Direct chat runtime is partitioned by conversationKey" Requirement and existing turn-singleton Requirement both present and unchanged. MEMORY.md `.live-verify/fix-doubled-boss-bubble/` references updated to reflect deletion.
+- [x] 9.4 Protocols ledger (`openspec/protocols-ledger.md`): no protocol touched (LangGraph config is pre-existing API surface; no upstream contract changes). Leave entry unchanged.
+  - Confirmed via `grep -n "fix-chat-run-isolation\|chat-run-isolation" openspec/protocols-ledger.md` returning empty; no ledger row affected.
+- [x] 9.5 Run `/opsx:archive fix-chat-run-isolation` after live verification scenarios all pass and verify-record.md is in the change dir.
+  - Archived 2026-05-03 as `archive/2026-05-03-fix-chat-run-isolation/`; canonical `chat-streaming-ux/spec.md` updated with two new Requirements ("Direct chat runtime is partitioned by conversationKey" + "Chat events and store actions enforce run-level isolation"). Existing turn-singleton Requirement unchanged.
