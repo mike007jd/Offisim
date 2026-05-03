@@ -50,6 +50,11 @@ interface HeaderProps {
   modeSlot?: ReactNode;
   viewMode?: '2D' | '3D';
   onViewModeChange?: (mode: '2D' | '3D') => void;
+  /**
+   * Fires on every view-mode segment click, including same-value clicks. Wires the
+   * 3D ghost-state recovery signal from `SceneCanvas` (`viewModeNonce`).
+   */
+  onViewModeClick?: (mode: '2D' | '3D') => void;
   needsConfig?: boolean;
   activeWorkspace?: WorkspaceKey;
   workspaceTitle?: string;
@@ -85,6 +90,7 @@ export function Header({
   modeSlot,
   viewMode,
   onViewModeChange,
+  onViewModeClick,
   needsConfig,
   activeWorkspace = 'office',
   workspaceTitle,
@@ -112,7 +118,11 @@ export function Header({
     title: isOffice ? companyName || 'Office' : workspaceTitle || 'Workspace',
     viewMode:
       isOffice && viewMode && onViewModeChange ? (
-        <ViewModeToggle value={viewMode} onChange={onViewModeChange} />
+        <ViewModeToggle
+          value={viewMode}
+          onChange={onViewModeChange}
+          onSegmentClick={onViewModeClick}
+        />
       ) : null,
     company:
       isOffice && onOpenCompanySelect ? (
@@ -157,6 +167,7 @@ export function Header({
         isOffice={isOffice}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
+        onViewModeClick={onViewModeClick}
         peerWorkspaces={peerWorkspaces}
         activeWorkspace={activeWorkspace}
         onSelectWorkspace={onSelectWorkspace}
@@ -224,6 +235,7 @@ interface NarrowHeaderProps {
   isOffice: boolean;
   viewMode?: '2D' | '3D';
   onViewModeChange?: (mode: '2D' | '3D') => void;
+  onViewModeClick?: (mode: '2D' | '3D') => void;
   peerWorkspaces: ReadonlyArray<HeaderPeerWorkspaceItem>;
   activeWorkspace: WorkspaceKey;
   onSelectWorkspace: (key: WorkspaceKey) => void;
@@ -246,6 +258,7 @@ function NarrowHeader({
   isOffice,
   viewMode,
   onViewModeChange,
+  onViewModeClick,
   peerWorkspaces,
   activeWorkspace,
   onSelectWorkspace,
@@ -301,7 +314,11 @@ function NarrowHeader({
             <div className="space-y-2">
               {isOffice && viewMode && onViewModeChange ? (
                 <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-                  <ViewModeToggle value={viewMode} onChange={onViewModeChange} />
+                  <ViewModeToggle
+                    value={viewMode}
+                    onChange={onViewModeChange}
+                    onSegmentClick={onViewModeClick}
+                  />
                 </div>
               ) : null}
               {isOffice && slots.project ? (
@@ -428,13 +445,19 @@ function NarrowHeader({
 function ViewModeToggle({
   value,
   onChange,
-}: { value: '2D' | '3D'; onChange: (mode: '2D' | '3D') => void }) {
+  onSegmentClick,
+}: {
+  value: '2D' | '3D';
+  onChange: (mode: '2D' | '3D') => void;
+  onSegmentClick?: (mode: '2D' | '3D') => void;
+}) {
   return (
     <SegmentedControl
       size="sm"
       ariaLabel="Office view mode"
       value={value}
       onChange={onChange}
+      onSelectClick={onSegmentClick}
       items={[
         { value: '3D', label: '3D', ariaLabel: 'Switch to 3D office view' },
         { value: '2D', label: '2D', ariaLabel: 'Switch to 2D office view' },

@@ -22,6 +22,7 @@ export interface AppKeyboardShortcutsDeps {
   handleToggleDashboard: () => void;
   handleToggleKanban: () => void;
   updateWorkspaceState: UpdateWorkspaceStateFn;
+  onViewModeClick: () => void;
 }
 
 export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
@@ -37,6 +38,7 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     handleToggleDashboard,
     handleToggleKanban,
     updateWorkspaceState,
+    onViewModeClick,
   } = deps;
 
   useEffect(() => {
@@ -86,6 +88,7 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
           ...prev,
           viewMode: prev.viewMode === '3D' ? '2D' : '3D',
         }));
+        onViewModeClick();
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
@@ -149,6 +152,7 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     handleToggleKanban,
     officeState.dashboardOpen,
     officeState.selectedEmployeeId,
+    onViewModeClick,
     setShortcutHelpOpen,
     updateWorkspaceState,
     workspaceSessionState,

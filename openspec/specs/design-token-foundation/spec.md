@@ -273,6 +273,10 @@ Source files under `apps/web/src/`, `packages/ui-office/src/`, `packages/ui-core
 
 Exempt locations: `packages/ui-core/src/tokens/**`, `apps/web/src/generated/**`, `catalog/provider-source-registry/**`, and any line tagged with the trailing comment `// raw-hex-allowed`.
 
+The file-level escape hatch `// raw-hex-allowed-file: ...` SHALL be limited to files outside the 2D office canvas pipeline (per `scene-2d-theme-tokens` capability) AND outside the scene shell. Specifically, the 11 files listed in the `scene-2d-theme-tokens` capability AND `packages/ui-office/src/components/scene/SceneCanvas.tsx` SHALL NOT carry that header. The error-panel and fallback-badge surfaces of the scene shell are governed by the `scene-3d-performance-fallback` capability and consume `useSceneColors()` plus `@theme inline`-resolved Tailwind utilities.
+
+Other files that today carry `// raw-hex-allowed-file:` (Studio canvas, ZoneCanvas, PrefabThumbnail, company-creation-wizard-preview, 3D mesh prefabs, `office3d-*.ts(x)`, `office3d-shared.ts`) keep the exemption pending separate scoped work.
+
 The CI gate `pnpm tokens:lint-hex` SHALL enforce this rule. The gate SHALL print every offending file path, line, and matched literal, and SHALL exit non-zero on any match.
 
 #### Scenario: Lint gate exits clean on a compliant tree
@@ -285,10 +289,16 @@ The CI gate `pnpm tokens:lint-hex` SHALL enforce this rule. The gate SHALL print
 - **WHEN** a developer adds `style={{ color: '#ff0000' }}` to any file under `packages/ui-office/src/` without the `// raw-hex-allowed` comment
 - **THEN** `pnpm tokens:lint-hex` exits non-zero and the offending location appears in stdout
 
-#### Scenario: Lint gate respects the escape hatch
+#### Scenario: Lint gate respects the line-level escape hatch
 
 - **WHEN** a line reads `const PLACEHOLDER = '#abcdef'; // raw-hex-allowed`
 - **THEN** the gate skips that line and does not report a violation
+
+#### Scenario: SceneCanvas.tsx is no longer file-level exempt
+
+- **WHEN** grepping `packages/ui-office/src/components/scene/SceneCanvas.tsx` for `^// raw-hex-allowed-file:`
+- **THEN** zero matches exist
+- **AND** `pnpm tokens:lint-hex` runs the full per-line gate over that file
 
 ### Requirement: Studio inline-style consumers SHALL migrate from `studio-tokens.ts` to `@offisim/ui-core/tokens`
 

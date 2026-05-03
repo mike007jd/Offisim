@@ -252,6 +252,7 @@ export function App({ onCompanySwitch }: AppProps) {
     handleToggleDashboard: officeBindings.handleToggleDashboard,
     handleToggleKanban: officeBindings.handleToggleKanban,
     updateWorkspaceState,
+    onViewModeClick: officeBindings.onViewModeClick,
   });
 
   useEffect(() => {
@@ -461,6 +462,8 @@ export function App({ onCompanySwitch }: AppProps) {
               onToggleKanban={officeBindings.handleToggleKanban}
               onSelectEmployee={officeBindings.handleSelectEmployee}
               onViewModeChange={officeBindings.onViewModeChange}
+              onViewModeClick={officeBindings.onViewModeClick}
+              viewModeNonce={officeBindings.viewModeNonce}
               onSceneFallbackTo2D={officeBindings.onSceneFallbackTo2D}
               onLayoutMetricsChange={officeBindings.onLayoutMetricsChange}
               onSaveConfig={lifecycle.handleSaveConfig}

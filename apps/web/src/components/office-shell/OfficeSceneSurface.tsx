@@ -16,6 +16,7 @@ const SceneCanvas = React.lazy<
     active?: boolean;
     reducedMotion?: boolean;
     viewMode?: '2D' | '3D';
+    viewModeNonce: number;
     leftInset?: number;
     rightInset?: number;
     selectedEmployeeId?: string | null;
@@ -38,6 +39,7 @@ interface OfficeSceneSurfaceProps {
   selectedEmployeeId: string | null;
   sceneInteractive: boolean;
   viewMode: '2D' | '3D';
+  viewModeNonce: number;
   paused?: boolean;
 }
 
@@ -71,6 +73,7 @@ export function OfficeSceneSurface({
   selectedEmployeeId,
   sceneInteractive,
   viewMode,
+  viewModeNonce,
   paused = false,
 }: OfficeSceneSurfaceProps) {
   const reducedMotion = useReducedMotion();
@@ -88,6 +91,7 @@ export function OfficeSceneSurface({
             active={sceneInteractive && !paused}
             reducedMotion={reducedMotion}
             viewMode={viewMode}
+            viewModeNonce={viewModeNonce}
             leftInset={leftPanelWidth}
             rightInset={rightPanelWidth}
             selectedEmployeeId={selectedEmployeeId}

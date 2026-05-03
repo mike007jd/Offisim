@@ -1,7 +1,9 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useReducer, useRef, useState } from 'react';
 import { IDLE_CEREMONY } from '../../hooks/useSceneOrchestrator.js';
 import { useSceneCeremony } from '../../runtime/scene-ceremony-context.js';
 import { PerformanceHUD } from './PerformanceHUD';
+import { SceneErrorPanel } from './scene-error-panel.js';
+import { SceneFallbackBadge } from './scene-fallback-badge.js';
 import { useScene } from './useScene';
 
 const Office3DView = lazy(() => import('./Office3DView'));
@@ -30,22 +32,52 @@ class SceneErrorBoundary extends React.Component<
         return this.props.fallback;
       }
       return (
-        <div className="flex items-center justify-center h-full bg-black/50 text-white">
-          <div className="text-center p-4">
-            <p className="text-sm text-red-400">Scene Error</p>
-            <p className="text-xs text-gray-400 mt-1">{this.state.error}</p>
-            <button
-              type="button"
-              className="mt-3 px-3 py-1 text-xs bg-white/10 rounded hover:bg-white/20"
-              onClick={() => this.setState({ hasError: false, error: '' })}
-            >
-              Retry
-            </button>
-          </div>
-        </div>
+        <SceneErrorPanel
+          error={this.state.error}
+          onRetry={() => this.setState({ hasError: false, error: '' })}
+        />
       );
     }
     return this.props.children;
+  }
+}
+
+// ── Fallback state machine ──────────────────────────────────────
+
+type FallbackState = {
+  force2D: boolean;
+  crashCount: number;
+  lastError: string | null;
+};
+
+type FallbackAction =
+  | { type: 'reportCrash'; error: Error }
+  | { type: 'fpsTierOff' }
+  | { type: 'requestRetry' }
+  | { type: 'viewModeBumped' };
+
+const INITIAL_FALLBACK_STATE: FallbackState = {
+  force2D: false,
+  crashCount: 0,
+  lastError: null,
+};
+
+function fallbackReducer(state: FallbackState, action: FallbackAction): FallbackState {
+  switch (action.type) {
+    case 'reportCrash':
+      return {
+        force2D: true,
+        crashCount: state.crashCount + 1,
+        lastError: action.error.message,
+      };
+    case 'fpsTierOff':
+      // Performance signal, not a crash — don't bump crashCount.
+      return state.force2D ? state : { ...state, force2D: true };
+    case 'requestRetry':
+    case 'viewModeBumped':
+      return INITIAL_FALLBACK_STATE;
+    default:
+      return state;
   }
 }
 
@@ -55,6 +87,7 @@ interface SceneCanvasProps {
   active?: boolean;
   reducedMotion?: boolean;
   viewMode?: '2D' | '3D';
+  viewModeNonce: number;
   leftInset?: number;
   rightInset?: number;
   selectedEmployeeId?: string | null;
@@ -68,6 +101,7 @@ export function SceneCanvas({
   active = true,
   reducedMotion = false,
   viewMode = '3D',
+  viewModeNonce,
   leftInset = 0,
   rightInset = 0,
   selectedEmployeeId = null,
@@ -78,11 +112,10 @@ export function SceneCanvas({
 }: SceneCanvasProps) {
   const ceremony = useSceneCeremony() ?? IDLE_CEREMONY;
   useScene(reducedMotion);
+  const [state, dispatch] = useReducer(fallbackReducer, INITIAL_FALLBACK_STATE);
+  const effectiveViewMode = state.force2D ? '2D' : viewMode;
   const [hasMounted2D, setHasMounted2D] = useState(viewMode === '2D');
   const [hasMounted3D, setHasMounted3D] = useState(viewMode === '3D');
-  const [force2D, setForce2D] = useState(false);
-  const crashCountRef = React.useRef(0);
-  const effectiveViewMode = force2D ? '2D' : viewMode;
 
   useEffect(() => {
     if (effectiveViewMode === '2D') {
@@ -92,15 +125,20 @@ export function SceneCanvas({
     }
   }, [effectiveViewMode]);
 
+  const lastNonceRef = useRef<number | null>(null);
   useEffect(() => {
-    // Allow manual switch back to 3D unless it crashed repeatedly
-    if (viewMode === '3D' && crashCountRef.current < 2) {
-      setForce2D(false);
+    if (lastNonceRef.current === null) {
+      lastNonceRef.current = viewModeNonce;
+      return;
     }
-  }, [viewMode]);
+    if (lastNonceRef.current !== viewModeNonce) {
+      lastNonceRef.current = viewModeNonce;
+      dispatch({ type: 'viewModeBumped' });
+    }
+  }, [viewModeNonce]);
 
   return (
-    <div className="h-full w-full overflow-hidden bg-surface relative">
+    <div className="relative h-full w-full overflow-hidden bg-surface">
       <SceneErrorBoundary>
         <div
           aria-hidden={effectiveViewMode !== '2D'}
@@ -111,8 +149,8 @@ export function SceneCanvas({
           {hasMounted2D && (
             <Suspense
               fallback={
-                <div className="h-full w-full flex items-center justify-center">
-                  <div className="text-[10px] font-mono text-slate-500 animate-pulse">
+                <div className="flex h-full w-full items-center justify-center">
+                  <div className="animate-pulse font-mono text-[10px] text-text-muted">
                     LOADING 2D MAP...
                   </div>
                 </div>
@@ -131,8 +169,7 @@ export function SceneCanvas({
         <SceneErrorBoundary
           fallback={null}
           onError={(error) => {
-            crashCountRef.current += 1;
-            setForce2D(true);
+            dispatch({ type: 'reportCrash', error });
             onFallbackTo2D?.(error);
           }}
         >
@@ -145,8 +182,8 @@ export function SceneCanvas({
             {hasMounted3D && (
               <Suspense
                 fallback={
-                  <div className="h-full w-full flex items-center justify-center">
-                    <div className="text-[10px] font-mono text-slate-500 animate-pulse">
+                  <div className="flex h-full w-full items-center justify-center">
+                    <div className="animate-pulse font-mono text-[10px] text-text-muted">
                       LOADING 3D ENGINE...
                     </div>
                   </div>
@@ -160,7 +197,7 @@ export function SceneCanvas({
                   selectedEmployeeId={selectedEmployeeId}
                   onSelectEmployee={onSelectEmployee}
                   onDeselectEmployee={onDeselectEmployee}
-                  onRequestForce2D={() => setForce2D(true)}
+                  onRequestForce2D={() => dispatch({ type: 'fpsTierOff' })}
                   renderEmployeeBadge={renderEmployeeBadge}
                 />
               </Suspense>
@@ -168,6 +205,10 @@ export function SceneCanvas({
           </div>
         </SceneErrorBoundary>
       </SceneErrorBoundary>
+
+      {viewMode === '3D' && state.force2D && (
+        <SceneFallbackBadge onRetry={() => dispatch({ type: 'requestRetry' })} />
+      )}
 
       <PerformanceHUD />
     </div>

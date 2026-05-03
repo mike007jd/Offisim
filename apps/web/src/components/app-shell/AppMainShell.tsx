@@ -75,6 +75,8 @@ export interface AppMainShellProps {
   onToggleKanban: () => void;
   onSelectEmployee: (id: string | null) => void;
   onViewModeChange: (mode: '2D' | '3D') => void;
+  onViewModeClick: (mode: '2D' | '3D') => void;
+  viewModeNonce: number;
   onSceneFallbackTo2D: () => void;
   onLayoutMetricsChange: (metrics: { leftPanelWidth: number; rightPanelWidth: number }) => void;
   onSaveConfig: (config: ProviderConfig) => void;
@@ -119,6 +121,8 @@ export function AppMainShell(props: AppMainShellProps) {
     onToggleKanban,
     onSelectEmployee,
     onViewModeChange,
+    onViewModeClick,
+    viewModeNonce,
     onSceneFallbackTo2D,
     onLayoutMetricsChange,
     onSaveConfig,
@@ -184,6 +188,7 @@ export function AppMainShell(props: AppMainShellProps) {
           }
           viewMode={officeState.viewMode}
           onViewModeChange={onViewModeChange}
+          onViewModeClick={onViewModeClick}
           needsConfig={!providerConfig}
           activeWorkspace={activeWorkspace}
           workspaceTitle={WORKSPACE_TITLES[activeWorkspace]}
@@ -225,6 +230,7 @@ export function AppMainShell(props: AppMainShellProps) {
               selectedEmployeeId={officeState.selectedEmployeeId}
               sceneInteractive={sceneInteractive}
               viewMode={officeState.viewMode}
+              viewModeNonce={viewModeNonce}
             />
           </Suspense>
         ) : null

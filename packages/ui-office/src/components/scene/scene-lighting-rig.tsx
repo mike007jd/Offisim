@@ -1,15 +1,15 @@
-import { Environment } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
 import { computeShadowBias } from '../../lib/shadow-bias.js';
 import type { AgentState } from '../../runtime/use-agent-states.js';
-import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useTheme } from '../../theme/theme-provider.js';
+import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { AmbientStateLight } from './office3d-scene-primitives.js';
 import { LIGHTING_TIER_PRESETS } from './scene-performance-tier.js';
 import type { getDevLightingOverrides } from './scene-performance-tier.js';
 import type { SceneLightingTier } from './scene-performance-tier.js';
+import { useProceduralRoomEnvironment } from './use-procedural-room-environment.js';
 
 const LIGHT_COLORS = {
   hemisphereSky: '#ffe9c8', // raw-hex-allowed
@@ -60,13 +60,18 @@ export function SceneLightingRig({
   const shadowsEnabled = (devOverrides?.shadows ?? true) && preset.shadowMapSize > 0;
   const hemisphereIntensity =
     devOverrides?.hemi ??
-    (resolvedTheme === 'light' ? Math.max(0.35, preset.hemisphereIntensity * 0.68) : preset.hemisphereIntensity);
+    (resolvedTheme === 'light'
+      ? Math.max(0.35, preset.hemisphereIntensity * 0.68)
+      : preset.hemisphereIntensity);
   const keyIntensity = resolvedTheme === 'light' ? 1.08 : 1.6;
   const fillIntensity = resolvedTheme === 'light' ? 0.28 : 0.45;
   const rimIntensity = resolvedTheme === 'light' ? 0.18 : 0.35;
   const fogNear = resolvedTheme === 'light' ? 42 : 20;
   const fogFar = resolvedTheme === 'light' ? 150 : 120;
-  const environmentEnabled = devOverrides?.env ?? (resolvedTheme === 'dark' && preset.envMapPreset != null);
+  const environmentEnabled =
+    devOverrides?.env ?? (resolvedTheme === 'dark' && preset.envMapPreset != null);
+
+  useProceduralRoomEnvironment(environmentEnabled);
 
   return (
     <>
@@ -86,7 +91,11 @@ export function SceneLightingRig({
         shadow-camera-top={20}
         shadow-camera-bottom={-20}
       />
-      <directionalLight position={[-15, 12, -10]} intensity={fillIntensity} color={LIGHT_COLORS.sideFill} />
+      <directionalLight
+        position={[-15, 12, -10]}
+        intensity={fillIntensity}
+        color={LIGHT_COLORS.sideFill}
+      />
       <directionalLight position={[5, 8, -18]} intensity={rimIntensity} color={LIGHT_COLORS.rim} />
       {preset.bounceSpotlightCount >= 1 && (
         <spotLight
@@ -108,7 +117,6 @@ export function SceneLightingRig({
           decay={1.5}
         />
       )}
-      {environmentEnabled && <Environment preset={preset.envMapPreset ?? 'apartment'} />}
       <AmbientStateLight agents={agents} maxIntensity={0.25} />
       <RigAmbientStateLight />
       <fog attach="fog" args={[sceneColors.sceneBackground, fogNear, fogFar]} />

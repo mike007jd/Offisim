@@ -11,10 +11,13 @@ export interface OfficeStateBindingsApi {
   lastUserRequest: string | null;
   chatOpenToken: number;
   focusOutputsToken: number;
+  viewModeNonce: number;
   bumpChatOpenToken: () => void;
   bumpFocusOutputsToken: () => void;
   updateOfficeState: (updater: (prev: OfficeSessionState) => OfficeSessionState) => void;
   onViewModeChange: (mode: '2D' | '3D') => void;
+  /** Bumps `viewModeNonce` on every explicit toggle click — value-agnostic retry signal. */
+  onViewModeClick: () => void;
   onSceneFallbackTo2D: () => void;
   handleToggleDashboard: () => void;
   handleToggleKanban: () => void;
@@ -29,9 +32,11 @@ export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeSta
   const [lastUserRequest, setLastUserRequest] = useState<string | null>(null);
   const [chatOpenToken, setChatOpenToken] = useState(0);
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
+  const [viewModeNonce, setViewModeNonce] = useState(0);
 
   const bumpChatOpenToken = useCallback(() => setChatOpenToken((t) => t + 1), []);
   const bumpFocusOutputsToken = useCallback(() => setFocusOutputsToken((t) => t + 1), []);
+  const onViewModeClick = useCallback(() => setViewModeNonce((n) => n + 1), []);
 
   const updateOfficeState = useCallback(
     (updater: (prev: OfficeSessionState) => OfficeSessionState) => {
@@ -111,10 +116,12 @@ export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeSta
     lastUserRequest,
     chatOpenToken,
     focusOutputsToken,
+    viewModeNonce,
     bumpChatOpenToken,
     bumpFocusOutputsToken,
     updateOfficeState,
     onViewModeChange,
+    onViewModeClick,
     onSceneFallbackTo2D,
     handleToggleDashboard,
     handleToggleKanban,
