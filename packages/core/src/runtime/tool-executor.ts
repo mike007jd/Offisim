@@ -1,3 +1,4 @@
+import type { RunScope } from '../graph/state.js';
 import type { ToolDef } from '../llm/gateway.js';
 
 export interface ToolCallRequest {
@@ -18,6 +19,12 @@ export interface ToolCallRequest {
   readonly employeeConfigJson?: string | null;
   /** Abort signal for tool waits, subprocesses, and permission prompts. */
   readonly signal?: AbortSignal;
+  /**
+   * Per-execution chat run scope from the requesting node's `config.configurable.runScope`.
+   * Set when the tool call originates inside a chat-driven graph execution; absent for
+   * background invocations. `tool.execution.telemetry` events stamp this on the payload.
+   */
+  readonly runScope?: RunScope | null;
 }
 
 export interface ToolCallResponse {

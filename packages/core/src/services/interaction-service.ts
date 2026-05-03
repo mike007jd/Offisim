@@ -13,6 +13,7 @@ import {
   interactionRestored,
   skillInstallOutcome,
 } from '../events/event-factories.js';
+import type { RunScope } from '../graph/state.js';
 import type { HookRegistry } from '../runtime/hook-registry.js';
 import type {
   ActiveInteractionRepository,
@@ -66,10 +67,12 @@ export interface InteractionResolveResult {
 export interface InteractionWaitOptions {
   readonly signal?: AbortSignal;
   readonly payload?: unknown;
+  readonly runScope?: RunScope | null;
 }
 
 export interface InteractionRequestOptions {
   readonly payload?: unknown;
+  readonly runScope?: RunScope | null;
 }
 
 interface InteractionResolutionWaiter {
@@ -204,7 +207,14 @@ export class InteractionService implements ToolPermissionGrantResolver {
       severity: request.severity,
       requestedByNode: request.requestedByNode,
     });
-    this.deps.eventBus.emit(interactionRequested(this.deps.companyId, this.deps.threadId, request));
+    this.deps.eventBus.emit(
+      interactionRequested(
+        this.deps.companyId,
+        this.deps.threadId,
+        request,
+        options.runScope ?? null,
+      ),
+    );
     return request;
   }
 
@@ -218,7 +228,7 @@ export class InteractionService implements ToolPermissionGrantResolver {
 
     const response = this.waitForResolution(request.interactionId, options.signal);
     try {
-      await this.request(request, { payload: options.payload });
+      await this.request(request, { payload: options.payload, runScope: options.runScope ?? null });
     } catch (err) {
       this.rejectResolutionWaiter(
         request.interactionId,

@@ -5,7 +5,7 @@ import type { OffisimGraphState } from '../graph/state.js';
 import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { emitAssignmentRerouted } from './emit-assignment-rerouted.js';
 import { buildEnrichedEmployeeList } from './employee-roster.js';
@@ -103,7 +103,9 @@ export async function managerNode(
   const runtimeCtx = getRuntime(config, 'manager');
 
   // Announce node entry
-  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'manager'));
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'manager', getRunScope(config)),
+  );
 
   const { modelResolver, repos, companyId } = runtimeCtx;
   const resolved = modelResolver.resolve(null, 'manager');
@@ -181,7 +183,10 @@ export async function managerNode(
       signal: getConfigSignal(config),
     },
     { nodeName: 'manager', provider: resolved.provider, model: resolved.model },
-    forwardStreamChunks(runtimeCtx, state.threadId, 'manager', { content: false }),
+    forwardStreamChunks(runtimeCtx, state.threadId, 'manager', {
+      content: false,
+      runScope: getRunScope(config),
+    }),
   );
 
   let decision = parseManagerDecision(routingStreamResult.fullContent);

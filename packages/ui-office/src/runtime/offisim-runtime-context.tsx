@@ -16,6 +16,7 @@ import type {
   RuntimeEvent,
 } from '@offisim/shared-types';
 import { createContext, useContext } from 'react';
+import type { RunScope } from '../components/chat/chat-session-store';
 import type { DeliverableHookRow } from '../lib/deliverable-artifacts.js';
 import type { SceneIntentBus } from './scene-intents.js';
 
@@ -65,9 +66,11 @@ export interface OffisimRuntimeValue {
       threadId?: string;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
       conversationKey?: string;
+      /** Per-execution chat run scope; threaded into graph config.configurable.runScope. */
+      runScope?: RunScope;
     },
   ) => Promise<string | undefined>;
-  retryLastMessage: () => Promise<string | undefined>;
+  retryLastMessage: (options?: { runScope?: RunScope }) => Promise<string | undefined>;
   clearError: () => void;
   /** Re-create runtime from current localStorage config. */
   reinitRuntime: () => void;
@@ -113,6 +116,7 @@ export interface OffisimRuntimeValue {
   respondToInteraction?: (
     selectedOptionId: string,
     freeformResponse?: string,
+    options?: { runScope?: RunScope },
   ) => Promise<string | undefined>;
   /**
    * List persisted deliverables for the active company, newest first.

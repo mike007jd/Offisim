@@ -9,7 +9,7 @@ import {
   type PendingAssignment,
   createEmptyPlanScopedState,
 } from '../graph/state.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { detectTaskToolIntent } from './task-tool-intent.js';
 
 /**
@@ -26,7 +26,12 @@ export async function employeeDirectSetupNode(
   // Announce node entry (best-effort)
   if (runtimeCtx) {
     runtimeCtx.eventBus.emit(
-      graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee_direct_setup'),
+      graphNodeEntered(
+        runtimeCtx.companyId,
+        state.threadId,
+        'employee_direct_setup',
+        getRunScope(config),
+      ),
     );
   }
 

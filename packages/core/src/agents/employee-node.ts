@@ -5,7 +5,7 @@ import type { OffisimGraphState } from '../graph/state.js';
 import type { LlmMessage } from '../llm/gateway.js';
 import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import { Logger } from '../services/logger.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { runEmployeeA2A } from './employee-a2a-executor.js';
 import { finalizeEmployeeSuccess } from './employee-completion.js';
@@ -38,7 +38,7 @@ export async function employeeNode(
 ): Promise<Partial<OffisimGraphState> | Command> {
   const runtimeCtx = getRuntime(config, 'employee');
 
-  const preflightOutcome = await runPreflight(state, runtimeCtx);
+  const preflightOutcome = await runPreflight(state, runtimeCtx, getRunScope(config));
   if (preflightOutcome.kind === 'early-return') {
     return preflightOutcome.stateUpdate;
   }
@@ -69,6 +69,7 @@ export async function employeeNode(
       preflightOutcome.preflight,
       runtimeBinding,
       getConfigSignal(config),
+      getRunScope(config),
     );
   }
 
@@ -94,6 +95,7 @@ export async function employeeNode(
     allTools,
     streamEnabled: streamEmployeeReplies,
     signal: getConfigSignal(config),
+    runScope: getRunScope(config),
   });
 
   // Hoisted out of try scope so the recovery catch handler can report the
@@ -125,6 +127,7 @@ export async function employeeNode(
         state,
         allowedMcpToolNames,
         signal: getConfigSignal(config),
+        runScope: getRunScope(config),
       });
 
       if (outcome.kind === 'handoff') {

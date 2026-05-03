@@ -7,7 +7,12 @@ import {
   workspaceStalenessDetected,
 } from '../events/event-factories.js';
 import { parseCompactBaseline } from '../graph/state.js';
-import type { MeetingInterrupt, MeetingInterruptType, OffisimGraphState } from '../graph/state.js';
+import type {
+  MeetingInterrupt,
+  MeetingInterruptType,
+  OffisimGraphState,
+  RunScope,
+} from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { NodeSummaryService } from './node-summary-service.js';
 import type {
@@ -82,8 +87,14 @@ export class OrchestrationService {
   /**
    * Per-thread AbortControllers — prep for Task 7 abort/stop support.
    * Keyed by threadId. abortExecution(threadId) signals the running call.
+   *
+   * `runScope` is captured alongside the controller so `abortExecution` can
+   * stamp the aborted event with the chat run scope of the in-flight execution.
    */
-  private readonly currentAborts = new Map<string, AbortController>();
+  private readonly currentAborts = new Map<
+    string,
+    { controller: AbortController; runScope: RunScope | null }
+  >();
 
   private readonly workspaceStalenessService: WorkspaceStalenessService | null;
   private readonly checkpointSaver: Pick<BaseCheckpointSaver, 'getTuple'> | null;
@@ -112,10 +123,12 @@ export class OrchestrationService {
    * consumers can return to idle.
    */
   abortExecution(threadId: string): void {
-    const controller = this.currentAborts.get(threadId);
-    if (!controller) return;
-    controller.abort();
-    this.runtimeCtx.eventBus.emit(executionAborted(this.runtimeCtx.companyId, threadId, 'user'));
+    const entry = this.currentAborts.get(threadId);
+    if (!entry) return;
+    entry.controller.abort();
+    this.runtimeCtx.eventBus.emit(
+      executionAborted(this.runtimeCtx.companyId, threadId, 'user', entry.runScope),
+    );
   }
 
   /**
@@ -258,6 +271,12 @@ export class OrchestrationService {
     meetingInterrupt?: MeetingInterrupt | null;
     /** Override runtimeCtx.threadId — useful when service is long-lived across multiple threads. */
     threadId?: string;
+    /**
+     * Per-execution chat run scope. Set by `ChatPanel.handleSend` for user-initiated
+     * chat turns. Background invocations (`background_sync`, `pm_heartbeat`) pass
+     * `undefined` so chat-affecting events emit unscoped and the UI listener drops them.
+     */
+    runScope?: RunScope;
   }): Promise<OffisimGraphState> {
     const threadId = input.threadId ?? this.runtimeCtx.threadId;
 
@@ -283,7 +302,10 @@ export class OrchestrationService {
     this.threadLocks.set(threadId, gate);
     try {
       await prev;
-      this.currentAborts.set(threadId, abort);
+      this.currentAborts.set(threadId, {
+        controller: abort,
+        runScope: input.runScope ?? null,
+      });
       return await this._executeInner({ ...input, threadId, signal: abort.signal });
     } finally {
       release?.();
@@ -313,7 +335,7 @@ export class OrchestrationService {
     this.threadQueueDepth.set(threadId, depth + 1);
 
     const abort = new AbortController();
-    this.currentAborts.set(threadId, abort);
+    this.currentAborts.set(threadId, { controller: abort, runScope: null });
 
     const prev = this.threadLocks.get(threadId) ?? Promise.resolve();
     let release: (() => void) | undefined;
@@ -323,7 +345,7 @@ export class OrchestrationService {
     this.threadLocks.set(threadId, gate);
     try {
       await prev;
-      return await this._executeStateInner(state, threadId, abort.signal);
+      return await this._executeStateInner(state, threadId, abort.signal, null);
     } finally {
       release?.();
       this.currentAborts.delete(threadId);
@@ -347,8 +369,10 @@ export class OrchestrationService {
     meetingInterrupt?: MeetingInterrupt | null;
     threadId: string;
     signal: AbortSignal;
+    runScope?: RunScope;
   }): Promise<OffisimGraphState> {
     const threadId = input.threadId;
+    await this.ensureExecutionThread(threadId, input.entryMode);
     const fullInput: Partial<OffisimGraphState> = {
       threadId,
       companyId: this.runtimeCtx.companyId,
@@ -358,13 +382,29 @@ export class OrchestrationService {
       meetingId: input.meetingId ?? null,
       meetingInterrupt: input.meetingInterrupt ?? null,
     };
-    return this._executeStateInner(fullInput, threadId, input.signal);
+    return this._executeStateInner(fullInput, threadId, input.signal, input.runScope ?? null);
+  }
+
+  private async ensureExecutionThread(
+    threadId: string,
+    entryMode: OffisimGraphState['entryMode'],
+  ): Promise<void> {
+    const existing = await this.runtimeCtx.repos.threads.findById(threadId);
+    if (existing) return;
+    await this.runtimeCtx.repos.threads.create({
+      thread_id: threadId,
+      company_id: this.runtimeCtx.companyId,
+      entry_mode: entryMode,
+      root_task_id: null,
+      status: 'queued',
+    });
   }
 
   private async _executeStateInner(
     state: Partial<OffisimGraphState>,
     threadId: string,
     signal: AbortSignal,
+    runScope: RunScope | null,
   ): Promise<OffisimGraphState> {
     await this.checkWorkspaceStaleness(
       (state.entryMode ?? 'boss_chat') as OffisimGraphState['entryMode'],
@@ -376,6 +416,7 @@ export class OrchestrationService {
         thread_id: threadId,
         runtimeCtx: this.runtimeCtx,
         signal,
+        ...(runScope ? { runScope } : {}),
       },
     };
 

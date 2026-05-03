@@ -11,6 +11,8 @@ export interface ExecutionAbortedPayload {
   readonly threadId: string;
   /** 'user' for a user-initiated stop, 'system' for programmatic aborts. */
   readonly reason: 'user' | 'system';
+  readonly chatConversationKey?: string;
+  readonly chatRunId?: string;
 }
 
 export interface ErrorOccurredPayload {

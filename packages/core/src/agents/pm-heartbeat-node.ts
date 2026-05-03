@@ -3,7 +3,7 @@ import { graphNodeEntered } from '../events/event-factories.js';
 import type { PmHeartbeatSnapshot, TaskPlan } from '../graph/state.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 
 const STUCK_REASONS = ['verifier-blocked', 'running-too-long', 'stuck-task'] as const;
 type StuckReason = (typeof STUCK_REASONS)[number];
@@ -26,7 +26,9 @@ export async function pmHeartbeatNode(
   const runtimeCtx = getRuntime(config, 'pm_heartbeat', { optional: true });
   if (!runtimeCtx) return {};
 
-  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_heartbeat'));
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_heartbeat', getRunScope(config)),
+  );
 
   const { repos } = runtimeCtx;
   const plan = state.taskPlan;

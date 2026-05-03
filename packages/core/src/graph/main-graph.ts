@@ -16,7 +16,7 @@ import { yoloMasterNode } from '../agents/yolo-master-node.js';
 import { graphNodeEntered, planStepCompleted } from '../events/event-factories.js';
 import type { TaskRunRow } from '../runtime/repositories.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { createMemoryCheckpointSaver } from './checkpoint-saver.js';
 import {
   meetingEndNode,
@@ -199,7 +199,7 @@ async function stepAdvanceNode(
 
   if (runtimeCtx) {
     runtimeCtx.eventBus.emit(
-      graphNodeEntered(runtimeCtx.companyId, state.threadId, 'step_advance'),
+      graphNodeEntered(runtimeCtx.companyId, state.threadId, 'step_advance', getRunScope(config)),
     );
   }
 

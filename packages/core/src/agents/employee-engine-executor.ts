@@ -13,7 +13,7 @@ import {
   llmUsageRecorded,
   toolExecutionTelemetry,
 } from '../events/event-factories.js';
-import type { OffisimGraphState } from '../graph/state.js';
+import type { OffisimGraphState, RunScope } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId } from '../utils/generate-id.js';
@@ -60,6 +60,7 @@ async function requestEngineApproval(
   preflight: PreflightResult,
   event: Extract<RuntimeActivityEvent, { kind: 'approval_requested' }>,
   signal?: AbortSignal,
+  runScope: RunScope | null = null,
 ): Promise<void> {
   const request: InteractionRequest = {
     interactionId: generateId('interaction'),
@@ -95,12 +96,15 @@ async function requestEngineApproval(
 
   if (!runtimeCtx.interactionService) {
     runtimeCtx.eventBus.emit(
-      interactionRequested(runtimeCtx.companyId, runtimeCtx.threadId, request),
+      interactionRequested(runtimeCtx.companyId, runtimeCtx.threadId, request, runScope),
     );
     throw new Error('Engine approval requested but no interaction service is available.');
   }
 
-  const response = await runtimeCtx.interactionService.requestAndWait(request, { signal });
+  const response = await runtimeCtx.interactionService.requestAndWait(request, {
+    signal,
+    runScope,
+  });
   if (response.selectedOptionId !== 'approve') {
     throw new Error('Engine approval request was rejected.');
   }
@@ -115,6 +119,7 @@ async function mapEngineEvent(
   toolTimings: Map<string, ToolTiming>,
   proposalsSeen: Set<string>,
   signal?: AbortSignal,
+  runScope: RunScope | null = null,
 ): Promise<EngineArtifact | null> {
   const { companyId, threadId, eventBus } = runtimeCtx;
   const employeeId = preflight.employee.employee_id;
@@ -131,13 +136,16 @@ async function mapEngineEvent(
             'employee',
             event.content,
             event.channel ?? 'content',
+            runScope,
           ),
         );
       }
       return null;
     case 'reasoning_delta':
       if (event.content) {
-        eventBus.emit(llmStreamChunk(companyId, threadId, 'employee', event.content, 'reasoning'));
+        eventBus.emit(
+          llmStreamChunk(companyId, threadId, 'employee', event.content, 'reasoning', runScope),
+        );
       }
       return null;
     case 'tool_started': {
@@ -155,6 +163,9 @@ async function mapEngineEvent(
           ...(event.serverName ? { serverName: event.serverName } : {}),
           startedAt,
           status: 'started',
+          ...(runScope
+            ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
+            : {}),
         }),
       );
       return null;
@@ -177,6 +188,9 @@ async function mapEngineEvent(
           durationMs: Math.max(0, completedAt - startedAt),
           status: event.status ?? 'completed',
           ...(event.errorType ? { errorType: event.errorType } : {}),
+          ...(runScope
+            ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
+            : {}),
         }),
       );
       return null;
@@ -235,7 +249,7 @@ async function mapEngineEvent(
           }),
         );
       }
-      await requestEngineApproval(runtimeCtx, preflight, event, signal);
+      await requestEngineApproval(runtimeCtx, preflight, event, signal, runScope);
       return null;
     case 'proposal_created':
       if (!proposalsSeen.has(event.proposal.proposalId)) {
@@ -291,6 +305,7 @@ export async function runEmployeeEngine(
   preflight: PreflightResult,
   runtimeBinding: Extract<EmployeeRuntimeBinding, { mode: 'engine' }>,
   signal?: AbortSignal,
+  runScope: RunScope | null = null,
 ): Promise<Partial<OffisimGraphState>> {
   const adapter = runtimeCtx.engineAdapters?.get(runtimeBinding.engineId);
   if (!adapter) {
@@ -350,6 +365,7 @@ export async function runEmployeeEngine(
         toolTimings,
         proposalsSeen,
         signal,
+        runScope,
       );
       if (artifact) latestArtifact = artifact;
     }

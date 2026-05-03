@@ -3,7 +3,7 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { errorOccurred, graphNodeEntered, taskStateChanged } from '../events/event-factories.js';
 import type { OffisimGraphState } from '../graph/state.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import {
   type StructuredError,
   diagnoseAndRecover,
@@ -39,7 +39,7 @@ export async function errorHandlerNode(
   const runtimeCtx = getRuntime(config, 'error_handler', { optional: true });
   if (runtimeCtx) {
     runtimeCtx.eventBus.emit(
-      graphNodeEntered(runtimeCtx.companyId, state.threadId, 'error_handler'),
+      graphNodeEntered(runtimeCtx.companyId, state.threadId, 'error_handler', getRunScope(config)),
     );
   }
 

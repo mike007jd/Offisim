@@ -1,5 +1,6 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { GraphError } from '../errors.js';
+import type { RunScope } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 
 /**
@@ -27,4 +28,16 @@ export function getRuntime(
     throw new GraphError('RuntimeContext not found in config.configurable', nodeName);
   }
   return runtimeCtx;
+}
+
+/**
+ * Extract per-execution chat run scope from LangGraph config.configurable.
+ *
+ * Returns null on absence — non-chat invocations (`background_sync`, `pm_heartbeat`)
+ * legitimately have no scope, and chat-affecting emit sites should pass through
+ * the absence so the UI listener drops the event.
+ */
+export function getRunScope(config: RunnableConfig): RunScope | null {
+  const scope = (config.configurable as { runScope?: RunScope })?.runScope;
+  return scope ?? null;
 }

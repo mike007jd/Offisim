@@ -30,4 +30,6 @@ export interface LlmStreamChunkPayload {
   readonly nodeName: string;
   readonly content: string;
   readonly channel?: 'content' | 'reasoning';
+  readonly chatConversationKey?: string;
+  readonly chatRunId?: string;
 }

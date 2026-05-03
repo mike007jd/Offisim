@@ -6,7 +6,7 @@ import {
   taskStateChanged,
   taskSubtaskProgress,
 } from '../events/event-factories.js';
-import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
+import type { OffisimGraphState, PendingAssignment, RunScope } from '../graph/state.js';
 import type { CompanyRow, EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 
@@ -43,8 +43,11 @@ export type PreflightOutcome =
 export async function runPreflight(
   state: OffisimGraphState,
   runtimeCtx: RuntimeContext,
+  runScope: RunScope | null = null,
 ): Promise<PreflightOutcome> {
-  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee'));
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee', runScope),
+  );
 
   const { modelResolver, repos, eventBus, companyId, threadId } = runtimeCtx;
 

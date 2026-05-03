@@ -283,6 +283,7 @@ export function interactionRequested(
   companyId: string,
   threadId: string,
   request: InteractionRequest,
+  runScope?: { conversationKey: string; runId: string } | null,
 ): RuntimeEvent<InteractionRequestedPayload> {
   return {
     type: 'interaction.requested',
@@ -291,7 +292,12 @@ export function interactionRequested(
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { request },
+    payload: {
+      request,
+      ...(runScope
+        ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
+        : {}),
+    },
   };
 }
 

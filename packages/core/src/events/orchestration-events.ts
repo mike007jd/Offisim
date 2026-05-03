@@ -79,6 +79,7 @@ export function graphNodeEntered(
   companyId: string,
   threadId: string,
   nodeName: string,
+  runScope?: { conversationKey: string; runId: string } | null,
 ): RuntimeEvent<GraphNodeEnteredPayload> {
   return {
     type: 'graph.node.entered',
@@ -87,7 +88,12 @@ export function graphNodeEntered(
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { nodeName },
+    payload: {
+      nodeName,
+      ...(runScope
+        ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
+        : {}),
+    },
   };
 }
 
@@ -232,6 +238,7 @@ export function executionAborted(
   companyId: string,
   threadId: string,
   reason: ExecutionAbortedPayload['reason'] = 'user',
+  runScope?: { conversationKey: string; runId: string } | null,
 ): RuntimeEvent<ExecutionAbortedPayload> {
   return {
     type: 'execution.aborted',
@@ -240,6 +247,12 @@ export function executionAborted(
     companyId,
     threadId,
     timestamp: Date.now(),
-    payload: { threadId, reason },
+    payload: {
+      threadId,
+      reason,
+      ...(runScope
+        ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
+        : {}),
+    },
   };
 }

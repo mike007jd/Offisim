@@ -9,7 +9,7 @@ import {
 import type { OffisimGraphState, PendingAssignment, PlanStep } from '../graph/state.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 
 /**
  * Step dispatcher node — DAG-aware dispatch.
@@ -31,7 +31,12 @@ export async function stepDispatcherNode(
 
   // Announce node entry
   runtimeCtx.eventBus.emit(
-    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'step_dispatcher'),
+    graphNodeEntered(
+      runtimeCtx.companyId,
+      state.threadId,
+      'step_dispatcher',
+      getRunScope(config),
+    ),
   );
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;

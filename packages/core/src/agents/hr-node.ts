@@ -12,7 +12,7 @@ import type { OffisimGraphState } from '../graph/state.js';
 import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 
 interface HrAssessmentResult {
@@ -70,7 +70,9 @@ export async function hrNode(
   const runtimeCtx = getRuntime(config, 'hr');
 
   // Announce node entry
-  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'hr'));
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'hr', getRunScope(config)),
+  );
 
   const { repos, modelResolver, eventBus, companyId } = runtimeCtx;
 
@@ -120,7 +122,9 @@ export async function hrNode(
       signal: getConfigSignal(config),
     },
     { nodeName: 'hr', provider: resolved.provider, model: resolved.model },
-    forwardStreamChunks(runtimeCtx, state.threadId, 'hr'),
+    forwardStreamChunks(runtimeCtx, state.threadId, 'hr', {
+      runScope: getRunScope(config),
+    }),
   );
 
   const fullContent = streamResult.fullContent;

@@ -13,7 +13,7 @@ import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js'
 import { EventConsolidator } from '../services/event-consolidator.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { inferDeliverableFile } from './infer-deliverable-file.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
@@ -104,11 +104,11 @@ export async function bossSummaryNode(
   config: RunnableConfig,
 ): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'boss_summary', { optional: true });
+  const isDirectChatSummary = state.entryMode === 'direct_chat' && !!state.targetEmployeeId;
 
-  // Announce node entry
-  if (runtimeCtx) {
+  if (runtimeCtx && !isDirectChatSummary) {
     runtimeCtx.eventBus.emit(
-      graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss_summary'),
+      graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss_summary', getRunScope(config)),
     );
   }
 
@@ -317,7 +317,9 @@ export async function bossSummaryNode(
       maxTokens: resolved.maxTokens,
     },
     { nodeName: 'boss_summary', provider: resolved.provider, model: resolved.model },
-    forwardStreamChunks(runtimeCtx, state.threadId, 'boss_summary'),
+    forwardStreamChunks(runtimeCtx, state.threadId, 'boss_summary', {
+      runScope: getRunScope(config),
+    }),
   );
 
   const finalContent = streamResult.fullContent + actionItemsSuffix;

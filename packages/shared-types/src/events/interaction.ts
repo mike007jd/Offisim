@@ -2,6 +2,8 @@ import type { InteractionMode, InteractionRequest, InteractionResponse } from '.
 
 export interface InteractionRequestedPayload {
   readonly request: InteractionRequest;
+  readonly chatConversationKey?: string;
+  readonly chatRunId?: string;
 }
 
 export interface InteractionResolvedPayload {

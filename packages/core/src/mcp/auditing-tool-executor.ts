@@ -75,6 +75,9 @@ export class AuditingToolExecutor implements ToolExecutor {
         startedAt,
         status: 'started',
         concurrentWith,
+        ...(call.runScope
+          ? { chatConversationKey: call.runScope.conversationKey, chatRunId: call.runScope.runId }
+          : {}),
       }),
     );
 
@@ -107,6 +110,9 @@ export class AuditingToolExecutor implements ToolExecutor {
           nodeName: call.nodeName,
           employeeId: call.employeeId,
           taskRunId: call.taskRunId ?? null,
+          ...(call.runScope
+            ? { chatConversationKey: call.runScope.conversationKey, chatRunId: call.runScope.runId }
+            : {}),
           serverName,
           startedAt,
           completedAt,
@@ -168,7 +174,7 @@ export class AuditingToolExecutor implements ToolExecutor {
 
     if (this.interactionService?.getMode() !== 'human_in_loop') {
       if (this.interactionService) {
-        await this.interactionService.request(request);
+        await this.interactionService.request(request, { runScope: call.runScope ?? null });
       }
       const response = this.buildPermissionResponse('ask', decision.reason);
       return {
@@ -177,7 +183,10 @@ export class AuditingToolExecutor implements ToolExecutor {
       };
     }
 
-    const resolved = await this.interactionService.requestAndWait(request, { signal: call.signal });
+    const resolved = await this.interactionService.requestAndWait(request, {
+      signal: call.signal,
+      runScope: call.runScope ?? null,
+    });
     if (resolved.selectedOptionId === 'reject') {
       const response = this.buildPermissionResponse('deny', 'Denied by user approval prompt.');
       return {
@@ -368,6 +377,9 @@ export class AuditingToolExecutor implements ToolExecutor {
             : 'error',
         errorType: response.success ? undefined : response.error,
         concurrentWith,
+        ...(call.runScope
+          ? { chatConversationKey: call.runScope.conversationKey, chatRunId: call.runScope.runId }
+          : {}),
       }),
     );
   }

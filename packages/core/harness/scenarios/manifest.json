@@ -212,6 +212,11 @@
       ]
     },
     {
+      "id": "direct-chat-hides-boss-summary-node",
+      "category": "chat-streaming-ux",
+      "invariants": ["chat.direct_chat_hides_boss_summary_node"]
+    },
+    {
       "id": "routing-rejects-bare-noun-prose",
       "category": "interaction-modes",
       "invariants": [

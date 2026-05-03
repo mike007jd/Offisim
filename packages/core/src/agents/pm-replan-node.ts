@@ -6,7 +6,7 @@ import { recordedLlmCall } from '../llm/recorded-call.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 
 const PM_REPLAN_PROMPT = `You are the PM AI. The current plan has been partially executed, but a problem was reported.
@@ -110,7 +110,9 @@ export async function pmReplanNode(
 ): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'pm_replan');
 
-  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_replan'));
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_replan', getRunScope(config)),
+  );
 
   const { repos, modelResolver, companyId, threadId } = runtimeCtx;
   const plan = state.taskPlan;

@@ -31,6 +31,7 @@ export interface UseInteractionSyncResult {
   respondToInteraction: (
     selectedOptionId: string,
     freeformResponse?: string,
+    options?: { runScope?: { conversationKey: string; runId: string } },
   ) => Promise<string | undefined>;
   interactionModeRef: MutableRefObject<InteractionMode>;
   pendingInteractionRef: MutableRefObject<InteractionRequest | null>;
@@ -55,9 +56,12 @@ export function useInteractionSync({
       threadId?: string;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
       conversationKey?: string;
+      runScope?: { conversationKey: string; runId: string };
     },
   ) => Promise<string | undefined>;
-  retryLastMessage: () => Promise<string | undefined>;
+  retryLastMessage: (options?: {
+    runScope?: { conversationKey: string; runId: string };
+  }) => Promise<string | undefined>;
   lastFailedMessageRef: MutableRefObject<LastFailedMessage | null>;
   setError: Dispatch<SetStateAction<string | null>>;
 }): UseInteractionSyncResult {
@@ -119,7 +123,11 @@ export function useInteractionSync({
   );
 
   const respondToInteraction = useCallback(
-    async (selectedOptionId: string, freeformResponse?: string): Promise<string | undefined> => {
+    async (
+      selectedOptionId: string,
+      freeformResponse?: string,
+      options?: { runScope?: { conversationKey: string; runId: string } },
+    ): Promise<string | undefined> => {
       const runtime = runtimeRef.current;
       const interactionService = runtime?.interactionService;
       const pending = interactionService?.getPending() ?? pendingInteractionRef.current;
@@ -144,7 +152,7 @@ export function useInteractionSync({
 
       if (followUp.mode === 'retry_last_message' && lastFailedMessageRef.current) {
         setError(null);
-        return retryLastMessage();
+        return retryLastMessage({ ...(options?.runScope ? { runScope: options.runScope } : {}) });
       }
 
       if (followUp.mode === 'resend_with_clarification' && lastFailedMessageRef.current) {
@@ -157,6 +165,7 @@ export function useInteractionSync({
           threadId: last.threadId,
           entryMode: last.entryMode,
           conversationKey: last.conversationKey,
+          ...(options?.runScope ? { runScope: options.runScope } : {}),
         });
       }
       return undefined;

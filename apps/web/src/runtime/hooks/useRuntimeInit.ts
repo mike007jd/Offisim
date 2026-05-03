@@ -125,9 +125,12 @@ export interface UseRuntimeInitResult {
       threadId?: string;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
       conversationKey?: string;
+      runScope?: { conversationKey: string; runId: string };
     },
   ) => Promise<string | undefined>;
-  retryLastMessage: () => Promise<string | undefined>;
+  retryLastMessage: (options?: {
+    runScope?: { conversationKey: string; runId: string };
+  }) => Promise<string | undefined>;
   listRecentDeliverables: (opts?: {
     threadId?: string;
     limit?: number;
@@ -248,6 +251,7 @@ export function useRuntimeInit({
         threadId?: string;
         entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
         conversationKey?: string;
+        runScope?: { conversationKey: string; runId: string };
       },
     ): Promise<string | undefined> => {
       let runtime = runtimeRef.current;
@@ -288,6 +292,7 @@ export function useRuntimeInit({
           messages: [new HumanMessage(text)],
           targetEmployeeId: options?.targetEmployeeId ?? null,
           threadId: options?.threadId,
+          ...(options?.runScope ? { runScope: options.runScope } : {}),
         });
         const msgs = result.messages ?? [];
         for (let i = msgs.length - 1; i >= 0; i--) {
@@ -335,16 +340,22 @@ export function useRuntimeInit({
     [version, initRuntime, companyId, clearFailedRunError, setRetryableFailedRun],
   );
 
-  const retryLastMessage = useCallback(async (): Promise<string | undefined> => {
-    const last = lastFailedMessageRef.current;
-    if (!last) return undefined;
-    return sendMessage(last.text, {
-      targetEmployeeId: last.targetEmployeeId,
-      threadId: last.threadId,
-      entryMode: last.entryMode,
-      conversationKey: last.conversationKey,
-    });
-  }, [sendMessage]);
+  const retryLastMessage = useCallback(
+    async (
+      options?: { runScope?: { conversationKey: string; runId: string } },
+    ): Promise<string | undefined> => {
+      const last = lastFailedMessageRef.current;
+      if (!last) return undefined;
+      return sendMessage(last.text, {
+        targetEmployeeId: last.targetEmployeeId,
+        threadId: last.threadId,
+        entryMode: last.entryMode,
+        conversationKey: last.conversationKey,
+        ...(options?.runScope ? { runScope: options.runScope } : {}),
+      });
+    },
+    [sendMessage],
+  );
 
   const connectMcpServer = useCallback(async (config: McpServerConfig): Promise<number> => {
     const runtime = runtimeRef.current;

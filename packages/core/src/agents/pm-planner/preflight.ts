@@ -1,7 +1,7 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../../events/event-factories.js';
 import { type OffisimGraphState, createEmptyPlanScopedState } from '../../graph/state.js';
-import { getRuntime } from '../../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../../utils/get-runtime.js';
 import type { PmPreflightOutcome } from '../pm-planner-types.js';
 import { detectTaskToolIntent, isLocalToolAssignableEmployee } from '../task-tool-intent.js';
 import { parseReviewedPlanPayload } from './plan-review-payload.js';
@@ -12,7 +12,9 @@ export async function runPmPreflight(
 ): Promise<PmPreflightOutcome> {
   const runtimeCtx = getRuntime(config, 'pm_planner');
 
-  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_planner'));
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_planner', getRunScope(config)),
+  );
 
   const { repos, companyId, threadId } = runtimeCtx;
   const directive = state.managerDirective;

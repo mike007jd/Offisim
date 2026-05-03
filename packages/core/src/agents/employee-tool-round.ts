@@ -1,4 +1,4 @@
-import type { OffisimGraphState } from '../graph/state.js';
+import type { OffisimGraphState, RunScope } from '../graph/state.js';
 import type { LlmMessage, LlmResponse, ToolCallResult } from '../llm/gateway.js';
 import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
@@ -38,6 +38,7 @@ export interface ToolRoundContext {
   readonly state: OffisimGraphState;
   readonly allowedMcpToolNames: Set<string>;
   readonly signal?: AbortSignal;
+  readonly runScope?: RunScope | null;
 }
 
 /**
@@ -134,6 +135,7 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
         taskRunId: taskRunId ?? undefined,
         stepIndex: preflight.stepIndex,
         signal,
+        runScope: ctx.runScope ?? null,
       });
       return { callId: toolCall.id, name: toolCall.name, result };
     },

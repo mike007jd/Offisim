@@ -14,7 +14,7 @@ import { ProjectService } from '../services/project-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { generateId } from '../utils/generate-id.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
 import { detectTaskToolIntent, isLocalToolAssignableEmployee } from './task-tool-intent.js';
@@ -216,7 +216,9 @@ export async function bossNode(
   const runtimeCtx = getRuntime(config, 'boss');
 
   // Announce node entry
-  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss'));
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss', getRunScope(config)),
+  );
 
   const { modelResolver } = runtimeCtx;
   const interactionService = runtimeCtx.interactionService;
@@ -294,7 +296,10 @@ export async function bossNode(
       signal: getConfigSignal(config),
     },
     { nodeName: 'boss', provider: resolved.provider, model: resolved.model },
-    forwardStreamChunks(runtimeCtx, state.threadId, 'boss', { content: false }),
+    forwardStreamChunks(runtimeCtx, state.threadId, 'boss', {
+      content: false,
+      runScope: getRunScope(config),
+    }),
   );
 
   const decision = parseBossDecision(routingStreamResult.fullContent);
@@ -382,7 +387,7 @@ export async function bossNode(
         questionKey: 'boss_clarification',
       },
       createdAt: Date.now(),
-    });
+    }, { runScope: getRunScope(config) });
     throw new Error(AGENT_QUESTION_REQUIRED);
   }
 
@@ -432,7 +437,9 @@ export async function bossNode(
         signal: getConfigSignal(config),
       },
       { nodeName: 'boss', provider: resolved.provider, model: resolved.model },
-      forwardStreamChunks(runtimeCtx, state.threadId, 'boss'),
+      forwardStreamChunks(runtimeCtx, state.threadId, 'boss', {
+        runScope: getRunScope(config),
+      }),
     );
     finalReplyContent = streamResult.fullContent.trim() || replyContent;
   }

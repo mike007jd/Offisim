@@ -1,0 +1,36 @@
+{
+  "id": "direct-chat-hides-boss-summary-node",
+  "category": "chat-streaming-ux",
+  "entryMode": "direct_chat",
+  "interactionMode": "boss_proxy",
+  "seed": {
+    "company": { "companyId": "company-direct-chat-hide-boss", "name": "Direct Chat Co" },
+    "thread": { "threadId": "thread-direct-chat-hide-boss", "status": "running" },
+    "employees": [
+      { "id": "emp-direct-chat-hide-boss", "name": "Maya Lin", "role": "frontend_dev" }
+    ]
+  },
+  "initialState": {
+    "targetEmployeeId": "emp-direct-chat-hide-boss",
+    "messages": [{ "role": "user", "content": "在忙吗" }]
+  },
+  "llmTurns": [
+    {
+      "id": "direct-chat-reply",
+      "match": { "contains": "在忙吗" },
+      "content": "不忙，随时可以帮忙。"
+    }
+  ],
+  "runs": [{}],
+  "assertions": [
+    { "kind": "firstGraphNodeIs", "nodeName": "employee_direct_setup" },
+    {
+      "kind": "eventEmitted",
+      "eventType": "graph.node.entered",
+      "payloadEquals": { "nodeName": "boss_summary" },
+      "count": 0
+    },
+    { "kind": "llmCalls", "count": 1 },
+    { "kind": "threadStatusIs", "status": "completed" }
+  ]
+}

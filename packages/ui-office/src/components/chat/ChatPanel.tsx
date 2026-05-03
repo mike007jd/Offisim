@@ -24,7 +24,13 @@ import { InteractionPrompt } from './InteractionPrompt';
 import { MessageBubble } from './MessageBubble';
 import { StreamingBubble } from './StreamingBubble';
 import { SystemMessageFeed } from './SystemMessageFeed';
-import { type ChatMessage, getConversationKey, useChatSessionStore } from './chat-session-store';
+import {
+  type ChatMessage,
+  type RunScope,
+  genRunId,
+  getConversationKey,
+  useChatSessionStore,
+} from './chat-session-store';
 
 interface StarterPrompt {
   label: string;
@@ -317,9 +323,10 @@ export function ChatPanel({
       return;
     }
 
-    startRun(conversationKey);
-    const response = await respondToInteraction(selectedOptionId, trimmedResponse);
-    finalizeActiveRun(response);
+    const runScope: RunScope = { conversationKey, runId: genRunId() };
+    startRun(runScope);
+    const response = await respondToInteraction(selectedOptionId, trimmedResponse, { runScope });
+    finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
   }
 
   const handleSend = useCallback(
@@ -347,17 +354,20 @@ export function ChatPanel({
       );
       const runConversationTarget = selectedEmployeeId ? resolvedTargetEmployeeId : targetKey;
       const runConversationKey = getScopedConversationKey(activeThreadId, runConversationTarget);
+      const runThreadId = selectedEmployeeId ? runConversationKey : (activeThreadId ?? undefined);
 
       addMessage(runConversationTarget ?? null, { id: genMsgId(), role: 'user', content: text });
-      startRun(runConversationKey);
+      const runScope: RunScope = { conversationKey: runConversationKey, runId: genRunId() };
+      startRun(runScope);
 
       const response = await sendMessage(text, {
         entryMode: options?.entryMode,
         targetEmployeeId: resolvedTargetEmployeeId ?? undefined,
-        threadId: activeThreadId ?? undefined,
+        threadId: runThreadId,
         conversationKey: runConversationKey,
+        runScope,
       });
-      finalizeActiveRun(response);
+      finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
     },
     [
       activeThreadId,
@@ -374,9 +384,10 @@ export function ChatPanel({
 
   async function handleRetry() {
     if (!failedConversationKey) return;
-    startRun(failedConversationKey);
-    const response = await retryLastMessage();
-    finalizeActiveRun(response);
+    const runScope: RunScope = { conversationKey: failedConversationKey, runId: genRunId() };
+    startRun(runScope);
+    const response = await retryLastMessage({ runScope });
+    finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
   }
 
   function handleSwapPerson(employeeId: string) {
@@ -389,13 +400,16 @@ export function ChatPanel({
 
     addMessage(employeeId, { id: genMsgId(), role: 'user', content: lastUserMsg.content });
     const nextConversationKey = getScopedConversationKey(activeThreadId, employeeId);
-    startRun(nextConversationKey);
+    const nextThreadId = nextConversationKey;
+    const runScope: RunScope = { conversationKey: nextConversationKey, runId: genRunId() };
+    startRun(runScope);
     sendMessage(lastUserMsg.content, {
       targetEmployeeId: employeeId,
-      threadId: activeThreadId ?? undefined,
+      threadId: nextThreadId,
       conversationKey: nextConversationKey,
+      runScope,
     }).then((response) => {
-      finalizeActiveRun(response);
+      finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
     });
   }
 

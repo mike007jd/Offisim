@@ -4,6 +4,7 @@ import {
   llmStreamChunk,
   llmUsageRecorded,
 } from '../events/event-factories.js';
+import type { RunScope } from '../graph/state.js';
 import type { LlmCallContext, LlmCallMeta } from '../middleware/types.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { Logger } from '../services/logger.js';
@@ -45,18 +46,21 @@ export function forwardStreamChunks(
   ctx: RuntimeContext,
   threadId: string,
   nodeName: string,
-  options: { reasoning?: boolean; content?: boolean } = {},
+  options: { reasoning?: boolean; content?: boolean; runScope?: RunScope | null } = {},
 ): (chunk: LlmStreamChunk) => void {
   const fwdReasoning = options.reasoning !== false;
   const fwdContent = options.content !== false;
+  const runScope = options.runScope ?? null;
   return (chunk) => {
     if (fwdReasoning && chunk.reasoning) {
       ctx.eventBus.emit(
-        llmStreamChunk(ctx.companyId, threadId, nodeName, chunk.reasoning, 'reasoning'),
+        llmStreamChunk(ctx.companyId, threadId, nodeName, chunk.reasoning, 'reasoning', runScope),
       );
     }
     if (fwdContent && chunk.content) {
-      ctx.eventBus.emit(llmStreamChunk(ctx.companyId, threadId, nodeName, chunk.content));
+      ctx.eventBus.emit(
+        llmStreamChunk(ctx.companyId, threadId, nodeName, chunk.content, 'content', runScope),
+      );
     }
   };
 }

@@ -6,7 +6,7 @@ import {
   type PendingAssignment,
   createEmptyPlanScopedState,
 } from '../graph/state.js';
-import { getRuntime } from '../utils/get-runtime.js';
+import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { employeeNode } from './employee-node.js';
 import { detectTaskToolIntent } from './task-tool-intent.js';
 import { YOLO_MASTER_ROLE_SLUG } from './yolo-master-persona.js';
@@ -23,7 +23,9 @@ export async function yoloMasterNode(
   config: RunnableConfig,
 ): Promise<Partial<OffisimGraphState> | Command> {
   const runtimeCtx = getRuntime(config, 'yolo-master');
-  runtimeCtx.eventBus.emit(graphNodeEntered(runtimeCtx.companyId, state.threadId, 'yolo-master'));
+  runtimeCtx.eventBus.emit(
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'yolo-master', getRunScope(config)),
+  );
   const [yolo] = await runtimeCtx.repos.employees.findByRole(
     runtimeCtx.companyId,
     YOLO_MASTER_ROLE_SLUG,

@@ -34,4 +34,6 @@ export interface ToolExecutionTelemetryPayload {
   readonly status: 'started' | 'completed' | 'error' | 'denied';
   readonly errorType?: string;
   readonly concurrentWith?: readonly string[];
+  readonly chatConversationKey?: string;
+  readonly chatRunId?: string;
 }

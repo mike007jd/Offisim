@@ -1,4 +1,5 @@
 import type { ResolvedModel } from '@offisim/shared-types';
+import type { RunScope } from '../graph/state.js';
 import type { LlmMessage, LlmResponse, LlmToolChoice, ToolDef } from '../llm/gateway.js';
 import { forwardStreamChunks, recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
@@ -16,6 +17,7 @@ export interface TurnRunnerDeps {
   readonly allTools: ToolDef[];
   readonly streamEnabled: boolean;
   readonly signal: AbortSignal | undefined;
+  readonly runScope?: RunScope | null;
 }
 
 function buildObservedMessages(
@@ -70,6 +72,7 @@ function resolveForcedSkillToolChoice(
  */
 export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
   const { runtimeCtx, threadId, resolved, allTools, streamEnabled, signal } = deps;
+  const runScope = deps.runScope ?? null;
 
   return async (messages, meta) => {
     const request = {
@@ -102,7 +105,7 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
         model: resolved.model,
         taskRunId: meta.taskRunId,
       },
-      forwardStreamChunks(runtimeCtx, threadId, 'employee'),
+      forwardStreamChunks(runtimeCtx, threadId, 'employee', { runScope }),
     );
 
     const response = {
