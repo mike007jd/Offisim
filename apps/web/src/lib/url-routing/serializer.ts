@@ -22,6 +22,7 @@ function primaryIdentity(parsed: ParsedUrl): string {
         office?.viewMode ?? '3D',
         office?.dashboardOpen ? 'dashboard' : '',
         office?.marketplaceListingId ?? '',
+        office?.selectedThreadId ?? '',
       ].join(':');
     }
     case 'sops':
@@ -43,6 +44,7 @@ export function serializeOfficeUrl({ sessionState, overlay }: SerializableUrlSta
   if (office.viewMode === '2D') search.set('view', '2d');
   if (office.dashboardOpen) search.set('dashboard', '1');
   append(search, 'listing', office.marketplaceListingId);
+  append(search, 'thread', office.selectedThreadId);
   if (overlay === 'office-editor') search.set('overlay', 'office-editor');
   return `/${suffix(search)}`;
 }

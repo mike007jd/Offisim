@@ -32,6 +32,7 @@ export type WorkspaceRoute =
       viewMode?: '2D' | '3D';
       dashboardOpen?: boolean;
       marketplaceListingId?: string | null;
+      selectedThreadId?: string | null;
       companyId?: string | null;
     }
   | {

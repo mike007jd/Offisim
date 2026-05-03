@@ -109,6 +109,7 @@ export function parseOfficePath(search: URLSearchParams): ParsedUrl {
         ...(viewMode ? { viewMode } : {}),
         dashboardOpen: search.get('dashboard') === '1',
         marketplaceListingId: search.get('listing'),
+        selectedThreadId: search.get('thread'),
       },
     },
   };

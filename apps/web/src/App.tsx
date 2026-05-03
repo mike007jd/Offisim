@@ -31,6 +31,7 @@ import { useCompanyBootstrap } from './hooks/useCompanyBootstrap';
 import { useCompanyLifecycle } from './hooks/useCompanyLifecycle';
 import { useOfficeStateBindings } from './hooks/useOfficeStateBindings';
 import { useOverlayState } from './hooks/useOverlayState';
+import { useThreadBootstrap } from './hooks/useThreadBootstrap';
 import { getOnboardingCopy } from './lib/onboarding-prompts';
 import {
   dismissTour,
@@ -200,6 +201,13 @@ export function App({ onCompanySwitch }: AppProps) {
   );
 
   const officeBindings = useOfficeStateBindings({ activeCompanyId, updateWorkspaceState });
+
+  useThreadBootstrap({
+    chatThreads: repos?.chatThreads ?? null,
+    activeProjectId,
+    selectedThreadId: officeState.selectedThreadId,
+    updateWorkspaceState,
+  });
 
   useAppRuntimeToasts({
     eventBus,

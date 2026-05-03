@@ -26,6 +26,8 @@ export type WorkspaceKey = 'office' | 'sops' | 'market' | 'personnel' | 'activit
 export type OfficeSessionState = {
   viewMode: '2D' | '3D';
   selectedEmployeeId: string | null;
+  /** Active `chat_threads.thread_id`; not the LangGraph `graph_threads.thread_id`. */
+  selectedThreadId: string | null;
   studioMode: 'create' | 'edit' | null;
   dashboardOpen: boolean;
   kanbanOpen: boolean;
@@ -164,6 +166,7 @@ export function createDefaultOfficeState(): OfficeSessionState {
   return {
     viewMode: '3D',
     selectedEmployeeId: null,
+    selectedThreadId: null,
     studioMode: null,
     dashboardOpen: false,
     kanbanOpen: false,
