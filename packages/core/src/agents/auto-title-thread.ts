@@ -1,4 +1,5 @@
 import type { HumanMessage } from '@langchain/core/messages';
+import { chatThreadUpdated } from '../events/event-factories.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { OffisimGraphState } from '../graph/state.js';
@@ -91,6 +92,10 @@ export function autoTitleThread(ctx: RuntimeContext, state: OffisimGraphState): 
       }
 
       await ctx.repos.chatThreads.updateTitle(chatThreadId, summary, { byUser: false });
+      const projectId = existing.project_id;
+      ctx.eventBus.emit(
+        chatThreadUpdated(ctx.companyId, { chatThreadId, projectId, reason: 'title' }),
+      );
     } catch (err) {
       console.warn('[auto-title-thread] best-effort title rewrite failed', err);
     }

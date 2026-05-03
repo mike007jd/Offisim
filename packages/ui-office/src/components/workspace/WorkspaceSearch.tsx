@@ -1,6 +1,10 @@
-import type { ChatThread } from '@offisim/shared-types';
+import type {
+  ChatThread,
+  ChatThreadUpdatedPayload,
+  RuntimeEvent,
+} from '@offisim/shared-types';
 import { Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 
@@ -34,7 +38,7 @@ export function WorkspaceSearch({
   onSelectThread,
   onSelectEmployee,
 }: WorkspaceSearchProps) {
-  const { repos } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const agents = useAgentStates();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -47,19 +51,30 @@ export function WorkspaceSearch({
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  useEffect(() => {
+  const refreshThreads = useCallback(async () => {
     if (!projectId || !repos?.chatThreads) {
       setThreads([]);
       return;
     }
-    let cancelled = false;
-    void repos.chatThreads.listByProject(projectId).then((rows) => {
-      if (!cancelled) setThreads(rows);
-    });
-    return () => {
-      cancelled = true;
-    };
+    const rows = await repos.chatThreads.listByProject(projectId);
+    setThreads(rows);
   }, [projectId, repos]);
+
+  useEffect(() => {
+    void refreshThreads();
+  }, [refreshThreads]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    const off = eventBus.on(
+      'chat_thread.updated',
+      (event: RuntimeEvent<ChatThreadUpdatedPayload>) => {
+        if (event.payload.projectId !== projectId) return;
+        void refreshThreads();
+      },
+    );
+    return off;
+  }, [eventBus, projectId, refreshThreads]);
 
   const results = useMemo<SearchResult[]>(() => {
     if (!debounced) return [];

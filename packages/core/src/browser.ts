@@ -241,6 +241,7 @@ export {
   interactionRestored,
   interactionResolved,
   interactionModeChanged,
+  chatThreadUpdated,
 } from './events/event-factories.js';
 
 export {

@@ -1,5 +1,5 @@
-import { generateId } from '@offisim/core/browser';
-import type { ChatThread } from '@offisim/shared-types';
+import { chatThreadUpdated, generateId } from '@offisim/core/browser';
+import type { ChatThread, ChatThreadUpdatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { Button, cn } from '@offisim/ui-core';
 import { Check, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -17,7 +17,7 @@ const ROW_ACTIVE = 'border-border-focus bg-accent-muted text-accent-text';
 const ROW_IDLE = 'text-text-secondary hover:bg-surface-hover hover:text-text-primary';
 
 export function ThreadList({ projectId, selectedThreadId, onSelectThread }: ThreadListProps) {
-  const { repos } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntime();
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
@@ -34,6 +34,18 @@ export function ThreadList({ projectId, selectedThreadId, onSelectThread }: Thre
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!projectId) return;
+    const off = eventBus.on(
+      'chat_thread.updated',
+      (event: RuntimeEvent<ChatThreadUpdatedPayload>) => {
+        if (event.payload.projectId !== projectId) return;
+        void refresh();
+      },
+    );
+    return off;
+  }, [eventBus, projectId, refresh]);
+
   const handleNewThread = useCallback(async () => {
     if (!repos?.chatThreads || !projectId) return;
     const created = await repos.chatThreads.create({
@@ -42,11 +54,18 @@ export function ThreadList({ projectId, selectedThreadId, onSelectThread }: Thre
     });
     setThreads((prev) => [created, ...prev]);
     onSelectThread(created.thread_id);
-  }, [repos, projectId, onSelectThread]);
+    eventBus.emit(
+      chatThreadUpdated('', {
+        chatThreadId: created.thread_id,
+        projectId,
+        reason: 'created',
+      }),
+    );
+  }, [repos, projectId, onSelectThread, eventBus]);
 
   const handleRenameSubmit = useCallback(
     async (threadId: string, nextTitle: string) => {
-      if (!repos?.chatThreads) return;
+      if (!repos?.chatThreads || !projectId) return;
       const title = nextTitle.trim();
       setRenamingId(null);
       if (!title) return;
@@ -54,8 +73,11 @@ export function ThreadList({ projectId, selectedThreadId, onSelectThread }: Thre
       setThreads((prev) =>
         prev.map((t) => (t.thread_id === threadId ? { ...t, title } : t)),
       );
+      eventBus.emit(
+        chatThreadUpdated('', { chatThreadId: threadId, projectId, reason: 'title' }),
+      );
     },
-    [repos],
+    [repos, projectId, eventBus],
   );
 
   if (!projectId) return null;

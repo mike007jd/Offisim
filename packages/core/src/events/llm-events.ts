@@ -109,6 +109,21 @@ export function llmStreamChunk(
   };
 }
 
+export function chatThreadUpdated(
+  companyId: string,
+  payload: import('@offisim/shared-types').ChatThreadUpdatedPayload,
+): RuntimeEvent<import('@offisim/shared-types').ChatThreadUpdatedPayload> {
+  return {
+    type: 'chat_thread.updated',
+    entityId: payload.chatThreadId,
+    entityType: 'graph',
+    companyId,
+    threadId: payload.chatThreadId,
+    timestamp: Date.now(),
+    payload,
+  };
+}
+
 export function conversationSynopsisUpdated(
   companyId: string,
   threadId: string,

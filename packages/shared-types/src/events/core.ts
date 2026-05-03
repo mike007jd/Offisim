@@ -91,4 +91,5 @@ export type EventFamily =
   | 'boss.route.decided'
   | 'boss.employee-context.empty'
   | 'workspace-binding.unavailable'
-  | 'vault.sync.failed';
+  | 'vault.sync.failed'
+  | 'chat_thread.updated';

@@ -61,6 +61,7 @@ export {
 } from './orchestration-events.js';
 
 export {
+  chatThreadUpdated,
   conversationCompactCompleted,
   conversationSynopsisUpdated,
   llmCallStarted,

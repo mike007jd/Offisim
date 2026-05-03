@@ -26,14 +26,14 @@ If a scenario fails: stop, report back, do NOT silently work around. Per CLAUDE.
 
 ## Scenario A — multi-thread isolation (14.3)
 
-- [ ] Steps:
+- [x] Steps:
   1. Boot app, pick or create a Company.
   2. Create or pick Project P.
   3. In the right rail Threads panel, confirm a default thread exists (named `New thread`); call it `T1`. Send "T1 hello" in chat.
   4. Click **+ New thread** (the `+` icon in the Threads header). New thread appears as active. Send "T2 hello".
   5. Click `T1` row. Confirm chat rail shows ONLY "T1 hello" + assistant's T1 reply. Click `T2`. Confirm only T2 messages.
 - Capture: `14.3-T1-only.png`, `14.3-T2-only.png`
-- Note:
+- Note: PASS — release `.app` via Computer Use; T1 view shows only `T1 hello` + its boss reply, T2 view shows only `T2 hello` + its boss reply. Used the unbound project for readable chat screenshots.
 
 ## Scenario B — boss auto title (14.4)
 
@@ -42,7 +42,7 @@ If a scenario fails: stop, report back, do NOT silently work around. Per CLAUDE.
   2. Send: `draft me a Q3 launch plan with timelines`.
   3. After the assistant reply renders, watch the Threads list. Within ~5–15s the title should rewrite to a 1-line summary (e.g. `Q3 launch plan draft` or similar). On LLM failure it falls back to truncated user prompt.
 - Capture: `14.4-before.png` (just after send, title still `New thread`), `14.4-after.png` (title updated).
-- Note:
+- Note: FAIL — after the boss reply, `chat_threads.title` persisted as `draft me a Q3 launch plan with timelines`, but the visible Threads list stayed on `New thread` after >15s; likely ThreadList does not refresh after best-effort auto-title persistence.
 
 ## Scenario C — user rename sticky (14.5)
 
@@ -134,8 +134,9 @@ If a scenario fails: stop, report back, do NOT silently work around. Per CLAUDE.
 
 ## Aggregate
 
-- Pass count: __ / 11 (10 mandatory + 1 optional narrow tier)
+- Pass count: 1 / 11 (10 mandatory + 1 optional narrow tier; stopped at Scenario B per fail-fast instruction)
 - Failures (with notes):
+  - Scenario B (14.4): auto-title writes through to DB, but the live Threads list does not update without an external refresh.
 - Decisions / known limitations confirmed:
   - Git branch shows placeholder `main` (real branch read deferred).
   - File search not in WorkspaceSearch (deferred — needs Tauri-only path).
