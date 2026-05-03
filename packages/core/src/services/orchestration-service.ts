@@ -96,6 +96,13 @@ export class OrchestrationService {
     { controller: AbortController; runScope: RunScope | null }
   >();
 
+  /**
+   * Cache of thread ids whose `graph_threads` row is known to exist this process
+   * lifetime. `ensureExecutionThread` short-circuits on a hit so a long-lived
+   * chat does not pay a `repos.threads.findById` roundtrip per turn.
+   */
+  private readonly ensuredThreads = new Set<string>();
+
   private readonly workspaceStalenessService: WorkspaceStalenessService | null;
   private readonly checkpointSaver: Pick<BaseCheckpointSaver, 'getTuple'> | null;
 
@@ -389,8 +396,12 @@ export class OrchestrationService {
     threadId: string,
     entryMode: OffisimGraphState['entryMode'],
   ): Promise<void> {
+    if (this.ensuredThreads.has(threadId)) return;
     const existing = await this.runtimeCtx.repos.threads.findById(threadId);
-    if (existing) return;
+    if (existing) {
+      this.ensuredThreads.add(threadId);
+      return;
+    }
     await this.runtimeCtx.repos.threads.create({
       thread_id: threadId,
       company_id: this.runtimeCtx.companyId,
@@ -398,6 +409,7 @@ export class OrchestrationService {
       root_task_id: null,
       status: 'queued',
     });
+    this.ensuredThreads.add(threadId);
   }
 
   private async _executeStateInner(
