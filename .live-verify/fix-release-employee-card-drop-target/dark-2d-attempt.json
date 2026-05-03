@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "capturedAt": 1777790067580,
+  "attempts": [
+    {
+      "attemptId": "a555b1db-fe4d-4da5-b2b8-073da79096b9",
+      "startedAt": 1777790003902,
+      "endedAt": 1777790003910,
+      "employeeId": "c3bef93d-dcb4-4317-ae6d-e5e575a0d6a4",
+      "sourceZoneId": "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-rest",
+      "dropTargetZoneIdsAtDown": [
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-dev",
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-product",
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-art"
+      ],
+      "dropTargetZoneIdsAtUp": [
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-dev",
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-product",
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-art"
+      ],
+      "down": {
+        "timestamp": 1777790003902,
+        "pointerId": 1,
+        "screenX": 794.7916870117188,
+        "screenY": 373.2083435058594,
+        "canvasX": 1328.616862711699,
+        "canvasY": 727.0897238150887
+      },
+      "move": null,
+      "up": {
+        "timestamp": 1777790003910,
+        "pointerId": 1,
+        "screenX": 587.5,
+        "screenY": 649.25,
+        "canvasX": 888.5444972826087,
+        "canvasY": 1313.1156589673913
+      },
+      "hitResult": {
+        "type": "zone",
+        "zoneId": "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-product"
+      },
+      "outcome": "drop-emitted",
+      "emittedDropEvent": true,
+      "cancellationReason": null
+    },
+    {
+      "attemptId": "fc2d3116-5190-4205-8625-07b455fd12f5",
+      "startedAt": 1777790053990,
+      "endedAt": 1777790053993,
+      "employeeId": "c3bef93d-dcb4-4317-ae6d-e5e575a0d6a4",
+      "sourceZoneId": "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-rest",
+      "dropTargetZoneIdsAtDown": [
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-dev",
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-product",
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-art"
+      ],
+      "dropTargetZoneIdsAtUp": [
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-dev",
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-product",
+        "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-art"
+      ],
+      "down": {
+        "timestamp": 1777790053990,
+        "pointerId": 1,
+        "screenX": 795.8333129882812,
+        "screenY": 372.1666564941406,
+        "canvasX": 1330.828195032866,
+        "canvasY": 724.878261918607
+      },
+      "move": null,
+      "up": {
+        "timestamp": 1777790053993,
+        "pointerId": 1,
+        "screenX": 587.5,
+        "screenY": 649.25,
+        "canvasX": 888.5444972826087,
+        "canvasY": 1313.1156589673913
+      },
+      "hitResult": {
+        "type": "zone",
+        "zoneId": "1a001c00-e7e2-45a3-af0f-8a287d53622b::zone-product"
+      },
+      "outcome": "drop-emitted",
+      "emittedDropEvent": true,
+      "cancellationReason": null
+    }
+  ]
+}

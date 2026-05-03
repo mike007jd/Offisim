@@ -6,7 +6,20 @@ import {
   screenToCanvas,
 } from '../office-2d-canvas-geometry';
 import type { EmployeeRenderData, InteractionState } from '../office-2d-canvas-renderer';
+import {
+  recordCancellation,
+  recordPointerDown as recordDiagnosticDown,
+  recordPointerMoveActive as recordDiagnosticMove,
+  recordPointerUp as recordDiagnosticUp,
+} from '../office-2d-drop-diagnostic';
 import type { SceneHitMap } from '../office-2d-hitmap';
+
+function genAttemptId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `attempt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 type Cursor = 'default' | 'grab' | 'grabbing';
 
@@ -70,6 +83,7 @@ export function useCanvasInteraction(params: Params): Returns {
   const dragPhaseRef = useRef<DragPhase>('idle');
   const dragEmployeeRef = useRef<DragEmployee | null>(null);
   const dragStartScreenRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const attemptIdRef = useRef<string | null>(null);
 
   const cancelDrag = useCallback(() => {
     dragPhaseRef.current = 'idle';
@@ -123,6 +137,17 @@ export function useCanvasInteraction(params: Params): Returns {
             sourceZoneId,
           };
           dragStartScreenRef.current = { x: e.clientX, y: e.clientY };
+          const attemptId = genAttemptId();
+          attemptIdRef.current = attemptId;
+          recordDiagnosticDown(
+            attemptId,
+            e,
+            canvasPos.x,
+            canvasPos.y,
+            empData.employeeId,
+            sourceZoneId,
+            dropTargetZoneIds,
+          );
         }
         setCursor('grab');
       } else {
@@ -163,6 +188,9 @@ export function useCanvasInteraction(params: Params): Returns {
         );
         const zoneHit = hitMap.hitTestZone(canvasPos.x, canvasPos.y);
         writeDragGhost(canvasPos.x, canvasPos.y, zoneHit.type === 'zone' ? zoneHit.zoneId : null);
+        if (attemptIdRef.current) {
+          recordDiagnosticMove(attemptIdRef.current, e, canvasPos.x, canvasPos.y);
+        }
         setCursor('grabbing');
         return;
       }
@@ -217,6 +245,7 @@ export function useCanvasInteraction(params: Params): Returns {
       const container = containerRef.current;
       let hit: ReturnType<SceneHitMap['hitTest']> | null = null;
       let zoneHit: ReturnType<SceneHitMap['hitTestZone']> | null = null;
+      let canvasPosForDiag: { x: number; y: number } | null = null;
       if (container) {
         const rect = container.getBoundingClientRect();
         const canvasPos = screenToCanvas(
@@ -225,17 +254,38 @@ export function useCanvasInteraction(params: Params): Returns {
           rect as DOMRect,
           viewportRef.current,
         );
+        canvasPosForDiag = canvasPos;
         hit = hitMap.hitTest(canvasPos.x, canvasPos.y);
         if (phase === 'active') zoneHit = hitMap.hitTestZone(canvasPos.x, canvasPos.y);
       }
 
       if (phase === 'active' && dragEmployee) {
-        if (
-          zoneHit?.type === 'zone' &&
-          dropTargetZoneIds.includes(zoneHit.zoneId) &&
-          zoneHit.zoneId !== dragEmployee.sourceZoneId
-        ) {
-          onDropOnZone(dragEmployee.employeeId, zoneHit.zoneId);
+        const hitZone = zoneHit?.type === 'zone' ? zoneHit.zoneId : null;
+        const isDroppable = hitZone !== null && dropTargetZoneIds.includes(hitZone);
+        const isDifferentZone = hitZone !== null && hitZone !== dragEmployee.sourceZoneId;
+        const willEmit = hitZone !== null && isDroppable && isDifferentZone;
+        if (willEmit && hitZone) {
+          onDropOnZone(dragEmployee.employeeId, hitZone);
+        }
+        const outcome: import('../office-2d-drop-diagnostic').DropAttemptOutcome = willEmit
+          ? 'drop-emitted'
+          : hitZone === null
+            ? 'drop-suppressed-empty'
+            : !isDroppable
+              ? 'drop-suppressed-not-droppable'
+              : 'drop-suppressed-source-zone';
+        if (attemptIdRef.current) {
+          recordDiagnosticUp(
+            attemptIdRef.current,
+            e,
+            canvasPosForDiag?.x ?? null,
+            canvasPosForDiag?.y ?? null,
+            zoneHit ?? hit,
+            dropTargetZoneIds,
+            outcome,
+            willEmit,
+          );
+          attemptIdRef.current = null;
         }
         cancelDrag();
         setCursor(hit?.type === 'employee' ? 'grab' : 'default');
@@ -246,6 +296,19 @@ export function useCanvasInteraction(params: Params): Returns {
       if (phase === 'pending' && dragEmployee) {
         dragPhaseRef.current = 'idle';
         dragEmployeeRef.current = null;
+        if (attemptIdRef.current) {
+          recordDiagnosticUp(
+            attemptIdRef.current,
+            e,
+            canvasPosForDiag?.x ?? null,
+            canvasPosForDiag?.y ?? null,
+            hit,
+            dropTargetZoneIds,
+            'click',
+            false,
+          );
+          attemptIdRef.current = null;
+        }
         onEmployeeClick(dragEmployee.employeeId);
         setCursor(hit?.type === 'employee' ? 'grab' : 'default');
         (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
@@ -277,6 +340,10 @@ export function useCanvasInteraction(params: Params): Returns {
 
   const onPointerLeave = useCallback(() => {
     if (dragPhaseRef.current !== 'idle') {
+      if (attemptIdRef.current) {
+        recordCancellation(attemptIdRef.current, 'leave');
+        attemptIdRef.current = null;
+      }
       cancelDrag();
       setCursor('default');
     }
@@ -286,6 +353,10 @@ export function useCanvasInteraction(params: Params): Returns {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && dragPhaseRef.current !== 'idle') {
+        if (attemptIdRef.current) {
+          recordCancellation(attemptIdRef.current, 'escape');
+          attemptIdRef.current = null;
+        }
         cancelDrag();
         setCursor('default');
       }

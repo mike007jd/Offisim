@@ -77,7 +77,10 @@ export function usePlacedEmployees(
 
     let globalIdx = 0;
     for (const [id, agent] of agents) {
-      const zoneId = agent.state === 'idle' ? restZoneId : resolveEmployeeSceneZoneId(agent, zones);
+      const zoneId =
+        !agent.workstationId && agent.state === 'idle'
+          ? restZoneId
+          : resolveEmployeeSceneZoneId(agent, zones);
       const zoneBucket = zoneEmployees.get(zoneId);
       if (zoneBucket) {
         zoneBucket.push({ id, agent, globalIndex: globalIdx, seed: agent.avatarSeed });

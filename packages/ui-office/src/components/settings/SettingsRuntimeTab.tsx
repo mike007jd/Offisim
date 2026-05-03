@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@offisim/ui-core';
 import { RuntimeBindingControl } from '../runtime/RuntimeBindingControl.js';
+import { SceneDiagnosticsSection } from './SceneDiagnosticsSection';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 import { VaultDirectorySection } from './VaultDirectorySection';
 import { SectionLabel, SettingsSection, surfaceInputProps } from './settings-primitives';
@@ -267,6 +268,8 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
       </SettingsSection>
 
       <VaultDirectorySection notify={controller.notify} />
+
+      <SceneDiagnosticsSection notify={controller.notify} />
     </div>
   );
 }

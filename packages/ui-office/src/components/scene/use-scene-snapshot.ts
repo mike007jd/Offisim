@@ -74,7 +74,8 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     const restZone = zones.find((z) => z.archetype === 'rest');
     const restId = restZone?.zoneId ?? UNASSIGNED_ZONE_ID;
     for (const [empId, agent] of agents) {
-      const zoneId = agent.state === 'idle' ? restId : resolveZone(agent);
+      const zoneId =
+        !agent.workstationId && agent.state === 'idle' ? restId : resolveZone(agent);
       map.get(zoneId)?.push({ agent, seed: agent.avatarSeed, empId });
     }
     return map;
