@@ -1,4 +1,3 @@
-import type { InteractionMode } from '@offisim/shared-types';
 import type { ToastVariant } from '@offisim/ui-core';
 import {
   AgentPanel,
@@ -13,9 +12,8 @@ import {
 } from '@offisim/ui-office/web';
 import type { CreateKanbanCardInput, KanbanState } from '../workspaces/kanban/types';
 import React, { Suspense, useMemo } from 'react';
-import { PEER_WORKSPACE_ITEMS, buildOfficeToolItems } from '../../lib/workspace-navigation';
+import { PEER_WORKSPACE_ITEMS } from '../../lib/workspace-navigation';
 import { useKanbanStream } from '../../runtime/useKanbanStream';
-import { SessionModeSwitcher } from '../session-mode/SessionModeSwitcher';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
 import type {
   OfficeSessionState,
@@ -52,7 +50,6 @@ export interface AppMainShellProps {
   officeState: OfficeSessionState;
   providerConfig: ProviderConfig | null;
   activeCompanyName: string | undefined;
-  activeCompanyId: string | null;
   sceneInteractive: boolean;
   agents: React.ComponentProps<typeof AgentPanel>['agents'];
   onFileImport: (file: File) => void;
@@ -62,14 +59,11 @@ export interface AppMainShellProps {
   onRequestCreateProject: () => void;
   onRequestEditProject: React.ComponentProps<typeof ProjectSelector>['onRequestEditProject'];
   activeProjectStatus: React.ComponentProps<typeof StatusBar>['activeProjectStatus'];
-  interactionMode: InteractionMode;
-  onInteractionModeChange: (mode: InteractionMode) => void | Promise<void>;
   chatOpenToken: number;
   collaborationRailProps: CollaborationRailProps;
   handleOpenSettings: () => void;
   handleBackToOffice: () => void;
   onSelectWorkspace: (key: WorkspaceKey) => void;
-  onOpenStudio: () => void;
   onOpenCompanySelect: () => void;
   onOpenEmployeeCreator: () => void;
   onToggleDashboard: () => void;
@@ -98,7 +92,6 @@ export function AppMainShell(props: AppMainShellProps) {
     officeState,
     providerConfig,
     activeCompanyName,
-    activeCompanyId,
     sceneInteractive,
     agents,
     onFileImport,
@@ -108,14 +101,11 @@ export function AppMainShell(props: AppMainShellProps) {
     onRequestCreateProject,
     onRequestEditProject,
     activeProjectStatus,
-    interactionMode,
-    onInteractionModeChange,
     chatOpenToken,
     collaborationRailProps,
     handleOpenSettings,
     handleBackToOffice,
     onSelectWorkspace,
-    onOpenStudio,
     onOpenCompanySelect,
     onOpenEmployeeCreator,
     onToggleDashboard,
@@ -158,16 +148,6 @@ export function AppMainShell(props: AppMainShellProps) {
     ],
   );
 
-  const officeToolItems = useMemo(
-    () =>
-      buildOfficeToolItems({
-        hasActiveCompany: activeCompanyId !== null,
-        dashboardOpen: officeState.dashboardOpen,
-        onOpenStudio,
-        onToggleDashboard,
-      }),
-    [activeCompanyId, officeState.dashboardOpen, onOpenStudio, onToggleDashboard],
-  );
 
   return (
     <AppLayout
@@ -177,16 +157,7 @@ export function AppMainShell(props: AppMainShellProps) {
           onOpenSettings={handleOpenSettings}
           onOpenCompanySelect={onOpenCompanySelect}
           onFileImport={onFileImport}
-          notificationSlot={
-            <NotificationCenter
-              onFocusEmployee={onFocusEmployee}
-              onOpenActivityLog={onOpenActivityLog}
-            />
-          }
           projectSlot={<ProjectSelector {...projectSelectorProps} summaryMode="compact" />}
-          modeSlot={
-            <SessionModeSwitcher current={interactionMode} onChange={onInteractionModeChange} />
-          }
           viewMode={officeState.viewMode}
           onViewModeChange={onViewModeChange}
           onViewModeClick={onViewModeClick}
@@ -195,7 +166,6 @@ export function AppMainShell(props: AppMainShellProps) {
           workspaceTitle={WORKSPACE_TITLES[activeWorkspace]}
           peerWorkspaces={PEER_WORKSPACE_ITEMS}
           onSelectWorkspace={onSelectWorkspace}
-          officeTools={officeToolItems}
         />
       }
       taskTray={null}
@@ -249,6 +219,7 @@ export function AppMainShell(props: AppMainShellProps) {
                 ) : null
               }
               kanbanCardCount={kanban.cards.length}
+              onSearchSelectEmployee={onEditExternalEmployee}
               kanbanSlot={
                 <KanbanTray
                   expanded
@@ -286,7 +257,47 @@ export function AppMainShell(props: AppMainShellProps) {
         ) : undefined
       }
       statusBar={
-        <StatusBar modelName={providerConfig?.model} activeProjectStatus={activeProjectStatus} />
+        <StatusBar
+          modelName={providerConfig?.model}
+          activeProjectStatus={activeProjectStatus}
+          dashboardSlot={
+            isOffice ? (
+              <button
+                type="button"
+                onClick={onToggleDashboard}
+                className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[10px] font-semibold uppercase tracking-wider transition ${
+                  officeState.dashboardOpen
+                    ? 'border-border-focus bg-accent-muted text-accent-text'
+                    : 'border-border-subtle bg-surface-muted text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                }`}
+                aria-pressed={officeState.dashboardOpen}
+                aria-label="Toggle dashboard"
+                title="Toggle dashboard (⌘D)"
+              >
+                Dashboard
+              </button>
+            ) : null
+          }
+          notificationSlot={
+            isOffice ? (
+              <NotificationCenter
+                onFocusEmployee={onFocusEmployee}
+                onOpenActivityLog={onOpenActivityLog}
+              />
+            ) : null
+          }
+          gitBranchSlot={
+            isOffice && activeProject?.workspace_root ? (
+              <span
+                className="inline-flex h-6 items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 text-[10px] uppercase tracking-wider text-text-secondary"
+                title={`Workspace root: ${activeProject.workspace_root}`}
+              >
+                <span className="font-mono lowercase tracking-normal text-text-muted">⎇</span>
+                <span className="truncate">main</span>
+              </span>
+            ) : null
+          }
+        />
       }
       chatDrawerMode="mobile-only"
       requestRightExpandToken={chatOpenToken}

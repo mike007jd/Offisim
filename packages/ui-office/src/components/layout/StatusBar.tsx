@@ -1,6 +1,7 @@
 import type { ProjectStatus } from '@offisim/shared-types';
 import { Button, SegmentedControl } from '@offisim/ui-core';
 import { Activity, Cpu, Square } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useOffisimRuntime, useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
@@ -36,9 +37,21 @@ const DIVIDER_CLS = 'h-3 w-px bg-border-subtle';
 interface StatusBarProps {
   modelName?: string;
   activeProjectStatus?: ProjectStatus | null;
+  /** Dashboard slot — typically a toggle button. Hidden when null. */
+  dashboardSlot?: ReactNode;
+  /** Notification slot — typically the NotificationCenter trigger. Hidden when null. */
+  notificationSlot?: ReactNode;
+  /** Git branch slot — workspace_root-bound branch label. Hidden when null. */
+  gitBranchSlot?: ReactNode;
 }
 
-export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
+export function StatusBar({
+  modelName,
+  activeProjectStatus,
+  dashboardSlot,
+  notificationSlot,
+  gitBranchSlot,
+}: StatusBarProps) {
   const { abortExecution, error, interactionMode, setInteractionMode, pendingInteraction } =
     useOffisimRuntime();
   const { isRunning } = useOffisimRuntimeStatus();
@@ -58,6 +71,14 @@ export function StatusBar({ modelName, activeProjectStatus }: StatusBarProps) {
         activeProjectStatus={activeProjectStatus ?? null}
         pendingInteraction={pendingInteraction}
       />
+
+      {(dashboardSlot || notificationSlot || gitBranchSlot) && (
+        <div className="relative z-10 flex items-center gap-2 pl-3">
+          {dashboardSlot}
+          {notificationSlot}
+          {gitBranchSlot}
+        </div>
+      )}
 
       <WorkSegment
         headline={headline}

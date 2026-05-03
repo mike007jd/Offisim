@@ -22,6 +22,7 @@ import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
 import { InteractionPrompt } from './InteractionPrompt';
 import { MessageBubble } from './MessageBubble';
+import { SessionModeChip } from './SessionModeChip';
 import { StreamingBubble } from './StreamingBubble';
 import { SystemMessageFeed } from './SystemMessageFeed';
 import {
@@ -157,6 +158,8 @@ export function ChatPanel({
     abortExecution,
     pendingInteraction,
     respondToInteraction,
+    interactionMode,
+    setInteractionMode,
   } = useOffisimRuntime();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
@@ -728,6 +731,14 @@ export function ChatPanel({
           disabledReason={inputDisabledReason}
           placeholder={inputPlaceholder}
           agents={agents}
+          modeChip={
+            setInteractionMode ? (
+              <SessionModeChip
+                current={interactionMode ?? 'boss_proxy'}
+                onChange={setInteractionMode}
+              />
+            ) : null
+          }
         />
       </div>
     </div>

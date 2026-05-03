@@ -1,5 +1,13 @@
 import { ArrowUp } from 'lucide-react';
-import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   COMMAND_CATEGORIES,
   type ChatCommand,
@@ -59,6 +67,8 @@ export interface ChatInputProps {
   placeholder?: string;
   agents?: Map<string, AgentState>;
   disabledReason?: string;
+  /** Right-aligned chip in the hint row — typically the session-mode chip. */
+  modeChip?: ReactNode;
 }
 
 export function ChatInput({
@@ -68,6 +78,7 @@ export function ChatInput({
   placeholder = 'Message your team...',
   agents,
   disabledReason,
+  modeChip,
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -426,6 +437,7 @@ export function ChatInput({
             </span>
           </>
         )}
+        {modeChip ? <span className="ml-auto">{modeChip}</span> : null}
       </div>
     </div>
   );

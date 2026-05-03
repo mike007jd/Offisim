@@ -1,5 +1,4 @@
 import type { ProjectRow } from '@offisim/shared-types';
-import type { InteractionMode } from '@offisim/shared-types';
 import { ToastBanner, TooltipProvider, useToasts } from '@offisim/ui-core';
 import {
   EmployeeInspector,
@@ -9,7 +8,6 @@ import {
   ProjectCreateDialog,
   type ProviderConfig,
   ResumeBar,
-  isTauri,
   loadProviderConfig,
   useAgentStates,
   useCompany,
@@ -154,8 +152,6 @@ export function App({ onCompanySwitch }: AppProps) {
     unfinishedThreads,
     dismissUnfinishedThreads,
     resumeThread,
-    interactionMode = 'boss_proxy',
-    setInteractionMode,
   } = useOffisimRuntime();
   const installFlow = useInstallFlow();
   const routeToPersonnel = useMemo(
@@ -302,35 +298,6 @@ export function App({ onCompanySwitch }: AppProps) {
   const selectedEmployeeName = officeState.selectedEmployeeId
     ? (agents.get(officeState.selectedEmployeeId)?.name ?? null)
     : null;
-  // TODO Section 6: derive activeConversationId from `OfficeSessionState.selectedThreadId`
-  // (the active product chat_thread.thread_id). For now `set_session_mode` is a no-op
-  // until the thread layer settles — the IPC sets graph_thread interaction_mode and
-  // needs to be re-keyed to either (a) the active conversationKey-derived runtime
-  // thread, or (b) a project-wide policy applied across all chat_thread runtimes.
-  const activeConversationId: string | null = null;
-  const handleInteractionModeChange = useCallback(
-    async (mode: InteractionMode) => {
-      setInteractionMode?.(mode);
-      if (!activeConversationId) return;
-      try {
-        if (isTauri()) {
-          const { invoke } = (await import('@tauri-apps/api/core')) as {
-            invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
-          };
-          await invoke('set_session_mode', { id: activeConversationId, mode });
-          return;
-        }
-        await fetch(`/api/sessions/${encodeURIComponent(activeConversationId)}/mode`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode }),
-        });
-      } catch (err) {
-        console.warn('[session-mode] host persistence unavailable', err);
-      }
-    },
-    [activeConversationId, setInteractionMode],
-  );
 
   const onboardingCopy = useMemo(() => getOnboardingCopy(activeTemplateId), [activeTemplateId]);
   const providerConfiguredForWelcome =
@@ -463,7 +430,6 @@ export function App({ onCompanySwitch }: AppProps) {
               officeState={officeState}
               providerConfig={providerConfig}
               activeCompanyName={activeCompanyName}
-              activeCompanyId={activeCompanyId}
               sceneInteractive={overlay.activeOverlay === null}
               agents={agents}
               onFileImport={(file) => installFlow.startFileImport(file)}
@@ -473,14 +439,11 @@ export function App({ onCompanySwitch }: AppProps) {
               onRequestCreateProject={handleRequestCreateProject}
               onRequestEditProject={handleRequestEditProject}
               activeProjectStatus={activeProject?.status ?? null}
-              interactionMode={interactionMode}
-              onInteractionModeChange={handleInteractionModeChange}
               chatOpenToken={officeBindings.chatOpenToken}
               collaborationRailProps={collaborationRailProps}
               handleOpenSettings={handleOpenSettings}
               handleBackToOffice={handleBackToOffice}
               onSelectWorkspace={setActiveWorkspace}
-              onOpenStudio={lifecycle.handleOpenStudio}
               onOpenCompanySelect={overlay.openCompanySelect}
               onOpenEmployeeCreator={overlay.openEmployeeCreator}
               onToggleDashboard={officeBindings.handleToggleDashboard}

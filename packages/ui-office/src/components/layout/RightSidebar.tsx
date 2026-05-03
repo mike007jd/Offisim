@@ -20,6 +20,7 @@ import { useTourTarget } from '../onboarding/tour-context';
 import { PitchHall } from '../pitch/PitchHall';
 import { TaskDashboard } from '../plan/TaskDashboard';
 import { ThreadList } from '../threads/ThreadList';
+import { WorkspaceSearch } from '../workspace/WorkspaceSearch';
 
 interface RightSidebarProps {
   chatPanel: ReactNode;
@@ -37,6 +38,8 @@ interface RightSidebarProps {
   kanbanCardCount?: number;
   /** Kanban tray rendered when the chip is expanded. */
   kanbanSlot?: ReactNode;
+  /** Routes a workspace-search employee hit to the Personnel tab. */
+  onSelectEmployee?: (employeeId: string) => void;
 }
 
 const PILL_TRIGGER_BASE =
@@ -54,6 +57,7 @@ export function RightSidebar({
   onSelectThread,
   kanbanCardCount = 0,
   kanbanSlot,
+  onSelectEmployee,
 }: RightSidebarProps) {
   const agents = useAgentStates();
   const { stage } = usePipelineStage();
@@ -104,6 +108,15 @@ export function RightSidebar({
             </span>
           )}
         </div>
+        {activeProjectId && onSelectThread && onSelectEmployee ? (
+          <div className="mt-2">
+            <WorkspaceSearch
+              projectId={activeProjectId}
+              onSelectThread={onSelectThread}
+              onSelectEmployee={onSelectEmployee}
+            />
+          </div>
+        ) : null}
         {projectSlot ? (
           <div className="mt-2 flex min-w-0 items-center gap-2" ref={projectSelectorRef}>
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">

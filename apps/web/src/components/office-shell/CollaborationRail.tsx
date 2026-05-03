@@ -30,6 +30,7 @@ interface CollaborationSidebarProps extends CollaborationRailProps {
   projectSummarySlot?: ReactNode;
   kanbanCardCount?: number;
   kanbanSlot?: ReactNode;
+  onSearchSelectEmployee?: (employeeId: string) => void;
 }
 
 function renderChatPanel({
@@ -112,6 +113,7 @@ export function CollaborationSidebar(props: CollaborationSidebarProps) {
       onSelectThread={props.onSelectThread}
       kanbanCardCount={props.kanbanCardCount}
       kanbanSlot={props.kanbanSlot}
+      onSelectEmployee={props.onSearchSelectEmployee}
     />
   );
 }
