@@ -6,6 +6,7 @@ import type {
   InteractionRequest,
   InteractionRequestedPayload,
   InteractionResolvedPayload,
+  RunScope,
 } from '@offisim/shared-types';
 import {
   type Dispatch,
@@ -31,7 +32,7 @@ export interface UseInteractionSyncResult {
   respondToInteraction: (
     selectedOptionId: string,
     freeformResponse?: string,
-    options?: { runScope?: { conversationKey: string; runId: string } },
+    options?: { runScope?: RunScope },
   ) => Promise<string | undefined>;
   interactionModeRef: MutableRefObject<InteractionMode>;
   pendingInteractionRef: MutableRefObject<InteractionRequest | null>;
@@ -56,11 +57,11 @@ export function useInteractionSync({
       threadId?: string;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
       conversationKey?: string;
-      runScope?: { conversationKey: string; runId: string };
+      runScope?: RunScope;
     },
   ) => Promise<string | undefined>;
   retryLastMessage: (options?: {
-    runScope?: { conversationKey: string; runId: string };
+    runScope?: RunScope;
   }) => Promise<string | undefined>;
   lastFailedMessageRef: MutableRefObject<LastFailedMessage | null>;
   setError: Dispatch<SetStateAction<string | null>>;
@@ -126,7 +127,7 @@ export function useInteractionSync({
     async (
       selectedOptionId: string,
       freeformResponse?: string,
-      options?: { runScope?: { conversationKey: string; runId: string } },
+      options?: { runScope?: RunScope },
     ): Promise<string | undefined> => {
       const runtime = runtimeRef.current;
       const interactionService = runtime?.interactionService;

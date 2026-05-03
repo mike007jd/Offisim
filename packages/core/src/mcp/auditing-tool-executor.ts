@@ -1,4 +1,4 @@
-import type { InteractionRequest } from '@offisim/shared-types';
+import { chatScopeFields, type InteractionRequest } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { mcpToolResult, toolExecutionTelemetry } from '../events/event-factories.js';
 import type {
@@ -75,9 +75,7 @@ export class AuditingToolExecutor implements ToolExecutor {
         startedAt,
         status: 'started',
         concurrentWith,
-        ...(call.runScope
-          ? { chatConversationKey: call.runScope.conversationKey, chatRunId: call.runScope.runId }
-          : {}),
+        ...chatScopeFields(call.runScope),
       }),
     );
 
@@ -110,9 +108,7 @@ export class AuditingToolExecutor implements ToolExecutor {
           nodeName: call.nodeName,
           employeeId: call.employeeId,
           taskRunId: call.taskRunId ?? null,
-          ...(call.runScope
-            ? { chatConversationKey: call.runScope.conversationKey, chatRunId: call.runScope.runId }
-            : {}),
+          ...chatScopeFields(call.runScope),
           serverName,
           startedAt,
           completedAt,
@@ -377,9 +373,7 @@ export class AuditingToolExecutor implements ToolExecutor {
             : 'error',
         errorType: response.success ? undefined : response.error,
         concurrentWith,
-        ...(call.runScope
-          ? { chatConversationKey: call.runScope.conversationKey, chatRunId: call.runScope.runId }
-          : {}),
+        ...chatScopeFields(call.runScope),
       }),
     );
   }

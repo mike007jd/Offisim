@@ -19,10 +19,12 @@ import type {
   NotificationPayload,
   RackBoundPayload,
   RackUnboundPayload,
+  RunScope,
   RuntimeEvent,
   SlotAssignedPayload,
   SlotRemovedPayload,
 } from '@offisim/shared-types';
+import { chatScopeFields } from '@offisim/shared-types';
 import type { RoleSlug } from '@offisim/shared-types';
 import type {
   InteractionMode,
@@ -283,7 +285,7 @@ export function interactionRequested(
   companyId: string,
   threadId: string,
   request: InteractionRequest,
-  runScope?: { conversationKey: string; runId: string } | null,
+  runScope?: RunScope | null,
 ): RuntimeEvent<InteractionRequestedPayload> {
   return {
     type: 'interaction.requested',
@@ -294,9 +296,7 @@ export function interactionRequested(
     timestamp: Date.now(),
     payload: {
       request,
-      ...(runScope
-        ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
-        : {}),
+      ...chatScopeFields(runScope),
     },
   };
 }

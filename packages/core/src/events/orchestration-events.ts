@@ -15,10 +15,12 @@ import type {
   PlanCreatedPayload,
   PlanStepCompletedPayload,
   PlanStepStartedPayload,
+  RunScope,
   RuntimeEvent,
   WorkspaceBindingUnavailablePayload,
   WorkspaceStalenessDetectedPayload,
 } from '@offisim/shared-types';
+import { chatScopeFields } from '@offisim/shared-types';
 
 export function meetingStateChanged(
   companyId: string,
@@ -79,7 +81,7 @@ export function graphNodeEntered(
   companyId: string,
   threadId: string,
   nodeName: string,
-  runScope?: { conversationKey: string; runId: string } | null,
+  runScope?: RunScope | null,
 ): RuntimeEvent<GraphNodeEnteredPayload> {
   return {
     type: 'graph.node.entered',
@@ -90,9 +92,7 @@ export function graphNodeEntered(
     timestamp: Date.now(),
     payload: {
       nodeName,
-      ...(runScope
-        ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
-        : {}),
+      ...chatScopeFields(runScope),
     },
   };
 }
@@ -238,7 +238,7 @@ export function executionAborted(
   companyId: string,
   threadId: string,
   reason: ExecutionAbortedPayload['reason'] = 'user',
-  runScope?: { conversationKey: string; runId: string } | null,
+  runScope?: RunScope | null,
 ): RuntimeEvent<ExecutionAbortedPayload> {
   return {
     type: 'execution.aborted',
@@ -250,9 +250,7 @@ export function executionAborted(
     payload: {
       threadId,
       reason,
-      ...(runScope
-        ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
-        : {}),
+      ...chatScopeFields(runScope),
     },
   };
 }

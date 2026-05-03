@@ -6,7 +6,7 @@ import {
 import { disposeRuntime } from '@offisim/core/dist/runtime/runtime-context.js';
 import type { NotificationBridge } from '@offisim/core/dist/services/notification-bridge.js';
 import { AGENT_QUESTION_REQUIRED, PLAN_REVIEW_REQUIRED } from '@offisim/shared-types';
-import type { InteractionMode } from '@offisim/shared-types';
+import type { InteractionMode, RunScope } from '@offisim/shared-types';
 import {
   type DeliverableHookRow,
   disposeEventLogStore,
@@ -125,11 +125,11 @@ export interface UseRuntimeInitResult {
       threadId?: string;
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
       conversationKey?: string;
-      runScope?: { conversationKey: string; runId: string };
+      runScope?: RunScope;
     },
   ) => Promise<string | undefined>;
   retryLastMessage: (options?: {
-    runScope?: { conversationKey: string; runId: string };
+    runScope?: RunScope;
   }) => Promise<string | undefined>;
   listRecentDeliverables: (opts?: {
     threadId?: string;
@@ -251,7 +251,7 @@ export function useRuntimeInit({
         threadId?: string;
         entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
         conversationKey?: string;
-        runScope?: { conversationKey: string; runId: string };
+        runScope?: RunScope;
       },
     ): Promise<string | undefined> => {
       let runtime = runtimeRef.current;
@@ -342,7 +342,7 @@ export function useRuntimeInit({
 
   const retryLastMessage = useCallback(
     async (
-      options?: { runScope?: { conversationKey: string; runId: string } },
+      options?: { runScope?: RunScope },
     ): Promise<string | undefined> => {
       const last = lastFailedMessageRef.current;
       if (!last) return undefined;

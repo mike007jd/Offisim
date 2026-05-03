@@ -1,4 +1,4 @@
-import type { InteractionRequest } from '@offisim/shared-types';
+import { chatScopeFields, type InteractionRequest } from '@offisim/shared-types';
 import type {
   EngineArtifact,
   EngineProposal,
@@ -163,9 +163,7 @@ async function mapEngineEvent(
           ...(event.serverName ? { serverName: event.serverName } : {}),
           startedAt,
           status: 'started',
-          ...(runScope
-            ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
-            : {}),
+          ...chatScopeFields(runScope),
         }),
       );
       return null;
@@ -188,9 +186,7 @@ async function mapEngineEvent(
           durationMs: Math.max(0, completedAt - startedAt),
           status: event.status ?? 'completed',
           ...(event.errorType ? { errorType: event.errorType } : {}),
-          ...(runScope
-            ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
-            : {}),
+          ...chatScopeFields(runScope),
         }),
       );
       return null;

@@ -119,6 +119,9 @@ export type {
 } from './events.js';
 export { TASK_ASSIGNMENT_REROUTED } from './events/task.js';
 export { SKILL_INSTALL_OUTCOME, skillInstallOutcomeLabel } from './events/install.js';
+
+export type { RunScope } from './run-scope.js';
+export { chatScopeFields } from './run-scope.js';
 export type {
   ToolExecutionTelemetryPayload,
   VaultSyncFailedPayload,

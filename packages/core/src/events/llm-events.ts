@@ -8,10 +8,12 @@ import type {
   LlmCallStartedPayload,
   LlmStreamChunkPayload,
   LlmUsageRecordedPayload,
+  RunScope,
   RuntimeEvent,
   SessionCostUpdatedPayload,
   ToolExecutionTelemetryPayload,
 } from '@offisim/shared-types';
+import { chatScopeFields } from '@offisim/shared-types';
 
 export function llmCallStarted(
   companyId: string,
@@ -89,7 +91,7 @@ export function llmStreamChunk(
   nodeName: string,
   content: string,
   channel: 'content' | 'reasoning' = 'content',
-  runScope?: { conversationKey: string; runId: string } | null,
+  runScope?: RunScope | null,
 ): RuntimeEvent<LlmStreamChunkPayload> {
   return {
     type: 'llm.stream.chunk',
@@ -102,9 +104,7 @@ export function llmStreamChunk(
       nodeName,
       content,
       channel,
-      ...(runScope
-        ? { chatConversationKey: runScope.conversationKey, chatRunId: runScope.runId }
-        : {}),
+      ...chatScopeFields(runScope),
     },
   };
 }
