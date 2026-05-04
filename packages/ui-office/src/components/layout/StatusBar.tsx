@@ -1,5 +1,5 @@
 import type { ProjectStatus } from '@offisim/shared-types';
-import { Button, SegmentedControl } from '@offisim/ui-core';
+import { Button } from '@offisim/ui-core';
 import { Activity, Cpu, Square } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
@@ -49,8 +49,7 @@ export function StatusBar({
   notificationSlot,
   gitBranchSlot,
 }: StatusBarProps) {
-  const { abortExecution, error, interactionMode, setInteractionMode, pendingInteraction } =
-    useOffisimRuntime();
+  const { abortExecution, error, pendingInteraction } = useOffisimRuntime();
   const { isRunning } = useOffisimRuntimeStatus();
   const metrics = useDashboardMetrics();
   const { stage: pipelineStage } = usePipelineStage();
@@ -92,8 +91,6 @@ export function StatusBar({
         elapsedMs={metrics.elapsedMs}
         isRunning={isRunning}
         onAbort={abortExecution}
-        interactionMode={interactionMode === 'human_in_loop' ? 'human_in_loop' : 'boss_proxy'}
-        onChangeInteractionMode={setInteractionMode}
       />
     </footer>
   );
@@ -274,8 +271,6 @@ function ResourcesSegment({
   elapsedMs,
   isRunning,
   onAbort,
-  interactionMode,
-  onChangeInteractionMode,
 }: {
   modelName?: string;
   usedTokens: number;
@@ -283,8 +278,6 @@ function ResourcesSegment({
   elapsedMs: number | null | undefined;
   isRunning: boolean;
   onAbort: () => void;
-  interactionMode: 'boss_proxy' | 'human_in_loop';
-  onChangeInteractionMode?: (mode: 'boss_proxy' | 'human_in_loop') => void;
 }) {
   return (
     <div className={`${SEGMENT_BASE_CLS} relative z-10`}>
@@ -321,30 +314,6 @@ function ResourcesSegment({
           <Square className="h-2.5 w-2.5 fill-current" />
           Stop
         </Button>
-      )}
-
-      <div className={DIVIDER_CLS} />
-
-      {onChangeInteractionMode && (
-        <SegmentedControl
-          size="sm"
-          ariaLabel="Interaction mode"
-          value={interactionMode}
-          onChange={(value) => onChangeInteractionMode(value as 'boss_proxy' | 'human_in_loop')}
-          items={[
-            {
-              value: 'boss_proxy',
-              label: 'Proxy',
-              ariaLabel: 'Route instructions through the boss proxy',
-            },
-            {
-              value: 'human_in_loop',
-              label: 'Human',
-              ariaLabel: 'Keep approvals and steering in the loop',
-            },
-          ]}
-          className="h-6 [&_button]:!h-5 [&_button]:!px-2 [&_button]:!text-[10px]"
-        />
       )}
 
       <div className={DIVIDER_CLS} />
