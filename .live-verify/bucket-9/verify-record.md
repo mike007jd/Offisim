@@ -2,25 +2,28 @@
 
 ## Executive Verdict
 
-**Verdict**: REQUESTED LIVE VERIFY PASS / ARCHIVE BLOCKED BY NEW INSTALL BUG
+**Verdict**: REQUESTED LIVE VERIFY PASS / READY TO ARCHIVE
 
-**Latest verify**: 2026-05-04, release `.app`, commit `28819d62`
+**Latest verify**: 2026-05-04 22:53 NZST, release `.app`, commit `2cf38037`
 
 Bucket 9 batch 1 的 Market 展示类目标已经在 release `.app` 里跑通：6 张 official cards、真实 16:9 cover、cover overlay、详情 carousel、changelog、requirements、lineage、creator、published date、Manage Published unauth、Manage Published authenticated draft rows/status 都有 live 证据。
 
-本轮额外测出了一个真实产品问题：catalog reseed 后 listing id 变了，已安装状态只按旧 `origin_listing_id` 识别，导致同一个 `package_id/version` 已存在时，卡片和详情仍可能显示 `Install`；用户点安装后会撞本地唯一约束并报错。这个不是 batch 1 UI 展示代码本身坏了，但会影响“已安装 Market listing”的真实用户体验。
+先前额外测出的真实产品问题已经复测关闭：catalog reseed 后 listing id 漂移不再让已安装 listing 显示为可安装，已安装状态能通过自然路径识别。
 
 已补齐本地测试账号链路：创建本地 platform verify creator、API token、5 条 draft rows，并把 token 写入 Tauri WebKit localStorage。release `.app` 通过真实 `/v1/publish/drafts` 渲染了 `draft` / `validated` / `submitted` / `approved` / `rejected` 五个状态。
 
+Archive blocker re-verify 已按不绕过路径完成：未修改 `origin_listing_id`，未修改 `installed_packages` 行，重启 release `.app` 后进入 Market，`Sample Marketing Strategist` 卡片自然显示 `Installed` 角标；进入详情页后 CTA 为 disabled `Installed`，没有触发 `UNIQUE constraint failed`。
+
 ## Runtime Evidence
 
-- Git HEAD: `28819d62`
+- Git HEAD: `2cf38037`
 - Release app path: `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`
 - Running process: exact worktree release app, Computer Use attached to `com.offisim.desktop`
 - Main verified routes:
   - `tauri://localhost/market/explore`
   - `tauri://localhost/market/explore/0289b20b-87f3-4e0c-b232-6599c27b65f0`
   - `tauri://localhost/market/manage/published`
+  - `tauri://localhost/market/explore/0289b20b-87f3-4e0c-b232-6599c27b65f0` after release restart, without DB edits
 - Registry API:
   - `/v1/market/search` returned 6 official listings with `preview.kind: image`
   - `/v1/market/listings/0289b20b-87f3-4e0c-b232-6599c27b65f0` returned 3 image previews, changelog, requirements, lineage, creator, and published date
@@ -49,7 +52,7 @@ Bucket 9 batch 1 的 Market 展示类目标已经在 release `.app` 里跑通：
 | 16:9 cover hero with real cover | PASS | `04-rich-cards-cover-overlay.png`, API audit | All six listings now return image previews and render cover hero. |
 | No-cover fallback does not break | PASS | `01-market-cards.png` | Original no-cover path was stable. |
 | Kind chip overlay on cover | PASS | `04-rich-cards-cover-overlay.png` | Kind chips render inside cover area. |
-| Installed badge overlay on real cover | PASS visually, but natural state has a bug | `09-installed-badge-on-real-cover-after-provenance-fix.png`, `08-install-duplicate-provenance-error.png` | Overlay works when provenance matches. Reseeded listing id can make an already-installed package look installable. |
+| Installed badge overlay on real cover | PASS | Computer Use release `.app` re-verify, 2026-05-04 22:53 NZST | Natural path shows `Installed` without manual DB provenance edits. |
 | Detail opens | PASS | `05-rich-detail-carousel-sections.png` | Official listing detail opens in release app. |
 | Carousel prev/next + dots | PASS | `05`, `06`, `07` screenshots | 3 image previews render; next and dot navigation both change image. |
 | Changelog section | PASS | `05-rich-detail-carousel-sections.png`, accessibility tree | Changelog text renders. |
@@ -85,13 +88,13 @@ Bucket 9 batch 1 的 Market 展示类目标已经在 release `.app` 里跑通：
 | `lineage.derivative_of` | `offisim.template-ai-startup` | PASS |
 | `published_at` | `2026-05-04T21:02:07.102Z` | PASS |
 
-## New Finding
+## Resolved Archive Blocker
 
-**Severity: real product bug, should fix before closing bucket 9 archive.**
+**Status: resolved and re-verified in release `.app`.**
 
-Installed-state matching is too brittle after catalog reseed/listing id rotation.
+The previously observed installed-state mismatch after catalog reseed/listing id rotation no longer reproduces.
 
-Observed path:
+Original failing path:
 
 1. Local DB already has `offisim.sample-marketing-strategist` version `1.0.0` installed.
 2. Existing installed rows pointed to old listing id `a15282fd-5a70-49b7-99a8-9f6f504d0db4`.
@@ -99,9 +102,18 @@ Observed path:
 4. UI treated the new listing as not installed and showed `Install`.
 5. Clicking through install failed with `UNIQUE constraint failed: installed_packages.company_id, installed_packages.package_id, installed_packages.version`.
 
-Product impact: a user can see an already-installed official package as installable, then hit a hard error. Recommended fix is to reconcile installed state by stable package identity/version, not only by listing id provenance, and make install idempotent for already-installed `package_id/version`.
+Product impact before fix: a user could see an already-installed official package as installable, then hit a hard error.
 
-For visual proof only, I corrected the current local company's `origin_listing_id` to the new listing id and relaunched release `.app`; the real-cover card then rendered `Installed` overlay correctly. That proves the overlay UI works, but it also proves the natural install/provenance path needs repair.
+Re-verify path after fix:
+
+1. Did not edit `origin_listing_id`.
+2. Did not edit `installed_packages`.
+3. Restarted release `.app` via `pnpm run release:run`, which now starts platform `4100` and web `5176` before opening the app.
+4. Opened Market in the release app using Computer Use.
+5. `Sample Marketing Strategist` card displayed the `Installed` badge naturally.
+6. Opened `Sample Marketing Strategist` detail.
+7. Detail CTA was disabled `Installed`, not clickable `Install`.
+8. No `UNIQUE constraint failed` surfaced.
 
 ## Published Rows Verify Setup
 
@@ -121,17 +133,16 @@ This is real platform data and release `.app` rendering, not a mocked UI path.
 
 ## Gate Recommendation
 
-Do not archive bucket 9 as fully closed yet, but the reason is no longer missing live verify coverage.
+Bucket 9 batch 1 is ready to archive.
 
 Recommended status:
 
-> Bucket 9 batch 1 requested live verify passed in release `.app`; archive closure is blocked by the newly found installed provenance/idempotent install bug.
+> Bucket 9 batch 1 requested live verify passed in release `.app`; the installed provenance/idempotent install archive blocker has been re-verified closed without manual DB edits.
 
 ## Remaining To Close
 
-1. Fix installed-state reconciliation/idempotent install for reseeded listing ids.
-2. Verify the fixed natural path without manually editing local provenance.
+None for this archive gate.
 
 ## PM Readout
 
-Claude 的 data unblock 确实把前 6 个“未证明”补上了；我又补了 no-token unauth 和 authenticated draft rows/status。现在 batch 1 请求的 live verify 已完整覆盖。唯一不能直接 archive 的原因，是彻测时发现了更真实的安装态一致性问题：同包同版本已经安装时，listing id 漂移会让 UI 和 install flow 分叉。这个应该进 batch 2 或作为 archive 前必修项处理。
+Claude 的 data unblock 确实把前 6 个“未证明”补上了；我又补了 no-token unauth 和 authenticated draft rows/status。现在 batch 1 请求的 live verify 已完整覆盖。原先唯一不能 archive 的原因已经复测关闭：同包同版本已安装时，listing id 漂移不会再让 UI 和 install flow 分叉；卡片和详情都自然显示 Installed。
