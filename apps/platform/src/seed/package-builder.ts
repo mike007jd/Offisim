@@ -80,8 +80,20 @@ export function buildSeedArtifact(payload: OfficialSeedPayload): SeedBuildResult
       supported_environments: payload.supported_environments,
     },
     requirements: {
-      required_capabilities: [],
-      required_mcps: [],
+      required_capabilities: payload.requirements?.required_capabilities
+        ? [...payload.requirements.required_capabilities]
+        : [],
+      required_mcps: payload.requirements?.required_mcps
+        ? [...payload.requirements.required_mcps]
+        : [],
+      ...(payload.requirements?.recommended_models
+        ? {
+            recommended_models: payload.requirements.recommended_models.map((m) => ({
+              profile: m.profile,
+              ...(m.reason ? { reason: m.reason } : {}),
+            })),
+          }
+        : {}),
     },
     permissions: {
       risk_class: payload.risk_class,
@@ -89,6 +101,21 @@ export function buildSeedArtifact(payload: OfficialSeedPayload): SeedBuildResult
       filesystem_scope: payload.filesystem_scope,
       network_scope: payload.network_scope,
     },
+    ...(payload.lineage
+      ? {
+          lineage: {
+            ...(payload.lineage.origin_package_id
+              ? { origin_package_id: payload.lineage.origin_package_id }
+              : {}),
+            ...(payload.lineage.forked_from_version
+              ? { forked_from_version: payload.lineage.forked_from_version }
+              : {}),
+            ...(payload.lineage.derivative_of
+              ? { derivative_of: [...payload.lineage.derivative_of] }
+              : {}),
+          },
+        }
+      : {}),
     assets: [
       {
         asset_id: payload.asset_id,

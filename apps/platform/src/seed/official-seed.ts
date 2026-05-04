@@ -140,6 +140,7 @@ async function insertOneListing(
       artifact_sha256: entry.packageSha256,
       artifact_size_bytes: entry.sizeBytes,
       status: 'active',
+      ...(payload.changelog ? { changelog: payload.changelog } : {}),
     })
     .returning({ package_version_id: packageVersions.package_version_id });
   if (!versionRow) {

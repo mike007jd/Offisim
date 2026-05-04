@@ -61,6 +61,20 @@ export interface OfficialSeedPayload {
    * `seed.source = 'offisim-official'`).
    */
   readonly customManifest?: Readonly<Record<string, unknown>>;
+  /** Optional changelog stamped on the version row. */
+  readonly changelog?: string;
+  /** Optional manifest.requirements override (default empty). */
+  readonly requirements?: {
+    readonly required_capabilities?: readonly string[];
+    readonly required_mcps?: readonly string[];
+    readonly recommended_models?: readonly { profile: string; reason?: string }[];
+  };
+  /** Optional manifest.lineage block. */
+  readonly lineage?: {
+    readonly origin_package_id?: string;
+    readonly forked_from_version?: string;
+    readonly derivative_of?: readonly string[];
+  };
 }
 
 export interface SeedBuildResult {

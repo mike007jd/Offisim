@@ -118,11 +118,18 @@ async function buildListingDetail(db: PlatformDb, listing: ListingRow, creator: 
     },
     lineage: manifest?.lineage ?? undefined,
     previews: previews.map((p) => ({
-      kind: p.kind,
+      kind: normalizePreviewKind(p.kind),
       url: p.url,
       alt: p.alt_text,
     })),
   };
+}
+
+function normalizePreviewKind(kind: string): 'icon' | 'image' | 'video' | 'readme' {
+  if (kind === 'icon' || kind === 'image' || kind === 'video' || kind === 'readme') {
+    return kind;
+  }
+  return 'image';
 }
 
 // ── Allowed status transitions for creators ──
@@ -152,8 +159,8 @@ market.get('/search', async (c) => {
   // Collect all listing IDs for batch queries (avoids N+1)
   const listingIds = result.items.map((row) => row.listings.listing_id);
 
-  // Batch fetch latest active versions and tags in 2 queries instead of 2N
-  const [allVersions, allTags] =
+  // Batch fetch latest active versions, tags, and first preview per listing
+  const [allVersions, allTags, allPreviews] =
     listingIds.length > 0
       ? await Promise.all([
           db
@@ -170,8 +177,13 @@ market.get('/search', async (c) => {
             .select({ listing_id: listingTags.listing_id, tag: listingTags.tag })
             .from(listingTags)
             .where(inArray(listingTags.listing_id, listingIds)),
+          db
+            .select()
+            .from(listingPreviews)
+            .where(inArray(listingPreviews.listing_id, listingIds))
+            .orderBy(listingPreviews.sort_order),
         ])
-      : [[], []];
+      : [[], [], []];
 
   // Build lookup maps — for versions, keep only the first (latest) per listing
   const versionMap = new Map<string, (typeof allVersions)[number]>();
@@ -191,11 +203,24 @@ market.get('/search', async (c) => {
     }
   }
 
+  // First preview per listing (sort_order ascending), normalized to client API kinds
+  const previewMap = new Map<string, { kind: string; url: string; alt: string | null }>();
+  for (const p of allPreviews) {
+    if (!previewMap.has(p.listing_id)) {
+      previewMap.set(p.listing_id, {
+        kind: normalizePreviewKind(p.kind),
+        url: p.url,
+        alt: p.alt_text,
+      });
+    }
+  }
+
   // Transform joined rows into ListingSummary shape (pure in-memory lookups)
   const items = result.items.map((row) => {
     const listing = row.listings;
     const creator = row.creators;
     const latestVersion = versionMap.get(listing.listing_id);
+    const preview = previewMap.get(listing.listing_id);
 
     return {
       listing_id: listing.listing_id,
@@ -214,6 +239,7 @@ market.get('/search', async (c) => {
       rating: listing.rating_avg ?? 0,
       install_count: listing.install_count ?? 0,
       tags: tagMap.get(listing.listing_id) ?? [],
+      ...(preview ? { preview } : {}),
     };
   });
 

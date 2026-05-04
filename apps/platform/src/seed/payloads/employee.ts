@@ -38,7 +38,44 @@ const HERO_SVG = `<?xml version="1.0" encoding="UTF-8"?>
   <text x="160" y="156" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#ffffff">Marketing Strategist</text>
 </svg>`;
 
+const SCREENSHOT_PIPELINE_SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Pipeline view">
+  <rect width="320" height="200" fill="#0f172a"/>
+  <text x="20" y="32" font-family="system-ui,sans-serif" font-size="11" fill="#94a3b8">Pipeline · Marketing strategist</text>
+  <g font-family="system-ui,sans-serif" font-size="10" fill="#e2e8f0">
+    <rect x="20" y="50" width="84" height="36" rx="6" fill="#1e293b" stroke="#a855f7" stroke-width="1"/>
+    <text x="62" y="73" text-anchor="middle">Research</text>
+    <rect x="118" y="50" width="84" height="36" rx="6" fill="#1e293b" stroke="#6366f1" stroke-width="1"/>
+    <text x="160" y="73" text-anchor="middle">Plan</text>
+    <rect x="216" y="50" width="84" height="36" rx="6" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+    <text x="258" y="73" text-anchor="middle">Launch</text>
+  </g>
+  <path d="M104 68 L118 68 M202 68 L216 68" stroke="#475569" stroke-width="1.5" fill="none"/>
+  <text x="20" y="120" font-family="system-ui,sans-serif" font-size="9" fill="#64748b">3 steps · drag to reorder · double-click to edit</text>
+  <rect x="20" y="138" width="280" height="42" rx="6" fill="#1e293b"/>
+  <text x="32" y="158" font-family="system-ui,sans-serif" font-size="10" fill="#e2e8f0">→ research user segments + competitor pricing</text>
+  <text x="32" y="172" font-family="system-ui,sans-serif" font-size="9" fill="#94a3b8">followed by trust calibration step</text>
+</svg>`;
+
+const SCREENSHOT_BRIEF_SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Brief view">
+  <rect width="320" height="200" fill="#fffbeb"/>
+  <rect x="20" y="20" width="280" height="160" rx="10" fill="#ffffff" stroke="#fde68a" stroke-width="1.5"/>
+  <text x="32" y="44" font-family="system-ui,sans-serif" font-size="11" font-weight="600" fill="#92400e">Q3 LAUNCH BRIEF · Marketing</text>
+  <line x1="32" y1="54" x2="288" y2="54" stroke="#fde68a"/>
+  <g font-family="system-ui,sans-serif" font-size="10" fill="#1f2937">
+    <text x="32" y="76">Audience: Mid-market PMs evaluating ML feature add-ons</text>
+    <text x="32" y="94">Trust frame: Show explainability traces + opt-out for sensitive flows</text>
+    <text x="32" y="112">Pricing: Tiered with usage-based overages</text>
+    <text x="32" y="130">Channels: Product blog + dev newsletter + 2 dev podcasts</text>
+    <text x="32" y="148">Risk: ML-confidence misread; mitigate with human-in-loop default</text>
+  </g>
+  <text x="32" y="172" font-family="system-ui,sans-serif" font-size="9" fill="#a16207">Drafted by Sample Marketing Strategist</text>
+</svg>`;
+
 const heroDataUri = `data:image/svg+xml;base64,${Buffer.from(HERO_SVG, 'utf8').toString('base64')}`;
+const screenshotPipelineUri = `data:image/svg+xml;base64,${Buffer.from(SCREENSHOT_PIPELINE_SVG, 'utf8').toString('base64')}`;
+const screenshotBriefUri = `data:image/svg+xml;base64,${Buffer.from(SCREENSHOT_BRIEF_SVG, 'utf8').toString('base64')}`;
 
 const employeeAsset = {
   name: 'Sample Marketing Strategist',
@@ -61,7 +98,24 @@ export const employeeSeed: OfficialSeedPayload = {
   filesystem_scope: 'workspace',
   network_scope: 'none',
   tags: ['employee', 'marketing', 'official'],
-  previews: [{ kind: 'hero', url: heroDataUri, alt_text: 'Sample marketing strategist avatar' }],
+  previews: [
+    { kind: 'hero', url: heroDataUri, alt_text: 'Sample marketing strategist avatar' },
+    { kind: 'screenshot', url: screenshotPipelineUri, alt_text: 'Pipeline view' },
+    { kind: 'screenshot', url: screenshotBriefUri, alt_text: 'Q3 launch brief' },
+  ],
+  changelog:
+    '1.0.0 — Initial release. Persona, pipeline template, and Q3 launch brief baseline shipped.',
+  requirements: {
+    required_capabilities: ['boss-route', 'pm-planner', 'memory-write'],
+    recommended_models: [
+      { profile: 'gpt-4o-mini', reason: 'Cheap planning + research summaries' },
+      { profile: 'claude-haiku-4-5', reason: 'Brief writing pass' },
+    ],
+  },
+  lineage: {
+    origin_package_id: 'offisim.template-ai-startup-product-manager',
+    derivative_of: ['offisim.template-ai-startup'],
+  },
   package_id: PACKAGE_ID,
   asset_id: ASSET_ID,
   assetFiles: {
