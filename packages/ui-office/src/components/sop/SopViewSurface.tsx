@@ -438,10 +438,11 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
     [],
   );
 
-  // --- Toolbar Add Step → open popover at canvas centre ---
+  // --- Toolbar Add Step → bump token; SopDagCanvas computes canvas centre ---
+  const [addStepRequestToken, setAddStepRequestToken] = useState(0);
   const handleAddStepFromToolbar = useCallback(() => {
     setContextMenu(null);
-    setAddStepPopover({ screenX: 0, screenY: 0, canvasX: 0, canvasY: 0 });
+    setAddStepRequestToken((t) => t + 1);
   }, []);
 
   // --- Double-click node → edit step ---
@@ -640,6 +641,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             onRemoveDependency={handleRemoveDependency}
             onDeleteStep={handleDeleteStep}
             onMoveStep={handleMoveStep}
+            addStepRequestToken={addStepRequestToken}
             onContextMenu={handleContextMenu}
             onDoubleClickCanvas={handleDoubleClickCanvas}
             onDoubleClickNode={handleDoubleClickNode}

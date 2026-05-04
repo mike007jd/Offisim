@@ -37,6 +37,9 @@ export interface SopDagCanvasProps {
   onRemoveDependency?: (fromStepId: string, toStepId: string) => void;
   onDeleteStep?: (stepId: string) => void;
   onMoveStep?: (stepId: string, x: number, y: number) => void;
+  /** Bumped by an external Add Step trigger (e.g. toolbar). Opens the
+   * add-step popover at canvas centre, with proper canvas-coord translation. */
+  addStepRequestToken?: number;
   onContextMenu?: (stepId: string, screenX: number, screenY: number) => void;
   onDoubleClickCanvas?: (
     canvasX: number,
@@ -115,6 +118,7 @@ export function SopDagCanvas({
   onAddDependency,
   onRemoveDependency,
   onMoveStep,
+  addStepRequestToken,
   onContextMenu: onContextMenuProp,
   onDoubleClickCanvas,
   onDoubleClickNode,
@@ -148,6 +152,21 @@ export function SopDagCanvas({
   const translateRef = useRef(translate);
   scaleRef.current = scale;
   translateRef.current = translate;
+
+  useEffect(() => {
+    if (!addStepRequestToken || !onDoubleClickCanvas) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const canvasX = Math.round((rect.width / 2 - translateRef.current.x) / scaleRef.current);
+    const canvasY = Math.round((rect.height / 2 - translateRef.current.y) / scaleRef.current);
+    onDoubleClickCanvas(
+      canvasX,
+      canvasY,
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+    );
+  }, [addStepRequestToken, onDoubleClickCanvas]);
 
   // Build runtime status map
   const statusMap = useMemo(() => {
@@ -227,7 +246,7 @@ export function SopDagCanvas({
     if (e.button !== 0) return;
     const mode = modeRef.current;
     if (mode.type !== 'idle') return;
-    // Canvas pan
+    e.preventDefault();
     modeRef.current = {
       type: 'panning',
       startX: e.clientX,
@@ -555,7 +574,7 @@ export function SopDagCanvas({
   return (
     <div
       ref={containerRef}
-      className={`flex-1 overflow-hidden relative ${cursorClass}`}
+      className={`flex-1 overflow-hidden relative select-none ${cursorClass}`}
       onWheel={handleWheel}
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMove}
@@ -645,6 +664,7 @@ export function SopDagCanvas({
                   width={node.width}
                   height={node.height}
                   fill="transparent"
+                  pointerEvents="all"
                   className="cursor-move"
                   onPointerDown={(e) => handleNodePointerDown(e, node)}
                   onContextMenu={(e) => handleNodeContextMenu(e, node.stepId)}
@@ -703,6 +723,7 @@ export function SopDagCanvas({
                     fill="transparent"
                     stroke="transparent"
                     strokeWidth={8}
+                    pointerEvents="all"
                   />
                   <circle
                     cx={ipx}
@@ -740,6 +761,7 @@ export function SopDagCanvas({
                     fill="transparent"
                     stroke="transparent"
                     strokeWidth={8}
+                    pointerEvents="all"
                   />
                   <circle
                     cx={opx}
