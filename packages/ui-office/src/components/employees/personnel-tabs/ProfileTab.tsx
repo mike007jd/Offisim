@@ -145,7 +145,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 pb-32">
+        <div className="grid w-full grid-cols-1 gap-x-8 gap-y-6 pb-32 lg:grid-cols-2">
           {/* Identity */}
           <section className="flex flex-col gap-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
@@ -455,7 +455,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
 
       {/* Sticky save bar */}
       <div className="shrink-0 border-t border-border-default bg-surface-elevated px-6 py-3 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3">
+        <div className="flex w-full items-center justify-between gap-3">
           <div className="flex flex-1 items-center gap-2">
             {isEditMode && !isConfirmingDelete && (
               <Button variant="destructive" size="sm" disabled={isSaving} onClick={requestDelete}>

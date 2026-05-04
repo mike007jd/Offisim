@@ -53,7 +53,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 pb-32">
+        <div className="flex w-full flex-col gap-6 pb-32">
           <section className="flex flex-col gap-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
               Execution binding
@@ -71,7 +71,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
 
       {isDirty && (
         <div className="shrink-0 border-t border-border-default bg-surface-elevated px-6 py-3 backdrop-blur-sm">
-          <div className="mx-auto flex w-full max-w-2xl items-center justify-end gap-3">
+          <div className="flex w-full items-center justify-end gap-3">
             <Button size="sm" disabled={isSaving} onClick={save}>
               <Save className="mr-1 h-3.5 w-3.5" />
               {isSaving ? 'Saving...' : 'Save'}

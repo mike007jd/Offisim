@@ -206,17 +206,17 @@ export function PersonnelPage({
           tabIndex={-1}
           className="flex min-h-0 flex-col border-r border-border-default bg-surface-elevated focus:outline-none focus:ring-2 focus:ring-border-focus"
         >
-          <div className={cn('border-b border-border-default', railCollapsed ? 'p-2' : 'p-4')}>
+          <div className={cn('border-b border-border-default', railCollapsed ? 'p-2' : 'p-3')}>
             <div className="flex items-center justify-between gap-2">
               {!railCollapsed && (
                 <div className="relative min-w-0 flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
                   <input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search employees..."
-                    className="h-10 w-full rounded-lg border border-border-default bg-surface py-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+                    className="h-9 w-full rounded-md border border-border-default bg-surface py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
                   />
                 </div>
               )}
@@ -461,39 +461,39 @@ function DetailHeader({ employee, onBack }: { employee: EmployeeRow; onBack?: ()
   const isExternal = employee.is_external === 1;
   const brand = isExternal ? lookupExternalBrand(employee.brand_key) : null;
   return (
-    <div className="flex shrink-0 flex-col items-center gap-3 border-b border-border-default bg-surface px-6 py-6">
+    <div className="flex shrink-0 items-center gap-4 border-b border-border-default bg-surface px-6 py-4">
       {onBack ? (
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 self-start rounded-lg border border-border-default bg-surface-muted px-3 py-1.5 text-xs text-text-secondary"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border-default bg-surface-muted px-2.5 py-1.5 text-xs text-text-secondary"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
           Back
         </button>
       ) : null}
-      <EmployeeAvatar agent={employee} size={96} />
-      <div className="flex flex-col items-center gap-1.5 text-center">
-        <h2 className="text-xl font-semibold text-text-primary">{employee.name}</h2>
-        <p className="text-sm text-text-secondary">
+      <EmployeeAvatar agent={employee} size={64} />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <h2 className="truncate text-lg font-semibold text-text-primary">{employee.name}</h2>
+        <p className="truncate text-xs text-text-secondary">
           {ROLE_LABELS[employee.role_slug] ?? employee.role_slug}
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-          <span
-            className={`rounded-full border px-2 py-0.5 text-[11px] ${
-              employee.enabled
-                ? 'border-success/40 bg-success-muted text-success'
-                : 'border-border-default bg-surface-muted text-text-muted'
-            }`}
-          >
-            {employee.enabled ? 'Enabled' : 'Disabled'}
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <span
+          className={`rounded-full border px-2 py-0.5 text-[11px] ${
+            employee.enabled
+              ? 'border-success/40 bg-success-muted text-success'
+              : 'border-border-default bg-surface-muted text-text-muted'
+          }`}
+        >
+          {employee.enabled ? 'Enabled' : 'Disabled'}
+        </span>
+        {brand && (
+          <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary">
+            External · {brand.displayName}
           </span>
-          {brand && (
-            <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary">
-              External · {brand.displayName}
-            </span>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
