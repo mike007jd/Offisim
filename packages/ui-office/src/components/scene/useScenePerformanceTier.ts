@@ -5,6 +5,16 @@ import type { SceneLightingTier } from './scene-performance-tier.js';
 
 const FRAME_WINDOW = 60;
 const UPGRADE_FRAMES = 90;
+/**
+ * Symmetric hysteresis on the downgrade direction. Without this, a single
+ * sub-threshold FPS sample (typical during a fast camera-orbit drag) fired
+ * `setTier(candidate)` instantly and stripped env map / spotlights /
+ * postprocessing for ~1.5 s until the upgrade window recovered — visible
+ * mid-rotation as a desaturated floor and dimmer hemisphere. 30 frames ≈
+ * 0.5 s @ 60 fps stays well below the 90-frame upgrade so genuine sustained
+ * slowdowns still react within a second.
+ */
+const DOWNGRADE_FRAMES = 30;
 const OFF_FALLBACK_MS = 3000;
 const FPS_REPORT_INTERVAL_MS = 250;
 
@@ -37,6 +47,7 @@ export function useScenePerformanceTier(requestForce2D?: () => void): {
   const [override, setOverride] = useState<SceneLightingTier | null>(() => getDevTierOverride());
   const frameTimesRef = useRef<number[]>([]);
   const upgradeFramesRef = useRef(0);
+  const downgradeFramesRef = useRef(0);
   const offSinceRef = useRef<number | null>(null);
   const lastFpsReportRef = useRef({ value: 0, at: 0 });
 
@@ -92,10 +103,15 @@ export function useScenePerformanceTier(requestForce2D?: () => void): {
 
     if (rank(candidate) < rank(tier)) {
       upgradeFramesRef.current = 0;
-      setTier(candidate);
+      downgradeFramesRef.current += 1;
+      if (downgradeFramesRef.current >= DOWNGRADE_FRAMES) {
+        downgradeFramesRef.current = 0;
+        setTier(candidate);
+      }
       return;
     }
     if (rank(candidate) > rank(tier)) {
+      downgradeFramesRef.current = 0;
       upgradeFramesRef.current += 1;
       if (upgradeFramesRef.current >= UPGRADE_FRAMES) {
         upgradeFramesRef.current = 0;
@@ -104,6 +120,7 @@ export function useScenePerformanceTier(requestForce2D?: () => void): {
       return;
     }
     upgradeFramesRef.current = 0;
+    downgradeFramesRef.current = 0;
   });
 
   // Mirror current tier into scene.userData so DevLightingPanel and external
