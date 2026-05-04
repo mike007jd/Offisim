@@ -49,7 +49,6 @@ export interface SopViewSurfaceProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const noop = () => {};
 
 /**
  * Pure decision for the "SOP deleted" recovery effect. Extracted for unit
@@ -439,6 +438,12 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
     [],
   );
 
+  // --- Toolbar Add Step → open popover at canvas centre ---
+  const handleAddStepFromToolbar = useCallback(() => {
+    setContextMenu(null);
+    setAddStepPopover({ screenX: 0, screenY: 0, canvasX: 0, canvasY: 0 });
+  }, []);
+
   // --- Double-click node → edit step ---
   const handleDoubleClickNode = useCallback(
     (stepId: string, screenX: number, screenY: number) => {
@@ -574,8 +579,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
           onRun={handleRun}
           onDelete={handleDelete}
           onSync={handleSync}
-          onCreateClick={() => setEditorOpen(true)}
-          onImportClick={() => setImportOpen(true)}
+          onAddStep={editMode ? handleAddStepFromToolbar : undefined}
           onToggleSidebar={tier === 'narrow' ? () => setSidebarDrawerOpen(true) : undefined}
           editMode={tier === 'narrow' ? false : editMode}
           onEditModeToggle={tier === 'narrow' ? undefined : handleEditModeToggle}
@@ -635,7 +639,6 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             onAddDependency={handleAddDependency}
             onRemoveDependency={handleRemoveDependency}
             onDeleteStep={handleDeleteStep}
-            onAddStep={noop}
             onMoveStep={handleMoveStep}
             onContextMenu={handleContextMenu}
             onDoubleClickCanvas={handleDoubleClickCanvas}

@@ -1,5 +1,5 @@
 import { Button } from '@offisim/ui-core';
-import { Download, LayoutGrid, Menu, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { LayoutGrid, Menu, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -12,8 +12,7 @@ export interface SopLibraryBarProps {
   onRun: () => void;
   onDelete: () => void;
   onSync: () => void;
-  onCreateClick: () => void;
-  onImportClick: () => void;
+  onAddStep?: () => void;
   onToggleSidebar?: () => void;
   editMode?: boolean;
   onEditModeToggle?: () => void;
@@ -31,8 +30,7 @@ export function SopLibraryBar({
   onRun,
   onDelete,
   onSync,
-  onCreateClick,
-  onImportClick,
+  onAddStep,
   onToggleSidebar,
   editMode,
   onEditModeToggle,
@@ -64,7 +62,6 @@ export function SopLibraryBar({
         </Button>
       )}
 
-      {/* Action buttons */}
       <Button
         variant="default"
         size="sm"
@@ -74,34 +71,7 @@ export function SopLibraryBar({
       >
         <Play className="w-3 h-3" /> Run
       </Button>
-      <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={onImportClick}>
-        <Download className="w-3 h-3" /> Import
-      </Button>
-      <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={onCreateClick}>
-        <Plus className="w-3 h-3" /> Create
-      </Button>
 
-      {/* Conditional: Delete */}
-      {selectedSopId && (
-        <Button
-          variant="outline"
-          size="sm"
-          className={`h-7 gap-1 text-xs ${confirmDelete ? 'border-error text-error' : ''}`}
-          onClick={handleDelete}
-        >
-          <Trash2 className="w-3 h-3" />
-          {confirmDelete ? 'Confirm' : 'Delete'}
-        </Button>
-      )}
-
-      {/* Conditional: Sync */}
-      {selectedSopId && hasSourceUrl && (
-        <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={onSync}>
-          <RefreshCw className="w-3 h-3" /> Sync
-        </Button>
-      )}
-
-      {/* Edit mode toggle */}
       {allowEditMode && selectedSopId && onEditModeToggle && (
         <Button
           variant="outline"
@@ -114,10 +84,35 @@ export function SopLibraryBar({
         </Button>
       )}
 
-      {/* Auto Layout (edit mode only) */}
+      {allowEditMode && selectedSopId && editMode && onAddStep && (
+        <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={onAddStep}>
+          <Plus className="w-3 h-3" /> Add Step
+        </Button>
+      )}
+
       {allowEditMode && selectedSopId && editMode && onAutoLayout && (
         <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={onAutoLayout}>
           <LayoutGrid className="w-3 h-3" /> Auto Layout
+        </Button>
+      )}
+
+      <div className="flex-1" />
+
+      {selectedSopId && hasSourceUrl && (
+        <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={onSync}>
+          <RefreshCw className="w-3 h-3" /> Sync
+        </Button>
+      )}
+
+      {selectedSopId && (
+        <Button
+          variant="outline"
+          size="sm"
+          className={`h-7 gap-1 text-xs ${confirmDelete ? 'border-error text-error' : ''}`}
+          onClick={handleDelete}
+        >
+          <Trash2 className="w-3 h-3" />
+          {confirmDelete ? 'Confirm' : 'Delete'}
         </Button>
       )}
     </div>

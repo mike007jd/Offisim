@@ -1,4 +1,3 @@
-import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SopRuntimeStepState } from '../../hooks/useSopRuntimeState';
 import { SopDagEdge, buildBezierPath } from './SopDagEdge';
@@ -37,7 +36,6 @@ export interface SopDagCanvasProps {
   onAddDependency?: (fromStepId: string, toStepId: string) => void;
   onRemoveDependency?: (fromStepId: string, toStepId: string) => void;
   onDeleteStep?: (stepId: string) => void;
-  onAddStep?: () => void;
   onMoveStep?: (stepId: string, x: number, y: number) => void;
   onContextMenu?: (stepId: string, screenX: number, screenY: number) => void;
   onDoubleClickCanvas?: (
@@ -116,7 +114,6 @@ export function SopDagCanvas({
   editMode,
   onAddDependency,
   onRemoveDependency,
-  onAddStep,
   onMoveStep,
   onContextMenu: onContextMenuProp,
   onDoubleClickCanvas,
@@ -759,33 +756,6 @@ export function SopDagCanvas({
         </g>
       </svg>
 
-      {/* Add step button (edit mode) */}
-      {editMode && onAddStep && (
-        <button
-          type="button"
-          onClick={() => {
-            const el = containerRef.current;
-            if (!el) return onAddStep();
-            const rect = el.getBoundingClientRect();
-            const canvasX = Math.round(
-              (rect.width / 2 - translateRef.current.x) / scaleRef.current,
-            );
-            const canvasY = Math.round(
-              (rect.height / 2 - translateRef.current.y) / scaleRef.current,
-            );
-            onDoubleClickCanvas?.(
-              canvasX,
-              canvasY,
-              rect.left + rect.width / 2,
-              rect.top + rect.height / 2,
-            );
-          }}
-          className="absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full border border-border-focus bg-accent-muted px-3 py-2 text-sm font-medium text-accent-text backdrop-blur-sm transition hover:bg-surface-hover"
-        >
-          <Plus className="h-4 w-4" />
-          Add Step
-        </button>
-      )}
     </div>
   );
 }
