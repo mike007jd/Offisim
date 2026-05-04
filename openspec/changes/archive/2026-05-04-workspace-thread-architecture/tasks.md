@@ -23,8 +23,8 @@
 
 ## 4. conversationKey shape change — chat-streaming-ux delta
 
-- [ ] 4.1 Update `getScopedConversationKey()` (or equivalent in `packages/ui-office/src/runtime/use-chat-session-store.ts` / wherever the SSOT lives) to derive from `(projectId, threadId, employeeId?)` and emit shape `<projectId>::<threadId>::<employeeId?>`.
-- [ ] 4.2 Update all callers (`ChatPanel.handleSend`, `handleSwapPerson`, retry paths, `interaction-follow-up.ts`, outcome mappers) to pass `threadId` from `OfficeSessionState.selectedThreadId`.
+- [x] 4.1 `getScopedConversationKey()` widened (Session A) to derive from `(projectId, threadId, employeeId?)` and emit `<projectId>::<threadId>::<employeeId?>`.
+- [x] 4.2 ChatPanel `handleSend` / `handleSwapPerson` / retry / `interaction-follow-up.ts` / outcome mappers all pass `threadId` (Session A); ChatPanel now reads `activeThreadId` prop sourced from `OfficeSessionState.selectedThreadId` (Section 7).
 - [x] 4.3 `OrchestrationService.execute()` now accepts `projectId?: string | null`; threaded through `_executeInner → ensureExecutionThread(threadId, entryMode, projectId)` so `graph_threads.project_id` is written on first chat use, and through `fullInput.projectId` so `OffisimGraphState.projectId` is populated. `ThreadRepository` gained `updateProject(threadId, projectId)` (memory / drizzle / Tauri SQL) so rows that pre-dated the plumbing or were bootstrapped by background_sync get backfilled when the first scoped turn arrives. Closes the workspace_root resolver hole the canonical tauri-runtime gotcha calls out (Runtime workspace binding SSOT).
 - [x] 4.4 Verified: `useChatStreamingSync.matchActiveRunScope()` continues to scope by string equality `event.payload.chatConversationKey === store.activeRun.conversationKey`. `chatScopeFields()` now stamps `chatConversationKey` (full 3-segment key string), `chatRunId`, and `chatThreadId` onto every chat-affecting event payload. No listener logic change required — the new `<projectId>::<threadId>::<employeeId?>` shape passes through unchanged.
 - [x] 4.5 Verified: `bossSummaryNode`'s direct-chat suppression branch (`state.entryMode === 'direct_chat' && !!state.targetEmployeeId`) reads only graph state fields, not `conversationKey`. New key shape has no effect on the suppression path.
@@ -110,7 +110,7 @@
 ## 14. Live verification (release `.app` + web SPA for narrow tier)
 
 - [x] 14.1 Built release `.app`: `pnpm --filter @offisim/ui-office build && pnpm --filter @offisim/web build && pnpm --filter @offisim/desktop build` (web build chained automatically by `apps/web build` Cargo step). Bundle path: `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`.
-- [ ] 14.2 (USER) Launch the worktree's exact `.app` path: `open /Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. Must be the literal path — do NOT use `open -b com.offisim.desktop` (multi-worktree gotcha).
+- [x] 14.2 Launched the worktree `.app` (Codex Computer Use) at `/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`. Repeat across 4 reverify cycles after fixes B/E/F/H.
 - [x] 14.3 Scenario A — multi-thread isolation. PASS. `14.3-T1-only.png` + `14.3-T2-only.png` saved.
 - [x] 14.4 Scenario B — boss auto title. Initially FAIL (title persisted in DB but rail stayed on `New thread`); root-cause-fixed in commit `c0f076ed` by adding `chat_thread.updated` event family + ThreadList/WorkspaceSearch subscribe; reverify PASS.
 - [x] 14.5 Scenario C — user rename sticky. PASS.
