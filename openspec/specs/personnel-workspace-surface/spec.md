@@ -199,6 +199,25 @@ Inline literals of `'data-[state=inactive]:hidden'` SHALL NOT appear in `Personn
 - **AND** every such `<TabsContent>` SHALL apply `TABS_RETAIN_STATE_CLASS` (e.g. via `cn(...)`)
 - **AND** zero matches for the literal `'data-[state=inactive]:hidden'` SHALL exist in the file
 
+### Requirement: Personnel detail layout uses the full editor pane in release
+
+The Personnel detail surface SHALL use the available editor pane width in Tauri release `.app` instead of centering all editable content in a narrow profile column. The employee detail header SHALL remain a horizontal information row at desktop width, and all inspector tabs SHALL preserve the same pane-width layout budget.
+
+#### Scenario: Detail header is horizontal at desktop width
+- **WHEN** Personnel is opened in release `.app` at desktop width and an employee is selected
+- **THEN** the avatar renders on the left, the name/role text renders in the middle, and status/source chips render on the right
+- **AND** the header does NOT collapse into a centered vertical stack
+
+#### Scenario: Profile tab is multi-column at desktop width
+- **WHEN** the Profile tab is active at desktop width
+- **THEN** Identity / Persona / Config / Skills content uses the editor pane width with multi-column layout where space allows
+- **AND** the tab body is NOT clamped to a centered `max-w-2xl` style column
+
+#### Scenario: Secondary tabs span the same pane
+- **WHEN** the user switches through Appearance, Runtime, Skills, Memory, and History
+- **THEN** each tab uses the same right-side editor pane width as Profile
+- **AND** forms/lists do not revert to a narrow centered column
+
 #### Scenario: Profile unsaved edits survive tab swap
 
 - **WHEN** the user types text into a Profile tab field, then clicks the Skills tab and back to Profile
@@ -249,4 +268,3 @@ The right inspector `<section>` SHALL retain its `min-h-[560px]` regardless of t
 - **WHEN** the viewport is < 1280 px and Personnel is open
 - **THEN** the list rail, center detail, and right inspector SHALL stack vertically (flex column)
 - **AND** the inspector pane in the stacked layout SHALL still apply `min-h-[560px]`
-

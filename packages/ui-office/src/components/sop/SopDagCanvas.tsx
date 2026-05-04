@@ -96,7 +96,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function handlePortKeyDown(event: React.KeyboardEvent<SVGGElement>, action: () => void): void {
+function handlePortKeyDown(event: React.KeyboardEvent<SVGElement>, action: () => void): void {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
     event.stopPropagation();
@@ -136,6 +136,8 @@ export function SopDagCanvas({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   const [hoveredInputStepId, setHoveredInputStepId] = useState<string | null>(null);
+  const [hoveredOutputStepId, setHoveredOutputStepId] = useState<string | null>(null);
+  const [hoveredEdgeKey, setHoveredEdgeKey] = useState<string | null>(null);
 
   // Node offset during drag (single-node, optimistic UI)
   const [dragOffset, setDragOffset] = useState<{
@@ -387,6 +389,7 @@ export function SopDagCanvas({
         }
         setConnectingFrom(null);
         setHoveredInputStepId(null);
+        setHoveredOutputStepId(null);
         modeRef.current = { type: 'idle' };
         return;
       }
@@ -395,9 +398,24 @@ export function SopDagCanvas({
   );
 
   // --- Port drag start ---
-  const handlePortDragStart = useCallback((stepId: string) => {
+  const handlePortDragStart = useCallback((stepId: string, e?: React.PointerEvent<SVGElement>) => {
+    if (e) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setMousePos({
+          x: (e.clientX - rect.left - translateRef.current.x) / scaleRef.current,
+          y: (e.clientY - rect.top - translateRef.current.y) / scaleRef.current,
+        });
+      }
+      try {
+        (e.currentTarget as Element).setPointerCapture(e.pointerId);
+      } catch {
+        // Pointer capture is best-effort; coordinate hit-testing is the source of truth.
+      }
+    }
     modeRef.current = { type: 'connecting', fromStepId: stepId };
     setConnectingFrom(stepId);
+    setHoveredOutputStepId(stepId);
   }, []);
 
   // --- Port drop (target node) ---
@@ -406,6 +424,7 @@ export function SopDagCanvas({
       const resetState = () => {
         setConnectingFrom(null);
         setHoveredInputStepId(null);
+        setHoveredOutputStepId(null);
         modeRef.current = { type: 'idle' };
       };
       if (!connectingFrom || connectingFrom === targetStepId) {
@@ -430,6 +449,7 @@ export function SopDagCanvas({
       if (e.key === 'Escape') {
         setConnectingFrom(null);
         setHoveredInputStepId(null);
+        setHoveredOutputStepId(null);
         modeRef.current = { type: 'idle' };
       }
     };
@@ -461,6 +481,7 @@ export function SopDagCanvas({
       }
       setConnectingFrom(null);
       setHoveredInputStepId(null);
+      setHoveredOutputStepId(null);
       modeRef.current = { type: 'idle' };
     };
 
@@ -571,6 +592,9 @@ export function SopDagCanvas({
       ? 'cursor-grabbing'
       : 'cursor-grab';
 
+  const graphTransform = `translate(${translate.x}, ${translate.y}) scale(${scale})`;
+  const graphCssTransform = `translate(${translate.x}px, ${translate.y}px) scale(${scale})`;
+
   return (
     <div
       ref={containerRef}
@@ -582,7 +606,14 @@ export function SopDagCanvas({
       onPointerLeave={handlePointerUp}
       onDoubleClick={handleCanvasDoubleClick}
     >
-      <svg width="100%" height="100%" role="img" aria-label="SOP workflow DAG">
+      <svg
+        className="absolute inset-0"
+        width="100%"
+        height="100%"
+        role="img"
+        aria-label="SOP workflow DAG"
+        style={{ pointerEvents: 'none' }}
+      >
         <title>SOP workflow DAG</title>
         {/* Dot grid background */}
         <defs>
@@ -603,15 +634,13 @@ export function SopDagCanvas({
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#sop-dot-grid)" pointerEvents="none" />
-        <g transform={`translate(${translate.x}, ${translate.y}) scale(${scale})`}>
+        <g transform={graphTransform} pointerEvents="none">
           {/* Edges */}
           {adjustedEdges.map((edge) => (
             <SopDagEdge
               key={`${edge.fromStepId}-${edge.toStepId}`}
               edge={edge}
               status={getEdgeStatus(edge.fromStepId)}
-              editMode={editMode}
-              onDisconnect={onRemoveDependency}
             />
           ))}
           {/* Temporary connecting line */}
@@ -625,29 +654,106 @@ export function SopDagCanvas({
               strokeLinecap="round"
             />
           )}
-          {/* Nodes via foreignObject */}
-          {layout.nodes.map((node) => {
-            const pos = getNodePos(node);
-            return (
-              <foreignObject
-                key={node.stepId}
-                x={pos.x}
-                y={pos.y}
-                width={node.width}
-                height={node.height}
-                style={editMode ? { pointerEvents: 'none' as const } : undefined}
-              >
-                <SopDagNode
-                  step={node.step}
-                  status={getStatus(node.stepId)}
-                  selected={selectedStepId === node.stepId}
-                  editMode={editMode}
-                  onStepClick={handleNodeClick}
-                  roleMissing={missingRoleSet?.has(node.step.role_slug) ?? false}
-                />
-              </foreignObject>
-            );
-          })}
+        </g>
+      </svg>
+
+      <div
+        className="absolute left-0 top-0"
+        style={{
+          width: layout.totalWidth,
+          height: layout.totalHeight,
+          transform: graphCssTransform,
+          transformOrigin: '0 0',
+          pointerEvents: editMode ? 'none' : 'auto',
+          willChange: 'transform',
+        }}
+      >
+        {layout.nodes.map((node) => {
+          const pos = getNodePos(node);
+          return (
+            <div
+              key={node.stepId}
+              className="absolute"
+              style={{
+                left: pos.x,
+                top: pos.y,
+                width: node.width,
+                height: node.height,
+              }}
+            >
+              <SopDagNode
+                step={node.step}
+                status={getStatus(node.stepId)}
+                selected={selectedStepId === node.stepId}
+                editMode={editMode}
+                onStepClick={handleNodeClick}
+                roleMissing={missingRoleSet?.has(node.step.role_slug) ?? false}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      <svg
+        className="absolute inset-0"
+        width="100%"
+        height="100%"
+        aria-hidden={editMode ? undefined : true}
+        style={{ pointerEvents: editMode ? 'auto' : 'none' }}
+      >
+        <g transform={graphTransform}>
+          {/* Edge disconnect hit areas live above the HTML node layer without
+              owning blank-canvas pointer events. */}
+          {editMode &&
+            onRemoveDependency &&
+            adjustedEdges.map((edge) => {
+              const edgeKey = `${edge.fromStepId}-${edge.toStepId}`;
+              const d = buildBezierPath(edge.fromPoint, edge.toPoint);
+              const hovered = hoveredEdgeKey === edgeKey;
+              return (
+                <g key={`${edgeKey}-interaction`}>
+                  {/* biome-ignore lint/a11y/useKeyWithClickEvents: SVG path cannot have keyboard events */}
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={14}
+                    strokeLinecap="round"
+                    pointerEvents="stroke"
+                    className="cursor-pointer"
+                    onMouseEnter={() => setHoveredEdgeKey(edgeKey)}
+                    onMouseLeave={() => setHoveredEdgeKey(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveDependency(edge.fromStepId, edge.toStepId);
+                    }}
+                  />
+                  {hovered && (
+                    <>
+                      <circle
+                        cx={(edge.fromPoint.x + edge.toPoint.x) / 2}
+                        cy={(edge.fromPoint.y + edge.toPoint.y) / 2}
+                        r={8}
+                        fill="var(--color-error-muted-val)"
+                        pointerEvents="none"
+                      />
+                      <text
+                        x={(edge.fromPoint.x + edge.toPoint.x) / 2}
+                        y={(edge.fromPoint.y + edge.toPoint.y) / 2}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fill="var(--color-error-val)"
+                        fontSize={12}
+                        fontWeight="bold"
+                        pointerEvents="none"
+                      >
+                        ×
+                      </text>
+                    </>
+                  )}
+                </g>
+              );
+            })}
           {/* Edit mode: transparent drag rects over nodes */}
           {editMode &&
             layout.nodes.map((node) => {
@@ -686,9 +792,26 @@ export function SopDagCanvas({
               connectingFrom !== node.stepId &&
               canConnect !== undefined &&
               !canConnect(connectingFrom, node.stepId);
-            const inputStroke = isHoveredRejection ? INPUT_PORT_REJECT_STROKE : INPUT_PORT_STROKE;
+            const isHoveredAccept =
+              portsInteractive &&
+              connectingFrom !== null &&
+              hoveredInputStepId === node.stepId &&
+              connectingFrom !== node.stepId &&
+              !isHoveredRejection;
+            const inputStroke = isHoveredRejection
+              ? INPUT_PORT_REJECT_STROKE
+              : isHoveredAccept
+                ? OUTPUT_PORT_STROKE
+                : INPUT_PORT_STROKE;
+            const outputHovered =
+              portsInteractive &&
+              (hoveredOutputStepId === node.stepId || connectingFrom === node.stepId);
             return (
-              <g key={`${node.stepId}-ports`} className={portGroupClass}>
+              <g
+                key={`${node.stepId}-ports`}
+                className={portGroupClass}
+                pointerEvents={portsInteractive ? undefined : 'none'}
+              >
                 {/* Input port hit area + visual. Pointer handler sits on the
                     painted hit circle directly — putting it on the parent <g>
                     relies on event bubbling through SVG groups which Tauri /
@@ -704,6 +827,16 @@ export function SopDagCanvas({
                   className={portsInteractive ? 'cursor-crosshair' : undefined}
                   aria-label={`Connect dependency into ${node.step.label}`}
                   tabIndex={portsInteractive ? 0 : -1}
+                  onPointerEnter={() => {
+                    if (portsInteractive && connectingFrom) {
+                      setHoveredInputStepId(node.stepId);
+                    }
+                  }}
+                  onPointerLeave={() => {
+                    if (portsInteractive && hoveredInputStepId === node.stepId) {
+                      setHoveredInputStepId(null);
+                    }
+                  }}
                   onPointerDown={(e) => {
                     if (!portsInteractive) return;
                     e.preventDefault();
@@ -719,10 +852,10 @@ export function SopDagCanvas({
                 <circle
                   cx={ipx}
                   cy={ipy}
-                  r={7}
+                  r={isHoveredAccept || isHoveredRejection ? 8.5 : 7}
                   fill={PORT_FILL}
                   stroke={inputStroke}
-                  strokeWidth={2.5}
+                  strokeWidth={isHoveredAccept || isHoveredRejection ? 3.5 : 2.5}
                   pointerEvents="none"
                 />
                 {/* Output port (connection source) */}
@@ -737,11 +870,19 @@ export function SopDagCanvas({
                   className={portsInteractive ? 'cursor-crosshair' : undefined}
                   aria-label={`Create dependency from ${node.step.label}`}
                   tabIndex={portsInteractive ? 0 : -1}
+                  onPointerEnter={() => {
+                    if (portsInteractive) setHoveredOutputStepId(node.stepId);
+                  }}
+                  onPointerLeave={() => {
+                    if (portsInteractive && connectingFrom !== node.stepId) {
+                      setHoveredOutputStepId(null);
+                    }
+                  }}
                   onPointerDown={(e) => {
                     if (!portsInteractive) return;
                     e.preventDefault();
                     e.stopPropagation();
-                    handlePortDragStart(node.stepId);
+                    handlePortDragStart(node.stepId, e);
                   }}
                   onKeyDown={(e) =>
                     handlePortKeyDown(e, () => {
@@ -753,10 +894,10 @@ export function SopDagCanvas({
                 <circle
                   cx={opx}
                   cy={opy}
-                  r={7}
+                  r={outputHovered ? 8.5 : 7}
                   fill={PORT_FILL}
                   stroke={OUTPUT_PORT_STROKE}
-                  strokeWidth={2.5}
+                  strokeWidth={outputHovered ? 3.5 : 2.5}
                   pointerEvents="none"
                 />
               </g>

@@ -178,6 +178,7 @@ catalog/
 - **desktop 是纯 Tauri 壳**: 零 npm deps, frontendDist 直接指 `../../web/dist`
 - **desktop Rust 端 plugin 三件套** (Phase 1c 补齐): `Cargo.toml` `tauri-plugin-fs = "2"` + `lib.rs` `.plugin(tauri_plugin_fs::init())` + `capabilities/default.json` `fs:default` + `fs:allow-app-{read,write,meta}-recursive`。**动 vault / Tauri fs 路径前核对这三处都在**, 任一缺失都是 runtime 静默 no-op (Phase 1c 翻车原点)
 - **desktop 必须 single-instance**: `tauri-plugin-single-instance = "2"` 要放在 `apps/desktop/src-tauri/src/lib.rs` 的 `.plugin(...)` 最前面，先于 `tauri-plugin-sql` / 其他 plugin 初始化。否则第二个 Tauri dev / binary 会和已运行实例共用 `appDataDir/offisim.db`，撞上 SQLite 写锁后表现成前端 runtime 初始化挂住、黑屏 webview。
+- **SOP DAG release 渲染硬规则**：Tauri release `.app` 下，SOP DAG 的 node face 不得再放进 SVG `foreignObject`。需要和 ports / edges / drag hit 区同步 transform 的可交互图元，必须采用 HTML node overlay + SVG interaction layer，并用同一 graph translate/scale；否则 WebKit 会出现卡片不动、ports/edges 单独移动的分层错位。
 - **`isTauri()` 统一认 `__TAURI_INTERNALS__`**: Tauri 2 默认 `withGlobalTauri:false` 不注入 `__TAURI__`。新代码不要再依赖 `window.__TAURI__`
 - **8 阶段 ceremony**: idle → gathering → analyzing → planning → dispatching → working → reporting → dismissing
 - **本地工具路由 SSOT**: `packages/core/src/agents/task-tool-intent.ts`（`detectTaskToolIntent` + `evidenceToolsForIntent`）。boss / pm-planner preflight / yolo / direct-setup 在入口算一次存到 `state.taskToolIntent`，下游消费 state field（不许再 grep 文本）。Bare-noun / narrative prose 不触发；只接 verb+object pairs / 显式 tool tokens / 中文 imperative。
