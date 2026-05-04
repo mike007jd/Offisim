@@ -635,11 +635,7 @@ export function SopDagCanvas({
                 y={pos.y}
                 width={node.width}
                 height={node.height}
-                style={
-                  editMode && dragOffset?.stepId === node.stepId
-                    ? { pointerEvents: 'none' as const }
-                    : undefined
-                }
+                style={editMode ? { pointerEvents: 'none' as const } : undefined}
               >
                 <SopDagNode
                   step={node.step}
@@ -693,17 +689,21 @@ export function SopDagCanvas({
             const inputStroke = isHoveredRejection ? INPUT_PORT_REJECT_STROKE : INPUT_PORT_STROKE;
             return (
               <g key={`${node.stepId}-ports`} className={portGroupClass}>
-                {/* Input port (connection target).
-                    Hover/release resolution is coordinate-based via
-                    findInputPortAtPoint — keep this group for visuals + a11y
-                    only, no SVG-level pointer hover/up handlers (would race
-                    the window-capture pointerup handler). */}
-                {/* biome-ignore lint/a11y/useSemanticElements: SVG group cannot be button */}
-                <g
-                  role="button"
-                  tabIndex={portsInteractive ? 0 : -1}
-                  aria-label={`Connect dependency into ${node.step.label}`}
+                {/* Input port hit area + visual. Pointer handler sits on the
+                    painted hit circle directly — putting it on the parent <g>
+                    relies on event bubbling through SVG groups which Tauri /
+                    WebKit drops for transparent-fill children. */}
+                <circle
+                  cx={ipx}
+                  cy={ipy}
+                  r={11}
+                  fill="transparent"
+                  stroke="transparent"
+                  strokeWidth={8}
+                  pointerEvents="all"
                   className={portsInteractive ? 'cursor-crosshair' : undefined}
+                  aria-label={`Connect dependency into ${node.step.label}`}
+                  tabIndex={portsInteractive ? 0 : -1}
                   onPointerDown={(e) => {
                     if (!portsInteractive) return;
                     e.preventDefault();
@@ -715,32 +715,28 @@ export function SopDagCanvas({
                       handlePortDrop(node.stepId);
                     })
                   }
-                >
-                  <circle
-                    cx={ipx}
-                    cy={ipy}
-                    r={11}
-                    fill="transparent"
-                    stroke="transparent"
-                    strokeWidth={8}
-                    pointerEvents="all"
-                  />
-                  <circle
-                    cx={ipx}
-                    cy={ipy}
-                    r={7}
-                    fill={PORT_FILL}
-                    stroke={inputStroke}
-                    strokeWidth={2.5}
-                  />
-                </g>
+                />
+                <circle
+                  cx={ipx}
+                  cy={ipy}
+                  r={7}
+                  fill={PORT_FILL}
+                  stroke={inputStroke}
+                  strokeWidth={2.5}
+                  pointerEvents="none"
+                />
                 {/* Output port (connection source) */}
-                {/* biome-ignore lint/a11y/useSemanticElements: SVG group cannot be button */}
-                <g
-                  role="button"
-                  tabIndex={portsInteractive ? 0 : -1}
-                  aria-label={`Create dependency from ${node.step.label}`}
+                <circle
+                  cx={opx}
+                  cy={opy}
+                  r={11}
+                  fill="transparent"
+                  stroke="transparent"
+                  strokeWidth={8}
+                  pointerEvents="all"
                   className={portsInteractive ? 'cursor-crosshair' : undefined}
+                  aria-label={`Create dependency from ${node.step.label}`}
+                  tabIndex={portsInteractive ? 0 : -1}
                   onPointerDown={(e) => {
                     if (!portsInteractive) return;
                     e.preventDefault();
@@ -753,25 +749,16 @@ export function SopDagCanvas({
                       handlePortDragStart(node.stepId);
                     })
                   }
-                >
-                  <circle
-                    cx={opx}
-                    cy={opy}
-                    r={11}
-                    fill="transparent"
-                    stroke="transparent"
-                    strokeWidth={8}
-                    pointerEvents="all"
-                  />
-                  <circle
-                    cx={opx}
-                    cy={opy}
-                    r={7}
-                    fill={PORT_FILL}
-                    stroke={OUTPUT_PORT_STROKE}
-                    strokeWidth={2.5}
-                  />
-                </g>
+                />
+                <circle
+                  cx={opx}
+                  cy={opy}
+                  r={7}
+                  fill={PORT_FILL}
+                  stroke={OUTPUT_PORT_STROKE}
+                  strokeWidth={2.5}
+                  pointerEvents="none"
+                />
               </g>
             );
           })}
