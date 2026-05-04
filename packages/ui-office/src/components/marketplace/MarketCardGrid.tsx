@@ -2,6 +2,7 @@ import type { ListingSummary } from '@offisim/registry-client';
 import { Skeleton } from '@offisim/ui-core';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
+import { packageInstallKey } from '../../hooks/useInstalledListings.js';
 import { MarketListingCard } from './MarketListingCard.js';
 
 const SKELETON_CARD_KEYS = [
@@ -23,6 +24,8 @@ export interface MarketCardGridProps {
   readonly onSelectListing: (listingId: string) => void;
   readonly onLoadMore: () => void;
   readonly installedListingIds?: ReadonlySet<string>;
+  /** `package_id::version` keys; survives catalog re-seed where listing_id rotates. */
+  readonly installedPackageKeys?: ReadonlySet<string>;
 }
 
 function SkeletonCard() {
@@ -51,6 +54,7 @@ export function MarketCardGrid({
   onSelectListing,
   onLoadMore,
   installedListingIds,
+  installedPackageKeys,
 }: MarketCardGridProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const onLoadMoreRef = useRef(onLoadMore);
@@ -88,14 +92,21 @@ export function MarketCardGrid({
 
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5 p-6">
-      {results.map((listing) => (
-        <MarketListingCard
-          key={listing.listing_id}
-          listing={listing}
-          onClick={onSelectListing}
-          installed={installedListingIds?.has(listing.listing_id) ?? false}
-        />
-      ))}
+      {results.map((listing) => {
+        const byListingId = installedListingIds?.has(listing.listing_id) ?? false;
+        const byPackage =
+          listing.package_id && listing.latest_version
+            ? (installedPackageKeys?.has(packageInstallKey(listing.package_id, listing.latest_version)) ?? false)
+            : false;
+        return (
+          <MarketListingCard
+            key={listing.listing_id}
+            listing={listing}
+            onClick={onSelectListing}
+            installed={byListingId || byPackage}
+          />
+        );
+      })}
 
       {/* Sentinel for infinite scroll */}
       <div ref={sentinelRef} className="col-span-full h-1" />

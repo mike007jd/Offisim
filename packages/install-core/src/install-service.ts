@@ -317,6 +317,8 @@ export class InstallService {
     ) {
       this.events.emitMarketListingInstalled(this.companyId, installedListingId, 'employee', {
         installedPackageId: result.installedPackageId,
+        packageId: plan.manifest.package.id,
+        version: plan.manifest.package.version,
       });
     }
 

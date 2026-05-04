@@ -29,7 +29,7 @@ export interface SkillMarketEventEmitter {
     companyId: string,
     listingId: string,
     kind: 'skill',
-    extras?: { skillId?: string },
+    extras?: { skillId?: string; packageId?: string; version?: string },
   ): void;
 }
 
@@ -460,6 +460,7 @@ export class SkillLoader {
       if (args.source.kind === 'marketplace' && this.events) {
         this.events.emitMarketListingInstalled(args.companyId, args.source.listingId, 'skill', {
           skillId: row.skill_id,
+          version: row.version,
         });
       }
       return { row, wasExisting: false };

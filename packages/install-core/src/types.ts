@@ -319,6 +319,11 @@ export interface InstallEventEmitter {
     companyId: string,
     listingId: string,
     kind: 'employee' | 'skill',
-    extras?: { installedPackageId?: string; skillId?: string },
+    extras?: {
+      installedPackageId?: string;
+      skillId?: string;
+      packageId?: string;
+      version?: string;
+    },
   ): void;
 }

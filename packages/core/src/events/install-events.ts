@@ -38,7 +38,13 @@ export function marketListingInstalled(
   companyId: string,
   listingId: string,
   kind: 'employee' | 'skill',
-  extras?: { installedPackageId?: string; skillId?: string; threadId?: string },
+  extras?: {
+    installedPackageId?: string;
+    skillId?: string;
+    threadId?: string;
+    packageId?: string;
+    version?: string;
+  },
 ): RuntimeEvent<MarketListingInstalledPayload> {
   return {
     type: 'market.listing-installed',
@@ -54,6 +60,8 @@ export function marketListingInstalled(
         ? { installedPackageId: extras.installedPackageId }
         : {}),
       ...(extras?.skillId !== undefined ? { skillId: extras.skillId } : {}),
+      ...(extras?.packageId !== undefined ? { packageId: extras.packageId } : {}),
+      ...(extras?.version !== undefined ? { version: extras.version } : {}),
     },
   };
 }

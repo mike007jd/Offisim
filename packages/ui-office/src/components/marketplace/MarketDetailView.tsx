@@ -3,6 +3,7 @@ import { Skeleton, cn } from '@offisim/ui-core';
 import { ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
+import { packageInstallKey } from '../../hooks/useInstalledListings.js';
 import { PermissionsBlock } from './PermissionsBlock.js';
 import { getRarityColor } from './market-rarity.js';
 import { INSTALLABLE_KINDS, KIND_ICON, formatInstallCount } from './marketplace-meta.js';
@@ -16,10 +17,11 @@ export interface MarketDetailViewProps {
   readonly layout?: 'full' | 'panel' | 'narrow';
   /**
    * Per-company set of marketplace listing ids that the active company has
-   * already installed. When the current detail's listing is in the set, the
-   * install button renders as a disabled `Installed` affordance.
+   * already installed. Match alongside `installedPackageKeys` (one survives
+   * catalog re-seed where listing_id rotates).
    */
   readonly installedListingIds?: ReadonlySet<string>;
+  readonly installedPackageKeys?: ReadonlySet<string>;
 }
 
 function DetailSkeleton({ compact }: { compact: boolean }) {
@@ -54,6 +56,7 @@ export function MarketDetailView({
   onInstall,
   layout = 'full',
   installedListingIds,
+  installedPackageKeys,
 }: MarketDetailViewProps) {
   const compact = layout !== 'full';
   if (loading) {
@@ -95,8 +98,15 @@ export function MarketDetailView({
   const Icon = KIND_ICON[detail.kind];
   const version = typeof detail.version === 'string' ? detail.version : detail.version.version;
   const isInstallable = INSTALLABLE_KINDS.has(detail.kind);
+  const versionPackageId =
+    typeof detail.version === 'string' ? undefined : detail.version.package_id;
+  const installedByPackage =
+    versionPackageId
+      ? (installedPackageKeys?.has(packageInstallKey(versionPackageId, version)) ?? false)
+      : false;
   const isInstalled =
-    isInstallable && (installedListingIds?.has(detail.listing_id) ?? false);
+    isInstallable &&
+    ((installedListingIds?.has(detail.listing_id) ?? false) || installedByPackage);
 
   return (
     <div

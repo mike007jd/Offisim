@@ -23,8 +23,19 @@ import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 export interface UseInstalledListingsResult {
   /** Listing IDs already installed under the active company. */
   readonly installedListingIds: ReadonlySet<string>;
+  /**
+   * `package_id::version` keys for each installed package. Survives catalog
+   * re-seeds where listing_id rotates but package_id stays stable. Consumers
+   * should match on EITHER `installedListingIds.has(listing.listing_id)` OR
+   * `installedPackageKeys.has(`${listing.package_id}::${listing.latest_version}`)`.
+   */
+  readonly installedPackageKeys: ReadonlySet<string>;
   /** False until the initial DB load resolves, true thereafter. */
   readonly isReady: boolean;
+}
+
+export function packageInstallKey(packageId: string, version: string): string {
+  return `${packageId}::${version}`;
 }
 
 const NON_MARKETPLACE_REF_PREFIXES = ['git:', 'upload:', 'claude-code:', 'codex:'] as const;
@@ -39,11 +50,13 @@ export function useInstalledListings(): UseInstalledListingsResult {
   const { repos, eventBus } = useOffisimRuntime();
   const { activeCompanyId } = useCompany();
   const [installedListingIds, setInstalledListingIds] = useState<ReadonlySet<string>>(new Set());
+  const [installedPackageKeys, setInstalledPackageKeys] = useState<ReadonlySet<string>>(new Set());
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     setIsReady(false);
     setInstalledListingIds(new Set());
+    setInstalledPackageKeys(new Set());
 
     if (!repos || !activeCompanyId) {
       setIsReady(true);
@@ -53,11 +66,13 @@ export function useInstalledListings(): UseInstalledListingsResult {
     let cancelled = false;
 
     void (async () => {
-      const next = new Set<string>();
+      const nextListingIds = new Set<string>();
+      const nextPackageKeys = new Set<string>();
       try {
         const installed = await repos.installedPackages.listByCompany(activeCompanyId);
         for (const pkg of installed) {
-          if (pkg.origin_listing_id) next.add(pkg.origin_listing_id);
+          if (pkg.origin_listing_id) nextListingIds.add(pkg.origin_listing_id);
+          nextPackageKeys.add(packageInstallKey(pkg.package_id, pkg.version));
         }
       } catch (err) {
         console.warn('[useInstalledListings] installedPackages.listByCompany failed', err);
@@ -68,7 +83,7 @@ export function useInstalledListings(): UseInstalledListingsResult {
           const rows = await repos.skills.listByCompany(activeCompanyId);
           for (const row of rows) {
             if (isMarketplaceSkillRow(row) && row.source_ref) {
-              next.add(row.source_ref);
+              nextListingIds.add(row.source_ref);
             }
           }
         } catch (err) {
@@ -77,7 +92,8 @@ export function useInstalledListings(): UseInstalledListingsResult {
       }
 
       if (cancelled) return;
-      setInstalledListingIds(next);
+      setInstalledListingIds(nextListingIds);
+      setInstalledPackageKeys(nextPackageKeys);
       setIsReady(true);
     })();
 
@@ -86,13 +102,26 @@ export function useInstalledListings(): UseInstalledListingsResult {
       (event: RuntimeEvent<MarketListingInstalledPayload>) => {
         if (event.companyId !== activeCompanyId) return;
         const listingId = event.payload.listingId;
-        if (!listingId) return;
-        setInstalledListingIds((prev) => {
-          if (prev.has(listingId)) return prev;
-          const next = new Set(prev);
-          next.add(listingId);
-          return next;
-        });
+        if (listingId) {
+          setInstalledListingIds((prev) => {
+            if (prev.has(listingId)) return prev;
+            const next = new Set(prev);
+            next.add(listingId);
+            return next;
+          });
+        }
+        const pkgKey =
+          event.payload.packageId && event.payload.version
+            ? packageInstallKey(event.payload.packageId, event.payload.version)
+            : null;
+        if (pkgKey) {
+          setInstalledPackageKeys((prev) => {
+            if (prev.has(pkgKey)) return prev;
+            const next = new Set(prev);
+            next.add(pkgKey);
+            return next;
+          });
+        }
       },
     );
 
@@ -102,5 +131,5 @@ export function useInstalledListings(): UseInstalledListingsResult {
     };
   }, [repos, eventBus, activeCompanyId]);
 
-  return { installedListingIds, isReady };
+  return { installedListingIds, installedPackageKeys, isReady };
 }

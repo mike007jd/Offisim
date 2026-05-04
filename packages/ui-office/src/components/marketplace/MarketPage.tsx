@@ -54,7 +54,7 @@ export function MarketPage({
     refresh,
   } = useMarketplace();
 
-  const { installedListingIds } = useInstalledListings();
+  const { installedListingIds, installedPackageKeys } = useInstalledListings();
 
   // Sync sessionState → hook
   useEffect(() => {
@@ -202,6 +202,7 @@ export function MarketPage({
             onInstall={handleInstall}
             layout="narrow"
             installedListingIds={installedListingIds}
+            installedPackageKeys={installedPackageKeys}
           />
         )}
 
@@ -258,6 +259,7 @@ export function MarketPage({
             onSelectListing={handleSelectListing}
             onLoadMore={loadMore}
             installedListingIds={installedListingIds}
+            installedPackageKeys={installedPackageKeys}
           />
         )}
 

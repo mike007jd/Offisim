@@ -31,6 +31,10 @@ export interface MarketListingInstalledPayload {
   readonly kind: 'employee' | 'skill';
   readonly installedPackageId?: string;
   readonly skillId?: string;
+  /** Manifest package_id — stable across catalog re-seeds. */
+  readonly packageId?: string;
+  /** Installed version — together with packageId forms the canonical install identity. */
+  readonly version?: string;
 }
 
 export const SKILL_INSTALL_OUTCOME = 'skill.install.outcome' as const;

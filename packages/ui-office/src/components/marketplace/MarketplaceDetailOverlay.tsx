@@ -19,7 +19,7 @@ export function MarketplaceDetailOverlay({
   onInstall,
 }: MarketplaceDetailOverlayProps) {
   const { detail, loading, unavailable } = useListingDetail(listingId);
-  const { installedListingIds } = useInstalledListings();
+  const { installedListingIds, installedPackageKeys } = useInstalledListings();
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-surface-elevated text-text-primary backdrop-blur-sm">
@@ -40,6 +40,7 @@ export function MarketplaceDetailOverlay({
           onBack={onClose}
           onInstall={onInstall}
           installedListingIds={installedListingIds}
+          installedPackageKeys={installedPackageKeys}
         />
       </div>
     </div>

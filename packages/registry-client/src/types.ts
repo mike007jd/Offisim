@@ -44,6 +44,8 @@ export interface ListingSummary {
   summary: string;
   creator: CreatorSummary;
   status: 'listed' | 'hidden' | 'retired';
+  /** Stable manifest package identifier — survives catalog re-seed. */
+  package_id?: string;
   latest_version: string;
   rating: number;
   install_count: number;

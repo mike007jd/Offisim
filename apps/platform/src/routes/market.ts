@@ -235,6 +235,7 @@ market.get('/search', async (c) => {
         verification_state: creator.verification_state,
       },
       status: listing.status,
+      ...(latestVersion ? { package_id: latestVersion.package_id } : {}),
       latest_version: latestVersion?.version ?? '0.0.0',
       rating: listing.rating_avg ?? 0,
       install_count: listing.install_count ?? 0,

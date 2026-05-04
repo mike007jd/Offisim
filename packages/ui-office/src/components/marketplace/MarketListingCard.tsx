@@ -6,11 +6,6 @@ import { INSTALLABLE_KINDS, KIND_ICON, formatInstallCount } from './marketplace-
 export interface MarketListingCardProps {
   readonly listing: ListingSummary;
   readonly onClick: (listingId: string) => void;
-  /**
-   * When true, renders an `Installed` badge alongside the platform-global
-   * install_count line (does not replace it). Sourced from
-   * `useInstalledListings` and gated by `INSTALLABLE_KINDS`.
-   */
   readonly installed?: boolean;
 }
 
