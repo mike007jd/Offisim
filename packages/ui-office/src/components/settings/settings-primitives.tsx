@@ -12,7 +12,7 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-3 border-t border-border-default pt-5 first:border-t-0 first:pt-0">
+    <section className="space-y-3 border-t border-border-default pt-4 first:border-t-0 first:pt-0">
       <header className="flex items-baseline justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-text-primary">{title}</h3>

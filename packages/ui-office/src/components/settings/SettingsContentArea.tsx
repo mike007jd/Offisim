@@ -42,7 +42,7 @@ export function SettingsContentArea({
         data-testid="settings-content-scroll"
         className={`flex-1 overflow-y-auto p-5 sm:p-6 ${showSaveBar ? 'pb-24' : 'pb-6'}`}
       >
-        <div className="mx-auto w-full max-w-5xl">
+        <div className="w-full">
           {saveError && (
             <ErrorState
               variant="banner"
@@ -63,21 +63,19 @@ export function SettingsContentArea({
 
       {showSaveBar && (
         <div className="shrink-0 border-t border-border-default bg-surface-elevated px-6 py-3 shadow-overlay sm:px-8 sm:py-4">
-          <div className="mx-auto w-full max-w-5xl">
-            <button
-              type="button"
-              onClick={() => void handleSave()}
-              disabled={buttonDisabled}
-              title={tooltip}
-              className={`h-11 w-full rounded-lg text-sm font-medium transition-colors ${
-                buttonDisabled
-                  ? 'cursor-not-allowed border border-border-default bg-surface-muted text-text-muted'
-                  : 'bg-accent text-text-inverse hover:bg-accent-hover'
-              }`}
-            >
-              {buttonLabel}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={buttonDisabled}
+            title={tooltip}
+            className={`h-11 w-full rounded-lg text-sm font-medium transition-colors ${
+              buttonDisabled
+                ? 'cursor-not-allowed border border-border-default bg-surface-muted text-text-muted'
+                : 'bg-accent text-text-inverse hover:bg-accent-hover'
+            }`}
+          >
+            {buttonLabel}
+          </button>
         </div>
       )}
     </div>

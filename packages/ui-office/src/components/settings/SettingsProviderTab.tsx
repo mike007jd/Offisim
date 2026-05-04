@@ -141,7 +141,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
         <div className="xl:hidden">{resolvedSummary}</div>
       </div>
 
-      <div ref={providerTargetRef} className="space-y-6">
+      <div ref={providerTargetRef} className="space-y-4">
         <div className="hidden xl:block">{resolvedSummary}</div>
 
         <div className="grid gap-4 lg:grid-cols-2">

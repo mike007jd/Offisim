@@ -126,7 +126,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
   } = controller;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SettingsSection title="Runtime defaults">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div>
