@@ -97,7 +97,7 @@ catalog/
 
 | Workspace | Key | 描述 |
 |-----------|-----|------|
-| Office | `office` | 3D/2D 办公场景, AppLayout 全 slot |
+| Office | `office` | 3D/2D 办公场景, AppLayout 全 slot；右栏 Project → Threads → Chat 三层 IA, ChatInput 内置 Mode chip |
 | SOPs | `sops` | sidebar(SOP list) + DAG canvas(Bezier, drag-to-connect) + NL command bar |
 | Market | `market` | explore(card grid + detail) / manage(installed + published) |
 | Personnel | `personnel` | 员工列表 + 详情 + 6 tab inspector (Profile/Appearance/Runtime/Skills/Memory/History) |
@@ -109,6 +109,11 @@ catalog/
 - URL routing SSOT 在 `apps/web/src/lib/url-routing/`：workspace 切换、primary entity、overlay、filter/search 状态先序列化到 URL，再由 `useUrlSync()` 统一写 `history.pushState/replaceState`；不要恢复旧的内部 workspace history stack。
 - `useWorkspaceSessionState`: updater `(prev: T) => T`, `updateWorkspaceState(key, updater)` 仍是 session state 唯一写入路径；Escape 可做 workspace 内部 drill-back，浏览器 Back/Forward 走 URL parser。
 - 响应式: `computeLayoutTier()` → desktop(>1280) / tablet(769-1280) / narrow(≤768)
+- **Project / Thread / Chat 三层 IA**：`OfficeSessionState.selectedThreadId: string | null` 是 SSOT（默认 `null`，bootstrap 在 `useThreadBootstrap` 设置为 project 最近 `chat_threads` 行）。`conversationKey = <projectId>::<threadId>::<employeeId?>` —— 团队聊天 employee 段为空，direct chat 带 employee。一个产品 `chat_threads` 行对应**多个** runtime `graph_threads` 行（团队 + 每个 direct target 各一）。URL `?thread=…` round-trip。所有 chat 切换走 `updateWorkspaceState('office', prev => ({ ...prev, selectedThreadId }))`，**不许另起 setSelectedThreadId**。
+- **Header / StatusBar / ChatInput 职责锁定**：Header 只剩 workspace 身份位（peer pills + view-mode + project selector + API Settings CTA + file-import）。Mode chip 在 `<ChatInput>` 的 hint row（`<SessionModeChip>`，唯一 mode 入口；StatusBar 不许再加 Proxy/Human SegmentedControl）。`<StatusBar>` 通过 `dashboardSlot` / `notificationSlot` / `gitBranchSlot` 三槽承接 Dashboard 切换 + NotificationCenter + 真实 git 分支（`useGitBranch` → `git_exec` Tauri command，web 返 null）。
+- **Tasks tab 内容门控**：Activity 永显；Plan 当 `usePlanStepStore().steps.length > 0 || stage === 'planning'`；Outputs 当 `useDeliverables(activeThreadId).length > 0`；Kanban `📋 Board ▾` chip 当 `kanbanCardCount > 0`，点击 inline 展开 `<KanbanTray>`。**禁止恢复**永远渲染的三 sub-tab shell 或顶部 `taskTray` 自动挂 Kanban。
+- **Install singularity**：`<InstallDialog>`（`apps/web/src/components/app-shell/AppGlobalDialogs.tsx`）是唯一 install dialog；所有入口（Market detail CTA / `useDeepLinkInstall` / 文件拖拽 sideload）都过 `useInstallFlow().startRegistryInstall|startFileImport`。新增 install 入口必须复用此 hook。
+- **Boss auto-title**：`packages/core/src/agents/auto-title-thread.ts`，3 个 boss summary 出口都 fire-and-forget 调用；写完 `chat_threads.updateTitle({byUser:false})` 后 emit `chat_thread.updated` event（reason `'title'`），ThreadList / WorkspaceSearch 订阅 → refetch。`title_set_by_user=1` 后短路 + `lockedThreadIds` in-memory cache 跳过 `findById`。Per-message 400 char clamp + total 2400 char cap 防大消息撑爆 prompt。
 - **narrow tier (`390x844`) 验证目标 = web SPA in browser**，不是 Tauri release `.app`。Tauri 桌面壳强制 desktop product floor (`minWidth ≥ 1024`)，不需要也不要靠拖窗到 phone-portrait 来验 narrow drawer。规范见 `openspec/specs/responsive-app-shell/spec.md` 的 `Narrow tier verification scope is the web SPA in browser` Requirement。
 
 ## Key Files
@@ -117,7 +122,13 @@ catalog/
 |------|-------------|---------|
 | Web SPA | `apps/web/src/App.tsx` | Root, workspace routing, runtime init |
 | View types | `apps/web/src/lib/app-view-layout.ts` | OverlayKey, OfficeViewMode 类型 |
-| Workspace types | `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, session state, layout tier |
+| Workspace types | `apps/web/src/components/workspaces/types.ts` | WorkspaceKey, OfficeSessionState (`selectedEmployeeId` + `selectedThreadId` 等), layout tier |
+| Thread bootstrap | `apps/web/src/hooks/useThreadBootstrap.ts` | 在 active project 上 `ensureProjectHasAtLeastOneThread` + 越界自动重选 |
+| Thread list | `packages/ui-office/src/components/threads/ThreadList.tsx` | `+ New thread` / 双击 inline rename / 行点击 → `updateWorkspaceState('office', …)` |
+| Auto-title | `packages/core/src/agents/auto-title-thread.ts` | Boss summary 后 fire-and-forget 1 行 LLM summary → `chat_threads.updateTitle({byUser:false})` |
+| Mode chip | `packages/ui-office/src/components/chat/SessionModeChip.tsx` | 唯一 mode 入口（4 mode：SOP / Human-in-loop / Direct / YOLO） |
+| Workspace search | `packages/ui-office/src/components/workspace/WorkspaceSearch.tsx` | Right-rail 顶部 debounced 联合搜索（thread + employee；file deferred） |
+| Git branch chip | `apps/web/src/runtime/useGitBranch.ts` | `git_exec` `rev-parse --abbrev-ref HEAD` over project workspace_root |
 | Personnel page | `packages/ui-office/src/components/employees/PersonnelPage.tsx` | List + detail + 6-tab inspector (employee edit lives here) |
 | Personnel routing | `apps/web/src/lib/personnel-routing.ts` | `routeToPersonnel(id, tab)` — single entry for cross-surface employee edit |
 | URL routing | `apps/web/src/lib/url-routing/` | parser + serializer + fallback + `useUrlSync`; deep links / Back / Forward 的 canonical path |

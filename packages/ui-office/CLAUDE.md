@@ -14,6 +14,11 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - `SkillBindingList` 已从单-skill 卡片改为多-skill 列表（`useSkillsForEmployee(companyId, employeeId)` 订阅 `skill.*` 事件前缀）；`SkillInspectorPanel` 是只读 SKILL.md body 预览；编辑能力属 T2.7
 - `onSessionStateChange` 签名是 `(updater: (prev: T) => T) => void`, useCallback deps 只需 `[onSessionStateChange]`
 - `OffisimRuntimeProvider` init 异步, 依赖就绪的 useEffect 必须 deps 含 `version`, 不要用 `isInitializing`。**原因**: runtime 拆双 Context, `version` 是 bump 计数器, 不放 deps 闭包会陈旧
+- **Right rail = `RightSidebar`（`components/layout/RightSidebar.tsx`）**：顺序是 Workspace header（搜索 + project slot）→ project summary slot → `<ThreadList>`（thread sidebar，conversationKey-derived）→ Chat / Tasks tabs。**改右栏不要复活旧的 always-3-subtab Tasks shell** — Activity 永显，Plan/Outputs/Kanban 都条件渲染。`onSelectThread` prop 必须落到 App.tsx 的 `updateWorkspaceState('office', prev => ({ ...prev, selectedThreadId }))`，**不许另开 setSelectedThreadId**。
+- **`<SessionModeChip>`（`components/chat/SessionModeChip.tsx`）是唯一 mode 入口**：4 mode（boss_proxy=SOP / human_in_loop / direct_to_employee / yolo），从 `useOffisimRuntime().interactionMode + setInteractionMode` 直读直写。**`<StatusBar>` 不许再加 Proxy/Human SegmentedControl**（双 mode 选择器会撒谎，参见 commit `1315844f`）；`<Header>` 已经不再 mount Mode/Notification/Dashboard。
+- **`<StatusBar>` 三槽接口（`dashboardSlot` / `notificationSlot` / `gitBranchSlot`）**：apps/web 通过 `<AppMainShell>` 喂 Dashboard 切换 chip + `<NotificationCenter>` + `useGitBranch` 真实分支。**禁止占位假数据**（commit `279760cb` 之前 chip 显示 `main` 不论真值）。git branch web 端必须 fallback 成 `null` → 槽返回 `null` → `StatusBar` 不渲染。
+- **ChatPanel 消费 `activeThreadId` prop（不再本地 fetch）**：旧 ChatPanel 的 `useState + useEffect repos.chatThreads.ensureProjectHasAtLeastOneThread` 已删除，threadId 从 props 来（SSOT = `OfficeSessionState.selectedThreadId`）。新增需要 thread id 的 chat-side 表面，走同样的 prop 链路，不许在 ChatPanel 之下再开本地 fetch。
+- **`chat_thread.updated` event 是跨 surface 同步唯一 channel**：repo 层 `auto-title-thread.ts` 写完 `updateTitle` 后 emit；ThreadList / WorkspaceSearch / 任何展示 chat_threads.title 的 surface 都订阅 `eventBus.on('chat_thread.updated', …)` 并 refetch（filter by `payload.projectId`）。UI 自身的 create / rename 也 emit，让 sibling surface 跟上。
 
 ## UI / Scene / 3D
 
