@@ -1,5 +1,5 @@
-import { Store } from 'lucide-react';
 import { InstalledList } from './InstalledList.js';
+import { PublishedDraftsList } from './PublishedDraftsList.js';
 
 export interface MarketManageViewProps {
   readonly manageTab: 'installed' | 'updates' | 'published';
@@ -13,14 +13,7 @@ export function MarketManageView({
   onGoToExplore,
 }: MarketManageViewProps) {
   if (manageTab === 'published') {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border-default bg-surface-muted">
-          <Store className="h-5 w-5 text-text-muted" />
-        </div>
-        <p className="text-sm font-semibold text-text-primary">Published packages</p>
-      </div>
-    );
+    return <PublishedDraftsList />;
   }
 
   return (
