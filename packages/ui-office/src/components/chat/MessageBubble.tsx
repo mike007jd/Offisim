@@ -1,3 +1,4 @@
+import type { ChatAttachmentRef } from '@offisim/shared-types';
 import { cn } from '@offisim/ui-core';
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
@@ -9,8 +10,10 @@ import {
   getBadgeColorForDisplayName,
   humanizeNodeName,
 } from '../../lib/agent-display';
+import type { AttachmentStore } from '../../lib/attachment-store.js';
 import { stripLegacySpeakerPrefix } from '../../lib/legacy-speaker-prefix';
 import { DeliverableCard } from '../deliverable/DeliverableCard';
+import { SentAttachmentChip } from './SentAttachmentChip.js';
 import type { MessageStatus } from './chat-session-store';
 
 interface MessageBubbleProps {
@@ -20,6 +23,8 @@ interface MessageBubbleProps {
   nodeName?: string | null;
   reasoning?: string;
   deliverables?: Deliverable[];
+  attachments?: ChatAttachmentRef[];
+  attachmentStore?: AttachmentStore | null;
 }
 
 const FILENAME_LINE = /(^|\n)\s*Filename\s*:\s*[^\n]+\s*(?=\n|$)/gi;
@@ -86,15 +91,20 @@ export function MessageBubble({
   nodeName,
   reasoning,
   deliverables,
+  attachments,
+  attachmentStore,
 }: MessageBubbleProps) {
   const [reasoningOpen, setReasoningOpen] = useState(false);
   const hasDeliverables = !!deliverables && deliverables.length > 0;
+  const hasAttachments = !!attachments && attachments.length > 0;
+  const trimmedContent = content.trim();
+  const isAttachmentOnly = role === 'user' && hasAttachments && trimmedContent.length === 0;
 
   // System messages: full-width, monospace, no avatar
   if (role === 'system') {
     return (
-      <div data-role="system" className="px-1 py-1">
-        <div className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-text-muted">
+      <div data-role="system" className="w-full min-w-0 max-w-full overflow-hidden px-1 py-1">
+        <div className="min-w-0 max-w-full overflow-hidden break-words whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-text-muted">
           {content}
         </div>
       </div>
@@ -137,7 +147,13 @@ export function MessageBubble({
         : '';
 
   return (
-    <div data-role={role} className={cn('flex flex-col', isUser ? 'items-end' : 'items-start')}>
+    <div
+      data-role={role}
+      className={cn(
+        'flex w-full min-w-0 max-w-full flex-col overflow-hidden',
+        isUser ? 'items-end' : 'items-start',
+      )}
+    >
       {/* Agent identity badge */}
       {badgeLabel && (
         <span
@@ -151,7 +167,7 @@ export function MessageBubble({
       )}
       {/* Reasoning collapsible section */}
       {reasoning && (
-        <div className="mb-1 max-w-[94%] rounded-xl border border-info bg-info-muted px-3 py-1.5 text-xs leading-snug text-text-primary">
+        <div className="mb-1 min-w-0 max-w-[94%] overflow-hidden rounded-xl border border-info bg-info-muted px-3 py-1.5 text-xs leading-snug text-text-primary">
           <button
             type="button"
             className="mb-1 flex cursor-pointer items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-info"
@@ -162,25 +178,44 @@ export function MessageBubble({
             />
             Reasoning
           </button>
-          {reasoningOpen && <div className="whitespace-pre-wrap">{reasoning}</div>}
+          {reasoningOpen && <div className="break-words whitespace-pre-wrap">{reasoning}</div>}
         </div>
       )}
-      <div
-        className={cn(
-          'max-w-[94%] px-3 py-1.5 text-sm leading-snug whitespace-pre-wrap rounded-xl',
-          isUser ? 'bg-accent-muted text-accent-text' : 'bg-surface-muted text-text-primary',
-          statusBorder,
-        )}
-      >
-        {isUser ? displayContent : renderWithCitations(displayContent)}
-        {/* Status label */}
-        {status === 'failed' && (
-          <div className="mt-1 text-[10px] font-medium text-error">Failed</div>
-        )}
-        {status === 'interrupted' && (
-          <div className="mt-1 text-[10px] font-medium text-warning">Interrupted</div>
-        )}
-      </div>
+      {!isAttachmentOnly && (
+        <div
+          className={cn(
+            'min-w-0 max-w-[94%] overflow-hidden break-words px-3 py-1.5 text-sm leading-snug whitespace-pre-wrap rounded-xl',
+            isUser ? 'bg-accent-muted text-accent-text' : 'bg-surface-muted text-text-primary',
+            statusBorder,
+          )}
+        >
+          {isUser ? displayContent : renderWithCitations(displayContent)}
+          {/* Status label */}
+          {status === 'failed' && (
+            <div className="mt-1 text-[10px] font-medium text-error">Failed</div>
+          )}
+          {status === 'interrupted' && (
+            <div className="mt-1 text-[10px] font-medium text-warning">Interrupted</div>
+          )}
+        </div>
+      )}
+      {hasAttachments && attachments && (
+        <div
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))' }}
+          className={cn(
+            'mt-1 grid w-full min-w-0 max-w-[94%] gap-1 overflow-hidden',
+            isUser ? 'ml-auto' : 'mr-auto',
+          )}
+        >
+          {attachments.map((a) => (
+            <SentAttachmentChip
+              key={a.attachmentId}
+              attachment={a}
+              attachmentStore={attachmentStore ?? null}
+            />
+          ))}
+        </div>
+      )}
       {hasDeliverables && deliverables && (
         <div className="flex w-full flex-col">
           {deliverables.map((d) => (

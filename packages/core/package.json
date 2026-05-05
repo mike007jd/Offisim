@@ -36,6 +36,7 @@
     "@langchain/langgraph-checkpoint-sqlite": "^1.0.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@offisim/db-local": "workspace:*",
+    "@offisim/doc-engine": "workspace:*",
     "@offisim/install-core": "workspace:*",
     "@offisim/shared-types": "workspace:*",
     "@openai/agents": "0.8.5",

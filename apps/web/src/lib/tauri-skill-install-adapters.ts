@@ -151,8 +151,12 @@ export function createTauriGitLocalFsAdapter(): GitLocalFsAdapter {
   };
 }
 
-export function createTauriLocalDirAdapter(opts?: { projectRoot?: string }): LocalDirAdapter {
+export function createTauriLocalDirAdapter(opts?: {
+  projectRoot?: string;
+  projectId?: string;
+}): LocalDirAdapter {
   const projectRoot = opts?.projectRoot ? normalize(opts.projectRoot) : undefined;
+  const projectId = opts?.projectId;
   return {
     async listSubdirs(absPath) {
       const rel = projectRoot ? relativeToRoot(absPath, projectRoot) : null;
@@ -162,6 +166,7 @@ export function createTauriLocalDirAdapter(opts?: { projectRoot?: string }): Loc
           const entries = await inv<ProjectDirEntry[]>('project_list_dir', {
             path: rel,
             cwd: projectRoot,
+            ...(projectId ? { projectId } : {}),
           });
           return entries.filter((e) => e.isDirectory).map((e) => e.name);
         } catch {
@@ -183,6 +188,7 @@ export function createTauriLocalDirAdapter(opts?: { projectRoot?: string }): Loc
         return inv<string>('project_read_file', {
           path: rel,
           cwd: projectRoot,
+          ...(projectId ? { projectId } : {}),
         });
       }
       const f = await fs();

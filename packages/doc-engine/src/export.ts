@@ -1,10 +1,10 @@
-import { csvExporter } from './csv-exporter';
-import { docxExporter } from './docx-exporter';
-import { htmlExporter } from './html-exporter';
-import { pdfExporter } from './pdf-exporter';
-import { pptxExporter } from './pptx-exporter';
-import { txtExporter } from './txt-exporter';
-import type { ExportFormat, ExportResult, ExportableDocument, Exporter } from './types';
+import { csvExporter } from './csv-exporter.js';
+import { docxExporter } from './docx-exporter.js';
+import { htmlExporter } from './html-exporter.js';
+import { pdfExporter } from './pdf-exporter.js';
+import { pptxExporter } from './pptx-exporter.js';
+import { txtExporter } from './txt-exporter.js';
+import type { ExportFormat, ExportResult, ExportableDocument, Exporter } from './types.js';
 
 const exporters: Record<ExportFormat, Exporter> = {
   csv: csvExporter,

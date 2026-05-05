@@ -53,6 +53,8 @@ import { MemoryService } from '@offisim/core/dist/services/memory-service.js';
 import type { OrchestrationService } from '@offisim/core/dist/services/orchestration-service.js';
 import { ToolTelemetryService } from '@offisim/core/dist/services/tool-telemetry-service.js';
 import { UserMemoryService } from '@offisim/core/dist/services/user-memory-service.js';
+import { type BuiltinTool, createBuiltinTools } from '@offisim/core/dist/tools/builtin/index.js';
+import { CompositeToolExecutor } from '@offisim/core/dist/tools/composite-tool-executor.js';
 import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
 import type { InteractionMode } from '@offisim/shared-types';
@@ -81,6 +83,9 @@ import { InMemoryUploadRefResolver, createWebSkillInstallEnvironment } from './s
 import type { VaultActivation } from './vault-activation';
 import type { BrowserVaultController } from './vault-browser-activation';
 import { createDefaultBrowserVaultController } from './vault-browser-activation';
+import type { AttachmentStore } from '@offisim/ui-office/web';
+import { installAttachmentDeleteCascades } from './attachment-cascades';
+import { WebAttachmentStore } from './web-attachment-store';
 
 // ---------------------------------------------------------------------------
 // Adapters: bridge @offisim/core repos + EventBus to @offisim/install-core DI
@@ -182,6 +187,7 @@ export type RuntimeBundle = {
   vaultActivation?: VaultActivation;
   desktopVaultRoot?: string | null;
   browserVault?: BrowserVaultController;
+  attachmentStore?: AttachmentStore;
   dispose?: () => void;
 };
 
@@ -301,11 +307,23 @@ export async function createBrowserRuntime(
   const checkpointer = createMemoryCheckpointSaver();
   const resumeCoordinator = new ResumeCoordinator(checkpointer);
   const graph = buildOffisimGraph({ checkpointer });
+  const attachmentStore = await WebAttachmentStore.create(eventBus);
+  installAttachmentDeleteCascades({ repos, attachmentStore, eventBus });
 
   const mcpToolExecutor = new McpToolExecutor({
     eventBus,
     companyId,
     clientFactory: new BrowserMcpClientFactory(),
+  });
+  const builtinTools: Map<string, BuiltinTool> = createBuiltinTools({
+    executionMode: 'browser-limited',
+    attachmentStoreBridge: attachmentStore,
+    eventBus,
+    companyId,
+  });
+  builtinTools.delete('web_search');
+  const compositeToolExecutor = new CompositeToolExecutor(builtinTools, mcpToolExecutor, {
+    companyId,
   });
   const interactionBox = { pending: null };
   const hookRegistry = new HookRegistry();
@@ -326,7 +344,7 @@ export async function createBrowserRuntime(
   await interactionService.restore();
 
   const toolExecutor = new AuditingToolExecutor(
-    mcpToolExecutor,
+    compositeToolExecutor,
     repos.mcpAudit,
     eventBus,
     companyId,
@@ -417,6 +435,7 @@ export async function createBrowserRuntime(
     ...(skillLoader ? { skillLoader } : {}),
     skillStagingManager,
     skillInstallEnvironment,
+    attachmentStoreBridge: attachmentStore,
   });
 
   const installService = new InstallService({
@@ -455,6 +474,7 @@ export async function createBrowserRuntime(
     vaultActivation: browserVault.activation ?? undefined,
     desktopVaultRoot: null,
     browserVault,
+    attachmentStore,
     dispose: () => {
       browserVault.dispose();
       sessionCostTracker.dispose();
@@ -481,6 +501,8 @@ export async function createBrowserRuntimeReposOnly(
   const snapshot = loadBrowserRuntimeSnapshot();
   const { dbPromise, contentLoader } = wireDeliverableContentStore(snapshot);
   const repos = createMemoryRepositories(snapshot ?? undefined, contentLoader, eventBus);
+  const attachmentStore = await WebAttachmentStore.create(eventBus);
+  installAttachmentDeleteCascades({ repos, attachmentStore, eventBus });
   await ensureYoloMasterForActiveCompanies(repos);
   await ensureCostRates(repos);
   const persistence = createBrowserRuntimePersistence(repos, eventBus);
@@ -530,6 +552,7 @@ export async function createBrowserRuntimeReposOnly(
       hookRegistry,
       scratchpad,
       interactionService,
+      attachmentStoreBridge: attachmentStore,
       ...(liteSkillLoader ? { skillLoader: liteSkillLoader } : {}),
     }),
     orch: null,
@@ -544,6 +567,7 @@ export async function createBrowserRuntimeReposOnly(
     vaultActivation: browserVault.activation ?? undefined,
     desktopVaultRoot: null,
     browserVault,
+    attachmentStore,
     dispose: () => {
       browserVault.dispose();
       deliverablePersistence.dispose();

@@ -1,4 +1,7 @@
+import type { EventBus } from '../../events/event-bus.js';
+import type { RunScope } from '../../graph/state.js';
 import type { ToolDef } from '../../llm/gateway.js';
+import type { AttachmentStoreBridge } from '../../runtime/attachment-store-bridge.js';
 
 export interface ShellExecOptions {
   cwd?: string;
@@ -24,7 +27,13 @@ export type ShellExec = (command: string, options: ShellExecOptions) => Promise<
 
 export interface BuiltinTool {
   readonly def: ToolDef;
-  execute(args: Record<string, unknown>, context?: { threadId?: string }): Promise<unknown>;
+  execute(args: Record<string, unknown>, context?: BuiltinToolExecutionContext): Promise<unknown>;
+}
+
+export interface BuiltinToolExecutionContext {
+  readonly companyId?: string;
+  readonly threadId?: string;
+  readonly runScope?: RunScope | null;
 }
 
 export type WebSearchFn = (query: string) => Promise<string>;
@@ -42,4 +51,14 @@ export interface BuiltinToolConfig {
   bashTimeoutMs?: number;
   /** Max output bytes (default 100KB) */
   maxOutputBytes?: number;
+  /**
+   * Optional attachment-store bridge. When supplied AND
+   * `runtimeCtx.llmToolCallsEnabled !== false`, `createBuiltinTools` registers
+   * the gateway-lane `read_attachment` tool.
+   */
+  attachmentStoreBridge?: AttachmentStoreBridge;
+  /** Runtime company scope for built-ins that must fail closed on tenant boundaries. */
+  companyId?: string;
+  /** Optional event bus for tools that emit telemetry (`read_attachment`). */
+  eventBus?: EventBus;
 }

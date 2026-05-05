@@ -26,6 +26,8 @@
     "harness:model-bench": "node scripts/harness-model-bench.mjs",
     "harness:stream-tools": "node scripts/harness-stream-tools.mjs",
     "harness:smoke": "node scripts/harness-smoke.mjs",
+    "harness:doc-engine": "node scripts/harness-doc-engine-parsers.mjs",
+    "harness:chat-attachment-roundtrip": "node scripts/harness-chat-attachment-roundtrip.mjs",
     "tokens:emit": "pnpm --filter @offisim/ui-core build && node scripts/emit-tailwind-theme.mjs",
     "tokens:check": "pnpm --filter @offisim/ui-core build && node scripts/check-tailwind-theme.mjs",
     "tokens:lint-hex": "node scripts/lint-no-raw-hex.mjs",

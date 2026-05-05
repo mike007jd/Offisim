@@ -237,6 +237,7 @@ export function OffisimRuntimeProvider({ companyId, children }: Props) {
       loadDeliverableContent,
       availableEngineAdapters: lastAdaptersRef.current,
       companyEmployeeRuntimeDefault: lastCompanyDefaultRef.current,
+      attachmentStore: runtime?.attachmentStore ?? null,
     };
   }, [
     isInitializing,

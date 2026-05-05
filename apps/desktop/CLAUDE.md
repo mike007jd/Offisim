@@ -31,6 +31,8 @@ Tauri 2 桌面壳，零 npm deps，frontendDist 直接指 `../../web/dist`。改
 
 所有 path 必须 resolve 在 project `workspace_root` 内，越界拒绝。
 
+Chat attachment IPC 归 `fs-shell` capability：`attachment_write` / `attachment_read` / `attachment_list` / `attachment_list_all` / `attachment_delete` 五个 command 必须同时出现在 `src-tauri/src/lib.rs` invoke handler、`permissions/fs-shell.toml` allowlist、以及 `scripts/check-attachment-capabilities.mjs` 的 build gate。`attachment_list_all` 只递归读 `.meta.json`，供桌面 GC 使用，禁止读取 `.bin`。
+
 Project workspace file browsing from the webview must use the sandboxed Tauri commands `project_list_dir` / `project_read_file` / `project_read_file_preview` with a selected project `workspace_root`. Do not use `tauri-plugin-fs` directly for repo/project paths; plugin-fs is for app-owned/vault paths, not arbitrary workspace traversal.
 
 Release/live validation is release `.app` only: rebuild `@offisim/ui-office` and `@offisim/desktop`, launch the current worktree's exact `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app` path, then use Computer Use for window attach, interaction, screenshots, foregrounding, and closing. Do not use `open -b com.offisim.desktop` when multiple worktrees may share the bundle id, and do not use `osascript` / AppleScript as the desktop verification controller. Dev webview/browser results do not satisfy desktop runtime verification.

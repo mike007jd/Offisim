@@ -169,6 +169,13 @@ export class MemoryChatThreadRepository implements ChatThreadRepository {
       .map((t) => ({ ...t }));
   }
 
+  async listAllByProject(projectId: string): Promise<ChatThread[]> {
+    return [...this.store.values()]
+      .filter((t) => t.project_id === projectId)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .map((t) => ({ ...t }));
+  }
+
   async updateTitle(
     threadId: string,
     title: string,
@@ -202,6 +209,16 @@ export class MemoryChatThreadRepository implements ChatThreadRepository {
     if (!row || row.archived_at != null) return;
     const ts = new Date().toISOString();
     this.store.set(threadId, { ...row, archived_at: ts, updated_at: ts });
+  }
+
+  async unarchive(threadId: string): Promise<void> {
+    const row = this.store.get(threadId);
+    if (!row || row.archived_at == null) return;
+    this.store.set(threadId, { ...row, archived_at: null, updated_at: new Date().toISOString() });
+  }
+
+  async delete(threadId: string): Promise<void> {
+    this.store.delete(threadId);
   }
 
   async ensureProjectHasAtLeastOneThread(projectId: string): Promise<ChatThread> {

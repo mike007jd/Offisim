@@ -11,6 +11,7 @@ import {
 } from '../../lib/project-workspace-files.js';
 
 interface ProjectWorkspaceFilesProps {
+  projectId: string;
   workspaceRoot: string | null;
 }
 
@@ -63,7 +64,7 @@ function selectionReducer(state: Selection, action: SelectionAction): Selection 
   }
 }
 
-export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesProps) {
+export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorkspaceFilesProps) {
   const desktopMode = isProjectWorkspaceFilesAvailable();
   const [currentPath, setCurrentPath] = useState('');
   const [entries, setEntries] = useState<ProjectWorkspaceEntry[]>([]);
@@ -92,7 +93,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
     previewRequestId.current += 1;
     setCurrentPath('');
     dispatchSelection({ type: 'clear' });
-  }, [workspaceRoot]);
+  }, [workspaceRoot, projectId]);
 
   useEffect(() => {
     if (!workspaceRoot || !desktopMode) return;
@@ -100,6 +101,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
     setDirectoryLoading(true);
     setDirectoryError(null);
     void listProjectWorkspaceDirectory({
+      projectId,
       workspaceRoot,
       path: directoryRequest.path,
     })
@@ -118,7 +120,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
     return () => {
       cancelled = true;
     };
-  }, [workspaceRoot, desktopMode, directoryRequest]);
+  }, [workspaceRoot, projectId, desktopMode, directoryRequest]);
 
   async function openFile(entry: ProjectWorkspaceEntry) {
     if (!workspaceRoot) return;
@@ -127,6 +129,7 @@ export function ProjectWorkspaceFiles({ workspaceRoot }: ProjectWorkspaceFilesPr
     dispatchSelection({ type: 'select', path: entry.path });
     try {
       const preview = await readProjectWorkspaceFilePreview({
+        projectId,
         workspaceRoot,
         path: entry.path,
         maxBytes: PREVIEW_MAX_BYTES,

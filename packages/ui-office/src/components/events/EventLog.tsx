@@ -13,6 +13,7 @@ const EVENT_PREFIXES = [
   'task.',
   'deliverable.',
   'employee.',
+  'boss.',
   'install.',
   'llm.',
   'interaction.',
@@ -30,6 +31,7 @@ const EVENT_PREFIXES = [
   'git.',
   'execution.',
   'workspace-binding.',
+  'chat.attachment.',
 ] as const;
 const MAX_EVENTS = 200;
 
@@ -131,6 +133,7 @@ export const TYPE_PREFIX_MAP: Record<EventFilterType, string[]> = {
   Memory: ['memory.'],
   Infrastructure: ['rack.', 'slot.', 'binding.', 'cost.'],
   Git: ['git.'],
+  Attachment: ['chat.attachment.'],
 };
 
 /** Determine a display level from event topic only — no payload serialization */

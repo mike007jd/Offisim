@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "description": "Deterministic fixture-driven assertions for @offisim/doc-engine importers. Runner: scripts/harness-doc-engine-parsers.mjs.",
+  "scenarios": [
+    {
+      "id": "doc-engine-parse-pdf-12-pages",
+      "fixture": "sample.pdf",
+      "mimeType": "application/pdf",
+      "filename": "sample.pdf",
+      "expectKind": "pdf",
+      "expect": {
+        "pagesLength": 12,
+        "textIncludes": ["Sample page 1", "Sample page 12"]
+      }
+    },
+    {
+      "id": "doc-engine-parse-docx-text-and-html",
+      "fixture": "sample.docx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "filename": "sample.docx",
+      "expectKind": "docx",
+      "expect": {
+        "textIncludes": ["Doc-Engine Fixture", "First paragraph"],
+        "htmlIncludes": ["<p>", "Doc-Engine Fixture"]
+      }
+    },
+    {
+      "id": "doc-engine-parse-xlsx-3-sheets",
+      "fixture": "sample.xlsx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "filename": "sample.xlsx",
+      "expectKind": "xlsx",
+      "expect": {
+        "sheetCount": 3,
+        "sheetNames": ["Scores", "Revenue", "Notes"],
+        "totalRowsAtLeast": 9
+      }
+    },
+    {
+      "id": "doc-engine-parse-pptx-5-slides",
+      "fixture": "sample.pptx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "filename": "sample.pptx",
+      "expectKind": "pptx",
+      "expect": {
+        "slideCount": 5,
+        "textIncludes": ["Slide 1 title", "Slide 5 title"]
+      }
+    },
+    {
+      "id": "doc-engine-parse-image-png-1024x768",
+      "fixture": "screenshot.png",
+      "mimeType": "image/png",
+      "filename": "screenshot.png",
+      "expectKind": "image",
+      "expect": {
+        "width": 1024,
+        "height": 768,
+        "format": "png"
+      }
+    },
+    {
+      "id": "doc-engine-parse-text-markdown",
+      "fixture": "sample.md",
+      "mimeType": "text/markdown",
+      "filename": "sample.md",
+      "expectKind": "text",
+      "expect": {
+        "textIncludes": ["Doc-Engine Fixture"]
+      }
+    },
+    {
+      "id": "doc-engine-parse-text-csv",
+      "fixture": "sample.csv",
+      "mimeType": "text/csv",
+      "filename": "sample.csv",
+      "expectKind": "text",
+      "expect": {
+        "textIncludes": ["Alice,88", "Bob,92"]
+      }
+    },
+    {
+      "id": "doc-engine-parse-garbage-pdf-returns-unsupported",
+      "fixture": "garbage.pdf",
+      "mimeType": "application/pdf",
+      "filename": "garbage.pdf",
+      "expectKind": "unsupported",
+      "expect": {
+        "reasonNonEmpty": true
+      }
+    }
+  ]
+}

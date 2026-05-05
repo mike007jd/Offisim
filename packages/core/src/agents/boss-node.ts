@@ -1,15 +1,16 @@
 import { AIMessage } from '@langchain/core/messages';
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { AGENT_QUESTION_REQUIRED, type BossRouteAction } from '@offisim/shared-types';
+import type { EventBus } from '../events/event-bus.js';
 import {
   bossEmployeeContextEmpty,
+  bossRosterDivergence,
   bossRouteDecided,
   graphNodeEntered,
 } from '../events/event-factories.js';
-import type { EventBus } from '../events/event-bus.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import { forwardStreamChunks, recordedLlmStream } from '../llm/recorded-call.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
-import type { OffisimGraphState } from '../graph/state.js';
 import { ProjectService } from '../services/project-service.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
@@ -17,6 +18,15 @@ import { generateId } from '../utils/generate-id.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
 import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
+import {
+  attachmentGatewayLaneOutcomeState,
+  attachmentsRequireGatewayLane,
+} from './attachment-lane-guard.js';
+import { buildAttachmentSystemPreface } from './attachment-preface.js';
+import {
+  localToolsGatewayLaneOutcomeState,
+  localToolsRequireGatewayLane,
+} from './local-tool-lane-guard.js';
 import { detectTaskToolIntent, isLocalToolAssignableEmployee } from './task-tool-intent.js';
 
 interface BossDecision {
@@ -95,12 +105,22 @@ Rules:
 - If the user is greeting or asking a simple question, respond naturally and briefly`;
 
 const emittedEmptyBossEmployeeContextByBus = new WeakMap<EventBus, Set<string>>();
+const emittedBossRosterDivergenceByBus = new WeakMap<EventBus, Set<string>>();
 
 function getEmittedEmptyBossContextSet(bus: EventBus): Set<string> {
   let set = emittedEmptyBossEmployeeContextByBus.get(bus);
   if (!set) {
     set = new Set<string>();
     emittedEmptyBossEmployeeContextByBus.set(bus, set);
+  }
+  return set;
+}
+
+function getEmittedBossRosterDivergenceSet(bus: EventBus): Set<string> {
+  let set = emittedBossRosterDivergenceByBus.get(bus);
+  if (!set) {
+    set = new Set<string>();
+    emittedBossRosterDivergenceByBus.set(bus, set);
   }
   return set;
 }
@@ -114,14 +134,15 @@ function formatBossEmployeeRosterSection(employees: readonly EmployeeRow[]): {
     const employeeId = sanitizeForPrompt(employee.employee_id, 100);
     const name = sanitizeForPrompt(employee.name || employee.employee_id, 120);
     const roleSlug = sanitizeForPrompt(employee.role_slug, 80);
+    const status = employee.enabled === 0 ? ', disabled' : ', enabled';
     const brand =
       employee.is_external === 1
         ? `, external brand: ${sanitizeForPrompt(employee.brand_key ?? 'custom', 80)}`
         : '';
-    return `- ${employeeId}: ${name} (${roleSlug}${brand})`;
+    return `- ${employeeId}: ${name} (${roleSlug}${status}${brand})`;
   });
   return {
-    section: `\n\nActive company employee roster:\n${lines.join('\n')}`,
+    section: `\n\nPersonnel rail roster for the active company:\n${lines.join('\n')}`,
     injectedCount: lines.length,
   };
 }
@@ -140,6 +161,43 @@ function emitBossEmployeeContextEmptyIfNeeded(input: {
   input.eventBus.emit(bossEmployeeContextEmpty(input.companyId, input.threadId));
 }
 
+function resolveBossRosterPath(input: {
+  entryMode: OffisimGraphState['entryMode'];
+  interactionMode: string;
+  targetEmployeeId?: string | null;
+  selectedSopTemplateId?: string | null;
+}): 'team-chat' | 'direct-chat' | 'yolo-chat' | 'sop-driven' | 'human-in-loop' {
+  if (input.selectedSopTemplateId) return 'sop-driven';
+  if (input.interactionMode === 'yolo') return 'yolo-chat';
+  if (input.interactionMode === 'human_in_loop') return 'human-in-loop';
+  if (input.entryMode === 'direct_chat' || input.targetEmployeeId) return 'direct-chat';
+  return 'team-chat';
+}
+
+function emitBossRosterDivergenceIfNeeded(input: {
+  companyId: string;
+  threadId: string;
+  path: 'team-chat' | 'direct-chat' | 'yolo-chat' | 'sop-driven' | 'human-in-loop';
+  railEmployeeCount: number;
+  assembledRosterCount: number;
+  eventBus: EventBus;
+}): void {
+  if (input.railEmployeeCount === input.assembledRosterCount) return;
+  const emitted = getEmittedBossRosterDivergenceSet(input.eventBus);
+  const key = `${input.companyId}:${input.path}`;
+  if (emitted.has(key)) return;
+  emitted.add(key);
+  input.eventBus.emit(
+    bossRosterDivergence(input.companyId, input.threadId, {
+      path: input.path,
+      railEmployeeCount: input.railEmployeeCount,
+      assembledRosterCount: input.assembledRosterCount,
+      railCompanyId: input.companyId,
+      bossCompanyId: input.companyId,
+    }),
+  );
+}
+
 function isSkillMutationRequest(content: string): boolean {
   const normalized = content.toLowerCase();
   return (
@@ -149,13 +207,36 @@ function isSkillMutationRequest(content: string): boolean {
   );
 }
 
+function isTeamRosterQuestion(content: string): boolean {
+  const normalized = content.toLowerCase();
+  if (
+    /\b(build|create|implement|write|design|develop|fix|deploy|test|refactor|code|plan|launch|ship|sync|hire)\b/i.test(
+      normalized,
+    )
+  ) {
+    return false;
+  }
+  return (
+    /\b(who|which|list|show|tell me)\b[\s\S]{0,80}\b(team|employees?|people|staff|roster|personnel)\b/i.test(
+      normalized,
+    ) ||
+    /\b(team|employees?|people|staff|roster|personnel)\b[\s\S]{0,80}\b(who|list|show)\b/i.test(
+      normalized,
+    ) ||
+    /团队[\s\S]{0,20}(谁|哪些人|成员)/.test(content) ||
+    /(谁|哪些人)[\s\S]{0,20}团队/.test(content)
+  );
+}
+
 function chooseSkillToolEmployee(employees: readonly EmployeeRow[]): EmployeeRow | undefined {
   const internal = employees.filter((employee) => employee.is_external !== 1);
   if (internal.length === 0) return undefined;
   return (
     internal.find((employee) => employee.role_slug === 'yolo_master') ??
     internal.find((employee) => employee.name.toLowerCase().includes('yolo')) ??
-    internal.find((employee) => /\b(skill|developer|fullstack|frontend|backend)\b/i.test(employee.role_slug)) ??
+    internal.find((employee) =>
+      /\b(skill|developer|fullstack|frontend|backend)\b/i.test(employee.role_slug),
+    ) ??
     internal[0]
   );
 }
@@ -214,11 +295,16 @@ export async function bossNode(
   config: RunnableConfig,
 ): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'boss');
+  const runScope = getRunScope(config);
 
   // Announce node entry
   runtimeCtx.eventBus.emit(
-    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss', getRunScope(config)),
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'boss', runScope),
   );
+
+  if (attachmentsRequireGatewayLane(runtimeCtx, runScope)) {
+    return attachmentGatewayLaneOutcomeState(state);
+  }
 
   const { modelResolver } = runtimeCtx;
   const interactionService = runtimeCtx.interactionService;
@@ -235,21 +321,38 @@ export async function bossNode(
           .join('\n---\n')
       : 'No user message found';
 
+  const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(userContent);
+  if (localToolsRequireGatewayLane(runtimeCtx, taskToolIntent)) {
+    return localToolsGatewayLaneOutcomeState(state, taskToolIntent);
+  }
+
   // Build employee roster + SOP list in parallel for the prompt
   const [employees, sopTemplates] = await Promise.all([
     runtimeCtx.repos.employees.findByCompany(runtimeCtx.companyId),
     runtimeCtx.repos.sopTemplates.findByCompany(runtimeCtx.companyId),
   ]);
-  const enabledEmployees = employees.filter((employee) => employee.enabled !== 0);
-  const bossEmployeeRoster = formatBossEmployeeRosterSection(enabledEmployees);
+  const bossEmployeeRoster = formatBossEmployeeRosterSection(employees);
   emitBossEmployeeContextEmptyIfNeeded({
     companyId: runtimeCtx.companyId,
     threadId: state.threadId,
-    dbEmployeeCount: enabledEmployees.length,
+    dbEmployeeCount: employees.length,
     injectedCount: bossEmployeeRoster.injectedCount,
     eventBus: runtimeCtx.eventBus,
   });
-  const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(userContent);
+  emitBossRosterDivergenceIfNeeded({
+    companyId: runtimeCtx.companyId,
+    threadId: state.threadId,
+    path: resolveBossRosterPath({
+      entryMode: state.entryMode ?? 'boss_chat',
+      interactionMode,
+      targetEmployeeId: state.targetEmployeeId,
+      selectedSopTemplateId: state.selectedSopTemplateId,
+    }),
+    railEmployeeCount: employees.length,
+    assembledRosterCount: bossEmployeeRoster.injectedCount,
+    eventBus: runtimeCtx.eventBus,
+  });
+  const attachmentPreface = buildAttachmentSystemPreface(runtimeCtx, runScope);
   const localToolRequired = taskToolIntent.requiresLocalTools;
   const nonManagerEmployees = employees.filter(
     (e) =>
@@ -286,7 +389,12 @@ export async function bossNode(
       messages: [
         {
           role: 'system',
-          content: BOSS_SYSTEM_PROMPT + bossEmployeeRoster.section + rosterSection + sopSection,
+          content:
+            BOSS_SYSTEM_PROMPT +
+            bossEmployeeRoster.section +
+            rosterSection +
+            sopSection +
+            attachmentPreface,
         },
         { role: 'user', content: userContent },
       ],
@@ -298,25 +406,33 @@ export async function bossNode(
     { nodeName: 'boss', provider: resolved.provider, model: resolved.model },
     forwardStreamChunks(runtimeCtx, state.threadId, 'boss', {
       content: false,
-      runScope: getRunScope(config),
+      runScope,
     }),
   );
 
-  const decision = parseBossDecision(routingStreamResult.fullContent);
+  let decision = parseBossDecision(routingStreamResult.fullContent);
 
   // Fallback: if LLM didn't return valid JSON, default to delegate
   let route = decision ? mapActionToRoute(decision.action) : 'delegate_manager';
-  let needsClarification =
+  const needsClarification =
     decision?.needsClarification === true && typeof decision.clarificationQuestion === 'string';
+  const hasPendingAttachments = (runScope?.pendingAttachments?.length ?? 0) > 0;
+  const isRosterQuestion = isTeamRosterQuestion(userContent);
+
+  if (route !== 'direct_reply' && !needsClarification && isRosterQuestion) {
+    route = 'direct_reply';
+    decision = {
+      ...(decision ?? { action: 'direct_reply' as const }),
+      action: 'direct_reply',
+      reason: 'Team roster question should be answered directly from the personnel rail roster.',
+      reply: 'Answer the roster question directly using the personnel rail roster.',
+    };
+  }
 
   // Defensive override (skill mutation): only kick in when the LLM misrouted
   // a skill request as direct_reply — same shape as the TASK_KEYWORDS fallback
   // below. Trust the LLM's `delegate` / `direct_delegate` / clarification calls.
-  if (
-    route === 'direct_reply' &&
-    !needsClarification &&
-    isSkillMutationRequest(userContent)
-  ) {
+  if (route === 'direct_reply' && !needsClarification && isSkillMutationRequest(userContent)) {
     const skillToolEmployee = chooseSkillToolEmployee(nonManagerEmployees);
     if (skillToolEmployee) {
       route = 'direct_delegate';
@@ -339,7 +455,27 @@ export async function bossNode(
         lowerContent,
       ),
     );
-    if (TASK_KEYWORDS.test(userContent) || mentionsEmployee) {
+    if (!isRosterQuestion && (TASK_KEYWORDS.test(userContent) || mentionsEmployee)) {
+      route = 'delegate_manager';
+    }
+  }
+
+  // Boss direct replies do not have a tool execution loop. If the current turn
+  // includes attachments, route through an internal gateway employee so
+  // `read_attachment` can be used instead of producing fake tool-call text.
+  if (route === 'direct_reply' && !needsClarification && hasPendingAttachments) {
+    const attachmentEmployee = chooseSkillToolEmployee(nonManagerEmployees);
+    if (attachmentEmployee) {
+      route = 'direct_delegate';
+      decision = {
+        ...(decision ?? { action: 'direct_delegate' as const }),
+        action: 'direct_delegate',
+        targetEmployeeId: attachmentEmployee.employee_id,
+        reason:
+          decision?.reason ??
+          `Attachment content requires gateway employee tool execution by ${attachmentEmployee.name}.`,
+      };
+    } else {
       route = 'delegate_manager';
     }
   }
@@ -363,31 +499,34 @@ export async function bossNode(
 
   if (needsClarification && interactionService && interactionMode === 'human_in_loop') {
     const clarificationQuestion = decision?.clarificationQuestion ?? 'Could you clarify that?';
-    await interactionService.request({
-      interactionId: generateId('ix'),
-      threadId: state.threadId,
-      companyId: runtimeCtx.companyId,
-      kind: 'agent_question',
-      severity: 'normal',
-      title: 'Need one clarification',
-      prompt: clarificationQuestion,
-      options: [
-        { id: 'answer_and_continue', label: 'Answer and continue', recommended: true },
-        { id: 'cancel', label: 'Cancel' },
-      ],
-      recommendation: {
-        optionId: 'answer_and_continue',
-        reason: 'One clear answer will let the boss choose the right path without guessing.',
+    await interactionService.request(
+      {
+        interactionId: generateId('ix'),
+        threadId: state.threadId,
+        companyId: runtimeCtx.companyId,
+        kind: 'agent_question',
+        severity: 'normal',
+        title: 'Need one clarification',
+        prompt: clarificationQuestion,
+        options: [
+          { id: 'answer_and_continue', label: 'Answer and continue', recommended: true },
+          { id: 'cancel', label: 'Cancel' },
+        ],
+        recommendation: {
+          optionId: 'answer_and_continue',
+          reason: 'One clear answer will let the boss choose the right path without guessing.',
+        },
+        allowFreeformResponse: true,
+        placeholder: 'Answer the question so Offisim can continue',
+        requestedByNode: 'boss',
+        context: {
+          type: 'agent_question',
+          questionKey: 'boss_clarification',
+        },
+        createdAt: Date.now(),
       },
-      allowFreeformResponse: true,
-      placeholder: 'Answer the question so Offisim can continue',
-      requestedByNode: 'boss',
-      context: {
-        type: 'agent_question',
-        questionKey: 'boss_clarification',
-      },
-      createdAt: Date.now(),
-    }, { runScope: getRunScope(config) });
+      { runScope },
+    );
     throw new Error(AGENT_QUESTION_REQUIRED);
   }
 
@@ -425,7 +564,10 @@ export async function bossNode(
       runtimeCtx,
       {
         messages: [
-          { role: 'system', content: BOSS_DIRECT_REPLY_PROMPT + bossEmployeeRoster.section },
+          {
+            role: 'system',
+            content: BOSS_DIRECT_REPLY_PROMPT + bossEmployeeRoster.section + attachmentPreface,
+          },
           {
             role: 'user',
             content: `User request:\n${userContent}\n\nPlanned response intent:\n${replyContent}`,
@@ -438,7 +580,7 @@ export async function bossNode(
       },
       { nodeName: 'boss', provider: resolved.provider, model: resolved.model },
       forwardStreamChunks(runtimeCtx, state.threadId, 'boss', {
-        runScope: getRunScope(config),
+        runScope,
       }),
     );
     finalReplyContent = streamResult.fullContent.trim() || replyContent;

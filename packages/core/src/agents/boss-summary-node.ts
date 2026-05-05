@@ -92,6 +92,15 @@ function isPlanFullyCompleted(state: OffisimGraphState): boolean {
   return stats.total > 0 && stats.allTerminal && stats.blocked === 0;
 }
 
+function blockedPlanSummaryText(stats: ReturnType<typeof planCompletionStats>): string {
+  const pending = Math.max(0, stats.total - stats.terminal);
+  const pendingText =
+    pending > 0
+      ? ` ${pending} remaining step(s) cannot proceed until human review clears the blocked task.`
+      : ' Human review is required before this can be treated as complete.';
+  return `Plan is blocked after ${stats.blocked} blocked step(s).${pendingText} This is not complete.`;
+}
+
 /**
  * Boss summary node — produces the final summary after employee work
  * or after an error handler. Marks the graph as completed.
@@ -190,8 +199,35 @@ export async function bossSummaryNode(
       ? state.currentStepOutputs.map((o) => o.content)
       : employeeResults.map(stripLegacySpeakerPrefix);
 
+  const stats = planCompletionStats(state);
+  if (state.taskPlan && stats.blocked > 0) {
+    const content = blockedPlanSummaryText(stats);
+    if (runtimeCtx) {
+      const thread = await runtimeCtx.repos.threads.findById(state.threadId);
+      if (thread?.status !== 'cancelled') {
+        await runtimeCtx.repos.threads.updateStatus(state.threadId, 'running');
+      }
+      await appendAgentEvent(runtimeCtx, {
+        projectId: state.projectId,
+        threadId: state.threadId,
+        agentName: 'boss',
+        eventType: 'action',
+        payload: {
+          action: 'summary',
+          blockedSteps: stats.blocked,
+          pendingSteps: Math.max(0, stats.total - stats.terminal),
+          completedSteps: stats.completed,
+        },
+      });
+      autoTitleThread(runtimeCtx, state);
+    }
+    return {
+      completed: false,
+      messages: [new AIMessage({ content })],
+    };
+  }
+
   if (employeeResults.length === 0) {
-    const stats = planCompletionStats(state);
     const hasNoPlanState =
       !state.taskPlan &&
       state.pendingAssignments.length === 0 &&

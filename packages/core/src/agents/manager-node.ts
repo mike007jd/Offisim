@@ -7,8 +7,13 @@ import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { extractJsonFromLlm } from '../utils/extract-json.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { getConfigSignal } from '../utils/get-signal.js';
+import { buildAttachmentSystemPreface } from './attachment-preface.js';
 import { emitAssignmentRerouted } from './emit-assignment-rerouted.js';
 import { buildEnrichedEmployeeList } from './employee-roster.js';
+import {
+  localToolsGatewayLaneOutcomeState,
+  localToolsRequireGatewayLane,
+} from './local-tool-lane-guard.js';
 import { detectTaskToolIntent, isLocalToolAssignableEmployee } from './task-tool-intent.js';
 
 interface LlmAssignment {
@@ -101,10 +106,11 @@ export async function managerNode(
   config: RunnableConfig,
 ): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'manager');
+  const runScope = getRunScope(config);
 
   // Announce node entry
   runtimeCtx.eventBus.emit(
-    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'manager', getRunScope(config)),
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'manager', runScope),
   );
 
   const { modelResolver, repos, companyId } = runtimeCtx;
@@ -120,6 +126,9 @@ export async function managerNode(
       ? lastUserMessage.content
       : 'No user message found';
   const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(userContent);
+  if (localToolsRequireGatewayLane(runtimeCtx, taskToolIntent)) {
+    return localToolsGatewayLaneOutcomeState(state, taskToolIntent);
+  }
   const localToolRequired = taskToolIntent.requiresLocalTools;
   // System graph-node roles that should not receive task assignments.
   // All other employees (including account_manager, project_manager, etc.) are assignable.
@@ -132,6 +141,7 @@ export async function managerNode(
   );
 
   const employeeList = buildEnrichedEmployeeList(nonManagerEmployees);
+  const attachmentPreface = buildAttachmentSystemPreface(runtimeCtx, runScope);
 
   // --- Rule-based fast path: single employee, simple delegation ---
   // When there's exactly one assignable employee AND the request is clearly work
@@ -173,7 +183,7 @@ export async function managerNode(
       messages: [
         {
           role: 'system',
-          content: `${MANAGER_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}`,
+          content: `${MANAGER_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}${attachmentPreface}`,
         },
         { role: 'user', content: userContent },
       ],
@@ -185,7 +195,7 @@ export async function managerNode(
     { nodeName: 'manager', provider: resolved.provider, model: resolved.model },
     forwardStreamChunks(runtimeCtx, state.threadId, 'manager', {
       content: false,
-      runScope: getRunScope(config),
+      runScope,
     }),
   );
 

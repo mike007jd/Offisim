@@ -151,6 +151,7 @@ export function BootstrapProvider({ children }: BootstrapProviderProps) {
       exportVaultSnapshotZip: undefined,
       availableEngineAdapters: EMPTY_ENGINE_ADAPTERS,
       companyEmployeeRuntimeDefault: null,
+      attachmentStore: null,
     }),
     [error, runtime],
   );

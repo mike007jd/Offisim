@@ -1,0 +1,97 @@
+{
+  "id": "yolo-attachment-only-reads-current-turn-refs",
+  "category": "chat-attachments",
+  "entryMode": "boss_chat",
+  "interactionMode": "yolo",
+  "seed": {
+    "company": { "companyId": "company-yolo-attachments", "name": "YOLO Attachment Co" },
+    "thread": { "threadId": "thread-yolo-attachments", "status": "running" },
+    "employees": [{ "id": "emp-yolo-attachments", "name": "YOLO Master", "role": "yolo_master" }]
+  },
+  "tools": [
+    {
+      "name": "read_attachment",
+      "description": "Read an attached file by vault reference.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "vaultRef": { "type": "string" },
+          "mode": { "type": "string", "enum": ["auto", "text", "binary", "structured"] }
+        },
+        "required": ["vaultRef"]
+      }
+    }
+  ],
+  "toolFixtures": {
+    "read_attachment": [
+      {
+        "success": true,
+        "result": {
+          "filename": "sample.pdf",
+          "mimeType": "application/pdf",
+          "byteLength": 4096,
+          "sha256": "fixture-sha",
+          "content": "Page 1 fixture text",
+          "truncated": false,
+          "structured": { "pages": [{ "pageNumber": 1, "text": "Page 1 fixture text" }] }
+        }
+      }
+    ]
+  },
+  "initialState": {
+    "messages": [{ "role": "user", "content": "" }]
+  },
+  "llmTurns": [
+    {
+      "id": "yolo-empty-attachment-task-calls-read-attachment",
+      "match": {
+        "contains": "Inspect the current turn attachments. Call read_attachment for each attachment before replying",
+        "toolNames": ["read_attachment"]
+      },
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call-yolo-read-attachment",
+          "name": "read_attachment",
+          "arguments": {
+            "vaultRef": "attachment://company-yolo-attachments/thread-yolo-attachments/00000000-0000-4000-8000-000000000333",
+            "mode": "structured"
+          }
+        }
+      ]
+    },
+    {
+      "id": "yolo-final-after-current-turn-read",
+      "match": {
+        "contains": "attachment://company-yolo-attachments/thread-yolo-attachments/00000000-0000-4000-8000-000000000333"
+      },
+      "content": "Current-turn attachment content: Page 1 fixture text"
+    }
+  ],
+  "runs": [
+    {
+      "runScope": {
+        "conversationKey": "thread-yolo-attachments",
+        "runId": "run-yolo-attachments",
+        "threadId": "thread-yolo-attachments",
+        "pendingAttachments": [
+          {
+            "attachmentId": "00000000-0000-4000-8000-000000000333",
+            "vaultRef": "attachment://company-yolo-attachments/thread-yolo-attachments/00000000-0000-4000-8000-000000000333",
+            "filename": "sample.pdf",
+            "mimeType": "application/pdf",
+            "byteLength": 4096,
+            "kind": "pdf",
+            "parsedRev": 1,
+            "summary": "PDF · 12 pages"
+          }
+        ]
+      }
+    }
+  ],
+  "assertions": [
+    { "kind": "firstGraphNodeIs", "nodeName": "yolo-master" },
+    { "kind": "mcpAuditContains", "toolName": "read_attachment" },
+    { "kind": "finalOutputContains", "contains": "Page 1 fixture text" }
+  ]
+}

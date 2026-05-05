@@ -97,7 +97,12 @@ export function ProjectSelectedSummary({
           )}
         </div>
       )}
-      {showWorkspaceFiles ? <ProjectWorkspaceFiles workspaceRoot={project.workspace_root} /> : null}
+      {showWorkspaceFiles ? (
+        <ProjectWorkspaceFiles
+          projectId={project.project_id}
+          workspaceRoot={project.workspace_root}
+        />
+      ) : null}
     </div>
   );
 }

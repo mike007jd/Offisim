@@ -127,7 +127,7 @@ export function RightSidebar({
       ) : null}
 
       {activeProjectId && onSelectThread ? (
-        <div className="border-b border-border-default">
+        <div className="max-h-56 shrink-0 overflow-y-auto border-b border-border-default custom-scrollbar">
           <ThreadList
             projectId={activeProjectId}
             selectedThreadId={activeThreadId ?? null}

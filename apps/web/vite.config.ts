@@ -77,6 +77,14 @@ function createBrowserTauriAliases() {
       replacement: path.resolve(__dirname, 'src/polyfills/tauri-api-event.ts'),
     },
     {
+      find: '@tauri-apps/api/webview',
+      replacement: path.resolve(__dirname, 'src/polyfills/tauri-api-webview.ts'),
+    },
+    {
+      find: '@tauri-apps/api/webviewWindow',
+      replacement: path.resolve(__dirname, 'src/polyfills/tauri-api-webview-window.ts'),
+    },
+    {
       find: '@tauri-apps/api/path',
       replacement: path.resolve(__dirname, 'src/polyfills/tauri-api-path.ts'),
     },

@@ -157,6 +157,8 @@ export type { SerializedExecutionState } from './services/orchestration-service.
 // --- Factories ---
 export { buildOffisimGraph } from './graph/main-graph.js';
 export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.js';
+export { resolveActiveContextSnapshot } from './runtime/active-context-snapshot.js';
+export type { ActiveContextSnapshot } from './runtime/active-context-snapshot.js';
 export { ResumeCoordinator } from './runtime/resume-coordinator.js';
 export { HookRegistry } from './runtime/hook-registry.js';
 export { Scratchpad } from './runtime/scratchpad.js';
@@ -315,6 +317,7 @@ export {
   employeeWorkstationChanged,
   employeeVersionCreated,
   bossEmployeeContextEmpty,
+  bossRosterDivergence,
   rackBound,
   rackUnbound,
   slotAssigned,

@@ -90,6 +90,14 @@ export type EventFamily =
   | 'interaction.mode.changed'
   | 'boss.route.decided'
   | 'boss.employee-context.empty'
+  | 'boss.roster-divergence'
   | 'workspace-binding.unavailable'
   | 'vault.sync.failed'
-  | 'chat_thread.updated';
+  | 'chat_thread.updated'
+  | 'chat.attachment.staged'
+  | 'chat.attachment.persisted'
+  | 'chat.attachment.read'
+  | 'chat.attachment.gc.dropped'
+  | 'chat.attachment.gc.swept'
+  | 'chat.attachment.failed'
+  | 'chat.attachment.evicted';

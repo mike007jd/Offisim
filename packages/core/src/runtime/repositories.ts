@@ -265,6 +265,7 @@ export interface CompanyRepository {
       >
     >,
   ): Promise<void>;
+  delete(companyId: string): Promise<void>;
 }
 
 export interface ThreadRepository {
@@ -957,6 +958,8 @@ export interface ChatThreadRepository {
   findById(threadId: string): Promise<ChatThread | null>;
   /** Non-archived threads for the project, ordered by `updated_at DESC`. */
   listByProject(projectId: string): Promise<ChatThread[]>;
+  /** All threads for the project, including soft-archived rows. Used by hard-delete cascades. */
+  listAllByProject(projectId: string): Promise<ChatThread[]>;
   /**
    * Update the thread title.
    *
@@ -977,6 +980,10 @@ export interface ChatThreadRepository {
   touch(threadId: string): Promise<void>;
   /** Sets `archived_at` to now. Idempotent — no-op when already archived. */
   archive(threadId: string): Promise<void>;
+  /** Clears `archived_at`. Idempotent — no-op when the row is already active or missing. */
+  unarchive(threadId: string): Promise<void>;
+  /** Hard delete. Callers that own an AttachmentStore must cascade blobs before invoking this. */
+  delete(threadId: string): Promise<void>;
   /**
    * Idempotent: if the project has zero non-archived `chat_threads` rows,
    * insert one with `title = 'New thread'`. Returns the most-recently-updated

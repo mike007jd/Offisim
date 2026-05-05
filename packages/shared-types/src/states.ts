@@ -72,7 +72,8 @@ export type RuntimeEntityType =
   | 'plan'
   | 'mcp'
   | 'company'
-  | 'prefab';
+  | 'prefab'
+  | 'attachment';
 
 // ── Prefab State Types (per semantic category) ──────────────────
 export type WorkspacePrefabState =

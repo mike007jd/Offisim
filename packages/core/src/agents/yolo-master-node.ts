@@ -7,7 +7,16 @@ import {
   createEmptyPlanScopedState,
 } from '../graph/state.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
+import {
+  attachmentGatewayLaneOutcomeState,
+  attachmentsRequireGatewayLane,
+} from './attachment-lane-guard.js';
+import { resolveAttachmentAwareTaskDescription } from './attachment-preface.js';
 import { employeeNode } from './employee-node.js';
+import {
+  localToolsGatewayLaneOutcomeState,
+  localToolsRequireGatewayLane,
+} from './local-tool-lane-guard.js';
 import { detectTaskToolIntent } from './task-tool-intent.js';
 import { YOLO_MASTER_ROLE_SLUG } from './yolo-master-persona.js';
 
@@ -26,6 +35,11 @@ export async function yoloMasterNode(
   runtimeCtx.eventBus.emit(
     graphNodeEntered(runtimeCtx.companyId, state.threadId, 'yolo-master', getRunScope(config)),
   );
+  const runScope = getRunScope(config);
+  if (attachmentsRequireGatewayLane(runtimeCtx, runScope)) {
+    return attachmentGatewayLaneOutcomeState(state);
+  }
+
   const [yolo] = await runtimeCtx.repos.employees.findByRole(
     runtimeCtx.companyId,
     YOLO_MASTER_ROLE_SLUG,
@@ -37,8 +51,11 @@ export async function yoloMasterNode(
     );
   }
 
-  const taskDescription = latestHumanText(state);
+  const taskDescription = resolveAttachmentAwareTaskDescription(latestHumanText(state), runScope);
   const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(taskDescription);
+  if (localToolsRequireGatewayLane(runtimeCtx, taskToolIntent)) {
+    return localToolsGatewayLaneOutcomeState(state, taskToolIntent);
+  }
   const taskRunId = runtimeCtx.determinism.id('tr-yolo');
   const stepIndex = state.currentStepIndex ?? 0;
 

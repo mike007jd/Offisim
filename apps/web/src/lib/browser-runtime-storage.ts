@@ -17,9 +17,11 @@ const EVENT_PREFIXES = [
   'task.',
   'deliverable.',
   'employee.',
+  'boss.',
   'install.',
   'execution.',
   'workspace-binding.',
+  'chat.attachment.',
 ] as const;
 
 type MemoryRepos = ReturnType<typeof createMemoryRepositories>;

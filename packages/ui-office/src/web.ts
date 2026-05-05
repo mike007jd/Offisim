@@ -108,6 +108,7 @@ export {
   type VaultDirectoryStatus,
   type OffisimRuntimeStatusValue,
   type OffisimRuntimeValue,
+  type SendMessageResult,
   EMPTY_ENGINE_ADAPTERS,
   useAvailableEngineAdapters,
   useCompanyEmployeeRuntimeDefault,
@@ -123,3 +124,11 @@ export {
   useChatStreamingSync,
 } from './runtime/use-chat-streaming-sync.js';
 export { ThemeProvider, type Theme, useTheme } from './theme/index.js';
+
+export type {
+  AttachmentReadResult,
+  AttachmentRepoEnumerator,
+  AttachmentStore,
+} from './lib/attachment-store.js';
+export { cascadeDeleteByThreads } from './lib/attachment-store.js';
+export { computeSha256 as computeAttachmentSha256 } from './lib/attachment-sha256.js';

@@ -29,22 +29,26 @@ async function projectInvoke<T>(command: string, args: Record<string, unknown>):
 }
 
 export async function listProjectWorkspaceDirectory(input: {
+  projectId: string;
   workspaceRoot: string;
   path?: string;
 }): Promise<ProjectWorkspaceEntry[]> {
   return projectInvoke<ProjectWorkspaceEntry[]>('project_list_dir', {
     path: input.path ?? '.',
     cwd: input.workspaceRoot,
+    projectId: input.projectId,
   });
 }
 
 export async function readProjectWorkspaceFile(input: {
+  projectId: string;
   workspaceRoot: string;
   path: string;
 }): Promise<string> {
   return projectInvoke<string>('project_read_file', {
     path: input.path,
     cwd: input.workspaceRoot,
+    projectId: input.projectId,
   });
 }
 
@@ -67,6 +71,7 @@ const DEFAULT_PREVIEW_MAX_BYTES = 8192;
  * file-tree UI; pass a larger value to fetch up to the cap.
  */
 export async function readProjectWorkspaceFilePreview(input: {
+  projectId: string;
   workspaceRoot: string;
   path: string;
   maxBytes?: number;
@@ -75,6 +80,7 @@ export async function readProjectWorkspaceFilePreview(input: {
     path: input.path,
     cwd: input.workspaceRoot,
     maxBytes: input.maxBytes ?? DEFAULT_PREVIEW_MAX_BYTES,
+    projectId: input.projectId,
   });
 }
 

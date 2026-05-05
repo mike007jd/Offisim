@@ -205,6 +205,15 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
         .all() as ChatThreadDbRow[];
       return rows.map(chatThreadFromDbRow);
     },
+    async listAllByProject(projectId) {
+      const rows = db
+        .select()
+        .from(schema.chatThreads)
+        .where(eq(schema.chatThreads.project_id, projectId))
+        .orderBy(desc(schema.chatThreads.updated_at))
+        .all() as ChatThreadDbRow[];
+      return rows.map(chatThreadFromDbRow);
+    },
     async updateTitle(threadId, title, opts) {
       const existing = db
         .select()
@@ -243,6 +252,15 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
           ),
         )
         .run();
+    },
+    async unarchive(threadId) {
+      db.update(schema.chatThreads)
+        .set({ archived_at: null, updated_at: now() })
+        .where(eq(schema.chatThreads.thread_id, threadId))
+        .run();
+    },
+    async delete(threadId) {
+      db.delete(schema.chatThreads).where(eq(schema.chatThreads.thread_id, threadId)).run();
     },
     async ensureProjectHasAtLeastOneThread(projectId) {
       const existing = db

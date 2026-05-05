@@ -1,0 +1,71 @@
+{
+  "id": "gateway-lane-attachments-system-preface",
+  "category": "chat-attachments",
+  "entryMode": "boss_chat",
+  "interactionMode": "boss_proxy",
+  "seed": {
+    "company": { "companyId": "company-gateway-attachments", "name": "Gateway Attachment Co" },
+    "thread": { "threadId": "thread-gateway-attachments", "status": "running" },
+    "employees": [{ "id": "emp-gateway-attachments", "name": "Gateway Worker", "role": "engineer" }]
+  },
+  "builtinTools": [
+    {
+      "name": "read_attachment",
+      "description": "Read an attached file by vault reference.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "vaultRef": { "type": "string" },
+          "mode": { "type": "string", "enum": ["auto", "text", "bytes"] }
+        },
+        "required": ["vaultRef"]
+      }
+    }
+  ],
+  "initialState": {
+    "messages": [{ "role": "user", "content": "Please summarize the attached PDF." }]
+  },
+  "llmTurns": [
+    {
+      "id": "boss-sees-attachment-preface",
+      "match": {
+        "contains": "attachment://company-gateway-attachments/thread-gateway-attachments/00000000-0000-4000-8000-000000000222"
+      },
+      "content": "{\"action\":\"direct_reply\",\"reply\":\"Attachment prompt visible final.\",\"reason\":\"preface verified\"}"
+    },
+    {
+      "id": "employee-sees-attachment-preface-after-boss-direct-reply-override",
+      "match": {
+        "contains": "attachment://company-gateway-attachments/thread-gateway-attachments/00000000-0000-4000-8000-000000000222",
+        "toolNames": ["read_attachment"]
+      },
+      "content": "Attachment direct reply was overridden and delegated to the gateway employee."
+    }
+  ],
+  "runs": [
+    {
+      "runScope": {
+        "conversationKey": "project-gateway::thread-gateway-attachments::",
+        "runId": "run-gateway-attachments",
+        "threadId": "thread-gateway-attachments",
+        "pendingAttachments": [
+          {
+            "attachmentId": "00000000-0000-4000-8000-000000000222",
+            "vaultRef": "attachment://company-gateway-attachments/thread-gateway-attachments/00000000-0000-4000-8000-000000000222",
+            "filename": "sample.pdf",
+            "mimeType": "application/pdf",
+            "byteLength": 4096,
+            "kind": "pdf",
+            "parsedRev": 1,
+            "summary": "PDF · 12 pages"
+          }
+        ]
+      }
+    }
+  ],
+  "assertions": [
+    { "kind": "firstGraphNodeIs", "nodeName": "boss" },
+    { "kind": "llmCalls", "count": 2 },
+    { "kind": "finalOutputContains", "contains": "overridden and delegated" }
+  ]
+}

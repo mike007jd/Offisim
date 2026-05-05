@@ -1,6 +1,7 @@
 import type { EventBus, RuntimeRepositories } from '@offisim/core/browser';
 import type { InstallService } from '@offisim/install-core';
 import type { InteractionRequest, Zone } from '@offisim/shared-types';
+import type { SendMessageResult } from '../runtime/offisim-runtime-context';
 import type { SceneIntentBus } from '../runtime/scene-intents';
 
 interface OffisimDebugEmployeeInfo {
@@ -41,7 +42,7 @@ export interface OffisimDebugBridge {
   respondToInteraction?: (
     selectedOptionId: string,
     freeformResponse?: string,
-  ) => Promise<string | undefined>;
+  ) => Promise<SendMessageResult | undefined>;
   /** Devtools helper for directly triggering install tools against the live runtime. */
   runSkillInstallTool?: (toolName: string, args?: Record<string, unknown>) => Promise<unknown>;
   /** Devtools helper for fault-injection live verification of runtime send options. */
@@ -53,7 +54,7 @@ export interface OffisimDebugBridge {
       entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
       conversationKey?: string;
     },
-  ) => Promise<string | undefined>;
+  ) => Promise<SendMessageResult | undefined>;
   /** Devtools helper for abort-path live verification. */
   abortExecution?: () => void;
   sceneActions?: {

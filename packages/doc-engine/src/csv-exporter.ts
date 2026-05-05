@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
-import type { ExportResult, ExportableDocument, Exporter } from './types';
-import { formatDate, sanitizeFilename } from './utils';
+import type { ExportResult, ExportableDocument, Exporter } from './types.js';
+import { formatDate, sanitizeFilename } from './utils.js';
 
 export const csvExporter: Exporter = {
   async export(doc: ExportableDocument): Promise<ExportResult> {

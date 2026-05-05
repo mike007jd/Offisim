@@ -1,8 +1,10 @@
 import type { SkillMetadata } from '@offisim/shared-types';
+import type { RunScope } from '../graph/state.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { LibraryService } from '../services/library-service.js';
 import { sanitizeForPrompt } from '../utils/sanitize-prompt.js';
+import { buildAttachmentSystemPreface } from './attachment-preface.js';
 import { buildEmployeePrompt } from './employee-builder.js';
 import { formatMemoriesSection } from './employee-memory-tools.js';
 import type { PreflightResult } from './employee-preflight.js';
@@ -51,6 +53,7 @@ export interface AssembledPrompt {
 export async function assemblePrompt(
   preflight: PreflightResult,
   runtimeCtx: RuntimeContext,
+  runScope?: RunScope | null,
 ): Promise<AssembledPrompt> {
   const { employee, company, taskDescription, memoryPolicy } = preflight;
   const { memoryService, repos, eventBus, scratchpad, companyId, skillLoader } = runtimeCtx;
@@ -123,6 +126,8 @@ export async function assemblePrompt(
       .map((entry) => `- [${entry.author}] ${entry.summary}`)
       .join('\n')}`;
   }
+
+  systemPrompt += buildAttachmentSystemPreface(runtimeCtx, runScope);
 
   return { systemPrompt, citationMap };
 }

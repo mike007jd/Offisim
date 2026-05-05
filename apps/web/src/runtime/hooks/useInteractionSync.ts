@@ -24,6 +24,7 @@ import {
   persistDefaultInteractionMode,
 } from '../interaction-mode-storage';
 import type { LastFailedMessage } from '../last-failed-message';
+import type { SendMessageResult } from '@offisim/ui-office/web';
 
 export interface UseInteractionSyncResult {
   interactionMode: InteractionMode;
@@ -33,7 +34,7 @@ export interface UseInteractionSyncResult {
     selectedOptionId: string,
     freeformResponse?: string,
     options?: { runScope?: RunScope },
-  ) => Promise<string | undefined>;
+  ) => Promise<SendMessageResult | undefined>;
   interactionModeRef: MutableRefObject<InteractionMode>;
   pendingInteractionRef: MutableRefObject<InteractionRequest | null>;
 }
@@ -60,10 +61,10 @@ export function useInteractionSync({
       conversationKey?: string;
       runScope?: RunScope;
     },
-  ) => Promise<string | undefined>;
+  ) => Promise<SendMessageResult | undefined>;
   retryLastMessage: (options?: {
     runScope?: RunScope;
-  }) => Promise<string | undefined>;
+  }) => Promise<SendMessageResult | undefined>;
   lastFailedMessageRef: MutableRefObject<LastFailedMessage | null>;
   setError: Dispatch<SetStateAction<string | null>>;
 }): UseInteractionSyncResult {
@@ -129,7 +130,7 @@ export function useInteractionSync({
       selectedOptionId: string,
       freeformResponse?: string,
       options?: { runScope?: RunScope },
-    ): Promise<string | undefined> => {
+    ): Promise<SendMessageResult | undefined> => {
       const runtime = runtimeRef.current;
       const interactionService = runtime?.interactionService;
       const pending = interactionService?.getPending() ?? pendingInteractionRef.current;
@@ -149,7 +150,7 @@ export function useInteractionSync({
       );
 
       if (followUp.mode === 'message') {
-        return followUp.message;
+        return { kind: 'assistant', content: followUp.message };
       }
 
       if (followUp.mode === 'retry_last_message' && lastFailedMessageRef.current) {

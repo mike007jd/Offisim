@@ -1,3 +1,4 @@
+mod attachment_store;
 mod builtin_tools;
 mod claude_agent_host;
 mod codex_agent_host;
@@ -14,6 +15,7 @@ mod sessions;
 mod sidecar_stderr;
 
 use tauri::Manager;
+use tauri_plugin_fs::FsExt;
 
 const MAIN_WINDOW_LABEL: &str = "main";
 const MAIN_WINDOW_FALLBACK_LABEL: &str = "main-live";
@@ -100,6 +102,11 @@ pub fn run() {
             kanban::create_kanban_card,
             kanban::transition_kanban_card,
             kanban::count_kanban_for_employee,
+            attachment_store::attachment_write,
+            attachment_store::attachment_read,
+            attachment_store::attachment_list,
+            attachment_store::attachment_list_all,
+            attachment_store::attachment_delete,
         ])
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_cors_fetch::init())
@@ -108,6 +115,19 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(mcp_bridge::init())
+        .on_webview_event(|webview, event| {
+            if let tauri::WebviewEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {
+                if let Some(scope) = webview.try_fs_scope() {
+                    for path in paths {
+                        let _ = if path.is_file() {
+                            scope.allow_file(path)
+                        } else {
+                            scope.allow_directory(path, false)
+                        };
+                    }
+                }
+            }
+        })
         .on_page_load(|webview, payload| {
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
                 let window = webview.window();

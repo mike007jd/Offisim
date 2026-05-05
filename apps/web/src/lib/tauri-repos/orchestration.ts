@@ -56,6 +56,9 @@ export function createOrchestrationTauriRepos(db: TauriDrizzleDb): Orchestration
         .set({ ...fields, updated_at: now() })
         .where(eq(schema.companies.company_id, companyId));
     },
+    async delete(companyId) {
+      await db.delete(schema.companies).where(eq(schema.companies.company_id, companyId));
+    },
   };
 
   const threads: ThreadRepository = {

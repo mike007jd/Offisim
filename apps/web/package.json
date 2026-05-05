@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node ../../scripts/copy-pdf-worker.mjs",
     "dev": "vite",
+    "prebuild": "node ../../scripts/copy-pdf-worker.mjs",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",

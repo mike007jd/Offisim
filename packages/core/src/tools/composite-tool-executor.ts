@@ -1,7 +1,7 @@
 import type { ToolDef } from '../llm/gateway.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { Logger } from '../services/logger.js';
-import type { BuiltinTool } from './builtin/types.js';
+import type { BuiltinTool, BuiltinToolExecutionContext } from './builtin/types.js';
 
 const logger = new Logger('composite-tool');
 
@@ -13,6 +13,7 @@ export class CompositeToolExecutor implements ToolExecutor {
   constructor(
     private readonly builtinTools: Map<string, BuiltinTool>,
     private readonly mcpExecutor: ToolExecutor,
+    private readonly builtinContext: Pick<BuiltinToolExecutionContext, 'companyId'> = {},
   ) {}
 
   async execute(call: ToolCallRequest): Promise<ToolCallResponse> {
@@ -21,7 +22,11 @@ export class CompositeToolExecutor implements ToolExecutor {
       try {
         const result = await builtin.execute(
           call.arguments,
-          call.threadId ? { threadId: call.threadId } : undefined,
+          {
+            ...this.builtinContext,
+            ...(call.threadId ? { threadId: call.threadId } : {}),
+            ...(call.runScope !== undefined ? { runScope: call.runScope } : {}),
+          },
         );
         return { success: true, result };
       } catch (err) {

@@ -18,13 +18,25 @@ export interface WorkspaceStalenessDetectedPayload {
 export type WorkspaceBindingUnavailableMissingAt =
   | 'rust-state'
   | 'runtime-context'
-  | 'project-switch';
+  | 'project-switch'
+  | 'bootstrap-attach'
+  | 'runtime-context-read'
+  | 'sandbox-precondition'
+  | 'release-context-init';
+
+export type WorkspaceBindingConsumer =
+  | 'builtin-sandbox'
+  | 'file-tree'
+  | 'opener-plugin'
+  | 'project-read-file-preview'
+  | 'skill-install';
 
 export interface WorkspaceBindingUnavailablePayload {
   readonly companyId: string;
   readonly projectId: string;
   readonly expectedWorkspaceRoot: string | null;
   readonly missingAt: WorkspaceBindingUnavailableMissingAt;
+  readonly consumer?: WorkspaceBindingConsumer;
 }
 
 export interface GitAutoCommittedPayload {

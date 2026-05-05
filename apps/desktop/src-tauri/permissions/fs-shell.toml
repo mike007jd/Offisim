@@ -7,4 +7,9 @@ commands.allow = [
   "project_list_dir",
   "project_write_file",
   "bash_execute",
+  "attachment_write",
+  "attachment_read",
+  "attachment_list",
+  "attachment_list_all",
+  "attachment_delete",
 ]

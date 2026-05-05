@@ -1,6 +1,10 @@
-import { ArrowUp } from 'lucide-react';
+import type { EventBus } from '@offisim/core/browser';
+import type { ParsedAttachment, StagedAttachment } from '@offisim/shared-types';
+import { ArrowUp, Paperclip } from 'lucide-react';
 import {
   type KeyboardEvent,
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent as ReactDragEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -8,14 +12,27 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { AttachmentStore } from '../../lib/attachment-store.js';
 import {
   COMMAND_CATEGORIES,
   type ChatCommand,
   filterCommands,
   parseCommand,
 } from '../../lib/chat-commands.js';
+import { isTauri } from '../../lib/env.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useTourTarget } from '../onboarding/tour-context.js';
+import { AttachmentDropOverlay } from './AttachmentDropOverlay.js';
+import { StagedAttachmentChip } from './StagedAttachmentChip.js';
+import { readTauriDroppedFiles } from './tauri-dropped-files.js';
+import { useChatAttachmentStaging } from './useChatAttachmentStaging.js';
+
+type TauriDropPosition = { x: number; y: number };
+
+export interface ChatInputAttachmentPayload {
+  staged: StagedAttachment[];
+  cachedParsed: Map<string, ParsedAttachment>;
+}
 
 // ── Mention option ──────────────────────────────────────────────────
 
@@ -60,7 +77,10 @@ function resizeTextarea(element: HTMLTextAreaElement | null, currentText: string
 export interface ChatInputProps {
   onSend: (
     message: string,
-    options?: { entryMode?: 'boss_chat' | 'direct_chat' | 'meeting' },
+    options?: {
+      entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+      attachments?: ChatInputAttachmentPayload;
+    },
   ) => void;
   onCommand: (command: ChatCommand, args: string) => void;
   disabled?: boolean;
@@ -68,6 +88,10 @@ export interface ChatInputProps {
   agents?: Map<string, AgentState>;
   disabledReason?: string;
   modeChip?: ReactNode;
+  companyId: string;
+  threadId: string;
+  attachmentStore: AttachmentStore | null;
+  eventBus: EventBus | null;
 }
 
 export function ChatInput({
@@ -78,9 +102,25 @@ export function ChatInput({
   agents,
   disabledReason,
   modeChip,
+  companyId,
+  threadId,
+  attachmentStore,
+  eventBus,
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const dragDepthRef = useRef(0);
+  const chatInputElementRef = useRef<HTMLDivElement | null>(null);
+  const lastHtmlDropAtRef = useRef(0);
+  const lastNativeDropAtRef = useRef(0);
+  const staging = useChatAttachmentStaging({
+    companyId,
+    threadId,
+    attachmentStore,
+    eventBus,
+  });
 
   // ── Menu state ──────────────────────────────────────────────────
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -207,21 +247,36 @@ export function ChatInput({
     setShowMentionMenu(false);
     setSlashFilter('');
     setMentionFilter('');
+    staging.clear();
   }
 
   function handleSend() {
     const trimmed = text.trim();
-    if (!trimmed || disabled) return;
+    const hasAttachments = staging.staged.length > 0;
+    if ((!trimmed && !hasAttachments) || disabled) return;
 
-    const parsed = parseCommand(trimmed);
-    if (parsed) {
-      onCommand(parsed.command, parsed.args);
-      clearComposer();
-      return;
+    if (trimmed) {
+      const parsed = parseCommand(trimmed);
+      if (parsed) {
+        onCommand(parsed.command, parsed.args);
+        clearComposer();
+        return;
+      }
     }
 
-    // Not a command (or unrecognized /something) — send as regular message
-    onSend(trimmed);
+    const attachmentPayload: ChatInputAttachmentPayload | undefined = hasAttachments
+      ? {
+          staged: staging.staged,
+          cachedParsed: new Map(
+            staging.staged
+              .map((s) => [s.attachmentId, staging.getCachedParsed(s.attachmentId)] as const)
+              .filter((pair): pair is [string, ParsedAttachment] => pair[1] !== undefined),
+          ),
+        }
+      : undefined;
+    // Attachment-only sends ship empty content + non-empty refs; do NOT inject
+    // placeholder text per the chat-attachments-end-to-end spec.
+    onSend(trimmed, attachmentPayload ? { attachments: attachmentPayload } : undefined);
     clearComposer();
   }
 
@@ -240,6 +295,13 @@ export function ChatInput({
     setText(`${before}@${option.name} ${afterCursor}`);
     setShowMentionMenu(false);
     textareaRef.current?.focus();
+  }
+
+  function focusComposerAfterAttach() {
+    requestAnimationFrame(() => {
+      chatInputElementRef.current?.scrollIntoView({ block: 'nearest' });
+      textareaRef.current?.focus();
+    });
   }
 
   // ── Keyboard navigation ─────────────────────────────────────────
@@ -318,11 +380,162 @@ export function ChatInput({
     }
   }
 
-  const canSend = !!text.trim() && !disabled;
-  const chatInputTargetRef = useTourTarget('office:chat-input');
+  const canSend = (!!text.trim() || staging.staged.length > 0) && !disabled;
+  const registerChatInputTarget = useTourTarget('office:chat-input');
+  const setChatInputTargetRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      chatInputElementRef.current = el;
+      registerChatInputTarget(el);
+    },
+    [registerChatInputTarget],
+  );
+
+  const isNativeDropInsideComposer = useCallback((position: TauriDropPosition): boolean => {
+    const element = chatInputElementRef.current;
+    if (!element || typeof window === 'undefined') return false;
+    const scale = window.devicePixelRatio || 1;
+    const dropTarget = element.closest('[data-chat-panel-root]');
+    const rect =
+      dropTarget instanceof HTMLElement
+        ? dropTarget.getBoundingClientRect()
+        : element.getBoundingClientRect();
+    const candidates = [
+      { x: position.x, y: position.y },
+      ...(scale !== 1 ? [{ x: position.x / scale, y: position.y / scale }] : []),
+    ];
+    return candidates.some(
+      ({ x, y }) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom,
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+
+    void (async () => {
+      try {
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        unlisten = await getCurrentWebviewWindow().onDragDropEvent((event) => {
+          if (cancelled) return;
+          const payload = event.payload;
+          if (payload.type === 'leave') {
+            dragDepthRef.current = 0;
+            setDragActive(false);
+            return;
+          }
+          if (payload.type === 'enter') {
+            const inside = payload.paths.length > 0 && isNativeDropInsideComposer(payload.position);
+            dragDepthRef.current = inside ? 1 : 0;
+            setDragActive(inside);
+            return;
+          }
+          if (payload.type === 'over') {
+            setDragActive(isNativeDropInsideComposer(payload.position));
+            return;
+          }
+          if (payload.type !== 'drop') return;
+
+          dragDepthRef.current = 0;
+          setDragActive(false);
+          if (!isNativeDropInsideComposer(payload.position) || payload.paths.length === 0) return;
+          if (Date.now() - lastHtmlDropAtRef.current < 1000) return;
+          lastNativeDropAtRef.current = Date.now();
+
+          void (async () => {
+            const result = await readTauriDroppedFiles(payload.paths);
+            for (const error of result.errors) {
+              staging.reportExternalError(error.filename, error.message);
+            }
+            if (result.files.length > 0) {
+              await staging.handleStaging(result.files);
+              focusComposerAfterAttach();
+            }
+          })();
+        });
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('[chat-attachments] Tauri file-drop listener unavailable', err);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [isNativeDropInsideComposer, staging.handleStaging, staging.reportExternalError]);
+
+  const onPickerChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0) {
+        void staging.handleStaging(files).then(focusComposerAfterAttach);
+      }
+      // reset so re-picking the same file fires onChange again
+      e.target.value = '';
+    },
+    [staging],
+  );
+
+  const onPaste = useCallback(
+    (e: ReactClipboardEvent<HTMLTextAreaElement>) => {
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (files.length > 0) {
+        e.preventDefault();
+        void staging.handleStaging(files).then(focusComposerAfterAttach);
+      }
+    },
+    [staging],
+  );
+
+  const onDragEnter = useCallback((e: ReactDragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer?.types.includes('Files')) {
+      dragDepthRef.current += 1;
+      setDragActive(true);
+    }
+  }, []);
+  const onDragOver = useCallback((e: ReactDragEvent) => {
+    if (e.dataTransfer?.types.includes('Files')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+  const onDragLeave = useCallback((e: ReactDragEvent) => {
+    if (e.dataTransfer?.types.includes('Files')) {
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) setDragActive(false);
+    }
+  }, []);
+  const onDrop = useCallback(
+    (e: ReactDragEvent) => {
+      const files = Array.from(e.dataTransfer?.files ?? []);
+      if (files.length === 0) return;
+      e.preventDefault();
+      if (Date.now() - lastNativeDropAtRef.current < 1000) return;
+      lastHtmlDropAtRef.current = Date.now();
+      dragDepthRef.current = 0;
+      setDragActive(false);
+      void staging.handleStaging(files).then(focusComposerAfterAttach);
+    },
+    [staging],
+  );
+
+  const dropMessage = staging.storageAvailable ? 'Drop to attach' : 'Storage unavailable';
 
   return (
-    <div ref={chatInputTargetRef} className="relative border-t border-border-default px-3 py-2">
+    <div
+      ref={setChatInputTargetRef}
+      className="relative min-w-0 max-w-full overflow-hidden border-t border-border-default px-3 py-2"
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      <AttachmentDropOverlay visible={dragActive} message={dropMessage} />
+      <input ref={fileInputRef} type="file" multiple hidden onChange={onPickerChange} />
       {/* Slash command menu */}
       {showSlashMenu && filteredSlash.length > 0 && (
         <div
@@ -398,36 +611,79 @@ export function ChatInput({
         </div>
       )}
 
+      {/* Staged attachment chips */}
+      {staging.errors.length > 0 && (
+        <output className="mb-1 min-w-0 max-w-full space-y-1 overflow-hidden" aria-live="polite">
+          {staging.errors.map((error) => (
+            <div
+              key={error.id}
+              className="min-w-0 max-w-full truncate rounded border border-warning/40 bg-warning-muted px-2 py-1 text-[11px] text-warning"
+            >
+              {error.message}
+            </div>
+          ))}
+        </output>
+      )}
+      {staging.staged.length > 0 && (
+        <div
+          className="mb-1 grid min-w-0 max-w-full gap-1 overflow-hidden"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))' }}
+        >
+          {staging.staged.map((s) => (
+            <StagedAttachmentChip
+              key={s.attachmentId}
+              attachment={s}
+              onRemove={staging.removeStaged}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Input row */}
-      <div className="flex items-end gap-2">
+      <div className="flex min-w-0 max-w-full items-end gap-2">
         <textarea
           ref={textareaRef}
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onPaste={onPaste}
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
           maxLength={8000}
-          className="min-h-[32px] max-h-[72px] flex-1 resize-none rounded-lg border border-border-default bg-surface px-3 py-1.5 text-sm leading-snug text-text-primary transition-colors placeholder:text-text-muted focus:border-border-focus focus:outline-none disabled:bg-surface-muted disabled:text-text-muted"
+          className="min-h-[32px] max-h-[72px] min-w-0 flex-1 resize-none rounded-lg border border-border-default bg-surface px-3 py-1.5 text-sm leading-snug text-text-primary transition-colors placeholder:text-text-muted focus:border-border-focus focus:outline-none disabled:bg-surface-muted disabled:text-text-muted"
         />
         <button
           type="button"
           onClick={handleSend}
           disabled={!canSend}
           aria-label="Send message"
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent`}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
         >
           <ArrowUp className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Hint line */}
-      <div className="mt-1 flex items-center gap-3 px-1">
+      <div className="mt-1 flex min-w-0 max-w-full flex-wrap items-center gap-3 overflow-hidden px-1">
         {disabled && disabledReason ? (
           <span className="text-[10px] text-warning">{disabledReason}</span>
         ) : (
           <>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || !staging.storageAvailable}
+              aria-label="Attach file"
+              title={
+                staging.storageAvailable
+                  ? 'Attach file'
+                  : 'Storage unavailable — try a non-private window'
+              }
+              className="rounded p-0.5 text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Paperclip className="h-3 w-3" />
+            </button>
             <span className="text-[10px] text-text-muted">
               <kbd className="text-text-muted">/</kbd> commands
             </span>

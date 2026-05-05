@@ -5,10 +5,15 @@ import {
 } from '@offisim/core/browser';
 import { disposeRuntime } from '@offisim/core/dist/runtime/runtime-context.js';
 import type { NotificationBridge } from '@offisim/core/dist/services/notification-bridge.js';
-import { AGENT_QUESTION_REQUIRED, PLAN_REVIEW_REQUIRED } from '@offisim/shared-types';
+import {
+  AGENT_QUESTION_REQUIRED,
+  PLAN_REVIEW_REQUIRED,
+  isChatRuntimeOutcomeKind,
+} from '@offisim/shared-types';
 import type { InteractionMode, RunScope } from '@offisim/shared-types';
 import {
   type DeliverableHookRow,
+  type SendMessageResult,
   disposeEventLogStore,
   getConversationKey,
   isTauri,
@@ -35,6 +40,7 @@ import {
 } from '../../lib/browser-runtime-storage';
 import { listDesktopMcpServers } from '../../lib/desktop-mcp-registry';
 import { isNoCredentialError } from '../../lib/tauri-llm-fetch';
+import { getChatRuntimeOutcomeFollowUp } from '../interaction-follow-up';
 import { type FailedRunState, type LastFailedMessage } from '../last-failed-message';
 
 type DesktopMcpServerConfig = McpServerConfig & { registeredServerId?: string };
@@ -124,10 +130,10 @@ export interface UseRuntimeInitResult {
       conversationKey?: string;
       runScope?: RunScope;
     },
-  ) => Promise<string | undefined>;
+  ) => Promise<SendMessageResult | undefined>;
   retryLastMessage: (options?: {
     runScope?: RunScope;
-  }) => Promise<string | undefined>;
+  }) => Promise<SendMessageResult | undefined>;
   listRecentDeliverables: (opts?: {
     threadId?: string;
     limit?: number;
@@ -251,7 +257,7 @@ export function useRuntimeInit({
         conversationKey?: string;
         runScope?: RunScope;
       },
-    ): Promise<string | undefined> => {
+    ): Promise<SendMessageResult | undefined> => {
       let runtime = runtimeRef.current;
       if (!runtime) {
         runtime = initPromiseRef.current ? await initPromiseRef.current : await initRuntime();
@@ -298,7 +304,14 @@ export function useRuntimeInit({
           const m = msgs[i];
           if (!m) continue;
           if (m._getType() === 'ai' && typeof m.content === 'string' && m.content) {
-            return m.content;
+            if (isChatRuntimeOutcomeKind(m.content)) {
+              const followUp = getChatRuntimeOutcomeFollowUp(m.content);
+              if (followUp.mode === 'message') {
+                return { kind: 'system', content: followUp.message };
+              }
+              return undefined;
+            }
+            return { kind: 'assistant', content: m.content };
           }
         }
         return undefined;
@@ -344,7 +357,7 @@ export function useRuntimeInit({
   const retryLastMessage = useCallback(
     async (
       options?: { runScope?: RunScope },
-    ): Promise<string | undefined> => {
+    ): Promise<SendMessageResult | undefined> => {
       const last = lastFailedMessageRef.current;
       if (!last) return undefined;
       return sendMessage(last.text, {

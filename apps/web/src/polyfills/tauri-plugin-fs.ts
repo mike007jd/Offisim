@@ -18,6 +18,10 @@ export async function readTextFile(): Promise<string> {
   unavailable();
 }
 
+export async function readFile(): Promise<Uint8Array<ArrayBuffer>> {
+  unavailable();
+}
+
 export async function remove(): Promise<void> {
   unavailable();
 }

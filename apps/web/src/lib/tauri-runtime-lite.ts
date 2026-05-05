@@ -14,6 +14,8 @@ import type { InMemoryEventBus } from '@offisim/core/browser';
 import { ensureYoloMasterForActiveCompanies } from '@offisim/core/dist/runtime/ensure-yolo-master.js';
 import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
+import { installAttachmentDeleteCascades } from './attachment-cascades';
+import { TauriAttachmentStore } from './tauri-attachment-store';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { createTauriRepositories } from './tauri-repos';
 import { tryActivateTauriVault } from './vault-tauri-activation';
@@ -24,6 +26,8 @@ export async function createTauriRuntimeReposOnly(
 ): Promise<RuntimeBundle> {
   const db = createTauriDrizzleDb();
   const repos = createTauriRepositories(db, eventBus);
+  const attachmentStore = new TauriAttachmentStore();
+  installAttachmentDeleteCascades({ repos, attachmentStore, eventBus });
   await ensureYoloMasterForActiveCompanies(repos);
   const deliverablePersistence = new DeliverablePersistenceService({
     eventBus,
@@ -57,6 +61,7 @@ export async function createTauriRuntimeReposOnly(
     skillLoader,
     vaultActivation: vaultActivation ?? undefined,
     desktopVaultRoot: vaultActivation?.root ?? null,
+    attachmentStore,
     dispose: () => {
       deliverablePersistence.dispose();
       vaultActivation?.dispose();

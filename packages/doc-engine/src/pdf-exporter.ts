@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import type { ExportResult, ExportableDocument, Exporter } from './types';
-import { formatDate, sanitizeFilename, splitContentBlocks } from './utils';
+import type { ExportResult, ExportableDocument, Exporter } from './types.js';
+import { formatDate, sanitizeFilename, splitContentBlocks } from './utils.js';
 
 const PAGE_WIDTH = 595; // A4
 const PAGE_HEIGHT = 842;

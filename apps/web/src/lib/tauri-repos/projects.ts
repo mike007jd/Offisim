@@ -194,6 +194,14 @@ export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos
         .orderBy(desc(schema.chatThreads.updated_at))) as ChatThreadDbRow[];
       return rows.map(chatThreadFromDbRow);
     },
+    async listAllByProject(projectId) {
+      const rows = (await db
+        .select()
+        .from(schema.chatThreads)
+        .where(eq(schema.chatThreads.project_id, projectId))
+        .orderBy(desc(schema.chatThreads.updated_at))) as ChatThreadDbRow[];
+      return rows.map(chatThreadFromDbRow);
+    },
     async updateTitle(threadId, title, opts) {
       const existing = (await db
         .select()
@@ -230,6 +238,15 @@ export function createProjectsTauriRepos(db: TauriDrizzleDb): ProjectsTauriRepos
             isNull(schema.chatThreads.archived_at),
           ),
         );
+    },
+    async unarchive(threadId) {
+      await db
+        .update(schema.chatThreads)
+        .set({ archived_at: null, updated_at: now() })
+        .where(eq(schema.chatThreads.thread_id, threadId));
+    },
+    async delete(threadId) {
+      await db.delete(schema.chatThreads).where(eq(schema.chatThreads.thread_id, threadId));
     },
     async ensureProjectHasAtLeastOneThread(projectId) {
       const existing = (await db

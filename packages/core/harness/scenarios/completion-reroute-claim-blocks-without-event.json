@@ -1,0 +1,104 @@
+{
+  "id": "completion-reroute-claim-blocks-without-event",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": {
+      "companyId": "company-reroute-claim-block",
+      "name": "Reroute Claim Block Co"
+    },
+    "thread": {
+      "threadId": "thread-reroute-claim-block",
+      "status": "running"
+    },
+    "employees": [
+      { "id": "emp-reroute-claim", "name": "Reroute Claim Worker", "role": "engineer" }
+    ],
+    "taskRuns": [
+      {
+        "id": "task-reroute-claim-blocked",
+        "employeeId": "emp-reroute-claim",
+        "taskType": "code",
+        "input": {
+          "description": "Verify missing employee reroute and write_file proof for the routing report."
+        }
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "write_file",
+      "description": "Write a file.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" },
+          "content": { "type": "string" }
+        },
+        "required": ["path", "content"]
+      }
+    }
+  ],
+  "toolFixtures": {
+    "write_file": [
+      {
+        "success": true,
+        "result": "Successfully wrote 20 bytes to fake-reroute-proof.txt"
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "code",
+        "employeeId": "emp-reroute-claim",
+        "assigneeKind": "employee",
+        "assigneeName": "Reroute Claim Worker",
+        "taskRunId": "task-reroute-claim-blocked",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Verify missing employee reroute and write_file proof for the routing report.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-writes-fake-reroute-proof",
+      "match": {
+        "contains": "Verify missing employee reroute",
+        "toolNames": ["write_file"]
+      },
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call-write-fake-reroute-proof",
+          "name": "write_file",
+          "arguments": {
+            "path": "fake-reroute-proof.txt",
+            "content": "REROUTE_CLAIM_ONLY"
+          }
+        }
+      ]
+    },
+    {
+      "id": "employee-claims-reroute-without-event",
+      "match": { "contains": "Successfully wrote 20 bytes to fake-reroute-proof.txt" },
+      "content": "Reroute succeeded; the proof file says it happened."
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-reroute-claim-blocked", "status": "blocked" },
+    { "kind": "taskStateEvent", "taskRunId": "task-reroute-claim-blocked", "next": "review_ready" },
+    { "kind": "mcpAuditContains", "toolName": "write_file" },
+    {
+      "kind": "finalOutputContains",
+      "contains": "Routing/rebind verification requires a real task.assignment.rerouted runtime event."
+    }
+  ]
+}

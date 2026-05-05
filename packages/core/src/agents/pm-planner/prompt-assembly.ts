@@ -1,6 +1,8 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import { recordedLlmCall } from '../../llm/recorded-call.js';
+import { getRunScope } from '../../utils/get-runtime.js';
 import { getConfigSignal } from '../../utils/get-signal.js';
+import { buildAttachmentSystemPreface } from '../attachment-preface.js';
 import { buildEnrichedEmployeeList } from '../employee-roster.js';
 import type { PmPreflightReady } from '../pm-planner-types.js';
 
@@ -76,6 +78,7 @@ export async function generatePmLlmContent(
   const { runtimeCtx, directive, validEmployees, planRevisionNote } = prep;
   const employeeList = buildEnrichedEmployeeList(validEmployees);
   const experienceSection = await loadExperienceSection(prep);
+  const attachmentPreface = buildAttachmentSystemPreface(runtimeCtx, getRunScope(config));
   const resolved = runtimeCtx.modelResolver.resolve(null, 'pm');
 
   const response = await recordedLlmCall(
@@ -84,7 +87,7 @@ export async function generatePmLlmContent(
       messages: [
         {
           role: 'system',
-          content: `${PM_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}${experienceSection}`,
+          content: `${PM_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}${experienceSection}${attachmentPreface}`,
         },
         {
           role: 'user',

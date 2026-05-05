@@ -1,4 +1,5 @@
 import { AIMessage } from '@langchain/core/messages';
+import { TASK_ASSIGNMENT_REROUTED } from '@offisim/shared-types';
 import {
   deliverableCreated,
   employeeStateChanged,
@@ -31,6 +32,25 @@ import {
 
 const logger = new Logger('employee-completion');
 
+const ROUTING_EVENT_EVIDENCE_RE =
+  /\b(reroute|rerouted|rerouting|rebind|rebinding|employee-not-found|employee-disabled|requires-local-tools|missing employee|missing employee id)\b/iu;
+
+async function verifyRoutingEventEvidence(input: {
+  runtimeCtx: RuntimeContext;
+  threadId: string;
+  taskDescription: string;
+}): Promise<VerifyOutcome | null> {
+  if (!ROUTING_EVENT_EVIDENCE_RE.test(input.taskDescription)) return null;
+  const events = await input.runtimeCtx.repos.events.findByThread(input.threadId);
+  const hasRerouteEvent = events.some((event) => event.event_type === TASK_ASSIGNMENT_REROUTED);
+  if (hasRerouteEvent) return { ok: true };
+  return {
+    ok: false,
+    reason:
+      'Routing/rebind verification requires a real task.assignment.rerouted runtime event.',
+  };
+}
+
 async function verifyTaskCompletion(input: {
   runtimeCtx: RuntimeContext;
   taskRunId: string;
@@ -57,6 +77,12 @@ async function verifyTaskCompletion(input: {
           },
           { evidenceTools },
         );
+  const routingEventOutcome = await verifyRoutingEventEvidence({
+    runtimeCtx,
+    threadId: state.threadId,
+    taskDescription,
+  });
+  if (routingEventOutcome && !routingEventOutcome.ok) return routingEventOutcome;
   let hookOutcome: VerifyOutcome | null = null;
   const payload: TaskCompletionVerifyingPayload = {
     taskRunId,

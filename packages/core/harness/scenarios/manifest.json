@@ -114,6 +114,14 @@
       ]
     },
     {
+      "id": "completion-reroute-claim-blocks-without-event",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.reroute_claim_requires_runtime_event",
+        "completion.fake_reroute_proof_file_does_not_pass"
+      ]
+    },
+    {
       "id": "completion-chinese-file-task-blocks-without-evidence",
       "category": "long-running-runtime",
       "invariants": [
@@ -148,6 +156,14 @@
       "invariants": [
         "skill.create_rejects_target_employee_mismatch",
         "skill.create_mismatch_does_not_stage_preview"
+      ]
+    },
+    {
+      "id": "skill-create-frontmatter-errors",
+      "category": "skill-install",
+      "invariants": [
+        "skill.create_frontmatter_whitelist_reason_codes",
+        "skill.create_frontmatter_errors_do_not_stage"
       ]
     },
     {
@@ -196,6 +212,70 @@
       ]
     },
     {
+      "id": "sdk-lane-local-tools-short-circuit-before-model",
+      "category": "interaction-modes",
+      "invariants": [
+        "tools.sdk_lane_local_tools_short_circuits_before_model",
+        "tools.sdk_lane_local_tools_surfaces_typed_outcome"
+      ]
+    },
+    {
+      "id": "sdk-lane-direct-local-tools-short-circuit-before-model",
+      "category": "interaction-modes",
+      "invariants": [
+        "tools.sdk_lane_direct_local_tools_short_circuits_before_model",
+        "tools.sdk_lane_local_tools_surfaces_typed_outcome"
+      ]
+    },
+    {
+      "id": "sdk-lane-yolo-local-tools-short-circuit-before-model",
+      "category": "interaction-modes",
+      "invariants": [
+        "tools.sdk_lane_yolo_local_tools_short_circuits_before_model",
+        "tools.sdk_lane_local_tools_surfaces_typed_outcome"
+      ]
+    },
+    {
+      "id": "sdk-lane-attachments-short-circuit-before-model",
+      "category": "chat-attachments",
+      "invariants": [
+        "attachments.sdk_lane_short_circuits_before_model",
+        "attachments.sdk_lane_surfaces_typed_outcome"
+      ]
+    },
+    {
+      "id": "sdk-lane-yolo-attachments-short-circuit-before-model",
+      "category": "chat-attachments",
+      "invariants": [
+        "attachments.sdk_lane_yolo_short_circuits_before_model",
+        "attachments.sdk_lane_surfaces_typed_outcome"
+      ]
+    },
+    {
+      "id": "gateway-lane-attachments-system-preface",
+      "category": "chat-attachments",
+      "invariants": [
+        "attachments.gateway_system_preface_lists_refs",
+        "attachments.gateway_system_preface_survives_direct_reply"
+      ]
+    },
+    {
+      "id": "yolo-attachment-only-reads-current-turn-refs",
+      "category": "chat-attachments",
+      "invariants": [
+        "attachments.yolo_attachment_only_uses_current_turn_task",
+        "attachments.yolo_attachment_only_calls_read_attachment"
+      ]
+    },
+    {
+      "id": "historical-thread-attachments-readable",
+      "category": "chat-attachments",
+      "invariants": [
+        "attachments.same_thread_history_lists_refs",
+        "attachments.same_thread_history_calls_read_attachment"
+      ]
+    },
+    {
       "id": "local-tool-routing-avoids-external-a2a",
       "category": "interaction-modes",
       "invariants": [
@@ -238,6 +318,14 @@
       "invariants": [
         "routing.manager_emits_rerouted_event_when_filtering_external",
         "routing.manager_rerouted_event_carries_requested_and_resolved_ids"
+      ]
+    },
+    {
+      "id": "boss-roster-team-chat-parity",
+      "category": "interaction-modes",
+      "invariants": [
+        "boss.team_chat_roster_matches_active_company",
+        "boss.roster_divergence_event_only_on_mismatch"
       ]
     },
     {

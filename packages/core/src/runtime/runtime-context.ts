@@ -1,4 +1,5 @@
 import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-types';
+import type { AttachmentStoreBridge } from './attachment-store-bridge.js';
 import type { EngineAdapterRegistry } from '../engine/engine-adapter.js';
 import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
@@ -109,6 +110,15 @@ export interface RuntimeContext {
    * desktop-only paths gracefully return `not-supported-in-web`.
    */
   readonly skillInstallEnvironment?: SkillInstallEnvironment;
+  /**
+   * Read-only bridge to the platform attachment store. When present AND
+   * `llmToolCallsEnabled !== false`, the gateway-lane `read_attachment` tool
+   * is registered on every employee + the boss tool kit. SDK lanes leave
+   * this bound (so chat-send pre-flight can detect attachments) but the tool
+   * stays unregistered because `llmToolCallsEnabled === false` short-circuits
+   * the entire tool kit.
+   */
+  readonly attachmentStoreBridge?: AttachmentStoreBridge;
   readonly determinism: RuntimeDeterminism;
 }
 
@@ -164,6 +174,7 @@ export function createRuntimeContext(deps: {
   skillLoader?: SkillLoader;
   skillStagingManager?: SkillStagingManager;
   skillInstallEnvironment?: SkillInstallEnvironment;
+  attachmentStoreBridge?: AttachmentStoreBridge;
   determinism?: RuntimeDeterminism;
 }): RuntimeContext {
   const { meetingInterruptBox, interactionBox, hookRegistry, scratchpad, determinism, ...rest } =

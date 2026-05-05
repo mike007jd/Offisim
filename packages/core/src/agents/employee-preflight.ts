@@ -7,14 +7,27 @@ import {
   taskSubtaskProgress,
 } from '../events/event-factories.js';
 import type { OffisimGraphState, PendingAssignment, RunScope } from '../graph/state.js';
+import type { ActiveContextSnapshot } from '../runtime/active-context-snapshot.js';
+import { resolveActiveContextSnapshot } from '../runtime/active-context-snapshot.js';
 import type { CompanyRow, EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import {
+  attachmentGatewayLaneOutcomeState,
+  attachmentsRequireGatewayLane,
+} from './attachment-lane-guard.js';
+import { resolveAttachmentAwareTaskDescription } from './attachment-preface.js';
+import {
+  localToolsGatewayLaneOutcomeState,
+  localToolsRequireGatewayLane,
+} from './local-tool-lane-guard.js';
+import { detectTaskToolIntent } from './task-tool-intent.js';
 
 export interface PreflightResult {
   readonly assignment: PendingAssignment;
   readonly remaining: PendingAssignment[];
   readonly employee: EmployeeRow;
   readonly company: CompanyRow;
+  readonly activeContextSnapshot: ActiveContextSnapshot;
   readonly taskRunId: string | undefined;
   readonly stepIndex: number;
   readonly taskLabel: string;
@@ -86,6 +99,76 @@ export async function runPreflight(
   if (!company) {
     throw new GraphError(`Company ${companyId} not found`, 'employee');
   }
+  const activeContextSnapshot = await resolveActiveContextSnapshot({
+    runtimeCtx,
+    state,
+    employeeId: employee.employee_id,
+  });
+
+  if (attachmentsRequireGatewayLane(runtimeCtx, runScope)) {
+    if (taskRunId) {
+      await repos.taskRuns.updateStatus(
+        taskRunId,
+        'failed',
+        JSON.stringify({ content: 'attachments-require-gateway-lane' }),
+      );
+      eventBus.emit(
+        taskStateChanged(
+          companyId,
+          taskRunId,
+          'queued',
+          'failed',
+          threadId,
+          employee.employee_id,
+          'employee',
+          employee.name,
+        ),
+      );
+    }
+    return {
+      kind: 'early-return',
+      stateUpdate: {
+        ...attachmentGatewayLaneOutcomeState(state),
+        currentEmployeeId: employee.employee_id,
+        currentTaskRunId: taskRunId ?? null,
+      },
+    };
+  }
+
+  const rawTaskDescription =
+    ((assignment.inputJson as Record<string, unknown>).description as string) ?? '';
+  const taskDescription = resolveAttachmentAwareTaskDescription(rawTaskDescription, runScope);
+  const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(taskDescription);
+
+  if (localToolsRequireGatewayLane(runtimeCtx, taskToolIntent)) {
+    if (taskRunId) {
+      await repos.taskRuns.updateStatus(
+        taskRunId,
+        'failed',
+        JSON.stringify({ content: 'local-tools-require-gateway-lane' }),
+      );
+      eventBus.emit(
+        taskStateChanged(
+          companyId,
+          taskRunId,
+          'queued',
+          'failed',
+          threadId,
+          employee.employee_id,
+          'employee',
+          employee.name,
+        ),
+      );
+    }
+    return {
+      kind: 'early-return',
+      stateUpdate: {
+        ...localToolsGatewayLaneOutcomeState(state, taskToolIntent),
+        currentEmployeeId: employee.employee_id,
+        currentTaskRunId: taskRunId ?? null,
+      },
+    };
+  }
 
   eventBus.emit(
     employeeStateChanged(companyId, employee.employee_id, 'idle', 'executing', threadId, taskRunId),
@@ -132,8 +215,6 @@ export async function runPreflight(
   );
 
   const resolved = modelResolver.resolve(null, employee.role_slug);
-  const taskDescription =
-    ((assignment.inputJson as Record<string, unknown>).description as string) ?? '';
   const requiredSkillsRaw = (assignment.inputJson as Record<string, unknown>).requiredSkills;
   const requiredSkills = Array.isArray(requiredSkillsRaw)
     ? (requiredSkillsRaw as unknown[]).filter(
@@ -150,6 +231,7 @@ export async function runPreflight(
       remaining,
       employee,
       company,
+      activeContextSnapshot,
       taskRunId,
       stepIndex,
       taskLabel,

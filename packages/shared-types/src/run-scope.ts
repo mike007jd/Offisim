@@ -14,10 +14,26 @@
  * activity log, interaction-follow-up) can scope by thread without parsing
  * `conversationKey`.
  */
+import type { ChatAttachmentRef } from './chat-attachments.js';
+
 export interface RunScope {
   readonly conversationKey: string;
   readonly runId: string;
   readonly threadId: string;
+  /**
+   * Chat attachment refs persisted at user-submit time. Boss / manager /
+   * employee nodes inherit these on dispatch and rebuild their gateway-lane
+   * current-turn system preface from them. Empty when the user sent a text-only
+   * turn.
+   */
+  readonly pendingAttachments?: readonly ChatAttachmentRef[];
+  /**
+   * Recent same-thread attachment refs from earlier user messages. These are
+   * readable by `read_attachment` under the same `(companyId, threadId)` scope,
+   * but they are not considered newly submitted files and must not trigger SDK
+   * lane pre-flight blocking by themselves.
+   */
+  readonly availableAttachments?: readonly ChatAttachmentRef[];
 }
 
 /**

@@ -3,9 +3,10 @@
  * Extracted from event-factories.ts for domain-scoped modularity.
  */
 import type {
+  BossEmployeeContextEmptyPayload,
+  BossRosterDivergencePayload,
   DirectChatCompletedPayload,
   DirectChatStartedPayload,
-  BossEmployeeContextEmptyPayload,
   EmployeeCreatedPayload,
   EmployeeDeletedPayload,
   EmployeeInstalledPayload,
@@ -145,6 +146,22 @@ export function bossEmployeeContextEmpty(
     threadId,
     timestamp: Date.now(),
     payload: { companyId, employeeCount: 0, expectedAtLeast: 1 },
+  };
+}
+
+export function bossRosterDivergence(
+  companyId: string,
+  threadId: string,
+  payload: BossRosterDivergencePayload,
+): RuntimeEvent<BossRosterDivergencePayload> {
+  return {
+    type: 'boss.roster-divergence',
+    entityId: companyId,
+    entityType: 'company',
+    companyId,
+    threadId,
+    timestamp: Date.now(),
+    payload,
   };
 }
 

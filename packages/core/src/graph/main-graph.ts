@@ -152,7 +152,9 @@ export function areAllPlanStepsTerminal(state: OffisimGraphState): boolean {
 /** @internal — exported for testing */
 export function routeFromStepDispatcher(state: OffisimGraphState): string {
   if (areAllPlanStepsTerminal(state)) return 'boss_summary';
-  return state.pendingAssignments.length > 0 ? 'employee' : 'step_advance';
+  if (state.pendingAssignments.length > 0) return 'employee';
+  if ((state.blockedStepIndices ?? []).length > 0) return 'boss_summary';
+  return 'step_advance';
 }
 
 /** @internal — exported for testing */
@@ -234,7 +236,14 @@ async function stepAdvanceNode(
   const newStepResults = [...state.stepResults];
   const newCompletedIndices = [...(state.completedStepIndices ?? [])];
   const newBlockedIndices = [...(state.blockedStepIndices ?? [])];
-  const taskRuns = runtimeCtx ? await runtimeCtx.repos.taskRuns.findByThread(state.threadId) : [];
+  const taskRunIdsToInspect = collectTaskRunIdsForSteps(state, stepsToComplete);
+  const taskRuns = runtimeCtx
+    ? (
+        await Promise.all(
+          [...taskRunIdsToInspect].map((taskRunId) => runtimeCtx.repos.taskRuns.findById(taskRunId)),
+        )
+      ).filter((taskRun): taskRun is TaskRunRow => taskRun !== null)
+    : [];
 
   for (const stepIdx of stepsToComplete) {
     const outputs = outputsByStep.get(stepIdx) ?? [];
@@ -306,15 +315,31 @@ function isStepBlocked(
   stepIdx: number,
   taskRuns: readonly TaskRunRow[],
 ): boolean {
-  const planStep = state.taskPlan?.steps.find((step) => step.stepIndex === stepIdx);
-  const taskRunIds = new Set(planStep?.tasks.map((task) => task.taskRunId).filter(Boolean));
-  for (const output of state.currentStepOutputs) {
-    if (output.stepIndex === stepIdx) taskRunIds.add(output.taskRunId);
-  }
+  const taskRunIds = collectTaskRunIdsForSteps(state, [stepIdx]);
   if (taskRunIds.size === 0) return false;
   return taskRuns.some(
     (taskRun) => taskRunIds.has(taskRun.task_run_id) && taskRun.status === 'blocked',
   );
+}
+
+function collectTaskRunIdsForSteps(
+  state: OffisimGraphState,
+  stepIndices: readonly number[],
+): Set<string> {
+  const wanted = new Set(stepIndices);
+  const taskRunIds = new Set<string>();
+  for (const step of state.taskPlan?.steps ?? []) {
+    if (!wanted.has(step.stepIndex)) continue;
+    for (const task of step.tasks) {
+      if (task.taskRunId) taskRunIds.add(task.taskRunId);
+    }
+  }
+  for (const output of state.currentStepOutputs) {
+    if (wanted.has(output.stepIndex) && output.taskRunId) {
+      taskRunIds.add(output.taskRunId);
+    }
+  }
+  return taskRunIds;
 }
 
 export function groupCurrentStepOutputsByStep(

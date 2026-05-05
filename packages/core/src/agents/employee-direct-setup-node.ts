@@ -10,6 +10,15 @@ import {
   createEmptyPlanScopedState,
 } from '../graph/state.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
+import {
+  attachmentGatewayLaneOutcomeState,
+  attachmentsRequireGatewayLane,
+} from './attachment-lane-guard.js';
+import { resolveAttachmentAwareTaskDescription } from './attachment-preface.js';
+import {
+  localToolsGatewayLaneOutcomeState,
+  localToolsRequireGatewayLane,
+} from './local-tool-lane-guard.js';
 import { detectTaskToolIntent } from './task-tool-intent.js';
 
 /**
@@ -22,6 +31,7 @@ export async function employeeDirectSetupNode(
   config: RunnableConfig,
 ): Promise<Partial<OffisimGraphState>> {
   const runtimeCtx = getRuntime(config, 'employee_direct_setup', { optional: true });
+  const runScope = getRunScope(config);
 
   // Announce node entry (best-effort)
   if (runtimeCtx) {
@@ -30,7 +40,7 @@ export async function employeeDirectSetupNode(
         runtimeCtx.companyId,
         state.threadId,
         'employee_direct_setup',
-        getRunScope(config),
+        runScope,
       ),
     );
   }
@@ -59,12 +69,27 @@ export async function employeeDirectSetupNode(
     };
   }
 
+  if (attachmentsRequireGatewayLane(runtimeCtx, runScope)) {
+    return attachmentGatewayLaneOutcomeState(state);
+  }
+
   // Extract the user message as task description
   const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
-  const taskDescription =
+  const rawTaskDescription =
     typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '';
+  const hasPendingAttachments = (runScope?.pendingAttachments?.length ?? 0) > 0;
+  const taskDescription = resolveAttachmentAwareTaskDescription(rawTaskDescription, runScope);
 
   const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(taskDescription);
+  if (localToolsRequireGatewayLane(runtimeCtx, taskToolIntent)) {
+    return localToolsGatewayLaneOutcomeState(state, taskToolIntent);
+  }
+  if (employee.is_external === 1 && hasPendingAttachments) {
+    return {
+      interruptReason: `External employee ${employee.name} cannot execute Offisim attachment tools. Select an internal gateway employee for attached files.`,
+      currentStepOutputs: [],
+    };
+  }
   if (employee.is_external === 1 && taskToolIntent.requiresLocalTools) {
     return {
       interruptReason: `External employee ${employee.name} cannot execute Offisim file or shell tools. Select an internal gateway employee for read_file, write_file, or bash tasks.`,

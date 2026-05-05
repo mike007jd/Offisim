@@ -11,6 +11,8 @@
 
 // --- Types (all type-only, zero runtime cost) ---
 export type { RuntimeContext, InteractionBox } from './runtime/runtime-context.js';
+export type { ActiveContextSnapshot } from './runtime/active-context-snapshot.js';
+export { resolveActiveContextSnapshot } from './runtime/active-context-snapshot.js';
 export type { HookEvent, HookDefinition } from './runtime/hook-registry.js';
 export type { ScratchpadEntry } from './runtime/scratchpad.js';
 export type {
@@ -237,6 +239,7 @@ export {
   employeeWorkstationChanged,
   employeeVersionCreated,
   bossEmployeeContextEmpty,
+  bossRosterDivergence,
   interactionRequested,
   interactionRestored,
   interactionResolved,

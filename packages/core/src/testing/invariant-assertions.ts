@@ -26,6 +26,11 @@ export type ScenarioAssertion =
       readonly interactionKind: string;
       readonly count: number;
     }
+  | {
+      readonly kind: 'skillFrontmatterInteraction';
+      readonly reason: string;
+      readonly count?: number;
+    }
   | { readonly kind: 'noEmployeeAfterCancel' }
   | {
       readonly kind: 'mcpAuditContains';
@@ -172,6 +177,8 @@ async function evaluateAssertion(
       return assertInteractionHistory(ctx.repos, ctx.threadId, assertion);
     case 'interactionHistoryCount':
       return assertInteractionHistoryCount(ctx.repos, ctx.threadId, assertion);
+    case 'skillFrontmatterInteraction':
+      return assertSkillFrontmatterInteraction(ctx.repos, ctx.threadId, assertion);
     case 'noEmployeeAfterCancel':
       return assertNoEmployeeAfterCancel(ctx);
     case 'mcpAuditContains':
@@ -583,6 +590,30 @@ async function assertInteractionHistoryCount(
   if (count !== assertion.count) {
     throw new Error(
       `Expected ${assertion.count} interaction history row(s) for ${assertion.interactionKind}, got ${count}`,
+    );
+  }
+}
+
+async function assertSkillFrontmatterInteraction(
+  repos: RuntimeRepositories,
+  threadId: string,
+  assertion: Extract<ScenarioAssertion, { kind: 'skillFrontmatterInteraction' }>,
+): Promise<void> {
+  const rows = await repos.interactionHistory.listByThread(threadId);
+  const matches = rows.filter((row) => {
+    if (row.kind !== 'skill_install_confirm') return false;
+    const request = parseJson(row.request_json);
+    if (!request || typeof request !== 'object') return false;
+    const context = (request as { context?: unknown }).context;
+    if (!context || typeof context !== 'object') return false;
+    const frontmatterError = (context as { frontmatterError?: unknown }).frontmatterError;
+    if (!frontmatterError || typeof frontmatterError !== 'object') return false;
+    return (frontmatterError as { reason?: unknown }).reason === assertion.reason;
+  });
+  const expected = assertion.count ?? 1;
+  if (matches.length !== expected) {
+    throw new Error(
+      `Expected ${expected} skill frontmatter interaction(s) with reason ${assertion.reason}, got ${matches.length}`,
     );
   }
 }

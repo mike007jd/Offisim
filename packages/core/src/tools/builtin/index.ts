@@ -10,11 +10,13 @@ export type {
 export { createBashTool } from './bash-tool.js';
 export { createFileReadTool } from './file-read-tool.js';
 export { createFileWriteTool } from './file-write-tool.js';
+export { createReadAttachmentTool } from './read-attachment-tool.js';
 export { createWebSearchTool } from './web-search-tool.js';
 
 import { createBashTool } from './bash-tool.js';
 import { createFileReadTool } from './file-read-tool.js';
 import { createFileWriteTool } from './file-write-tool.js';
+import { createReadAttachmentTool } from './read-attachment-tool.js';
 import type { BuiltinTool, BuiltinToolConfig } from './types.js';
 import { createWebSearchTool } from './web-search-tool.js';
 
@@ -34,6 +36,13 @@ export function createBuiltinTools(config: BuiltinToolConfig): Map<string, Built
   // Web search always available (uses DI searchFn or default DuckDuckGo)
   const webSearch = createWebSearchTool(config.webSearch);
   tools.set(webSearch.def.name, webSearch);
+
+  if (config.attachmentStoreBridge) {
+    const readAttachment = createReadAttachmentTool(config.attachmentStoreBridge, config.eventBus, {
+      companyId: config.companyId,
+    });
+    tools.set(readAttachment.def.name, readAttachment);
+  }
 
   return tools;
 }

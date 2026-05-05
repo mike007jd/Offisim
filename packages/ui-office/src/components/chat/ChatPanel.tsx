@@ -1,4 +1,5 @@
 import { DEFAULT_INTERACTION_MODE } from '@offisim/shared-types';
+import type { ChatAttachmentRef } from '@offisim/shared-types';
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft } from 'lucide-react';
@@ -15,17 +16,23 @@ import {
   extractAtFragments,
   extractMentionHints,
 } from '../../lib/chat-commands.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { type SendMessageResult, useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContentForConversation } from '../../runtime/use-streaming-content';
+import { useCompany } from '../company/CompanyContext.js';
 import { ErrorBanner } from '../error/ErrorBanner';
 import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
+import type { ChatInputAttachmentPayload } from './ChatInput.js';
 import { InteractionPrompt } from './InteractionPrompt';
 import { MessageBubble } from './MessageBubble';
 import { SessionModeChip } from './SessionModeChip';
 import { StreamingBubble } from './StreamingBubble';
 import { SystemMessageFeed } from './SystemMessageFeed';
+import {
+  persistStagedAttachments,
+  rollbackPersistedAttachments,
+} from './chat-attachment-pipeline.js';
 import {
   type ChatMessage,
   type RunScope,
@@ -79,6 +86,7 @@ interface ChatPanelProps {
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const DIRECT_CHAT_TARGET_MISSING_ERROR =
   'Direct chat target missing — selectedEmployeeId not propagated';
+const MAX_AVAILABLE_THREAD_ATTACHMENTS = 20;
 
 function genMsgId(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -96,6 +104,40 @@ function getScopedConversationKey(
     threadId: threadId ?? null,
     targetEmployeeId,
   });
+}
+
+function conversationKeyThreadId(conversationKey: string): string | null {
+  const [, threadId] = conversationKey.split('::');
+  return threadId && threadId !== 'unscoped' ? threadId : null;
+}
+
+function mergeAttachmentRefs(...groups: readonly ChatAttachmentRef[][]): ChatAttachmentRef[] {
+  const seen = new Set<string>();
+  const merged: ChatAttachmentRef[] = [];
+  for (const group of groups) {
+    for (const ref of group) {
+      if (seen.has(ref.vaultRef)) continue;
+      seen.add(ref.vaultRef);
+      merged.push(ref);
+    }
+  }
+  return merged.slice(-MAX_AVAILABLE_THREAD_ATTACHMENTS);
+}
+
+function collectThreadAttachmentRefs(
+  conversations: Record<string, { messages: ChatMessage[] }>,
+  threadId: string | null,
+): ChatAttachmentRef[] {
+  if (!threadId) return [];
+  const refs: ChatAttachmentRef[] = [];
+  for (const [key, conversation] of Object.entries(conversations)) {
+    if (conversationKeyThreadId(key) !== threadId) continue;
+    for (const message of conversation.messages) {
+      if (message.role !== 'user' || !message.attachments) continue;
+      refs.push(...message.attachments);
+    }
+  }
+  return mergeAttachmentRefs(refs);
 }
 
 function resolveInteractionTargetEmployeeId(
@@ -161,7 +203,10 @@ export function ChatPanel({
     respondToInteraction,
     interactionMode,
     setInteractionMode,
+    attachmentStore,
+    eventBus,
   } = useOffisimRuntime();
+  const { activeCompanyId } = useCompany();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
   const { meetingState } = useMeeting();
@@ -169,8 +214,10 @@ export function ChatPanel({
   const appendMessage = useChatSessionStore((state) => state.appendMessage);
   const startRun = useChatSessionStore((state) => state.startRun);
   const finalizeActiveRun = useChatSessionStore((state) => state.finalizeActiveRun);
+  const clearActiveRun = useChatSessionStore((state) => state.clearActiveRun);
   const clearAllConversations = useChatSessionStore((state) => state.clearAllConversations);
   const getMessages = useChatSessionStore((state) => state.getMessages);
+  const conversations = useChatSessionStore((state) => state.conversations);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
@@ -180,7 +227,8 @@ export function ChatPanel({
 
   // Current target key
   const activeProjectId = activeProject?.project_id ?? null;
-  const activeThreadId = activeThreadIdProp ?? null;
+  const activeThreadId =
+    activeThreadIdProp ?? (activeCompanyId ? `thread-${activeCompanyId}` : null);
   const targetKey = selectedEmployeeId ?? null;
   const conversationKey = getScopedConversationKey(activeProjectId, activeThreadId, targetKey);
   const failedConversationKey = failedRunError?.conversationKey ?? null;
@@ -203,6 +251,10 @@ export function ChatPanel({
       (state) => state.conversations[conversationKey]?.messages ?? EMPTY_MESSAGES,
       [conversationKey],
     ),
+  );
+  const availableThreadAttachments = useMemo(
+    () => collectThreadAttachmentRefs(conversations, activeThreadId),
+    [activeThreadId, conversations],
   );
 
   // Deliverables — attach each to its matching assistant message.
@@ -296,6 +348,31 @@ export function ChatPanel({
     [activeProjectId, activeThreadId, appendMessage],
   );
 
+  const commitRuntimeResult = useCallback(
+    (
+      runScope: RunScope,
+      result: SendMessageResult | undefined,
+      targetEmployeeId: string | null,
+    ) => {
+      if (result?.kind === 'system') {
+        clearActiveRun();
+        addMessage(targetEmployeeId, {
+          id: genMsgId(),
+          role: 'system',
+          content: result.content,
+          status: 'completed',
+        });
+        return;
+      }
+      finalizeActiveRun(
+        runScope.conversationKey,
+        runScope.runId,
+        result?.kind === 'assistant' ? result.content : undefined,
+      );
+    },
+    [addMessage, clearActiveRun, finalizeActiveRun],
+  );
+
   async function handleInteractionRespond(
     selectedOptionId: string,
     freeformResponse?: string,
@@ -328,8 +405,8 @@ export function ChatPanel({
       if (response) {
         addMessage(targetKey, {
           id: genMsgId(),
-          role: 'assistant',
-          content: response,
+          role: response.kind === 'system' ? 'system' : 'assistant',
+          content: response.content,
           status: 'completed',
         });
       }
@@ -340,11 +417,17 @@ export function ChatPanel({
     const runScope: RunScope = { conversationKey, runId: genRunId(), threadId: activeThreadId };
     startRun(runScope);
     const response = await respondToInteraction(selectedOptionId, trimmedResponse, { runScope });
-    finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
+    commitRuntimeResult(runScope, response, targetKey);
   }
 
   const handleSend = useCallback(
-    async (text: string, options?: { entryMode?: 'boss_chat' | 'direct_chat' | 'meeting' }) => {
+    async (
+      text: string,
+      options?: {
+        entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+        attachments?: ChatInputAttachmentPayload;
+      },
+    ) => {
       // Notify parent of user message (only for team chat, not direct employee chat)
       if (!selectedEmployeeId) {
         onUserMessage?.(text);
@@ -377,12 +460,51 @@ export function ChatPanel({
       // uses `<P>::<T>::<E>` — both unique runtime threads keyed by the chat scope).
       const runThreadId = runConversationKey;
 
-      addMessage(runConversationTarget ?? null, { id: genMsgId(), role: 'user', content: text });
+      // Persist BEFORE the user bubble lands so a partial-write failure can
+      // surface inline + roll back the already-written refs (no orphan blobs).
+      let persistedRefs: ChatAttachmentRef[] = [];
+      if (options?.attachments && options.attachments.staged.length > 0) {
+        if (!attachmentStore || !activeCompanyId || !activeThreadId) {
+          addMessage(runConversationTarget ?? null, {
+            id: genMsgId(),
+            role: 'system',
+            content: 'Cannot send attachments: chat attachment storage is not ready.',
+          });
+          return;
+        }
+        try {
+          persistedRefs = await persistStagedAttachments({
+            staged: options.attachments.staged,
+            companyId: activeCompanyId,
+            threadId: activeThreadId,
+            attachmentStore,
+            eventBus,
+          });
+        } catch (persistErr) {
+          await rollbackPersistedAttachments(attachmentStore, persistedRefs);
+          addMessage(runConversationTarget ?? null, {
+            id: genMsgId(),
+            role: 'system',
+            content: `Failed to persist attachments: ${persistErr instanceof Error ? persistErr.message : String(persistErr)}`,
+          });
+          return;
+        }
+      }
+
+      addMessage(runConversationTarget ?? null, {
+        id: genMsgId(),
+        role: 'user',
+        content: text,
+        ...(persistedRefs.length > 0 ? { attachments: persistedRefs } : {}),
+      });
       if (!activeThreadId) return;
+      const availableAttachments = mergeAttachmentRefs(availableThreadAttachments, persistedRefs);
       const runScope: RunScope = {
         conversationKey: runConversationKey,
         runId: genRunId(),
         threadId: activeThreadId,
+        ...(persistedRefs.length > 0 ? { pendingAttachments: persistedRefs } : {}),
+        ...(availableAttachments.length > 0 ? { availableAttachments } : {}),
       };
       startRun(runScope);
 
@@ -394,19 +516,23 @@ export function ChatPanel({
         conversationKey: runConversationKey,
         runScope,
       });
-      finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
+      commitRuntimeResult(runScope, response, runConversationTarget ?? null);
     },
     [
       activeProjectId,
       activeThreadId,
       addMessage,
       agents,
-      finalizeActiveRun,
       onUserMessage,
       selectedEmployeeId,
       sendMessage,
       startRun,
       targetKey,
+      attachmentStore,
+      activeCompanyId,
+      eventBus,
+      commitRuntimeResult,
+      availableThreadAttachments,
     ],
   );
 
@@ -419,7 +545,7 @@ export function ChatPanel({
     };
     startRun(runScope);
     const response = await retryLastMessage({ runScope });
-    finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
+    commitRuntimeResult(runScope, response, targetKey);
   }
 
   function handleSwapPerson(employeeId: string) {
@@ -451,7 +577,7 @@ export function ChatPanel({
       conversationKey: nextConversationKey,
       runScope,
     }).then((response) => {
-      finalizeActiveRun(runScope.conversationKey, runScope.runId, response);
+      commitRuntimeResult(runScope, response, employeeId);
     });
   }
 
@@ -597,10 +723,10 @@ export function ChatPanel({
           {/* Message area */}
           {showEmpty ? (
             isRunning ? (
-              <ScrollArea className="flex-1 min-h-0">
+              <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-x-hidden">
                 <div
                   ref={scrollRef}
-                  className="flex flex-col gap-1"
+                  className="flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
                   style={{ padding: 'var(--sp-sm)' }}
                 >
                   {activityRail}
@@ -617,10 +743,10 @@ export function ChatPanel({
               <div className="flex-1 min-h-0" aria-hidden="true" />
             )
           ) : (
-            <ScrollArea className="flex-1 min-h-0">
+            <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-x-hidden">
               <div
                 ref={scrollRef}
-                className="flex flex-col gap-1"
+                className="flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
                 style={{ padding: 'var(--sp-sm)' }}
               >
                 {activityRail}
@@ -643,6 +769,8 @@ export function ChatPanel({
                     nodeName={msg.nodeName}
                     reasoning={msg.reasoning}
                     deliverables={deliverablesByMessageId.get(msg.id)}
+                    attachments={msg.attachments}
+                    attachmentStore={attachmentStore}
                   />
                 ))}
                 <StreamingBubble
@@ -732,6 +860,10 @@ export function ChatPanel({
           disabledReason={inputDisabledReason}
           placeholder={inputPlaceholder}
           agents={agents}
+          companyId={activeCompanyId ?? ''}
+          threadId={activeThreadId ?? ''}
+          attachmentStore={attachmentStore}
+          eventBus={eventBus}
           modeChip={
             setInteractionMode ? (
               <SessionModeChip

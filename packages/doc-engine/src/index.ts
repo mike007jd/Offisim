@@ -3,5 +3,8 @@ export type {
   ExportFormat,
   ExportResult,
   Exporter,
-} from './types';
-export { exportDocument } from './export';
+} from './types.js';
+export { exportDocument } from './export.js';
+
+export type { ParsedAttachment } from './import/index.js';
+export { bytesToBase64, parseAttachment, parseText, resolvePdfWorkerSrc } from './import/index.js';

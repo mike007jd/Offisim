@@ -6,7 +6,7 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "prebuild": "node ../../scripts/check-platform-tauri-origin-sync.mjs",
+    "prebuild": "node ../../scripts/check-platform-tauri-origin-sync.mjs && node ../../scripts/check-attachment-capabilities.mjs",
     "build": "tauri build",
     "build:frontend": "pnpm -C ../.. build:runtime-deps && pnpm -C ../.. build:claude-agent-host && pnpm -C ../.. build:codex-agent-host && pnpm -C ../.. --filter @offisim/web... build",
     "typecheck": "echo 'no TS in desktop — Rust only'"

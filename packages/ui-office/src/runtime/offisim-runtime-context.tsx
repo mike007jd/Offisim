@@ -7,6 +7,7 @@ import type {
   SkillLoader,
   ToolTelemetryService,
 } from '@offisim/core/browser';
+import type { AttachmentStore } from '../lib/attachment-store.js';
 import type { InstallService } from '@offisim/install-core';
 import type {
   EmployeeRuntimeBinding,
@@ -35,6 +36,10 @@ export interface FailedRunErrorState {
   threadId?: string;
   conversationKey: string;
 }
+
+export type SendMessageResult =
+  | { kind: 'assistant'; content: string }
+  | { kind: 'system'; content: string };
 
 export type VaultDirectoryMode =
   | 'unsupported'
@@ -71,8 +76,8 @@ export interface OffisimRuntimeValue {
       /** Per-execution chat run scope; threaded into graph config.configurable.runScope. */
       runScope?: RunScope;
     },
-  ) => Promise<string | undefined>;
-  retryLastMessage: (options?: { runScope?: RunScope }) => Promise<string | undefined>;
+  ) => Promise<SendMessageResult | undefined>;
+  retryLastMessage: (options?: { runScope?: RunScope }) => Promise<SendMessageResult | undefined>;
   clearError: () => void;
   /** Re-create runtime from current localStorage config. */
   reinitRuntime: () => void;
@@ -119,7 +124,7 @@ export interface OffisimRuntimeValue {
     selectedOptionId: string,
     freeformResponse?: string,
     options?: { runScope?: RunScope },
-  ) => Promise<string | undefined>;
+  ) => Promise<SendMessageResult | undefined>;
   /**
    * List persisted deliverables for the active company, newest first.
    * Summary-shape rows: `content` is empty until `loadDeliverableContent(id)` hydrates it.
@@ -152,6 +157,15 @@ export interface OffisimRuntimeValue {
    * policy. `null` when the policy omits it (resolver falls through to provider).
    */
   companyEmployeeRuntimeDefault: EmployeeRuntimeBinding | null;
+  /**
+   * Per-platform chat attachment persistence + read backend. Wired by the
+   * runtime factories (`browser-runtime.ts` → `WebAttachmentStore`,
+   * `tauri-runtime.ts` → `TauriAttachmentStore`); shared by composer staging,
+   * the gateway-lane `read_attachment` tool, the bubble eviction probe, and
+   * the boot-time GC sweeper. Null in `tauri-runtime-lite` mode and during
+   * pre-runtime bootstrap.
+   */
+  attachmentStore: AttachmentStore | null;
 }
 
 export const OffisimRuntimeContext = createContext<OffisimRuntimeValue | null>(null);

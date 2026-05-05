@@ -50,20 +50,38 @@ pub struct ProjectDirEntry {
     size: Option<u64>,
 }
 
-async fn workspace_roots<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Vec<PathBuf>, String> {
+async fn workspace_roots<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    project_id: Option<&str>,
+) -> Result<Vec<PathBuf>, String> {
     let pool = get_offisim_pool(app).map_err(|err| {
         eprintln!("[builtin_tools] {err}");
         "open offisim.db failed".to_string()
     })?;
-    let rows = sqlx::query(
-        r#"
-        SELECT workspace_root
-        FROM projects
-        WHERE workspace_root IS NOT NULL AND trim(workspace_root) <> ''
-        "#,
-    )
-    .fetch_all(&pool)
-    .await
+    let rows = if let Some(project_id) = project_id {
+        sqlx::query(
+            r#"
+            SELECT workspace_root
+            FROM projects
+            WHERE project_id = ?
+              AND workspace_root IS NOT NULL
+              AND trim(workspace_root) <> ''
+            "#,
+        )
+        .bind(project_id)
+        .fetch_all(&pool)
+        .await
+    } else {
+        sqlx::query(
+            r#"
+            SELECT workspace_root
+            FROM projects
+            WHERE workspace_root IS NOT NULL AND trim(workspace_root) <> ''
+            "#,
+        )
+        .fetch_all(&pool)
+        .await
+    }
     .map_err(|err| {
         eprintln!("[builtin_tools] list project workspace roots failed: {err}");
         "list project workspace roots failed".to_string()
@@ -291,8 +309,9 @@ pub async fn project_read_file_preview<R: Runtime>(
     path: String,
     cwd: Option<String>,
     max_bytes: u32,
+    project_id: Option<String>,
 ) -> Result<ProjectFilePreview, String> {
-    let roots = workspace_roots(&app).await?;
+    let roots = workspace_roots(&app, project_id.as_deref()).await?;
     let candidate = resolve_candidate(&path, cwd.as_deref())?;
     let canonical = candidate
         .canonicalize()
@@ -336,8 +355,9 @@ pub async fn project_read_file<R: Runtime>(
     app: tauri::AppHandle<R>,
     path: String,
     cwd: Option<String>,
+    project_id: Option<String>,
 ) -> Result<String, String> {
-    let roots = workspace_roots(&app).await?;
+    let roots = workspace_roots(&app, project_id.as_deref()).await?;
     let candidate = resolve_candidate(&path, cwd.as_deref())?;
     let canonical = candidate
         .canonicalize()
@@ -357,8 +377,9 @@ pub async fn project_list_dir<R: Runtime>(
     app: tauri::AppHandle<R>,
     path: String,
     cwd: Option<String>,
+    project_id: Option<String>,
 ) -> Result<Vec<ProjectDirEntry>, String> {
-    let roots = workspace_roots(&app).await?;
+    let roots = workspace_roots(&app, project_id.as_deref()).await?;
     let candidate = resolve_candidate(&path, cwd.as_deref())?;
     let canonical = candidate
         .canonicalize()
@@ -412,8 +433,9 @@ pub async fn project_write_file<R: Runtime>(
     path: String,
     content: String,
     cwd: Option<String>,
+    project_id: Option<String>,
 ) -> Result<(), String> {
-    let roots = workspace_roots(&app).await?;
+    let roots = workspace_roots(&app, project_id.as_deref()).await?;
     let candidate = resolve_candidate(&path, cwd.as_deref())?;
     ensure_write_size(content.len(), &candidate, &roots)?;
     let target = resolve_write_target(&candidate, &roots)?;
@@ -448,8 +470,9 @@ pub async fn bash_execute<R: Runtime>(
     cmd: String,
     timeout_ms: u32,
     max_output_bytes: Option<u32>,
+    project_id: Option<String>,
 ) -> Result<BashExecuteResult, String> {
-    let roots = workspace_roots(&app).await?;
+    let roots = workspace_roots(&app, project_id.as_deref()).await?;
     let cwd_path = PathBuf::from(&cwd)
         .canonicalize()
         .map_err(|err| fs_resolve_error("resolve shell cwd", Path::new(&cwd), err))?;

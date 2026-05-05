@@ -18,6 +18,7 @@
       },
       {
         "id": "tr-step-blocked",
+        "threadId": "thread-step-advance-blocked-base",
         "employeeId": "emp-step-blocked",
         "taskType": "verification",
         "status": "blocked"
@@ -29,11 +30,12 @@
       "planId": "plan-step-blocked",
       "threadId": "thread-step-advance-blocked",
       "companyId": "company-step-advance-blocked",
-      "summary": "One blocked step",
+      "summary": "One blocked dependency",
       "steps": [
         {
           "stepIndex": 0,
           "description": "Implement and verify",
+          "dependsOnSteps": [],
           "tasks": [
             {
               "taskType": "implementation",
@@ -48,6 +50,19 @@
               "description": "Verify",
               "dependsOnStepOutput": false,
               "taskRunId": "tr-step-blocked"
+            }
+          ]
+        },
+        {
+          "stepIndex": 1,
+          "description": "Publish after verification",
+          "dependsOnSteps": [0],
+          "tasks": [
+            {
+              "taskType": "release",
+              "employeeId": "emp-step-ok",
+              "description": "Publish only after verification clears",
+              "dependsOnStepOutput": true
             }
           ]
         }
@@ -85,6 +100,10 @@
   "assertions": [
     { "kind": "graphStateArrayExcludes", "field": "completedStepIndices", "value": 0 },
     { "kind": "graphStateArrayIncludes", "field": "blockedStepIndices", "value": 0 },
-    { "kind": "finalOutputContains", "contains": "blocked step" }
+    { "kind": "graphStateArrayExcludes", "field": "completedStepIndices", "value": 1 },
+    { "kind": "graphStateArrayExcludes", "field": "blockedStepIndices", "value": 1 },
+    { "kind": "threadStatusIs", "status": "running" },
+    { "kind": "finalOutputContains", "contains": "Plan is blocked after 1 blocked step(s)." },
+    { "kind": "finalOutputNotContains", "contains": "SOP dispatcher could not advance" }
   ]
 }

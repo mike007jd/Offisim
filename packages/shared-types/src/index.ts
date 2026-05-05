@@ -45,6 +45,7 @@ export type {
   ConversationSynopsisUpdatedPayload,
   ConversationCompactCompletedPayload,
   WorkspaceStalenessDetectedPayload,
+  WorkspaceBindingConsumer,
   WorkspaceBindingUnavailableMissingAt,
   WorkspaceBindingUnavailablePayload,
   ExecutionResumedPayload,
@@ -90,6 +91,7 @@ export type {
   EmployeeWorkstationDropRequestedPayload,
   EmployeeVersionCreatedPayload,
   BossEmployeeContextEmptyPayload,
+  BossRosterDivergencePayload,
   RackBoundPayload,
   RackUnboundPayload,
   SlotAssignedPayload,
@@ -121,6 +123,51 @@ export type {
 } from './events.js';
 export { TASK_ASSIGNMENT_REROUTED } from './events/task.js';
 export { SKILL_INSTALL_OUTCOME, skillInstallOutcomeLabel } from './events/install.js';
+
+export type {
+  AttachmentKind,
+  AttachmentMeta,
+  ChatAttachmentRef,
+  FileLike,
+  ParseVaultRefResult,
+  ParsedAttachment,
+  StagedAttachment,
+  VaultRef,
+} from './chat-attachments.js';
+export {
+  buildVaultRef,
+  CHAT_ATTACHMENT_MAX_BYTES,
+  CURRENT_PARSED_REV,
+  isAttachmentKind,
+  kindFromMime,
+  parseVaultRef,
+  summaryFromParsed,
+} from './chat-attachments.js';
+export type {
+  ChatAttachmentEvictedPayload,
+  ChatAttachmentFailReason,
+  ChatAttachmentFailedPayload,
+  ChatAttachmentGcDroppedPayload,
+  ChatAttachmentGcReason,
+  ChatAttachmentGcSweptPayload,
+  ChatAttachmentPersistedPayload,
+  ChatAttachmentReadPayload,
+  ChatAttachmentStagedPayload,
+} from './events/chat-attachment-events.js';
+export {
+  ATTACHMENT_GC_REASON_COMPANY,
+  ATTACHMENT_GC_REASON_ORPHANED,
+  ATTACHMENT_GC_REASON_PROJECT,
+  ATTACHMENT_GC_REASON_THREAD,
+  CHAT_ATTACHMENT_EVICTED,
+  CHAT_ATTACHMENT_FAILED,
+  CHAT_ATTACHMENT_GC_DROPPED,
+  CHAT_ATTACHMENT_GC_SWEPT,
+  CHAT_ATTACHMENT_PERSISTED,
+  CHAT_ATTACHMENT_READ,
+  CHAT_ATTACHMENT_STAGED,
+  chatAttachmentEvent,
+} from './events/chat-attachment-events.js';
 
 export type { RunScope } from './run-scope.js';
 export { chatScopeFields } from './run-scope.js';
@@ -158,6 +205,12 @@ export {
   isInteractionMode,
 } from './interactions.js';
 export { AGENT_QUESTION_REQUIRED, PLAN_REVIEW_REQUIRED } from './interactions.js';
+export type { ChatRuntimeOutcomeKind } from './chat-outcomes.js';
+export {
+  ATTACHMENTS_REQUIRE_GATEWAY_LANE,
+  LOCAL_TOOLS_REQUIRE_GATEWAY_LANE,
+  isChatRuntimeOutcomeKind,
+} from './chat-outcomes.js';
 export type { KanbanOrigin, KanbanState } from './kanban.js';
 export {
   isKanbanOrigin,

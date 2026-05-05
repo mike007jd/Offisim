@@ -152,6 +152,7 @@ export function App({ onCompanySwitch }: AppProps) {
     unfinishedThreads,
     dismissUnfinishedThreads,
     resumeThread,
+    attachmentStore,
   } = useOffisimRuntime();
   const installFlow = useInstallFlow();
   const routeToPersonnel = useMemo(
@@ -264,6 +265,16 @@ export function App({ onCompanySwitch }: AppProps) {
       markAccount('provider_configured');
     }
   }, [providerConfig]);
+
+  // Boot-time chat-attachment GC sweep. Time-sliced via requestIdleCallback
+  // inside the sweeper; not awaited so it never blocks first paint. Re-fires
+  // when the runtime is recreated (different repos/store/bus identities).
+  useEffect(() => {
+    if (!repos || !attachmentStore || !eventBus) return;
+    void import('./lib/attachment-gc').then(({ attachmentGcSweeper }) => {
+      void attachmentGcSweeper.run({ attachmentStore, repos, eventBus });
+    });
+  }, [repos, attachmentStore, eventBus]);
 
   useEffect(() => {
     if (!pendingDeepLinkRef.current) return;

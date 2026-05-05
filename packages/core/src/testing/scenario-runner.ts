@@ -1,5 +1,6 @@
 import { HumanMessage } from '@langchain/core/messages';
 import type {
+  ChatAttachmentRef,
   InteractionKind,
   InteractionMode,
   ProjectStatus,
@@ -14,6 +15,7 @@ import { type OffisimGraphStartNode, buildOffisimGraph } from '../graph/main-gra
 import type {
   OffisimGraphState,
   PendingAssignment,
+  RunScope,
   StepTaskOutput,
   TaskPlan,
 } from '../graph/state.js';
@@ -102,6 +104,7 @@ interface SeedEmployee {
   readonly id: string;
   readonly name: string;
   readonly role: RoleSlug;
+  readonly enabled?: boolean;
   readonly config?: Record<string, unknown>;
   readonly isExternal?: boolean;
   readonly a2aUrl?: string | null;
@@ -113,6 +116,7 @@ interface SeedEmployee {
 
 interface SeedTaskRun {
   readonly id: string;
+  readonly threadId?: string;
   readonly employeeId: string;
   readonly taskType: string;
   readonly status?: string;
@@ -153,8 +157,21 @@ interface ScenarioInitialMessage {
 interface ScenarioRun {
   readonly startAt?: OffisimGraphStartNode;
   readonly expectError?: string;
+  readonly runScope?: ScenarioRunScope;
   readonly autoResolveInteractions?: readonly ScenarioInteractionResolution[];
   readonly resolveAfterRun?: readonly ScenarioInteractionResolution[];
+}
+
+interface ScenarioRunScope {
+  readonly conversationKey?: string;
+  readonly runId?: string;
+  readonly threadId?: string;
+  readonly pendingAttachments?: readonly (Omit<ChatAttachmentRef, 'vaultRef'> & {
+    readonly vaultRef: string;
+  })[];
+  readonly availableAttachments?: readonly (Omit<ChatAttachmentRef, 'vaultRef'> & {
+    readonly vaultRef: string;
+  })[];
 }
 
 interface ScenarioInteractionResolution {
@@ -236,11 +253,13 @@ export async function runDeterministicScenario(
         ...(run.startAt ? { startAt: run.startAt } : {}),
       });
       try {
+        const runScope = buildScenarioRunScope(run, scenario.id, threadId);
         finalState = await graph.invoke(finalState, {
           configurable: {
             thread_id: threadId,
             runtimeCtx,
             signal: new AbortController().signal,
+            ...(runScope ? { runScope } : {}),
           },
         });
         if (run.expectError) {
@@ -756,11 +775,14 @@ async function seedScenario(params: {
       brand_key: employee.brandKey ?? null,
       agent_card_json: employee.agentCardJson ?? null,
     });
+    if (employee.enabled === false) {
+      await params.repos.employees.update(employee.id, { enabled: 0 });
+    }
   }
   for (const taskRun of params.scenario.seed.taskRuns ?? []) {
     await params.repos.taskRuns.create({
       task_run_id: taskRun.id,
-      thread_id: params.threadId,
+      thread_id: taskRun.threadId ?? params.threadId,
       employee_id: taskRun.employeeId,
       parent_task_run_id: null,
       task_type: taskRun.taskType,
@@ -865,6 +887,26 @@ async function resolveCurrentInteraction(
 function isExpectedError(error: unknown, expected: string): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes(expected);
+}
+
+function buildScenarioRunScope(
+  run: ScenarioRun,
+  scenarioId: string,
+  threadId: string,
+): RunScope | undefined {
+  const scope = run.runScope;
+  if (!scope) return undefined;
+  return {
+    conversationKey: scope.conversationKey ?? threadId,
+    runId: scope.runId ?? `run-${scenarioId}`,
+    threadId: scope.threadId ?? threadId,
+    ...(scope.pendingAttachments
+      ? { pendingAttachments: scope.pendingAttachments as readonly ChatAttachmentRef[] }
+      : {}),
+    ...(scope.availableAttachments
+      ? { availableAttachments: scope.availableAttachments as readonly ChatAttachmentRef[] }
+      : {}),
+  };
 }
 
 function buildInteractionResponse(

@@ -1,4 +1,4 @@
-import type { RunScope } from '@offisim/shared-types';
+import type { ChatAttachmentRef, RunScope } from '@offisim/shared-types';
 import { create } from 'zustand';
 import { stripLegacySpeakerPrefix } from '../../lib/legacy-speaker-prefix';
 
@@ -20,6 +20,12 @@ export interface ChatMessage {
   createdAt?: number;
   /** Internal assistant-turn key. All streaming/final commits for one run converge here. */
   runId?: string;
+  /**
+   * User-side attachment refs persisted via `AttachmentStore.write` at send
+   * time. Bubble renderer re-resolves bytes from the store on demand. Empty
+   * for non-attachment messages.
+   */
+  attachments?: ChatAttachmentRef[];
 }
 
 export interface ChatStreamingState {
@@ -33,6 +39,115 @@ export interface ChatStreamingState {
 interface ChatConversationState {
   messages: ChatMessage[];
   streaming: ChatStreamingState | null;
+}
+
+const CHAT_SESSION_STORAGE_KEY = 'offisim:chat-session-store:v1';
+const MAX_PERSISTED_MESSAGES_PER_CONVERSATION = 200;
+
+function isBrowserStorageAvailable(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeAttachmentRef(raw: unknown): ChatAttachmentRef | null {
+  if (!isObject(raw)) return null;
+  if (
+    typeof raw.attachmentId !== 'string' ||
+    typeof raw.vaultRef !== 'string' ||
+    typeof raw.filename !== 'string' ||
+    typeof raw.mimeType !== 'string' ||
+    typeof raw.byteLength !== 'number' ||
+    typeof raw.kind !== 'string' ||
+    typeof raw.parsedRev !== 'number'
+  ) {
+    return null;
+  }
+  return {
+    attachmentId: raw.attachmentId,
+    vaultRef: raw.vaultRef as ChatAttachmentRef['vaultRef'],
+    filename: raw.filename,
+    mimeType: raw.mimeType,
+    byteLength: raw.byteLength,
+    kind: raw.kind as ChatAttachmentRef['kind'],
+    parsedRev: raw.parsedRev,
+    ...(typeof raw.summary === 'string' ? { summary: raw.summary } : {}),
+  };
+}
+
+function normalizeMessage(raw: unknown): ChatMessage | null {
+  if (!isObject(raw)) return null;
+  if (
+    typeof raw.id !== 'string' ||
+    (raw.role !== 'user' && raw.role !== 'assistant' && raw.role !== 'system') ||
+    typeof raw.content !== 'string'
+  ) {
+    return null;
+  }
+  const attachments = Array.isArray(raw.attachments)
+    ? raw.attachments.map(normalizeAttachmentRef).filter((ref): ref is ChatAttachmentRef => !!ref)
+    : undefined;
+  const status =
+    raw.status === 'completed' || raw.status === 'interrupted' || raw.status === 'failed'
+      ? raw.status
+      : undefined;
+  return {
+    id: raw.id,
+    role: raw.role,
+    content: raw.content,
+    ...(status ? { status } : {}),
+    ...(typeof raw.nodeName === 'string' || raw.nodeName === null
+      ? { nodeName: raw.nodeName }
+      : {}),
+    ...(typeof raw.reasoning === 'string' ? { reasoning: raw.reasoning } : {}),
+    ...(typeof raw.createdAt === 'number' ? { createdAt: raw.createdAt } : {}),
+    ...(typeof raw.runId === 'string' ? { runId: raw.runId } : {}),
+    ...(attachments && attachments.length > 0 ? { attachments } : {}),
+  };
+}
+
+function loadPersistedConversations(): Record<string, ChatConversationState> {
+  if (!isBrowserStorageAvailable()) return {};
+  try {
+    const raw = window.localStorage.getItem(CHAT_SESSION_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!isObject(parsed) || !isObject(parsed.conversations)) return {};
+    const conversations: Record<string, ChatConversationState> = {};
+    for (const [key, value] of Object.entries(parsed.conversations)) {
+      if (!isObject(value) || !Array.isArray(value.messages)) continue;
+      const messages = value.messages
+        .map(normalizeMessage)
+        .filter((message): message is ChatMessage => !!message)
+        .slice(-MAX_PERSISTED_MESSAGES_PER_CONVERSATION);
+      if (messages.length === 0) continue;
+      conversations[key] = { messages, streaming: null };
+    }
+    return conversations;
+  } catch {
+    return {};
+  }
+}
+
+function persistConversations(conversations: Record<string, ChatConversationState>): void {
+  if (!isBrowserStorageAvailable()) return;
+  try {
+    const entries: Array<[string, { messages: ChatMessage[] }]> = [];
+    for (const [key, conversation] of Object.entries(conversations)) {
+      const messages = conversation.messages.slice(-MAX_PERSISTED_MESSAGES_PER_CONVERSATION);
+      if (messages.length > 0) entries.push([key, { messages }]);
+    }
+    const persisted = Object.fromEntries(entries);
+    window.localStorage.setItem(
+      CHAT_SESSION_STORAGE_KEY,
+      JSON.stringify({ version: 1, conversations: persisted }),
+    );
+  } catch {
+    // Chat history is convenience state; storage quota/private-mode failures
+    // must not block live sends or attachment persistence.
+  }
 }
 
 interface ActiveChatRunState {
@@ -540,20 +655,35 @@ function reduceChatSession(
   }
 }
 
+function reduceChatSessionWithPersistence(
+  state: ChatSessionDataState,
+  action: ChatSessionAction,
+): ChatSessionDataState {
+  const next = reduceChatSession(state, action);
+  persistConversations(next.conversations);
+  return next;
+}
+
 export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
   activeRun: null,
-  conversations: {},
+  conversations: loadPersistedConversations(),
   appendMessage: (conversationKey, message) =>
-    set((state) => reduceChatSession(state, { type: 'appendMessage', conversationKey, message })),
+    set((state) =>
+      reduceChatSessionWithPersistence(state, { type: 'appendMessage', conversationKey, message }),
+    ),
   startRun: (scope) =>
-    set((state) => reduceChatSession(state, { type: 'startRun', scope })),
+    set((state) => reduceChatSessionWithPersistence(state, { type: 'startRun', scope })),
   setActiveRunNode: (nodeName, options) =>
-    set((state) => reduceChatSession(state, { type: 'setActiveRunNode', nodeName, options })),
+    set((state) =>
+      reduceChatSessionWithPersistence(state, { type: 'setActiveRunNode', nodeName, options }),
+    ),
   setActiveRunStreaming: (isStreaming) =>
-    set((state) => reduceChatSession(state, { type: 'setActiveRunStreaming', isStreaming })),
+    set((state) =>
+      reduceChatSessionWithPersistence(state, { type: 'setActiveRunStreaming', isStreaming }),
+    ),
   appendStreamingChunkForActiveRun: (conversationKey, runId, nodeName, content, channel = 'content') =>
     set((state) =>
-      reduceChatSession(state, {
+      reduceChatSessionWithPersistence(state, {
         type: 'appendStreamingChunkForActiveRun',
         conversationKey,
         runId,
@@ -564,15 +694,24 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
     ),
   commitSpeakerSegment: (conversationKey, runId, options) =>
     set((state) =>
-      reduceChatSession(state, { type: 'commitSpeakerSegment', conversationKey, runId, options }),
+      reduceChatSessionWithPersistence(state, {
+        type: 'commitSpeakerSegment',
+        conversationKey,
+        runId,
+        options,
+      }),
     ),
   commitToolCallCheckpoint: (conversationKey, runId) =>
     set((state) =>
-      reduceChatSession(state, { type: 'commitToolCallCheckpoint', conversationKey, runId }),
+      reduceChatSessionWithPersistence(state, {
+        type: 'commitToolCallCheckpoint',
+        conversationKey,
+        runId,
+      }),
     ),
   terminateActiveRun: (conversationKey, runId, options) =>
     set((state) =>
-      reduceChatSession(state, {
+      reduceChatSessionWithPersistence(state, {
         type: 'terminateActiveRun',
         conversationKey,
         runId,
@@ -581,17 +720,29 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
     ),
   clearActiveRunStreamingContent: (conversationKey, runId) =>
     set((state) =>
-      reduceChatSession(state, { type: 'clearActiveRunStreamingContent', conversationKey, runId }),
+      reduceChatSessionWithPersistence(state, {
+        type: 'clearActiveRunStreamingContent',
+        conversationKey,
+        runId,
+      }),
     ),
   finalizeActiveRun: (conversationKey, runId, finalContent) =>
     set((state) =>
-      reduceChatSession(state, { type: 'finalizeActiveRun', conversationKey, runId, finalContent }),
+      reduceChatSessionWithPersistence(state, {
+        type: 'finalizeActiveRun',
+        conversationKey,
+        runId,
+        finalContent,
+      }),
     ),
-  clearActiveRun: () => set((state) => reduceChatSession(state, { type: 'clearActiveRun' })),
+  clearActiveRun: () =>
+    set((state) => reduceChatSessionWithPersistence(state, { type: 'clearActiveRun' })),
   clearConversation: (conversationKey) =>
-    set((state) => reduceChatSession(state, { type: 'clearConversation', conversationKey })),
+    set((state) =>
+      reduceChatSessionWithPersistence(state, { type: 'clearConversation', conversationKey }),
+    ),
   clearAllConversations: () =>
-    set((state) => reduceChatSession(state, { type: 'clearAllConversations' })),
+    set((state) => reduceChatSessionWithPersistence(state, { type: 'clearAllConversations' })),
   getMessages: (conversationKey) => get().conversations[conversationKey]?.messages ?? [],
   isActiveRunTerminated: () => get().activeRun === null,
   reset: () => set((state) => reduceChatSession(state, { type: 'clearAllConversations' })),

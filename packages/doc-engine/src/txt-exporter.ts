@@ -1,5 +1,5 @@
-import type { ExportResult, ExportableDocument, Exporter } from './types';
-import { formatDate, sanitizeFilename } from './utils';
+import type { ExportResult, ExportableDocument, Exporter } from './types.js';
+import { formatDate, sanitizeFilename } from './utils.js';
 
 export const txtExporter: Exporter = {
   async export(doc: ExportableDocument): Promise<ExportResult> {

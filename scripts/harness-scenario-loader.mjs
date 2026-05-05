@@ -13,6 +13,8 @@ export const REPLAY_SCENARIO_IDS = [
   'dag-output-attribution',
   'direct-mode-skips-boss-chain',
   'gateway-lane-yolo-has-fs-shell-tools',
+  'gateway-lane-attachments-system-preface',
+  'historical-thread-attachments-readable',
   'kanban-card-state-transitions',
   'kanban-rejects-illegal-transition',
   'mode-kanban-matrix',
@@ -28,9 +30,12 @@ export const REPLAY_SCENARIO_IDS = [
   'sanitize-rebind-uses-recommended-order',
   'skill-create-real-tool-call',
   'skill-create-target-employee-mismatch',
+  'sdk-lane-attachments-short-circuit-before-model',
+  'sdk-lane-yolo-attachments-short-circuit-before-model',
   'boss-tool-routing-sync-from-claude-code-web',
   'step-advance-segregates-blocked-from-completed',
   'tool-kit-without-builtins-omits-fs-shell',
+  'yolo-attachment-only-reads-current-turn-refs',
   'yolo-mode-skips-boss-chain',
 ];
 

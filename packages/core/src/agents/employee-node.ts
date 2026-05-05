@@ -80,6 +80,7 @@ export async function employeeNode(
   const { systemPrompt, citationMap } = await assemblePrompt(
     preflightOutcome.preflight,
     runtimeCtx,
+    getRunScope(config),
   );
 
   const { allTools, allowedMcpToolNames } = await assembleToolKit(

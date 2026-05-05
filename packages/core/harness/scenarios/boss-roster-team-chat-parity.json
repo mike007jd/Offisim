@@ -1,0 +1,41 @@
+{
+  "id": "boss-roster-team-chat-parity",
+  "category": "interaction-modes",
+  "entryMode": "boss_chat",
+  "interactionMode": "boss_proxy",
+  "seed": {
+    "company": { "companyId": "company-boss-roster-parity", "name": "Boss Roster Parity Co" },
+    "thread": { "threadId": "thread-boss-roster-parity", "status": "running" },
+    "employees": [
+      { "id": "emp-alex", "name": "Alex Chen", "role": "engineer" },
+      { "id": "emp-maya", "name": "Maya Lin", "role": "designer", "enabled": false }
+    ]
+  },
+  "initialState": {
+    "messages": [{ "role": "user", "content": "Who is on the team and what does Alex do?" }]
+  },
+  "llmTurns": [
+    {
+      "id": "boss-direct-reply-route-with-roster",
+      "match": { "contains": "emp-maya: Maya Lin" },
+      "content": "{\"action\":\"delegate\",\"reason\":\"mistakenly treating roster question as work\"}"
+    },
+    {
+      "id": "boss-final-reply-with-roster",
+      "match": { "contains": "Alex Chen" },
+      "content": "Alex Chen (engineer) and Maya Lin (designer) are on the team."
+    }
+  ],
+  "runs": [{}],
+  "assertions": [
+    { "kind": "finalOutputContains", "contains": "Alex Chen" },
+    {
+      "kind": "eventEmitted",
+      "eventType": "boss.route.decided",
+      "payloadEquals": { "action": "direct_reply", "route": "direct_reply" }
+    },
+    { "kind": "finalOutputNotContains", "contains": "no employee database access" },
+    { "kind": "eventNotEmitted", "eventType": "boss.employee-context.empty" },
+    { "kind": "eventNotEmitted", "eventType": "boss.roster-divergence" }
+  ]
+}

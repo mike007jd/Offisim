@@ -3,6 +3,14 @@ import { graphNodeEntered } from '../../events/event-factories.js';
 import { type OffisimGraphState, createEmptyPlanScopedState } from '../../graph/state.js';
 import { getRunScope, getRuntime } from '../../utils/get-runtime.js';
 import type { PmPreflightOutcome } from '../pm-planner-types.js';
+import {
+  attachmentGatewayLaneOutcomeState,
+  attachmentsRequireGatewayLane,
+} from '../attachment-lane-guard.js';
+import {
+  localToolsGatewayLaneOutcomeState,
+  localToolsRequireGatewayLane,
+} from '../local-tool-lane-guard.js';
 import { detectTaskToolIntent, isLocalToolAssignableEmployee } from '../task-tool-intent.js';
 import { parseReviewedPlanPayload } from './plan-review-payload.js';
 
@@ -11,10 +19,21 @@ export async function runPmPreflight(
   config: RunnableConfig,
 ): Promise<PmPreflightOutcome> {
   const runtimeCtx = getRuntime(config, 'pm_planner');
+  const runScope = getRunScope(config);
 
   runtimeCtx.eventBus.emit(
-    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_planner', getRunScope(config)),
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'pm_planner', runScope),
   );
+
+  if (attachmentsRequireGatewayLane(runtimeCtx, runScope)) {
+    return {
+      kind: 'short-circuit',
+      result: {
+        ...attachmentGatewayLaneOutcomeState(state),
+        taskPlan: null,
+      },
+    };
+  }
 
   const { repos, companyId, threadId } = runtimeCtx;
   const directive = state.managerDirective;
@@ -72,6 +91,15 @@ export async function runPmPreflight(
   const allEmployees = await repos.employees.findByCompany(companyId);
   const allEnabled = allEmployees.filter((e) => e.enabled === 1);
   const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(directive.intent);
+  if (localToolsRequireGatewayLane(runtimeCtx, taskToolIntent)) {
+    return {
+      kind: 'short-circuit',
+      result: {
+        ...localToolsGatewayLaneOutcomeState(state, taskToolIntent),
+        taskPlan: null,
+      },
+    };
+  }
   const localToolRequired = taskToolIntent.requiresLocalTools;
   if (localToolRequired) {
     validEmployees = validEmployees.filter(isLocalToolAssignableEmployee);
