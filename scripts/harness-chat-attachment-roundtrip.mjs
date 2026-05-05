@@ -16,6 +16,7 @@
  * here and gate the build.
  */
 import process from 'node:process';
+import { readFileSync } from 'node:fs';
 
 const REF_A = {
   attachmentId: '11111111-1111-4111-9111-111111111111',
@@ -142,10 +143,58 @@ async function readAttachmentToolScopeGuard() {
   return true;
 }
 
+async function readAttachmentStructuredPdfLegacyContent() {
+  const { createReadAttachmentTool } = await import(
+    new URL('../packages/core/dist/tools/builtin/read-attachment-tool.js', import.meta.url).href
+  );
+  const bytes = readFileSync(
+    new URL('../packages/doc-engine/harness/fixtures/sample.pdf', import.meta.url),
+  );
+  const bridge = {
+    read: async () => ({
+      kind: 'ok',
+      meta: {
+        attachmentId: 'bbbbbbbb-bbbb-4bbb-9bbb-bbbbbbbbbbbb',
+        companyId: 'co-test',
+        threadId: 'th-test',
+        filename: 'sample.pdf',
+        mimeType: 'application/pdf',
+        byteLength: bytes.length,
+        sha256: 'sha',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        parsedRev: 1,
+        kind: 'pdf',
+      },
+      bytes,
+    }),
+  };
+  const tool = createReadAttachmentTool(bridge, undefined, { companyId: 'co-test' });
+  const result = await tool.execute(
+    {
+      vaultRef: 'attachment://co-test/th-test/bbbbbbbb-bbbb-4bbb-9bbb-bbbbbbbbbbbb',
+      mode: 'structured',
+    },
+    { companyId: 'co-test', runScope: { threadId: 'th-test' } },
+  );
+  const ok =
+    result?.structured?.kind === 'pdf' &&
+    typeof result.structured.text === 'string' &&
+    result.structured.text.length > 0 &&
+    result.content === result.structured.text;
+  if (!ok) {
+    console.error('[chat-attachment-roundtrip] FAIL structured PDF legacy content');
+    console.error(JSON.stringify(result, null, 2));
+    return false;
+  }
+  console.log('[chat-attachment-roundtrip] ok structured PDF legacy content');
+  return true;
+}
+
 const ok = [
   checkpointRoundTrip(),
   chatMessageRoundTrip(),
   await readAttachmentToolScopeGuard(),
+  await readAttachmentStructuredPdfLegacyContent(),
 ].every(Boolean);
 console.log(JSON.stringify({ suite: 'chat-attachment-roundtrip', ok }, null, 2));
 if (!ok) process.exit(1);

@@ -24,6 +24,7 @@ import type { AgentState } from '../../runtime/use-agent-states';
 import { useTourTarget } from '../onboarding/tour-context.js';
 import { AttachmentDropOverlay } from './AttachmentDropOverlay.js';
 import { StagedAttachmentChip } from './StagedAttachmentChip.js';
+import { mergeClipboardTextIntoComposer } from './clipboard-text.js';
 import { readTauriDroppedFiles } from './tauri-dropped-files.js';
 import { useChatAttachmentStaging } from './useChatAttachmentStaging.js';
 
@@ -484,10 +485,24 @@ export function ChatInput({
       const files = Array.from(e.clipboardData?.files ?? []);
       if (files.length > 0) {
         e.preventDefault();
+        const pastedText = e.clipboardData?.getData('text/plain') ?? '';
+        const merged = mergeClipboardTextIntoComposer({
+          currentText: text,
+          selectionStart: e.currentTarget.selectionStart ?? text.length,
+          selectionEnd: e.currentTarget.selectionEnd ?? text.length,
+          pastedText,
+        });
+        if (merged.text !== text) {
+          setText(merged.text);
+          resizeTextarea(e.currentTarget, merged.text);
+          requestAnimationFrame(() => {
+            textareaRef.current?.setSelectionRange(merged.selectionStart, merged.selectionEnd);
+          });
+        }
         void staging.handleStaging(files).then(focusComposerAfterAttach);
       }
     },
-    [staging],
+    [staging, text],
   );
 
   const onDragEnter = useCallback((e: ReactDragEvent) => {

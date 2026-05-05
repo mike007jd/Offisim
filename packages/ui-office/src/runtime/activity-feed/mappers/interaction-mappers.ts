@@ -73,6 +73,9 @@ export function subscribeInteractionMappers(
         tone: SKILL_OUTCOME_TONE[payload.kind],
         label: skillInstallOutcomeLabel(payload),
         timestamp: event.timestamp,
+        employeeId: payload.employeeId ?? null,
+        burstKey: `skill:${payload.employeeId ?? 'global'}`,
+        burstCount: 1,
       });
     },
   );

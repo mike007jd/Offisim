@@ -275,19 +275,15 @@ export class InteractionService implements ToolPermissionGrantResolver {
     const runScope = this.activeRunScopes.get(pending.interactionId) ?? null;
     this.activeRunScopes.delete(pending.interactionId);
     this.deps.eventBus.emit(
-      interactionResolved(
-        this.deps.companyId,
-        this.deps.threadId,
-        pending,
-        response,
-        runScope,
-      ),
+      interactionResolved(this.deps.companyId, this.deps.threadId, pending, response, runScope),
     );
     if (outcome) {
+      const employeeId = this.resolveSkillInstallEmployeeId(pending);
       this.deps.eventBus.emit(
         skillInstallOutcome(this.deps.companyId, this.deps.threadId, {
           ...outcome,
           interactionId: pending.interactionId,
+          employeeId,
         }),
       );
     }
@@ -394,6 +390,16 @@ export class InteractionService implements ToolPermissionGrantResolver {
         message: 'Skill confirmation failed before the change could be applied.',
       };
     }
+  }
+
+  private resolveSkillInstallEmployeeId(request: InteractionRequest): string | null {
+    if (
+      request.kind === 'skill_install_confirm' &&
+      request.context?.type === 'skill_install_confirm'
+    ) {
+      return request.context.resolvedEmployeeId ?? request.employeeId ?? null;
+    }
+    return request.employeeId ?? null;
   }
 
   consumeMatchingGrant(request: ToolPermissionGrantRequest): ToolPermissionGrantMatch | null {

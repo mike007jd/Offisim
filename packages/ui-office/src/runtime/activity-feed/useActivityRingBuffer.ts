@@ -17,8 +17,8 @@ interface Returns {
 }
 
 /**
- * FIFO ring buffer with a tool-burst merge rule: if a new tool entry shares
- * `burstKey` and tone with the current head and lands within 3.5s, the head
+ * FIFO ring buffer with a burst merge rule: if a new entry shares `burstKey`
+ * and tone with the current head and lands within 3.5s, the head
  * entry's `burstCount` is incremented instead of prepending a new row. Merge
  * logic lives here so every caller writes through the same push path.
  */
@@ -45,14 +45,22 @@ function applyPush(
   const latest = prev[0];
   if (
     latest &&
-    next.kind === 'tool' &&
-    latest.kind === 'tool' &&
     next.burstKey &&
     latest.burstKey === next.burstKey &&
+    latest.kind === next.kind &&
     next.tone === latest.tone &&
     Math.abs(next.timestamp - latest.timestamp) <= 3_500
   ) {
     const mergedCount = (latest.burstCount ?? 1) + (next.burstCount ?? 1);
+    if (next.kind !== 'tool' || latest.kind !== 'tool') {
+      return [
+        {
+          ...next,
+          burstCount: mergedCount,
+        },
+        ...prev.slice(1),
+      ].slice(0, limit);
+    }
     const [statusPart, categoryPart] = next.burstKey.split(':');
     return [
       {

@@ -2,9 +2,8 @@ import type { SkillInstallConfirmOutcome } from '@offisim/core/browser';
 import type { InteractionRequest } from '@offisim/shared-types';
 import {
   ATTACHMENTS_REQUIRE_GATEWAY_LANE,
-  LOCAL_TOOLS_REQUIRE_GATEWAY_LANE,
   type ChatRuntimeOutcomeKind,
-  skillInstallOutcomeLabel,
+  LOCAL_TOOLS_REQUIRE_GATEWAY_LANE,
 } from '@offisim/shared-types';
 
 export type InteractionFollowUp =
@@ -16,7 +15,7 @@ export type InteractionFollowUp =
 function getSkillInstallConfirmFollowUp(
   request: InteractionRequest,
   selectedOptionId: string,
-  skillInstallOutcome?: SkillInstallConfirmOutcome,
+  _skillInstallOutcome?: SkillInstallConfirmOutcome,
 ): InteractionFollowUp {
   const action =
     request.context?.type === 'skill_install_confirm' ? request.context.action : undefined;
@@ -26,13 +25,7 @@ function getSkillInstallConfirmFollowUp(
       message: 'Retry requested. Ask the employee to generate a corrected SKILL.md.',
     };
   }
-  // The committer is the source of truth — use its outcome whenever it
-  // returned one. Fall back to a synthesized cancelled outcome only when the
-  // user dismissed without ever invoking the committer (e.g., resolver said
-  // no handler was wired).
-  const outcome: SkillInstallConfirmOutcome =
-    skillInstallOutcome ?? { kind: 'cancelled' };
-  return { mode: 'message', message: skillInstallOutcomeLabel(outcome) };
+  return { mode: 'none' };
 }
 
 export function getInteractionFollowUp(

@@ -2,7 +2,7 @@ import { DEFAULT_INTERACTION_MODE } from '@offisim/shared-types';
 import type { ChatAttachmentRef } from '@offisim/shared-types';
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, Paperclip } from 'lucide-react';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
@@ -162,6 +162,34 @@ function resolveDirectChatTarget(
     throw new Error(DIRECT_CHAT_TARGET_MISSING_ERROR);
   }
   return selectedEmployeeId;
+}
+
+function ChatContextStrip({
+  project,
+  attachmentCount,
+}: {
+  project: ProjectRow | null;
+  attachmentCount: number;
+}) {
+  if (!project && attachmentCount === 0) return null;
+  return (
+    <div className="border-t border-border-default px-3 py-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-text-muted">
+        {project ? (
+          <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 py-1">
+            <BriefcaseBusiness className="h-3 w-3 shrink-0 text-text-secondary" />
+            <span className="min-w-0 truncate text-text-secondary">{project.name}</span>
+          </span>
+        ) : null}
+        {attachmentCount > 0 ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 py-1 text-text-secondary">
+            <Paperclip className="h-3 w-3" />
+            <span>{attachmentCount} attached</span>
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -394,12 +422,8 @@ export function ChatPanel({
       addMessage(targetKey, { id: genMsgId(), role: 'user', content: trimmedResponse });
     }
 
-    // skill_install_confirm followUp is a static one-liner; the agent
-    // resumes (boss/employee summary) under its own runtime-driven activeRun
-    // separately. Wrapping our followUp in startRun/finalizeActiveRun races
-    // with that resume — activeRun gets replaced or cleared during the await
-    // and the followUp silently drops. addMessage commits directly to the
-    // current view (where the bubble was rendered).
+    // Skill outcomes are activity/notification events, not chat messages.
+    // The agent resumes under its own runtime-driven activeRun separately.
     if (pending.kind === 'skill_install_confirm') {
       const response = await respondToInteraction(selectedOptionId, trimmedResponse);
       if (response) {
@@ -853,6 +877,12 @@ export function ChatPanel({
 
       {/* Input */}
       <div className="shrink-0">
+        {!compact ? (
+          <ChatContextStrip
+            project={activeProject ?? null}
+            attachmentCount={availableThreadAttachments.length}
+          />
+        ) : null}
         <ChatInput
           onSend={handleSend}
           onCommand={executeCommand}

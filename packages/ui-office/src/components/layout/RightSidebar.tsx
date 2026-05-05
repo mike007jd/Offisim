@@ -7,12 +7,12 @@ import {
   TabsTrigger,
   cn,
 } from '@offisim/ui-core';
-import { ClipboardList, MessageSquare, Terminal } from 'lucide-react';
+import { ClipboardList, Files, MessageSquare, Terminal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { usePlanStepStore } from '../../hooks/plan-step-store';
 import { useDeliverables } from '../../hooks/useDeliverables';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
-import { usePlanStepStore } from '../../hooks/plan-step-store';
 import { useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { ActivityRail } from '../chat/ActivityRail';
@@ -57,7 +57,7 @@ export function RightSidebar({
   const agents = useAgentStates();
   const { stage } = usePipelineStage();
   const { isRunning } = useOffisimRuntimeStatus();
-  const [activeTab, setActiveTab] = useState<'chat' | 'tasks'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'inspector' | 'tasks'>('chat');
   const projectSelectorRef = useTourTarget('office:project-selector');
   const tasksTargetRef = useTourTarget('office:tasks-tab');
 
@@ -68,6 +68,8 @@ export function RightSidebar({
   const hasPlan = planSteps.length > 0 || stage === 'planning';
   const hasOutputs = deliverables.length > 0;
   const hasKanban = kanbanCardCount > 0;
+  const hasInspectorContent =
+    Boolean(projectSummarySlot) || Boolean(activeProjectId && onSelectThread) || hasOutputs;
 
   useEffect(() => {
     if (focusTasksToken) {
@@ -122,23 +124,9 @@ export function RightSidebar({
         ) : null}
       </div>
 
-      {projectSummarySlot ? (
-        <div className="border-b border-border-default px-3 py-2.5">{projectSummarySlot}</div>
-      ) : null}
-
-      {activeProjectId && onSelectThread ? (
-        <div className="max-h-56 shrink-0 overflow-y-auto border-b border-border-default custom-scrollbar">
-          <ThreadList
-            projectId={activeProjectId}
-            selectedThreadId={activeThreadId ?? null}
-            onSelectThread={onSelectThread}
-          />
-        </div>
-      ) : null}
-
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value as 'chat' | 'tasks')}
+        onValueChange={(value) => setActiveTab(value as 'chat' | 'inspector' | 'tasks')}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <div className="border-b border-border-default px-2 pt-2">
@@ -151,6 +139,15 @@ export function RightSidebar({
             >
               <MessageSquare className="h-4 w-4" />
               <span>Chat</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="inspector"
+              title="Inspector"
+              aria-label="Inspector"
+              className={MAIN_TAB_TRIGGER_CLASS}
+            >
+              <Files className="h-4 w-4" />
+              <span>Inspect</span>
             </TabsTrigger>
             <TabsTrigger
               ref={tasksTargetRef}
@@ -177,6 +174,56 @@ export function RightSidebar({
         </TabsContent>
 
         <TabsContent
+          value="inspector"
+          forceMount
+          className={cn(
+            'mt-0 flex min-h-0 flex-1 flex-col overflow-hidden',
+            TABS_RETAIN_STATE_CLASS,
+          )}
+        >
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto custom-scrollbar">
+            {projectSummarySlot ? (
+              <section className="border-b border-border-default px-3 py-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                  Project
+                </h3>
+                {projectSummarySlot}
+              </section>
+            ) : null}
+
+            {activeProjectId && onSelectThread ? (
+              <section className="border-b border-border-default">
+                <div className="px-3 py-3 pb-2">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                    Threads
+                  </h3>
+                </div>
+                <ThreadList
+                  projectId={activeProjectId}
+                  selectedThreadId={activeThreadId ?? null}
+                  onSelectThread={onSelectThread}
+                />
+              </section>
+            ) : null}
+
+            {hasOutputs ? (
+              <section className="border-b border-border-default px-3 py-3">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                  Outputs
+                </h3>
+                <PitchHall activeThreadId={activeThreadId ?? null} />
+              </section>
+            ) : null}
+
+            {!hasInspectorContent ? (
+              <div className="px-3 py-6 text-xs text-text-muted">
+                Select a project to inspect files, threads, and outputs.
+              </div>
+            ) : null}
+          </div>
+        </TabsContent>
+
+        <TabsContent
           value="tasks"
           forceMount
           className={cn(
@@ -198,15 +245,6 @@ export function RightSidebar({
                   Plan
                 </h3>
                 <TaskDashboard agents={agents} />
-              </section>
-            ) : null}
-
-            {hasOutputs ? (
-              <section className="border-b border-border-default px-3 py-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
-                  Outputs
-                </h3>
-                <PitchHall activeThreadId={activeThreadId ?? null} />
               </section>
             ) : null}
 

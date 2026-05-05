@@ -10,9 +10,11 @@ export function subscribeMemoryMappers(
       id: `memory-${event.payload.memoryId}`,
       kind: 'system',
       tone: 'success',
-      label: `Auto memory saved a ${event.payload.scope} insight`,
+      label: `Memory saved: ${event.payload.scope} ${event.payload.category}`,
       timestamp: event.timestamp,
       employeeId: event.payload.employeeId,
+      burstKey: `memory:${event.payload.scope}:${event.payload.employeeId}`,
+      burstCount: 1,
     });
   });
 }

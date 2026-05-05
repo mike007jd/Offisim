@@ -3,12 +3,23 @@ import type {
   ErrorOccurredPayload,
   HrAssessmentCompletedPayload,
   InstallStatePayload,
+  MemoryCreatedPayload,
   PlanCompletedPayload,
   RuntimeEvent,
+  SkillInstallOutcomePayload,
 } from '@offisim/shared-types';
+import { SKILL_INSTALL_OUTCOME, skillInstallOutcomeLabel } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { notificationCreated } from '../events/event-factories.js';
 import { generateId } from '../utils/generate-id.js';
+
+const NOTIFICATION_MESSAGE_MAX = 160;
+
+function truncateMessage(text: string): string {
+  return text.length > NOTIFICATION_MESSAGE_MAX
+    ? `${text.slice(0, NOTIFICATION_MESSAGE_MAX - 1)}…`
+    : text;
+}
 
 /**
  * NotificationBridge subscribes to runtime events and converts them into
@@ -114,6 +125,39 @@ export class NotificationBridge {
           );
         },
       ),
+    );
+
+    // memory.created → notification/toast only; chat remains reserved for conversation and decisions.
+    this.unsubscribers.push(
+      this.eventBus.on('memory.created', (event: RuntimeEvent<MemoryCreatedPayload>) => {
+        this.emitNotification(
+          'success',
+          'Memory updated',
+          truncateMessage(
+            `Saved ${event.payload.scope} ${event.payload.category}: ${event.payload.contentPreview}`,
+          ),
+          'runtime',
+          { employeeId: event.payload.employeeId },
+        );
+      }),
+    );
+
+    // skill.install.outcome → notification/toast + activity/employee surfaces, not chat.
+    this.unsubscribers.push(
+      this.eventBus.on(SKILL_INSTALL_OUTCOME, (event: RuntimeEvent<SkillInstallOutcomePayload>) => {
+        const payload = event.payload;
+        this.emitNotification(
+          payload.kind === 'error' || payload.kind === 'staging-expired'
+            ? 'warning'
+            : payload.kind === 'cancelled'
+              ? 'info'
+              : 'success',
+          'Skill update',
+          skillInstallOutcomeLabel(payload),
+          'install',
+          { employeeId: payload.employeeId ?? undefined },
+        );
+      }),
     );
   }
 

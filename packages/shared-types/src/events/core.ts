@@ -25,6 +25,7 @@ export type EventFamily =
   | 'meeting.state.changed'
   | 'install.state.changed'
   | 'binding.state.changed'
+  | 'skill.install.outcome'
   | 'report.state.changed'
   | 'runtime.performance.tier.changed'
   | 'ui.selection.changed'

@@ -1,4 +1,10 @@
-import { type RuntimeEvent, TASK_ASSIGNMENT_REROUTED } from '@offisim/shared-types';
+import {
+  type RuntimeEvent,
+  SKILL_INSTALL_OUTCOME,
+  type SkillInstallOutcomeKind,
+  TASK_ASSIGNMENT_REROUTED,
+  skillInstallOutcomeLabel,
+} from '@offisim/shared-types';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertCircle,
@@ -8,6 +14,7 @@ import {
   Lightbulb,
   Play,
   Plug,
+  Puzzle,
   UserCheck,
   Users,
 } from 'lucide-react';
@@ -36,6 +43,9 @@ function categorize(event: RuntimeEvent): { category: EventCategory; action: str
 export function getDisplayLabel(event: RuntimeEvent): string {
   if (event.type === TASK_ASSIGNMENT_REROUTED) {
     return formatTaskAssignmentReroutedLabel(event);
+  }
+  if (event.type === SKILL_INSTALL_OUTCOME) {
+    return skillInstallOutcomeLabel(event.payload as SkillInstallOutcomeKind);
   }
   const p = event.payload as Record<string, unknown>;
   if (typeof p.message === 'string') return p.message;
@@ -73,6 +83,7 @@ export function domainIcon(type: string): { Icon: LucideIcon; color: string } | 
   if (type.startsWith('mcp.')) return { Icon: Plug, color: 'text-info' };
   if (type.startsWith('knowledge.')) return { Icon: BookOpen, color: 'text-success' };
   if (type.startsWith('memory.')) return { Icon: Lightbulb, color: 'text-warning' };
+  if (type.startsWith('skill.')) return { Icon: Puzzle, color: 'text-success' };
   if (type.startsWith('handoff.')) return { Icon: ArrowRightLeft, color: 'text-accent' };
   if (type.startsWith('meeting.') || type.startsWith('direct.chat.'))
     return { Icon: Users, color: 'text-accent' };
@@ -87,11 +98,7 @@ export function EventItem({ event }: EventItemProps) {
     (category === 'error' ? AlertCircle : category === 'entered' ? Play : CheckCircle);
   const iconColor =
     domain?.color ??
-    (category === 'error'
-      ? 'text-error'
-      : category === 'entered'
-        ? 'text-info'
-        : 'text-success');
+    (category === 'error' ? 'text-error' : category === 'entered' ? 'text-info' : 'text-success');
   const label = getDisplayLabel(event);
   const topicLabel = formatEventType(event.type);
 

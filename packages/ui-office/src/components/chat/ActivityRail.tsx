@@ -13,6 +13,10 @@ function formatCost(totalCostUsd: number | null): string | null {
   return totalCostUsd < 0.01 ? '$0.01<' : `$${totalCostUsd.toFixed(2)}`;
 }
 
+function shouldShowCompactEntry(entry: { kind: string; tone: string }): boolean {
+  return entry.kind !== 'system' || entry.tone === 'warning' || entry.tone === 'error';
+}
+
 interface ActivityRailProps {
   focusedEmployeeId?: string | null;
   focusedEmployeeName?: string | null;
@@ -35,12 +39,15 @@ export function ActivityRail({
   }
 
   const costLabel = formatCost(totalCostUsd);
-  const visibleEntries = focusedEmployeeId
+  const scopedEntries = focusedEmployeeId
     ? entries.filter((entry) => entry.employeeId == null || entry.employeeId === focusedEmployeeId)
     : entries;
+  const visibleEntries =
+    variant === 'compact' ? scopedEntries.filter(shouldShowCompactEntry) : scopedEntries;
   const latestEntry = visibleEntries[0] ?? null;
 
   if (variant === 'compact') {
+    if (!latestEntry && activeTools.length === 0 && !costLabel) return null;
     return (
       <div className="mb-2 rounded-2xl border border-border-subtle bg-surface-muted px-3 py-2">
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-secondary">
@@ -113,6 +120,11 @@ export function ActivityRail({
             >
               <TerminalSquare className="mt-0.5 h-3 w-3 shrink-0 opacity-80" />
               <span className="min-w-0 break-words leading-relaxed">{entry.label}</span>
+              {entry.burstCount && entry.burstCount > 1 ? (
+                <span className="ml-auto shrink-0 rounded-full bg-surface-elevated px-1.5 py-px font-mono text-[10px] opacity-85">
+                  x{entry.burstCount}
+                </span>
+              ) : null}
             </div>
           ))}
         </div>

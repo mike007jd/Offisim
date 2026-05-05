@@ -1,10 +1,11 @@
-import { isTauri } from '@offisim/ui-office/web';
+import { isTauri, useEmployeeSkillHighlights } from '@offisim/ui-office/web';
 import { useEffect, useState } from 'react';
 
 type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 
 export function EmployeeBadgeOverlay({ employeeId }: { employeeId: string }) {
   const [count, setCount] = useState(0);
+  const skillHighlight = useEmployeeSkillHighlights().get(employeeId);
 
   useEffect(() => {
     let disposed = false;
@@ -20,27 +21,23 @@ export function EmployeeBadgeOverlay({ employeeId }: { employeeId: string }) {
     };
   }, [employeeId]);
 
-  if (count <= 0) return null;
+  if (count <= 0 && !skillHighlight) return null;
 
   return (
     <div
-      aria-label={`${count} active kanban card${count === 1 ? '' : 's'}`}
-      style={{
-        minWidth: '18px',
-        height: '18px',
-        borderRadius: '9999px',
-        background: 'var(--color-kelp-green)',
-        color: 'var(--color-text-inverse-val)',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '10px',
-        fontWeight: 900,
-        boxShadow: '0 0 10px color-mix(in srgb, var(--color-kelp-green) 55%, transparent)',
-        paddingInline: '5px',
-      }}
+      aria-label={skillHighlight?.detail ?? `${count} active kanban card${count === 1 ? '' : 's'}`}
+      className="flex flex-col items-center gap-1"
     >
-      {count > 99 ? '99+' : count}
+      {skillHighlight ? (
+        <span className="max-w-24 truncate rounded-full border border-success/40 bg-success-muted px-2 py-1 text-[10px] font-extrabold leading-none text-success shadow-glow-success">
+          {skillHighlight.label}
+        </span>
+      ) : null}
+      {count > 0 ? (
+        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-success px-1.5 text-[10px] font-black text-text-inverse shadow-glow-success">
+          {count > 99 ? '99+' : count}
+        </span>
+      ) : null}
     </div>
   );
 }

@@ -14,6 +14,7 @@ export const ALL_EVENT_TYPES = [
   'Deliverable',
   'Employee',
   'Install',
+  'Skill',
   'LLM',
   'Interaction',
   'Error',
@@ -93,8 +94,7 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
     if (!active)
       return `${base} bg-transparent text-text-muted border border-border-default opacity-60`;
     if (level === 'Error') return `${base} bg-error-muted text-error border border-error`;
-    if (level === 'Warning')
-      return `${base} bg-warning-muted text-warning border border-warning`;
+    if (level === 'Warning') return `${base} bg-warning-muted text-warning border border-warning`;
     return `${base} bg-info-muted text-info border border-info`;
   };
 

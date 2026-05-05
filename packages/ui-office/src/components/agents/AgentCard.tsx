@@ -5,6 +5,7 @@ import { truncate } from '../../lib/format-time';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
+import type { EmployeeSkillHighlight } from '../../runtime/use-employee-skill-highlights';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
 
 /** Border glow color per state category. */
@@ -19,10 +20,11 @@ interface AgentCardProps {
   id: string;
   agent: AgentState;
   isSelected?: boolean;
+  skillHighlight?: EmployeeSkillHighlight;
   onClick?: () => void;
 }
 
-export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
+export function AgentCard({ id, agent, isSelected, skillHighlight, onClick }: AgentCardProps) {
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
   const dotColor = STATUS_DOTS[agent.state] ?? 'bg-text-muted';
   const glowClass = STATE_GLOW[agent.state] ?? '';
@@ -53,7 +55,7 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
       aria-label={isInteractive ? `${agent.name} employee card` : undefined}
       aria-pressed={isInteractive ? (isSelected ?? false) : undefined}
       className={[
-        'group min-h-[76px] rounded-lg border px-2.5 py-2 cursor-pointer',
+        'group min-h-20 rounded-lg border px-2.5 py-2 cursor-pointer',
         'transition-colors duration-200',
         isSelected
           ? 'border-border-focus bg-accent-muted'
@@ -72,8 +74,8 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
       }}
     >
       <div className="flex items-center gap-3">
-        <div className="relative flex h-[52px] w-[52px] flex-shrink-0 items-center justify-center">
-          <EmployeeAvatar agent={agent} size={52} className="h-[52px] w-[52px] object-cover" />
+        <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center">
+          <EmployeeAvatar agent={agent} size={56} className="h-14 w-14 object-cover" />
           <div
             className={`absolute bottom-1 right-0 h-3 w-3 rounded-full border-2 border-surface-elevated transition-colors duration-300 ${dotColor}`}
           />
@@ -88,7 +90,7 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
             <div className="flex shrink-0 items-center gap-1.5">
               <Badge
                 variant={variant}
-                className="min-w-[46px] justify-center text-[10px] transition-colors duration-300"
+                className="min-w-12 justify-center text-[10px] transition-colors duration-300"
               >
                 {agent.state}
               </Badge>
@@ -102,8 +104,16 @@ export function AgentCard({ id, agent, isSelected, onClick }: AgentCardProps) {
             <span className="rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[10px] leading-none text-text-muted">
               {agent.isExternal ? 'External' : 'Internal'}
             </span>
+            {skillHighlight ? (
+              <span
+                className="max-w-36 animate-pulse truncate rounded-full border border-success/30 bg-success-muted px-1.5 py-0.5 text-[10px] leading-none text-success"
+                title={skillHighlight.detail}
+              >
+                {skillHighlight.label}
+              </span>
+            ) : null}
             {hasTask && (
-              <span className="max-w-[132px] truncate rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[10px] leading-none text-text-secondary">
+              <span className="max-w-32 truncate rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[10px] leading-none text-text-secondary">
                 {task.stepIndex + 1}/{task.totalSteps} {truncate(task.stepLabel, 18)}
               </span>
             )}
@@ -163,7 +173,7 @@ function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
             <span className="flex-shrink-0">{STATUS_ICON[st.status]}</span>
             <span
               className={[
-                'truncate max-w-[130px]',
+                'truncate max-w-32',
                 st.status === 'done'
                   ? 'text-text-muted'
                   : st.status === 'failed'

@@ -93,6 +93,22 @@ function parserFailed(
   };
 }
 
+function contentFromStructured(parsed: ParsedAttachment): string {
+  switch (parsed.kind) {
+    case 'pdf':
+    case 'docx':
+    case 'pptx':
+      return parsed.text;
+    case 'xlsx':
+      return parsed.sheets.map((sheet) => sheet.csv).join('\n\n');
+    case 'image':
+    case 'text':
+    case 'binary':
+    case 'unsupported':
+      return JSON.stringify(parsed);
+  }
+}
+
 const MODE_HANDLERS: Record<
   Mode,
   (meta: AttachmentMeta, bytes: Uint8Array, base: BaseResult, vaultRef: string) => Promise<unknown> | unknown
@@ -115,7 +131,7 @@ const MODE_HANDLERS: Record<
     if (parsedDoc.kind === 'unsupported') {
       return parserFailed(vaultRef, meta, base, bytes, parsedDoc.reason);
     }
-    return { ...base, content: JSON.stringify(parsedDoc), structured: parsedDoc };
+    return { ...base, content: contentFromStructured(parsedDoc), structured: parsedDoc };
   },
 };
 

@@ -1,9 +1,6 @@
 import type {
-  ConversationSynopsisUpdatedPayload,
-  ExecutionResumedPayload,
   InteractionRequestedPayload,
   InteractionRestoredPayload,
-  MemoryCreatedPayload,
   RuntimeEvent,
   ToolExecutionTelemetryPayload,
 } from '@offisim/shared-types';
@@ -12,7 +9,7 @@ import { useOffisimRuntime } from './offisim-runtime-context';
 
 type SystemTone = 'info' | 'warning';
 
-export type SystemMessageIcon = 'default' | 'approval' | 'memory' | 'navigate' | 'context';
+export type SystemMessageIcon = 'default' | 'approval' | 'navigate';
 
 export interface SystemMessageEntry {
   id: string;
@@ -92,36 +89,6 @@ export function useSystemMessageFeed(): {
       );
     }
 
-    const unsubSynopsis = eventBus.on(
-      'conversation.synopsis.updated',
-      (_event: RuntimeEvent<ConversationSynopsisUpdatedPayload>) => {
-        pushEntry({
-          id: `synopsis-${Date.now()}`,
-          title: 'Context Window Filling Up',
-          detail: 'Auto-compact is summarizing earlier turns so the latest work stays live.',
-          tone: 'info',
-          icon: 'context',
-        });
-      },
-    );
-
-    const unsubResumed = eventBus.on(
-      'execution.resumed',
-      (event: RuntimeEvent<ExecutionResumedPayload>) => {
-        const resumedFrom =
-          event.payload.rewoundFromStepIndex != null
-            ? `Recovered from step ${event.payload.rewoundFromStepIndex + 1}.`
-            : `Recovered at step ${event.payload.currentStepIndex + 1}.`;
-        pushEntry({
-          id: `resume-${Date.now()}`,
-          title: 'Resume Restored',
-          detail: `${resumedFrom} The latest checkpoint is loaded and ready to continue.`,
-          tone: 'info',
-          icon: 'navigate',
-        });
-      },
-    );
-
     const unsubInteractionRequested = eventBus.on(
       'interaction.requested',
       (event: RuntimeEvent<InteractionRequestedPayload>) => {
@@ -148,19 +115,6 @@ export function useSystemMessageFeed(): {
       },
     );
 
-    const unsubMemoryCreated = eventBus.on(
-      'memory.created',
-      (event: RuntimeEvent<MemoryCreatedPayload>) => {
-        pushEntry({
-          id: `memory-${event.payload.memoryId}`,
-          title: 'Auto Memory Updated',
-          detail: `Saved a reusable ${event.payload.scope} insight for later turns.`,
-          tone: 'info',
-          icon: 'memory',
-        });
-      },
-    );
-
     const unsubToolTelemetry = eventBus.on(
       'tool.execution.telemetry',
       (event: RuntimeEvent<ToolExecutionTelemetryPayload>) => {
@@ -178,11 +132,8 @@ export function useSystemMessageFeed(): {
     );
 
     return () => {
-      unsubSynopsis();
-      unsubResumed();
       unsubInteractionRequested();
       unsubInteractionRestored();
-      unsubMemoryCreated();
       unsubToolTelemetry();
     };
   }, [eventBus]);

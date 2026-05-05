@@ -118,6 +118,8 @@ export { SceneCeremonyProvider } from './runtime/scene-ceremony-context.js';
 export { SceneIntentDispatcher } from './runtime/scene-intent-dispatcher.js';
 export { InMemorySceneIntentBus } from './runtime/scene-intents.js';
 export { useAgentStates } from './runtime/use-agent-states.js';
+export { useEmployeeSkillHighlights } from './runtime/use-employee-skill-highlights.js';
+export type { EmployeeSkillHighlight } from './runtime/use-employee-skill-highlights.js';
 export {
   terminateRunAsInterrupted,
   terminateRunWithError,

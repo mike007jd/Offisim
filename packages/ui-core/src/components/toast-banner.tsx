@@ -83,6 +83,7 @@ function ToastEntry({
       aria-live="polite"
       className={cn(
         'pointer-events-auto flex max-w-[min(92vw,560px)] items-start justify-between gap-3 rounded-lg border px-4 py-2 text-xs shadow-lg backdrop-blur-sm',
+        'animate-[offisim-toast-slide-in_180ms_ease-out]',
         VARIANT_CLASSES[toast.variant],
       )}
     >

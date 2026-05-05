@@ -13,6 +13,7 @@ import { SeatRegistry } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import { type AgentState, useAgentStates } from '../../runtime/use-agent-states';
+import { useEmployeeSkillHighlights } from '../../runtime/use-employee-skill-highlights.js';
 import { useTheme } from '../../theme/theme-provider.js';
 import { useCompany } from '../company/CompanyContext.js';
 import { getAvatarImage, getBrandAvatarImage } from './office-2d-avatar-cache';
@@ -48,6 +49,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
   const { zones } = useCompanyZones();
   const { instances: prefabInstances } = usePrefabInstances();
   const { resolvedTheme } = useTheme();
+  const skillHighlights = useEmployeeSkillHighlights();
   const companyId = activeCompanyId ?? '';
   const statusColors = useMemo(() => buildStatusColors(resolvedTheme), [resolvedTheme]);
 
@@ -74,8 +76,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     const restZone = zones.find((z) => z.archetype === 'rest');
     const restId = restZone?.zoneId ?? UNASSIGNED_ZONE_ID;
     for (const [empId, agent] of agents) {
-      const zoneId =
-        !agent.workstationId && agent.state === 'idle' ? restId : resolveZone(agent);
+      const zoneId = !agent.workstationId && agent.state === 'idle' ? restId : resolveZone(agent);
       map.get(zoneId)?.push({ agent, seed: agent.avatarSeed, empId });
     }
     return map;
@@ -221,6 +222,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
       seed: string;
     }) => {
       const { agent } = entry;
+      const skillHighlight = skillHighlights.get(entry.empId);
       result.push({
         employeeId: entry.empId,
         x: entry.x,
@@ -229,7 +231,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
         avatarImage: loadAvatar(agent, entry.seed, companyId),
         statusColor: resolveStatusColor(agent.state, statusColors),
         state: agent.state,
-        stateLabel: STATE_LABELS[agent.state] ?? null,
+        stateLabel: skillHighlight?.label ?? STATE_LABELS[agent.state] ?? null,
         isBlocked: isEmployeeBlocked(agent.state),
         isSuccess: agent.state === 'success',
         isWorking:
@@ -277,6 +279,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     companyId,
     loadAvatar,
     statusColors,
+    skillHighlights,
   ]);
 
   const sceneData: SceneSnapshot = useMemo(() => {

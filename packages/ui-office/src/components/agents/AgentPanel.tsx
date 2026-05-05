@@ -1,6 +1,7 @@
 import { Plus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { AgentState } from '../../runtime/use-agent-states';
+import { useEmployeeSkillHighlights } from '../../runtime/use-employee-skill-highlights';
 import { AgentCard } from './AgentCard';
 
 interface AgentPanelProps {
@@ -18,6 +19,7 @@ export function AgentPanel({
   onOpenCreator,
 }: AgentPanelProps) {
   const [search, setSearch] = useState('');
+  const skillHighlights = useEmployeeSkillHighlights();
 
   const filteredEntries = useMemo(() => {
     const query = search.toLowerCase();
@@ -64,6 +66,7 @@ export function AgentPanel({
               id={id}
               agent={agent}
               isSelected={selectedEmployeeId === id}
+              skillHighlight={skillHighlights.get(id)}
               onClick={() => onSelectEmployee?.(id)}
             />
           </div>

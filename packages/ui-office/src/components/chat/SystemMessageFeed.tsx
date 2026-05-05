@@ -1,4 +1,4 @@
-import { AlertTriangle, BrainCircuit, Compass, Sparkles } from 'lucide-react';
+import { AlertTriangle, Compass, Sparkles } from 'lucide-react';
 import {
   type SystemMessageIcon,
   useSystemMessageFeed,
@@ -12,9 +12,7 @@ const ENTRY_STYLES = {
 const ICON_MAP: Record<SystemMessageIcon, typeof Sparkles> = {
   default: Sparkles,
   approval: AlertTriangle,
-  memory: BrainCircuit,
   navigate: Compass,
-  context: Sparkles,
 };
 
 export function SystemMessageFeed() {

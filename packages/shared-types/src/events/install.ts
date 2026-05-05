@@ -68,6 +68,7 @@ export type SkillInstallOutcomeKind =
 
 export type SkillInstallOutcomePayload = SkillInstallOutcomeKind & {
   readonly interactionId: string;
+  readonly employeeId?: string | null;
 };
 
 const SKILL_OUTCOME_ERROR_MAX = 120;
