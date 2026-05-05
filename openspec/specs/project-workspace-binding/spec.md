@@ -272,58 +272,50 @@ No other module under `packages/ui-office/src/components/project/**` SHALL impor
 
 ### Requirement: Active project's `workspace_root` SHALL reach the desktop builtin tool sandbox
 
-When a Tauri desktop runtime is active AND the active project has a non-null `workspace_root`, that active project SHALL be the only source for the Rust-side builtin tool sandbox (`apps/desktop/src-tauri/src/builtin_tools.rs`) before any builtin tool (`read_file` / `write_file` / `bash`) is invoked. The runtime SHALL NOT throw `'no project workspace root is bound'` when the data layer has a bound `workspace_root` for the active project. Desktop commands SHALL bind `company_id` and `project_id` together before accepting a workspace root, so a stale or cross-company project ID cannot widen the sandbox.
+The runtime SHALL ensure that the active project's `workspace_root` is
+visible to the gateway-lane builtin tool sandbox (`read_file` /
+`write_file` / `bash` / `project_read_file_preview`) for every chat
+session in every lane (release `.app`, desktop dev, web dev). When
+`workspace_root` is populated on the active project but the sandbox
+guard `'no project workspace root is bound'` fires, that is a regression
+of this requirement and SHALL be treated as a release blocker.
 
-The binding SHALL be re-applied on:
-- Initial runtime activation
-- Active project switch within the same company
-- Active company switch when the new active company has an active/default project with `workspace_root`
-- Project edit that changes `workspace_root` from null to non-null OR between two non-null values
+#### Scenario: Builtin tool lane in release session honors workspace_root
 
-`ProjectService.activateProject()` SHALL emit a project-activated runtime signal after the DB status update and SHALL synchronize runtime context `activeProjectId` before the next builtin tool invocation. The desktop builtin-tool layer SHALL receive the active project ID and active company ID through trusted IPC/context propagation or through an equivalent trusted active-project pointer, and `workspace_roots()` SHALL resolve only that active company's active project's `workspace_root`; it MUST NOT scan all projects and accept stale roots from inactive projects.
+- **WHEN** the user runs a release `.app` session whose active project
+  carries a non-null `workspace_root`
+- **AND** sends a chat prompt that triggers any builtin tool lane
+- **THEN** the builtin sandbox SHALL execute against `workspace_root`
+- **AND** SHALL NOT raise the `'no project workspace root is bound'`
+  guard
 
-#### Scenario: Builtin tool succeeds when active project has bound workspace_root
-- **WHEN** the active project has `workspace_root = '/Users/x/proj-a'` AND the user asks the boss to read a file under that path
-- **THEN** the builtin `read_file` tool runs successfully against the real filesystem (subject to existing read caps and path-sandbox guards)
-- **AND** does NOT throw `'no project workspace root is bound'`
+#### Scenario: Diagnostic exposes the dropping layer on regression
 
-#### Scenario: Project switch re-binds workspace_root in Rust state
-- **WHEN** the user switches the active project from one with `workspace_root = '/path/a'` to one with `workspace_root = '/path/b'`
-- **THEN** runtime context `activeProjectId` changes to the second project before the next builtin tool invocation
-- **AND** subsequent builtin tool invocations resolve relative to `/path/b`, not `/path/a`
-
-#### Scenario: Old project root is blocked after switch
-- **WHEN** the user switches the active project from `/path/a` to `/path/b`
-- **AND** a builtin tool request attempts to read `/path/a/secret.txt`
-- **THEN** the request is rejected by the workspace sandbox
-- **AND** `/path/a` is not present in the Rust-side allowed root set for that invocation
-
-#### Scenario: Switching to project with null workspace_root surfaces typed error
-- **WHEN** the user switches to a project whose `workspace_root` is null
-- **THEN** subsequent builtin tool invocations throw a typed error of the form `'no project workspace root is bound'`
-- **AND** that error category is observable in the runtime event stream
-
-#### Scenario: Harness proves project switch rebinds workspace root
-- **WHEN** deterministic harness scenario `switch-project-rebinds-workspace-root` switches from project A to project B
-- **THEN** the recorded builtin tool context contains project B's root
-- **AND** the scenario asserts project A's root is no longer readable
+- **WHEN** `workspace_root` is populated on the active project but the
+  builtin lane still fails the precondition guard
+- **THEN** the runtime diagnostic event SHALL identify the layer where
+  `workspace_root` was lost (e.g., `bootstrap-attach` /
+  `runtime-context-read` / `sandbox-precondition` /
+  `release-context-init`)
+- **AND** the diagnostic SHALL be exportable as evidence (per CLAUDE.md
+  "诊断要做成 release app 内可导出的证据，用户最多复现 1 次")
 
 ### Requirement: Workspace-binding gaps SHALL emit an observable runtime event
 
-When a builtin tool invocation fails because no `workspace_root` is bound, the runtime SHALL emit a `runtime_event` with `event_type='workspace-binding.unavailable'` and payload `{ companyId, projectId, expectedWorkspaceRoot, missingAt }` where `missingAt` is one of `'rust-state' | 'runtime-context' | 'project-switch'`. The event SHALL fire at most once per `(companyId, projectId)` tuple per session to avoid log spam from retry loops.
+The runtime SHALL emit a typed observable event whenever an active
+project's `workspace_root` exists in the database row but is not
+visible to a downstream consumer (builtin sandbox, file tree, opener
+plugin, project_read_file_preview command). The event payload SHALL
+include enough context to identify which downstream consumer raised the
+gap and which propagation layer dropped the value.
 
-#### Scenario: First binding miss emits event with diagnostic payload
-- **WHEN** a builtin tool invocation throws `'no project workspace root is bound'` for the first time in a session under a given `(companyId, projectId)` pair
-- **THEN** a `workspace-binding.unavailable` event is emitted with the populated payload
-- **AND** the event identifies the upstream layer (`rust-state` / `runtime-context` / `project-switch`) where the binding broke
+#### Scenario: Event fires when builtin lane sees missing workspace_root
 
-#### Scenario: Repeated binding misses suppress duplicate events
-- **WHEN** the same `(companyId, projectId)` pair triggers multiple binding-miss errors in the same session (e.g., the LLM retries the tool 5 times)
-- **THEN** only the first miss emits an event; subsequent misses are suppressed
-
-#### Scenario: Active company switch resets the suppression cache
-- **WHEN** the user switches to a different active company and a binding miss occurs in the new company
-- **THEN** the new company's first miss emits an event (suppression cache is per-`(companyId, projectId)`, not global)
+- **WHEN** the builtin tool sandbox precondition guard fires
+- **AND** the active project row has a non-null `workspace_root`
+- **THEN** the runtime SHALL emit a workspace-binding-gap event
+- **AND** the event payload SHALL include `consumer: 'builtin-sandbox'`
+  and the dropping-layer identifier from the diagnostic above
 
 ### Requirement: Tauri `project_read_file_preview` command SHALL provide bounded text preview reads
 

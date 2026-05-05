@@ -1,0 +1,76 @@
+{
+  "verifiedAt": "2026-05-05T03:02:00.000Z",
+  "fixture": "packages/doc-engine/harness/fixtures/sample.pdf",
+  "assertion": {
+    "stableResultByteEqual": true,
+    "stableResultSha256": "a63fa9210840a73746ff45e790961ea0fae9b5080e7ec6d8e9f136b6faa2a2c2",
+    "pageCount": 12,
+    "page3": "Sample page 3 This is fixture text used by the doc-engine harness — page 3 of 12."
+  },
+  "web": {
+    "runtime": "Web SPA on Vite dev server http://[::1]:5176",
+    "method": "Playwright CLI page.evaluate imported WebAttachmentStore and createReadAttachmentTool in the browser runtime, wrote sample.pdf into IndexedDB, executed read_attachment({ mode: 'structured' }), then deleted the temporary vaultRef.",
+    "vaultRef": "attachment://35eac1cb-2e35-4601-bd26-1fdc1ef3b017/thread-35eac1cb-2e35-4601-bd26-1fdc1ef3b017/22222222-2222-4222-9222-222222222222",
+    "stableResultSha256": "a63fa9210840a73746ff45e790961ea0fae9b5080e7ec6d8e9f136b6faa2a2c2",
+    "readAttachmentOutput": {
+      "filename": "sample.pdf",
+      "mimeType": "application/pdf",
+      "byteLength": 4225,
+      "sha256": "b112c521f9d2de48fa7ef78617627df970e500242cb2910be831747d5979fa04",
+      "truncated": false,
+      "content": "{\"kind\":\"pdf\",\"pages\":[\"Sample page 1 This is fixture text used by the doc-engine harness — page 1 of 12.\",\"Sample page 2 This is fixture text used by the doc-engine harness — page 2 of 12.\",\"Sample page 3 This is fixture text used by the doc-engine harness — page 3 of 12.\",\"Sample page 4 This is fixture text used by the doc-engine harness — page 4 of 12.\",\"Sample page 5 This is fixture text used by the doc-engine harness — page 5 of 12.\",\"Sample page 6 This is fixture text used by the doc-engine harness — page 6 of 12.\",\"Sample page 7 This is fixture text used by the doc-engine harness — page 7 of 12.\",\"Sample page 8 This is fixture text used by the doc-engine harness — page 8 of 12.\",\"Sample page 9 This is fixture text used by the doc-engine harness — page 9 of 12.\",\"Sample page 10 This is fixture text used by the doc-engine harness — page 10 of 12.\",\"Sample page 11 This is fixture text used by the doc-engine harness — page 11 of 12.\",\"Sample page 12 This is fixture text used by the doc-engine harness — page 12 of 12.\"],\"text\":\"Sample page 1 This is fixture text used by the doc-engine harness — page 1 of 12.\\n\\nSample page 2 This is fixture text used by the doc-engine harness — page 2 of 12.\\n\\nSample page 3 This is fixture text used by the doc-engine harness — page 3 of 12.\\n\\nSample page 4 This is fixture text used by the doc-engine harness — page 4 of 12.\\n\\nSample page 5 This is fixture text used by the doc-engine harness — page 5 of 12.\\n\\nSample page 6 This is fixture text used by the doc-engine harness — page 6 of 12.\\n\\nSample page 7 This is fixture text used by the doc-engine harness — page 7 of 12.\\n\\nSample page 8 This is fixture text used by the doc-engine harness — page 8 of 12.\\n\\nSample page 9 This is fixture text used by the doc-engine harness — page 9 of 12.\\n\\nSample page 10 This is fixture text used by the doc-engine harness — page 10 of 12.\\n\\nSample page 11 This is fixture text used by the doc-engine harness — page 11 of 12.\\n\\nSample page 12 This is fixture text used by the doc-engine harness — page 12 of 12.\"}",
+      "structured": {
+        "kind": "pdf",
+        "pages": [
+          "Sample page 1 This is fixture text used by the doc-engine harness — page 1 of 12.",
+          "Sample page 2 This is fixture text used by the doc-engine harness — page 2 of 12.",
+          "Sample page 3 This is fixture text used by the doc-engine harness — page 3 of 12.",
+          "Sample page 4 This is fixture text used by the doc-engine harness — page 4 of 12.",
+          "Sample page 5 This is fixture text used by the doc-engine harness — page 5 of 12.",
+          "Sample page 6 This is fixture text used by the doc-engine harness — page 6 of 12.",
+          "Sample page 7 This is fixture text used by the doc-engine harness — page 7 of 12.",
+          "Sample page 8 This is fixture text used by the doc-engine harness — page 8 of 12.",
+          "Sample page 9 This is fixture text used by the doc-engine harness — page 9 of 12.",
+          "Sample page 10 This is fixture text used by the doc-engine harness — page 10 of 12.",
+          "Sample page 11 This is fixture text used by the doc-engine harness — page 11 of 12.",
+          "Sample page 12 This is fixture text used by the doc-engine harness — page 12 of 12."
+        ],
+        "text": "Sample page 1 This is fixture text used by the doc-engine harness — page 1 of 12.\n\nSample page 2 This is fixture text used by the doc-engine harness — page 2 of 12.\n\nSample page 3 This is fixture text used by the doc-engine harness — page 3 of 12.\n\nSample page 4 This is fixture text used by the doc-engine harness — page 4 of 12.\n\nSample page 5 This is fixture text used by the doc-engine harness — page 5 of 12.\n\nSample page 6 This is fixture text used by the doc-engine harness — page 6 of 12.\n\nSample page 7 This is fixture text used by the doc-engine harness — page 7 of 12.\n\nSample page 8 This is fixture text used by the doc-engine harness — page 8 of 12.\n\nSample page 9 This is fixture text used by the doc-engine harness — page 9 of 12.\n\nSample page 10 This is fixture text used by the doc-engine harness — page 10 of 12.\n\nSample page 11 This is fixture text used by the doc-engine harness — page 11 of 12.\n\nSample page 12 This is fixture text used by the doc-engine harness — page 12 of 12."
+      }
+    }
+  },
+  "tauri": {
+    "runtime": "Tauri release .app at apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "method": "Provider-backed gateway run in the release app; read_attachment audit row was captured from mcp_audit_log.",
+    "auditId": "ma-bf9a9772-afad-4a88-b8f5-bd3d311aac08",
+    "taskRunId": "tr-yolo-f5badcd8-a1b4-44ea-8374-2c7328037042",
+    "vaultRef": "attachment://35eac1cb-2e35-4601-bd26-1fdc1ef3b017/thread-35eac1cb-2e35-4601-bd26-1fdc1ef3b017/ee9ad2f6-7753-43ce-84dc-de42338fe5a1",
+    "stableResultSha256": "a63fa9210840a73746ff45e790961ea0fae9b5080e7ec6d8e9f136b6faa2a2c2",
+    "readAttachmentOutput": {
+      "filename": "sample.pdf",
+      "mimeType": "application/pdf",
+      "byteLength": 4225,
+      "sha256": "b112c521f9d2de48fa7ef78617627df970e500242cb2910be831747d5979fa04",
+      "truncated": false,
+      "content": "{\"kind\":\"pdf\",\"pages\":[\"Sample page 1 This is fixture text used by the doc-engine harness — page 1 of 12.\",\"Sample page 2 This is fixture text used by the doc-engine harness — page 2 of 12.\",\"Sample page 3 This is fixture text used by the doc-engine harness — page 3 of 12.\",\"Sample page 4 This is fixture text used by the doc-engine harness — page 4 of 12.\",\"Sample page 5 This is fixture text used by the doc-engine harness — page 5 of 12.\",\"Sample page 6 This is fixture text used by the doc-engine harness — page 6 of 12.\",\"Sample page 7 This is fixture text used by the doc-engine harness — page 7 of 12.\",\"Sample page 8 This is fixture text used by the doc-engine harness — page 8 of 12.\",\"Sample page 9 This is fixture text used by the doc-engine harness — page 9 of 12.\",\"Sample page 10 This is fixture text used by the doc-engine harness — page 10 of 12.\",\"Sample page 11 This is fixture text used by the doc-engine harness — page 11 of 12.\",\"Sample page 12 This is fixture text used by the doc-engine harness — page 12 of 12.\"],\"text\":\"Sample page 1 This is fixture text used by the doc-engine harness — page 1 of 12.\\n\\nSample page 2 This is fixture text used by the doc-engine harness — page 2 of 12.\\n\\nSample page 3 This is fixture text used by the doc-engine harness — page 3 of 12.\\n\\nSample page 4 This is fixture text used by the doc-engine harness — page 4 of 12.\\n\\nSample page 5 This is fixture text used by the doc-engine harness — page 5 of 12.\\n\\nSample page 6 This is fixture text used by the doc-engine harness — page 6 of 12.\\n\\nSample page 7 This is fixture text used by the doc-engine harness — page 7 of 12.\\n\\nSample page 8 This is fixture text used by the doc-engine harness — page 8 of 12.\\n\\nSample page 9 This is fixture text used by the doc-engine harness — page 9 of 12.\\n\\nSample page 10 This is fixture text used by the doc-engine harness — page 10 of 12.\\n\\nSample page 11 This is fixture text used by the doc-engine harness — page 11 of 12.\\n\\nSample page 12 This is fixture text used by the doc-engine harness — page 12 of 12.\"}",
+      "structured": {
+        "kind": "pdf",
+        "pages": [
+          "Sample page 1 This is fixture text used by the doc-engine harness — page 1 of 12.",
+          "Sample page 2 This is fixture text used by the doc-engine harness — page 2 of 12.",
+          "Sample page 3 This is fixture text used by the doc-engine harness — page 3 of 12.",
+          "Sample page 4 This is fixture text used by the doc-engine harness — page 4 of 12.",
+          "Sample page 5 This is fixture text used by the doc-engine harness — page 5 of 12.",
+          "Sample page 6 This is fixture text used by the doc-engine harness — page 6 of 12.",
+          "Sample page 7 This is fixture text used by the doc-engine harness — page 7 of 12.",
+          "Sample page 8 This is fixture text used by the doc-engine harness — page 8 of 12.",
+          "Sample page 9 This is fixture text used by the doc-engine harness — page 9 of 12.",
+          "Sample page 10 This is fixture text used by the doc-engine harness — page 10 of 12.",
+          "Sample page 11 This is fixture text used by the doc-engine harness — page 11 of 12.",
+          "Sample page 12 This is fixture text used by the doc-engine harness — page 12 of 12."
+        ],
+        "text": "Sample page 1 This is fixture text used by the doc-engine harness — page 1 of 12.\n\nSample page 2 This is fixture text used by the doc-engine harness — page 2 of 12.\n\nSample page 3 This is fixture text used by the doc-engine harness — page 3 of 12.\n\nSample page 4 This is fixture text used by the doc-engine harness — page 4 of 12.\n\nSample page 5 This is fixture text used by the doc-engine harness — page 5 of 12.\n\nSample page 6 This is fixture text used by the doc-engine harness — page 6 of 12.\n\nSample page 7 This is fixture text used by the doc-engine harness — page 7 of 12.\n\nSample page 8 This is fixture text used by the doc-engine harness — page 8 of 12.\n\nSample page 9 This is fixture text used by the doc-engine harness — page 9 of 12.\n\nSample page 10 This is fixture text used by the doc-engine harness — page 10 of 12.\n\nSample page 11 This is fixture text used by the doc-engine harness — page 11 of 12.\n\nSample page 12 This is fixture text used by the doc-engine harness — page 12 of 12."
+      }
+    }
+  }
+}

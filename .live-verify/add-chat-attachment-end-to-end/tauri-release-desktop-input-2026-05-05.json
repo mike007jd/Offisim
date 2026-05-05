@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-05-05T03:36:00.000Z",
+  "release": {
+    "appPath": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "binaryTimestamp": "2026-05-05T15:12:17+1200",
+    "binarySha256": "81e69894896777c4fd6d9a063d1d2cd4b2ade1312816a88c25e1a930d7eb6368"
+  },
+  "clipboardFilePaste": {
+    "status": "pass",
+    "source": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/packages/doc-engine/harness/fixtures/screenshot.png",
+    "actions": [
+      "Finder reveal screenshot.png",
+      "Computer Use selected Finder row and pressed super+c",
+      "Computer Use focused exact release Offisim.app composer and pressed super+v"
+    ],
+    "observedReleaseAppState": {
+      "stagedFilename": "screenshot.png",
+      "sizeText": "843 B",
+      "summaryText": "1024x768",
+      "removeAffordance": true
+    }
+  },
+  "dragDrop": {
+    "status": "blocked",
+    "sourceAttempts": [
+      "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/packages/doc-engine/harness/fixtures/sample.csv",
+      "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/packages/doc-engine/harness/fixtures/sample.docx"
+    ],
+    "attempts": [
+      "Computer Use Finder-to-Offisim drag using raw screenshot coordinates",
+      "Computer Use Finder-to-Offisim drag using window-offset-adjusted target coordinates",
+      "CoreGraphics mouse drag after CGWindowList window-bound conversion"
+    ],
+    "result": "Release app state still showed only the clipboard-staged screenshot.png chip; no dragged file staged.",
+    "blocker": "Current desktop automation could not complete a cross-app Finder file drag into the Tauri release app. This remains unverified and must stay open."
+  }
+}

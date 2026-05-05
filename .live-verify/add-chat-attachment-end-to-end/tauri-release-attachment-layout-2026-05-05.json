@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-05-05T03:43:00.000Z",
+  "issue": "Right-rail sent attachment chips could extend beyond the visible chat panel when multiple attachments rendered near the rail edge.",
+  "fixScope": [
+    "packages/ui-office/src/components/chat/MessageBubble.tsx",
+    "packages/ui-office/src/components/chat/SentAttachmentChip.tsx",
+    "packages/ui-office/src/components/chat/StagedAttachmentChip.tsx",
+    "packages/ui-office/src/components/chat/ChatInput.tsx",
+    "packages/ui-office/src/components/chat/ChatPanel.tsx"
+  ],
+  "layoutGuards": [
+    "message rows now use w-full/min-w-0/max-w-full/overflow-hidden",
+    "message text bubbles now use min-w-0/overflow-hidden/break-words",
+    "sent attachment rows now wrap inside w-full max-w-[94%] with no horizontal overflow",
+    "sent and staged attachment chips now have min-w-0/max-w-full/flex shrink constraints",
+    "chat scroll content now uses overflow-x-hidden"
+  ],
+  "verification": {
+    "uiOfficeBuild": "pnpm --filter @offisim/ui-office build",
+    "desktopBuild": "pnpm --filter @offisim/desktop build",
+    "releaseAppPath": "/Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app",
+    "releaseProcess": "66374 /Users/haoshengli/Seafile/WebWorkSpace/Offisim/apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app/Contents/MacOS/offisim-desktop",
+    "releaseBinaryTimestamp": "2026-05-05T16:13:34+1200",
+    "releaseBinarySha256": "300dbb4456bac0f4946b3347b3c5826bc4b368e58b4a575b24692d643c13c785",
+    "computerUseObservedState": "Release app right-rail attachment chips wrapped inside the panel. Long metadata text truncates inside the chip; the chip row no longer protrudes beyond the visible panel edge."
+  }
+}
