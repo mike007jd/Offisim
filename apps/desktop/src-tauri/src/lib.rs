@@ -20,6 +20,30 @@ use tauri_plugin_fs::FsExt;
 const MAIN_WINDOW_LABEL: &str = "main";
 const MAIN_WINDOW_FALLBACK_LABEL: &str = "main-live";
 
+#[cfg(target_os = "macos")]
+fn force_macos_foreground<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
+    use objc2::{msg_send, MainThreadMarker};
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSWindow};
+
+    if let Some(mtm) = MainThreadMarker::new() {
+        let app = NSApplication::sharedApplication(mtm);
+        let _ = app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
+        #[allow(deprecated)]
+        app.activateIgnoringOtherApps(true);
+    }
+
+    if let Ok(ns_window) = window.ns_window() {
+        let ns_window = ns_window.cast::<NSWindow>();
+        unsafe {
+            let _: () = msg_send![ns_window, setRestorable: false];
+            (&*ns_window).makeKeyAndOrderFront(None);
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn force_macos_foreground<R: tauri::Runtime>(_window: &tauri::WebviewWindow<R>) {}
+
 fn create_main_window_with_label<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     label: &str,
@@ -40,11 +64,16 @@ fn create_main_window<R: tauri::Runtime>(
     create_main_window_with_label(app, MAIN_WINDOW_LABEL)
 }
 
-fn restore_main_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> bool {
+fn restore_main_window<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    window: &tauri::WebviewWindow<R>,
+) -> bool {
+    let _ = app.show();
     let _ = window.unminimize();
     let _ = window.show();
+    force_macos_foreground(window);
     let _ = window.set_focus();
-    window.is_visible().unwrap_or(false)
+    window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false)
 }
 
 fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
@@ -52,14 +81,14 @@ fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Re
         Some(window) => window,
         None => create_main_window(app)?,
     };
-    if restore_main_window(&window) {
+    if restore_main_window(app, &window) {
         return Ok(());
     }
     let fallback = match app.get_webview_window(MAIN_WINDOW_FALLBACK_LABEL) {
         Some(window) => window,
         None => create_main_window_with_label(app, MAIN_WINDOW_FALLBACK_LABEL)?,
     };
-    restore_main_window(&fallback);
+    restore_main_window(app, &fallback);
     Ok(())
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "offisim-desktop"
-version = "0.0.1"
+version = "1.0.0-rc.1"
 description = "AI Company Simulator — Desktop Runtime"
 edition = "2021"
 
@@ -35,6 +35,8 @@ tokio-util = { version = "0.7", features = ["rt"] }
 thiserror = "1"
 rand = "0.8"
 libc = "0.2"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSWindow"] }
 # Reqwest pinned to 0.13 to reuse the copy Tauri already pulls transitively.
 # `default-features = false` strips native-tls and reqwest's default cookie /
 # compression stack; the features we actually need are stream (bytes_stream),

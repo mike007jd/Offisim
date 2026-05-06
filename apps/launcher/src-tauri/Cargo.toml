@@ -1,6 +1,6 @@
 [package]
 name = "offisim-launcher"
-version = "0.0.1"
+version = "1.0.0-rc.1"
 description = "Offisim Development Launcher"
 edition = "2021"
 
