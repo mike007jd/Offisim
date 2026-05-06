@@ -2,21 +2,24 @@
 
 Date: 2026-05-06
 Base reviewed: `96c9c851`
-Current head reviewed: `280159a8`
+Release code head reviewed: `adaf6de8`
 
 ## Decision
 
-The GitNexus `critical` result for `96c9c851..280159a8` is a large-diff review signal, not a current uncommitted runtime blocker.
+The GitNexus `critical` result for the release code range `96c9c851..adaf6de8` is a large-diff review signal, not a current uncommitted runtime blocker.
 
 The release should be reviewed commit-by-commit instead of as one undifferentiated diff. The Markdown rendering dependency expansion was removed before commit and is not part of the shipped diff.
+
+Documentation-only closure commits after `adaf6de8` record this review note and GitNexus index maintenance; they are not release runtime changes.
 
 ## Current GitNexus State
 
 - `npx gitnexus analyze` refreshed the index successfully.
-- `npx gitnexus status` reports indexed commit `280159a` and status `up-to-date`.
-- `npx gitnexus detect-changes --scope compare --base-ref 96c9c851 --repo Offisim` reports:
-  - 107 files
-  - 159 symbols
+- Final local index refreshes use `npx gitnexus analyze --force --skip-agents-md` so the index can stay current without repeatedly rewriting committed AGENTS/CLAUDE statistics.
+- `npx gitnexus status` reports status `up-to-date` after the final index refresh.
+- `npx gitnexus detect-changes --scope compare --base-ref 96c9c851 --repo Offisim` on the release code scope reported:
+  - 106 files
+  - 153 symbols
   - 49 affected processes
   - risk level `critical`
 
@@ -36,12 +39,6 @@ The release should be reviewed commit-by-commit instead of as one undifferentiat
 - `adaf6de8 chore: clean lint findings`
   - Cleans historical Biome/lint issues across UI, runtime, scripts, and doc-engine surfaces.
   - This commit is the main reason the file count remains large.
-- `5881be89 docs: record GitNexus release review scope`
-  - Adds this release review note so the large diff has a durable review boundary.
-- `ae934850 docs: refresh GitNexus index stats`
-  - Refreshes generated GitNexus stats after indexing the pushed commits.
-- `280159a8 docs: stabilize GitNexus index stats`
-  - Stabilizes the committed GitNexus stats before switching final local index refreshes to `--skip-agents-md`.
 
 ## Release Evidence
 
