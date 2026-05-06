@@ -385,7 +385,12 @@ function ZoneFloor({
         {hasOverlap && (
           <mesh position={[0, 0.005, 0]} rotation={_zonePlaneRotation}>
             <planeGeometry args={[zone.w, zone.d]} />
-            <meshBasicMaterial color={STUDIO_COLORS.error} transparent opacity={0.12} depthWrite={false} />
+            <meshBasicMaterial
+              color={STUDIO_COLORS.error}
+              transparent
+              opacity={0.12}
+              depthWrite={false}
+            />
           </mesh>
         )}
 

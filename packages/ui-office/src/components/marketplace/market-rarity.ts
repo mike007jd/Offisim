@@ -56,7 +56,8 @@ export const DEFAULT_RARITY: RarityColorScheme = {
   border: 'border-border-default',
   glow: 'shadow-sm',
   badge: 'bg-surface-muted text-text-secondary',
-  accent: 'border border-border-default bg-surface-muted text-text-secondary hover:bg-surface-hover',
+  accent:
+    'border border-border-default bg-surface-muted text-text-secondary hover:bg-surface-hover',
 };
 
 export function getRarityColor(kind: AssetKind): RarityColorScheme {

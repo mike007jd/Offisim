@@ -1,8 +1,8 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import { ToastBanner, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useInstalledListings } from '../../hooks/useInstalledListings.js';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
+import { useInstalledListings } from '../../hooks/useInstalledListings.js';
 import { useListingDetail } from '../../hooks/useListingDetail.js';
 import { useMarketplace } from '../../hooks/useMarketplace.js';
 import { MarketCardGrid } from './MarketCardGrid.js';

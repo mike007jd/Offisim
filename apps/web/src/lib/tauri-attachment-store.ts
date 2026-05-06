@@ -1,3 +1,5 @@
+import { type AttachmentMeta, type VaultRef, isAttachmentKind } from '@offisim/shared-types';
+import type { AttachmentReadResult, AttachmentStore } from '@offisim/ui-office/web';
 /**
  * Tauri (desktop) implementation of `AttachmentStore` — calls the
  * `attachment_*` invoke commands defined in
@@ -9,11 +11,6 @@
  * `AttachmentReadResult` discriminated union the consumer code expects.
  */
 import { invoke } from '@tauri-apps/api/core';
-import { isAttachmentKind, type AttachmentMeta, type VaultRef } from '@offisim/shared-types';
-import type {
-  AttachmentReadResult,
-  AttachmentStore,
-} from '@offisim/ui-office/web';
 
 interface RustAttachmentMeta {
   attachmentId: string;

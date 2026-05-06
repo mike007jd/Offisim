@@ -8,7 +8,7 @@
  * `apps/desktop` `prebuild` so a missing entry fails the build instead of
  * silently producing a release that no-ops the file picker.
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,9 +40,7 @@ if (!existsSync(CAPABILITY_FILE)) {
 const permission = readFileSync(PERMISSION_FILE, 'utf8');
 const missing = REQUIRED_COMMANDS.filter((cmd) => !permission.includes(`"${cmd}"`));
 if (missing.length > 0) {
-  fail(
-    `permission ${PERMISSION_FILE} is missing commands: ${missing.join(', ')}`,
-  );
+  fail(`permission ${PERMISSION_FILE} is missing commands: ${missing.join(', ')}`);
 }
 
 const capability = JSON.parse(readFileSync(CAPABILITY_FILE, 'utf8'));
@@ -57,9 +55,7 @@ if (!Array.isArray(capability.windows)) {
 }
 const missingWindows = REQUIRED_WINDOWS.filter((w) => !capability.windows.includes(w));
 if (missingWindows.length > 0) {
-  fail(
-    `capability ${CAPABILITY_FILE} windows missing: ${missingWindows.join(', ')}`,
-  );
+  fail(`capability ${CAPABILITY_FILE} windows missing: ${missingWindows.join(', ')}`);
 }
 
 console.log(

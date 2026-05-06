@@ -164,6 +164,7 @@ export function useCanvasInteraction(params: Params): Returns {
     },
     [
       containerRef,
+      dropTargetZoneIds,
       employeeRenderData,
       hitMap,
       interactionRef,

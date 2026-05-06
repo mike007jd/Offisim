@@ -162,12 +162,7 @@ export function SopDagCanvas({
     const rect = el.getBoundingClientRect();
     const canvasX = Math.round((rect.width / 2 - translateRef.current.x) / scaleRef.current);
     const canvasY = Math.round((rect.height / 2 - translateRef.current.y) / scaleRef.current);
-    onDoubleClickCanvas(
-      canvasX,
-      canvasY,
-      rect.left + rect.width / 2,
-      rect.top + rect.height / 2,
-    );
+    onDoubleClickCanvas(canvasX, canvasY, rect.left + rect.width / 2, rect.top + rect.height / 2);
   }, [addStepRequestToken, onDoubleClickCanvas]);
 
   // Build runtime status map
@@ -701,6 +696,7 @@ export function SopDagCanvas({
         aria-hidden={editMode ? undefined : true}
         style={{ pointerEvents: editMode ? 'auto' : 'none' }}
       >
+        <title>SOP dependency canvas</title>
         <g transform={graphTransform}>
           {/* Edge disconnect hit areas live above the HTML node layer without
               owning blank-canvas pointer events. */}
@@ -905,7 +901,6 @@ export function SopDagCanvas({
           })}
         </g>
       </svg>
-
     </div>
   );
 }

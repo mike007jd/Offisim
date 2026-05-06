@@ -39,7 +39,7 @@ function useAttachmentBlob(
       cancelled = true;
       if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
-  }, [ref.vaultRef, ref.kind, ref.mimeType, attachmentStore]);
+  }, [ref.vaultRef, ref.mimeType, attachmentStore]);
   return status;
 }
 

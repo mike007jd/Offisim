@@ -1,4 +1,4 @@
-import { chatScopeFields, type InteractionRequest } from '@offisim/shared-types';
+import { type InteractionRequest, chatScopeFields } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import { mcpToolResult, toolExecutionTelemetry } from '../events/event-factories.js';
 import type {

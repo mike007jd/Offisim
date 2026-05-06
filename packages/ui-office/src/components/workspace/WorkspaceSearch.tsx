@@ -1,8 +1,4 @@
-import type {
-  ChatThread,
-  ChatThreadUpdatedPayload,
-  RuntimeEvent,
-} from '@offisim/shared-types';
+import type { ChatThread, ChatThreadUpdatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
@@ -91,11 +87,7 @@ export function WorkspaceSearch({
       name: state.name,
       role: state.role,
     }));
-    const matchedEmployees = rankByQuery(
-      employeeRows,
-      debounced,
-      (e) => `${e.name} ${e.role}`,
-    )
+    const matchedEmployees = rankByQuery(employeeRows, debounced, (e) => `${e.name} ${e.role}`)
       .slice(0, PER_FAMILY_CAP)
       .map<SearchResult>((e) => ({
         kind: 'employee',

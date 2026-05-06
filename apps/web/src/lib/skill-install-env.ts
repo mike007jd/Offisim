@@ -58,9 +58,12 @@ function rewriteGithubTarballFetch(
   }
 
   const [, owner, repo, encodedRef] = match;
+  if (!owner || !repo) {
+    return { url, ...(init ? { init } : {}) };
+  }
   const proxied = buildGithubTarballRequest(
-    owner!,
-    repo!,
+    owner,
+    repo,
     encodedRef ? decodeURIComponent(encodedRef) : undefined,
     {
       proxyOrigin: window.location.origin,

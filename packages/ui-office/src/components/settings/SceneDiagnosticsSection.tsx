@@ -1,7 +1,7 @@
 import { Button } from '@offisim/ui-core';
 import { useCallback } from 'react';
-import { exportLatest } from '../scene/office-2d-drop-diagnostic';
 import { exportJsonText } from '../../lib/json-export';
+import { exportLatest } from '../scene/office-2d-drop-diagnostic';
 import { SettingsSection } from './settings-primitives';
 
 interface SceneDiagnosticsSectionProps {

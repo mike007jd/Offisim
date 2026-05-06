@@ -42,7 +42,12 @@ function readDimensionsFromHeader(
       bytes[10] === 0x42 &&
       bytes[11] === 0x50
     ) {
-      const fourcc = String.fromCharCode(bytes[12]!, bytes[13]!, bytes[14]!, bytes[15]!);
+      const fourcc = String.fromCharCode(
+        bytes[12] ?? 0,
+        bytes[13] ?? 0,
+        bytes[14] ?? 0,
+        bytes[15] ?? 0,
+      );
       if (fourcc === 'VP8X') {
         const w = (readUint24LE(bytes, 24) ?? 0) + 1;
         const h = (readUint24LE(bytes, 27) ?? 0) + 1;
@@ -59,7 +64,7 @@ function readDimensionsFromHeader(
         const b3 = bytes[23] ?? 0;
         const b4 = bytes[24] ?? 0;
         const w = 1 + ((b2 & 0x3f) * 256 + b1);
-        const h = 1 + (((b4 & 0x0f) * 1024) + (b3 * 4) + ((b2 & 0xc0) >> 6));
+        const h = 1 + ((b4 & 0x0f) * 1024 + b3 * 4 + ((b2 & 0xc0) >> 6));
         return { width: w, height: h, format: 'webp' };
       }
     }

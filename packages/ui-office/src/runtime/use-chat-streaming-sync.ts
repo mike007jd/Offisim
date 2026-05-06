@@ -97,9 +97,12 @@ export function useChatStreamingSync(eventBus: EventBus): void {
 
         const nextNode = event.payload?.nodeName ?? null;
         store.commitSpeakerSegment(scope.conversationKey, scope.runId);
-        store.setActiveRunNode(nextNode && VISIBLE_STREAMING_NODES.has(nextNode) ? nextNode : null, {
-          resetContent: true,
-        });
+        store.setActiveRunNode(
+          nextNode && VISIBLE_STREAMING_NODES.has(nextNode) ? nextNode : null,
+          {
+            resetContent: true,
+          },
+        );
         store.setActiveRunStreaming(false);
       },
     );

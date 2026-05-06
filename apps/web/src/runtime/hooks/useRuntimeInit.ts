@@ -41,7 +41,7 @@ import {
 import { listDesktopMcpServers } from '../../lib/desktop-mcp-registry';
 import { isNoCredentialError } from '../../lib/tauri-llm-fetch';
 import { getChatRuntimeOutcomeFollowUp } from '../interaction-follow-up';
-import { type FailedRunState, type LastFailedMessage } from '../last-failed-message';
+import type { FailedRunState, LastFailedMessage } from '../last-failed-message';
 
 type DesktopMcpServerConfig = McpServerConfig & { registeredServerId?: string };
 
@@ -355,9 +355,7 @@ export function useRuntimeInit({
   );
 
   const retryLastMessage = useCallback(
-    async (
-      options?: { runScope?: RunScope },
-    ): Promise<SendMessageResult | undefined> => {
+    async (options?: { runScope?: RunScope }): Promise<SendMessageResult | undefined> => {
       const last = lastFailedMessageRef.current;
       if (!last) return undefined;
       return sendMessage(last.text, {

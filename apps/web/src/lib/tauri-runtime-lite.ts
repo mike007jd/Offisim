@@ -12,9 +12,9 @@ import {
 } from '@offisim/core/browser';
 import type { InMemoryEventBus } from '@offisim/core/browser';
 import { ensureYoloMasterForActiveCompanies } from '@offisim/core/dist/runtime/ensure-yolo-master.js';
+import { installAttachmentDeleteCascades } from './attachment-cascades';
 import type { RuntimeBundle } from './browser-runtime';
 import { seedDefaultCostRatesIfEmpty } from './seed-default-cost-rates';
-import { installAttachmentDeleteCascades } from './attachment-cascades';
 import { TauriAttachmentStore } from './tauri-attachment-store';
 import { createTauriDrizzleDb } from './tauri-drizzle';
 import { createTauriRepositories } from './tauri-repos';

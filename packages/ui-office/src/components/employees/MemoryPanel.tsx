@@ -115,7 +115,10 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
       ) : (
         <div className="flex flex-col gap-3">
           {groupedMemories.map(({ category, entries }) => (
-            <section key={category} className="rounded-lg border border-border-default bg-surface-muted p-3">
+            <section
+              key={category}
+              className="rounded-lg border border-border-default bg-surface-muted p-3"
+            >
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="text-sm font-medium capitalize text-text-primary">{category}</h4>
                 <span className="text-xs text-text-muted">{entries.length}</span>

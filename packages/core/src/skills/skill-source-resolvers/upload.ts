@@ -53,7 +53,7 @@ function untarToTree(bytes: Uint8Array): VirtualTree {
     const name = td.decode(nameEnd === -1 ? nameBytes : nameBytes.subarray(0, nameEnd));
     const sizeStr = td.decode(header.subarray(124, 136)).replace(/\0.*$/u, '').trim();
     const size = sizeStr ? Number.parseInt(sizeStr, 8) : 0;
-    const typeFlag = String.fromCharCode(header[156]!);
+    const typeFlag = String.fromCharCode(header[156] ?? 0);
     offset += 512;
     if ((typeFlag === '0' || typeFlag === '\0') && name && size > 0) {
       const content = bytes.subarray(offset, offset + size);

@@ -49,7 +49,6 @@ export interface SopViewSurfaceProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-
 /**
  * Pure decision for the "SOP deleted" recovery effect. Extracted for unit
  * testing — the effect wraps this with refs + side-effects.
@@ -573,7 +572,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
       {showInlineSidebar && sidebar}
 
       {/* Right panel — toolbar + canvas + command bar */}
-        <div className="relative flex min-w-0 flex-1 flex-col bg-surface">
+      <div className="relative flex min-w-0 flex-1 flex-col bg-surface">
         <SopLibraryBar
           selectedSopId={sessionState.selectedSopId}
           hasSourceUrl={!!selectedSop?.sourceUrl}

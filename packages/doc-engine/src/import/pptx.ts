@@ -6,10 +6,11 @@ const SLIDE_PATH_RE = /^ppt\/slides\/slide(\d+)\.xml$/;
 function extractText(xml: string): string {
   const out: string[] = [];
   const re = /<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g;
-  let m: RegExpExecArray | null;
   re.lastIndex = 0;
-  while ((m = re.exec(xml)) !== null) {
+  let m = re.exec(xml);
+  while (m !== null) {
     out.push(decodeXmlEntities(m[1] ?? ''));
+    m = re.exec(xml);
   }
   return out.join('');
 }
@@ -21,7 +22,7 @@ function decodeXmlEntities(s: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(Number.parseInt(n, 16)))
     .replace(/&amp;/g, '&');
 }
 

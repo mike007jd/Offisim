@@ -4,8 +4,8 @@
  */
 import type { EventBus } from '@offisim/core/browser';
 import {
-  CURRENT_PARSED_REV,
   CHAT_ATTACHMENT_PERSISTED,
+  CURRENT_PARSED_REV,
   type ChatAttachmentPersistedPayload,
   type ChatAttachmentRef,
   type StagedAttachment,

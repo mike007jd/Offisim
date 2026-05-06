@@ -47,9 +47,11 @@ export interface RunScope {
  * to land events on the correct thread's right rail without parsing the
  * conversationKey middle segment.
  */
-export function chatScopeFields(
-  runScope?: RunScope | null,
-): { chatConversationKey?: string; chatRunId?: string; chatThreadId?: string } {
+export function chatScopeFields(runScope?: RunScope | null): {
+  chatConversationKey?: string;
+  chatRunId?: string;
+  chatThreadId?: string;
+} {
   if (!runScope) return {};
   return {
     chatConversationKey: runScope.conversationKey,

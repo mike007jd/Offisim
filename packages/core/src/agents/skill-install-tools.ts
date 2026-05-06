@@ -78,17 +78,17 @@ function syncFilterTokens(value: string): string[] {
     .filter(Boolean);
 }
 
-function filterSyncCandidates<T extends { slug: string; name: string; description: string; path: string }>(
-  candidates: readonly T[],
-  filter: string | null,
-): T[] {
+function filterSyncCandidates<
+  T extends { slug: string; name: string; description: string; path: string },
+>(candidates: readonly T[], filter: string | null): T[] {
   if (!filter) return [...candidates];
   const tokens = syncFilterTokens(filter);
   if (tokens.length === 0) return [...candidates];
   return candidates.filter((candidate) => {
-    const haystack = `${candidate.slug} ${candidate.name} ${candidate.description} ${candidate.path}`
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/gu, ' ');
+    const haystack =
+      `${candidate.slug} ${candidate.name} ${candidate.description} ${candidate.path}`
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gu, ' ');
     return tokens.every((token) => haystack.includes(token));
   });
 }
@@ -715,7 +715,9 @@ async function handleSkillInstallToolInner(
           await stageAndEmit({
             ctx,
             tree: {
-              files: [{ path: 'SKILL.md', content: new TextEncoder().encode(onlyCandidate.skillMd) }],
+              files: [
+                { path: 'SKILL.md', content: new TextEncoder().encode(onlyCandidate.skillMd) },
+              ],
             },
             scan: {
               root: onlyCandidate.path,

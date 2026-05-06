@@ -31,7 +31,7 @@ export interface StagedAttachmentChipProps {
 export function StagedAttachmentChip({ attachment, onRemove }: StagedAttachmentChipProps) {
   const Icon = ATTACHMENT_KIND_ICONS[attachment.kind] ?? Paperclip;
   const isImage = attachment.kind === 'image';
-  const file = isImage ? attachment.file as unknown as File : null;
+  const file = isImage ? (attachment.file as unknown as File) : null;
   const objectUrl = useObjectUrl(file);
   const summary = useMemo(() => {
     if (attachment.error) return `Parse error · ${attachment.error.reason}`;

@@ -681,7 +681,13 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
     set((state) =>
       reduceChatSessionWithPersistence(state, { type: 'setActiveRunStreaming', isStreaming }),
     ),
-  appendStreamingChunkForActiveRun: (conversationKey, runId, nodeName, content, channel = 'content') =>
+  appendStreamingChunkForActiveRun: (
+    conversationKey,
+    runId,
+    nodeName,
+    content,
+    channel = 'content',
+  ) =>
     set((state) =>
       reduceChatSessionWithPersistence(state, {
         type: 'appendStreamingChunkForActiveRun',

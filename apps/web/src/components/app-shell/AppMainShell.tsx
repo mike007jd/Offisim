@@ -10,12 +10,12 @@ import {
   type ProviderConfig,
   StatusBar,
 } from '@offisim/ui-office/web';
-import type { CreateKanbanCardInput, KanbanState } from '../workspaces/kanban/types';
 import React, { Suspense, useMemo } from 'react';
 import { PEER_WORKSPACE_ITEMS } from '../../lib/workspace-navigation';
 import { useGitBranch } from '../../runtime/useGitBranch';
 import { useKanbanStream } from '../../runtime/useKanbanStream';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
+import type { CreateKanbanCardInput, KanbanState } from '../workspaces/kanban/types';
 import type {
   OfficeSessionState,
   UpdateWorkspaceStateFn,
@@ -149,7 +149,6 @@ export function AppMainShell(props: AppMainShellProps) {
       setActiveProjectId,
     ],
   );
-
 
   return (
     <AppLayout

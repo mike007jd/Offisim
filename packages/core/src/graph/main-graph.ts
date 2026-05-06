@@ -240,7 +240,9 @@ async function stepAdvanceNode(
   const taskRuns = runtimeCtx
     ? (
         await Promise.all(
-          [...taskRunIdsToInspect].map((taskRunId) => runtimeCtx.repos.taskRuns.findById(taskRunId)),
+          [...taskRunIdsToInspect].map((taskRunId) =>
+            runtimeCtx.repos.taskRuns.findById(taskRunId),
+          ),
         )
       ).filter((taskRun): taskRun is TaskRunRow => taskRun !== null)
     : [];

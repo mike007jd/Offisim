@@ -7,7 +7,6 @@ import type {
   SkillLoader,
   ToolTelemetryService,
 } from '@offisim/core/browser';
-import type { AttachmentStore } from '../lib/attachment-store.js';
 import type { InstallService } from '@offisim/install-core';
 import type {
   EmployeeRuntimeBinding,
@@ -18,6 +17,7 @@ import type {
 } from '@offisim/shared-types';
 import { createContext, useContext } from 'react';
 import type { RunScope } from '../components/chat/chat-session-store';
+import type { AttachmentStore } from '../lib/attachment-store.js';
 import type { DeliverableHookRow } from '../lib/deliverable-artifacts.js';
 import type { SceneIntentBus } from './scene-intents.js';
 

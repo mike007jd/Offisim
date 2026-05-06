@@ -9,9 +9,7 @@ interface SkillsTabProps {
 export function SkillsTab({ companyId, employeeId }: SkillsTabProps) {
   return (
     <TabScrollShell>
-      {employeeId ? (
-        <SkillBindingList companyId={companyId} employeeId={employeeId} />
-      ) : null}
+      {employeeId ? <SkillBindingList companyId={companyId} employeeId={employeeId} /> : null}
     </TabScrollShell>
   );
 }

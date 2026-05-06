@@ -207,10 +207,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {availableProviderVariants.map((variant) => (
-                      <SelectItem
-                        key={variant.providerVariantId}
-                        value={variant.providerVariantId}
-                      >
+                      <SelectItem key={variant.providerVariantId} value={variant.providerVariantId}>
                         {variant.displayName}
                       </SelectItem>
                     ))}

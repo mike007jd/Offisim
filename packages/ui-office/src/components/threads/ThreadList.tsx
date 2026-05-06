@@ -2,7 +2,7 @@ import { chatThreadUpdated, generateId } from '@offisim/core/browser';
 import type { ChatThread, ChatThreadUpdatedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { Button, cn } from '@offisim/ui-core';
 import { Check, Plus, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 
 interface ThreadListProps {
@@ -70,12 +70,8 @@ export function ThreadList({ projectId, selectedThreadId, onSelectThread }: Thre
       setRenamingId(null);
       if (!title) return;
       await repos.chatThreads.updateTitle(threadId, title, { byUser: true });
-      setThreads((prev) =>
-        prev.map((t) => (t.thread_id === threadId ? { ...t, title } : t)),
-      );
-      eventBus.emit(
-        chatThreadUpdated('', { chatThreadId: threadId, projectId, reason: 'title' }),
-      );
+      setThreads((prev) => prev.map((t) => (t.thread_id === threadId ? { ...t, title } : t)));
+      eventBus.emit(chatThreadUpdated('', { chatThreadId: threadId, projectId, reason: 'title' }));
     },
     [repos, projectId, eventBus],
   );
@@ -141,10 +137,17 @@ interface RenameInputProps {
 
 function RenameInput({ initial, onSubmit, onCancel }: RenameInputProps) {
   const [draft, setDraft] = useState(initial);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
   return (
     <div className="flex flex-1 items-center gap-1">
       <input
-        autoFocus
+        ref={inputRef}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {

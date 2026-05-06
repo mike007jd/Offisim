@@ -42,7 +42,13 @@ export function scanSkillDir(tree: VirtualTree): ScannedSkill | SkillResolverErr
     };
   }
 
-  const skillMd = candidates[0]!;
+  const [skillMd] = candidates;
+  if (!skillMd) {
+    return {
+      kind: 'skill-scanner-missing',
+      message: 'No SKILL.md found at the archive root or in a single subdirectory.',
+    };
+  }
   const root = skillMd.replace(/\/?SKILL\.md$/iu, '');
   const assetPaths: string[] = [];
   const rootPrefix = root.length > 0 ? `${root}/` : '';

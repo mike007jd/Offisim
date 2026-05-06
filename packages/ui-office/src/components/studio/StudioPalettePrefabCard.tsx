@@ -1,13 +1,7 @@
 import type { PrefabDefinition, SemanticCategory } from '@offisim/shared-types';
 import { useState } from 'react';
 import { PrefabThumbnail } from './PrefabThumbnail.js';
-import {
-  FONT,
-  LAYOUT,
-  SP,
-  STUDIO_COLORS,
-  STUDIO_TRANSITION,
-} from './studio-style-helpers.js';
+import { FONT, LAYOUT, SP, STUDIO_COLORS, STUDIO_TRANSITION } from './studio-style-helpers.js';
 
 const CATEGORY_COLOR_MAP: Record<SemanticCategory, string> = {
   workspace: STUDIO_COLORS.catWorkspace,

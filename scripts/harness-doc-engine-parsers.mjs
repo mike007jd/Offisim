@@ -48,7 +48,11 @@ async function main() {
       scenario.filename,
     );
     const verdict = checkExpectations(parsed, scenario);
-    results.push({ id: scenario.id, ok: verdict.ok, ...(verdict.ok ? {} : { failures: verdict.failures }) });
+    results.push({
+      id: scenario.id,
+      ok: verdict.ok,
+      ...(verdict.ok ? {} : { failures: verdict.failures }),
+    });
     if (!verdict.ok) failed += 1;
   }
 
@@ -97,11 +101,15 @@ function checkExpectations(parsed, scenario) {
     if (Array.isArray(e.sheetNames)) {
       const got = parsed.sheets.map((s) => s.name);
       const ok = e.sheetNames.every((n) => got.includes(n));
-      if (!ok) failures.push(`expected sheet names ${JSON.stringify(e.sheetNames)}, got ${JSON.stringify(got)}`);
+      if (!ok)
+        failures.push(
+          `expected sheet names ${JSON.stringify(e.sheetNames)}, got ${JSON.stringify(got)}`,
+        );
     }
     if (typeof e.totalRowsAtLeast === 'number') {
       const total = parsed.sheets.reduce((acc, s) => acc + s.rows.length, 0);
-      if (total < e.totalRowsAtLeast) failures.push(`expected total rows >= ${e.totalRowsAtLeast}, got ${total}`);
+      if (total < e.totalRowsAtLeast)
+        failures.push(`expected total rows >= ${e.totalRowsAtLeast}, got ${total}`);
     }
   } else if (parsed.kind === 'pptx') {
     if (typeof e.slideCount === 'number' && parsed.slides.length !== e.slideCount) {
@@ -113,10 +121,14 @@ function checkExpectations(parsed, scenario) {
       }
     }
   } else if (parsed.kind === 'image') {
-    if (typeof e.width === 'number' && parsed.width !== e.width) failures.push(`expected width=${e.width}, got ${parsed.width}`);
-    if (typeof e.height === 'number' && parsed.height !== e.height) failures.push(`expected height=${e.height}, got ${parsed.height}`);
-    if (typeof e.format === 'string' && parsed.format !== e.format) failures.push(`expected format=${e.format}, got ${parsed.format}`);
-    if (typeof parsed.base64 !== 'string' || parsed.base64.length === 0) failures.push('image base64 missing/empty');
+    if (typeof e.width === 'number' && parsed.width !== e.width)
+      failures.push(`expected width=${e.width}, got ${parsed.width}`);
+    if (typeof e.height === 'number' && parsed.height !== e.height)
+      failures.push(`expected height=${e.height}, got ${parsed.height}`);
+    if (typeof e.format === 'string' && parsed.format !== e.format)
+      failures.push(`expected format=${e.format}, got ${parsed.format}`);
+    if (typeof parsed.base64 !== 'string' || parsed.base64.length === 0)
+      failures.push('image base64 missing/empty');
   } else if (parsed.kind === 'text') {
     if (Array.isArray(e.textIncludes)) {
       for (const needle of e.textIncludes) {
@@ -128,7 +140,8 @@ function checkExpectations(parsed, scenario) {
       failures.push('unsupported reason must be non-empty');
     }
   } else if (parsed.kind === 'binary') {
-    if (typeof parsed.base64 !== 'string' || parsed.base64.length === 0) failures.push('binary base64 missing/empty');
+    if (typeof parsed.base64 !== 'string' || parsed.base64.length === 0)
+      failures.push('binary base64 missing/empty');
   }
   return { ok: failures.length === 0, failures };
 }

@@ -96,7 +96,9 @@ export function MarketCardGrid({
         const byListingId = installedListingIds?.has(listing.listing_id) ?? false;
         const byPackage =
           listing.package_id && listing.latest_version
-            ? (installedPackageKeys?.has(packageInstallKey(listing.package_id, listing.latest_version)) ?? false)
+            ? (installedPackageKeys?.has(
+                packageInstallKey(listing.package_id, listing.latest_version),
+              ) ?? false)
             : false;
         return (
           <MarketListingCard

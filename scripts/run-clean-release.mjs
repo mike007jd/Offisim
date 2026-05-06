@@ -74,10 +74,14 @@ function killOffisimDesktop() {
 
 function killOffisimPlatform() {
   try {
-    const output = execFileSync('pgrep', ['-f', '@offisim/platform dev|apps/platform/.+tsx.+watch src/index.ts'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+    const output = execFileSync(
+      'pgrep',
+      ['-f', '@offisim/platform dev|apps/platform/.+tsx.+watch src/index.ts'],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      },
+    );
     for (const pid of output.split('\n')) {
       const parsed = Number.parseInt(pid.trim(), 10);
       if (Number.isInteger(parsed)) killPid(parsed);
@@ -200,7 +204,9 @@ async function main() {
   console.log('[run-clean-release] opening release Offisim.app');
   run('open', ['-n', appPath], { stdio: 'inherit' });
 
-  console.log(`[run-clean-release] done. Platform log: ${platformLogPath}. Web dev log: ${webLogPath}`);
+  console.log(
+    `[run-clean-release] done. Platform log: ${platformLogPath}. Web dev log: ${webLogPath}`,
+  );
 }
 
 main().catch((error) => {

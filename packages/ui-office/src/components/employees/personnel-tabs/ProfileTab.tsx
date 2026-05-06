@@ -197,7 +197,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               </Button>
             </div>
             <div>
-              <label htmlFor="editor-workstation" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-workstation"
+                className="mb-1 block text-sm text-text-secondary"
+              >
                 Assign Workstation
               </label>
               <Select
@@ -287,7 +290,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <label htmlFor="editor-decision-style" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-decision-style"
+                className="mb-1 block text-sm text-text-secondary"
+              >
                 Decision Style
               </label>
               <Select
@@ -308,7 +314,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               </Select>
             </div>
             <div>
-              <label htmlFor="editor-instructions" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-instructions"
+                className="mb-1 block text-sm text-text-secondary"
+              >
                 Custom Instructions
               </label>
               <Textarea
@@ -401,7 +410,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               )}
             </div>
             <div>
-              <label htmlFor="editor-temperature" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-temperature"
+                className="mb-1 block text-sm text-text-secondary"
+              >
                 Temperature
               </label>
               <Input

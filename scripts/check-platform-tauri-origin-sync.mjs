@@ -40,8 +40,7 @@ function readTauriCsp() {
   const csp = json?.app?.security?.csp;
   if (typeof csp !== 'string' || csp.length === 0) {
     fail(
-      `FAIL — expected app.security.csp to be a non-empty string in ${TAURI_CONF_PATH}; ` +
-        'origin-sync check cannot run. Update the smoke check OR keep the field stable.',
+      `FAIL — expected app.security.csp to be a non-empty string in ${TAURI_CONF_PATH}; origin-sync check cannot run. Update the smoke check OR keep the field stable.`,
     );
   }
   return csp;
@@ -50,12 +49,14 @@ function readTauriCsp() {
 function tokenizeConnectSrc(csp) {
   // CSP directives are separated by `;` and tokens by whitespace.
   // Find `connect-src` directive and return its origin tokens.
-  const directives = csp.split(';').map((d) => d.trim()).filter(Boolean);
+  const directives = csp
+    .split(';')
+    .map((d) => d.trim())
+    .filter(Boolean);
   const connectSrc = directives.find((d) => /^connect-src(\s|$)/i.test(d));
   if (!connectSrc) {
     fail(
-      `FAIL — CSP in ${TAURI_CONF_PATH} has no \`connect-src\` directive; ` +
-        'cannot enforce Invariant A. Edit apps/desktop/src-tauri/tauri.conf.json.',
+      `FAIL — CSP in ${TAURI_CONF_PATH} has no \`connect-src\` directive; cannot enforce Invariant A. Edit apps/desktop/src-tauri/tauri.conf.json.`,
     );
   }
   const tokens = connectSrc.split(/\s+/).slice(1);
@@ -76,17 +77,14 @@ function readPlatformOrigins() {
   const match = raw.match(/export\s+const\s+DEV_DEFAULT_ORIGINS\s*=\s*\[([\s\S]*?)\]\s*;/);
   if (!match) {
     fail(
-      `FAIL — could not locate \`export const DEV_DEFAULT_ORIGINS = [...]\` literal in ` +
-        `${PLATFORM_STARTUP_PATH}. Update scripts/check-platform-tauri-origin-sync.mjs OR ` +
-        'restore the literal shape per design.md Decision 4.',
+      `FAIL — could not locate \`export const DEV_DEFAULT_ORIGINS = [...]\` literal in ${PLATFORM_STARTUP_PATH}. Update scripts/check-platform-tauri-origin-sync.mjs OR restore the literal shape per design.md Decision 4.`,
     );
   }
   const body = match[1];
   const origins = [...body.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]);
   if (origins.length === 0) {
     fail(
-      `FAIL — \`DEV_DEFAULT_ORIGINS\` in ${PLATFORM_STARTUP_PATH} parsed as empty; ` +
-        'expected at least one string origin. Verify the literal contents.',
+      `FAIL — \`DEV_DEFAULT_ORIGINS\` in ${PLATFORM_STARTUP_PATH} parsed as empty; expected at least one string origin. Verify the literal contents.`,
     );
   }
   return origins;
@@ -105,11 +103,7 @@ function resolvePlatformPort() {
 }
 
 function checkInvariantA(connectSrcTokens, port, failures) {
-  const required = [
-    `http://localhost:${port}`,
-    `https://localhost:${port}`,
-    'tauri://localhost',
-  ];
+  const required = [`http://localhost:${port}`, `https://localhost:${port}`, 'tauri://localhost'];
   for (const origin of required) {
     if (!connectSrcTokens.includes(origin)) {
       failures.push(

@@ -298,12 +298,12 @@ export function ChatInput({
     textareaRef.current?.focus();
   }
 
-  function focusComposerAfterAttach() {
+  const focusComposerAfterAttach = useCallback(() => {
     requestAnimationFrame(() => {
       chatInputElementRef.current?.scrollIntoView({ block: 'nearest' });
       textareaRef.current?.focus();
     });
-  }
+  }, []);
 
   // ── Keyboard navigation ─────────────────────────────────────────
   function handleKeyDown(e: KeyboardEvent) {
@@ -466,7 +466,12 @@ export function ChatInput({
       cancelled = true;
       unlisten?.();
     };
-  }, [isNativeDropInsideComposer, staging.handleStaging, staging.reportExternalError]);
+  }, [
+    focusComposerAfterAttach,
+    isNativeDropInsideComposer,
+    staging.handleStaging,
+    staging.reportExternalError,
+  ]);
 
   const onPickerChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -477,7 +482,7 @@ export function ChatInput({
       // reset so re-picking the same file fires onChange again
       e.target.value = '';
     },
-    [staging],
+    [focusComposerAfterAttach, staging.handleStaging],
   );
 
   const onPaste = useCallback(
@@ -502,7 +507,7 @@ export function ChatInput({
         void staging.handleStaging(files).then(focusComposerAfterAttach);
       }
     },
-    [staging, text],
+    [focusComposerAfterAttach, staging.handleStaging, text],
   );
 
   const onDragEnter = useCallback((e: ReactDragEvent) => {
@@ -535,7 +540,7 @@ export function ChatInput({
       setDragActive(false);
       void staging.handleStaging(files).then(focusComposerAfterAttach);
     },
-    [staging],
+    [focusComposerAfterAttach, staging.handleStaging],
   );
 
   const dropMessage = staging.storageAvailable ? 'Drop to attach' : 'Storage unavailable';

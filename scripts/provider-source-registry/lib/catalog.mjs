@@ -484,7 +484,7 @@ function ensureMergedModel(provider, modelId) {
   return provider.models[modelId];
 }
 
-function applyField({ catalog, conflicts, providerId, modelId, field, value, sourceMeta, target }) {
+function applyField({ conflicts, providerId, modelId, field, value, sourceMeta, target }) {
   if (!hasValue(value)) return;
   const existing = target[field];
   const incoming = {

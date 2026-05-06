@@ -20,14 +20,11 @@ export class CompositeToolExecutor implements ToolExecutor {
     const builtin = this.builtinTools.get(call.name);
     if (builtin) {
       try {
-        const result = await builtin.execute(
-          call.arguments,
-          {
-            ...this.builtinContext,
-            ...(call.threadId ? { threadId: call.threadId } : {}),
-            ...(call.runScope !== undefined ? { runScope: call.runScope } : {}),
-          },
-        );
+        const result = await builtin.execute(call.arguments, {
+          ...this.builtinContext,
+          ...(call.threadId ? { threadId: call.threadId } : {}),
+          ...(call.runScope !== undefined ? { runScope: call.runScope } : {}),
+        });
         return { success: true, result };
       } catch (err) {
         return {

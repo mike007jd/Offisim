@@ -61,8 +61,8 @@ export function PublishedDraftsList() {
         </div>
         <p className="text-sm font-semibold text-text-primary">Sign in to view your drafts</p>
         <p className="max-w-sm text-xs text-text-secondary">
-          Publishing requires a marketplace account. Once you connect one, your drafts and
-          published packages will appear here.
+          Publishing requires a marketplace account. Once you connect one, your drafts and published
+          packages will appear here.
         </p>
       </div>
     );

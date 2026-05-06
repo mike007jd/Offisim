@@ -36,10 +36,12 @@ async function generatePdf() {
   for (let i = 1; i <= 12; i += 1) {
     const page = pdf.addPage([400, 300]);
     page.drawText(`Sample page ${i}`, { x: 40, y: 250, size: 18, font });
-    page.drawText(
-      `This is fixture text used by the doc-engine harness — page ${i} of 12.`,
-      { x: 40, y: 220, size: 10, font },
-    );
+    page.drawText(`This is fixture text used by the doc-engine harness — page ${i} of 12.`, {
+      x: 40,
+      y: 220,
+      size: 10,
+      font,
+    });
   }
   const bytes = await pdf.save();
   await writeFixture('sample.pdf', Buffer.from(bytes));
@@ -58,9 +60,7 @@ async function generateDocx() {
             ],
           }),
           new Paragraph({
-            children: [
-              new TextRun('Second paragraph — text only, no images, no tables.'),
-            ],
+            children: [new TextRun('Second paragraph — text only, no images, no tables.')],
           }),
         ],
       },
@@ -127,7 +127,12 @@ function generatePng(width, height) {
     raw[row * (1 + width)] = 0; // filter byte
   }
   const idatData = zlib.deflateSync(raw);
-  return Buffer.concat([sig, makeChunk('IHDR', ihdr), makeChunk('IDAT', idatData), makeChunk('IEND', Buffer.alloc(0))]);
+  return Buffer.concat([
+    sig,
+    makeChunk('IHDR', ihdr),
+    makeChunk('IDAT', idatData),
+    makeChunk('IEND', Buffer.alloc(0)),
+  ]);
 }
 
 function makeChunk(type, data) {
@@ -170,7 +175,7 @@ async function generateMarkdown() {
 }
 
 async function generateCsv() {
-  const csv = `name,score\nAlice,88\nBob,92\n`;
+  const csv = 'name,score\nAlice,88\nBob,92\n';
   await writeFixture('sample.csv', Buffer.from(csv, 'utf8'));
 }
 
@@ -178,7 +183,9 @@ async function generateGarbagePdf() {
   // PDF magic header with random tail — should fail pdfjs parse and surface
   // `{ kind: 'unsupported', reason: ... }` from the importer.
   const header = Buffer.from('%PDF-1.4\n', 'utf8');
-  const garbage = Buffer.from('this is not a valid pdf body — corrupted bytes follow.\n00\nxref\nbroken');
+  const garbage = Buffer.from(
+    'this is not a valid pdf body — corrupted bytes follow.\n00\nxref\nbroken',
+  );
   await writeFixture('garbage.pdf', Buffer.concat([header, garbage]));
 }
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs';
 /**
  * Deterministic round-trip fixture for `add-chat-attachment-end-to-end`.
  *
@@ -16,7 +17,6 @@
  * here and gate the build.
  */
 import process from 'node:process';
-import { readFileSync } from 'node:fs';
 
 const REF_A = {
   attachmentId: '11111111-1111-4111-9111-111111111111',

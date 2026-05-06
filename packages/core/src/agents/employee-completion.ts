@@ -46,8 +46,7 @@ async function verifyRoutingEventEvidence(input: {
   if (hasRerouteEvent) return { ok: true };
   return {
     ok: false,
-    reason:
-      'Routing/rebind verification requires a real task.assignment.rerouted runtime event.',
+    reason: 'Routing/rebind verification requires a real task.assignment.rerouted runtime event.',
   };
 }
 

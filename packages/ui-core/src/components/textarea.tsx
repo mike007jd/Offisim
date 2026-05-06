@@ -27,10 +27,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         {helperText ? (
-          <p
-            id={helperId}
-            className={cn('mt-1 text-xs', error ? 'text-error' : 'text-text-muted')}
-          >
+          <p id={helperId} className={cn('mt-1 text-xs', error ? 'text-error' : 'text-text-muted')}>
             {helperText}
           </p>
         ) : null}

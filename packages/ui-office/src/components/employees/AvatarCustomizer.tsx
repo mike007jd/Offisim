@@ -89,7 +89,9 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border-default bg-surface-muted p-3">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-text-primary">Appearance</p>
+      <p className="text-[10px] font-medium uppercase tracking-wider text-text-primary">
+        Appearance
+      </p>
 
       <SwatchRow
         label="Skin tone"

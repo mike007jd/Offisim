@@ -100,17 +100,18 @@ export function MarketDetailView({
   const isInstallable = INSTALLABLE_KINDS.has(detail.kind);
   const versionPackageId =
     typeof detail.version === 'string' ? undefined : detail.version.package_id;
-  const installedByPackage =
-    versionPackageId
-      ? (installedPackageKeys?.has(packageInstallKey(versionPackageId, version)) ?? false)
-      : false;
+  const installedByPackage = versionPackageId
+    ? (installedPackageKeys?.has(packageInstallKey(versionPackageId, version)) ?? false)
+    : false;
   const isInstalled =
-    isInstallable &&
-    ((installedListingIds?.has(detail.listing_id) ?? false) || installedByPackage);
+    isInstallable && ((installedListingIds?.has(detail.listing_id) ?? false) || installedByPackage);
 
   return (
     <div
-      className={cn('flex h-full flex-col bg-surface text-text-primary', compact && 'overflow-y-auto')}
+      className={cn(
+        'flex h-full flex-col bg-surface text-text-primary',
+        compact && 'overflow-y-auto',
+      )}
     >
       <header className="flex shrink-0 items-center gap-3 border-b border-border-subtle px-6 py-3">
         <button
@@ -175,7 +176,9 @@ export function MarketDetailView({
         <div
           className={cn(
             'overflow-y-auto px-8 py-6',
-            compact ? 'w-full border-t border-border-subtle' : 'w-2/5 border-l border-border-subtle',
+            compact
+              ? 'w-full border-t border-border-subtle'
+              : 'w-2/5 border-l border-border-subtle',
           )}
         >
           <dl className="space-y-3 text-sm">
@@ -353,7 +356,9 @@ function RequirementsSection({
       <div className="space-y-2 text-sm">
         {caps.length > 0 && (
           <div className="flex flex-wrap items-baseline gap-2">
-            <span className="text-[11px] uppercase tracking-wide text-text-muted">Capabilities</span>
+            <span className="text-[11px] uppercase tracking-wide text-text-muted">
+              Capabilities
+            </span>
             <div className="flex flex-wrap gap-1">
               {caps.map((c) => (
                 <span
@@ -405,7 +410,11 @@ function RequirementsSection({
 function LineageSection({ lineage }: { lineage: ListingDetail['lineage'] }) {
   if (!lineage) return null;
   const { origin_package_id, forked_from_version, derivative_of } = lineage;
-  if (!origin_package_id && !forked_from_version && (!derivative_of || derivative_of.length === 0)) {
+  if (
+    !origin_package_id &&
+    !forked_from_version &&
+    (!derivative_of || derivative_of.length === 0)
+  ) {
     return null;
   }
   return (

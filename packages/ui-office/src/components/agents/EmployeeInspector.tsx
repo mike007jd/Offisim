@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useEmployeeMemories } from '../../hooks/useEmployeeMemories.js';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
+import { useEmployeeMemories } from '../../hooks/useEmployeeMemories.js';
 import type { AddToast } from '../../lib/discard-confirm-toast.js';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
@@ -433,10 +433,7 @@ export function EmployeeInspector({
 
         {/* Metadata row (Task ID / Workstation) */}
         {hasMetadataRow ? (
-          <div
-            className={`${SECTION_ROW_CLASS} flex flex-col gap-1`}
-            style={SECTION_PADDING_STYLE}
-          >
+          <div className={`${SECTION_ROW_CLASS} flex flex-col gap-1`} style={SECTION_PADDING_STYLE}>
             {agent.taskRunId ? (
               <div className="flex items-center justify-between text-xs">
                 <span className="text-text-muted">Task ID</span>

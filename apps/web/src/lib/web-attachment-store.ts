@@ -13,15 +13,12 @@ import { idbRequestToPromise, idbTransactionDone } from '@offisim/core/browser';
 import type { EventBus } from '@offisim/core/browser';
 import type { AttachmentMeta, ChatAttachmentEvictedPayload, VaultRef } from '@offisim/shared-types';
 import {
-  CHAT_ATTACHMENT_MAX_BYTES,
   CHAT_ATTACHMENT_EVICTED,
+  CHAT_ATTACHMENT_MAX_BYTES,
   chatAttachmentEvent,
   parseVaultRef,
 } from '@offisim/shared-types';
-import type {
-  AttachmentReadResult,
-  AttachmentStore,
-} from '@offisim/ui-office/web';
+import type { AttachmentReadResult, AttachmentStore } from '@offisim/ui-office/web';
 
 const DB_NAME = 'offisim-chat-attachments';
 const DB_VERSION = 2;
@@ -119,7 +116,10 @@ export class WebAttachmentStore implements AttachmentStore {
   readonly storageAvailable: boolean;
   readonly idbAvailable: boolean;
 
-  constructor(private readonly eventBus: EventBus | null, idbAvailable: boolean) {
+  constructor(
+    private readonly eventBus: EventBus | null,
+    idbAvailable: boolean,
+  ) {
     this.storageAvailable = idbAvailable;
     this.idbAvailable = idbAvailable;
   }
@@ -144,7 +144,8 @@ export class WebAttachmentStore implements AttachmentStore {
     }
     const db = await this.db();
     try {
-      const vaultRef = `attachment://${meta.companyId}/${meta.threadId}/${meta.attachmentId}` as VaultRef;
+      const vaultRef =
+        `attachment://${meta.companyId}/${meta.threadId}/${meta.attachmentId}` as VaultRef;
       const blob = new Blob([bytes.slice().buffer as ArrayBuffer], { type: meta.mimeType });
       const tx = db.transaction([STORE_NAME, META_STORE_NAME], 'readwrite');
       tx.objectStore(STORE_NAME).put({ bytes: blob, meta } satisfies BlobRow, vaultRef);
@@ -160,9 +161,9 @@ export class WebAttachmentStore implements AttachmentStore {
     const db = await this.db();
     try {
       const tx = db.transaction(STORE_NAME, 'readonly');
-      const row = (await idbRequestToPromise<unknown>(
-        tx.objectStore(STORE_NAME).get(vaultRef),
-      )) as BlobRow | undefined;
+      const row = (await idbRequestToPromise<unknown>(tx.objectStore(STORE_NAME).get(vaultRef))) as
+        | BlobRow
+        | undefined;
       await idbTransactionDone(tx);
       if (!row) {
         emitEvictedEvent(this.eventBus, null, vaultRef);

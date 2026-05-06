@@ -47,7 +47,9 @@ function scheduleIdle(scheduler?: IdleScheduler): Promise<IdleDeadline> {
 
 function defaultIdleScheduler(cb: (deadline: IdleDeadline) => void): void {
   if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback((d) => cb({ timeRemaining: () => d.timeRemaining(), didTimeout: d.didTimeout }));
+    requestIdleCallback((d) =>
+      cb({ timeRemaining: () => d.timeRemaining(), didTimeout: d.didTimeout }),
+    );
     return;
   }
   setTimeout(() => {

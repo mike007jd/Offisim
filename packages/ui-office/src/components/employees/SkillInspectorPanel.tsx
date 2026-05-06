@@ -60,7 +60,9 @@ export function SkillInspectorPanel({ skill }: SkillInspectorPanelProps) {
       </header>
       <p className="text-xs text-text-secondary">{skill.description}</p>
       {error && <p className="text-xs text-error">{error}</p>}
-      {!error && body === null && <p className="text-xs italic text-text-muted">Loading SKILL.md…</p>}
+      {!error && body === null && (
+        <p className="text-xs italic text-text-muted">Loading SKILL.md…</p>
+      )}
       {!error && body !== null && (
         <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-border-default bg-surface p-3 text-[11px] text-text-secondary">
           {body}

@@ -31,12 +31,7 @@ export async function stepDispatcherNode(
 
   // Announce node entry
   runtimeCtx.eventBus.emit(
-    graphNodeEntered(
-      runtimeCtx.companyId,
-      state.threadId,
-      'step_dispatcher',
-      getRunScope(config),
-    ),
+    graphNodeEntered(runtimeCtx.companyId, state.threadId, 'step_dispatcher', getRunScope(config)),
   );
 
   const { repos, eventBus, companyId, threadId } = runtimeCtx;

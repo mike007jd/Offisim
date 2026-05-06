@@ -124,7 +124,8 @@ export function SopInspectorPanel({
 
         {roleMissing && (
           <p className="rounded border border-warning/40 bg-warning-muted px-2 py-1.5 text-[11px] leading-snug text-warning">
-            No employee with role <span className="font-semibold">{step.role_slug}</span> — dispatcher will fall back.
+            No employee with role <span className="font-semibold">{step.role_slug}</span> —
+            dispatcher will fall back.
           </p>
         )}
 

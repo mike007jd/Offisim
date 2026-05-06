@@ -114,20 +114,20 @@ export function EntityDropdown(props: EntityDropdownProps) {
   } else if ('sections' in props && props.sections !== undefined) {
     const totalItems = props.sections.reduce((sum, s) => sum + s.items.length, 0);
     const sectionsBody =
-      totalItems === 0
-        ? props.emptyText
-          ? (
-              <div className="px-2 py-3 text-xs text-text-muted">{props.emptyText}</div>
-            )
-          : null
-        : props.sections.map((section, idx) => (
-            <SectionGroup
-              key={`${idx}:${typeof section.title === 'string' ? section.title : 'untitled'}`}
-              section={section}
-              activeId={props.activeId}
-              onSelect={props.onSelect}
-            />
-          ));
+      totalItems === 0 ? (
+        props.emptyText ? (
+          <div className="px-2 py-3 text-xs text-text-muted">{props.emptyText}</div>
+        ) : null
+      ) : (
+        props.sections.map((section, idx) => (
+          <SectionGroup
+            key={`${idx}:${typeof section.title === 'string' ? section.title : 'untitled'}`}
+            section={section}
+            activeId={props.activeId}
+            onSelect={props.onSelect}
+          />
+        ))
+      );
     body = (
       <>
         {sectionsBody}
@@ -136,20 +136,20 @@ export function EntityDropdown(props: EntityDropdownProps) {
     );
   } else if ('items' in props && props.items !== undefined) {
     const itemsBody =
-      props.items.length === 0
-        ? props.emptyText
-          ? (
-              <div className="px-2 py-3 text-xs text-text-muted">{props.emptyText}</div>
-            )
-          : null
-        : props.items.map((item) => (
-            <Row
-              key={item.id}
-              item={item}
-              isActive={item.id === props.activeId}
-              onSelect={() => props.onSelect(item.id)}
-            />
-          ));
+      props.items.length === 0 ? (
+        props.emptyText ? (
+          <div className="px-2 py-3 text-xs text-text-muted">{props.emptyText}</div>
+        ) : null
+      ) : (
+        props.items.map((item) => (
+          <Row
+            key={item.id}
+            item={item}
+            isActive={item.id === props.activeId}
+            onSelect={() => props.onSelect(item.id)}
+          />
+        ))
+      );
     body = (
       <>
         {itemsBody}
@@ -175,10 +175,7 @@ export function EntityDropdown(props: EntityDropdownProps) {
         {footerAction ? (
           <>
             {showDivider ? <div className="my-1 h-px bg-border-subtle" /> : null}
-            <DropdownMenuItem
-              onSelect={footerAction.onSelect}
-              className="font-medium"
-            >
+            <DropdownMenuItem onSelect={footerAction.onSelect} className="font-medium">
               {footerAction.icon ? <span className="shrink-0">{footerAction.icon}</span> : null}
               <span>{footerAction.label}</span>
             </DropdownMenuItem>

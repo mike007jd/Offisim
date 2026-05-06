@@ -36,12 +36,7 @@ export async function employeeDirectSetupNode(
   // Announce node entry (best-effort)
   if (runtimeCtx) {
     runtimeCtx.eventBus.emit(
-      graphNodeEntered(
-        runtimeCtx.companyId,
-        state.threadId,
-        'employee_direct_setup',
-        runScope,
-      ),
+      graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee_direct_setup', runScope),
     );
   }
 

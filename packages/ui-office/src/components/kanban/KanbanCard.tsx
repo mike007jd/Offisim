@@ -102,9 +102,7 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
           </span>
         )}
         {taskCost > 0 && (
-          <span className="ml-auto font-mono text-[10px] text-success">
-            ${taskCost.toFixed(4)}
-          </span>
+          <span className="ml-auto font-mono text-[10px] text-success">${taskCost.toFixed(4)}</span>
         )}
       </div>
     </button>

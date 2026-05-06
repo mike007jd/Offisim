@@ -80,7 +80,9 @@ export const SopDagNode = memo(function SopDagNode({
         {/* Top row: status dot + label + deps chip + role badge */}
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
-          <span className="flex-1 truncate text-sm font-semibold text-text-primary">{step.label}</span>
+          <span className="flex-1 truncate text-sm font-semibold text-text-primary">
+            {step.label}
+          </span>
           {depsCount > 0 && (
             <span className="shrink-0 rounded-full bg-surface-muted px-1.5 py-0.5 text-[10px] text-text-secondary">
               deps · {depsCount}

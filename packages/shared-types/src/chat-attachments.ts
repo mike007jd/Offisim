@@ -180,11 +180,7 @@ export function parseVaultRef(s: unknown): ParseVaultRefResult {
 }
 
 /** Build a vaultRef. Throws if any segment is malformed — callers must pass clean ids. */
-export function buildVaultRef(
-  companyId: string,
-  threadId: string,
-  attachmentId: string,
-): VaultRef {
+export function buildVaultRef(companyId: string, threadId: string, attachmentId: string): VaultRef {
   if (!ID_SEGMENT_RE.test(companyId)) {
     throw new Error(`buildVaultRef: invalid companyId "${companyId}"`);
   }

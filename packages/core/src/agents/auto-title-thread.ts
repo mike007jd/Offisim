@@ -1,8 +1,8 @@
 import type { HumanMessage } from '@langchain/core/messages';
 import { chatThreadUpdated } from '../events/event-factories.js';
+import type { OffisimGraphState } from '../graph/state.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
-import type { OffisimGraphState } from '../graph/state.js';
 
 const TITLE_PROMPT =
   'Summarize the following conversation in one short title (max 60 characters, no trailing punctuation, no quotes). Reply with the title only.';

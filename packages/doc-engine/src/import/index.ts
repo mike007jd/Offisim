@@ -1,4 +1,4 @@
-import { kindFromMime, type ParsedAttachment } from '@offisim/shared-types';
+import { type ParsedAttachment, kindFromMime } from '@offisim/shared-types';
 import { bytesToBase64 } from './base64.js';
 import { parseDocx } from './docx.js';
 import { parseImage } from './image.js';

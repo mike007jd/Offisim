@@ -2,7 +2,6 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 import { graphNodeEntered } from '../../events/event-factories.js';
 import { type OffisimGraphState, createEmptyPlanScopedState } from '../../graph/state.js';
 import { getRunScope, getRuntime } from '../../utils/get-runtime.js';
-import type { PmPreflightOutcome } from '../pm-planner-types.js';
 import {
   attachmentGatewayLaneOutcomeState,
   attachmentsRequireGatewayLane,
@@ -11,6 +10,7 @@ import {
   localToolsGatewayLaneOutcomeState,
   localToolsRequireGatewayLane,
 } from '../local-tool-lane-guard.js';
+import type { PmPreflightOutcome } from '../pm-planner-types.js';
 import { detectTaskToolIntent, isLocalToolAssignableEmployee } from '../task-tool-intent.js';
 import { parseReviewedPlanPayload } from './plan-review-payload.js';
 

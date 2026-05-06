@@ -1,7 +1,8 @@
+import { bytesToBase64, parseAttachment, parseText } from '@offisim/doc-engine';
 import {
+  type AttachmentMeta,
   CHAT_ATTACHMENT_MAX_BYTES,
   CHAT_ATTACHMENT_READ,
-  type AttachmentMeta,
   type ChatAttachmentReadPayload,
   type ParsedAttachment,
   type VaultRef,
@@ -9,7 +10,6 @@ import {
   kindFromMime,
   parseVaultRef,
 } from '@offisim/shared-types';
-import { bytesToBase64, parseAttachment, parseText } from '@offisim/doc-engine';
 import type { EventBus } from '../../events/event-bus.js';
 import type { ToolDef } from '../../llm/gateway.js';
 import type { AttachmentStoreBridge } from '../../runtime/attachment-store-bridge.js';
@@ -17,7 +17,8 @@ import type { BuiltinTool, BuiltinToolExecutionContext } from './types.js';
 
 const TOOL_NAME = 'read_attachment';
 const MAX_BYTES_HARD_CAP = CHAT_ATTACHMENT_MAX_BYTES;
-const TEXT_LIKE_RE = /^(text\/|application\/(json|xml|yaml|x-yaml|x-sh|x-shellscript|javascript|typescript|ld\+json|x-ndjson|toml)$)/i;
+const TEXT_LIKE_RE =
+  /^(text\/|application\/(json|xml|yaml|x-yaml|x-sh|x-shellscript|javascript|typescript|ld\+json|x-ndjson|toml)$)/i;
 
 type Mode = 'auto' | 'text' | 'binary' | 'structured';
 
@@ -53,7 +54,8 @@ const READ_ATTACHMENT_DEF: ToolDef = {
 
 function resolveAuto(mime: string): Mode {
   const k = kindFromMime(mime);
-  if (k === 'pdf' || k === 'docx' || k === 'xlsx' || k === 'pptx' || k === 'image') return 'structured';
+  if (k === 'pdf' || k === 'docx' || k === 'xlsx' || k === 'pptx' || k === 'image')
+    return 'structured';
   if (TEXT_LIKE_RE.test(mime) || k === 'code' || k === 'data' || k === 'document') return 'text';
   return 'binary';
 }
@@ -111,7 +113,12 @@ function contentFromStructured(parsed: ParsedAttachment): string {
 
 const MODE_HANDLERS: Record<
   Mode,
-  (meta: AttachmentMeta, bytes: Uint8Array, base: BaseResult, vaultRef: string) => Promise<unknown> | unknown
+  (
+    meta: AttachmentMeta,
+    bytes: Uint8Array,
+    base: BaseResult,
+    vaultRef: string,
+  ) => Promise<unknown> | unknown
 > = {
   binary: (_m, bytes, base) => ({ ...base, content: bytesToBase64(bytes) }),
   text: (_m, bytes, base) => {
@@ -126,7 +133,13 @@ const MODE_HANDLERS: Record<
     try {
       parsedDoc = await parseAttachment(bytes, meta.mimeType, meta.filename);
     } catch (err) {
-      return parserFailed(vaultRef, meta, base, bytes, err instanceof Error ? err.message : String(err));
+      return parserFailed(
+        vaultRef,
+        meta,
+        base,
+        bytes,
+        err instanceof Error ? err.message : String(err),
+      );
     }
     if (parsedDoc.kind === 'unsupported') {
       return parserFailed(vaultRef, meta, base, bytes, parsedDoc.reason);

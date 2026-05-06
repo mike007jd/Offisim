@@ -66,6 +66,8 @@ import {
   resolveProviderHostAvailability,
 } from '@offisim/ui-office/web';
 import type { ProviderConfig } from '@offisim/ui-office/web';
+import type { AttachmentStore } from '@offisim/ui-office/web';
+import { installAttachmentDeleteCascades } from './attachment-cascades';
 import { BrowserMcpClientFactory } from './browser-mcp-client';
 import {
   createBrowserRuntimePersistence,
@@ -83,8 +85,6 @@ import { InMemoryUploadRefResolver, createWebSkillInstallEnvironment } from './s
 import type { VaultActivation } from './vault-activation';
 import type { BrowserVaultController } from './vault-browser-activation';
 import { createDefaultBrowserVaultController } from './vault-browser-activation';
-import type { AttachmentStore } from '@offisim/ui-office/web';
-import { installAttachmentDeleteCascades } from './attachment-cascades';
 import { WebAttachmentStore } from './web-attachment-store';
 
 // ---------------------------------------------------------------------------

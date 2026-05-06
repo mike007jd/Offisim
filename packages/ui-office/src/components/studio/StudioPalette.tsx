@@ -190,10 +190,7 @@ function ZoneOverview({
   const startZonePlacement = useStudioStore((s) => s.startZonePlacement);
   const [showPresets, setShowPresets] = useState(false);
 
-  const sortedZones = useMemo(
-    () => [...zones].sort((a, b) => a.sortOrder - b.sortOrder),
-    [zones],
-  );
+  const sortedZones = useMemo(() => [...zones].sort((a, b) => a.sortOrder - b.sortOrder), [zones]);
   const instanceCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const instance of instances) {

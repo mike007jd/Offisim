@@ -196,10 +196,7 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
         .select()
         .from(schema.chatThreads)
         .where(
-          and(
-            eq(schema.chatThreads.project_id, projectId),
-            isNull(schema.chatThreads.archived_at),
-          ),
+          and(eq(schema.chatThreads.project_id, projectId), isNull(schema.chatThreads.archived_at)),
         )
         .orderBy(desc(schema.chatThreads.updated_at))
         .all() as ChatThreadDbRow[];
@@ -246,10 +243,7 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
       db.update(schema.chatThreads)
         .set({ archived_at: ts, updated_at: ts })
         .where(
-          and(
-            eq(schema.chatThreads.thread_id, threadId),
-            isNull(schema.chatThreads.archived_at),
-          ),
+          and(eq(schema.chatThreads.thread_id, threadId), isNull(schema.chatThreads.archived_at)),
         )
         .run();
     },
@@ -267,10 +261,7 @@ export function createProjectsDrizzleRepos(db: Db): ProjectsDrizzleRepos {
         .select()
         .from(schema.chatThreads)
         .where(
-          and(
-            eq(schema.chatThreads.project_id, projectId),
-            isNull(schema.chatThreads.archived_at),
-          ),
+          and(eq(schema.chatThreads.project_id, projectId), isNull(schema.chatThreads.archived_at)),
         )
         .orderBy(desc(schema.chatThreads.updated_at))
         .all() as ChatThreadDbRow[];

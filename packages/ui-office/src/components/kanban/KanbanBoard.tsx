@@ -195,7 +195,9 @@ function PlanKanbanBoard({
                 </p>
               )}
               {dashboard.summary ? (
-                <p className="text-[11px] leading-relaxed text-text-secondary">{dashboard.summary}</p>
+                <p className="text-[11px] leading-relaxed text-text-secondary">
+                  {dashboard.summary}
+                </p>
               ) : requestText ? (
                 <p className="text-[11px] italic text-text-muted">Waiting for plan…</p>
               ) : null}

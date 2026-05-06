@@ -246,10 +246,7 @@ function WorkCluster({
   if (parts.length === 0) return null;
   const composedTitle = parts.map((p) => p.title).join(' · ');
   return (
-    <div
-      className="flex items-center gap-1.5 font-mono text-text-secondary"
-      title={composedTitle}
-    >
+    <div className="flex items-center gap-1.5 font-mono text-text-secondary" title={composedTitle}>
       {parts.map((part, idx) => (
         <span key={part.key} className="flex items-center" title={part.title}>
           {idx > 0 && <span className="px-1 text-text-disabled">·</span>}
@@ -282,10 +279,7 @@ function ResourcesSegment({
   return (
     <div className={`${SEGMENT_BASE_CLS} relative z-10`}>
       {modelName && (
-        <div
-          className="flex items-center gap-1.5 font-mono"
-          title={`Model: ${modelName}`}
-        >
+        <div className="flex items-center gap-1.5 font-mono" title={`Model: ${modelName}`}>
           <Cpu className="h-3 w-3 text-info" />
           <span>{modelName}</span>
         </div>
@@ -294,10 +288,7 @@ function ResourcesSegment({
       <EnergyMeter usedTokens={usedTokens} costUsd={costUsd} />
 
       {elapsedMs != null && (
-        <span
-          className="font-mono"
-          title={`Latency ${(elapsedMs / 1000).toFixed(1)} seconds`}
-        >
+        <span className="font-mono" title={`Latency ${(elapsedMs / 1000).toFixed(1)} seconds`}>
           LAT: {(elapsedMs / 1000).toFixed(1)}s
         </span>
       )}

@@ -8,6 +8,7 @@ import type {
   InteractionResolvedPayload,
   RunScope,
 } from '@offisim/shared-types';
+import type { SendMessageResult } from '@offisim/ui-office/web';
 import {
   type Dispatch,
   type MutableRefObject,
@@ -24,7 +25,6 @@ import {
   persistDefaultInteractionMode,
 } from '../interaction-mode-storage';
 import type { LastFailedMessage } from '../last-failed-message';
-import type { SendMessageResult } from '@offisim/ui-office/web';
 
 export interface UseInteractionSyncResult {
   interactionMode: InteractionMode;

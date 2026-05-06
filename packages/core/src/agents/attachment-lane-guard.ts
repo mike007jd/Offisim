@@ -8,8 +8,7 @@ export function attachmentsRequireGatewayLane(
   runScope?: RunScope | null,
 ): boolean {
   return (
-    (runScope?.pendingAttachments?.length ?? 0) > 0 &&
-    runtimeCtx.llmToolCallsEnabled === false
+    (runScope?.pendingAttachments?.length ?? 0) > 0 && runtimeCtx.llmToolCallsEnabled === false
   );
 }
 

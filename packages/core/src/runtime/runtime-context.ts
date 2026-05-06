@@ -1,5 +1,4 @@
 import type { InteractionRequest, RuntimePolicyConfig } from '@offisim/shared-types';
-import type { AttachmentStoreBridge } from './attachment-store-bridge.js';
 import type { EngineAdapterRegistry } from '../engine/engine-adapter.js';
 import type { EventBus } from '../events/event-bus.js';
 import type { MeetingInterrupt } from '../graph/state.js';
@@ -18,6 +17,7 @@ import type { SkillInstallEnvironment } from '../skills/skill-install-environmen
 import type { SkillLoader } from '../skills/skill-loader.js';
 import type { SkillStagingManager } from '../skills/skill-staging.js';
 import type { BuiltinTool } from '../tools/builtin/types.js';
+import type { AttachmentStoreBridge } from './attachment-store-bridge.js';
 import { HookRegistry } from './hook-registry.js';
 import type { RuntimeRepositories } from './repositories.js';
 import type { ResumeCoordinator } from './resume-coordinator.js';

@@ -2,13 +2,7 @@ import type { ZonePreset } from '@offisim/shared-types';
 import { Lock } from 'lucide-react';
 import { useState } from 'react';
 import { useStudioStore } from './StudioState.js';
-import {
-  FONT,
-  LAYOUT,
-  SP,
-  STUDIO_COLORS,
-  STUDIO_TRANSITION,
-} from './studio-style-helpers.js';
+import { FONT, LAYOUT, SP, STUDIO_COLORS, STUDIO_TRANSITION } from './studio-style-helpers.js';
 
 export function StudioPaletteZonePresetCard({
   preset,

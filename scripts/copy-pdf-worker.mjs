@@ -21,9 +21,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const DEST = resolve(ROOT, 'apps/web/public/pdf.worker.min.mjs');
 
-const requireFromDocEngine = createRequire(
-  resolve(ROOT, 'packages/doc-engine/package.json'),
-);
+const requireFromDocEngine = createRequire(resolve(ROOT, 'packages/doc-engine/package.json'));
 const pdfjsPkg = requireFromDocEngine.resolve('pdfjs-dist/package.json');
 const SRC = resolve(dirname(pdfjsPkg), 'legacy/build/pdf.worker.min.mjs');
 
