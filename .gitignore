@@ -43,3 +43,4 @@ smoke-*.png
 /icon.png
 test-*.mjs
 apps/desktop/src-tauri/resources/claude-agent-host.mjs
+.gitnexus
