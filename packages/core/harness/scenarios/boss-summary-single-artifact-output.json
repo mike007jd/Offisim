@@ -1,0 +1,67 @@
+{
+  "id": "boss-summary-single-artifact-output",
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": {
+      "companyId": "company-boss-summary-artifact",
+      "name": "Boss Summary Artifact Co"
+    },
+    "thread": { "threadId": "thread-boss-summary-artifact", "status": "running" },
+    "employees": [{ "id": "emp-artifact-writer", "name": "Artifact Writer", "role": "writer" }]
+  },
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-summary-artifact",
+      "threadId": "thread-boss-summary-artifact",
+      "companyId": "company-boss-summary-artifact",
+      "summary": "Summarize artifact-only output",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Write artifact-only output",
+          "tasks": [
+            {
+              "taskType": "writing",
+              "employeeId": "emp-artifact-writer",
+              "description": "Write artifact-only output",
+              "dependsOnStepOutput": false,
+              "taskRunId": "tr-summary-artifact"
+            }
+          ]
+        }
+      ]
+    },
+    "dispatchedStepIndices": [0],
+    "completedStepIndices": [0],
+    "blockedStepIndices": [],
+    "currentStepOutputs": [
+      {
+        "employeeId": "emp-artifact-writer",
+        "employeeName": "Artifact Writer",
+        "sourceKind": "employee",
+        "roleSlug": "writer",
+        "content": "",
+        "taskRunId": "tr-summary-artifact",
+        "stepIndex": 0,
+        "isExternal": false,
+        "brandKey": null,
+        "artifact": {
+          "kind": "file",
+          "fileName": "final-release-retest.md",
+          "mimeType": "text/markdown",
+          "content": "# Corrected Release Retest\n\nProvider: MiniMax-M2.7"
+        }
+      }
+    ]
+  },
+  "runs": [{ "startAt": "boss_summary" }],
+  "assertions": [
+    { "kind": "threadStatusIs", "status": "completed" },
+    { "kind": "finalOutputContains", "contains": "Provider: MiniMax-M2.7" },
+    {
+      "kind": "finalOutputNotContains",
+      "contains": "Expected a single employee result for boss summary fast path"
+    }
+  ]
+}

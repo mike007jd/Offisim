@@ -16,6 +16,7 @@ import type {
   OffisimGraphState,
   PendingAssignment,
   RunScope,
+  StepResult,
   StepTaskOutput,
   TaskPlan,
 } from '../graph/state.js';
@@ -139,6 +140,7 @@ interface ScenarioInitialState {
   readonly taskPlan?: TaskPlan;
   readonly pendingAssignments?: readonly PendingAssignment[];
   readonly currentStepOutputs?: readonly StepTaskOutput[];
+  readonly stepResults?: readonly StepResult[];
   readonly recentToolResults?: OffisimGraphState['recentToolResults'];
   readonly dispatchedStepIndices?: readonly number[];
   readonly completedStepIndices?: readonly number[];
@@ -835,7 +837,7 @@ function buildInitialState(
     completedStepIndices: [...(scenario.initialState.completedStepIndices ?? [])],
     blockedStepIndices: [...(scenario.initialState.blockedStepIndices ?? [])],
     currentStepIndex: scenario.initialState.currentStepIndex ?? 0,
-    stepResults: [],
+    stepResults: [...(scenario.initialState.stepResults ?? [])],
     routeDecision: scenario.initialState.routeDecision ?? null,
     completed: false,
   };

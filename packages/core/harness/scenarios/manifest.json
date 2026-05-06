@@ -56,6 +56,22 @@
       ]
     },
     {
+      "id": "boss-summary-uses-step-results-after-step-advance",
+      "category": "graph",
+      "invariants": [
+        "graph.boss_summary_uses_persisted_step_results",
+        "graph.boss_summary_does_not_drop_completed_outputs"
+      ]
+    },
+    {
+      "id": "boss-summary-single-artifact-output",
+      "category": "graph",
+      "invariants": [
+        "graph.boss_summary_uses_artifact_when_content_empty",
+        "graph.boss_summary_artifact_only_does_not_error"
+      ]
+    },
+    {
       "id": "step-advance-segregates-blocked-from-completed",
       "category": "graph",
       "invariants": [

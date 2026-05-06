@@ -76,6 +76,13 @@
       }
     ]
   },
+  "llmTurns": [
+    {
+      "id": "boss-summary-dag-outputs",
+      "match": { "contains": "A_OUTPUT" },
+      "content": "Ada produced A_OUTPUT and Ben produced B_OUTPUT."
+    }
+  ],
   "runs": [{ "startAt": "step_advance" }],
   "assertions": [
     { "kind": "stepContainsOnly", "stepIndex": 0, "contains": ["A_OUTPUT"] },

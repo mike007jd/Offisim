@@ -260,15 +260,8 @@ interface WorkspaceBinding {
 async function workspaceBindingsFor(
   repos: RuntimeRepositories,
   companyId: string,
-  companyRoot: string | null,
 ): Promise<WorkspaceBinding[]> {
   const roots = new Map<string, WorkspaceBinding>();
-  if (companyRoot?.trim()) {
-    roots.set(`company:${companyRoot.trim()}`, {
-      projectId: null,
-      root: companyRoot.trim(),
-    });
-  }
   const projects = await repos.projects.findActiveByCompany(companyId);
   for (const project of projects) {
     const root = project.workspace_root?.trim();
@@ -284,7 +277,6 @@ interface WorkspaceRootResolverDeps {
   repos: RuntimeRepositories;
   eventBus: EventBus;
   companyId: string;
-  companyRoot: string | null;
   emittedBindingMisses: Set<string>;
 }
 
@@ -350,7 +342,7 @@ async function optionalWorkspaceBindingForThread(
   );
   if (binding?.root) return binding;
 
-  const roots = await workspaceBindingsFor(deps.repos, deps.companyId, deps.companyRoot);
+  const roots = await workspaceBindingsFor(deps.repos, deps.companyId);
   return roots.length === 1 ? roots[0] : undefined;
 }
 
@@ -362,8 +354,8 @@ async function defaultWorkspaceBinding(
   const projectBinding = await projectWorkspaceBindingForThread(deps, threadId, consumer);
   if (projectBinding) return projectBinding;
 
-  const { repos, companyId, companyRoot } = deps;
-  const roots = await workspaceBindingsFor(repos, companyId, companyRoot);
+  const { repos, companyId } = deps;
+  const roots = await workspaceBindingsFor(repos, companyId);
   const projectRoots = roots.filter((binding) => binding.projectId !== null);
   if (projectRoots.length === 1 && projectRoots[0]) return projectRoots[0];
   if (roots.length === 1 && roots[0]) return roots[0];
@@ -651,7 +643,6 @@ export async function createTauriRuntime(
     repos,
     eventBus,
     companyId,
-    companyRoot: company.workspace_root,
     emittedBindingMisses: new Set(),
   };
   const attachmentStore = new TauriAttachmentStore();

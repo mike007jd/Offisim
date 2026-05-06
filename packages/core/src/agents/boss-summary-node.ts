@@ -101,6 +101,22 @@ function blockedPlanSummaryText(stats: ReturnType<typeof planCompletionStats>): 
   return `Plan is blocked after ${stats.blocked} blocked step(s).${pendingText} This is not complete.`;
 }
 
+function getSummaryStepOutputs(state: OffisimGraphState): OffisimGraphState['currentStepOutputs'] {
+  if (state.currentStepOutputs.length > 0) {
+    return state.currentStepOutputs;
+  }
+  return state.stepResults.flatMap((result) => result.outputs);
+}
+
+function stepOutputContentForSummary(
+  output: OffisimGraphState['currentStepOutputs'][number],
+): string {
+  if (output.content.trim().length > 0) {
+    return output.content;
+  }
+  return output.artifact?.content ?? '';
+}
+
 /**
  * Boss summary node — produces the final summary after employee work
  * or after an error handler. Marks the graph as completed.
@@ -185,9 +201,10 @@ export async function bossSummaryNode(
   // message content filtering (which can misidentify error/meeting messages).
   // Fall back to message filtering for meeting flow which doesn't populate stepOutputs.
   const EXCLUDED_PREFIXES = ['[Error Handler]', '[Meeting]'];
+  const summaryStepOutputs = getSummaryStepOutputs(state);
   const employeeResults =
-    state.currentStepOutputs.length > 0
-      ? state.currentStepOutputs.map((o) => `[${o.employeeName}]: ${o.content}`)
+    summaryStepOutputs.length > 0
+      ? summaryStepOutputs.map((o) => `[${o.employeeName}]: ${stepOutputContentForSummary(o)}`)
       : state.messages
           .filter((m) => m._getType() === 'ai')
           .map((m) => (typeof m.content === 'string' ? m.content : ''))
@@ -195,8 +212,8 @@ export async function bossSummaryNode(
             (c) => c.startsWith('[') && !EXCLUDED_PREFIXES.some((prefix) => c.startsWith(prefix)),
           );
   const employeeFinalOutputs =
-    state.currentStepOutputs.length > 0
-      ? state.currentStepOutputs.map((o) => o.content)
+    summaryStepOutputs.length > 0
+      ? summaryStepOutputs.map(stepOutputContentForSummary)
       : employeeResults.map(stripLegacySpeakerPrefix);
 
   const stats = planCompletionStats(state);
@@ -277,8 +294,8 @@ export async function bossSummaryNode(
 
   // Helper: emit deliverable event when there are actual employee outputs
   const emitDeliverable = (finalContent: string) => {
-    if (!runtimeCtx || state.currentStepOutputs.length === 0) return;
-    const contributingEmployees = state.currentStepOutputs.map((o) => ({
+    if (!runtimeCtx || summaryStepOutputs.length === 0) return;
+    const contributingEmployees = summaryStepOutputs.map((o) => ({
       employeeId: o.employeeId,
       employeeName: o.employeeName,
       sourceKind: o.sourceKind,
@@ -311,7 +328,7 @@ export async function bossSummaryNode(
       throw new Error('Expected a single employee result for boss summary fast path');
     }
     const content = firstEmployeeResult + actionItemsSuffix;
-    const existingArtifact = state.currentStepOutputs[0]?.artifact;
+    const existingArtifact = summaryStepOutputs[0]?.artifact;
     const inferredFile = inferDeliverableFile(state.taskPlan?.summary ?? '', content);
     if (!existingArtifact && !inferredFile) {
       emitDeliverable(content);
