@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureRuntimeBuild } from './harness-lib.mjs';
@@ -26,6 +26,7 @@ for (const file of files) {
 }
 
 await ensureRuntimeBuild({ force: process.argv.includes('--force-build') });
+ensureDesktopAgentHosts();
 const core = await import(new URL('../packages/core/dist/index.js', import.meta.url).href);
 const sharedKanban = await import(
   new URL('../packages/shared-types/dist/kanban.js', import.meta.url).href
@@ -162,6 +163,34 @@ function assertDesktopBuiltinToolScenarios() {
     );
   }
   return scenarioIds.map((id) => ({ id: `desktop.${id.replaceAll('-', '_')}`, passed: true }));
+}
+
+function ensureDesktopAgentHosts() {
+  const resourcesDir = resolve(ROOT, 'apps/desktop/src-tauri/resources');
+  const hosts = [
+    {
+      file: resolve(resourcesDir, 'claude-agent-host.mjs'),
+      script: resolve(ROOT, 'scripts/build-claude-agent-host.mjs'),
+    },
+    {
+      file: resolve(resourcesDir, 'codex-agent-host.mjs'),
+      script: resolve(ROOT, 'scripts/build-codex-agent-host.mjs'),
+    },
+  ];
+  for (const host of hosts) {
+    if (existsSync(host.file)) continue;
+    const result = spawnSync(process.execPath, [host.script], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    if (result.status !== 0) {
+      throw new Error(
+        [`failed to build desktop agent host ${host.file}`, result.stdout, result.stderr]
+          .filter(Boolean)
+          .join('\n'),
+      );
+    }
+  }
 }
 
 function assertKanbanStateMachineSsot(sharedKanban) {

@@ -1,4 +1,8 @@
-import type { ResolvedModel, RuntimeMemoryPolicy } from '@offisim/shared-types';
+import {
+  parseEmployeeConfig,
+  type ResolvedModel,
+  type RuntimeMemoryPolicy,
+} from '@offisim/shared-types';
 import { GraphError } from '../errors.js';
 import {
   employeeStateChanged,
@@ -45,6 +49,23 @@ export type PreflightOutcome =
   | { kind: 'early-return'; stateUpdate: Partial<OffisimGraphState> }
   | { kind: 'continue'; preflight: PreflightResult };
 
+function resolveEmployeeModel(
+  runtimeCtx: RuntimeContext,
+  employee: Pick<EmployeeRow, 'config_json' | 'role_slug'>,
+): ResolvedModel {
+  const roleResolved = runtimeCtx.modelResolver.resolve(null, employee.role_slug);
+  const config = parseEmployeeConfig(employee.config_json);
+  const modelPreference = config.modelPreference?.trim();
+  if (!modelPreference) return roleResolved;
+  const registryEntry = runtimeCtx.modelRegistry?.findById(modelPreference);
+  return {
+    provider: registryEntry?.provider ?? roleResolved.provider,
+    model: registryEntry?.model ?? modelPreference,
+    temperature: config.temperature ?? registryEntry?.temperature ?? roleResolved.temperature,
+    maxTokens: config.maxTokens ?? registryEntry?.maxTokens ?? roleResolved.maxTokens,
+  };
+}
+
 /**
  * Pre-LLM setup pipeline for the employee node:
  *  1. Emit `graph.node.entered`
@@ -62,7 +83,7 @@ export async function runPreflight(
     graphNodeEntered(runtimeCtx.companyId, state.threadId, 'employee', runScope),
   );
 
-  const { modelResolver, repos, eventBus, companyId, threadId } = runtimeCtx;
+  const { repos, eventBus, companyId, threadId } = runtimeCtx;
 
   const remaining = [...state.pendingAssignments];
   const assignment = remaining.shift();
@@ -214,7 +235,7 @@ export async function runPreflight(
     ),
   );
 
-  const resolved = modelResolver.resolve(null, employee.role_slug);
+  const resolved = resolveEmployeeModel(runtimeCtx, employee);
   const requiredSkillsRaw = (assignment.inputJson as Record<string, unknown>).requiredSkills;
   const requiredSkills = Array.isArray(requiredSkillsRaw)
     ? (requiredSkillsRaw as unknown[]).filter(

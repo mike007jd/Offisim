@@ -68,6 +68,29 @@
       }
     },
     {
+      "sourceId": "openrouter-live",
+      "sourceKind": "provider-live-api",
+      "trustTier": "community",
+      "refreshMode": "remote-json",
+      "ownedFields": [
+        "provider.communityDisplayName",
+        "provider.communityDocsUrl",
+        "model.displayName",
+        "model.contextWindow",
+        "model.maxOutputTokens",
+        "model.pricing",
+        "model.capabilities",
+        "model.supportedEndpoints"
+      ],
+      "supportsProviders": [
+        "openrouter"
+      ],
+      "config": {
+        "modelsUrl": "https://openrouter.ai/api/v1/models",
+        "providersUrl": "https://openrouter.ai/providers"
+      }
+    },
+    {
       "sourceId": "offisim-curated-overrides",
       "sourceKind": "curated-override",
       "trustTier": "override",

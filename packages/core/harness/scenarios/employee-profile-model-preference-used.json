@@ -1,0 +1,72 @@
+{
+  "id": "employee-profile-model-preference-used",
+  "category": "interaction-modes",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": {
+      "companyId": "company-employee-profile-model",
+      "name": "Employee Model Preference Co"
+    },
+    "thread": { "threadId": "thread-employee-profile-model", "status": "running" },
+    "employees": [
+      {
+        "id": "emp-profile-model",
+        "name": "Profile Model Worker",
+        "role": "engineer",
+        "config": {
+          "modelPreference": "employee-special-model",
+          "temperature": 0.1,
+          "maxTokens": 1234
+        }
+      }
+    ],
+    "taskRuns": [
+      {
+        "id": "task-profile-model",
+        "employeeId": "emp-profile-model",
+        "taskType": "general",
+        "input": {
+          "description": "Confirm the configured employee model was used."
+        }
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "general",
+        "employeeId": "emp-profile-model",
+        "assigneeKind": "employee",
+        "assigneeName": "Profile Model Worker",
+        "taskRunId": "task-profile-model",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Confirm the configured employee model was used.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-profile-model-response",
+      "match": { "contains": "Confirm the configured employee model was used." },
+      "content": "Configured employee model preference was used."
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-profile-model", "status": "completed" },
+    {
+      "kind": "llmCallMatches",
+      "nodeName": "employee",
+      "provider": "openai-compat",
+      "model": "employee-special-model",
+      "count": 1
+    },
+    { "kind": "finalOutputContains", "contains": "Configured employee model preference" }
+  ]
+}

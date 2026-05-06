@@ -82,6 +82,7 @@ export function StatusBar({
         tasksCount={metrics.activeTaskCount}
         employeesActive={metrics.employeeUtilization.active}
         employeesTotal={metrics.employeeUtilization.total}
+        isRunning={isRunning}
       />
 
       <ResourcesSegment
@@ -180,14 +181,16 @@ function WorkSegment({
   tasksCount,
   employeesActive,
   employeesTotal,
+  isRunning,
 }: {
   headline: string | null | undefined;
   toolsCount: number;
   tasksCount: number;
   employeesActive: number;
   employeesTotal: number;
+  isRunning: boolean;
 }) {
-  const hasCluster = toolsCount > 0 || tasksCount > 0 || employeesTotal > 0;
+  const hasCluster = toolsCount > 0 || tasksCount > 0 || (isRunning && employeesTotal > 0);
   if (!headline && !hasCluster) return null;
   return (
     <div className={`${SEGMENT_BASE_CLS} relative z-10 min-w-0 flex-1 justify-center`}>
@@ -204,6 +207,7 @@ function WorkSegment({
           tasksCount={tasksCount}
           employeesActive={employeesActive}
           employeesTotal={employeesTotal}
+          isRunning={isRunning}
         />
       )}
     </div>
@@ -215,11 +219,13 @@ function WorkCluster({
   tasksCount,
   employeesActive,
   employeesTotal,
+  isRunning,
 }: {
   toolsCount: number;
   tasksCount: number;
   employeesActive: number;
   employeesTotal: number;
+  isRunning: boolean;
 }) {
   const parts: { key: string; text: string; title: string }[] = [];
   if (toolsCount > 0) {
@@ -236,7 +242,7 @@ function WorkCluster({
       title: `${tasksCount} active tasks`,
     });
   }
-  if (employeesTotal > 0) {
+  if (isRunning && employeesTotal > 0) {
     parts.push({
       key: 'employees',
       text: `${employeesActive}/${employeesTotal}P`,

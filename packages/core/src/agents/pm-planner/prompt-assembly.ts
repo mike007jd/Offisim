@@ -6,6 +6,8 @@ import { buildAttachmentSystemPreface } from '../attachment-preface.js';
 import { buildEnrichedEmployeeList } from '../employee-roster.js';
 import type { PmPreflightReady } from '../pm-planner-types.js';
 
+const PM_PLANNING_TIMEOUT_MS = 45_000;
+
 /** @internal — exported for testing */
 export const PM_SYSTEM_PROMPT = `You are the PM AI — responsible for breaking down work into structured execution plans.
 
@@ -99,8 +101,9 @@ export async function generatePmLlmContent(
       ],
       model: resolved.model,
       temperature: resolved.temperature,
-      maxTokens: resolved.maxTokens,
+      maxTokens: Math.min(resolved.maxTokens, 2048),
       signal: getConfigSignal(config),
+      timeoutMs: PM_PLANNING_TIMEOUT_MS,
     },
     { nodeName: 'pm_planner', provider: resolved.provider, model: resolved.model },
   );

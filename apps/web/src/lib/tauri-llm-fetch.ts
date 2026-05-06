@@ -16,6 +16,8 @@ export type AuthScheme = 'bearer' | 'x-api-key' | 'none';
 export interface TauriLlmFetchOptions {
   /** Override the header name when scheme === 'x-api-key'. */
   headerName?: string;
+  /** Named Rust-side credential slot. The secret value never crosses IPC. */
+  secretRef?: string;
 }
 
 type TransportEvent =
@@ -222,6 +224,7 @@ export function createTauriLlmFetch(
         auth: {
           scheme,
           ...(headerName ? { headerName } : {}),
+          ...(opts.secretRef ? { secretRef: opts.secretRef } : {}),
         },
       },
       onEvent: channel,

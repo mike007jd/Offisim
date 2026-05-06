@@ -117,6 +117,13 @@ function stepOutputContentForSummary(
   return output.artifact?.content ?? '';
 }
 
+function emptySingleEmployeeSummaryText(
+  output: OffisimGraphState['currentStepOutputs'][number] | undefined,
+): string {
+  const employeeName = output?.employeeName?.trim() || 'Employee';
+  return `${employeeName} completed the assigned work but did not return text output.`;
+}
+
 /**
  * Boss summary node — produces the final summary after employee work
  * or after an error handler. Marks the graph as completed.
@@ -323,10 +330,8 @@ export async function bossSummaryNode(
 
   // Single employee result — no need for LLM summary
   if (employeeResults.length === 1) {
-    const firstEmployeeResult = employeeFinalOutputs[0];
-    if (!firstEmployeeResult) {
-      throw new Error('Expected a single employee result for boss summary fast path');
-    }
+    const firstEmployeeResult =
+      employeeFinalOutputs[0]?.trim() || emptySingleEmployeeSummaryText(summaryStepOutputs[0]);
     const content = firstEmployeeResult + actionItemsSuffix;
     const existingArtifact = summaryStepOutputs[0]?.artifact;
     const inferredFile = inferDeliverableFile(state.taskPlan?.summary ?? '', content);

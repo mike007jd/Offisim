@@ -73,6 +73,60 @@ function normalizeErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function buildSemanticFailure(category, message, source = 'provider') {
+  return {
+    source,
+    category,
+    statusCode: null,
+    message,
+  };
+}
+
+function validateHarnessContent(content, options, source = 'provider') {
+  const text = typeof content === 'string' ? content.trim() : '';
+  if (!text) {
+    return buildSemanticFailure(
+      `${source}.empty-content`,
+      'Provider returned an empty content string.',
+      source,
+    );
+  }
+
+  if (options.messageCase === 'json') {
+    const stripped = text
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+    try {
+      const parsed = JSON.parse(stripped);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return buildSemanticFailure(
+          `${source}.invalid-json`,
+          'Provider JSON response was not an object.',
+          source,
+        );
+      }
+      for (const key of ['status', 'runTag', 'provider', 'summary']) {
+        if (typeof parsed[key] !== 'string' || !parsed[key].trim()) {
+          return buildSemanticFailure(
+            `${source}.invalid-json`,
+            `Provider JSON response is missing string key "${key}".`,
+            source,
+          );
+        }
+      }
+    } catch (error) {
+      return buildSemanticFailure(
+        `${source}.invalid-json`,
+        `Provider did not return strict JSON: ${normalizeErrorMessage(error)}`,
+        source,
+      );
+    }
+  }
+
+  return null;
+}
+
 function getErrorStatusCode(error) {
   if (!error || typeof error !== 'object') return undefined;
   return typeof error.statusCode === 'number' ? error.statusCode : undefined;
@@ -443,6 +497,18 @@ export async function runGatewayRequest(options, gatewayOverride) {
     gateway ??= await createGatewayHarness(options);
     if (!options.stream) {
       const response = await gateway.chat(request);
+      const semanticFailure = validateHarnessContent(response.content, options, 'provider');
+      if (semanticFailure) {
+        return {
+          ok: false,
+          content: response.content,
+          toolCalls: response.toolCalls,
+          usage: response.usage,
+          error: semanticFailure.message,
+          failure: semanticFailure,
+          latencyMs: Number((performance.now() - startedAt).toFixed(1)),
+        };
+      }
       return {
         ok: true,
         content: response.content,
@@ -458,6 +524,18 @@ export async function runGatewayRequest(options, gatewayOverride) {
       if (chunk.content) content += chunk.content;
       if (chunk.toolCalls?.length) toolCalls.push(...chunk.toolCalls);
       if (chunk.usage) usage = chunk.usage;
+    }
+    const semanticFailure = validateHarnessContent(content, options, 'provider');
+    if (semanticFailure) {
+      return {
+        ok: false,
+        content,
+        toolCalls,
+        usage: usage ?? null,
+        error: semanticFailure.message,
+        failure: semanticFailure,
+        latencyMs: Number((performance.now() - startedAt).toFixed(1)),
+      };
     }
     return {
       ok: true,
@@ -586,9 +664,23 @@ export async function runRuntimeRequest(options, runtimeOverride) {
       targetEmployeeId: runtime.employeeId,
       threadId: runtime.threadId,
     });
+    const content = extractLatestAssistantText(result.messages);
+    const semanticFailure = validateHarnessContent(content, options, 'offisim-runtime');
+    if (semanticFailure) {
+      return {
+        ok: false,
+        content,
+        messageCount: Array.isArray(result.messages) ? result.messages.length : 0,
+        error: semanticFailure.message,
+        failure: semanticFailure,
+        latencyMs: Number((performance.now() - startedAt).toFixed(1)),
+        threadId: runtime.threadId,
+        employeeId: runtime.employeeId,
+      };
+    }
     return {
       ok: true,
-      content: extractLatestAssistantText(result.messages),
+      content,
       messageCount: Array.isArray(result.messages) ? result.messages.length : 0,
       latencyMs: Number((performance.now() - startedAt).toFixed(1)),
       threadId: runtime.threadId,

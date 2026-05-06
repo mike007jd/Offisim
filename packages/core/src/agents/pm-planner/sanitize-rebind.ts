@@ -77,29 +77,40 @@ export function sanitizePlanEmployees(
     ...plan,
     steps: plan.steps.map((step) => ({
       ...step,
-      tasks: step.tasks.map((task) => {
-        if (validIds.has(task.employeeId)) return task;
-        const resolved = pickResolvedEmployee(validEmployees, ctx.recommendedEmployees);
-        if (!resolved) return task;
-        const reason = classifyDropReason(
-          task.employeeId,
-          ctx.allEmployees,
-          resolved.usedRecommendation,
-        );
-        // The LLM plan tasks have no taskRunId yet; persistence assigns one after rebind.
-        // Synthetic ID makes the rerouted event identifiable in the activity feed.
-        emitAssignmentRerouted({
-          companyId: ctx.companyId,
-          threadId: ctx.threadId,
-          taskRunId: `pm:${ctx.threadId}:${step.stepIndex}`,
-          requestedEmployeeId: task.employeeId,
-          resolvedEmployeeId: resolved.id,
-          reason,
-          source: 'pm-planner',
-          eventBus: ctx.eventBus,
-        });
-        return { ...task, employeeId: resolved.id };
-      }),
+      tasks: dedupeStepEmployeeTasks(
+        step.tasks.map((task) => {
+          if (validIds.has(task.employeeId)) return task;
+          const resolved = pickResolvedEmployee(validEmployees, ctx.recommendedEmployees);
+          if (!resolved) return task;
+          const reason = classifyDropReason(
+            task.employeeId,
+            ctx.allEmployees,
+            resolved.usedRecommendation,
+          );
+          // The LLM plan tasks have no taskRunId yet; persistence assigns one after rebind.
+          // Synthetic ID makes the rerouted event identifiable in the activity feed.
+          emitAssignmentRerouted({
+            companyId: ctx.companyId,
+            threadId: ctx.threadId,
+            taskRunId: `pm:${ctx.threadId}:${step.stepIndex}`,
+            requestedEmployeeId: task.employeeId,
+            resolvedEmployeeId: resolved.id,
+            reason,
+            source: 'pm-planner',
+            eventBus: ctx.eventBus,
+          });
+          return { ...task, employeeId: resolved.id };
+        }),
+      ),
     })),
   };
+}
+
+function dedupeStepEmployeeTasks(tasks: LlmPlan['steps'][number]['tasks']) {
+  const seen = new Set<string>();
+  return tasks.filter((task) => {
+    if (seen.has(task.employeeId)) return false;
+    seen.add(task.employeeId);
+    return true;
+  });
 }

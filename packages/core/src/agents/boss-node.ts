@@ -618,6 +618,17 @@ export async function bossNode(
     messages: [new AIMessage({ content: messageContent })],
     taskToolIntent,
     ...(projectId !== (state.projectId ?? null) ? { projectId } : {}),
+    ...(route === 'delegate_manager'
+      ? {
+          managerDirective: {
+            intent: userContent,
+            recommendedEmployees: [],
+            ...(decision?.action === 'use_sop' && decision.sopTemplateId
+              ? { sopTemplateId: decision.sopTemplateId }
+              : {}),
+          },
+        }
+      : {}),
     // For direct_delegate, set targetEmployeeId so employee_direct_setup can use it
     ...(route === 'direct_delegate' && decision?.targetEmployeeId
       ? { targetEmployeeId: decision.targetEmployeeId }

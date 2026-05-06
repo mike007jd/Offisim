@@ -27,6 +27,8 @@ interface ManagerDecision {
   assignments: LlmAssignment[];
 }
 
+const MANAGER_ROUTING_TIMEOUT_MS = 45_000;
+
 /** @internal — exported for testing */
 export const MANAGER_SYSTEM_PROMPT = `You are the Manager AI — responsible for task splitting and employee assignment.
 
@@ -59,6 +61,46 @@ Rules:
 - Each assignment must reference a valid employee ID`;
 
 const VALID_INTENTS = new Set(['work', 'hire', 'assess_team']);
+
+function isAbortLikeError(error: unknown, signal: AbortSignal | undefined): boolean {
+  if (signal?.aborted) return true;
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /\babort(?:ed)?\b/i.test(message);
+}
+
+function shouldDelegateWholeTeam(userContent: string, employeeCount: number): boolean {
+  if (employeeCount <= 1) return false;
+  return (
+    /\b(all|everyone|whole team|entire team|all employees|team-wide)\b/i.test(userContent) ||
+    /全员|所有员工|整个团队|全团队|共同合作|一起合作|分成\s*[一二三四五六七八九十0-9]+\s*组/u.test(
+      userContent,
+    ) ||
+    new RegExp(`\\b${employeeCount}\\s*(employees|people|members)\\b`, 'i').test(userContent) ||
+    new RegExp(`${employeeCount}\\s*(个|位)?\\s*(员工|成员|人)`, 'u').test(userContent)
+  );
+}
+
+function buildWholeTeamDecision(
+  employees: readonly { employee_id: string; role_slug: string }[],
+  userContent: string,
+): ManagerDecision {
+  return {
+    intent: 'work',
+    assignments: employees.map((employee) => ({
+      taskType: employee.role_slug.includes('design')
+        ? 'design'
+        : employee.role_slug.includes('review') || employee.role_slug.includes('qa')
+          ? 'review'
+          : employee.role_slug.includes('manager')
+            ? 'analysis'
+            : 'general',
+      employeeId: employee.employee_id,
+      description: userContent,
+    })),
+  };
+}
 
 function parseManagerDecision(content: string): ManagerDecision | null {
   const parsed = extractJsonFromLlm(content) as Record<string, unknown> | null;
@@ -122,9 +164,10 @@ export async function managerNode(
   const lastUserMessage = [...state.messages].reverse().find((m) => m._getType() === 'human');
 
   const userContent =
-    typeof lastUserMessage?.content === 'string'
+    state.managerDirective?.intent ||
+    (typeof lastUserMessage?.content === 'string'
       ? lastUserMessage.content
-      : 'No user message found';
+      : 'No user message found');
   const taskToolIntent = state.taskToolIntent ?? detectTaskToolIntent(userContent);
   if (localToolsRequireGatewayLane(runtimeCtx, taskToolIntent)) {
     return localToolsGatewayLaneOutcomeState(state, taskToolIntent);
@@ -142,6 +185,9 @@ export async function managerNode(
 
   const employeeList = buildEnrichedEmployeeList(nonManagerEmployees);
   const attachmentPreface = buildAttachmentSystemPreface(runtimeCtx, runScope);
+  const wholeTeamDecision = shouldDelegateWholeTeam(userContent, nonManagerEmployees.length)
+    ? buildWholeTeamDecision(nonManagerEmployees, userContent)
+    : null;
 
   // --- Rule-based fast path: single employee, simple delegation ---
   // When there's exactly one assignable employee AND the request is clearly work
@@ -175,31 +221,66 @@ export async function managerNode(
     };
   }
 
+  if (wholeTeamDecision) {
+    await appendAgentEvent(runtimeCtx, {
+      projectId: state.projectId,
+      threadId: state.threadId,
+      agentName: 'manager',
+      eventType: 'decision',
+      payload: {
+        intent: 'work',
+        assignmentCount: wholeTeamDecision.assignments.length,
+        fastPath: 'whole-team',
+      },
+    });
+    runtimeCtx.scratchpad.write(
+      `manager.assignment.${state.threadId}`,
+      `Whole-team delegation to ${wholeTeamDecision.assignments
+        .map((assignment) => assignment.employeeId)
+        .join(', ')} for: ${userContent}`,
+      'manager',
+    );
+    return {
+      managerDirective: {
+        intent: userContent,
+        recommendedEmployees: wholeTeamDecision.assignments.map((a) => a.employeeId),
+        sopTemplateId: state.selectedSopTemplateId ?? undefined,
+      },
+    };
+  }
+
   // Reasoning-only stream: partial JSON in the content channel would corrupt the UI;
   // decision is parsed from fullContent after close (byte-identical to non-stream).
-  const routingStreamResult = await recordedLlmStream(
-    runtimeCtx,
-    {
-      messages: [
-        {
-          role: 'system',
-          content: `${MANAGER_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}${attachmentPreface}`,
-        },
-        { role: 'user', content: userContent },
-      ],
-      model: resolved.model,
-      temperature: resolved.temperature,
-      maxTokens: resolved.maxTokens,
-      signal: getConfigSignal(config),
-    },
-    { nodeName: 'manager', provider: resolved.provider, model: resolved.model },
-    forwardStreamChunks(runtimeCtx, state.threadId, 'manager', {
-      content: false,
-      runScope,
-    }),
-  );
-
-  let decision = parseManagerDecision(routingStreamResult.fullContent);
+  const signal = getConfigSignal(config);
+  let decision: ManagerDecision | null = null;
+  try {
+    const routingStreamResult = await recordedLlmStream(
+      runtimeCtx,
+      {
+        messages: [
+          {
+            role: 'system',
+            content: `${MANAGER_SYSTEM_PROMPT}\n\nAvailable employees:\n${employeeList}${attachmentPreface}`,
+          },
+          { role: 'user', content: userContent },
+        ],
+        model: resolved.model,
+        temperature: resolved.temperature,
+        maxTokens: Math.min(resolved.maxTokens, 1024),
+        signal,
+        timeoutMs: MANAGER_ROUTING_TIMEOUT_MS,
+      },
+      { nodeName: 'manager', provider: resolved.provider, model: resolved.model },
+      forwardStreamChunks(runtimeCtx, state.threadId, 'manager', {
+        content: false,
+        runScope,
+      }),
+    );
+    decision = parseManagerDecision(routingStreamResult.fullContent);
+  } catch (error) {
+    if (isAbortLikeError(error, signal)) throw error;
+    decision = null;
+  }
   const validEmployeeIds = new Set(nonManagerEmployees.map((employee) => employee.employee_id));
   const droppedAssignments: LlmAssignment[] = [];
   if (decision?.intent === 'work') {
@@ -221,17 +302,7 @@ export async function managerNode(
     nonManagerEmployees.length > 0
   ) {
     fallbackTriggered = true;
-    decision = {
-      intent: 'work',
-      assignments: [
-        {
-          taskType: 'general',
-          // biome-ignore lint/style/noNonNullAssertion: length > 0 checked above
-          employeeId: nonManagerEmployees[0]!.employee_id,
-          description: userContent,
-        },
-      ],
-    };
+    decision = buildWholeTeamDecision(nonManagerEmployees, userContent);
   }
 
   // Emit task.assignment.rerouted for every silently-overridden LLM pick.

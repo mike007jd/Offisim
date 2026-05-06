@@ -39,6 +39,7 @@ if (!Number.isFinite(concurrency) || concurrency <= 0) {
 
 const runOptionsFor = (index) => ({
   ...options,
+  messageCase,
   message: buildMessageCase(messageCase, options.message, index),
 });
 

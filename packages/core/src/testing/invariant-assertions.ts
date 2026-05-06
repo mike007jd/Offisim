@@ -13,6 +13,8 @@ export type ScenarioAssertion =
   | { readonly kind: 'threadStatusIs'; readonly status: string }
   | { readonly kind: 'taskRunStatusIs'; readonly taskRunId: string; readonly status: string }
   | { readonly kind: 'taskRunsExcludeEmployee'; readonly employeeId: string }
+  | { readonly kind: 'taskRunsIncludeEmployees'; readonly employeeIds: readonly string[] }
+  | { readonly kind: 'taskRunsExactlyEmployees'; readonly employeeIds: readonly string[] }
   | { readonly kind: 'taskStateEvent'; readonly taskRunId: string; readonly next: string }
   | {
       readonly kind: 'interactionHistoryContains';
@@ -40,6 +42,13 @@ export type ScenarioAssertion =
     }
   | { readonly kind: 'toolExecutions'; readonly count: number }
   | { readonly kind: 'llmCalls'; readonly count: number }
+  | {
+      readonly kind: 'llmCallMatches';
+      readonly nodeName?: string;
+      readonly provider?: string;
+      readonly model?: string;
+      readonly count?: number;
+    }
   | { readonly kind: 'firstGraphNodeIs'; readonly nodeName: string }
   | {
       readonly kind: 'kanbanCards';
@@ -171,6 +180,10 @@ async function evaluateAssertion(
       return assertTaskRunStatus(ctx.repos, assertion.taskRunId, assertion.status);
     case 'taskRunsExcludeEmployee':
       return assertTaskRunsExcludeEmployee(ctx.repos, ctx.threadId, assertion.employeeId);
+    case 'taskRunsIncludeEmployees':
+      return assertTaskRunsIncludeEmployees(ctx.repos, ctx.threadId, assertion.employeeIds);
+    case 'taskRunsExactlyEmployees':
+      return assertTaskRunsExactlyEmployees(ctx.repos, ctx.threadId, assertion.employeeIds);
     case 'taskStateEvent':
       return assertTaskStateEvent(ctx.events, assertion);
     case 'interactionHistoryContains':
@@ -187,6 +200,8 @@ async function evaluateAssertion(
       return assertToolExecutions(ctx.toolExecutions, assertion.count);
     case 'llmCalls':
       return assertLlmCalls(ctx.repos, ctx.threadId, assertion.count);
+    case 'llmCallMatches':
+      return assertLlmCallMatches(ctx.repos, ctx.threadId, assertion);
     case 'firstGraphNodeIs':
       return assertFirstGraphNode(ctx.events, assertion.nodeName);
     case 'kanbanCards':
@@ -546,6 +561,51 @@ async function assertTaskRunsExcludeEmployee(
   }
 }
 
+async function assertTaskRunsIncludeEmployees(
+  repos: RuntimeRepositories,
+  threadId: string,
+  employeeIds: readonly string[],
+): Promise<void> {
+  const taskRuns = await repos.taskRuns.findByThread(threadId);
+  const assigned = new Set(taskRuns.map((taskRun) => taskRun.employee_id));
+  const missing = employeeIds.filter((employeeId) => !assigned.has(employeeId));
+  if (missing.length > 0) {
+    throw new Error(`Expected task runs for employees ${missing.join(', ')}`);
+  }
+}
+
+async function assertTaskRunsExactlyEmployees(
+  repos: RuntimeRepositories,
+  threadId: string,
+  employeeIds: readonly string[],
+): Promise<void> {
+  const taskRuns = await repos.taskRuns.findByThread(threadId);
+  const expected = new Set(employeeIds);
+  const counts = new Map<string, number>();
+  for (const taskRun of taskRuns) {
+    if (!taskRun.employee_id) continue;
+    counts.set(taskRun.employee_id, (counts.get(taskRun.employee_id) ?? 0) + 1);
+  }
+
+  const missing = employeeIds.filter((employeeId) => !counts.has(employeeId));
+  const unexpected = [...counts.keys()].filter((employeeId) => !expected.has(employeeId));
+  const duplicated = [...counts.entries()]
+    .filter(([employeeId, count]) => expected.has(employeeId) && count !== 1)
+    .map(([employeeId, count]) => `${employeeId}:${count}`);
+
+  if (missing.length > 0 || unexpected.length > 0 || duplicated.length > 0) {
+    throw new Error(
+      [
+        missing.length > 0 ? `missing=${missing.join(',')}` : null,
+        unexpected.length > 0 ? `unexpected=${unexpected.join(',')}` : null,
+        duplicated.length > 0 ? `duplicated=${duplicated.join(',')}` : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    );
+  }
+}
+
 function assertTaskStateEvent(
   events: readonly RuntimeEvent[],
   assertion: Extract<ScenarioAssertion, { kind: 'taskStateEvent' }>,
@@ -655,6 +715,28 @@ async function assertLlmCalls(
   const calls = await repos.llmCalls.findByThread(threadId);
   if (calls.length !== expected) {
     throw new Error(`Expected ${expected} LLM calls, got ${calls.length}`);
+  }
+}
+
+async function assertLlmCallMatches(
+  repos: RuntimeRepositories,
+  threadId: string,
+  assertion: Extract<ScenarioAssertion, { kind: 'llmCallMatches' }>,
+): Promise<void> {
+  const calls = await repos.llmCalls.findByThread(threadId);
+  const matches = calls.filter((call) => {
+    if (assertion.nodeName && call.node_name !== assertion.nodeName) return false;
+    if (assertion.provider && call.provider !== assertion.provider) return false;
+    if (assertion.model && call.model !== assertion.model) return false;
+    return true;
+  });
+  const expected = assertion.count ?? 1;
+  if (matches.length !== expected) {
+    throw new Error(
+      `Expected ${expected} matching LLM calls, got ${matches.length}: ${calls
+        .map((call) => `${call.node_name}:${call.provider}/${call.model}`)
+        .join(', ')}`,
+    );
   }
 }
 

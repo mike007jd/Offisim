@@ -78,10 +78,12 @@ export function surfaceInputProps(className = '') {
 export function formatCompatibilityLabel(value?: string) {
   switch (value) {
     case 'anthropic':
+    case 'anthropic-compatible':
       return 'Anthropic-compatible';
     case 'openai':
       return 'OpenAI';
     case 'openai-compat':
+    case 'openai-compatible':
       return 'OpenAI-compatible';
     case 'native':
       return 'Native transport';

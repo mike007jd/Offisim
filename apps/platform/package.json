@@ -22,13 +22,11 @@
     "drizzle-orm": "^0.45.1",
     "fflate": "^0.8.2",
     "hono": "^4.7.0",
-    "jose": "^6.2.1",
     "postgres": "^3.4.8",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "25.3.5",
-    "drizzle-kit": "^0.31.9",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   },

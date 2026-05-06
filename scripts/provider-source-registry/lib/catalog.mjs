@@ -465,6 +465,118 @@ export async function loadLiteLlmPayloads(source, options = {}) {
   return { models, providerSupport };
 }
 
+function normalizeOpenRouterSupportedEndpoints(model) {
+  const parameters = Array.isArray(model.supported_parameters)
+    ? new Set(model.supported_parameters.filter((value) => typeof value === 'string'))
+    : new Set();
+  const endpoints = ['chat_completions'];
+  if (parameters.has('tools')) {
+    endpoints.push('responses');
+  }
+  return sortStrings(endpoints);
+}
+
+function normalizeOpenRouterModelFields(model) {
+  const fields = {};
+  if (typeof model.name === 'string' && model.name.trim()) {
+    fields.displayName = model.name.trim();
+  }
+  if (hasNumber(model.context_length)) {
+    fields.contextWindow = model.context_length;
+  }
+  if (hasNumber(model.top_provider?.max_completion_tokens)) {
+    fields.maxOutputTokens = model.top_provider.max_completion_tokens;
+  }
+  const pricing = {};
+  const promptCost = Number.parseFloat(model.pricing?.prompt);
+  const completionCost = Number.parseFloat(model.pricing?.completion);
+  if (Number.isFinite(promptCost)) {
+    pricing.inputCostPerToken = promptCost;
+  }
+  if (Number.isFinite(completionCost)) {
+    pricing.outputCostPerToken = completionCost;
+  }
+  if (Object.keys(pricing).length > 0) {
+    fields.pricing = pricing;
+  }
+  const capabilities = {};
+  const parameters = Array.isArray(model.supported_parameters)
+    ? new Set(model.supported_parameters.filter((value) => typeof value === 'string'))
+    : new Set();
+  if (parameters.has('tools')) {
+    capabilities.functionCalling = true;
+  }
+  if (parameters.has('reasoning') || parameters.has('include_reasoning')) {
+    capabilities.reasoning = true;
+  }
+  if (Object.keys(capabilities).length > 0) {
+    fields.capabilities = capabilities;
+  }
+  fields.supportedEndpoints = normalizeOpenRouterSupportedEndpoints(model);
+  return fields;
+}
+
+export function normalizeOpenRouterSnapshot({ modelsPayload, source }) {
+  const snapshot = {
+    ...makeSourceMeta(source),
+    providers: {},
+    meta: {
+      routedModelCount: 0,
+      routedModelNamespaces: [],
+    },
+  };
+
+  const providerSnapshot = ensureProviderSnapshot(snapshot, 'openrouter-openai-general');
+  providerSnapshot.fields.communityDisplayName = 'OpenRouter';
+  providerSnapshot.fields.communityDocsUrl = 'https://openrouter.ai/docs';
+  providerSnapshot.fields.supportedEndpoints = ['chat_completions', 'responses'];
+  const namespaces = new Set();
+
+  for (const model of modelsPayload.data ?? []) {
+    if (!isRecord(model) || typeof model.id !== 'string' || !model.id.trim()) continue;
+    const modelId = model.id.trim();
+    const namespace = modelId.includes('/') ? modelId.split('/')[0] : modelId;
+    namespaces.add(namespace);
+    snapshot.meta.routedModelCount += 1;
+
+    const modelFields = normalizeOpenRouterModelFields(model);
+    if (Object.keys(modelFields).length === 0) continue;
+    const modelSnapshot = ensureModelSnapshot(providerSnapshot, modelId);
+    for (const [field, value] of Object.entries(modelFields)) {
+      modelSnapshot.fields[field] = clone(value);
+    }
+  }
+
+  snapshot.meta.routedModelNamespaces = sortStrings([...namespaces]);
+  return snapshot;
+}
+
+export async function loadOpenRouterPayloads(source, options = {}) {
+  const fixtureDir = options.fixtureDir;
+  if (fixtureDir) {
+    return {
+      modelsPayload: await readJson(resolve(fixtureDir, 'openrouter-models.json')),
+    };
+  }
+
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  if (typeof fetchImpl !== 'function') {
+    throw new Error('fetch is unavailable; pass options.fetchImpl or use fixtureDir');
+  }
+
+  const modelsUrl = source.config?.modelsUrl;
+  if (typeof modelsUrl !== 'string') {
+    throw new Error('openrouter-live source config must include modelsUrl');
+  }
+
+  const modelsResponse = await fetchImpl(modelsUrl);
+  if (!modelsResponse.ok) {
+    throw new Error(`Failed to fetch OpenRouter model catalog: ${modelsResponse.status}`);
+  }
+
+  return { modelsPayload: await modelsResponse.json() };
+}
+
 function compareSources(left, right) {
   return TRUST_RANK[left.trustTier] - TRUST_RANK[right.trustTier];
 }
@@ -587,11 +699,26 @@ function buildAllowedCatalogScope(...snapshots) {
   return { providerIds, modelIdsByProvider };
 }
 
+function addCatalogExpansionScope(scope, ...snapshots) {
+  for (const snapshot of snapshots) {
+    if (!snapshot) continue;
+    for (const [providerId, provider] of Object.entries(snapshot.providers ?? {})) {
+      if (!scope.providerIds.has(providerId)) continue;
+      const modelIds = scope.modelIdsByProvider.get(providerId) ?? new Set();
+      for (const modelId of Object.keys(provider.models ?? {})) {
+        modelIds.add(modelId);
+      }
+      scope.modelIdsByProvider.set(providerId, modelIds);
+    }
+  }
+}
+
 export function buildCuratedCatalog({
   mergedCatalog,
   generatedAt,
   officialSnapshot,
   overrideSnapshot,
+  expansionSnapshots = [],
 }) {
   const curated = {
     version: 1,
@@ -602,6 +729,7 @@ export function buildCuratedCatalog({
     officialSnapshot,
     overrideSnapshot,
   );
+  addCatalogExpansionScope({ providerIds, modelIdsByProvider }, ...expansionSnapshots);
 
   for (const providerId of Object.keys(mergedCatalog.providers ?? {}).sort()) {
     if (providerIds.size > 0 && !providerIds.has(providerId)) {
@@ -639,6 +767,7 @@ export function buildCuratedCatalog({
 export function buildDiffReport({
   officialSnapshot,
   communitySnapshot,
+  expansionSnapshots = [],
   mergedCatalog,
   generatedAt,
 }) {
@@ -648,14 +777,18 @@ export function buildDiffReport({
     officialModelsByProvider.set(providerId, new Set(Object.keys(provider.models ?? {})));
   }
 
-  for (const [providerId, provider] of Object.entries(communitySnapshot.providers ?? {})) {
-    const officialModels = officialModelsByProvider.get(providerId) ?? new Set();
-    for (const modelId of Object.keys(provider.models ?? {}).sort()) {
-      if (officialModels.has(modelId)) continue;
-      newModels.push({
-        providerId,
-        modelId,
-      });
+  const diffSnapshots = [communitySnapshot, ...expansionSnapshots];
+  for (const snapshot of diffSnapshots) {
+    for (const [providerId, provider] of Object.entries(snapshot.providers ?? {})) {
+      const officialModels = officialModelsByProvider.get(providerId) ?? new Set();
+      for (const modelId of Object.keys(provider.models ?? {}).sort()) {
+        if (officialModels.has(modelId)) continue;
+        newModels.push({
+          providerId,
+          modelId,
+          sourceId: snapshot.sourceId,
+        });
+      }
     }
   }
 
@@ -679,10 +812,11 @@ export async function refreshProviderSourceRegistry(options = {}) {
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const officialSource = context.sourceMap.get('official-fixtures');
   const litellmSource = context.sourceMap.get('litellm');
+  const openRouterSource = context.sourceMap.get('openrouter-live');
   const overrideSource = context.sourceMap.get('offisim-curated-overrides');
-  if (!officialSource || !litellmSource || !overrideSource) {
+  if (!officialSource || !litellmSource || !openRouterSource || !overrideSource) {
     throw new Error(
-      'registry must declare official-fixtures, litellm, and offisim-curated-overrides',
+      'registry must declare official-fixtures, litellm, openrouter-live, and offisim-curated-overrides',
     );
   }
 
@@ -701,11 +835,16 @@ export async function refreshProviderSourceRegistry(options = {}) {
     providerSupport: liteLlmPayloads.providerSupport,
     source: litellmSource,
   });
+  const openRouterPayloads = await loadOpenRouterPayloads(openRouterSource, options);
+  const openRouterSnapshot = normalizeOpenRouterSnapshot({
+    modelsPayload: openRouterPayloads.modelsPayload,
+    source: openRouterSource,
+  });
 
   const mergedCatalog = mergeCatalog({
     registry: context.registry,
-    snapshots: [officialSnapshot, communitySnapshot, overrideSnapshot].sort((left, right) =>
-      compareSources(left, right),
+    snapshots: [officialSnapshot, communitySnapshot, openRouterSnapshot, overrideSnapshot].sort(
+      (left, right) => compareSources(left, right),
     ),
     generatedAt,
   });
@@ -714,10 +853,12 @@ export async function refreshProviderSourceRegistry(options = {}) {
     generatedAt,
     officialSnapshot,
     overrideSnapshot,
+    expansionSnapshots: [openRouterSnapshot],
   });
   const diffReport = buildDiffReport({
     officialSnapshot,
     communitySnapshot,
+    expansionSnapshots: [openRouterSnapshot],
     mergedCatalog,
     generatedAt,
   });
@@ -727,6 +868,7 @@ export async function refreshProviderSourceRegistry(options = {}) {
     snapshots: {
       'official-fixtures': officialSnapshot,
       litellm: communitySnapshot,
+      'openrouter-live': openRouterSnapshot,
       'offisim-curated-overrides': overrideSnapshot,
     },
   };

@@ -337,6 +337,30 @@
       ]
     },
     {
+      "id": "manager-whole-team-dispatches-all-employees",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.whole_team_request_skips_manager_llm",
+        "routing.whole_team_request_assigns_every_employee"
+      ]
+    },
+    {
+      "id": "boss-summary-single-empty-output-completes",
+      "category": "graph",
+      "invariants": [
+        "summary.single_empty_employee_output_does_not_throw",
+        "summary.single_empty_employee_output_marks_thread_complete"
+      ]
+    },
+    {
+      "id": "employee-profile-model-preference-used",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.employee_profile_model_preference_reaches_llm_call",
+        "routing.employee_profile_model_resolves_registered_provider"
+      ]
+    },
+    {
       "id": "boss-roster-team-chat-parity",
       "category": "interaction-modes",
       "invariants": [

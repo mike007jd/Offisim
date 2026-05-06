@@ -109,6 +109,7 @@ pub fn run() {
             runtime_secrets::runtime_secret_status,
             runtime_secrets::runtime_secret_set,
             runtime_secrets::runtime_secret_clear,
+            runtime_secrets::runtime_provider_profiles,
             runtime_secrets::trusted_host_product_status,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_preview,

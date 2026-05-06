@@ -15,6 +15,7 @@
 
 use once_cell::sync::OnceCell;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::{ErrorKind, Write};
@@ -22,6 +23,7 @@ use std::path::{Path, PathBuf};
 use tauri::Manager;
 
 static STORAGE_DIR: OnceCell<PathBuf> = OnceCell::new();
+static LOCAL_ENV: OnceCell<HashMap<String, String>> = OnceCell::new();
 const SECRET_FILE_NAME: &str = "runtime_secret.txt";
 const NO_STORED_SECRET_MESSAGE: &str = "No provider credential stored on this device.";
 const NO_CLAUDE_LOCAL_AUTH_MESSAGE: &str =
@@ -95,6 +97,145 @@ pub(crate) fn read_secret_raw() -> Result<Option<String>, String> {
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
         Err(e) => Err(format!("read secret file: {e}")),
     }
+}
+
+fn parse_env_line(line: &str) -> Option<(String, String)> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with('#') {
+        return None;
+    }
+    let (key, value) = trimmed.split_once('=')?;
+    let key = key.trim();
+    if key.is_empty() {
+        return None;
+    }
+    let value = value
+        .trim()
+        .trim_matches('"')
+        .trim_matches('\'')
+        .to_string();
+    Some((key.to_string(), value))
+}
+
+fn find_local_env_path() -> Option<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(dir) = env::current_dir() {
+        roots.push(dir);
+    }
+    if let Ok(exe) = env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            roots.push(parent.to_path_buf());
+        }
+    }
+    roots.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+
+    for root in roots {
+        for ancestor in root.ancestors() {
+            let candidate = ancestor.join(".env.local");
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+fn local_env() -> &'static HashMap<String, String> {
+    LOCAL_ENV.get_or_init(|| {
+        let Some(path) = find_local_env_path() else {
+            return HashMap::new();
+        };
+        let Ok(raw) = fs::read_to_string(path) else {
+            return HashMap::new();
+        };
+        raw.lines().filter_map(parse_env_line).collect()
+    })
+}
+
+fn env_or_local(name: &str) -> Option<String> {
+    env::var(name)
+        .ok()
+        .or_else(|| local_env().get(name).cloned())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+pub(crate) fn read_provider_secret(secret_ref: Option<&str>) -> Result<Option<String>, String> {
+    let Some(secret_ref) = secret_ref.map(str::trim).filter(|value| !value.is_empty()) else {
+        return read_secret_raw();
+    };
+    let env_name = match secret_ref {
+        "minimax" => "MINIMAX_API_KEY",
+        "zai" => "ZAI_API_KEY",
+        "openrouter" => "OPENROUTER_API_KEY",
+        _ => return read_secret_raw(),
+    };
+    Ok(env_or_local(env_name))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeProviderProfile {
+    id: String,
+    display_name: String,
+    provider: String,
+    model: String,
+    base_url: String,
+    secret_ref: String,
+}
+
+fn profile_from_env(
+    id: &str,
+    display_name: &str,
+    provider: &str,
+    model_env: &str,
+    base_url_env: &str,
+    secret_env: &str,
+) -> Option<RuntimeProviderProfile> {
+    let model = env_or_local(model_env)?;
+    let base_url = env_or_local(base_url_env)?;
+    let _secret = env_or_local(secret_env)?;
+    Some(RuntimeProviderProfile {
+        id: id.into(),
+        display_name: display_name.into(),
+        provider: provider.into(),
+        model,
+        base_url,
+        secret_ref: id.into(),
+    })
+}
+
+#[tauri::command]
+pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String> {
+    Ok([
+        profile_from_env(
+            "minimax",
+            "MiniMax",
+            "anthropic",
+            "MINIMAX_MODEL",
+            "MINIMAX_BASE_URL",
+            "MINIMAX_API_KEY",
+        ),
+        profile_from_env(
+            "zai",
+            "Z.AI",
+            "openai-compat",
+            "ZAI_MODEL",
+            "ZAI_BASE_URL",
+            "ZAI_API_KEY",
+        ),
+        profile_from_env(
+            "openrouter",
+            "OpenRouter",
+            "openai-compat",
+            "OPENROUTER_MODEL",
+            "OPENROUTER_BASE_URL",
+            "OPENROUTER_API_KEY",
+        ),
+    ]
+    .into_iter()
+    .flatten()
+    .collect())
 }
 
 #[tauri::command]

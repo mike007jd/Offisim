@@ -10,6 +10,7 @@ import type {
   ToolDef,
 } from './gateway.js';
 import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
+import { createScopedRequestSignal } from './request-timeout.js';
 
 export interface AnthropicAdapterOptions {
   /** Custom base URL for Anthropic-compatible providers (e.g. MiniMax) */
@@ -191,6 +192,8 @@ export class AnthropicAdapter implements LlmGateway {
   private async doChat(request: LlmRequest): Promise<LlmResponse> {
     const systemMessages = request.messages.filter((m) => m.role === 'system');
     const systemText = systemMessages.map((m) => m.content).join('\n');
+    const timeoutMs = request.timeoutMs ?? 60_000;
+    const scoped = createScopedRequestSignal(request.signal, timeoutMs, 'anthropic');
 
     try {
       const response = await this.client.messages.create(
@@ -203,12 +206,14 @@ export class AnthropicAdapter implements LlmGateway {
           tools: mapToolDefs(request.tools),
           ...(request.toolChoice ? { tool_choice: mapToolChoice(request.toolChoice) } : {}),
         },
-        { signal: request.signal, timeout: request.timeoutMs ?? 60_000 },
+        { signal: scoped.signal, timeout: timeoutMs },
       );
 
       return this.mapResponse(response);
     } catch (error: unknown) {
       throw this.mapError(error);
+    } finally {
+      scoped.cleanup();
     }
   }
 
@@ -224,6 +229,8 @@ export class AnthropicAdapter implements LlmGateway {
   private async doChatStream(request: LlmRequest): Promise<AsyncGenerator<LlmStreamChunk>> {
     const systemMessages = request.messages.filter((m) => m.role === 'system');
     const systemText = systemMessages.map((m) => m.content).join('\n');
+    const timeoutMs = request.timeoutMs ?? 120_000;
+    const scoped = createScopedRequestSignal(request.signal, timeoutMs, 'anthropic');
 
     try {
       // Use `messages.create({ stream: true })` instead of the `messages.stream()`
@@ -245,7 +252,7 @@ export class AnthropicAdapter implements LlmGateway {
           ...(request.toolChoice ? { tool_choice: mapToolChoice(request.toolChoice) } : {}),
           stream: true,
         },
-        { signal: request.signal, timeout: request.timeoutMs ?? 120_000 },
+        { signal: scoped.signal, timeout: timeoutMs },
       );
 
       const mapErr = this.mapError.bind(this);
@@ -308,11 +315,14 @@ export class AnthropicAdapter implements LlmGateway {
           };
         } catch (error: unknown) {
           throw mapErr(error);
+        } finally {
+          scoped.cleanup();
         }
       }
 
       return generate();
     } catch (error: unknown) {
+      scoped.cleanup();
       throw this.mapError(error);
     }
   }

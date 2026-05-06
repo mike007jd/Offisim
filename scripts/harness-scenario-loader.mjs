@@ -8,6 +8,7 @@ export const SCENARIOS_DIR = resolve(ROOT, 'packages/core/harness/scenarios');
 export const REPLAY_SCENARIO_IDS = [
   'boss-summary-empty-with-stale-plan-does-not-mark-complete',
   'boss-summary-idle-no-plan-does-not-mark-complete',
+  'boss-summary-single-empty-output-completes',
   'completion-without-taskrunid-defaults-to-blocked',
   'completion-verifier-persists-blocked-status',
   'dag-output-attribution',
@@ -27,6 +28,8 @@ export const REPLAY_SCENARIO_IDS = [
   'routing-accepts-verb-object-imperative',
   'routing-rejects-bare-noun-prose',
   'manager-rerouted-event-fires',
+  'manager-whole-team-dispatches-all-employees',
+  'employee-profile-model-preference-used',
   'sanitize-rebind-uses-recommended-order',
   'skill-create-real-tool-call',
   'skill-create-target-employee-mismatch',

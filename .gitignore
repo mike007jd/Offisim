@@ -44,3 +44,10 @@ smoke-*.png
 test-*.mjs
 apps/desktop/src-tauri/resources/claude-agent-host.mjs
 .gitnexus
+
+# Historical verification artifacts stay out of git; keep textual archive notes instead.
+.live-verify/
+openspec/changes/**/.live-verify/
+openspec/changes/**/verify-screenshots/
+openspec/changes/**/evidence/
+openspec/changes/**/evidence.md

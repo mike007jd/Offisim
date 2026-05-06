@@ -11,6 +11,7 @@ import type {
   ToolDef,
 } from './gateway.js';
 import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
+import { createScopedRequestSignal } from './request-timeout.js';
 
 export interface OpenAiAdapterOptions {
   /** Custom base URL for OpenAI-compatible endpoints (e.g. OpenRouter, Kimi, Gemini compat) */
@@ -148,6 +149,8 @@ export class OpenAiAdapter implements LlmGateway {
   }
 
   private async doChat(request: LlmRequest): Promise<LlmResponse> {
+    const timeoutMs = request.timeoutMs ?? 60_000;
+    const scoped = createScopedRequestSignal(request.signal, timeoutMs, this.providerLabel);
     try {
       const response = await this.client.chat.completions.create(
         {
@@ -158,12 +161,14 @@ export class OpenAiAdapter implements LlmGateway {
           tools: mapToolDefs(request.tools),
           tool_choice: mapToolChoice(request.toolChoice),
         },
-        { signal: request.signal, timeout: request.timeoutMs ?? 60_000 },
+        { signal: scoped.signal, timeout: timeoutMs },
       );
 
       return this.mapResponse(response);
     } catch (error: unknown) {
       throw this.mapError(error);
+    } finally {
+      scoped.cleanup();
     }
   }
 
@@ -177,6 +182,8 @@ export class OpenAiAdapter implements LlmGateway {
   }
 
   private async doChatStream(request: LlmRequest): Promise<AsyncGenerator<LlmStreamChunk>> {
+    const timeoutMs = request.timeoutMs ?? 120_000;
+    const scoped = createScopedRequestSignal(request.signal, timeoutMs, this.providerLabel);
     try {
       const stream = await this.client.chat.completions.create(
         {
@@ -191,7 +198,7 @@ export class OpenAiAdapter implements LlmGateway {
           // not all compat endpoints support it. When omitted, usage will be undefined.
           ...(this.isCompat ? {} : { stream_options: { include_usage: true } }),
         },
-        { signal: request.signal, timeout: request.timeoutMs ?? 120_000 },
+        { signal: scoped.signal, timeout: timeoutMs },
       );
 
       const self = this;
@@ -260,11 +267,14 @@ export class OpenAiAdapter implements LlmGateway {
           };
         } catch (error: unknown) {
           throw self.mapError(error);
+        } finally {
+          scoped.cleanup();
         }
       }
 
       return generate();
     } catch (error: unknown) {
+      scoped.cleanup();
       throw this.mapError(error);
     }
   }

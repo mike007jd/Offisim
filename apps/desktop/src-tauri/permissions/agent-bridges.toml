@@ -5,6 +5,7 @@ commands.allow = [
   "runtime_secret_status",
   "runtime_secret_set",
   "runtime_secret_clear",
+  "runtime_provider_profiles",
   "trusted_host_product_status",
   "claude_agent_execute",
   "claude_agent_abort",

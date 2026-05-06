@@ -37,13 +37,20 @@ const anthropicToolCalls = await collectToolCalls(anthropic.chatStream(request))
 
 assertToolCall(openaiToolCalls, 'openai-partial-function-args');
 assertToolCall(anthropicToolCalls, 'anthropic-partial-json-tool-use');
+await assertChatTimeout(OpenAiAdapter, 'openai-chat-timeout');
+await assertChatTimeout(AnthropicAdapter, 'anthropic-chat-timeout');
 
 console.log(
   JSON.stringify(
     {
       ok: true,
       suite: 'provider-adapter',
-      scenarios: ['openai-partial-function-args', 'anthropic-partial-json-tool-use'],
+      scenarios: [
+        'openai-partial-function-args',
+        'anthropic-partial-json-tool-use',
+        'openai-chat-timeout',
+        'anthropic-chat-timeout',
+      ],
     },
     null,
     2,
@@ -68,6 +75,39 @@ function assertToolCall(toolCalls, scenarioId) {
   ) {
     throw new Error(`${scenarioId} failed to assemble streamed tool call JSON`);
   }
+}
+
+async function assertChatTimeout(Adapter, scenarioId) {
+  let sawAbort = false;
+  const adapter = new Adapter('test-key', {
+    baseURL: `https://mock.${scenarioId}.local/v1`,
+    fetch: (_input, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          'abort',
+          () => {
+            sawAbort = true;
+            reject(init.signal.reason ?? new DOMException('aborted', 'AbortError'));
+          },
+          { once: true },
+        );
+      }),
+    dangerouslyAllowBrowser: true,
+  });
+
+  try {
+    await adapter.chat({ ...request, timeoutMs: 25 });
+  } catch (error) {
+    if (!sawAbort) {
+      throw new Error(`${scenarioId} did not abort the injected fetch`);
+    }
+    if (!/timed out|abort/i.test(error instanceof Error ? error.message : String(error))) {
+      throw new Error(`${scenarioId} surfaced unexpected error: ${String(error)}`);
+    }
+    return;
+  }
+
+  throw new Error(`${scenarioId} unexpectedly completed`);
 }
 
 function sseResponse(body) {

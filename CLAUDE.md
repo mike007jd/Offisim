@@ -83,6 +83,7 @@ catalog/
 
 - **仓库必须持续做卫生**：死文档、测试残留、历史截图、调试输出、生成产物、临时脚本，不要长期留在版本库里。
 - **提交前优先删垃圾，而不是解释垃圾**。`output/`、`screenshots/`、`.playwright-mcp/`、局部 debug 脚本、失效 spec/sample 图，默认不应进仓。
+- **历史验证证据默认不进仓**：`.live-verify/`、OpenSpec archive 下的 `.live-verify/`、`verify-screenshots/`、`evidence.md` 只作为本地/外部 handoff 证据；archive 目录保留 `proposal/design/tasks/spec` 文字决策链即可。
 - **deprecated 代码不是常驻资产**。如果 fallback 已无产品 owner，优先列入删除计划；不要无限保留 `Pending removal` 路径。
 - **警惕屎山热点**：超长文件、双状态源、跨层事件拼装、巨型组件/服务默认视为风险面，开工前先判断是不是该拆。
 

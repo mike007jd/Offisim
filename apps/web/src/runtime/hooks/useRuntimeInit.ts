@@ -167,6 +167,7 @@ export function useRuntimeInit({
   const detectionDoneRef = useRef(false);
   const bootstrapStateRef = useRef(loadBrowserRuntimeBootstrapState());
   const lastFailedMessageRef = useRef<LastFailedMessage | null>(null);
+  const activeExecutionThreadIdRef = useRef<string | null>(null);
 
   const initRuntime = useCallback(async (): Promise<RuntimeBundle | null> => {
     const config = loadProviderConfig();
@@ -291,11 +292,13 @@ export function useRuntimeInit({
         if (entryMode === 'direct_chat' && !options?.targetEmployeeId) {
           throw new Error(DIRECT_CHAT_TARGET_MISSING_ERROR);
         }
+        const executionThreadId = options?.threadId ?? runtime.runtimeCtx.threadId;
+        activeExecutionThreadIdRef.current = executionThreadId;
         const result = await runtime.orch.execute({
           entryMode,
           messages: [new HumanMessage(text)],
           targetEmployeeId: options?.targetEmployeeId ?? null,
-          threadId: options?.threadId,
+          threadId: executionThreadId,
           projectId: options?.projectId ?? null,
           ...(options?.runScope ? { runScope: options.runScope } : {}),
         });
@@ -348,6 +351,7 @@ export function useRuntimeInit({
         setRetryableFailedRun(nextFailedMessage, displayMessage);
         return undefined;
       } finally {
+        activeExecutionThreadIdRef.current = null;
         setIsRunning(false);
       }
     },
@@ -394,7 +398,7 @@ export function useRuntimeInit({
   const abortExecution = useCallback(() => {
     const runtime = runtimeRef.current;
     if (!runtime?.orch) return;
-    runtime.orch.abortExecution(runtime.runtimeCtx.threadId);
+    runtime.orch.abortExecution(activeExecutionThreadIdRef.current ?? runtime.runtimeCtx.threadId);
   }, []);
 
   const listRecentDeliverables = useCallback(

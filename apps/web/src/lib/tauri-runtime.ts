@@ -15,6 +15,10 @@ import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/c
 import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
 import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
 import type { LlmGateway } from '@offisim/core/dist/llm/gateway.js';
+import type {
+  ModelRegistry,
+  ModelRegistryEntry,
+} from '@offisim/core/dist/llm/model-registry.js';
 import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { OpenAiAgentsSdkAdapter } from '@offisim/core/dist/llm/openai-agents-sdk-adapter.js';
 import { assertOpenAiAgentsSdkLaneSupported } from '@offisim/core/dist/llm/openai-agents-sdk-lane-policy.js';
@@ -56,6 +60,7 @@ import { InstallService } from '@offisim/install-core';
 import type { InstallEventEmitter, InstallRepositories } from '@offisim/install-core';
 import type {
   InteractionMode,
+  LlmProvider,
   RuntimeEvent,
   WorkspaceBindingConsumer,
   WorkspaceBindingUnavailableMissingAt,
@@ -115,6 +120,102 @@ function authSchemeFor(provider: ResolvedProviderConfig['provider'], baseURL?: s
   // OpenAI and every OpenAI-compatible endpoint (Kimi / OpenRouter / Gemini
   // compat / Zai / MiniMax openai-compat / LM Studio / etc.) use Bearer.
   return 'bearer';
+}
+
+interface TauriProviderProfile {
+  readonly id: string;
+  readonly displayName: string;
+  readonly provider: LlmProvider;
+  readonly model: string;
+  readonly baseUrl: string;
+  readonly secretRef: string;
+}
+
+function isLlmProvider(value: string): value is LlmProvider {
+  return value === 'openai' || value === 'anthropic' || value === 'openai-compat';
+}
+
+function isTauriProviderProfile(value: unknown): value is TauriProviderProfile {
+  if (!value || typeof value !== 'object') return false;
+  const raw = value as Record<string, unknown>;
+  return (
+    typeof raw.id === 'string' &&
+    typeof raw.displayName === 'string' &&
+    typeof raw.provider === 'string' &&
+    isLlmProvider(raw.provider) &&
+    typeof raw.model === 'string' &&
+    typeof raw.baseUrl === 'string' &&
+    typeof raw.secretRef === 'string'
+  );
+}
+
+class TauriProviderModelRegistry {
+  private readonly profiles: TauriProviderProfile[];
+  private readonly gateways = new Map<string, LlmGateway>();
+
+  constructor(profiles: TauriProviderProfile[]) {
+    this.profiles = profiles;
+  }
+
+  getGateway(modelId: string): LlmGateway | null {
+    const cached = this.gateways.get(modelId);
+    if (cached) return cached;
+    const profile = this.profiles.find((entry) => entry.model === modelId || entry.id === modelId);
+    if (!profile) return null;
+    const gateway = createGateway({
+      provider: profile.provider,
+      apiKey: 'ignored',
+      baseURL: profile.baseUrl,
+      dangerouslyAllowBrowser: true,
+      fetch: createTauriLlmFetch(authSchemeFor(profile.provider, profile.baseUrl), {
+        secretRef: profile.secretRef,
+      }),
+    });
+    this.gateways.set(modelId, gateway);
+    if (modelId !== profile.model) this.gateways.set(profile.model, gateway);
+    return gateway;
+  }
+
+  findById(modelId: string): ModelRegistryEntry | null {
+    const profile = this.profiles.find((entry) => entry.model === modelId || entry.id === modelId);
+    if (!profile) return null;
+    return {
+      id: profile.model,
+      displayName: profile.displayName,
+      provider: profile.provider,
+      model: profile.model,
+      apiKey: '$RUST_SECRET_SLOT',
+      baseURL: profile.baseUrl,
+    };
+  }
+
+  listModels(): ModelRegistryEntry[] {
+    return this.profiles.map((profile) => ({
+      id: profile.model,
+      displayName: profile.displayName,
+      provider: profile.provider,
+      model: profile.model,
+      apiKey: '$RUST_SECRET_SLOT',
+      baseURL: profile.baseUrl,
+    }));
+  }
+
+  disposeAll(): void {
+    for (const gateway of this.gateways.values()) {
+      gateway.dispose();
+    }
+    this.gateways.clear();
+  }
+}
+
+async function createTauriProviderModelRegistry(): Promise<ModelRegistry | undefined> {
+  const { invoke } = (await import('@tauri-apps/api/core')) as {
+    invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  };
+  const profiles = await invoke<unknown>('runtime_provider_profiles').catch(() => []);
+  const valid = Array.isArray(profiles) ? profiles.filter(isTauriProviderProfile) : [];
+  if (valid.length === 0) return undefined;
+  return new TauriProviderModelRegistry(valid) as unknown as ModelRegistry;
 }
 
 const PERSISTED_RUNTIME_EVENT_PREFIXES = ['boss.', 'workspace-binding.'] as const;
@@ -625,6 +726,7 @@ export async function createTauriRuntime(
     temperature: runtimePolicy.modelPolicy.default.temperature ?? 0.7,
     maxTokens: runtimePolicy.modelPolicy.default.maxTokens ?? 4096,
   });
+  const modelRegistry = await createTauriProviderModelRegistry();
 
   const checkpointer = new TauriCheckpointSaver();
   const resumeCoordinator = new ResumeCoordinator(checkpointer);
@@ -806,6 +908,7 @@ export async function createTauriRuntime(
     hookRegistry,
     scratchpad,
     middlewareChain,
+    ...(modelRegistry ? { modelRegistry } : {}),
     systemCaller,
     sessionCostTracker,
     toolTelemetryService,
@@ -899,6 +1002,7 @@ export async function createTauriRuntime(
     dispose: () => {
       sessionCostTracker.dispose();
       toolTelemetryService.dispose();
+      modelRegistry?.disposeAll();
       installService.dispose();
       deliverablePersistence.dispose();
       vaultActivation?.dispose();

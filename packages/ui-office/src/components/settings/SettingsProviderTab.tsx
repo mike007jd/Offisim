@@ -1,5 +1,6 @@
 import {
   Badge,
+  Button,
   Input,
   Select,
   SelectContent,
@@ -8,13 +9,20 @@ import {
   SelectValue,
   Textarea,
 } from '@offisim/ui-core';
+import { RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 import { isTauri } from '../../lib/env';
 import { isLlmExecutionLane } from '../../lib/provider-config';
+import {
+  type ProviderListRefreshSnapshot,
+  pullLatestProviderList,
+} from '../../lib/provider-list-refresh';
 import { useTourTarget } from '../onboarding/tour-context.js';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 import { SectionLabel, SettingsSection, surfaceInputProps } from './settings-primitives';
 
 const IS_DESKTOP = isTauri();
+const PROVIDER_LIST_PULL_STORAGE_KEY = 'offisim-provider-list-last-pull';
 const EXECUTION_LANE_LABELS = {
   gateway: 'Gateway',
   'claude-agent-sdk': 'Claude Agent SDK',
@@ -26,8 +34,30 @@ interface SettingsProviderTabProps {
   controller: ReturnType<typeof useSettingsWorkspaceController>;
 }
 
+function readStoredProviderListPull(): ProviderListRefreshSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(PROVIDER_LIST_PULL_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ProviderListRefreshSnapshot>;
+    const sourceIds = new Set(parsed.sources?.map((source) => source.sourceId) ?? []);
+    if (!sourceIds.has('hermes-agent') || !sourceIds.has('openclaw')) {
+      return null;
+    }
+    return typeof parsed.fetchedAt === 'string' && Array.isArray(parsed.sources)
+      ? (parsed as ProviderListRefreshSnapshot)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   const providerTargetRef = useTourTarget('settings:provider-cta');
+  const [providerListPull, setProviderListPull] = useState<ProviderListRefreshSnapshot | null>(
+    readStoredProviderListPull,
+  );
+  const [isPullingProviderList, setIsPullingProviderList] = useState(false);
   const {
     accessMode,
     apiKey,
@@ -45,6 +75,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
     isHostResolvedProduct,
     isThinkingProvider,
     model,
+    notify,
     productId,
     providerVariantId,
     resolvedSelection,
@@ -88,6 +119,37 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
     executionLane === 'gateway'
       ? 'Gateway lane exposes Offisim tools when the active runtime has a trusted host and configured workspace.'
       : 'This SDK lane is text/reasoning-only in Offisim; file, shell, memory, todo, and skill tools are hidden.';
+  const pulledModelOptions = providerListPull?.modelsByProductId[productId] ?? [];
+  const modelOptions =
+    pulledModelOptions.length > 0 ? pulledModelOptions : (selectedVariant?.modelIds ?? []);
+  const providerListPullSummary = providerListPull
+    ? providerListPull.sources
+        .map((source) => {
+          const providerCount =
+            typeof source.providerCount === 'number'
+              ? `${source.providerCount} tracked providers, `
+              : '';
+          const modelCount =
+            typeof source.modelCount === 'number' ? `${source.modelCount} models` : 'scope only';
+          return `${source.label}: ${providerCount}${modelCount}`;
+        })
+        .join(' • ')
+    : 'Hermes Agent / OpenClaw provider scope, with model metadata filled from LiteLLM + OpenRouter';
+
+  async function handleProviderListPull() {
+    setIsPullingProviderList(true);
+    try {
+      const snapshot = await pullLatestProviderList();
+      setProviderListPull(snapshot);
+      window.localStorage.setItem(PROVIDER_LIST_PULL_STORAGE_KEY, JSON.stringify(snapshot));
+      notify?.('Provider list pulled from Hermes Agent and OpenClaw docs.', 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown provider list error';
+      notify?.(`Provider list pull failed: ${message}`, 'error');
+    } finally {
+      setIsPullingProviderList(false);
+    }
+  }
 
   const resolvedSummary = (
     <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
@@ -150,6 +212,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             <Input
               id="settings-model"
               value={model}
+              list={modelOptions.length > 0 ? 'settings-provider-model-options' : undefined}
               onChange={(event) => {
                 const nextModel = event.target.value;
                 setModel(nextModel);
@@ -163,6 +226,13 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               placeholder="model-name"
               className={surfaceInputProps('font-mono text-sm')}
             />
+            {modelOptions.length > 0 ? (
+              <datalist id="settings-provider-model-options">
+                {modelOptions.map((modelId) => (
+                  <option key={modelId} value={modelId} />
+                ))}
+              </datalist>
+            ) : null}
           </div>
 
           {showApiKeyField ? (
@@ -195,6 +265,33 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             Runtime binding activates only when a trusted host resolver is available.
           </p>
         ) : null}
+
+        <SettingsSection
+          title="Provider catalog"
+          description={providerListPullSummary}
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              isLoading={isPullingProviderList}
+              onClick={handleProviderListPull}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              拉取 provider list
+            </Button>
+          }
+        >
+          <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+            <Badge className="text-[11px] uppercase tracking-wide">Agent scoped</Badge>
+            <span>
+              {providerListPull
+                ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
+                : 'Pull refreshes model suggestions without changing saved credentials.'}
+            </span>
+          </div>
+        </SettingsSection>
 
         <SettingsSection title="Advanced routing" description={routingDescription}>
           <div className="grid gap-4 lg:grid-cols-2">

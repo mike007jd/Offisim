@@ -35,6 +35,8 @@ struct AuthInject {
     scheme: AuthScheme,
     #[serde(default)]
     header_name: Option<String>,
+    #[serde(default)]
+    secret_ref: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -190,11 +192,11 @@ async fn do_fetch(
     match auth.scheme {
         AuthScheme::None => {}
         AuthScheme::Bearer => {
-            let secret = read_secret()?;
+            let secret = read_secret(auth.secret_ref.as_deref())?;
             headers.push(("authorization".into(), format!("Bearer {secret}")));
         }
         AuthScheme::XApiKey => {
-            let secret = read_secret()?;
+            let secret = read_secret(auth.secret_ref.as_deref())?;
             let name = auth
                 .header_name
                 .clone()
@@ -264,8 +266,8 @@ async fn do_fetch(
     Ok(())
 }
 
-fn read_secret() -> Result<String, FetchError> {
-    match runtime_secrets::read_secret_raw().map_err(FetchError::Request)? {
+fn read_secret(secret_ref: Option<&str>) -> Result<String, FetchError> {
+    match runtime_secrets::read_provider_secret(secret_ref).map_err(FetchError::Request)? {
         Some(secret) => Ok(secret),
         None => Err(FetchError::NoCredential),
     }

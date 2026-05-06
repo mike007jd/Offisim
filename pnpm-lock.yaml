@@ -104,9 +104,6 @@ importers:
       hono:
         specifier: ^4.7.0
         version: 4.12.5
-      jose:
-        specifier: ^6.2.1
-        version: 6.2.1
       postgres:
         specifier: ^3.4.8
         version: 3.4.8
@@ -117,9 +114,6 @@ importers:
       '@types/node':
         specifier: 25.3.5
         version: 25.3.5
-      drizzle-kit:
-        specifier: ^0.31.9
-        version: 0.31.9
       tsx:
         specifier: ^4.19.0
         version: 4.21.0
@@ -5269,7 +5263,8 @@ snapshots:
 
   '@dimforge/rapier3d-compat@0.12.0': {}
 
-  '@drizzle-team/brocli@0.10.2': {}
+  '@drizzle-team/brocli@0.10.2':
+    optional: true
 
   '@emnapi/runtime@1.10.0':
     dependencies:
@@ -5280,11 +5275,13 @@ snapshots:
     dependencies:
       esbuild: 0.18.20
       source-map-support: 0.5.21
+    optional: true
 
   '@esbuild-kit/esm-loader@2.6.5':
     dependencies:
       '@esbuild-kit/core-utils': 3.3.2
       get-tsconfig: 4.13.6
+    optional: true
 
   '@esbuild/aix-ppc64@0.25.12':
     optional: true
@@ -6928,7 +6925,8 @@ snapshots:
 
   bson@7.2.0: {}
 
-  buffer-from@1.1.2: {}
+  buffer-from@1.1.2:
+    optional: true
 
   buffer@5.7.1:
     dependencies:
@@ -7066,6 +7064,7 @@ snapshots:
       esbuild-register: 3.6.0(esbuild@0.25.12)
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   drizzle-orm@0.39.3(@types/better-sqlite3@7.6.13)(better-sqlite3@12.6.2)(kysely@0.28.12)(postgres@3.4.8):
     optionalDependencies:
@@ -7130,6 +7129,7 @@ snapshots:
       esbuild: 0.25.12
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   esbuild@0.18.20:
     optionalDependencies:
@@ -7155,6 +7155,7 @@ snapshots:
       '@esbuild/win32-arm64': 0.18.20
       '@esbuild/win32-ia32': 0.18.20
       '@esbuild/win32-x64': 0.18.20
+    optional: true
 
   esbuild@0.25.12:
     optionalDependencies:
@@ -8153,8 +8154,10 @@ snapshots:
     dependencies:
       buffer-from: 1.1.2
       source-map: 0.6.1
+    optional: true
 
-  source-map@0.6.1: {}
+  source-map@0.6.1:
+    optional: true
 
   sparse-bitfield@3.0.3:
     dependencies:

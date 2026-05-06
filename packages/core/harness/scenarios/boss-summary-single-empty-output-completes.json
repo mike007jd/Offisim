@@ -1,0 +1,64 @@
+{
+  "id": "boss-summary-single-empty-output-completes",
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": {
+      "companyId": "company-boss-summary-empty-single",
+      "name": "Boss Summary Empty Single Co"
+    },
+    "thread": { "threadId": "thread-boss-summary-empty-single", "status": "running" },
+    "employees": [{ "id": "emp-empty-worker", "name": "Empty Worker", "role": "writer" }]
+  },
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-summary-empty-single",
+      "threadId": "thread-boss-summary-empty-single",
+      "companyId": "company-boss-summary-empty-single",
+      "summary": "Summarize empty single output",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Complete without text output",
+          "tasks": [
+            {
+              "taskType": "writing",
+              "employeeId": "emp-empty-worker",
+              "description": "Complete without text output",
+              "dependsOnStepOutput": false,
+              "taskRunId": "tr-summary-empty-single"
+            }
+          ]
+        }
+      ]
+    },
+    "dispatchedStepIndices": [0],
+    "completedStepIndices": [0],
+    "blockedStepIndices": [],
+    "currentStepOutputs": [
+      {
+        "employeeId": "emp-empty-worker",
+        "employeeName": "Empty Worker",
+        "sourceKind": "employee",
+        "roleSlug": "writer",
+        "content": "",
+        "taskRunId": "tr-summary-empty-single",
+        "stepIndex": 0,
+        "isExternal": false,
+        "brandKey": null
+      }
+    ]
+  },
+  "runs": [{ "startAt": "boss_summary" }],
+  "assertions": [
+    { "kind": "threadStatusIs", "status": "completed" },
+    {
+      "kind": "finalOutputContains",
+      "contains": "Empty Worker completed the assigned work but did not return text output."
+    },
+    {
+      "kind": "finalOutputNotContains",
+      "contains": "Expected a single employee result for boss summary fast path"
+    }
+  ]
+}
