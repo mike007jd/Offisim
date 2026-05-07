@@ -37,12 +37,21 @@ const graph = await import(
 const planReview = await import(
   new URL('../packages/core/dist/agents/pm-planner/plan-review-payload.js', import.meta.url).href
 );
+const pmPlanParser = await import(
+  new URL('../packages/core/dist/agents/pm-planner/plan-parser.js', import.meta.url).href
+);
 const microCompact = await import(
   new URL('../packages/core/dist/services/conversation-budget/micro-compact.js', import.meta.url)
     .href
 );
 const completionVerifier = await import(
   new URL('../packages/core/dist/runtime/completion-verifier.js', import.meta.url).href
+);
+const taskToolIntent = await import(
+  new URL('../packages/core/dist/agents/task-tool-intent.js', import.meta.url).href
+);
+const employeeCompletion = await import(
+  new URL('../packages/core/dist/agents/employee-completion.js', import.meta.url).href
 );
 const leakDetector = await import(
   new URL('../packages/core/dist/testing/leak-detector.js', import.meta.url).href
@@ -60,8 +69,11 @@ const invariants = [
   await assertThreadApprovalIsReusable(core),
   await assertPlanReviewCancelPersistsPayload(core),
   await assertPlanReviewPayloadValidation(planReview),
+  assertArtifactFallbackIsPhased(pmPlanParser),
   assertLongRunningMicroCompactScenario(microCompact),
   assertCompletionVerifierScenario(completionVerifier),
+  assertBashEvidenceCanSatisfyFileIntent(completionVerifier, taskToolIntent),
+  await assertArtifactTasksRequireWriteAudit(employeeCompletion),
   assertLeakDetectorScenario(leakDetector),
   await assertSoakBoundedMemoryScenario(soakRunner),
   assertDagOutputAttribution(graph),
@@ -288,6 +300,82 @@ function assertCompletionVerifierScenario(completionVerifier) {
     throw new Error(`unexpected blocked event fixture: ${scenario.fixture.expectedEventKind}`);
   }
   return { id: 'completion.verifier_blocks_without_evidence', passed: true };
+}
+
+function assertArtifactFallbackIsPhased(pmPlanParser) {
+  const employees = [
+    { employee_id: 'pm', name: 'Sophie Park', role_slug: 'project_manager' },
+    { employee_id: 'be', name: 'Marcus Johnson', role_slug: 'backend' },
+    { employee_id: 'fs', name: 'Kai Nakamura', role_slug: 'fullstack' },
+    { employee_id: 'ux', name: 'Zara Okafor', role_slug: 'ux_designer' },
+    { employee_id: 'qa', name: 'OpenRouter QA Analyst', role_slug: 'qa' },
+  ];
+  const plan = pmPlanParser.buildLlmPlanFallback(
+    employees,
+    '分析项目代码库，输出 PDF、PPT、HTML infographic，并复制项目到目标目录。',
+  );
+  if (plan.steps.length < 4) {
+    throw new Error(`artifact fallback must be phased, got ${plan.steps.length} step(s)`);
+  }
+  const allDescriptions = plan.steps.flatMap((step) => step.tasks.map((task) => task.description));
+  if (allDescriptions.every((description) => description.startsWith('分析项目代码库'))) {
+    throw new Error('artifact fallback must not broadcast the full prompt to every employee');
+  }
+  return { id: 'pm.artifact_fallback_is_phased', passed: true };
+}
+
+function assertBashEvidenceCanSatisfyFileIntent(completionVerifier, taskToolIntent) {
+  const intent = taskToolIntent.detectTaskToolIntent(
+    '分析项目代码库，输出 HTML infographic，并拷贝项目到目标目录。',
+  );
+  const evidenceTools = taskToolIntent.evidenceToolsForIntent(intent);
+  if (!evidenceTools.includes('bash')) {
+    throw new Error('file/task evidence tools must accept bash for shell-backed workspace work');
+  }
+  const outcome = completionVerifier.verifyCompletion(
+    {
+      recentToolResults: [{ toolName: 'bash', success: true, bytes: 1024 }],
+    },
+    { evidenceTools },
+  );
+  if (!outcome.ok) {
+    throw new Error('completion verifier rejected successful bash evidence for file intent');
+  }
+  return { id: 'completion.bash_evidence_satisfies_file_intent', passed: true };
+}
+
+async function assertArtifactTasksRequireWriteAudit(employeeCompletion) {
+  const taskDescription =
+    'Generate the self-contained HTML infographic at the requested 04_infographic path. Full user intent: 分析项目代码库，输出 PDF、PPT、HTML infographic，并拷贝项目到目标目录。';
+  if (!employeeCompletion.requiresConcreteWriteEvidence(taskDescription)) {
+    throw new Error('artifact HTML task did not require concrete write evidence');
+  }
+  const runtimeCtx = {
+    repos: {
+      mcpAudit: {
+        async listByThread() {
+          return [
+            {
+              task_run_id: 'task-artifact',
+              tool_name: 'bash',
+              arguments_json: JSON.stringify({ command: 'ls -la /tmp/04_infographic' }),
+              error: null,
+            },
+          ];
+        },
+      },
+    },
+  };
+  const outcome = await employeeCompletion.verifyConcreteWriteEvidence({
+    runtimeCtx,
+    threadId: 'thread-artifact',
+    taskRunId: 'task-artifact',
+    taskDescription,
+  });
+  if (outcome?.ok) {
+    throw new Error('artifact task accepted read/list-only bash evidence');
+  }
+  return { id: 'completion.artifact_tasks_require_write_audit', passed: true };
 }
 
 function assertLeakDetectorScenario(leakDetector) {

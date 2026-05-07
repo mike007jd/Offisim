@@ -1,7 +1,7 @@
 import {
-  parseEmployeeConfig,
   type ResolvedModel,
   type RuntimeMemoryPolicy,
+  parseEmployeeConfig,
 } from '@offisim/shared-types';
 import { GraphError } from '../errors.js';
 import {
@@ -58,6 +58,12 @@ function resolveEmployeeModel(
   const modelPreference = config.modelPreference?.trim();
   if (!modelPreference) return roleResolved;
   const registryEntry = runtimeCtx.modelRegistry?.findById(modelPreference);
+  if (!registryEntry && runtimeCtx.modelRegistry && modelPreference !== roleResolved.model) {
+    throw new GraphError(
+      `Employee model override "${modelPreference}" is not configured. Set this employee to follow the unified setting or choose a configured model before running.`,
+      'employee',
+    );
+  }
   return {
     provider: registryEntry?.provider ?? roleResolved.provider,
     model: registryEntry?.model ?? modelPreference,
@@ -191,6 +197,57 @@ export async function runPreflight(
     };
   }
 
+  let resolved: ResolvedModel;
+  try {
+    resolved = resolveEmployeeModel(runtimeCtx, employee);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (taskRunId) {
+      await repos.taskRuns.updateStatus(
+        taskRunId,
+        'failed',
+        JSON.stringify({ content: message, errorCode: 'invalid_employee_model_override' }),
+      );
+      eventBus.emit(
+        taskStateChanged(
+          companyId,
+          taskRunId,
+          'queued',
+          'failed',
+          threadId,
+          employee.employee_id,
+          'employee',
+          employee.name,
+        ),
+      );
+    }
+    return {
+      kind: 'early-return',
+      stateUpdate: {
+        pendingAssignments: remaining,
+        currentEmployeeId: employee.employee_id,
+        currentTaskRunId: taskRunId ?? null,
+        currentStepOutputs: taskRunId
+          ? [
+              ...state.currentStepOutputs,
+              {
+                employeeId: employee.employee_id,
+                employeeName: employee.name,
+                sourceKind: 'employee',
+                roleSlug: employee.role_slug,
+                content: `Incomplete: ${message}`,
+                taskRunId,
+                stepIndex,
+                isExternal: employee.is_external === 1,
+                brandKey: employee.brand_key ?? null,
+                citations: [],
+              },
+            ]
+          : state.currentStepOutputs,
+      },
+    };
+  }
+
   eventBus.emit(
     employeeStateChanged(companyId, employee.employee_id, 'idle', 'executing', threadId, taskRunId),
   );
@@ -235,7 +292,6 @@ export async function runPreflight(
     ),
   );
 
-  const resolved = resolveEmployeeModel(runtimeCtx, employee);
   const requiredSkillsRaw = (assignment.inputJson as Record<string, unknown>).requiredSkills;
   const requiredSkills = Array.isArray(requiredSkillsRaw)
     ? (requiredSkillsRaw as unknown[]).filter(

@@ -65,6 +65,17 @@ export const WRITE_VERB_OBJECT_PAIRS: ReadonlyArray<readonly [string, string]> =
   ['create', 'scratch note'],
   ['save', 'file'],
   ['append', 'file'],
+  ['copy', 'project'],
+  ['copy', 'file'],
+  ['copy', 'folder'],
+  ['organize', 'folder'],
+  ['organize', 'directory'],
+  ['export', 'pdf'],
+  ['export', 'ppt'],
+  ['export', 'html'],
+  ['generate', 'pdf'],
+  ['generate', 'ppt'],
+  ['generate', 'html'],
 ];
 
 /**
@@ -117,6 +128,8 @@ export const CHINESE_READ_PATTERNS: readonly RegExp[] = [
   /读回/u,
   /查看[^。]{0,40}(文件|工作区|readme)/iu,
   /引用[^。]{0,40}(文件|内容)/u,
+  /分析[^。]{0,80}(代码库|源码|项目|目录|文件)/u,
+  /扫描[^。]{0,80}(工作区|项目|目录)/u,
 ];
 
 export const CHINESE_WRITE_PATTERNS: readonly RegExp[] = [
@@ -125,6 +138,12 @@ export const CHINESE_WRITE_PATTERNS: readonly RegExp[] = [
   /创建[^。]{0,8}文件/u,
   /保存[^。]{0,8}文件/u,
   /追加[^。]{0,8}文件/u,
+  /保存为/u,
+  /输出[^。]{0,80}(PDF|PPT|HTML|infographic)/iu,
+  /生成[^。]{0,80}(PDF|PPT|HTML|infographic)/iu,
+  /(复制|拷贝)[^。]{0,80}(到|目录|文件夹|项目|源码)/u,
+  /整理[^。]{0,80}(文件夹|目录|文件)/u,
+  /形成[^。]{0,80}(目录|结构)/u,
 ];
 
 export const CHINESE_BASH_PATTERNS: readonly RegExp[] = [
@@ -261,24 +280,25 @@ export function unionTaskToolIntents(a: TaskToolIntent, b: TaskToolIntent): Task
 /**
  * Derive the completion-evidence tool list from a `TaskToolIntent`.
  *
- * Returns a deduplicated, stable-ordered list:
- *   [`read_file`, `write_file`, `bash`, ...DEFAULT_VERIFICATION_TOOLS]
- * (only the buckets that fired are present).
+ * Returns a deduplicated, stable-ordered list. `bash` is accepted as evidence
+ * for read/write intents because real workspace tasks often use shell commands
+ * (`find`, `ls`, `rsync`, `mkdir`, `cat`, converters) instead of the narrower
+ * file tools.
  *
  * An intent with no buckets set returns `[]` — the verifier treats that as
  * "no evidence required" (plain text deliverables).
  */
 export function evidenceToolsForIntent(intent: TaskToolIntent): readonly string[] {
   const tools: string[] = [];
-  if (intent.needsRead) tools.push('read_file');
-  if (intent.needsWrite) tools.push('write_file');
+  if (intent.needsRead) tools.push('read_file', 'bash');
+  if (intent.needsWrite) tools.push('write_file', 'bash');
   if (intent.needsBash) tools.push('bash');
   if (intent.needsVerification) {
     for (const tool of DEFAULT_VERIFICATION_TOOLS) {
       tools.push(tool);
     }
   }
-  return tools;
+  return [...new Set(tools)];
 }
 
 /**

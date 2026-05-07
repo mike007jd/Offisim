@@ -9,8 +9,8 @@ import type {
   ToolCallResult,
   ToolDef,
 } from './gateway.js';
-import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
 import { createScopedRequestSignal } from './request-timeout.js';
+import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
 
 export interface AnthropicAdapterOptions {
   /** Custom base URL for Anthropic-compatible providers (e.g. MiniMax) */

@@ -16,19 +16,19 @@
     "messages": [
       {
         "role": "user",
-        "content": "请让所有员工共同合作，分成三组分别负责需求拆解、技术方案、风险审计，最后输出短报告。"
+        "content": "请作为一个完整办公室团队共同合作，分成三组分别负责需求拆解、技术方案、风险审计，最后输出短报告。"
       }
     ]
   },
   "llmTurns": [
     {
       "id": "boss-delegates-whole-team-request",
-      "match": { "contains": "请让所有员工共同合作" },
+      "match": { "contains": "完整办公室团队" },
       "content": "{\"action\":\"delegate\",\"reason\":\"team collaboration request\"}"
     },
     {
       "id": "pm-plans-all-recommended-employees",
-      "match": { "contains": "Intent: 请让所有员工共同合作" },
+      "match": { "contains": "Intent: 请作为一个完整办公室团队" },
       "content": "{\"summary\":\"Whole team collaboration plan\",\"steps\":[{\"stepIndex\":0,\"description\":\"Three-way collaboration\",\"tasks\":[{\"taskType\":\"analysis\",\"employeeId\":\"emp-whole-alpha\",\"description\":\"Prepare the requirements breakdown.\",\"dependsOnStepOutput\":false},{\"taskType\":\"general\",\"employeeId\":\"emp-whole-beta\",\"description\":\"Prepare the technical approach.\",\"dependsOnStepOutput\":false}]}]}"
     },
     {

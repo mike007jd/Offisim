@@ -27,13 +27,15 @@ export interface AgentContextPackDeps {
 
 export interface BuildPackOptions {
   preloadedSummaries?: ReadonlyArray<NodeSummaryLike>;
+  threadId?: string;
 }
 
 export class AgentContextPackService {
   constructor(private readonly deps: AgentContextPackDeps) {}
 
   async buildPack(options?: BuildPackOptions): Promise<AgentContextPack> {
-    const { threadId, companyId } = this.deps;
+    const threadId = options?.threadId ?? this.deps.threadId;
+    const { companyId } = this.deps;
     const pendingInteraction = normalizePendingInteraction(this.deps.getPendingInteraction());
 
     const summaryRows =

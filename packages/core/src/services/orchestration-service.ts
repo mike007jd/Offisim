@@ -445,10 +445,11 @@ export class OrchestrationService {
       threadId,
     );
 
+    const executionRuntimeCtx = this.runtimeContextForThread(threadId);
     const config = {
       configurable: {
         thread_id: threadId,
-        runtimeCtx: this.runtimeCtx,
+        runtimeCtx: executionRuntimeCtx,
         signal,
         ...(runScope ? { runScope } : {}),
       },
@@ -558,6 +559,14 @@ export class OrchestrationService {
     }
 
     return finalState as OffisimGraphState;
+  }
+
+  private runtimeContextForThread(threadId: string): RuntimeContext {
+    if (threadId === this.runtimeCtx.threadId) return this.runtimeCtx;
+    return Object.freeze({
+      ...this.runtimeCtx,
+      threadId,
+    });
   }
 
   private async getLatestCheckpointTuple(threadId: string) {

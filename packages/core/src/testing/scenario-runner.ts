@@ -3,6 +3,7 @@ import type {
   ChatAttachmentRef,
   InteractionKind,
   InteractionMode,
+  LlmProvider,
   ProjectStatus,
   RoleSlug,
   RuntimePolicyConfig,
@@ -21,6 +22,8 @@ import type {
   TaskPlan,
 } from '../graph/state.js';
 import type { LlmResponse, ToolDef } from '../llm/gateway.js';
+import type { LlmGateway } from '../llm/gateway.js';
+import type { ModelRegistry, ModelRegistryEntry } from '../llm/model-registry.js';
 import { ModelResolver } from '../llm/model-resolver.js';
 import { AuditingToolExecutor } from '../mcp/auditing-tool-executor.js';
 import { ToolPermissionEngine } from '../permissions/tool-permission-engine.js';
@@ -30,6 +33,7 @@ import { type RuntimeContext, createRuntimeContext } from '../runtime/runtime-co
 import type { RuntimeDeterminism } from '../runtime/runtime-context.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { InteractionService } from '../services/interaction-service.js';
+import { OrchestrationService } from '../services/orchestration-service.js';
 import type { SkillInstallEnvironment } from '../skills/skill-install-environment.js';
 import { SkillLoader } from '../skills/skill-loader.js';
 import { SkillStagingManager } from '../skills/skill-staging.js';
@@ -73,6 +77,7 @@ export interface DeterministicScenario {
   readonly initialState: ScenarioInitialState;
   readonly tools?: readonly ToolDef[];
   readonly builtinTools?: readonly ToolDef[];
+  readonly modelRegistry?: readonly ScenarioModelRegistryEntry[];
   readonly llmToolCallsEnabled?: boolean;
   readonly toolFixtures?: Record<string, readonly ToolResultFixture[]>;
   readonly skillInstallRuntime?: SkillInstallEnvironment['runtime'];
@@ -124,6 +129,15 @@ interface SeedTaskRun {
   readonly input?: Record<string, unknown>;
 }
 
+interface ScenarioModelRegistryEntry {
+  readonly id: string;
+  readonly displayName?: string;
+  readonly provider: LlmProvider;
+  readonly model: string;
+  readonly temperature?: number;
+  readonly maxTokens?: number;
+}
+
 interface SeedKanbanCard {
   readonly id: string;
   readonly projectId: string;
@@ -160,6 +174,9 @@ interface ScenarioRun {
   readonly startAt?: OffisimGraphStartNode;
   readonly expectError?: string;
   readonly runScope?: ScenarioRunScope;
+  readonly executionThreadId?: string;
+  readonly runtimeContextThreadId?: string;
+  readonly useOrchestrationService?: boolean;
   readonly autoResolveInteractions?: readonly ScenarioInteractionResolution[];
   readonly resolveAfterRun?: readonly ScenarioInteractionResolution[];
 }
@@ -230,11 +247,12 @@ export async function runDeterministicScenario(
   try {
     const runs = scenario.runs ?? [{ startAt: 'boss' as const }];
     for (const [index, run] of runs.entries()) {
+      const executionThreadId = run.executionThreadId ?? threadId;
       const runtimeCtx = createScenarioRuntime({
         eventBus,
         repos,
         companyId,
-        threadId,
+        threadId: run.runtimeContextThreadId ?? threadId,
         gateway,
         toolExecutor,
         interactionService,
@@ -242,6 +260,7 @@ export async function runDeterministicScenario(
         skillStagingManager,
         skillInstallRuntime: scenario.skillInstallRuntime,
         builtinTools: scenario.builtinTools ?? [],
+        modelRegistryEntries: scenario.modelRegistry ?? [],
         llmToolCallsEnabled: scenario.llmToolCallsEnabled ?? true,
         determinism,
       });
@@ -256,14 +275,26 @@ export async function runDeterministicScenario(
       });
       try {
         const runScope = buildScenarioRunScope(run, scenario.id, threadId);
-        finalState = await graph.invoke(finalState, {
-          configurable: {
-            thread_id: threadId,
-            runtimeCtx,
-            signal: new AbortController().signal,
+        if (run.useOrchestrationService) {
+          const orch = new OrchestrationService(graph, runtimeCtx);
+          finalState = await orch.execute({
+            entryMode: finalState.entryMode ?? scenario.entryMode,
+            messages: finalState.messages ?? [],
+            targetEmployeeId: finalState.targetEmployeeId ?? null,
+            threadId: executionThreadId,
+            projectId: finalState.projectId ?? null,
             ...(runScope ? { runScope } : {}),
-          },
-        });
+          });
+        } else {
+          finalState = await graph.invoke(finalState, {
+            configurable: {
+              thread_id: executionThreadId,
+              runtimeCtx,
+              signal: new AbortController().signal,
+              ...(runScope ? { runScope } : {}),
+            },
+          });
+        }
         if (run.expectError) {
           throw new Error(`Expected run ${index} to throw ${run.expectError}`);
         }
@@ -599,6 +630,7 @@ function createScenarioRuntime(params: {
   readonly skillStagingManager: SkillStagingManager | null;
   readonly skillInstallRuntime: SkillInstallEnvironment['runtime'] | undefined;
   readonly builtinTools: readonly ToolDef[];
+  readonly modelRegistryEntries: readonly ScenarioModelRegistryEntry[];
   readonly llmToolCallsEnabled: boolean;
   readonly determinism: RuntimeDeterminism;
 }): RuntimeContext {
@@ -630,6 +662,9 @@ function createScenarioRuntime(params: {
     runtimePolicy: HARNESS_RUNTIME_POLICY,
     llmToolCallsEnabled: params.llmToolCallsEnabled,
     determinism: params.determinism,
+    ...(params.modelRegistryEntries.length > 0
+      ? { modelRegistry: createScenarioModelRegistry(params.modelRegistryEntries) }
+      : {}),
     builtinTools: createScenarioBuiltinTools(params.builtinTools),
     interactionService: params.interactionService,
     ...(params.skillLoader ? { skillLoader: params.skillLoader } : {}),
@@ -642,6 +677,41 @@ function createScenarioRuntime(params: {
         }
       : {}),
   });
+}
+
+function createScenarioModelRegistry(
+  entries: readonly ScenarioModelRegistryEntry[],
+): ModelRegistry {
+  const normalized = entries.map(
+    (entry): ModelRegistryEntry => ({
+      id: entry.id,
+      displayName: entry.displayName ?? entry.id,
+      provider: entry.provider,
+      model: entry.model,
+      apiKey: '$HARNESS_FAKE_KEY',
+      ...(entry.temperature !== undefined ? { temperature: entry.temperature } : {}),
+      ...(entry.maxTokens !== undefined ? { maxTokens: entry.maxTokens } : {}),
+    }),
+  );
+  return {
+    findById(modelId: string) {
+      return normalized.find((entry) => entry.id === modelId || entry.model === modelId) ?? null;
+    },
+    listModels() {
+      return [...normalized];
+    },
+    getDefault() {
+      return normalized[0] ?? null;
+    },
+    getGateway(_modelId: string): LlmGateway | null {
+      return null;
+    },
+    loadConfig() {},
+    disposeAll() {},
+    resolveEnvVars(value: string) {
+      return value;
+    },
+  } as unknown as ModelRegistry;
 }
 
 function createScenarioSkillInstallEnvironment(

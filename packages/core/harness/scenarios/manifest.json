@@ -56,6 +56,22 @@
       ]
     },
     {
+      "id": "boss-summary-management-deliverable-shape",
+      "category": "graph",
+      "invariants": [
+        "summary.management_deliverable_uses_required_sections",
+        "summary.management_deliverable_records_team_execution_note"
+      ]
+    },
+    {
+      "id": "boss-summary-missing-artifact-incomplete",
+      "category": "graph",
+      "invariants": [
+        "summary.missing_required_artifact_is_marked_incomplete",
+        "summary.missing_required_artifact_names_missing_file"
+      ]
+    },
+    {
       "id": "boss-summary-uses-step-results-after-step-advance",
       "category": "graph",
       "invariants": [
@@ -143,6 +159,14 @@
       "invariants": [
         "completion.chinese_file_task_requires_real_tool_evidence",
         "completion.text_claim_not_file_evidence"
+      ]
+    },
+    {
+      "id": "completion-chinese-artifact-task-blocks-without-evidence",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.chinese_artifact_task_requires_real_tool_evidence",
+        "completion.artifact_claim_not_file_evidence"
       ]
     },
     {
@@ -313,6 +337,14 @@
       "invariants": ["chat.direct_chat_hides_boss_summary_node"]
     },
     {
+      "id": "orchestration-project-thread-scopes-runtime-context",
+      "category": "chat-streaming-ux",
+      "invariants": [
+        "chat.orchestration_scopes_runtime_context_to_project_thread",
+        "chat.task_runs_and_llm_calls_do_not_fall_back_to_company_thread"
+      ]
+    },
+    {
       "id": "routing-rejects-bare-noun-prose",
       "category": "interaction-modes",
       "invariants": [
@@ -350,6 +382,22 @@
       "invariants": [
         "summary.single_empty_employee_output_does_not_throw",
         "summary.single_empty_employee_output_marks_thread_complete"
+      ]
+    },
+    {
+      "id": "employee-inherits-unified-model-setting",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.employee_without_model_override_uses_unified_setting",
+        "routing.employee_inherit_mode_reaches_default_llm_call"
+      ]
+    },
+    {
+      "id": "employee-invalid-model-override-fails-before-work",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.invalid_employee_model_override_fails_before_llm_call",
+        "routing.invalid_employee_model_override_surfaces_readable_error"
       ]
     },
     {

@@ -24,7 +24,9 @@ export function createScopedRequestSignal(
 
   if (typeof timeoutMs === 'number' && timeoutMs > 0) {
     timeout = setTimeout(() => {
-      controller.abort(new DOMException(`${label} timed out after ${timeoutMs}ms.`, 'TimeoutError'));
+      controller.abort(
+        new DOMException(`${label} timed out after ${timeoutMs}ms.`, 'TimeoutError'),
+      );
     }, timeoutMs);
   }
 

@@ -71,7 +71,7 @@
 - Modify: `packages/ui-office/src/lib/provider-list-refresh.ts`
 - Modify: `Docs/04_runtime_experience/MULTI_AGENT_PROVIDER_STRESS_2026-05-06.md`
 
-- [ ] **Step 1: Rename the product concept in UI copy**
+- [x] **Step 1: Rename the product concept in UI copy**
 
 Change the user-facing label from a generic provider list pull to "更新模型目录" or "拉取模型目录".
 
@@ -79,7 +79,7 @@ Expected product behavior:
 - Normal users understand this as refreshing model options.
 - Advanced users can still inspect source details.
 
-- [ ] **Step 2: Show catalog freshness**
+- [x] **Step 2: Show catalog freshness**
 
 Add visible fields near the refresh action:
 - Last successful refresh time.
@@ -91,7 +91,7 @@ Expected product behavior:
 - If refresh fails, saved credentials and existing model choices remain usable.
 - User sees "上次成功" rather than assuming the provider system is broken.
 
-- [ ] **Step 3: Keep refresh out of the default path**
+- [x] **Step 3: Keep refresh out of the default path**
 
 Place the action in an advanced/details area inside provider settings.
 
@@ -122,7 +122,7 @@ Release verification:
 - Modify: deterministic harness scenarios for employee model routing.
 - Modify: `Docs/04_runtime_experience/MULTI_AGENT_PROVIDER_STRESS_2026-05-06.md`
 
-- [ ] **Step 1: Define the two model modes**
+- [x] **Step 1: Define the two model modes**
 
 Expose exactly two employee-level modes:
 - `跟随统一设置`
@@ -133,7 +133,7 @@ Expected product behavior:
 - The employee card/settings show inherited model name when following global setting.
 - The override model selector is hidden or disabled until `自定义模型` is selected.
 
-- [ ] **Step 2: Preserve power-user override**
+- [x] **Step 2: Preserve power-user override**
 
 When `自定义模型` is enabled, allow explicit model selection:
 - MiniMax-M2.7
@@ -145,7 +145,7 @@ Expected product behavior:
 - User can build a mixed-provider team for validation.
 - Normal employees do not accidentally drift away from the company-wide model.
 
-- [ ] **Step 3: Runtime resolution rule**
+- [x] **Step 3: Runtime resolution rule**
 
 Model resolution order:
 - If employee is `跟随统一设置`, use unified provider/model.
@@ -156,7 +156,7 @@ Expected product behavior:
 - No silent fallback to a different provider.
 - No hidden provider mismatch between UI and actual employee execution.
 
-- [ ] **Step 4: Deterministic coverage**
+- [x] **Step 4: Deterministic coverage**
 
 Add/extend harness scenarios:
 - Employee inherits unified provider when no override is set.
@@ -176,7 +176,7 @@ Run:
 - Modify: deterministic harness scenario for final report shape.
 - Modify: `Docs/04_runtime_experience/MULTI_AGENT_PROVIDER_STRESS_2026-05-06.md`
 
-- [ ] **Step 1: Define final deliverable formats**
+- [x] **Step 1: Define final deliverable formats**
 
 Support at least these final report intents:
 - `短报告`
@@ -187,7 +187,7 @@ Support at least these final report intents:
 
 Default for the hard live test: `项目交付包总结`.
 
-- [ ] **Step 2: Use a fixed report structure**
+- [x] **Step 2: Use a fixed report structure**
 
 Final boss output for the hard live test must include:
 - Selected project.
@@ -201,14 +201,14 @@ Final boss output for the hard live test must include:
 Expected product behavior:
 - The user receives a usable management summary, not a loose concatenation of employee replies.
 
-- [ ] **Step 3: Avoid false completion**
+- [x] **Step 3: Avoid false completion**
 
 If any required deliverable is missing, boss output must say the run is incomplete and list the missing item.
 
 Expected product behavior:
 - Offisim does not claim success when the folder lacks the PDF, PPT, HTML, project copy, or evidence file.
 
-- [ ] **Step 4: Deterministic coverage**
+- [x] **Step 4: Deterministic coverage**
 
 Add harness assertions:
 - Final output contains all required sections.
@@ -228,9 +228,11 @@ Run:
 - Create or update: release live verification checklist/runbook for this scenario.
 - Modify: deterministic harness manifest only for non-live invariants.
 
-- [ ] **Step 1: Prepare the release app**
+- [x] **Step 1: Prepare the release app**
 
 Build and launch the current release app, not the dev webview.
+
+Evidence 2026-05-07: release build succeeded and Computer Use attached to the exact release `.app` at `tauri://localhost`. Latest bundle timestamp: `2026-05-07 11:54:24 NZST`.
 
 Run:
 - `pnpm --filter @offisim/ui-office build`
@@ -243,7 +245,7 @@ Expected:
 - Computer Use attaches to the release `.app`.
 - App URL is `tauri://localhost`.
 
-- [ ] **Step 2: Prepare model team**
+- [x] **Step 2: Prepare model team**
 
 Use unified setting as default.
 
@@ -255,8 +257,9 @@ Then override exactly three employees for provider coverage:
 Expected:
 - Most employees remain `跟随统一设置`.
 - The three validation employees show explicit override state.
+- Final4 evidence includes MiniMax, GLM/Z.AI, and OpenRouter employee calls.
 
-- [ ] **Step 3: Use this hard task prompt**
+- [x] **Step 3: Use this hard task prompt**
 
 Use this exact user-facing prompt, with only the timestamp folder name updated:
 
@@ -279,7 +282,7 @@ Expected:
 - The task is hard enough to require project browsing, file operations, document creation, visual HTML creation, and final organization.
 - The task has clear safety boundaries.
 
-- [ ] **Step 4: Observe live behavior**
+- [x] **Step 4: Observe live behavior**
 
 During the run, record:
 - Whether planning assigns multiple employees.
@@ -292,6 +295,8 @@ Expected:
 - No stuck spinner.
 - No duplicate same-employee assignment.
 - No final success claim before required files exist.
+
+Final4 note 2026-05-07: PM planning and provider routing worked, but completion still falsely marked artifact tasks done after read/list evidence. A runtime guard was added after this run so artifact tasks now require successful write/copy/create audit evidence.
 
 - [ ] **Step 5: Verify generated files**
 
@@ -308,7 +313,9 @@ Expected:
 - HTML can be opened without network.
 - PDF/PPT are readable by the local OS preview apps.
 
-- [ ] **Step 6: Verify provider calls**
+Failure note 2026-05-07 Final4: `01_source_copy/jktech/` and the numbered folder structure existed, but PDF, PPT, HTML infographic, evidence manifest, file manifest, and root README were missing. This remains unchecked until a rerun produces the artifacts.
+
+- [x] **Step 6: Verify provider calls**
 
 Confirm runtime evidence includes calls from:
 - MiniMax-M2.7
@@ -318,8 +325,9 @@ Confirm runtime evidence includes calls from:
 Expected:
 - At least one employee call per configured provider.
 - No provider silently falls back to a different saved model.
+- Final4 evidence recorded MiniMax, GLM/Z.AI, and OpenRouter calls.
 
-- [ ] **Step 7: Record evidence**
+- [x] **Step 7: Record evidence**
 
 Write evidence to:
 - `Docs/04_runtime_experience/HARD_LIVE_PROVIDER_WORKFLOW_EVIDENCE_2026-05-07.md`
@@ -342,7 +350,7 @@ Evidence must include:
 - Modify: release checklist / runtime evidence docs.
 - Do not add runtime/product behavior tests under `packages/core/src/**/*.test.mjs`.
 
-- [ ] **Step 1: Run deterministic gates**
+- [x] **Step 1: Run deterministic gates**
 
 Run:
 - `pnpm --filter @offisim/core typecheck`
@@ -363,10 +371,12 @@ Run:
 
 Then launch exact release `.app` and complete the hard live scenario through Computer Use.
 
+Blocked note 2026-05-07: `pnpm --filter @offisim/desktop build` passed and Computer Use attached to the release `.app`, but the hard live scenario is still incomplete because Final4 did not produce the required PDF/PPT/HTML/evidence artifacts. The false-positive completion path has been fixed and must be rerun.
+
 Expected:
 - Release app, not dev webview, is the final verification surface.
 
-- [ ] **Step 3: Failure policy**
+- [x] **Step 3: Failure policy**
 
 If the run fails:
 - Retry only the failed step if the app state is recoverable.

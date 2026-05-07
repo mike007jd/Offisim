@@ -77,6 +77,7 @@ function shouldDelegateWholeTeam(userContent: string, employeeCount: number): bo
     /全员|所有员工|整个团队|全团队|共同合作|一起合作|分成\s*[一二三四五六七八九十0-9]+\s*组/u.test(
       userContent,
     ) ||
+    /完整办公室团队|办公室团队/u.test(userContent) ||
     new RegExp(`\\b${employeeCount}\\s*(employees|people|members)\\b`, 'i').test(userContent) ||
     new RegExp(`${employeeCount}\\s*(个|位)?\\s*(员工|成员|人)`, 'u').test(userContent)
   );

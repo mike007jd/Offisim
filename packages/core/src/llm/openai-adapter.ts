@@ -10,8 +10,8 @@ import type {
   ToolCallResult,
   ToolDef,
 } from './gateway.js';
-import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
 import { createScopedRequestSignal } from './request-timeout.js';
+import { DEFAULT_RETRY_CONFIG, type RetryConfig, withRetry } from './retry.js';
 
 export interface OpenAiAdapterOptions {
   /** Custom base URL for OpenAI-compatible endpoints (e.g. OpenRouter, Kimi, Gemini compat) */

@@ -1,5 +1,6 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
 import type { OffisimGraphState } from '../graph/state.js';
+import { getConfigSignal } from '../utils/get-signal.js';
 import type { LlmPlan } from './pm-planner-types.js';
 import { buildLlmPlanFallback, parsePmPlan } from './pm-planner/plan-parser.js';
 import { persistLlmPlanAsTaskPlan } from './pm-planner/plan-persistence.js';
@@ -13,7 +14,6 @@ import {
   tryBuildExplicitSopPlan,
   tryBuildSopPlan,
 } from './pm-planner/sop-matching.js';
-import { getConfigSignal } from '../utils/get-signal.js';
 
 export type { LlmPlanStep } from './pm-planner-types.js';
 export {
@@ -31,18 +31,20 @@ function shouldRethrowPlannerError(error: unknown, config: RunnableConfig): bool
   if (error instanceof DOMException && error.name === 'AbortError') return true;
   if (error instanceof Error && error.name === 'AbortError') return true;
   const message = error instanceof Error ? error.message : String(error);
-  return /\b(no-credential|No provider credential|API key|unauthorized|forbidden)\b/i.test(
-    message,
-  );
+  return /\b(no-credential|No provider credential|API key|unauthorized|forbidden)\b/i.test(message);
 }
 
-function shouldRequireRecommendedEmployeeCoverage(intent: string, recommendedCount: number): boolean {
+function shouldRequireRecommendedEmployeeCoverage(
+  intent: string,
+  recommendedCount: number,
+): boolean {
   if (recommendedCount <= 1) return false;
   return (
     /\b(all|everyone|whole team|entire team|all employees|team-wide)\b/i.test(intent) ||
     /全员|所有员工|整个团队|全团队|共同合作|一起合作|分成\s*[一二三四五六七八九十0-9]+\s*组/u.test(
       intent,
     ) ||
+    /完整办公室团队|办公室团队/u.test(intent) ||
     new RegExp(`\\b${recommendedCount}\\s*(employees|people|members)\\b`, 'i').test(intent) ||
     new RegExp(`${recommendedCount}\\s*(个|位)?\\s*(员工|成员|人)`, 'u').test(intent)
   );
@@ -56,17 +58,26 @@ function taskTypeForRole(roleSlug: string): string {
   return 'general';
 }
 
-function ensureRecommendedEmployeesCovered(plan: LlmPlan, prep: Awaited<ReturnType<typeof runPmPreflight>>): LlmPlan {
+function ensureRecommendedEmployeesCovered(
+  plan: LlmPlan,
+  prep: Awaited<ReturnType<typeof runPmPreflight>>,
+): LlmPlan {
   if (prep.kind === 'short-circuit') return plan;
   const recommendedIds = prep.directive.recommendedEmployees;
+  if (plan.summary.startsWith('Fallback phased artifact workflow for:')) {
+    return plan;
+  }
   if (!shouldRequireRecommendedEmployeeCoverage(prep.directive.intent, recommendedIds.length)) {
     return plan;
   }
 
-  const assignedIds = new Set(plan.steps.flatMap((step) => step.tasks.map((task) => task.employeeId)));
+  const assignedIds = new Set(
+    plan.steps.flatMap((step) => step.tasks.map((task) => task.employeeId)),
+  );
   const recommendedSet = new Set(recommendedIds);
   const missingEmployees = prep.validEmployees.filter(
-    (employee) => recommendedSet.has(employee.employee_id) && !assignedIds.has(employee.employee_id),
+    (employee) =>
+      recommendedSet.has(employee.employee_id) && !assignedIds.has(employee.employee_id),
   );
   if (missingEmployees.length === 0) return plan;
 

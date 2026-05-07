@@ -35,6 +35,72 @@ const logger = new Logger('employee-completion');
 const ROUTING_EVENT_EVIDENCE_RE =
   /\b(reroute|rerouted|rerouting|rebind|rebinding|employee-not-found|employee-disabled|requires-local-tools|missing employee|missing employee id)\b/iu;
 
+const FULL_USER_INTENT_RE = /\bFull user intent:/iu;
+const ARTIFACT_WRITE_TASK_RE =
+  /\b(0[1-5]_(source_copy|analysis|presentation|infographic|evidence)|pdf|pptx?|presentation|html|infographic|manifest|copy|folder structure|directory structure)\b/iu;
+const BASH_WRITE_COMMAND_RE =
+  /(^|[;&|()\s])(mkdir|cp|rsync|ditto|install|touch|tee|cat\s*>\s*|printf\b[^|;&]*>\s*|echo\b[^|;&]*>\s*|python\d?\b|node\b|pandoc|libreoffice|osascript)\b|>>?/iu;
+
+function taskSpecificDescription(taskDescription: string): string {
+  return taskDescription.split(FULL_USER_INTENT_RE)[0]?.trim() || taskDescription;
+}
+
+export function requiresConcreteWriteEvidence(taskDescription: string): boolean {
+  const specificDescription = taskSpecificDescription(taskDescription);
+  if (!ARTIFACT_WRITE_TASK_RE.test(specificDescription)) return false;
+  return detectTaskToolIntent(specificDescription).needsWrite;
+}
+
+function parseJsonObject(value: string | null): Record<string, unknown> | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function pickStringField(record: Record<string, unknown> | null, field: string): string {
+  const value = record?.[field];
+  return typeof value === 'string' ? value : '';
+}
+
+function rowMatchesTask(rowTaskRunId: string | null, taskRunId: string): boolean {
+  return rowTaskRunId === taskRunId;
+}
+
+export async function verifyConcreteWriteEvidence(input: {
+  runtimeCtx: RuntimeContext;
+  threadId: string;
+  taskRunId: string;
+  taskDescription: string;
+}): Promise<VerifyOutcome | null> {
+  if (!requiresConcreteWriteEvidence(input.taskDescription)) return null;
+
+  const rows = (await input.runtimeCtx.repos.mcpAudit.listByThread(input.threadId)).filter(
+    (row) => rowMatchesTask(row.task_run_id, input.taskRunId) && row.error === null,
+  );
+  const hasWriteEvidence = rows.some((row) => {
+    const args = parseJsonObject(row.arguments_json);
+    if (row.tool_name === 'write_file') {
+      return pickStringField(args, 'path').trim().length > 0;
+    }
+    if (row.tool_name !== 'bash') return false;
+    const command = pickStringField(args, 'command');
+    return BASH_WRITE_COMMAND_RE.test(command);
+  });
+  if (hasWriteEvidence) return { ok: true };
+  return {
+    ok: false,
+    reason:
+      'Artifact/file completion requires a successful write/copy/create tool audit, not read/list evidence only.',
+  };
+}
+
 async function verifyRoutingEventEvidence(input: {
   runtimeCtx: RuntimeContext;
   threadId: string;
@@ -82,6 +148,13 @@ async function verifyTaskCompletion(input: {
     taskDescription,
   });
   if (routingEventOutcome && !routingEventOutcome.ok) return routingEventOutcome;
+  const concreteWriteOutcome = await verifyConcreteWriteEvidence({
+    runtimeCtx,
+    threadId: state.threadId,
+    taskRunId,
+    taskDescription,
+  });
+  if (concreteWriteOutcome && !concreteWriteOutcome.ok) return concreteWriteOutcome;
   let hookOutcome: VerifyOutcome | null = null;
   const payload: TaskCompletionVerifyingPayload = {
     taskRunId,

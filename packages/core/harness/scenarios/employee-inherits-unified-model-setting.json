@@ -1,0 +1,72 @@
+{
+  "id": "employee-inherits-unified-model-setting",
+  "category": "interaction-modes",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": {
+      "companyId": "company-employee-inherits-unified-model",
+      "name": "Employee Unified Model Co"
+    },
+    "thread": { "threadId": "thread-employee-inherits-unified-model", "status": "running" },
+    "employees": [
+      {
+        "id": "emp-inherits-unified-model",
+        "name": "Unified Model Worker",
+        "role": "engineer",
+        "config": {
+          "modelPreference": "",
+          "temperature": 0.7,
+          "maxTokens": 4096
+        }
+      }
+    ],
+    "taskRuns": [
+      {
+        "id": "task-inherits-unified-model",
+        "employeeId": "emp-inherits-unified-model",
+        "taskType": "general",
+        "input": {
+          "description": "Confirm the employee inherits the unified runtime model."
+        }
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "general",
+        "employeeId": "emp-inherits-unified-model",
+        "assigneeKind": "employee",
+        "assigneeName": "Unified Model Worker",
+        "taskRunId": "task-inherits-unified-model",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Confirm the employee inherits the unified runtime model.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-inherited-model-response",
+      "match": { "contains": "Confirm the employee inherits the unified runtime model." },
+      "content": "The employee used the unified runtime model."
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-inherits-unified-model", "status": "completed" },
+    {
+      "kind": "llmCallMatches",
+      "nodeName": "employee",
+      "provider": "openai-compat",
+      "model": "fake-model",
+      "count": 1
+    },
+    { "kind": "finalOutputContains", "contains": "unified runtime model" }
+  ]
+}

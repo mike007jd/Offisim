@@ -146,7 +146,7 @@ export function buildConfigJson(
   >,
 ): string {
   return JSON.stringify({
-    modelPreference: formData.modelPreference,
+    modelPreference: formData.modelPreference.trim(),
     temperature: formData.temperature,
     maxTokens: formData.maxTokens,
     ...(formData.toolPermissionPolicy

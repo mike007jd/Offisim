@@ -1,4 +1,4 @@
-import { Button, Input } from '@offisim/ui-core';
+import { Button, Input, SegmentedControl } from '@offisim/ui-core';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 
 interface ModelStepProps {
@@ -7,29 +7,67 @@ interface ModelStepProps {
 }
 
 export function ModelStep({ formData, updateField }: ModelStepProps) {
+  const modelMode = formData.modelPreference.trim() ? 'custom' : 'inherit';
   const useDefaults = () => {
     updateField('modelPreference', '');
     updateField('temperature', 0.7);
     updateField('maxTokens', 4096);
   };
 
+  const setMode = (mode: string) => {
+    if (mode === 'inherit') {
+      updateField('modelPreference', '');
+      return;
+    }
+    if (!formData.modelPreference.trim()) {
+      updateField('modelPreference', 'MiniMax-M2.7');
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <Button type="button" variant="secondary" onClick={useDefaults} className="self-start">
-        Use Defaults
+        跟随统一设置
       </Button>
 
       <div>
-        <label htmlFor="wizard-model" className="text-xs text-shell mb-1 block">
-          Model Preference
-        </label>
-        <Input
-          id="wizard-model"
-          value={formData.modelPreference}
-          onChange={(e) => updateField('modelPreference', e.target.value)}
-          placeholder="e.g. gpt-4o, claude-3-opus (leave empty for default)"
+        <p className="text-xs text-shell mb-2 block">Model mode</p>
+        <SegmentedControl
+          size="sm"
+          ariaLabel="Employee model mode"
+          value={modelMode}
+          onChange={setMode}
+          items={[
+            { value: 'inherit', label: '跟随统一设置' },
+            { value: 'custom', label: '自定义模型' },
+          ]}
         />
+        <p className="mt-2 text-xs text-shell">
+          {modelMode === 'inherit'
+            ? 'This employee uses the company-wide provider setting.'
+            : 'This employee uses the explicit model below.'}
+        </p>
       </div>
+
+      {modelMode === 'custom' && (
+        <div>
+          <label htmlFor="wizard-model" className="text-xs text-shell mb-1 block">
+            Override model
+          </label>
+          <Input
+            id="wizard-model"
+            list="wizard-model-suggestions"
+            value={formData.modelPreference}
+            onChange={(e) => updateField('modelPreference', e.target.value)}
+            placeholder="MiniMax-M2.7, GLM-5.1, openai/gpt-oss-120b:free"
+          />
+          <datalist id="wizard-model-suggestions">
+            <option value="MiniMax-M2.7" />
+            <option value="GLM-5.1" />
+            <option value="openai/gpt-oss-120b:free" />
+          </datalist>
+        </div>
+      )}
 
       <div>
         <label htmlFor="wizard-temp" className="text-xs text-shell mb-1 block">

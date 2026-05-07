@@ -230,7 +230,7 @@ export function useInterviewWizard(): UseInterviewWizardReturn {
         appearance: formData.appearance,
       });
       const configJson = JSON.stringify({
-        modelPreference: formData.modelPreference,
+        modelPreference: formData.modelPreference.trim(),
         temperature: formData.temperature,
         maxTokens: formData.maxTokens,
       });

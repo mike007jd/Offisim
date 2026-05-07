@@ -1,0 +1,57 @@
+{
+  "id": "boss-summary-missing-artifact-incomplete",
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "interactionMode": "boss_proxy",
+  "seed": {
+    "company": { "companyId": "company-boss-summary-missing-artifact", "name": "Boss Summary Missing Artifact Co" },
+    "thread": { "threadId": "thread-boss-summary-missing-artifact", "status": "running" }
+  },
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-boss-summary-missing-artifact",
+      "threadId": "thread-boss-summary-missing-artifact",
+      "companyId": "company-boss-summary-missing-artifact",
+      "summary": "Project package delivery with missing artifact",
+      "steps": [{ "stepIndex": 0, "description": "Create project package", "tasks": [] }]
+    },
+    "completedStepIndices": [0],
+    "currentStepOutputs": [
+      {
+        "employeeId": "emp-analysis",
+        "employeeName": "Analysis Lead",
+        "roleSlug": "analyst",
+        "content": "Selected project: MacClaw. Created codebase-analysis-report.pdf. PPT generation failed before a file was created.",
+        "taskRunId": "task-analysis",
+        "stepIndex": 0,
+        "isExternal": false,
+        "brandKey": null
+      },
+      {
+        "employeeId": "emp-design",
+        "employeeName": "Design Lead",
+        "roleSlug": "designer",
+        "content": "Created project-infographic.html. No project-overview.pptx exists in the output folder.",
+        "taskRunId": "task-design",
+        "stepIndex": 0,
+        "isExternal": false,
+        "brandKey": null
+      }
+    ],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "boss-summary-missing-artifact",
+      "match": { "contains": "Summarize the team results above." },
+      "content": "Incomplete: the package cannot be marked complete.\n\n1. Selected project or work target: MacClaw\n2. Why this target was selected: compact desktop agent project.\n3. Deliverables created: codebase-analysis-report.pdf and project-infographic.html.\n4. Key findings: analysis was produced.\n5. Risks or missing information: missing project-overview.pptx.\n6. File or folder organization result: output folder is partially organized.\n7. Provider and team execution note: team output is incomplete until the PPT exists."
+    }
+  ],
+  "runs": [{ "startAt": "boss_summary" }],
+  "assertions": [
+    { "kind": "threadStatusIs", "status": "completed" },
+    { "kind": "finalOutputContains", "contains": "Incomplete:" },
+    { "kind": "finalOutputContains", "contains": "missing project-overview.pptx" },
+    { "kind": "finalOutputContains", "contains": "team output is incomplete" }
+  ]
+}

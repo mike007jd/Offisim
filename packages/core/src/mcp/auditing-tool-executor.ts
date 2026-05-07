@@ -23,6 +23,7 @@ interface ToolExecutionRecordContext {
   readonly auditId: string;
   readonly call: ToolCallRequest;
   readonly serverName: string;
+  readonly threadId: string;
   readonly startedAt: number;
   readonly concurrentWith: string[];
 }
@@ -59,15 +60,16 @@ export class AuditingToolExecutor implements ToolExecutor {
     const startedAt = Date.now();
     const concurrentWith = [...this.activeToolCalls];
     const serverName = this.resolveServerName(call.name);
-    const recordCtx = { auditId, call, serverName, startedAt, concurrentWith };
+    const threadId = call.threadId ?? this.threadId;
+    const recordCtx = { auditId, call, serverName, threadId, startedAt, concurrentWith };
 
     this.activeToolCalls.add(call.toolCallId);
     this.eventBus.emit(
-      toolExecutionTelemetry(this.companyId, this.threadId, {
+      toolExecutionTelemetry(this.companyId, threadId, {
         toolCallId: call.toolCallId,
         toolName: call.name,
         toolType: 'mcp',
-        threadId: this.threadId,
+        threadId,
         nodeName: call.nodeName,
         employeeId: call.employeeId,
         taskRunId: call.taskRunId ?? null,
@@ -82,7 +84,7 @@ export class AuditingToolExecutor implements ToolExecutor {
     try {
       let approvedBy = 'auto';
       if (this.permissionAuthorizer) {
-        const decision = await this.evaluatePermission(call, serverName);
+        const decision = await this.evaluatePermission(call, serverName, threadId);
         approvedBy = decision.approvedBy;
         if (decision.behavior === 'deny') {
           const response = this.buildPermissionResponse(decision.behavior, decision.reason);
@@ -100,11 +102,11 @@ export class AuditingToolExecutor implements ToolExecutor {
     } catch (error) {
       const completedAt = Date.now();
       this.eventBus.emit(
-        toolExecutionTelemetry(this.companyId, this.threadId, {
+        toolExecutionTelemetry(this.companyId, threadId, {
           toolCallId: call.toolCallId,
           toolName: call.name,
           toolType: 'mcp',
-          threadId: this.threadId,
+          threadId,
           nodeName: call.nodeName,
           employeeId: call.employeeId,
           taskRunId: call.taskRunId ?? null,
@@ -141,12 +143,13 @@ export class AuditingToolExecutor implements ToolExecutor {
   private async evaluatePermission(
     call: ToolCallRequest,
     serverName: string,
+    threadId: string,
   ): Promise<ToolPermissionDecision> {
     if (!this.permissionAuthorizer) {
       throw new Error('Permission authorizer is not configured.');
     }
     return this.permissionAuthorizer.evaluate({
-      threadId: this.threadId,
+      threadId,
       serverName,
       toolName: call.name,
       employeeId: call.employeeId,
@@ -165,6 +168,7 @@ export class AuditingToolExecutor implements ToolExecutor {
       call,
       serverName,
       decision.reason,
+      ctx.threadId,
       decision.policyHash,
     );
 
@@ -191,7 +195,7 @@ export class AuditingToolExecutor implements ToolExecutor {
       };
     }
 
-    const afterGrant = await this.evaluatePermission(call, serverName);
+    const afterGrant = await this.evaluatePermission(call, serverName, ctx.threadId);
     if (afterGrant.behavior !== 'allow') {
       const response = this.buildPermissionResponse(afterGrant.behavior, afterGrant.reason);
       return {
@@ -241,12 +245,13 @@ export class AuditingToolExecutor implements ToolExecutor {
     call: ToolCallRequest,
     serverName: string,
     reason: string,
+    threadId: string,
     policyHash?: string,
   ): InteractionRequest {
     const severity = this.classifyPermissionSeverity(call.name);
     return {
       interactionId: generateId('ix'),
-      threadId: this.threadId,
+      threadId,
       companyId: this.companyId,
       kind: 'permission_request',
       severity,
@@ -309,7 +314,7 @@ export class AuditingToolExecutor implements ToolExecutor {
     try {
       const audit: NewMcpAudit = {
         audit_id: params.auditId,
-        thread_id: this.threadId,
+        thread_id: params.call.threadId ?? this.threadId,
         task_run_id: params.call.taskRunId ?? null,
         employee_id: params.call.employeeId ?? 'unknown',
         server_name: params.serverName,
@@ -352,11 +357,11 @@ export class AuditingToolExecutor implements ToolExecutor {
       ),
     );
     this.eventBus.emit(
-      toolExecutionTelemetry(this.companyId, this.threadId, {
+      toolExecutionTelemetry(this.companyId, call.threadId ?? this.threadId, {
         toolCallId: call.toolCallId,
         toolName: call.name,
         toolType: 'mcp',
-        threadId: this.threadId,
+        threadId: call.threadId ?? this.threadId,
         nodeName: call.nodeName,
         employeeId: call.employeeId,
         taskRunId: call.taskRunId ?? null,

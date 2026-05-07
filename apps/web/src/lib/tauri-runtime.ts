@@ -15,10 +15,7 @@ import type { EventBus, InMemoryEventBus, RuntimeRepositories } from '@offisim/c
 import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
 import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
 import type { LlmGateway } from '@offisim/core/dist/llm/gateway.js';
-import type {
-  ModelRegistry,
-  ModelRegistryEntry,
-} from '@offisim/core/dist/llm/model-registry.js';
+import type { ModelRegistry, ModelRegistryEntry } from '@offisim/core/dist/llm/model-registry.js';
 import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { OpenAiAgentsSdkAdapter } from '@offisim/core/dist/llm/openai-agents-sdk-adapter.js';
 import { assertOpenAiAgentsSdkLaneSupported } from '@offisim/core/dist/llm/openai-agents-sdk-lane-policy.js';

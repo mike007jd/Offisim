@@ -1,0 +1,77 @@
+{
+  "id": "orchestration-project-thread-scopes-runtime-context",
+  "category": "chat-streaming-ux",
+  "entryMode": "boss_chat",
+  "interactionMode": "boss_proxy",
+  "seed": {
+    "company": { "companyId": "company-project-thread-scope", "name": "Project Thread Scope Co" },
+    "thread": {
+      "threadId": "proj-scope-alpha::chat-thread-alpha::",
+      "status": "running",
+      "projectId": "proj-scope-alpha"
+    },
+    "projects": [
+      {
+        "id": "proj-scope-alpha",
+        "name": "Scoped Project",
+        "workspaceRoot": "/tmp/offisim-scoped-project"
+      }
+    ],
+    "employees": [
+      { "id": "emp-scope-analyst", "name": "Scope Analyst", "role": "analyst" }
+    ]
+  },
+  "initialState": {
+    "projectId": "proj-scope-alpha",
+    "messages": [
+      {
+        "role": "user",
+        "content": "请让项目团队分析这个项目的核心价值，并给出简短结论。"
+      }
+    ]
+  },
+  "llmTurns": [
+    {
+      "id": "boss-delegates-scoped-project",
+      "match": { "contains": "项目团队分析" },
+      "content": "{\"action\":\"delegate\",\"reason\":\"project analysis request\"}"
+    },
+    {
+      "id": "pm-plans-scoped-project",
+      "match": { "contains": "Intent: 请让项目团队分析" },
+      "content": "{\"summary\":\"Scoped project analysis plan\",\"steps\":[{\"stepIndex\":0,\"description\":\"Project value analysis\",\"tasks\":[{\"taskType\":\"analysis\",\"employeeId\":\"emp-scope-analyst\",\"description\":\"Analyze the project value and provide a concise conclusion.\",\"dependsOnStepOutput\":false}]}]}"
+    },
+    {
+      "id": "analyst-scoped-project-output",
+      "match": { "contains": "Analyze the project value" },
+      "content": "The project has clear value because it turns workspace context into actionable deliverables."
+    },
+    {
+      "id": "boss-summary-scoped-project",
+      "match": { "contains": "Summarize the team results above." },
+      "content": "Scoped project analysis completed with one concrete value conclusion."
+    }
+  ],
+  "runs": [
+    {
+      "useOrchestrationService": true,
+      "runtimeContextThreadId": "thread-company-default",
+      "executionThreadId": "proj-scope-alpha::chat-thread-alpha::",
+      "runScope": {
+        "conversationKey": "proj-scope-alpha::chat-thread-alpha::",
+        "runId": "run-project-thread-scope",
+        "threadId": "chat-thread-alpha"
+      }
+    }
+  ],
+  "assertions": [
+    {
+      "kind": "taskRunsExactlyEmployees",
+      "employeeIds": ["emp-scope-analyst"]
+    },
+    { "kind": "llmCallMatches", "nodeName": "pm_planner", "count": 1 },
+    { "kind": "llmCallMatches", "nodeName": "employee", "count": 1 },
+    { "kind": "threadStatusIs", "status": "completed" },
+    { "kind": "finalOutputContains", "contains": "workspace context into actionable deliverables" }
+  ]
+}

@@ -52,11 +52,29 @@ function readStoredProviderListPull(): ProviderListRefreshSnapshot | null {
   }
 }
 
+function formatFetchedAt(fetchedAt: string): string {
+  const date = new Date(fetchedAt);
+  if (Number.isNaN(date.getTime())) return fetchedAt;
+  return date.toLocaleString();
+}
+
+function formatSourceSummary(source: ProviderListRefreshSnapshot['sources'][number]): string {
+  const parts: string[] = [];
+  if (typeof source.providerCount === 'number') {
+    parts.push(`${source.providerCount} providers`);
+  }
+  if (typeof source.modelCount === 'number') {
+    parts.push(`${source.modelCount} models`);
+  }
+  return parts.length > 0 ? parts.join(' / ') : 'scope source';
+}
+
 export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   const providerTargetRef = useTourTarget('settings:provider-cta');
   const [providerListPull, setProviderListPull] = useState<ProviderListRefreshSnapshot | null>(
     readStoredProviderListPull,
   );
+  const [providerListPullError, setProviderListPullError] = useState<string | null>(null);
   const [isPullingProviderList, setIsPullingProviderList] = useState(false);
   const {
     accessMode,
@@ -123,29 +141,21 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   const modelOptions =
     pulledModelOptions.length > 0 ? pulledModelOptions : (selectedVariant?.modelIds ?? []);
   const providerListPullSummary = providerListPull
-    ? providerListPull.sources
-        .map((source) => {
-          const providerCount =
-            typeof source.providerCount === 'number'
-              ? `${source.providerCount} tracked providers, `
-              : '';
-          const modelCount =
-            typeof source.modelCount === 'number' ? `${source.modelCount} models` : 'scope only';
-          return `${source.label}: ${providerCount}${modelCount}`;
-        })
-        .join(' • ')
-    : 'Hermes Agent / OpenClaw provider scope, with model metadata filled from LiteLLM + OpenRouter';
+    ? `上次成功 ${formatFetchedAt(providerListPull.fetchedAt)}`
+    : 'Hermes Agent / OpenClaw scope, filled with LiteLLM + OpenRouter model metadata';
 
   async function handleProviderListPull() {
     setIsPullingProviderList(true);
+    setProviderListPullError(null);
     try {
       const snapshot = await pullLatestProviderList();
       setProviderListPull(snapshot);
       window.localStorage.setItem(PROVIDER_LIST_PULL_STORAGE_KEY, JSON.stringify(snapshot));
-      notify?.('Provider list pulled from Hermes Agent and OpenClaw docs.', 'success');
+      notify?.('模型目录已更新：Hermes Agent / OpenClaw scope.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown provider list error';
-      notify?.(`Provider list pull failed: ${message}`, 'error');
+      setProviderListPullError(message);
+      notify?.(`模型目录更新失败：${message}`, 'error');
     } finally {
       setIsPullingProviderList(false);
     }
@@ -266,32 +276,59 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
           </p>
         ) : null}
 
-        <SettingsSection
-          title="Provider catalog"
-          description={providerListPullSummary}
-          action={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              isLoading={isPullingProviderList}
-              onClick={handleProviderListPull}
+        <details className="rounded-lg border border-border-default bg-surface-muted px-3 py-2">
+          <summary className="cursor-pointer text-sm font-semibold text-text-primary">
+            Advanced model catalog
+          </summary>
+          <div className="mt-3">
+            <SettingsSection
+              title="模型目录更新"
+              description={providerListPullSummary}
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  isLoading={isPullingProviderList}
+                  onClick={handleProviderListPull}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  更新模型目录
+                </Button>
+              }
             >
-              <RefreshCw className="h-3.5 w-3.5" />
-              拉取 provider list
-            </Button>
-          }
-        >
-          <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
-            <Badge className="text-[11px] uppercase tracking-wide">Agent scoped</Badge>
-            <span>
-              {providerListPull
-                ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
-                : 'Pull refreshes model suggestions without changing saved credentials.'}
-            </span>
+              <div className="space-y-2 text-xs text-text-muted">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="text-[11px] uppercase tracking-wide">Agent scoped</Badge>
+                  <span>
+                    {providerListPull
+                      ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
+                      : 'Refresh updates model suggestions without changing saved credentials.'}
+                  </span>
+                </div>
+                {providerListPull ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {providerListPull.sources.map((source) => (
+                      <div
+                        key={source.sourceId}
+                        className="rounded-md border border-border-default bg-surface px-2 py-1.5"
+                      >
+                        <p className="font-medium text-text-secondary">{source.label}</p>
+                        <p className="mt-0.5 text-text-muted">{formatSourceSummary(source)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {providerListPullError ? (
+                  <p className="rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-warning">
+                    Last refresh failed: {providerListPullError}
+                  </p>
+                ) : null}
+              </div>
+            </SettingsSection>
           </div>
-        </SettingsSection>
+        </details>
 
         <SettingsSection title="Advanced routing" description={routingDescription}>
           <div className="grid gap-4 lg:grid-cols-2">

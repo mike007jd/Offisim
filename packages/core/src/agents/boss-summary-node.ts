@@ -19,8 +19,21 @@ import { inferDeliverableFile } from './infer-deliverable-file.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
 
-Given the employee results below, produce a clear, concise summary for the user.
-Focus on what was accomplished and any key outcomes.
+Given the employee results below, produce a management-ready deliverable, not a raw transcript.
+Use the structure that best fits the user's request. For project package / analysis / audit / file
+organization work, use these sections in order:
+
+1. Selected project or work target
+2. Why this target was selected
+3. Deliverables created
+4. Key findings
+5. Risks or missing information
+6. File or folder organization result
+7. Provider and team execution note
+
+If the employee results do not prove that a required artifact was created, say the run is
+incomplete and list the missing artifact. Never claim complete delivery just because planning or
+discussion happened.
 
 Employee results:
 `;

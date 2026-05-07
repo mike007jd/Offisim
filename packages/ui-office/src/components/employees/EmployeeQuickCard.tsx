@@ -197,9 +197,9 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
       <div className="mt-auto pt-2 border-t border-ocean-light/60 flex items-center justify-between gap-2">
         <span
           className="text-[10px] text-shell/70 truncate max-w-[120px]"
-          title={config.modelPreference || 'default'}
+          title={config.modelPreference || '跟随统一设置'}
         >
-          {config.modelPreference || <em>default model</em>}
+          {config.modelPreference || <em>跟随统一设置</em>}
         </span>
         <span className="text-[10px] font-mono text-shell/70 shrink-0">
           T {config.temperature.toFixed(1)}

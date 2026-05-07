@@ -264,8 +264,9 @@ function countTrackedLiteLlmProviders(
   agentProviderScope: ReadonlySet<string>,
 ) {
   const supportedProviderAliases = new Set(Object.keys(providerSupport.providers ?? {}));
-  return Object.keys(PROVIDER_ALIAS_TO_PRODUCTS).filter((alias) =>
-    agentProviderScope.has(canonicalProviderAlias(alias)) && supportedProviderAliases.has(alias),
+  return Object.keys(PROVIDER_ALIAS_TO_PRODUCTS).filter(
+    (alias) =>
+      agentProviderScope.has(canonicalProviderAlias(alias)) && supportedProviderAliases.has(alias),
   ).length;
 }
 

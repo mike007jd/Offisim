@@ -60,7 +60,7 @@ export function PreviewStep({ formData }: PreviewStepProps) {
 
       <Section label="Model Config">
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{formData.modelPreference || 'Default Model'}</Badge>
+          <Badge variant="secondary">{formData.modelPreference || '跟随统一设置'}</Badge>
           <Badge variant="secondary">Temp: {formData.temperature.toFixed(1)}</Badge>
           <Badge variant="secondary">Max Tokens: {formData.maxTokens.toLocaleString()}</Badge>
         </div>

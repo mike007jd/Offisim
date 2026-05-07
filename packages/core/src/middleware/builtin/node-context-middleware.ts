@@ -86,7 +86,11 @@ export class NodeContextMiddleware implements LlmMiddleware {
     const summaries = await this.nodeSummaryRepo.listByThread(ctx.runtimeCtx.threadId, {
       limit: this.maxSummaries,
     });
-    const pack = (await this.packService?.buildPack({ preloadedSummaries: summaries })) ?? null;
+    const pack =
+      (await this.packService?.buildPack({
+        preloadedSummaries: summaries,
+        threadId: ctx.runtimeCtx.threadId,
+      })) ?? null;
 
     const hasPackContent =
       pack &&

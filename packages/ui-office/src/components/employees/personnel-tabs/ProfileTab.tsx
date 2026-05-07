@@ -29,8 +29,14 @@ interface ProviderOption {
   devOnly?: boolean;
 }
 
+const EMPLOYEE_MODEL_SUGGESTIONS = ['MiniMax-M2.7', 'GLM-5.1', 'openai/gpt-oss-120b:free'] as const;
+
 const PROVIDER_OPTIONS: ProviderOption[] = [
-  { value: 'default', label: 'Default (use company setting)', models: [] },
+  {
+    value: 'configured',
+    label: 'Configured validation models',
+    models: [...EMPLOYEE_MODEL_SUGGESTIONS],
+  },
   {
     value: 'openai',
     label: 'OpenAI',
@@ -63,7 +69,9 @@ const VISIBLE_PROVIDER_OPTIONS = import.meta.env.DEV
   : PROVIDER_OPTIONS.filter((o) => !o.devOnly);
 
 function inferProvider(modelPref: string): string {
-  if (!modelPref) return 'default';
+  if (!modelPref) return 'configured';
+  if (EMPLOYEE_MODEL_SUGGESTIONS.includes(modelPref as (typeof EMPLOYEE_MODEL_SUGGESTIONS)[number]))
+    return 'configured';
   const m = modelPref.toLowerCase();
   if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3')) return 'openai';
   if (m.startsWith('claude')) return 'anthropic';
@@ -94,6 +102,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
   const { zones: companyZones } = useCompanyZones();
   const isEditMode = employeeId !== null;
   const canSave = isDirty && formData.name.trim() !== '' && !isSaving;
+  const modelMode = formData.modelPreference.trim() ? 'custom' : 'inherit';
 
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(() =>
@@ -106,9 +115,17 @@ export function ProfileTab({ editor }: ProfileTabProps) {
 
   const handleProviderChange = (provider: string) => {
     setSelectedProvider(provider);
-    if (provider === 'default') {
+  };
+
+  const handleModelModeChange = (mode: string) => {
+    if (mode === 'inherit') {
       updateField('modelPreference', '');
+      return;
     }
+    if (!formData.modelPreference.trim()) {
+      updateField('modelPreference', EMPLOYEE_MODEL_SUGGESTIONS[0]);
+    }
+    setSelectedProvider(inferProvider(formData.modelPreference));
   };
 
   const currentProviderModels =
@@ -355,60 +372,80 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               Config
             </h3>
             <div>
-              <label htmlFor="editor-provider" className="mb-1 block text-sm text-text-secondary">
-                Provider
-              </label>
-              <Select value={selectedProvider} onValueChange={handleProviderChange}>
-                <SelectTrigger id="editor-provider">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {VISIBLE_PROVIDER_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label htmlFor="editor-model" className="mb-1 block text-sm text-text-secondary">
-                Model
-              </label>
-              <Input
-                id="editor-model"
-                list="editor-model-suggestions"
-                value={formData.modelPreference}
-                onChange={(e) => updateField('modelPreference', e.target.value)}
-                placeholder={
-                  selectedProvider === 'default'
-                    ? 'Using company default'
-                    : 'e.g. gpt-4o, claude-opus-4-5'
-                }
-                disabled={selectedProvider === 'default'}
+              <p className="mb-2 block text-sm text-text-secondary">Model mode</p>
+              <SegmentedControl
+                size="sm"
+                ariaLabel="Employee model mode"
+                value={modelMode}
+                onChange={handleModelModeChange}
+                items={[
+                  { value: 'inherit', label: '跟随统一设置' },
+                  { value: 'custom', label: '自定义模型' },
+                ]}
               />
-              {currentProviderModels.length > 0 && (
-                <datalist id="editor-model-suggestions">
-                  {currentProviderModels.map((m) => (
-                    <option key={m} value={m} />
-                  ))}
-                </datalist>
-              )}
-              {currentProviderModels.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {currentProviderModels.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => updateField('modelPreference', m)}
-                      className="rounded border border-border-default bg-surface-muted px-1.5 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-border-focus hover:text-accent-text"
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <p className="mt-2 text-xs text-text-muted">
+                {modelMode === 'inherit'
+                  ? 'Uses the company-wide model from Settings > Provider.'
+                  : 'This employee will use the explicit model below.'}
+              </p>
             </div>
+            {modelMode === 'custom' ? (
+              <>
+                <div>
+                  <label
+                    htmlFor="editor-provider"
+                    className="mb-1 block text-sm text-text-secondary"
+                  >
+                    Model family
+                  </label>
+                  <Select value={selectedProvider} onValueChange={handleProviderChange}>
+                    <SelectTrigger id="editor-provider">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VISIBLE_PROVIDER_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label htmlFor="editor-model" className="mb-1 block text-sm text-text-secondary">
+                    Override model
+                  </label>
+                  <Input
+                    id="editor-model"
+                    list="editor-model-suggestions"
+                    value={formData.modelPreference}
+                    onChange={(e) => updateField('modelPreference', e.target.value)}
+                    placeholder="e.g. MiniMax-M2.7, GLM-5.1, openai/gpt-oss-120b:free"
+                  />
+                  {currentProviderModels.length > 0 && (
+                    <datalist id="editor-model-suggestions">
+                      {currentProviderModels.map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
+                  )}
+                  {currentProviderModels.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {currentProviderModels.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => updateField('modelPreference', m)}
+                          className="rounded border border-border-default bg-surface-muted px-1.5 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-border-focus hover:text-accent-text"
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
             <div>
               <label
                 htmlFor="editor-temperature"
