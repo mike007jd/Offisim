@@ -9,6 +9,7 @@ import { getBuiltinPrefab } from '@offisim/renderer';
 import type { PrefabDefinition, PrefabInstanceRow } from '@offisim/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
+import { ensureSystemPrefabLayoutVersion } from '../lib/system-prefab-layout-repair.js';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
 
 /** A prefab instance paired with its definition from the catalog. */
@@ -42,6 +43,7 @@ export function usePrefabInstances(): UsePrefabInstancesReturn {
 
     setLoading(true);
     try {
+      await ensureSystemPrefabLayoutVersion(repos, activeCompanyId);
       const rows = await repos.prefabInstances.findByCompany(activeCompanyId);
 
       const resolved: PrefabInstanceWithDef[] = [];

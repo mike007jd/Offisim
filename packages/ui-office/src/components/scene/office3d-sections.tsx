@@ -20,10 +20,14 @@ import {
 } from './office3d-shared.js';
 import {
   BookshelfMesh3D,
+  CoffeeTableMesh3D,
   MeetingTableMesh3D,
   PlantMesh3D,
   RestAreaMesh3D,
   ServerRackMesh3D,
+  VendingMachineMesh3D,
+  WaterCoolerMesh3D,
+  WhiteboardMesh3D,
   WorkstationMesh3D,
 } from './prefabs/index.js';
 import { Prefab3D } from './prefabs/index.js';
@@ -31,9 +35,13 @@ import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
 
 const FALLBACK_FURNITURE = [
   { Component: MeetingTableMesh3D, position: [-10, 0, -8] as [number, number, number] },
+  { Component: WhiteboardMesh3D, position: [-10, 0, -11] as [number, number, number] },
   { Component: ServerRackMesh3D, position: [8, 0, -8] as [number, number, number] },
   { Component: BookshelfMesh3D, position: [-10, 0, 2] as [number, number, number] },
   { Component: RestAreaMesh3D, position: [8, 0, 2] as [number, number, number] },
+  { Component: CoffeeTableMesh3D, position: [11, 0, 1] as [number, number, number] },
+  { Component: VendingMachineMesh3D, position: [14, 0, 0] as [number, number, number] },
+  { Component: WaterCoolerMesh3D, position: [14, 0, 3.3] as [number, number, number] },
   { Component: WorkstationMesh3D, position: [-13, 0, 11] as [number, number, number] },
   { Component: WorkstationMesh3D, position: [0, 0, 11] as [number, number, number] },
   { Component: WorkstationMesh3D, position: [12, 0, 11] as [number, number, number] },

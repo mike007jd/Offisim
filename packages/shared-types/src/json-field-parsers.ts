@@ -168,7 +168,7 @@ export function parseEmployeePersona(raw: string | null): EmployeePersona {
   if (customInstructions !== undefined) persona.customInstructions = customInstructions;
   const avatarSeed = pickString(obj.avatarSeed);
   if (avatarSeed !== undefined) persona.avatarSeed = avatarSeed;
-  const appearance = pickAppearance(obj.appearance);
+  const appearance = pickAppearance(obj.appearance) ?? pickAppearance(obj.characterConfig);
   if (appearance !== undefined) persona.appearance = appearance;
   const communicationFrequency = pickCommunicationFrequency(obj.communicationFrequency);
   if (communicationFrequency !== undefined) persona.communicationFrequency = communicationFrequency;

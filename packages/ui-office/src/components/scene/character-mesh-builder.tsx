@@ -106,7 +106,7 @@ export function BlockCharacter({
         <boxGeometry args={[legWidth, 0.5, 0.12]} />
         <SceneMaterial
           materialClass="fabric"
-          color={sc.characterShoe}
+          color={params.outfitColor}
           overrides={{ roughness: 0.75 }}
         />
       </mesh>
@@ -114,7 +114,7 @@ export function BlockCharacter({
         <boxGeometry args={[legWidth, 0.5, 0.12]} />
         <SceneMaterial
           materialClass="fabric"
-          color={sc.characterShoe}
+          color={params.outfitColor}
           overrides={{ roughness: 0.75 }}
         />
       </mesh>
@@ -132,6 +132,14 @@ export function BlockCharacter({
           materialClass="fabric"
           color={params.outfitColor}
           overrides={{ roughness: 0.7 }}
+        />
+      </mesh>
+      <mesh position={[0, 1.02, 0.02]} castShadow>
+        <boxGeometry args={[0.16 * body.torso, 0.16, 0.14]} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={params.skinColor}
+          overrides={{ roughness: 0.42 }}
         />
       </mesh>
       <mesh position={[0, 0.58, 0]} castShadow>
@@ -215,6 +223,14 @@ export function BlockCharacter({
           materialClass="plastic"
           color={DARK_SEMANTIC_COLORS.error}
           overrides={{ roughness: 0.5 }}
+        />
+      </mesh>
+      <mesh position={[0, 1.255, 0.178]} castShadow>
+        <boxGeometry args={[0.035, 0.045, 0.03]} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={params.skinColor}
+          overrides={{ roughness: 0.45 }}
         />
       </mesh>
       {children}

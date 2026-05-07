@@ -1,7 +1,7 @@
 # scene-3d-art-direction Specification
 
 ## Purpose
-TBD - created by archiving change polish-3d-art-direction-production. Update Purpose after archive.
+Defines the production art direction contract for the Office 3D scene: scene shell, zones, employees, prefab furniture, utility rooms, and default system-zone layout SHALL read as a polished procedural office diorama without relying on external 3D assets.
 ## Requirements
 ### Requirement: Office 3D SHALL use production scene art tokens
 
@@ -36,11 +36,50 @@ Zone surfaces SHALL use the art-direction opacity policy from `scene-art-directi
 
 ### Requirement: Prefab templates SHALL have visible production differences
 
-Prefab rendering SHALL not collapse every prefab in a category into an identical visible object. At minimum, `workstation-compact`, `workstation-dual`, `server-rack-4u`, `gpu-cluster`, and `meeting-table-4` SHALL render visibly different scale or composition from their default category peer.
+Prefab rendering SHALL not collapse every prefab in a category into an identical visible object. The 3D dispatcher SHALL prefer exact `prefabId` matches before category fallback so semantic furniture is not misrendered by broad category. At minimum, `workstation-compact`, `workstation-dual`, `server-rack-4u`, `gpu-cluster`, `meeting-table-4`, `sofa-set`, `coffee-table`, `vending-machine`, `water-cooler`, `chair-standalone`, and `reading-table` SHALL render visibly different scale or composition from their default category peer.
 
 #### Scenario: GPU cluster is not a single server rack
 - **WHEN** rendering a compute prefab with template `gpu-cluster`
 - **THEN** the 3D renderer composes multiple rack units instead of returning the same single rack used for `server-rack-2u`
+
+#### Scenario: Rest area prefabs keep rest semantics
+- **WHEN** rendering a prefab with `prefabId === 'sofa-set'`
+- **THEN** the 3D dispatcher SHALL render a lounge sofa composition
+- **AND** it SHALL NOT fall through to the collaboration meeting-table renderer
+
+#### Scenario: Rest-area single furniture has dedicated geometry
+- **WHEN** rendering `coffee-table`, `vending-machine`, `water-cooler`, or `chair-standalone`
+- **THEN** each prefab SHALL render a dedicated procedural 3D model matching its product meaning
+- **AND** the renderer SHALL NOT collapse them into a generic decorative placeholder
+
+#### Scenario: Library reading furniture has dedicated geometry
+- **WHEN** rendering `reading-table`
+- **THEN** the 3D renderer SHALL show a reading table with reading-room affordances
+- **AND** nearby standalone chairs SHALL face the table by default
+
+### Requirement: System default zones SHALL use polished functional layouts
+
+System default zones SHALL use a versioned prefab layout shared by company creation, prefab materialization, renderer defaults, and existing-company repair. The layout SHALL make each zone's purpose legible at the default camera view: development/product/design workspaces show oriented workstations and planning furniture; library shows bookshelves and reading tables; rest area shows sofa, coffee table, vending/water, and plants; meeting room shows meeting table and whiteboard; server room shows racks, switch/patch hardware, and cable trays.
+
+#### Scenario: Existing companies receive one system-zone reflow
+- **WHEN** a company has no current `systemPrefabLayoutVersion` equal to the production layout version
+- **THEN** system-zone prefab instances SHALL be replaced with the current production default layout
+- **AND** employees, roles, SOPs, chat/runtime data, and non-system zones SHALL remain untouched
+- **AND** the company policy SHALL record the applied layout version after the repair
+
+#### Scenario: New companies use the same layout as repaired companies
+- **WHEN** a company is created from a template without explicit zone-level `defaultPrefabs`
+- **THEN** its system-zone prefab instances SHALL be generated from the shared production layout
+- **AND** workspace seat counts SHALL account for the employees assigned to each workspace zone
+
+### Requirement: Whiteboards SHALL render as aligned physical objects
+
+Whiteboard and board-like scene objects SHALL render a single coherent panel assembly. The visible board surface, frame, tray, markers, and stand/wall-mount structure SHALL share the same rotation so the frame cannot visually drift away from the panel.
+
+#### Scenario: Meeting room whiteboard has aligned frame and board
+- **WHEN** rendering the meeting-room `whiteboard` prefab at any supported rotation
+- **THEN** the board panel, frame bars, tray, and marker details SHALL rotate together
+- **AND** the user SHALL see a bordered board rather than a disconnected frame/panel pair
 
 ### Requirement: Employee and brand bodies SHALL use the scene material system
 

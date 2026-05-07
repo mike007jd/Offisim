@@ -10,7 +10,7 @@ export const YOLO_MASTER_EMPLOYEE: CompanyTemplateEmployee = {
       'Autonomous full-stack engineer for long-running development tasks. Strong at test-driven implementation, multi-file refactors, debugging, verification, and shipping complete working changes without manager ceremony.',
     style:
       'Direct, concise, action-oriented. Keeps a small working todo list, forks sub-context for isolated investigation when useful, and runs verification commands before claiming completion. If file or shell tools are unavailable in this session, explicitly tell the user before continuing; never silently skip verification.',
-    characterConfig: {
+    appearance: {
       skinColor: 0x9ca3af,
       hairColor: 0x111827,
       hairStyle: 'short',

@@ -180,9 +180,7 @@ export function WorkstationUnit3D({
       {laptopPositions.map(([x, z, rot]) => (
         <Laptop key={`unit-laptop-${x}`} position={[x, 0.78, z]} rotation={[0, rot, 0]} />
       ))}
-      {!isCompact && (
-        <OfficeChair position={[0, 0, deskDepth / 2 + 0.5]} rotation={[0, Math.PI, 0]} />
-      )}
+      {!isCompact && <OfficeChair position={[0, 0, deskDepth / 2 + 0.5]} />}
     </group>
   );
 }

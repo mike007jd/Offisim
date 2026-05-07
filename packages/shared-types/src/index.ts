@@ -320,6 +320,12 @@ export {
   templateToZone,
 } from './zone-templates.js';
 
+export {
+  SYSTEM_PREFAB_LAYOUT_VERSION,
+  getSystemZoneDefaultPrefabs,
+} from './system-zone-prefab-layout.js';
+export type { SystemZonePrefabLayoutInput } from './system-zone-prefab-layout.js';
+
 export type { ZonePresetPrefab, ZonePreset } from './zone-presets.js';
 export {
   ZONE_PRESETS,

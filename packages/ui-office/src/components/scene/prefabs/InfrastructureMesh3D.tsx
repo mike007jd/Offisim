@@ -12,6 +12,7 @@ export interface InfrastructureMesh3DProps {
   position?: [number, number, number];
   rotation?: number;
   state?: string;
+  template?: string;
 }
 
 /** Flat 1U network switch box with indicator LEDs and port holes. */
@@ -57,9 +58,49 @@ export function CableTrayMesh3D({
 
   return (
     <group position={position} rotation={[0, rotY, 0]}>
-      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.3, 3]} />
-        <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
+      <mesh position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.34, 3.4]} />
+        <SceneMaterial materialClass="plastic" color={sc.cableChannel} />
+      </mesh>
+      {[-0.08, 0.08].map((x) => (
+        <mesh key={`cable-run-${x}`} position={[x, 0.055, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.045, 3.2]} />
+          <meshBasicMaterial color={sc.cableAccent} transparent opacity={0.56} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+export function PatchPanelMesh3D({
+  position = [0, 0, 0],
+  rotation = 0,
+  state: _state,
+}: InfrastructureMesh3DProps) {
+  const sc = useSceneColors();
+  const rotY = (rotation * Math.PI) / 180;
+
+  return (
+    <group position={position} rotation={[0, rotY, 0]}>
+      <mesh position={[0, 0.68, 0]} castShadow>
+        <boxGeometry args={[1.45, 1.08, 0.32]} />
+        <SceneMaterial materialClass="metal" color={sc.serverBody} />
+      </mesh>
+      <mesh position={[0, 0.68, 0.17]}>
+        <planeGeometry args={[1.28, 0.92]} />
+        <SceneMaterial materialClass="metal" color={sc.furniture} />
+      </mesh>
+      {[-0.45, -0.15, 0.15, 0.45].map((x) =>
+        [0.44, 0.68, 0.92].map((y) => (
+          <mesh key={`patch-port-${x}-${y}`} position={[x, y, 0.18]}>
+            <boxGeometry args={[0.11, 0.055, 0.025]} />
+            <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
+          </mesh>
+        )),
+      )}
+      <mesh position={[0, 0.05, -0.02]} castShadow>
+        <boxGeometry args={[1.2, 0.08, 0.42]} />
+        <SceneMaterial materialClass="metal" color={sc.metal} />
       </mesh>
     </group>
   );
@@ -72,6 +113,13 @@ export function InfrastructureMesh3D({
   position = [0, 0, 0],
   rotation = 0,
   state,
+  template = 'network-switch',
 }: InfrastructureMesh3DProps) {
+  if (template === 'cable-tray') {
+    return <CableTrayMesh3D position={position} rotation={rotation} state={state} />;
+  }
+  if (template === 'patch-panel') {
+    return <PatchPanelMesh3D position={position} rotation={rotation} state={state} />;
+  }
   return <NetworkSwitchMesh3D position={position} rotation={rotation} state={state} />;
 }

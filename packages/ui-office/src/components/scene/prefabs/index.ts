@@ -32,9 +32,20 @@ export type { RestAreaMesh3DProps } from './RestAreaMesh3D.js';
 export {
   NetworkSwitchMesh3D,
   CableTrayMesh3D,
+  PatchPanelMesh3D,
   InfrastructureMesh3D,
 } from './InfrastructureMesh3D.js';
 export type { InfrastructureMesh3DProps } from './InfrastructureMesh3D.js';
 
-export { PlantMesh3D, DecorativeMesh3D } from './DecorativeMesh3D.js';
+export {
+  PlantMesh3D,
+  CoffeeTableMesh3D,
+  VendingMachineMesh3D,
+  WaterCoolerMesh3D,
+  StatusBoardMesh3D,
+  DecorativeMesh3D,
+} from './DecorativeMesh3D.js';
 export type { DecorativeMesh3DProps, PlantMesh3DProps } from './DecorativeMesh3D.js';
+
+export { WhiteboardMesh3D } from './WhiteboardMesh3D.js';
+export type { WhiteboardMesh3DProps } from './WhiteboardMesh3D.js';

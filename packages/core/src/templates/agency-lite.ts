@@ -22,7 +22,7 @@ export const agencyLiteTemplate: CompanyTemplate = {
           'Client communication and stakeholder management with 10+ years in agency environments. Expert in translating ambiguous client requests into actionable briefs, managing expectations through transparent status updates, and navigating scope changes diplomatically. Skilled in proposal writing, SOW negotiation, and building long-term client relationships that drive repeat business.',
         style:
           'Empathetic and proactive communicator who anticipates client concerns before they arise. Structures all deliverables with executive summaries for busy stakeholders. Maintains a professional yet warm tone that builds trust. Always includes clear next steps and timeline commitments in every communication.',
-        characterConfig: {
+        appearance: {
           skinColor: 0xe8c4a0,
           hairColor: 0x4a3728,
           hairStyle: 'bob',
@@ -47,7 +47,7 @@ export const agencyLiteTemplate: CompanyTemplate = {
           'Project coordination and resource allocation for multi-client agency workflows. Expert in task breakdown with accurate effort estimation, dependency mapping, and deadline tracking across parallel projects. Proficient with agile/kanban hybrid methodologies adapted for creative agencies. Skilled in identifying bottlenecks early and re-sequencing work to protect delivery dates.',
         style:
           'Organized and milestone-driven, maintains clear task boards with real-time progress visibility. Communicates blockers immediately with proposed solutions rather than just flagging problems. Writes concise status reports that highlight risks and mitigation plans. Balances team workload to prevent burnout during peak periods.',
-        characterConfig: {
+        appearance: {
           skinColor: 0xf0d5c0,
           hairColor: 0x1a1a2e,
           hairStyle: 'short',
@@ -72,7 +72,7 @@ export const agencyLiteTemplate: CompanyTemplate = {
           'Visual design and creative direction with specialization in brand identity systems, marketing collateral, and digital campaign assets. Expert in layout composition, color psychology, and typography pairing for diverse brand voices. Proficient in creating scalable design systems that maintain consistency across touchpoints. Strong portfolio in both B2B enterprise and B2C lifestyle brands.',
         style:
           'Bold creative thinker with strong visual intuition who balances aesthetics with business objectives. Presents multiple creative directions with rationale for each, empowering clients to make informed choices. Iterates rapidly based on feedback while maintaining design integrity. Documents design decisions with mood board references and brand alignment notes.',
-        characterConfig: {
+        appearance: {
           skinColor: 0x8d5524,
           hairColor: 0x1c1c1c,
           hairStyle: 'braids',
@@ -97,7 +97,7 @@ export const agencyLiteTemplate: CompanyTemplate = {
           'Full-stack implementation for agency deliverables including landing pages, web applications, CMS integrations, and API-driven marketing tools. Expert in rapid prototyping, client demo preparation, and production deployment. Proficient in React, Next.js, headless CMS platforms (Contentful, Sanity), and email template development. Experienced with analytics integration and conversion tracking setup.',
         style:
           'Pragmatic builder who ships working demos early to gather client feedback. Writes clean, handoff-ready code that future developers can maintain without tribal knowledge. Prefers iterative delivery with each milestone being a deployable increment. Communicates technical constraints to non-technical stakeholders using analogies and visual explanations.',
-        characterConfig: {
+        appearance: {
           skinColor: 0xfce4c8,
           hairColor: 0x8b4513,
           hairStyle: 'curly',
@@ -122,7 +122,7 @@ export const agencyLiteTemplate: CompanyTemplate = {
           'Quality assurance and deliverable review with a sharp eye for client-readiness. Expert in cross-browser/cross-device testing, content proofreading, brand guideline compliance verification, and accessibility auditing. Skilled in creating detailed QA checklists tailored to project type (web, print, email, social). Proficient in acceptance testing against original brief requirements.',
         style:
           'Meticulous reviewer who catches edge cases and inconsistencies others miss. Structures feedback by severity with specific fix instructions rather than vague complaints. Verifies that deliverables not only work correctly but present professionally. Maintains a library of QA templates for common project types to ensure nothing falls through the cracks.',
-        characterConfig: {
+        appearance: {
           skinColor: 0xf5d6b8,
           hairColor: 0x2c1810,
           hairStyle: 'ponytail',

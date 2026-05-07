@@ -1,8 +1,9 @@
-import type { PrefabInstanceRow, RoleSlug, Zone, ZoneArchetype } from '@offisim/shared-types';
+import type { PrefabInstanceRow, RoleSlug, Zone } from '@offisim/shared-types';
 import {
   REQUIRED_ARCHETYPES,
   SYSTEM_ZONE_TEMPLATES,
   extractZoneSlug,
+  getSystemZoneDefaultPrefabs,
   normalizeZoneId,
   resolveZoneForRole,
   templateToZone,
@@ -42,58 +43,6 @@ function getZoneCenter(
   const slug = extractZoneSlug(zoneId);
   const t = zoneTemplates.find((zone) => zone.slug === slug);
   return t ? { cx: t.cx, cz: t.cz } : { cx: 0, cz: 0 };
-}
-
-/** Compute a grid position within a zone for the i-th item. Spacing = 2.5 units. */
-function computeGridPosition(
-  cx: number,
-  cz: number,
-  index: number,
-  cols = 3,
-  spacing = 2.5,
-): { x: number; z: number } {
-  const col = index % cols;
-  const row = Math.floor(index / cols);
-  const offsetX = (col - (cols - 1) / 2) * spacing;
-  const offsetZ = row * spacing;
-  return { x: cx + offsetX, z: cz + offsetZ };
-}
-
-// ── Default prefab layouts per utility zone type ───────────────────
-
-interface DefaultPrefab {
-  readonly prefabId: string;
-  readonly rotation?: 0 | 90 | 180 | 270;
-}
-
-function getDefaultPrefabs(archetype: ZoneArchetype | null): DefaultPrefab[] {
-  switch (archetype) {
-    case 'library':
-      return [
-        { prefabId: 'bookshelf-double' },
-        { prefabId: 'bookshelf-double' },
-        { prefabId: 'reading-table' },
-        { prefabId: 'chair-standalone' },
-        { prefabId: 'plant-large' },
-      ];
-    case 'rest':
-      return [
-        { prefabId: 'sofa-set' },
-        { prefabId: 'coffee-table' },
-        { prefabId: 'vending-machine' },
-        { prefabId: 'plant-small' },
-      ];
-    case 'meeting':
-      return [{ prefabId: 'meeting-table-4' }, { prefabId: 'whiteboard' }];
-    case 'server':
-      return [
-        { prefabId: 'server-rack-2u' },
-        { prefabId: 'cable-tray' },
-        { prefabId: 'network-switch' },
-      ];
-    default:
-      return [];
-  }
 }
 
 function createPrefabInstance(params: {
@@ -168,16 +117,15 @@ function buildDefaultPrefabInstances(
       continue;
     }
 
-    const defaults = getDefaultPrefabs(zoneTemplate.archetype);
-    for (const [index, prefab] of defaults.entries()) {
-      const position = computeGridPosition(center.cx, center.cz, index);
+    const defaults = getSystemZoneDefaultPrefabs(zoneTemplate);
+    for (const prefab of defaults) {
       prefabInstances.push(
         createPrefabInstance({
           companyId,
           prefabId: prefab.prefabId,
           zoneId: zoneTemplate.slug,
-          x: position.x,
-          z: position.z,
+          x: center.cx + prefab.offsetX,
+          z: center.cz + prefab.offsetZ,
           rotation: prefab.rotation ?? 0,
           now,
         }),
@@ -198,17 +146,27 @@ function buildWorkspacePrefabInstances(
   const prefabInstances: PrefabInstanceRow[] = [];
   const zoneCounts = buildZoneCounts(createdEmployees, availableZones);
 
-  for (const [zoneId, count] of zoneCounts) {
-    const center = getZoneCenter(zoneTemplates, zoneId);
-    for (let index = 0; index < count; index++) {
-      const position = computeGridPosition(center.cx, center.cz, index);
+  for (const zoneTemplate of zoneTemplates) {
+    if (zoneTemplate.archetype !== 'workspace') {
+      continue;
+    }
+    const zoneId = normalizeZoneId(companyId, zoneTemplate.slug);
+    const center = getZoneCenter(zoneTemplates, zoneTemplate.slug);
+    const count = zoneCounts.get(zoneId) ?? zoneTemplate.deskSlots;
+    const defaults =
+      zoneTemplate.defaultPrefabs && zoneTemplate.defaultPrefabs.length > 0
+        ? zoneTemplate.defaultPrefabs
+        : getSystemZoneDefaultPrefabs(zoneTemplate, { occupiedSeats: count });
+
+    for (const prefab of defaults) {
       prefabInstances.push(
         createPrefabInstance({
           companyId,
-          prefabId: 'workstation-standard',
-          zoneId,
-          x: position.x,
-          z: position.z,
+          prefabId: prefab.prefabId,
+          zoneId: zoneTemplate.slug,
+          x: center.cx + prefab.offsetX,
+          z: center.cz + prefab.offsetZ,
+          rotation: prefab.rotation ?? 0,
           now,
         }),
       );

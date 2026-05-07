@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the contract for the Personnel `Appearance` tab as a live customizer + preview surface, the rule that `formData.appearance` is the authoritative customization source for renderers, and the cross-surface propagation requirements after save. Internal employees see a left-rail `AvatarCustomizer` plus a stacked 2D DiceBear / 3D `LowPolyCharacter` preview that updates synchronously on every swatch change without round-tripping through save. External employees see the read-only brand-managed banner and brand-variant preview. C1 scope is skin + clothing color in 3D; `hairStyle` / `bodyType` / `gender` / `clothingAccent` persist in `persona_json.appearance` but are visualized only in 2D until a follow-up art pass extends 3D differentiation.
+Defines the contract for the Personnel `Appearance` tab as a live customizer + preview surface, the rule that `formData.appearance` and `persona_json.appearance` are the authoritative customization sources for renderers, and the cross-surface propagation requirements after save. Internal employees see a left-rail `AvatarCustomizer` plus a stacked 2D DiceBear / 3D `LowPolyCharacter` preview that updates synchronously on every swatch change without round-tripping through save. External employees see the read-only brand-managed banner and brand-variant preview. All seven appearance fields drive the 2D and 3D identity surfaces.
 ## Requirements
 ### Requirement: Appearance tab is a live customizer + preview surface
 
@@ -52,6 +52,20 @@ The `AvatarCustomizer` component SHALL NOT render inside the `Profile` tab. The 
 - **WHEN** auditing `ProfileTab.tsx`
 - **THEN** the file SHALL NOT render the `data-testid="external-avatar-disabled"` banner
 - **AND** that banner SHALL render inside `AppearanceTab.tsx` instead
+
+### Requirement: Employee templates SHALL write `persona_json.appearance`
+
+Employee creation and save paths SHALL persist employee appearance only under `persona_json.appearance`. The legacy `persona_json.characterConfig` field SHALL remain a read-only compatibility fallback for old data and imports, but new templates, editors, and saves SHALL NOT write new `characterConfig` values.
+
+#### Scenario: Legacy characterConfig is read as appearance
+- **WHEN** parsing an existing employee `persona_json` that contains `characterConfig` and no `appearance`
+- **THEN** the parsed employee persona SHALL expose the same values under `appearance`
+- **AND** 2D avatars, 3D employee markers, and Appearance preview SHALL consume that normalized appearance
+
+#### Scenario: New employee templates do not write characterConfig
+- **WHEN** auditing built-in company templates and employee factory data
+- **THEN** internal employee customization values SHALL be stored as `appearance`
+- **AND** no new template employee SHALL define `characterConfig`
 
 ### Requirement: Save round-trip propagates appearance to all employee surfaces
 
@@ -122,4 +136,3 @@ The customizer copy line "Saved with the employee — visible trim arrives in an
 - **WHEN** the user changes any subset of `(skinColor, hairColor, hairStyle, clothingColor, clothingAccent, bodyType, gender)` and clicks Save
 - **THEN** the Office workspace `EmployeeMarker` for that employee re-renders with the new appearance values on the next event tick
 - **AND** all seven schema fields drive the rendered `<BlockCharacter>` params
-

@@ -242,7 +242,7 @@ Hair *style* MAY differ between 2D (DiceBear `top` token) and 3D (block-figure g
 #### Scenario: Outfit color byte-equal across 2D and 3D
 - **WHEN** an employee has `appearance.clothingColor === 0x22c55e`
 - **THEN** the 2D DiceBear avatar `clothesColor` config receives `'22c55e'`
-- **AND** the 3D upper torso AND lower torso `SceneMaterial.color` are both `new Color('#22c55e')`
+- **AND** the 3D upper torso, lower torso, and legs `SceneMaterial.color` are all `new Color('#22c55e')`
 
 #### Scenario: Eye axis symmetric in 3D
 - **WHEN** auditing the eye sphere positions in `<BlockCharacter variant='default'>`

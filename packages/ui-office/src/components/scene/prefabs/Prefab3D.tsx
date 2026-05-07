@@ -38,6 +38,64 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
   const prefabId = definition.prefabId;
   const template = definition.render2D?.template ?? prefabId;
 
+  if (prefabId === 'sofa-set') {
+    return <RestAreaMesh3D position={position} rotation={rotation} state={state} />;
+  }
+  if (
+    prefabId === 'coffee-table' ||
+    prefabId === 'vending-machine' ||
+    prefabId === 'water-cooler' ||
+    prefabId === 'chair-standalone' ||
+    prefabId === 'status-board'
+  ) {
+    return (
+      <DecorativeMesh3D position={position} rotation={rotation} state={state} template={prefabId} />
+    );
+  }
+  if (prefabId === 'reading-table') {
+    return (
+      <BookshelfMesh3D
+        position={position}
+        rotation={rotation}
+        state={state}
+        template="reading-table"
+      />
+    );
+  }
+  if (
+    prefabId === 'bookshelf-single' ||
+    prefabId === 'bookshelf-double' ||
+    prefabId === 'filing-cabinet'
+  ) {
+    return (
+      <BookshelfMesh3D position={position} rotation={rotation} state={state} template={prefabId} />
+    );
+  }
+  if (prefabId === 'whiteboard') {
+    return <WhiteboardMesh3D position={position} rotation={rotation} state={state} />;
+  }
+  if (prefabId === 'standing-table') {
+    return (
+      <MeetingTableMesh3D
+        position={position}
+        rotation={rotation}
+        capacity={4}
+        state={state}
+        variant="standing"
+      />
+    );
+  }
+  if (prefabId === 'network-switch' || prefabId === 'cable-tray' || prefabId === 'patch-panel') {
+    return (
+      <InfrastructureMesh3D
+        position={position}
+        rotation={rotation}
+        state={state}
+        template={prefabId}
+      />
+    );
+  }
+
   switch (definition.category) {
     case 'workspace':
       if (prefabId === 'workstation-compact') {
@@ -88,9 +146,6 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
       return <ServerRackMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'knowledge':
-      if (template === 'whiteboard') {
-        return <WhiteboardMesh3D position={position} rotation={rotation} state={state} />;
-      }
       return <BookshelfMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'collaboration':
@@ -102,13 +157,16 @@ export function Prefab3D({ definition, position = [0, 0, 0], rotation = 0, state
       return <MeetingTableMesh3D position={position} rotation={rotation} state={state} />;
 
     case 'infrastructure':
-      return <InfrastructureMesh3D position={position} rotation={rotation} state={state} />;
+      return (
+        <InfrastructureMesh3D
+          position={position}
+          rotation={rotation}
+          state={state}
+          template={template}
+        />
+      );
 
     case 'decorative':
-      // Rest area is a composite decorative prefab with its own mesh
-      if (prefabId === 'sofa-set') {
-        return <RestAreaMesh3D position={position} rotation={rotation} state={state} />;
-      }
       return (
         <DecorativeMesh3D
           position={position}

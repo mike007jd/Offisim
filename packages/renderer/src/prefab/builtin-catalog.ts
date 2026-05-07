@@ -215,12 +215,12 @@ const meetingTable8 = def({
 const sofaSet = def({
   prefabId: 'sofa-set',
   name: 'Sofa Set',
-  description: 'Sofa and coffee table for casual meetings.',
-  category: 'collaboration',
+  description: 'Lounge seating for rest-area breaks.',
+  category: 'decorative',
   gridSize: Object.freeze([3, 2]) as readonly [number, number],
   composite: true,
   children: Object.freeze([child(tpl('sofa'), [0, -8]), child(tpl('coffee-table'), [0, 14])]),
-  bindingSlots: Object.freeze([slot('meeting-session', 'meeting-session', false)]),
+  bindingSlots: Object.freeze([]),
 });
 
 const standingTable = def({

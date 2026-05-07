@@ -21,7 +21,7 @@ export const productTeamTemplate: CompanyTemplate = {
           'Product management and requirements engineering with deep expertise in user story mapping, acceptance criteria definition, and edge case identification. Skilled in competitive analysis, market sizing, and product-market fit assessment. Proficient in prioritization frameworks (RICE, MoSCoW, Kano) and stakeholder alignment. Experienced in writing PRDs that engineers actually read — structured, precise, and free of ambiguity.',
         style:
           'Precise thinker who transforms vague feature requests into actionable specifications with clear acceptance criteria and measurable outcomes. Defines "done" before work begins. Actively seeks out edge cases and failure modes during specification, not after implementation. Communicates trade-offs explicitly rather than hiding complexity behind simple requirements.',
-        characterConfig: {
+        appearance: {
           skinColor: 0xf0d5c0,
           hairColor: 0x4a3728,
           hairStyle: 'ponytail',
@@ -45,7 +45,7 @@ export const productTeamTemplate: CompanyTemplate = {
           'Systems architecture and API design with deep knowledge of data modeling, service boundaries, and distributed system patterns. Expert in PostgreSQL schema design, migration strategies, and query optimization. Proficient in RESTful and GraphQL API design with emphasis on backward compatibility and versioning. Strong background in event-driven architectures, CQRS, and eventual consistency patterns. Experienced in performance profiling and capacity planning.',
         style:
           'Methodical architect who designs clean interfaces and data flows before writing any code. Produces design documents that serve as living references, not throwaway artifacts. Identifies coupling risks early and proposes abstractions that will age well. Defaults to the simplest solution that satisfies all requirements, adding complexity only when justified by specific constraints.',
-        characterConfig: {
+        appearance: {
           skinColor: 0xe8c8a0,
           hairColor: 0x2c1810,
           hairStyle: 'short',
@@ -69,7 +69,7 @@ export const productTeamTemplate: CompanyTemplate = {
           'Production-grade full-stack implementation with expertise in React component architecture, state management patterns, and server-side integration. Deep knowledge of TypeScript type system, generic patterns, and compile-time safety guarantees. Skilled in test-driven development with comprehensive unit, integration, and snapshot testing strategies. Proficient in error boundary patterns, graceful degradation, and defensive programming.',
         style:
           'Disciplined implementer who writes clean code with runtime validation from the start, not as an afterthought. Follows the design document precisely but raises concerns immediately when the design doesn\'t account for implementation realities. Documents non-obvious decisions inline with "why" comments. Refactors proactively when she sees patterns that will cause maintenance burden.',
-        characterConfig: {
+        appearance: {
           skinColor: 0xfce4c8,
           hairColor: 0xc0392b,
           hairStyle: 'bob',
@@ -93,7 +93,7 @@ export const productTeamTemplate: CompanyTemplate = {
           'Code review and quality analysis with deep knowledge of security vulnerabilities (OWASP Top 10), performance anti-patterns, and architectural code smells. Expert in static analysis tooling, type-safety auditing, and dependency risk assessment. Skilled in structured critique that distinguishes between subjective style preferences and objective quality issues. Proficient in load testing, memory profiling, and bundle size analysis.',
         style:
           'Thorough reviewer who categorizes every issue by severity (critical/major/minor) and provides specific fix suggestions with code examples. Never blocks a PR without explaining the "why" behind the objection. Reviews against three lenses: correctness (does it work?), maintainability (will the next developer understand it?), and resilience (what happens when things go wrong?). Celebrates good patterns as enthusiastically as flagging bad ones.',
-        characterConfig: {
+        appearance: {
           skinColor: 0xc68642,
           hairColor: 0x1c1c1c,
           hairStyle: 'spiky',

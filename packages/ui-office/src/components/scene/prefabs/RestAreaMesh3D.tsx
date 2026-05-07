@@ -7,7 +7,6 @@
 import { RoundedBox } from '@react-three/drei';
 import { SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
-import { PlantMesh3D } from './DecorativeMesh3D.js';
 
 export interface RestAreaMesh3DProps {
   position?: [number, number, number];
@@ -74,41 +73,12 @@ export function RestAreaMesh3D({
           />
         </RoundedBox>
       ))}
-      {/* Coffee table */}
-      <mesh position={[0, 0.3, 0]} castShadow>
-        <cylinderGeometry args={[0.8, 0.8, 0.05, 32]} />
-        <SceneMaterial materialClass="plastic" color={sc.whiteboardSurface} />
-      </mesh>
-      <mesh position={[0, 0.15, 0]} castShadow>
-        <cylinderGeometry args={[0.4, 0.2, 0.3, 16]} />
-        <SceneMaterial materialClass="plastic" color={sc.furnitureDark} />
-      </mesh>
-      {/* Vending machine */}
-      <group position={[5.5, 0, -2]}>
-        <RoundedBox args={[1, 2.2, 0.8]} position={[0, 1.1, 0]} radius={0.05} castShadow>
-          <SceneMaterial
-            materialClass="metal"
-            color={sc.furniture}
-            overrides={{ roughness: 0.32 }}
-          />
-        </RoundedBox>
-        {/* Screen */}
-        <mesh position={[0, 1.4, 0.41]}>
-          <planeGeometry args={[0.7, 0.5]} />
-          <meshBasicMaterial color={sc.vendingScreen} />
-        </mesh>
-        {/* Product window */}
-        <mesh position={[0, 0.8, 0.41]}>
-          <planeGeometry args={[0.7, 0.8]} />
-          <SceneMaterial
-            materialClass="glass"
-            color={sc.partition}
-            overrides={{ thickness: 0.05 }}
-          />
-        </mesh>
-      </group>
-      <PlantMesh3D position={[-5, 0, -2.5]} />
-      <PlantMesh3D position={[4, 0, 2.5]} />
+      <RoundedBox args={[1.05, 0.22, 0.72]} position={[-3.2, 0.22, -0.15]} radius={0.08} castShadow>
+        <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
+      </RoundedBox>
+      <RoundedBox args={[0.72, 0.18, 0.72]} position={[3.1, 0.2, 0.1]} radius={0.08} castShadow>
+        <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
+      </RoundedBox>
     </group>
   );
 }

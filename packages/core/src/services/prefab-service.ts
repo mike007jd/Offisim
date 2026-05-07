@@ -3,9 +3,8 @@ import type {
   PrefabInstanceRow,
   PrefabStateChangedPayload,
   RuntimeEvent,
-  SemanticCategory,
 } from '@offisim/shared-types';
-import { parsePrefabBindings } from '@offisim/shared-types';
+import { getSystemZoneDefaultPrefabs, parsePrefabBindings } from '@offisim/shared-types';
 import type { EventBus } from '../events/event-bus.js';
 import type { PrefabInstanceRepository } from '../repos/prefab-instance-repository.js';
 
@@ -14,51 +13,27 @@ type ZoneType = 'department' | 'library' | 'rest_area' | 'meeting_room' | 'serve
 
 interface DefaultPlacement {
   prefabId: string;
-  category: SemanticCategory;
-  count: number | 'input';
+  offsetX: number;
+  offsetZ: number;
+  rotation?: 0 | 90 | 180 | 270;
 }
 
-function getDefaultPlacements(
-  zoneType: ZoneType,
-  count: number,
-): Array<{ prefabId: string; category: SemanticCategory; quantity: number }> {
-  const defs: Record<ZoneType, DefaultPlacement[]> = {
-    department: [
-      { prefabId: 'workstation-standard', category: 'workspace', count: 'input' },
-      { prefabId: 'plant-small', category: 'decorative', count: 1 },
-    ],
-    library: [
-      { prefabId: 'bookshelf-double', category: 'knowledge', count: 2 },
-      { prefabId: 'reading-table', category: 'knowledge', count: 1 },
-      { prefabId: 'chair-standalone', category: 'workspace', count: 1 },
-      { prefabId: 'plant-large', category: 'decorative', count: 1 },
-    ],
-    rest_area: [
-      { prefabId: 'sofa-set', category: 'decorative', count: 1 },
-      { prefabId: 'coffee-table', category: 'decorative', count: 1 },
-      { prefabId: 'vending-machine', category: 'infrastructure', count: 1 },
-      { prefabId: 'plant-small', category: 'decorative', count: 1 },
-    ],
-    meeting_room: [
-      {
-        prefabId: count > 4 ? 'meeting-table-8' : 'meeting-table-4',
-        category: 'collaboration',
-        count: 1,
-      },
-      { prefabId: 'whiteboard', category: 'collaboration', count: 1 },
-    ],
-    server_room: [
-      { prefabId: 'server-rack-2u', category: 'compute', count: 'input' },
-      { prefabId: 'cable-tray', category: 'infrastructure', count: 1 },
-      { prefabId: 'network-switch', category: 'infrastructure', count: 1 },
-    ],
+function getDefaultPlacements(zoneType: ZoneType, count: number): DefaultPlacement[] {
+  const zoneByType = {
+    department: { slug: 'zone-dev', archetype: 'workspace' as const, deskSlots: count },
+    library: { slug: 'zone-library', archetype: 'library' as const, deskSlots: 0 },
+    rest_area: { slug: 'zone-rest', archetype: 'rest' as const, deskSlots: 0 },
+    meeting_room: { slug: 'zone-meeting', archetype: 'meeting' as const, deskSlots: 0 },
+    server_room: { slug: 'zone-server', archetype: 'server' as const, deskSlots: 0 },
   };
-
-  return defs[zoneType].map((d) => ({
-    prefabId: d.prefabId,
-    category: d.category,
-    quantity: d.count === 'input' ? count : d.count,
-  }));
+  return getSystemZoneDefaultPrefabs(zoneByType[zoneType], { occupiedSeats: count }).map(
+    (prefab) => ({
+      prefabId: prefab.prefabId,
+      offsetX: prefab.offsetX,
+      offsetZ: prefab.offsetZ,
+      ...(prefab.rotation !== undefined ? { rotation: prefab.rotation } : {}),
+    }),
+  );
 }
 
 function generateInstanceId(): string {
@@ -222,17 +197,13 @@ export class PrefabService {
     const placements = getDefaultPlacements(zoneType, effectiveCount);
 
     const created: PrefabInstanceRow[] = [];
-    let posIdx = 0;
-
     for (const placement of placements) {
-      for (let i = 0; i < placement.quantity; i++) {
-        const instance = await this.createInstance(companyId, placement.prefabId, zoneId, {
-          positionX: posIdx * 120,
-          positionY: 0,
-        });
-        created.push(instance);
-        posIdx++;
-      }
+      const instance = await this.createInstance(companyId, placement.prefabId, zoneId, {
+        positionX: placement.offsetX,
+        positionY: placement.offsetZ,
+        rotation: placement.rotation ?? 0,
+      });
+      created.push(instance);
     }
 
     return created;
