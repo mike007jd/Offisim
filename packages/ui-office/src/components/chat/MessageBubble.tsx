@@ -2,7 +2,6 @@ import type { ChatAttachmentRef } from '@offisim/shared-types';
 import { cn } from '@offisim/ui-core';
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import type { Deliverable } from '../../hooks/useDeliverables';
 import {
   DEFAULT_BADGE_COLOR,
@@ -13,6 +12,7 @@ import {
 import type { AttachmentStore } from '../../lib/attachment-store.js';
 import { stripLegacySpeakerPrefix } from '../../lib/legacy-speaker-prefix';
 import { DeliverableCard } from '../deliverable/DeliverableCard';
+import { MarkdownContent } from './MarkdownContent';
 import { SentAttachmentChip } from './SentAttachmentChip.js';
 import type { MessageStatus } from './chat-session-store';
 
@@ -55,31 +55,6 @@ function parseAgentIdentity(content: string): ParsedAgent | null {
 
 function badgeColorFor(agentName: string): string {
   return getBadgeColorForDisplayName(agentName);
-}
-
-// ── Citation rendering ─────────────────────────────────────────────
-
-/** Render [N] citation markers as styled superscript badges. */
-function renderWithCitations(text: string): ReactNode {
-  const parts = text.split(/(\[\d+\])/g);
-  if (parts.length === 1) return text;
-  let citationIndex = 0;
-  return parts.map((part) => {
-    const match = /^\[(\d+)\]$/.exec(part);
-    if (match) {
-      citationIndex += 1;
-      return (
-        <sup
-          key={`${match[1]}-${citationIndex}`}
-          className="mx-0.5 inline-flex h-4 min-w-[1.1em] cursor-default items-center justify-center rounded bg-info-muted px-1 text-[10px] font-bold text-info"
-          title={`Citation ${match[1]}`}
-        >
-          {match[1]}
-        </sup>
-      );
-    }
-    return part;
-  });
 }
 
 // ── Component ──────────────────────────────────────────────────────
@@ -139,19 +114,12 @@ export function MessageBubble({
   }
 
   // Status-based border styling
-  const statusBorder =
-    status === 'failed'
-      ? 'border-l-2 border-error'
-      : status === 'interrupted'
-        ? 'border-l-2 border-warning'
-        : '';
-
   return (
     <div
       data-role={role}
       className={cn(
-        'flex w-full min-w-0 max-w-full flex-col overflow-hidden',
-        isUser ? 'items-end' : 'items-start',
+        'flex w-full min-w-0 max-w-full flex-col overflow-hidden py-1',
+        isUser ? 'items-center' : 'items-start',
       )}
     >
       {/* Agent identity badge */}
@@ -167,7 +135,7 @@ export function MessageBubble({
       )}
       {/* Reasoning collapsible section */}
       {reasoning && (
-        <div className="mb-1 min-w-0 max-w-[94%] overflow-hidden rounded-xl border border-info bg-info-muted px-3 py-1.5 text-xs leading-snug text-text-primary">
+        <div className="mb-1 min-w-0 max-w-full overflow-hidden rounded-lg border border-info/35 bg-info-muted px-2.5 py-1.5 text-xs leading-snug text-text-primary">
           <button
             type="button"
             className="mb-1 flex cursor-pointer items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-info"
@@ -178,18 +146,26 @@ export function MessageBubble({
             />
             Reasoning
           </button>
-          {reasoningOpen && <div className="break-words whitespace-pre-wrap">{reasoning}</div>}
+          {reasoningOpen && (
+            <MarkdownContent
+              content={reasoning}
+              className="min-w-0 max-w-full break-words text-xs leading-relaxed"
+            />
+          )}
         </div>
       )}
       {!isAttachmentOnly && (
         <div
           className={cn(
-            'min-w-0 max-w-[94%] overflow-hidden break-words px-3 py-1.5 text-sm leading-snug whitespace-pre-wrap rounded-xl',
-            isUser ? 'bg-accent-muted text-accent-text' : 'bg-surface-muted text-text-primary',
-            statusBorder,
+            'min-w-0 overflow-hidden break-words text-sm leading-relaxed',
+            isUser
+              ? 'mx-auto max-w-[min(36rem,calc(100%-2rem))] rounded-xl bg-accent-muted px-3 py-1.5 text-accent-text'
+              : 'w-full max-w-full px-1 py-0.5 text-text-primary',
+            !isUser && status === 'failed' ? 'border-l-2 border-error pl-2' : '',
+            !isUser && status === 'interrupted' ? 'border-l-2 border-warning pl-2' : '',
           )}
         >
-          {isUser ? displayContent : renderWithCitations(displayContent)}
+          <MarkdownContent content={displayContent} className="min-w-0 max-w-full" />
           {/* Status label */}
           {status === 'failed' && (
             <div className="mt-1 text-[10px] font-medium text-error">Failed</div>
@@ -203,8 +179,8 @@ export function MessageBubble({
         <div
           style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))' }}
           className={cn(
-            'mt-1 grid w-full min-w-0 max-w-[94%] gap-1 overflow-hidden',
-            isUser ? 'ml-auto' : 'mr-auto',
+            'mt-1 grid w-full min-w-0 gap-1 overflow-hidden',
+            isUser ? 'mx-auto max-w-[min(36rem,calc(100%-2rem))]' : 'mr-auto max-w-full',
           )}
         >
           {attachments.map((a) => (

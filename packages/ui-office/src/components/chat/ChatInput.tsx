@@ -548,7 +548,7 @@ export function ChatInput({
   return (
     <div
       ref={setChatInputTargetRef}
-      className="relative min-w-0 max-w-full overflow-hidden border-t border-border-default px-3 py-2"
+      className="relative box-border w-full min-w-0 max-w-full overflow-hidden border-t border-border-default py-2 pl-3 pr-7"
       onDragEnter={onDragEnter}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}

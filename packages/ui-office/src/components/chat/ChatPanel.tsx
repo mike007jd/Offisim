@@ -725,7 +725,7 @@ export function ChatPanel({
       )}
 
       {compact ? (
-        <div className="flex flex-1 flex-col justify-end gap-2 px-3 py-2">
+        <div className="box-border flex w-full flex-1 flex-col justify-end gap-2 py-2 pl-3 pr-7">
           {latestMessage ? (
             <MessageBubble role={latestMessage.role} content={latestMessage.content} />
           ) : (
@@ -750,8 +750,13 @@ export function ChatPanel({
               <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-x-hidden">
                 <div
                   ref={scrollRef}
-                  className="flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
-                  style={{ padding: 'var(--sp-sm)' }}
+                  className="box-border flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
+                  style={{
+                    paddingBottom: 'var(--sp-sm)',
+                    paddingLeft: 'var(--sp-sm)',
+                    paddingRight: 'calc(var(--sp-xl) + 8px)',
+                    paddingTop: 'var(--sp-sm)',
+                  }}
                 >
                   {activityRail}
                   <SystemMessageFeed />
@@ -770,8 +775,13 @@ export function ChatPanel({
             <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-x-hidden">
               <div
                 ref={scrollRef}
-                className="flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
-                style={{ padding: 'var(--sp-sm)' }}
+                className="box-border flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
+                style={{
+                  paddingBottom: 'var(--sp-sm)',
+                  paddingLeft: 'var(--sp-sm)',
+                  paddingRight: 'calc(var(--sp-xl) + 8px)',
+                  paddingTop: 'var(--sp-sm)',
+                }}
               >
                 {activityRail}
                 <SystemMessageFeed />

@@ -6,6 +6,7 @@ import {
   NODE_DISPLAY_NAMES,
   NODE_PLACEHOLDERS,
 } from '../../lib/agent-display';
+import { MarkdownContent } from './MarkdownContent';
 
 interface StreamingBubbleProps {
   content: string;
@@ -32,7 +33,7 @@ export function StreamingBubble({
   const showPlaceholder = !content && !reasoning && !!nodeName;
 
   return (
-    <div className="flex flex-col items-start">
+    <div className="flex w-full min-w-0 max-w-full flex-col items-start overflow-hidden">
       {label && (
         <span
           className={`inline-block mb-0.5 px-1.5 py-px rounded text-[10px] font-medium leading-tight ${badgeColor}`}
@@ -42,10 +43,10 @@ export function StreamingBubble({
       )}
       {reasoning && <ReasoningRegion reasoning={reasoning} hasContent={!!content} />}
       {(content || showPlaceholder) && (
-        <div className="max-h-[60vh] max-w-[94%] overflow-y-auto overscroll-contain rounded-xl border-l-2 border-info bg-surface-muted px-3 py-1.5 text-sm leading-snug text-text-primary whitespace-pre-wrap">
+        <div className="max-h-[60vh] w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain border-l-2 border-info px-2 py-1 text-sm leading-relaxed text-text-primary">
           {content ? (
             <>
-              {content}
+              <MarkdownContent content={content} className="min-w-0 max-w-full" />
               {isStreaming && (
                 <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-info" />
               )}
@@ -69,7 +70,7 @@ function ReasoningRegion({ reasoning, hasContent }: ReasoningRegionProps) {
   const expanded = expandedByUser ?? !hasContent;
 
   return (
-    <div className="mb-1 max-h-[40vh] max-w-[94%] overflow-y-auto overscroll-contain rounded-xl border border-info bg-info-muted px-3 py-1.5 text-xs leading-snug text-text-primary">
+    <div className="mb-1 max-h-[40vh] w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg border border-info/35 bg-info-muted px-2.5 py-1.5 text-xs leading-snug text-text-primary">
       <button
         type="button"
         onClick={() => setExpandedByUser(!expanded)}
@@ -78,7 +79,12 @@ function ReasoningRegion({ reasoning, hasContent }: ReasoningRegionProps) {
         <span>{expanded ? '▾' : '▸'}</span>
         <span>Reasoning</span>
       </button>
-      {expanded && <div className="whitespace-pre-wrap">{reasoning}</div>}
+      {expanded && (
+        <MarkdownContent
+          content={reasoning}
+          className="min-w-0 max-w-full break-words text-xs leading-relaxed"
+        />
+      )}
     </div>
   );
 }
