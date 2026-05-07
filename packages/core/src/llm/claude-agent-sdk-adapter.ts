@@ -18,6 +18,7 @@ const SDK_ERROR_STATUS: Record<SDKAssistantMessageError, number | undefined> = {
   server_error: 500,
   unknown: undefined,
   max_output_tokens: 400,
+  oauth_org_not_allowed: 403,
 };
 
 export interface ClaudeAgentSdkAdapterOptions {

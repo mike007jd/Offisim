@@ -13,8 +13,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@langchain/core": "^1.1.40",
-    "@langchain/langgraph-checkpoint": "^1.0.1",
+    "@langchain/core": "^1.1.44",
+    "@langchain/langgraph-checkpoint": "^1.0.2",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@offisim/asset-schema": "workspace:*",
     "@offisim/core": "workspace:*",
