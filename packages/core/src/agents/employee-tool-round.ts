@@ -221,9 +221,25 @@ function toolResultBytes(result: unknown): number {
 
 function toolResultSucceeded(result: unknown): boolean {
   if (result && typeof result === 'object' && 'success' in result) {
-    return (result as { success?: unknown }).success === true;
+    const response = result as { success?: unknown; result?: unknown };
+    return (
+      response.success === true && !toolResultTextIndicatesFailure(toolResultText(response.result))
+    );
   }
-  return !(typeof result === 'string' && result.startsWith('Tool execution failed:'));
+  if (typeof result !== 'string') return true;
+  return !toolResultTextIndicatesFailure(result);
+}
+
+function toolResultTextIndicatesFailure(result: string): boolean {
+  if (
+    /^(Tool execution failed:|Error (reading|writing) file:)/iu.test(result) ||
+    /\[TIMEOUT: command exceeded time limit\]/iu.test(result) ||
+    /Command timed out/iu.test(result)
+  ) {
+    return true;
+  }
+  const exitCodeMatch = /\[Exit code:\s*(-?\d+)\]/iu.exec(result);
+  return !!exitCodeMatch && Number(exitCodeMatch[1]) !== 0;
 }
 
 function typedReplyFromToolResults(

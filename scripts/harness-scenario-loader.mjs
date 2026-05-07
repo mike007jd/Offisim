@@ -7,12 +7,15 @@ export const SCENARIOS_DIR = resolve(ROOT, 'packages/core/harness/scenarios');
 
 export const REPLAY_SCENARIO_IDS = [
   'boss-summary-empty-with-stale-plan-does-not-mark-complete',
+  'boss-summary-pending-plan-with-output-does-not-complete',
   'boss-summary-idle-no-plan-does-not-mark-complete',
   'boss-summary-management-deliverable-shape',
   'boss-summary-missing-artifact-incomplete',
   'boss-summary-single-empty-output-completes',
   'completion-without-taskrunid-defaults-to-blocked',
   'completion-chinese-artifact-task-blocks-without-evidence',
+  'completion-failed-write-tool-evidence-blocks',
+  'completion-failed-bash-string-evidence-blocks',
   'completion-verifier-persists-blocked-status',
   'dag-output-attribution',
   'direct-mode-skips-boss-chain',

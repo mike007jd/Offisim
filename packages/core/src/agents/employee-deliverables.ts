@@ -5,6 +5,8 @@ import { inferDeliverableFile } from './infer-deliverable-file.js';
 
 const FILE_DELIVERABLE_REQUEST_RE =
   /\b(single[- ]file|file|html|css|javascript|typescript|json|markdown|csv|yaml|yml|xml|download|artifact|open it directly|full file contents|code block)\b/i;
+const LOCAL_PATH_DELIVERABLE_RE =
+  /(?:^|[\s("'`])(?:\/[^\s"'`]+|(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)+[A-Za-z0-9._-]+(?:\.[A-Za-z0-9._-]+)?)(?=$|[\s)"'`,.;:，。；：、])/u;
 const ARTIFACT_REPAIR_PROMPT = `You are converting a draft response into a real user-takeaway file artifact.
 
 Rules:
@@ -60,6 +62,10 @@ function taskNeedsFileDeliverable(taskDescription: string): boolean {
   return FILE_DELIVERABLE_REQUEST_RE.test(taskDescription);
 }
 
+function taskTargetsLocalPath(taskDescription: string): boolean {
+  return LOCAL_PATH_DELIVERABLE_RE.test(taskDescription) && !taskDescription.includes('://');
+}
+
 export async function materializeFileDeliverableIfNeeded(
   runtimeCtx: RuntimeContext,
   taskDescription: string,
@@ -68,6 +74,7 @@ export async function materializeFileDeliverableIfNeeded(
   request: DeliverableRepairRequest,
   taskRunId?: string,
 ): Promise<MaterializedEmployeeDeliverable | null> {
+  if (taskTargetsLocalPath(taskDescription)) return null;
   const primaryArtifact = buildInferredArtifact(taskDescription, response.content);
   if (primaryArtifact) return primaryArtifact;
   if (!taskNeedsFileDeliverable(taskDescription)) return null;

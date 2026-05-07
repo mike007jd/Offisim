@@ -19,14 +19,7 @@ export function createFileReadTool(config: BuiltinToolConfig): BuiltinTool | nul
     },
     async execute(args, context) {
       const path = args.path as string;
-      try {
-        return await fs.readFile(
-          path,
-          context?.threadId ? { threadId: context.threadId } : undefined,
-        );
-      } catch (err) {
-        return `Error reading file: ${err instanceof Error ? err.message : String(err)}`;
-      }
+      return fs.readFile(path, context?.threadId ? { threadId: context.threadId } : undefined);
     },
   };
 }

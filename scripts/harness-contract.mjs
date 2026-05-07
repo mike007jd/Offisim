@@ -53,6 +53,9 @@ const taskToolIntent = await import(
 const employeeCompletion = await import(
   new URL('../packages/core/dist/agents/employee-completion.js', import.meta.url).href
 );
+const bossSummary = await import(
+  new URL('../packages/core/dist/agents/boss-summary-node.js', import.meta.url).href
+);
 const leakDetector = await import(
   new URL('../packages/core/dist/testing/leak-detector.js', import.meta.url).href
 );
@@ -74,6 +77,7 @@ const invariants = [
   assertCompletionVerifierScenario(completionVerifier),
   assertBashEvidenceCanSatisfyFileIntent(completionVerifier, taskToolIntent),
   await assertArtifactTasksRequireWriteAudit(employeeCompletion),
+  await assertBossSummaryWaitsForPendingPlan(bossSummary),
   assertLeakDetectorScenario(leakDetector),
   await assertSoakBoundedMemoryScenario(soakRunner),
   assertDagOutputAttribution(graph),
@@ -141,12 +145,14 @@ function assertDesktopBuiltinToolScenarios() {
     'builtin-tools-rejects-overbroad-root',
     'builtin-tools-rejects-oversize-read',
     'builtin-tools-rejects-oversize-write',
+    'builtin-tools-overwrites-existing-root-file',
   ];
   const expectedTests = new Set([
     'rejects_symlink_escape_before_write_target_resolution',
     'rejects_overbroad_workspace_root',
     'rejects_oversize_read_with_redacted_path',
     'rejects_oversize_write_with_redacted_path',
+    'overwrites_existing_root_file_through_resolved_write_target',
   ]);
   for (const scenarioId of scenarioIds) {
     const scenario = readScenario(scenarioId);
@@ -341,6 +347,16 @@ function assertBashEvidenceCanSatisfyFileIntent(completionVerifier, taskToolInte
   if (!outcome.ok) {
     throw new Error('completion verifier rejected successful bash evidence for file intent');
   }
+  const scriptIntent = taskToolIntent.detectTaskToolIntent(
+    'Run python3 generate_pdf.py to create deliverables/02_analysis/codebase-analysis.pdf.',
+  );
+  const scriptEvidenceTools = taskToolIntent.evidenceToolsForIntent(scriptIntent);
+  if (!scriptIntent.needsBash || !scriptIntent.needsWrite) {
+    throw new Error('python artifact command must require bash and write evidence');
+  }
+  if (!scriptEvidenceTools.includes('bash')) {
+    throw new Error('python artifact command evidence tools must include bash');
+  }
   return { id: 'completion.bash_evidence_satisfies_file_intent', passed: true };
 }
 
@@ -375,7 +391,103 @@ async function assertArtifactTasksRequireWriteAudit(employeeCompletion) {
   if (outcome?.ok) {
     throw new Error('artifact task accepted read/list-only bash evidence');
   }
+  const failedWriteOutcome = await employeeCompletion.verifyConcreteWriteEvidence({
+    runtimeCtx: makeArtifactAuditRuntime([
+      {
+        task_run_id: 'task-artifact',
+        tool_name: 'write_file',
+        arguments_json: JSON.stringify({ path: 'deliverables/04_infographic/project.html' }),
+        result_json: JSON.stringify(
+          'Error writing file: write project file failed: generate_pdf.py (NotADirectory)',
+        ),
+        error: null,
+      },
+    ]),
+    threadId: 'thread-artifact',
+    taskRunId: 'task-artifact',
+    taskDescription,
+  });
+  if (failedWriteOutcome?.ok) {
+    throw new Error('artifact task accepted failed write_file audit evidence');
+  }
+  const failedBashOutcome = await employeeCompletion.verifyConcreteWriteEvidence({
+    runtimeCtx: makeArtifactAuditRuntime([
+      {
+        task_run_id: 'task-artifact',
+        tool_name: 'bash',
+        arguments_json: JSON.stringify({ command: 'python3 generate_pdf.py > output.pdf' }),
+        result_json: JSON.stringify('SyntaxError: invalid syntax\n[Exit code: 1]'),
+        error: null,
+      },
+    ]),
+    threadId: 'thread-artifact',
+    taskRunId: 'task-artifact',
+    taskDescription,
+  });
+  if (failedBashOutcome?.ok) {
+    throw new Error('artifact task accepted failed bash write audit evidence');
+  }
   return { id: 'completion.artifact_tasks_require_write_audit', passed: true };
+}
+
+function makeArtifactAuditRuntime(rows) {
+  return {
+    repos: {
+      mcpAudit: {
+        async listByThread() {
+          return rows;
+        },
+      },
+    },
+  };
+}
+
+async function assertBossSummaryWaitsForPendingPlan(bossSummaryModule) {
+  const outcome = await bossSummaryModule.bossSummaryNode(
+    {
+      threadId: 'thread-pending-plan',
+      projectId: 'project-pending-plan',
+      messages: [],
+      entryMode: 'boss_chat',
+      routeDecision: null,
+      targetEmployeeId: null,
+      pendingAssignments: [{ taskRunId: 'tr-pending-1' }],
+      taskPlan: {
+        planId: 'plan-pending',
+        summary: 'Pending multi-step delivery',
+        steps: [
+          { stepIndex: 0, description: 'Copy project', tasks: [] },
+          { stepIndex: 1, description: 'Generate artifacts', tasks: [] },
+        ],
+      },
+      completedStepIndices: [0],
+      blockedStepIndices: [],
+      currentStepIndex: 1,
+      currentStepOutputs: [
+        {
+          employeeId: 'emp-copy',
+          employeeName: 'Copy Engineer',
+          sourceKind: 'employee',
+          roleSlug: 'engineer',
+          content: 'Copied source files.',
+          taskRunId: 'tr-copy',
+          stepIndex: 0,
+          isExternal: false,
+          brandKey: null,
+        },
+      ],
+      stepResults: [],
+      meetingActionItems: [],
+    },
+    {},
+  );
+  if (outcome.completed) {
+    throw new Error('boss_summary completed with a pending plan step');
+  }
+  if (!outcome.interruptReason?.includes('boss-summary-pending-plan')) {
+    throw new Error('boss_summary did not expose pending-plan interrupt reason');
+  }
+  return { id: 'summary.pending_plan_waits_for_remaining_steps', passed: true };
 }
 
 function assertLeakDetectorScenario(leakDetector) {

@@ -11,7 +11,7 @@ import type { CitationRef, OffisimGraphState } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
 import { type VerifyOutcome, verifyCompletion } from '../runtime/completion-verifier.js';
 import type { TaskCompletionVerifyingPayload } from '../runtime/hook-registry.js';
-import { employeeBrandFields } from '../runtime/repositories.js';
+import { employeeBrandFields, type McpAuditRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { Logger } from '../services/logger.js';
@@ -40,6 +40,10 @@ const ARTIFACT_WRITE_TASK_RE =
   /\b(0[1-5]_(source_copy|analysis|presentation|infographic|evidence)|pdf|pptx?|presentation|html|infographic|manifest|copy|folder structure|directory structure)\b/iu;
 const BASH_WRITE_COMMAND_RE =
   /(^|[;&|()\s])(mkdir|cp|rsync|ditto|install|touch|tee|cat\s*>\s*|printf\b[^|;&]*>\s*|echo\b[^|;&]*>\s*|python\d?\b|node\b|pandoc|libreoffice|osascript)\b|>>?/iu;
+const LEGACY_TOOL_FAILURE_RE = /^(Tool execution failed:|Error (reading|writing) file:)/iu;
+const BASH_TIMEOUT_RE = /\[TIMEOUT: command exceeded time limit\]|Command timed out/iu;
+const PATH_CANDIDATE_RE =
+  /(?:^|[\s("'`])((?:\/[^\s"'`]+|(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)+[A-Za-z0-9._-]+(?:\.[A-Za-z0-9._-]+)?))(?=$|[\s)"'`,.;:，。；：、])/gu;
 
 function taskSpecificDescription(taskDescription: string): string {
   return taskDescription.split(FULL_USER_INTENT_RE)[0]?.trim() || taskDescription;
@@ -69,6 +73,99 @@ function pickStringField(record: Record<string, unknown> | null, field: string):
   return typeof value === 'string' ? value : '';
 }
 
+function parseAuditResultText(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return typeof parsed === 'string' ? parsed : JSON.stringify(parsed);
+  } catch {
+    return value;
+  }
+}
+
+function resultTextIndicatesFailure(text: string): boolean {
+  if (LEGACY_TOOL_FAILURE_RE.test(text) || BASH_TIMEOUT_RE.test(text)) return true;
+  const exitCodeMatch = /\[Exit code:\s*(-?\d+)\]/iu.exec(text);
+  return !!exitCodeMatch && Number(exitCodeMatch[1]) !== 0;
+}
+
+function auditRowSucceeded(row: Pick<McpAuditRow, 'error' | 'result_json'>): boolean {
+  if (row.error) return false;
+  return !resultTextIndicatesFailure(parseAuditResultText(row.result_json));
+}
+
+function stripTrailingPathPunctuation(path: string): string {
+  return path.replace(/[),.;:，。；：、]+$/u, '');
+}
+
+function extractConcreteArtifactTargets(taskDescription: string): string[] {
+  const targets = new Set<string>();
+  for (const match of taskDescription.matchAll(PATH_CANDIDATE_RE)) {
+    const candidate = stripTrailingPathPunctuation(match[1]?.trim() ?? '');
+    if (!candidate || candidate.includes('://')) continue;
+    targets.add(candidate);
+  }
+  return [...targets];
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/gu, "'\\''")}'`;
+}
+
+function toolCallResponseSucceeded(response: {
+  readonly success: boolean;
+  readonly result: unknown;
+  readonly error?: string;
+}): boolean {
+  if (!response.success) return false;
+  const resultText =
+    typeof response.result === 'string' ? response.result : JSON.stringify(response.result);
+  return !resultTextIndicatesFailure(resultText ?? '');
+}
+
+async function verifyRequestedArtifactTargets(input: {
+  runtimeCtx: RuntimeContext;
+  threadId: string;
+  taskRunId: string;
+  targets: readonly string[];
+}): Promise<VerifyOutcome | null> {
+  if (input.targets.length === 0) return null;
+  const toolExecutor = (input.runtimeCtx as { toolExecutor?: RuntimeContext['toolExecutor'] })
+    .toolExecutor;
+  if (!toolExecutor) return null;
+
+  const targetChecks = input.targets
+    .map((target) =>
+      [
+        `p=${shellQuote(target)}`,
+        'if [ -f "$p" ]; then',
+        '  if [ ! -s "$p" ]; then echo "empty-file: $p"; missing=1; fi',
+        'elif [ -d "$p" ]; then',
+        '  if [ -z "$(find "$p" -type f -size +0c -print -quit 2>/dev/null)" ]; then echo "empty-directory: $p"; missing=1; fi',
+        'else',
+        '  echo "missing: $p"; missing=1',
+        'fi',
+      ].join('\n'),
+    )
+    .join('\n');
+  const command = ['set -u', 'missing=0', targetChecks, 'exit "$missing"'].join('\n');
+  const response = await toolExecutor.execute({
+    toolCallId: generateId('tool'),
+    name: 'bash',
+    arguments: { command },
+    nodeName: 'employee-completion',
+    threadId: input.threadId,
+    taskRunId: input.taskRunId,
+  });
+  if (toolCallResponseSucceeded(response)) return { ok: true };
+  return {
+    ok: false,
+    reason: `Artifact/file completion requires non-empty files at requested local path(s): ${input.targets.join(
+      ', ',
+    )}.`,
+  };
+}
+
 function rowMatchesTask(rowTaskRunId: string | null, taskRunId: string): boolean {
   return rowTaskRunId === taskRunId;
 }
@@ -81,10 +178,11 @@ export async function verifyConcreteWriteEvidence(input: {
 }): Promise<VerifyOutcome | null> {
   if (!requiresConcreteWriteEvidence(input.taskDescription)) return null;
 
-  const rows = (await input.runtimeCtx.repos.mcpAudit.listByThread(input.threadId)).filter(
-    (row) => rowMatchesTask(row.task_run_id, input.taskRunId) && row.error === null,
+  const rows = (await input.runtimeCtx.repos.mcpAudit.listByThread(input.threadId)).filter((row) =>
+    rowMatchesTask(row.task_run_id, input.taskRunId),
   );
   const hasWriteEvidence = rows.some((row) => {
+    if (!auditRowSucceeded(row)) return false;
     const args = parseJsonObject(row.arguments_json);
     if (row.tool_name === 'write_file') {
       return pickStringField(args, 'path').trim().length > 0;
@@ -93,12 +191,20 @@ export async function verifyConcreteWriteEvidence(input: {
     const command = pickStringField(args, 'command');
     return BASH_WRITE_COMMAND_RE.test(command);
   });
-  if (hasWriteEvidence) return { ok: true };
-  return {
-    ok: false,
-    reason:
-      'Artifact/file completion requires a successful write/copy/create tool audit, not read/list evidence only.',
-  };
+  if (!hasWriteEvidence) {
+    return {
+      ok: false,
+      reason:
+        'Artifact/file completion requires a successful write/copy/create tool audit, not read/list evidence only.',
+    };
+  }
+  const targetOutcome = await verifyRequestedArtifactTargets({
+    runtimeCtx: input.runtimeCtx,
+    threadId: input.threadId,
+    taskRunId: input.taskRunId,
+    targets: extractConcreteArtifactTargets(taskSpecificDescription(input.taskDescription)),
+  });
+  return targetOutcome ?? { ok: true };
 }
 
 async function verifyRoutingEventEvidence(input: {

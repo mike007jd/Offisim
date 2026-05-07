@@ -236,6 +236,9 @@ fn resolve_write_target(candidate: &Path, roots: &[PathBuf]) -> Result<PathBuf, 
         );
         "resolve project file target failed".to_string()
     })?;
+    if tail.as_os_str().is_empty() {
+        return Ok(canonical_ancestor);
+    }
     Ok(canonical_ancestor.join(tail))
 }
 
@@ -598,6 +601,25 @@ mod builtin_tools_contracts {
             .expect("target resolves");
         assert!(target.starts_with(root));
         assert!(target.ends_with("nested/file.txt"));
+    }
+
+    #[test]
+    fn overwrites_existing_root_file_through_resolved_write_target() {
+        let workspace = TestDir::new("overwrite-root");
+        let root = workspace.path.canonicalize().expect("canonical workspace");
+        let existing = root.join("generate_pdf.py");
+        fs::write(&existing, "old").expect("seed existing root file");
+        let root_str = root.to_string_lossy().to_string();
+        let candidate =
+            resolve_candidate("generate_pdf.py", Some(&root_str)).expect("relative candidate");
+        let target = resolve_write_target(&candidate, &[root]).expect("target resolves");
+
+        fs::write(&target, "new").expect("overwrite existing root file");
+
+        assert_eq!(
+            fs::read_to_string(&existing).expect("read overwritten file"),
+            "new"
+        );
     }
 
     #[test]

@@ -22,16 +22,12 @@ export function createFileWriteTool(config: BuiltinToolConfig): BuiltinTool | nu
     async execute(args, context) {
       const path = args.path as string;
       const content = args.content as string;
-      try {
-        await fs.writeFile(
-          path,
-          content,
-          context?.threadId ? { threadId: context.threadId } : undefined,
-        );
-        return `Successfully wrote ${content.length} bytes to ${path}`;
-      } catch (err) {
-        return `Error writing file: ${err instanceof Error ? err.message : String(err)}`;
-      }
+      await fs.writeFile(
+        path,
+        content,
+        context?.threadId ? { threadId: context.threadId } : undefined,
+      );
+      return `Successfully wrote ${content.length} bytes to ${path}`;
     },
   };
 }

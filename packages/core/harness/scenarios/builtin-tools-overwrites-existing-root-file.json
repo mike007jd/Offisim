@@ -1,0 +1,17 @@
+{
+  "id": "builtin-tools-overwrites-existing-root-file",
+  "category": "desktop-builtin-tools",
+  "fixture": {
+    "operation": "project_write_file",
+    "path": "generate_pdf.py",
+    "existingContent": "old",
+    "newContent": "new",
+    "expectedContent": "new"
+  },
+  "assertions": [
+    {
+      "kind": "desktopRustTest",
+      "testName": "overwrites_existing_root_file_through_resolved_write_target"
+    }
+  ]
+}

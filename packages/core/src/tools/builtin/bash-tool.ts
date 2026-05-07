@@ -48,6 +48,9 @@ export function createBashTool(config: BuiltinToolConfig): BuiltinTool | null {
       if (output.length > maxOutput) {
         output = `${output.slice(0, maxOutput)}\n[OUTPUT TRUNCATED]`;
       }
+      if (result.timedOut || result.exitCode !== 0) {
+        throw new Error(output || `Command failed with exit code ${result.exitCode}`);
+      }
       return output || '(no output)';
     },
   };

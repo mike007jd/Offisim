@@ -1,0 +1,71 @@
+{
+  "id": "boss-summary-pending-plan-with-output-does-not-complete",
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": {
+      "companyId": "company-boss-summary-pending-output",
+      "name": "Boss Summary Pending Output Co"
+    },
+    "thread": { "threadId": "thread-boss-summary-pending-output", "status": "running" },
+    "employees": [{ "id": "emp-summary-pending", "name": "Pending Engineer", "role": "engineer" }]
+  },
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-summary-pending-output",
+      "threadId": "thread-boss-summary-pending-output",
+      "companyId": "company-boss-summary-pending-output",
+      "summary": "Multi-step artifact package",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Copy source files",
+          "tasks": [
+            {
+              "taskType": "code",
+              "employeeId": "emp-summary-pending",
+              "description": "Copy source files",
+              "dependsOnStepOutput": false,
+              "taskRunId": "tr-summary-pending-copy"
+            }
+          ]
+        },
+        {
+          "stepIndex": 1,
+          "description": "Generate remaining artifacts",
+          "tasks": [
+            {
+              "taskType": "code",
+              "employeeId": "emp-summary-pending",
+              "description": "Generate remaining artifacts",
+              "dependsOnStepOutput": true,
+              "taskRunId": "tr-summary-pending-artifacts"
+            }
+          ]
+        }
+      ]
+    },
+    "dispatchedStepIndices": [0],
+    "completedStepIndices": [0],
+    "blockedStepIndices": [],
+    "currentStepOutputs": [
+      {
+        "employeeId": "emp-summary-pending",
+        "employeeName": "Pending Engineer",
+        "sourceKind": "employee",
+        "roleSlug": "engineer",
+        "content": "Copied source files.",
+        "taskRunId": "tr-summary-pending-copy",
+        "stepIndex": 0,
+        "isExternal": false,
+        "brandKey": null
+      }
+    ]
+  },
+  "runs": [{ "startAt": "boss_summary" }],
+  "assertions": [
+    { "kind": "threadStatusIs", "status": "running" },
+    { "kind": "interruptReasonIncludes", "contains": "boss-summary-pending-plan" },
+    { "kind": "finalOutputContains", "contains": "Cannot summarize yet:" }
+  ]
+}

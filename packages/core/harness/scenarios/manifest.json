@@ -48,6 +48,14 @@
       ]
     },
     {
+      "id": "boss-summary-pending-plan-with-output-does-not-complete",
+      "category": "graph",
+      "invariants": [
+        "graph.boss_summary_pending_plan_with_output_does_not_complete_thread",
+        "graph.boss_summary_pending_plan_interrupts"
+      ]
+    },
+    {
       "id": "boss-summary-idle-no-plan-does-not-mark-complete",
       "category": "graph",
       "invariants": [
@@ -143,6 +151,22 @@
       "invariants": [
         "completion.file_tool_evidence_allows_completion",
         "completion.real_tool_call_not_self_attest"
+      ]
+    },
+    {
+      "id": "completion-failed-write-tool-evidence-blocks",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.failed_write_tool_evidence_blocks_completion",
+        "completion.failed_write_audit_not_counted_as_success"
+      ]
+    },
+    {
+      "id": "completion-failed-bash-string-evidence-blocks",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.failed_bash_string_evidence_blocks_completion",
+        "completion.failed_bash_audit_not_counted_as_success"
       ]
     },
     {
@@ -451,6 +475,11 @@
       "id": "builtin-tools-rejects-oversize-write",
       "category": "desktop-builtin-tools",
       "invariants": ["desktop.builtin_tools_rejects_oversize_write"]
+    },
+    {
+      "id": "builtin-tools-overwrites-existing-root-file",
+      "category": "desktop-builtin-tools",
+      "invariants": ["desktop.builtin_tools_overwrites_existing_root_file"]
     },
     {
       "id": "kanban-card-state-transitions",

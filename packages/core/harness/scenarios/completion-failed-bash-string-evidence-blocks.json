@@ -1,0 +1,98 @@
+{
+  "id": "completion-failed-bash-string-evidence-blocks",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": {
+      "companyId": "company-completion-failed-bash-evidence",
+      "name": "Failed Bash Evidence Co"
+    },
+    "thread": {
+      "threadId": "thread-completion-failed-bash-evidence",
+      "status": "running"
+    },
+    "employees": [
+      { "id": "emp-failed-bash-evidence", "name": "Artifact Engineer", "role": "engineer" }
+    ],
+    "taskRuns": [
+      {
+        "id": "task-failed-bash-evidence",
+        "employeeId": "emp-failed-bash-evidence",
+        "taskType": "code",
+        "input": {
+          "description": "Run python3 generate_pdf.py to create deliverables/02_analysis/codebase-analysis.pdf."
+        }
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "bash",
+      "description": "Run shell command.",
+      "parameters": {
+        "type": "object",
+        "properties": { "command": { "type": "string" } },
+        "required": ["command"]
+      }
+    }
+  ],
+  "toolFixtures": {
+    "bash": [
+      {
+        "success": true,
+        "result": "SyntaxError: invalid syntax\n[Exit code: 1]"
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "code",
+        "employeeId": "emp-failed-bash-evidence",
+        "assigneeKind": "employee",
+        "assigneeName": "Artifact Engineer",
+        "taskRunId": "task-failed-bash-evidence",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Run python3 generate_pdf.py to create deliverables/02_analysis/codebase-analysis.pdf.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-bash-exit-code-one",
+      "match": {
+        "contains": "Run python3 generate_pdf.py",
+        "toolNames": ["bash"]
+      },
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call-bash-failed-evidence",
+          "name": "bash",
+          "arguments": {
+            "command": "python3 generate_pdf.py > deliverables/02_analysis/codebase-analysis.pdf"
+          }
+        }
+      ]
+    },
+    {
+      "id": "employee-final-after-failed-bash",
+      "match": { "contains": "Exit code: 1" },
+      "content": "PDF analysis file has been created."
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-failed-bash-evidence", "status": "blocked" },
+    { "kind": "taskStateEvent", "taskRunId": "task-failed-bash-evidence", "next": "review_ready" },
+    { "kind": "mcpAuditContains", "toolName": "bash" },
+    { "kind": "toolExecutions", "count": 1 },
+    { "kind": "finalOutputContains", "contains": "Task blocked:" }
+  ]
+}

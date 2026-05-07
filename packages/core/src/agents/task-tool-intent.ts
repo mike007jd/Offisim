@@ -70,6 +70,9 @@ export const WRITE_VERB_OBJECT_PAIRS: ReadonlyArray<readonly [string, string]> =
   ['copy', 'folder'],
   ['organize', 'folder'],
   ['organize', 'directory'],
+  ['create', 'pdf'],
+  ['create', 'ppt'],
+  ['create', 'html'],
   ['export', 'pdf'],
   ['export', 'ppt'],
   ['export', 'html'],
@@ -88,10 +91,16 @@ export const BASH_VERB_OBJECT_PAIRS: ReadonlyArray<readonly [string, string]> = 
   ['run', 'pnpm'],
   ['run', 'npm'],
   ['run', 'cargo'],
+  ['run', 'python'],
+  ['run', 'python3'],
+  ['run', 'script'],
   ['run', 'sleep'],
   ['execute', 'command'],
   ['execute', 'shell'],
   ['execute', 'bash'],
+  ['execute', 'python'],
+  ['execute', 'python3'],
+  ['execute', 'script'],
 ];
 
 /**
@@ -200,6 +209,8 @@ function buildVerbObjectRegex(pairs: ReadonlyArray<readonly [string, string]>): 
 const READ_VERB_OBJECT_RE = buildVerbObjectRegex(READ_VERB_OBJECT_PAIRS);
 const WRITE_VERB_OBJECT_RE = buildVerbObjectRegex(WRITE_VERB_OBJECT_PAIRS);
 const BASH_VERB_OBJECT_RE = buildVerbObjectRegex(BASH_VERB_OBJECT_PAIRS);
+const EXPLICIT_ARTIFACT_FILE_WRITE_RE =
+  /\b(create|generate|save|write|export)\b[^。！？\n]{0,120}\.(pdf|pptx?|html|json)\b/iu;
 
 function matchesAny(text: string, patterns: readonly RegExp[]): boolean {
   for (const pattern of patterns) {
@@ -243,6 +254,7 @@ export function detectTaskToolIntent(text: string | null | undefined): TaskToolI
   const needsWrite =
     WRITE_TOOL_TOKENS_RE.test(effectiveText) ||
     WRITE_VERB_OBJECT_RE.test(effectiveText) ||
+    EXPLICIT_ARTIFACT_FILE_WRITE_RE.test(effectiveText) ||
     matchesAny(effectiveText, CHINESE_WRITE_PATTERNS);
 
   const needsBash =

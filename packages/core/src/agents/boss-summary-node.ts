@@ -114,6 +114,13 @@ function blockedPlanSummaryText(stats: ReturnType<typeof planCompletionStats>): 
   return `Plan is blocked after ${stats.blocked} blocked step(s).${pendingText} This is not complete.`;
 }
 
+function pendingPlanSummaryText(stats: ReturnType<typeof planCompletionStats>): string {
+  return `Cannot summarize yet: ${stats.terminal}/${stats.total} plan step(s) are terminal. ${Math.max(
+    0,
+    stats.total - stats.terminal,
+  )} step(s) still need execution or review before this can be treated as complete.`;
+}
+
 function getSummaryStepOutputs(state: OffisimGraphState): OffisimGraphState['currentStepOutputs'] {
   if (state.currentStepOutputs.length > 0) {
     return state.currentStepOutputs;
@@ -260,6 +267,35 @@ export async function bossSummaryNode(
     }
     return {
       completed: false,
+      interruptReason: 'boss-summary-blocked-plan',
+      messages: [new AIMessage({ content })],
+    };
+  }
+
+  if (state.taskPlan && stats.total > 0 && !stats.allTerminal && employeeResults.length > 0) {
+    const content = pendingPlanSummaryText(stats);
+    if (runtimeCtx) {
+      const thread = await runtimeCtx.repos.threads.findById(state.threadId);
+      if (thread?.status !== 'cancelled') {
+        await runtimeCtx.repos.threads.updateStatus(state.threadId, 'running');
+      }
+      await appendAgentEvent(runtimeCtx, {
+        projectId: state.projectId,
+        threadId: state.threadId,
+        agentName: 'boss',
+        eventType: 'action',
+        payload: {
+          action: 'summary',
+          pendingSteps: Math.max(0, stats.total - stats.terminal),
+          completedSteps: stats.completed,
+          blockedSteps: stats.blocked,
+        },
+      });
+      autoTitleThread(runtimeCtx, state);
+    }
+    return {
+      completed: false,
+      interruptReason: 'boss-summary-pending-plan',
       messages: [new AIMessage({ content })],
     };
   }
