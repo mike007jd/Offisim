@@ -1,6 +1,7 @@
 interface ResumeBarProject {
   threadId: string;
   projectName: string;
+  status?: 'running' | 'blocked';
 }
 
 interface ResumeBarProps {
@@ -10,18 +11,28 @@ interface ResumeBarProps {
 }
 
 /**
- * ResumeBar — a top banner shown when threads were left in 'running' status on
- * last session (app crashed or closed mid-execution). Gives the user a one-click
- * way to resume or dismiss the detected unfinished work.
+ * ResumeBar — a top banner shown when threads were left running or blocked on
+ * last session. Gives the user a one-click way to resume or dismiss work that
+ * needs attention.
  */
 export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
   if (projects.length === 0) return null;
+  const blockedCount = projects.filter((project) => project.status === 'blocked').length;
+  const runningCount = projects.length - blockedCount;
+  const label =
+    blockedCount > 0 && runningCount === 0
+      ? blockedCount === 1
+        ? '1 project needs review'
+        : `${blockedCount} projects need review`
+      : blockedCount > 0
+        ? `${projects.length} projects need attention`
+        : projects.length === 1
+          ? '1 unfinished project'
+          : `${projects.length} unfinished projects`;
 
   return (
     <div className="flex items-center gap-2 rounded-lg border border-warning bg-warning-muted px-4 py-2 text-sm">
-      <span className="shrink-0 text-warning">
-        {projects.length === 1 ? '1 unfinished project' : `${projects.length} unfinished projects`}
-      </span>
+      <span className="shrink-0 text-warning">{label}</span>
       <div className="flex flex-wrap gap-1 flex-1 min-w-0">
         {projects.map((p) => (
           <button
@@ -31,7 +42,7 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
             className="max-w-[200px] truncate rounded border border-warning bg-surface px-2.5 py-1.5 text-xs text-text-primary hover:bg-surface-hover"
             title={p.projectName}
           >
-            Resume {p.projectName}
+            {p.status === 'blocked' ? 'Review' : 'Resume'} {p.projectName}
           </button>
         ))}
       </div>

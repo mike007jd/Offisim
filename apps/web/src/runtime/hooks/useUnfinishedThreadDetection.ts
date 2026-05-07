@@ -11,6 +11,7 @@ import type { RuntimeBundle } from '../../lib/browser-runtime';
 export interface UnfinishedThread {
   threadId: string;
   projectName: string;
+  status: 'running' | 'blocked';
 }
 
 export interface UseUnfinishedThreadDetectionResult {
@@ -46,7 +47,13 @@ export function useUnfinishedThreadDetection({
 
     void (async () => {
       try {
-        const threads = await runtime.repos.threads.findByCompany(companyId, { status: 'running' });
+        const [runningThreads, blockedThreads] = await Promise.all([
+          runtime.repos.threads.findByCompany(companyId, { status: 'running' }),
+          runtime.repos.threads.findByCompany(companyId, { status: 'blocked' }),
+        ]);
+        const threads = [...runningThreads, ...blockedThreads].sort((a, b) =>
+          b.updated_at.localeCompare(a.updated_at),
+        );
         if (threads.length === 0) {
           setUnfinishedThreads([]);
           return;
@@ -58,6 +65,7 @@ export function useUnfinishedThreadDetection({
           return {
             threadId: thread.thread_id,
             projectName: project?.name ?? thread.thread_id,
+            status: thread.status === 'blocked' ? 'blocked' : 'running',
           };
         });
         setUnfinishedThreads(enriched);

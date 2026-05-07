@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS task_runs (
   employee_id TEXT REFERENCES employees(employee_id) ON DELETE SET NULL,
   parent_task_run_id TEXT REFERENCES task_runs(task_run_id) ON DELETE SET NULL,
   task_type TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'waiting_human', 'blocked', 'completed', 'failed', 'cancelled')),
+  status TEXT NOT NULL CHECK (status IN ('planned', 'queued', 'running', 'waiting_dependency', 'waiting_human', 'blocked', 'completed', 'failed', 'cancelled')),
   input_json TEXT,
   output_json TEXT,
   started_at TEXT NOT NULL,

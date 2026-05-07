@@ -85,7 +85,7 @@ export async function persistLlmPlanAsTaskPlan(
           employee_id: task.employeeId,
           parent_task_run_id: null,
           task_type: task.taskType,
-          status: 'queued',
+          status: 'planned',
           input_json: JSON.stringify({ description: task.description }),
           output_json: null,
           started_at: startedAt,

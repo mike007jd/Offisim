@@ -44,9 +44,26 @@ const LEGACY_TOOL_FAILURE_RE = /^(Tool execution failed:|Error (reading|writing)
 const BASH_TIMEOUT_RE = /\[TIMEOUT: command exceeded time limit\]|Command timed out/iu;
 const PATH_CANDIDATE_RE =
   /(?:^|[\s("'`])((?:\/[^\s"'`]+|(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)+[A-Za-z0-9._-]+(?:\.[A-Za-z0-9._-]+)?))(?=$|[\s)"'`,.;:，。；：、])/gu;
+const CONCRETE_PATH_DIR_RE =
+  /(?:^|\/)(deliverables|0[1-5]_(source_copy|analysis|presentation|infographic|evidence)|source_project)(?:\/|$)/iu;
+const CONCRETE_PATH_EXTENSION_RE = /\.[A-Za-z0-9][A-Za-z0-9._-]*$/u;
+const PSEUDO_ARTIFACT_PATH_RE =
+  /^(pdf|pptx?|presentation|report|html|infographic|manifest)\/(pdf|pptx?|presentation|report|html|infographic|manifest|path)$/iu;
+const DEPENDENCY_CONSTRAINT_CONTEXT_RE =
+  /\b(do not|don't|without|no new packages|not rely|avoid|forbid|forbidden|must not|cannot)\b|禁止|不要|不能|不得|别用|不使用|不依赖|无需新增|不要新增|不要安装/u;
+const INSTALL_COMMAND_RE =
+  /(^|[;&|()\s])((python\d?|python)\s+-m\s+pip\s+install|pip\d?\s+install|uv\s+add|npm\s+(install|i)\b|pnpm\s+(add|install)\b|yarn\s+(add|install)\b|bun\s+(add|install)\b)/iu;
+const REPORTLAB_USAGE_RE = /\breportlab\b/iu;
+const PYTHON_PPTX_USAGE_RE = /\bpython-pptx\b|\bfrom\s+pptx\b|\bimport\s+pptx\b/iu;
 
 function taskSpecificDescription(taskDescription: string): string {
   return taskDescription.split(FULL_USER_INTENT_RE)[0]?.trim() || taskDescription;
+}
+
+function fullUserIntentDescription(taskDescription: string): string {
+  const match = FULL_USER_INTENT_RE.exec(taskDescription);
+  if (!match) return '';
+  return taskDescription.slice(match.index + match[0].length).trim();
 }
 
 export function requiresConcreteWriteEvidence(taskDescription: string): boolean {
@@ -98,14 +115,84 @@ function stripTrailingPathPunctuation(path: string): string {
   return path.replace(/[),.;:，。；：、]+$/u, '');
 }
 
+function isConcreteArtifactTarget(path: string): boolean {
+  if (path.includes('://')) return false;
+  if (PSEUDO_ARTIFACT_PATH_RE.test(path)) return false;
+  if (path.startsWith('/') || path.startsWith('./') || path.startsWith('../')) return true;
+  return CONCRETE_PATH_DIR_RE.test(path) || CONCRETE_PATH_EXTENSION_RE.test(path);
+}
+
 function extractConcreteArtifactTargets(taskDescription: string): string[] {
   const targets = new Set<string>();
   for (const match of taskDescription.matchAll(PATH_CANDIDATE_RE)) {
     const candidate = stripTrailingPathPunctuation(match[1]?.trim() ?? '');
-    if (!candidate || candidate.includes('://')) continue;
+    if (!candidate || !isConcreteArtifactTarget(candidate)) continue;
     targets.add(candidate);
   }
   return [...targets];
+}
+
+function targetMatchesTaskFocus(target: string, taskDescription: string): boolean {
+  const task = taskDescription.toLowerCase();
+  const normalizedTarget = target.toLowerCase();
+  const asksForPdf =
+    /\bpdf\b|02_analysis|analysis folder|分析报告|报告/u.test(task) && !/\bhtml\b/u.test(task);
+  const asksForPresentation = /\bpptx?\b|presentation|03_presentation|幻灯片|演示/u.test(task);
+  const asksForHtml = /\bhtml\b|infographic|04_infographic|信息图/u.test(task);
+  const asksForManifest = /\bmanifest\b|05_evidence|evidence|证据/u.test(task);
+  const asksForSourceCopy =
+    /01_source_copy|source copy|source_project|copy|folder structure|复制|拷贝/u.test(task);
+
+  if (
+    asksForPdf &&
+    (/\.pdf$/iu.test(normalizedTarget) || normalizedTarget.includes('/02_analysis/'))
+  ) {
+    return true;
+  }
+  if (
+    asksForPresentation &&
+    (/\.pptx?$/iu.test(normalizedTarget) || normalizedTarget.includes('/03_presentation/'))
+  ) {
+    return true;
+  }
+  if (
+    asksForHtml &&
+    (/\.html?$/iu.test(normalizedTarget) || normalizedTarget.includes('/04_infographic/'))
+  ) {
+    return true;
+  }
+  if (
+    asksForManifest &&
+    (/manifest\.json$/iu.test(normalizedTarget) || normalizedTarget.includes('/05_evidence/'))
+  ) {
+    return true;
+  }
+  if (
+    asksForSourceCopy &&
+    (normalizedTarget.includes('/01_source_copy/') ||
+      normalizedTarget.includes('/source_project/') ||
+      normalizedTarget.startsWith('deliverables/01_source_copy/'))
+  ) {
+    return true;
+  }
+  return !(
+    asksForPdf ||
+    asksForPresentation ||
+    asksForHtml ||
+    asksForManifest ||
+    asksForSourceCopy
+  );
+}
+
+function artifactTargetsForTask(taskDescription: string): string[] {
+  const specificDescription = taskSpecificDescription(taskDescription);
+  const specificTargets = extractConcreteArtifactTargets(specificDescription);
+  if (specificTargets.length > 0) return specificTargets;
+
+  const fullIntent = fullUserIntentDescription(taskDescription);
+  if (!fullIntent) return [];
+  const fullTargets = extractConcreteArtifactTargets(fullIntent);
+  return fullTargets.filter((target) => targetMatchesTaskFocus(target, specificDescription));
 }
 
 function shellQuote(value: string): string {
@@ -170,6 +257,63 @@ function rowMatchesTask(rowTaskRunId: string | null, taskRunId: string): boolean
   return rowTaskRunId === taskRunId;
 }
 
+type DependencyConstraint = {
+  readonly label: string;
+  readonly usageRe: RegExp;
+};
+
+function dependencyConstraintsForTask(taskDescription: string): readonly DependencyConstraint[] {
+  if (!DEPENDENCY_CONSTRAINT_CONTEXT_RE.test(taskDescription)) return [];
+  const constraints: DependencyConstraint[] = [];
+  if (REPORTLAB_USAGE_RE.test(taskDescription)) {
+    constraints.push({ label: 'reportlab', usageRe: REPORTLAB_USAGE_RE });
+  }
+  if (/\bpython-pptx\b/iu.test(taskDescription)) {
+    constraints.push({ label: 'python-pptx', usageRe: PYTHON_PPTX_USAGE_RE });
+  }
+  if (/\bnew packages?\b|\binstall\b|新增包|新增依赖|安装/u.test(taskDescription)) {
+    constraints.push({ label: 'new package installation', usageRe: INSTALL_COMMAND_RE });
+  }
+  return constraints;
+}
+
+function auditRowSearchText(
+  row: Pick<McpAuditRow, 'arguments_json' | 'result_json' | 'error' | 'tool_name'>,
+): string {
+  return [
+    row.tool_name,
+    row.arguments_json ?? '',
+    parseAuditResultText(row.result_json),
+    row.error ?? '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+export async function verifyDependencyConstraints(input: {
+  runtimeCtx: RuntimeContext;
+  threadId: string;
+  taskRunId: string;
+  taskDescription: string;
+}): Promise<VerifyOutcome | null> {
+  const constraints = dependencyConstraintsForTask(input.taskDescription);
+  if (constraints.length === 0) return null;
+
+  const rows = (await input.runtimeCtx.repos.mcpAudit.listByThread(input.threadId)).filter((row) =>
+    rowMatchesTask(row.task_run_id, input.taskRunId),
+  );
+  for (const row of rows) {
+    const searchText = auditRowSearchText(row);
+    const violation = constraints.find((constraint) => constraint.usageRe.test(searchText));
+    if (!violation) continue;
+    return {
+      ok: false,
+      reason: `Task violated the user's dependency constraint by using ${violation.label}.`,
+    };
+  }
+  return null;
+}
+
 export async function verifyConcreteWriteEvidence(input: {
   runtimeCtx: RuntimeContext;
   threadId: string;
@@ -202,7 +346,7 @@ export async function verifyConcreteWriteEvidence(input: {
     runtimeCtx: input.runtimeCtx,
     threadId: input.threadId,
     taskRunId: input.taskRunId,
-    targets: extractConcreteArtifactTargets(taskSpecificDescription(input.taskDescription)),
+    targets: artifactTargetsForTask(input.taskDescription),
   });
   return targetOutcome ?? { ok: true };
 }
@@ -254,6 +398,13 @@ async function verifyTaskCompletion(input: {
     taskDescription,
   });
   if (routingEventOutcome && !routingEventOutcome.ok) return routingEventOutcome;
+  const dependencyOutcome = await verifyDependencyConstraints({
+    runtimeCtx,
+    threadId: state.threadId,
+    taskRunId,
+    taskDescription,
+  });
+  if (dependencyOutcome && !dependencyOutcome.ok) return dependencyOutcome;
   const concreteWriteOutcome = await verifyConcreteWriteEvidence({
     runtimeCtx,
     threadId: state.threadId,

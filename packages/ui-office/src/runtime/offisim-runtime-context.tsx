@@ -102,12 +102,16 @@ export interface OffisimRuntimeValue {
   connectedMcpServers: ReadonlySet<string>;
   /** Abort the currently-running execution for the active thread. No-op if nothing is running. */
   abortExecution: () => void;
-  /** Threads detected as 'running' on startup (app crashed mid-execution). */
-  unfinishedThreads: ReadonlyArray<{ threadId: string; projectName: string }>;
+  /** Threads detected as 'running' or 'blocked' on startup. */
+  unfinishedThreads: ReadonlyArray<{
+    threadId: string;
+    projectName: string;
+    status?: 'running' | 'blocked';
+  }>;
   /** Dismiss the unfinished-thread banner without resuming. */
   dismissUnfinishedThreads: () => void;
   /**
-   * Resume a thread that was left in 'running' status.
+   * Resume a thread that was left in 'running' or 'blocked' status.
    * Re-invokes the graph with background_sync entryMode on the given threadId.
    */
   resumeThread: (threadId: string) => Promise<void>;

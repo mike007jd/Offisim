@@ -249,7 +249,7 @@ export async function bossSummaryNode(
     if (runtimeCtx) {
       const thread = await runtimeCtx.repos.threads.findById(state.threadId);
       if (thread?.status !== 'cancelled') {
-        await runtimeCtx.repos.threads.updateStatus(state.threadId, 'running');
+        await runtimeCtx.repos.threads.updateStatus(state.threadId, 'blocked');
       }
       await appendAgentEvent(runtimeCtx, {
         projectId: state.projectId,

@@ -73,6 +73,7 @@ const invariants = [
   await assertPlanReviewCancelPersistsPayload(core),
   await assertPlanReviewPayloadValidation(planReview),
   assertArtifactFallbackIsPhased(pmPlanParser),
+  assertTaskRunStatusBaseline(),
   assertLongRunningMicroCompactScenario(microCompact),
   assertCompletionVerifierScenario(completionVerifier),
   assertBashEvidenceCanSatisfyFileIntent(completionVerifier, taskToolIntent),
@@ -318,7 +319,7 @@ function assertArtifactFallbackIsPhased(pmPlanParser) {
   ];
   const plan = pmPlanParser.buildLlmPlanFallback(
     employees,
-    '分析项目代码库，输出 PDF、PPT、HTML infographic，并复制项目到目标目录。',
+    '分析项目代码库，输出 deliverables/02_analysis/codebase-analysis.pdf、deliverables/03_presentation/project-overview.pptx、deliverables/04_infographic/project-infographic.html，并复制项目到 deliverables/01_source_copy/source_project，写 deliverables/05_evidence/manifest.json。Do not rely on reportlab, python-pptx, or new packages.',
   );
   if (plan.steps.length < 4) {
     throw new Error(`artifact fallback must be phased, got ${plan.steps.length} step(s)`);
@@ -327,7 +328,43 @@ function assertArtifactFallbackIsPhased(pmPlanParser) {
   if (allDescriptions.every((description) => description.startsWith('分析项目代码库'))) {
     throw new Error('artifact fallback must not broadcast the full prompt to every employee');
   }
+  if (allDescriptions.some((description) => /PDF\/report|PPT\/presentation/u.test(description))) {
+    throw new Error('artifact fallback used pseudo artifact paths instead of concrete targets');
+  }
+  for (const expectedTarget of [
+    'deliverables/01_source_copy/source_project',
+    'deliverables/02_analysis/codebase-analysis.pdf',
+    'deliverables/03_presentation/project-overview.pptx',
+    'deliverables/04_infographic/project-infographic.html',
+    'deliverables/05_evidence/manifest.json',
+  ]) {
+    if (!allDescriptions.some((description) => description.includes(expectedTarget))) {
+      throw new Error(`artifact fallback omitted concrete target ${expectedTarget}`);
+    }
+  }
   return { id: 'pm.artifact_fallback_is_phased', passed: true };
+}
+
+function assertTaskRunStatusBaseline() {
+  const schemaSql = readFileSync(resolve(ROOT, 'packages/db-local/src/schema.sql'), 'utf8');
+  if (!schemaSql.includes("'planned'") || !schemaSql.includes("'waiting_dependency'")) {
+    throw new Error('task_runs schema must allow planned and waiting_dependency statuses');
+  }
+  const planPersistence = readFileSync(
+    resolve(ROOT, 'packages/core/src/agents/pm-planner/plan-persistence.ts'),
+    'utf8',
+  );
+  const replanNode = readFileSync(
+    resolve(ROOT, 'packages/core/src/agents/pm-replan-node.ts'),
+    'utf8',
+  );
+  if (!/status:\s*'planned'/u.test(planPersistence)) {
+    throw new Error('pm planner must persist new task runs as planned');
+  }
+  if (!/status:\s*'planned'/u.test(replanNode)) {
+    throw new Error('pm replan must persist new task runs as planned');
+  }
+  return { id: 'task_runs.planned_status_baseline', passed: true };
 }
 
 function assertBashEvidenceCanSatisfyFileIntent(completionVerifier, taskToolIntent) {
@@ -427,10 +464,63 @@ async function assertArtifactTasksRequireWriteAudit(employeeCompletion) {
   if (failedBashOutcome?.ok) {
     throw new Error('artifact task accepted failed bash write audit evidence');
   }
+  let checkedCommand = '';
+  const fullIntentTargetOutcome = await employeeCompletion.verifyConcreteWriteEvidence({
+    runtimeCtx: makeArtifactAuditRuntime(
+      [
+        {
+          task_run_id: 'task-pdf',
+          tool_name: 'bash',
+          arguments_json: JSON.stringify({
+            command:
+              "python3 - <<'PY'\nfrom pathlib import Path\nPath('deliverables/02_analysis/codebase-analysis.pdf').write_bytes(b'%PDF smoke')\nPY",
+          }),
+          result_json: JSON.stringify('wrote pdf\n[Exit code: 0]'),
+          error: null,
+        },
+      ],
+      {
+        async execute(call) {
+          checkedCommand = call.arguments.command;
+          return checkedCommand.includes('deliverables/02_analysis/codebase-analysis.pdf') &&
+            !checkedCommand.includes('PDF/report')
+            ? { success: true, result: 'ok' }
+            : { success: false, result: 'missing requested target' };
+        },
+      },
+    ),
+    threadId: 'thread-artifact',
+    taskRunId: 'task-pdf',
+    taskDescription:
+      'Generate the codebase analysis PDF/report in the requested 02_analysis folder. Full user intent: Generate deliverables/02_analysis/codebase-analysis.pdf and deliverables/03_presentation/project-overview.pptx.',
+  });
+  if (!fullIntentTargetOutcome?.ok) {
+    throw new Error('artifact task did not resolve concrete target from full user intent');
+  }
+  const dependencyOutcome = await employeeCompletion.verifyDependencyConstraints({
+    runtimeCtx: makeArtifactAuditRuntime([
+      {
+        task_run_id: 'task-pdf',
+        tool_name: 'bash',
+        arguments_json: JSON.stringify({
+          command: "python3 - <<'PY'\nfrom reportlab.pdfgen import canvas\nPY",
+        }),
+        result_json: JSON.stringify('ok\n[Exit code: 0]'),
+        error: null,
+      },
+    ]),
+    threadId: 'thread-artifact',
+    taskRunId: 'task-pdf',
+    taskDescription:
+      'Generate the codebase analysis PDF at deliverables/02_analysis/codebase-analysis.pdf. Full user intent: Do not rely on reportlab, python-pptx, or new packages.',
+  });
+  if (dependencyOutcome?.ok !== false) {
+    throw new Error('artifact task accepted forbidden dependency usage');
+  }
   return { id: 'completion.artifact_tasks_require_write_audit', passed: true };
 }
 
-function makeArtifactAuditRuntime(rows) {
+function makeArtifactAuditRuntime(rows, toolExecutor) {
   return {
     repos: {
       mcpAudit: {
@@ -439,6 +529,7 @@ function makeArtifactAuditRuntime(rows) {
         },
       },
     },
+    ...(toolExecutor ? { toolExecutor } : {}),
   };
 }
 

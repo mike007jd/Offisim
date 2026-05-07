@@ -74,7 +74,9 @@ export function ProjectCreateDialog({
   }, [open, mode, initial]);
 
   const trimmedName = name.trim();
-  const canSubmit = trimmedName.length > 0 && !submitting;
+  const workspaceRequired = desktopMode && mode === 'create';
+  const canSubmit =
+    trimmedName.length > 0 && !submitting && (!workspaceRequired || !!workspaceRoot);
 
   async function handleChooseFolder() {
     if (!desktopMode || picking) return;
@@ -188,7 +190,9 @@ export function ProjectCreateDialog({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">Workspace folder</span>
+          <span className="text-xs font-medium text-text-secondary">
+            Workspace folder {workspaceRequired && <span className="text-error">(required)</span>}
+          </span>
           {desktopMode ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
@@ -199,7 +203,9 @@ export function ProjectCreateDialog({
                       {workspaceRoot}
                     </span>
                   ) : (
-                    <span className="text-text-muted">No folder bound</span>
+                    <span className={workspaceRequired ? 'text-error' : 'text-text-muted'}>
+                      No folder bound
+                    </span>
                   )}
                 </div>
                 <Button
@@ -226,6 +232,11 @@ export function ProjectCreateDialog({
                   </Button>
                 )}
               </div>
+              {workspaceRequired && !workspaceRoot && (
+                <p className="text-xs text-error">
+                  Choose a workspace folder before creating this project.
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2 rounded-lg border border-border-default bg-surface-muted px-3 py-2 text-xs text-text-muted">

@@ -6,6 +6,16 @@ export type { LlmPlanStep };
 
 const ARTIFACT_WORKFLOW_RE =
   /\b(pdf|ppt|pptx|html|infographic|copy|organize|directory|folder|codebase)\b|代码库|源码|项目|分析报告|复制|拷贝|整理|目录|文件夹|输出|生成|保存/u;
+const PATH_CANDIDATE_RE =
+  /(?:^|[\s("'`])((?:\/[^\s"'`]+|(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)+[A-Za-z0-9._-]+(?:\.[A-Za-z0-9._-]+)?))(?=$|[\s)"'`,.;:，。；：、])/gu;
+
+const DEFAULT_ARTIFACT_TARGETS = {
+  sourceCopy: 'deliverables/01_source_copy/source_project',
+  pdf: 'deliverables/02_analysis/codebase-analysis.pdf',
+  presentation: 'deliverables/03_presentation/project-overview.pptx',
+  html: 'deliverables/04_infographic/project-infographic.html',
+  manifest: 'deliverables/05_evidence/manifest.json',
+} as const;
 
 function findEmployee(
   employees: EmployeeRow[],
@@ -43,7 +53,69 @@ function taskFor(employee: EmployeeRow, description: string, dependsOnStepOutput
   };
 }
 
+function stripTrailingPathPunctuation(path: string): string {
+  return path.replace(/[),.;:，。；：、]+$/u, '');
+}
+
+function extractIntentPaths(intent: string): string[] {
+  const targets = new Set<string>();
+  for (const match of intent.matchAll(PATH_CANDIDATE_RE)) {
+    const candidate = stripTrailingPathPunctuation(match[1]?.trim() ?? '');
+    if (!candidate || candidate.includes('://')) continue;
+    targets.add(candidate);
+  }
+  return [...targets];
+}
+
+function sourceCopyTargetFromPath(path: string): string | null {
+  const normalized = path.replace(/\\/gu, '/');
+  const sourceProjectMarker = '/source_project/';
+  const sourceProjectIndex = normalized.indexOf(sourceProjectMarker);
+  if (sourceProjectIndex >= 0) {
+    return normalized.slice(0, sourceProjectIndex + sourceProjectMarker.length - 1);
+  }
+  const rootMarker = '01_source_copy/';
+  const rootIndex = normalized.indexOf(rootMarker);
+  if (rootIndex >= 0) {
+    const afterRoot = normalized.slice(rootIndex + rootMarker.length);
+    const firstSegment = afterRoot.split('/')[0];
+    return firstSegment
+      ? normalized.slice(0, rootIndex + rootMarker.length + firstSegment.length)
+      : normalized.slice(0, rootIndex + rootMarker.length - 1);
+  }
+  return null;
+}
+
+function artifactTargetsFromIntent(intent: string) {
+  const paths = extractIntentPaths(intent);
+  const find = (predicate: (path: string) => boolean, fallback: string): string =>
+    paths.find(predicate) ?? fallback;
+  const sourcePath =
+    paths.map(sourceCopyTargetFromPath).find((path): path is string => Boolean(path)) ??
+    DEFAULT_ARTIFACT_TARGETS.sourceCopy;
+  return {
+    sourceCopy: sourcePath,
+    pdf: find(
+      (path) => /\.pdf$/iu.test(path) || path.includes('/02_analysis/'),
+      DEFAULT_ARTIFACT_TARGETS.pdf,
+    ),
+    presentation: find(
+      (path) => /\.pptx?$/iu.test(path) || path.includes('/03_presentation/'),
+      DEFAULT_ARTIFACT_TARGETS.presentation,
+    ),
+    html: find(
+      (path) => /\.html?$/iu.test(path) || path.includes('/04_infographic/'),
+      DEFAULT_ARTIFACT_TARGETS.html,
+    ),
+    manifest: find(
+      (path) => /manifest\.json$/iu.test(path) || path.includes('/05_evidence/'),
+      DEFAULT_ARTIFACT_TARGETS.manifest,
+    ),
+  };
+}
+
 function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string): LlmPlan {
+  const targets = artifactTargetsFromIntent(intent);
   const used = new Set<string>();
   const coordinator =
     findEmployee(employees, (e) => e.role_slug.includes('manager'), used) ??
@@ -84,7 +156,7 @@ function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string)
       tasks: [
         taskFor(
           coordinator,
-          `Select one suitable project from the workspace, create the requested output directory structure, and record the selected project and rationale. Full user intent: ${intent}`,
+          `Select one suitable project from the workspace and record the selected project plus rationale for downstream artifact tasks. Full user intent: ${intent}`,
         ),
       ],
     });
@@ -100,7 +172,7 @@ function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string)
           ? [
               taskFor(
                 analyst,
-                `Analyze the selected project codebase and draft the codebase analysis content for the final PDF/report. Include product positioning, modules, flows, run commands, risks, and hygiene advice. Full user intent: ${intent}`,
+                `Analyze the selected project codebase and draft source findings only. Include product positioning, modules, flows, run commands, risks, and hygiene advice; do not create final deliverables in this task. Full user intent: ${intent}`,
                 true,
               ),
             ]
@@ -125,7 +197,7 @@ function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string)
       tasks: [
         taskFor(
           fileOperator,
-          `Copy the selected project into the requested 01_source_copy folder, excluding .git, node_modules, dist, build, .turbo, target, DerivedData, .venv and similar generated directories. Full user intent: ${intent}`,
+          `Copy only the selected project source tree into ${targets.sourceCopy}, excluding .git, node_modules, dist, build, .turbo, target, DerivedData, .venv and similar generated directories. Do not generate analysis, presentation, HTML, or manifest artifacts in this task. Full user intent: ${intent}`,
           true,
         ),
       ],
@@ -141,7 +213,7 @@ function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string)
         ? [
             taskFor(
               analyst,
-              `Generate the codebase analysis PDF/report in the requested 02_analysis folder using the selected project findings. Full user intent: ${intent}`,
+              `Generate the codebase analysis PDF at ${targets.pdf} using the selected project findings. If the user forbids reportlab or new packages, use only already-available shell/runtime capabilities. Full user intent: ${intent}`,
               true,
             ),
           ]
@@ -150,7 +222,7 @@ function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string)
         ? [
             taskFor(
               presentationOwner,
-              `Generate the requested 8-12 page project PPT/presentation artifact in 03_presentation. Full user intent: ${intent}`,
+              `Generate the requested 8-12 page project PPTX artifact at ${targets.presentation}. If the user forbids python-pptx or new packages, use only already-available shell/runtime capabilities. Full user intent: ${intent}`,
               true,
             ),
           ]
@@ -159,7 +231,7 @@ function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string)
         ? [
             taskFor(
               htmlOwner,
-              `Generate the self-contained HTML infographic at the requested 04_infographic path. Full user intent: ${intent}`,
+              `Generate the self-contained HTML infographic at ${targets.html}. Full user intent: ${intent}`,
               true,
             ),
           ]
@@ -177,7 +249,7 @@ function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string)
           ? [
               taskFor(
                 qaOwner,
-                `Verify the requested folder structure and artifacts, write evidence/manifest under 05_evidence, and list any missing files. Full user intent: ${intent}`,
+                `Verify ${targets.sourceCopy}, ${targets.pdf}, ${targets.presentation}, and ${targets.html}; write the evidence manifest at ${targets.manifest}; and list any missing or empty files. Full user intent: ${intent}`,
                 true,
               ),
             ]
@@ -186,7 +258,7 @@ function buildArtifactWorkflowFallback(employees: EmployeeRow[], intent: string)
           ? [
               taskFor(
                 coordinator,
-                `Write the final delivery summary with generated file paths, selected project, employee responsibilities, issues, and completion status. Full user intent: ${intent}`,
+                `Write the final delivery summary with generated file paths, selected project, employee responsibilities, unresolved issues, and completion status. Do not mark the workflow complete if any task is blocked or any requested file is missing. Full user intent: ${intent}`,
                 true,
               ),
             ]
