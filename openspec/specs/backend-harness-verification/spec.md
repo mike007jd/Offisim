@@ -41,6 +41,32 @@ Offisim SHALL treat provider/lane support as verified only after the correspondi
 - **THEN** the harness fails fast with a configuration error
 - **AND** no provider call is attempted
 
+### Requirement: Non-deterministic harness suites SHALL have an explicit manual cadence
+
+`pnpm harness:deterministic` remains the per-change product baseline. Non-deterministic, credentialed, long-running, or fixture-mutating harness suites SHALL NOT sit in an unowned gray zone: each SHALL be either listed as a manual gate with cadence and evidence expectations, or explicitly deprecated and removed.
+
+The monthly manual harness gate SHALL cover the active non-deterministic suites exposed in `package.json`: `harness:edge`, `harness:load`, `harness:soak`, `harness:chaos`, `harness:resume`, `harness:vcr`, `harness:context`, `harness:model-bench`, `harness:stream-tools`, `harness:smoke`, `harness:doc-engine`, and `harness:chat-attachment-roundtrip`. `harness:record` SHALL be run only when refreshing fixtures or corpus data, and its output diff SHALL be reviewed before merge.
+
+Manual gate evidence SHALL record date, git revision, command set, provider/lane where applicable, pass/fail result, and any credential or environment blocker. RC/release sign-off SHALL include either a fresh monthly gate result or an explicit blocker entry; stale or absent manual evidence SHALL NOT be treated as release proof.
+
+#### Scenario: Monthly manual harness gate is recorded
+
+- **WHEN** the monthly harness gate is performed
+- **THEN** the evidence lists every active non-deterministic harness command and its result
+- **AND** skipped credentialed/provider suites include the missing credential or environment blocker
+
+#### Scenario: RC sign-off cannot rely on stale gray suites
+
+- **WHEN** an RC or release sign-off references non-deterministic harness health
+- **THEN** the sign-off points to a manual gate record from the current cycle
+- **AND** any missing suite is marked as a blocker or explicitly out of scope, not silently assumed green
+
+#### Scenario: Deprecated harness is removed instead of left idle
+
+- **WHEN** a non-deterministic harness suite no longer provides product evidence
+- **THEN** its npm script and stale documentation are removed together
+- **AND** the manual gate table no longer lists it as an active suite
+
 ### Requirement: Harness output SHALL classify boundary and provider failures separately
 
 Harness reporting SHALL distinguish Offisim runtime failures from upstream provider failures. At minimum, reports SHALL separate:

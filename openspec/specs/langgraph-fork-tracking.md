@@ -1,6 +1,6 @@
 # LangGraph Fork Tracking
 
-Last updated: 2026-05-02
+Last updated: 2026-05-07
 
 ## Local Fork
 
@@ -8,8 +8,8 @@ Offisim owns a local checkpoint saver fork at `apps/web/src/lib/tauri-checkpoint
 
 Baseline package family:
 
-- `@langchain/langgraph@1.2.9`
-- `@langchain/langgraph-checkpoint@1.0.1`
+- `@langchain/langgraph@1.3.0`
+- `@langchain/langgraph-checkpoint@1.0.2`
 - `@langchain/langgraph-checkpoint-sqlite@1.0.1`
 
 The local file is a Tauri async SQLite adaptation of the upstream SqliteSaver shape. It is not a vendored copy that should be blindly replaced during upgrades.
@@ -26,7 +26,7 @@ The local file is a Tauri async SQLite adaptation of the upstream SqliteSaver sh
 
 ## pnpm Patch Relationship
 
-`pnpm-workspace.yaml` patches `@langchain/langgraph@1.2.9` through `patches/@langchain__langgraph@1.2.9.patch`.
+`pnpm-workspace.yaml` patches `@langchain/langgraph@1.3.0` through `patches/@langchain__langgraph@1.3.0.patch`.
 
 That patch is separate from `tauri-checkpoint.ts`. The patch only makes `pregel/retry` best-effort when attaching `pregelTaskId` to frozen/non-extensible errors. It does not own checkpoint persistence, SQLite access, or Tauri IPC behavior.
 
@@ -42,6 +42,6 @@ Upgrade rule:
 2. Compare upstream SqliteSaver / checkpoint saver APIs against `apps/web/src/lib/tauri-checkpoint.ts`.
 3. Verify the local serializer/string conversion is still needed for tauri-plugin-sql IPC.
 4. Verify `put`, `putWrites`, `deleteThread`, `getTuple`, `list`, and `loadLatest` still match LangGraph's expected method contracts.
-5. Inspect `patches/@langchain__langgraph@1.2.9.patch`; refresh or remove it only if upstream no longer writes metadata unsafely.
+5. Inspect `patches/@langchain__langgraph@1.3.0.patch`; refresh or remove it only if upstream no longer writes metadata unsafely.
 6. Run deterministic replay and resume checks after any checkpoint change.
 7. Update `openspec/protocols-ledger.md` if the fork status, package versions, or patch rationale changes.

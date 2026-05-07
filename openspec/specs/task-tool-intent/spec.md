@@ -42,6 +42,7 @@ It SHALL NOT trigger on bare-noun matches alone — the following SHALL NOT set 
 - `file` / `command` / `path` / `terminal` / `directory` / `folder` / `workspace` (English bare noun)
 - `命令` / `文件` / `目录` / `终端` / `路径` (Chinese bare noun)
 - Idiom phrases: `file a bug`, `command line interface`, `keep the path forward`, `describe the workspace`, `in the workspace`, `the file system`
+- Chinese negated tool phrases such as `不需要读取任何文件`, `不用运行命令`, and `不要写入文件`
 
 #### Scenario: Bare English noun does not trigger
 - **WHEN** calling `detectTaskToolIntent('Please describe the workspace and file a bug if anything looks off.')`
@@ -49,6 +50,10 @@ It SHALL NOT trigger on bare-noun matches alone — the following SHALL NOT set 
 
 #### Scenario: Bare Chinese noun does not trigger
 - **WHEN** calling `detectTaskToolIntent('请描述一下当前的命令行界面和文件系统结构。')`
+- **THEN** the result is `{ needsRead: false, needsWrite: false, needsBash: false, needsVerification: false, requiresLocalTools: false }`
+
+#### Scenario: Negated Chinese tool phrase does not trigger
+- **WHEN** calling `detectTaskToolIntent('请描述一下当前的命令行界面和文件系统结构，不需要读取任何文件。')`
 - **THEN** the result is `{ needsRead: false, needsWrite: false, needsBash: false, needsVerification: false, requiresLocalTools: false }`
 
 #### Scenario: Verb+object English triggers read intent

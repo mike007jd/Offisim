@@ -64,3 +64,27 @@ Every boss / manager / employee / system-service call path SHALL reach the curre
 - **WHEN** a runtime selects `openai-agents-sdk`
 - **THEN** Offisim runtime policy, tool permission, and checkpoint hooks still execute at the Offisim layer
 - **AND** the vendor lane does not take ownership of global workflow state
+
+### Requirement: Agent SDK lanes SHALL remain text/reasoning-only
+
+`claude-agent-sdk`, `codex-agent-sdk`, and `openai-agents-sdk` SHALL NOT expose or execute Offisim file, shell, memory, todo, skill, MCP, builtin, or workspace tools. Any task that requires those tools SHALL fail closed or be routed to the `gateway` lane before model execution.
+
+Harness coverage SHALL prove this per adapter: Claude Agent SDK and OpenAI Agents SDK reject tool-bearing calls before spawning/fetching, and Codex Agent SDK remains unavailable from the generic core adapter factory unless the trusted desktop host supplies the text-only bridge.
+
+#### Scenario: Agent SDK adapter rejects Offisim tools before provider execution
+
+- **WHEN** a `claude-agent-sdk` or `openai-agents-sdk` adapter receives a request with Offisim tool definitions
+- **THEN** it fails with the text-only SDK-lane message
+- **AND** no provider process or HTTP call is attempted
+
+#### Scenario: Codex SDK is not exposed by the generic core factory
+
+- **WHEN** `createExecutionAdapter` is asked for `codex-agent-sdk`
+- **THEN** it fails closed with guidance that Codex requires the trusted desktop host
+- **AND** generic runtime code cannot silently construct a tool-capable Codex lane
+
+#### Scenario: Trusted Codex host instructions stay text-only
+
+- **WHEN** the Codex desktop host bridge builds its developer instructions
+- **THEN** the instructions state that SDK lanes are text/reasoning-only
+- **AND** they tell the model to switch to `gateway` for Offisim tools rather than executing local file, shell, memory, todo, skill, MCP, or builtin tools
