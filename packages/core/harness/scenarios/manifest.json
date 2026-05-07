@@ -353,6 +353,14 @@
       ]
     },
     {
+      "id": "routing-rejects-chinese-narrative-prose",
+      "category": "interaction-modes",
+      "invariants": [
+        "routing.chinese_narrative_prose_does_not_require_local_tools",
+        "routing.no_reroute_event_for_chinese_conversational_request"
+      ]
+    },
+    {
       "id": "routing-accepts-verb-object-imperative",
       "category": "interaction-modes",
       "invariants": [

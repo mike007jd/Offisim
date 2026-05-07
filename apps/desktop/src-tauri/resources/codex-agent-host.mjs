@@ -114,9 +114,9 @@ function buildPrompt(messages) {
 }
 function buildDeveloperInstructions(messages, tools) {
   const sections = [
-    "You are Offisim's trusted Codex local-auth bridge.",
+    "You are Offisim's trusted Codex local-auth text/reasoning bridge.",
     'Return exactly one plain assistant reply.',
-    'If tools are available in this trusted workspace, use them when needed to verify file or shell work before claiming completion.',
+    'Offisim SDK lanes are text/reasoning-only. Do not execute Offisim file, shell, memory, todo, skill, MCP, or builtin tools. If workspace verification is required, say the user must switch to the Gateway lane.',
   ];
   const systemPrompt = buildSystemPrompt(messages);
   if (systemPrompt) {
@@ -125,7 +125,7 @@ function buildDeveloperInstructions(messages, tools) {
   }
   if (Array.isArray(tools) && tools.length > 0) {
     sections.push(
-      'The upstream caller supplied Offisim tool definitions. Prefer native trusted-host tools when they are available; if they are unavailable, state that explicitly instead of simulating tool results.',
+      'The upstream caller supplied Offisim tool definitions, but this Codex SDK lane must not execute them. State that the Gateway lane is required for Offisim tools instead of simulating tool results.',
     );
   }
   return sections.join('\n\n');

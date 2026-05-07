@@ -157,6 +157,13 @@ export const CHINESE_VERIFICATION_PATTERNS: readonly RegExp[] = [
   /执行[^。]{0,20}验证/u,
 ];
 
+const CHINESE_NEGATED_LOCAL_TOOL_PATTERNS: readonly RegExp[] = [
+  /(?:不需要|无需|不用|不必|不要)[^。；，,.!?！？]{0,12}(?:读取|读回|查看|引用|分析|扫描)[^。；，,.!?！？]{0,80}(?:文件|工作区|readme|内容|代码库|源码|项目|目录)/giu,
+  /(?:不需要|无需|不用|不必|不要)[^。；，,.!?！？]{0,12}(?:写入|写回|创建|保存|追加|输出|生成|复制|拷贝|整理|形成)[^。；，,.!?！？]{0,80}(?:文件|文件夹|目录|PDF|PPT|HTML|infographic|结构)/giu,
+  /(?:不需要|无需|不用|不必|不要)[^。；，,.!?！？]{0,12}(?:运行|执行)[^。；，,.!?！？]{0,20}(?:命令|脚本|验证)/giu,
+  /(?:不需要|无需|不用|不必|不要)[^。；，,.!?！？]{0,20}验证证据/giu,
+];
+
 /**
  * Pre-built explicit-tool-token regex `\b(read_file|write_file|...)\b`,
  * case-insensitive.
@@ -223,26 +230,29 @@ export function detectTaskToolIntent(text: string | null | undefined): TaskToolI
     return { ...EMPTY_INTENT };
   }
 
+  const effectiveText = stripNegatedChineseLocalToolPhrases(text);
+
   // Tool-name tokens trigger their own bucket plus requiresLocalTools.
-  const hasToolToken = LOCAL_TOOL_NAME_RE.test(text);
+  const hasToolToken = LOCAL_TOOL_NAME_RE.test(effectiveText);
 
   const needsRead =
-    READ_TOOL_TOKENS_RE.test(text) ||
-    READ_VERB_OBJECT_RE.test(text) ||
-    matchesAny(text, CHINESE_READ_PATTERNS);
+    READ_TOOL_TOKENS_RE.test(effectiveText) ||
+    READ_VERB_OBJECT_RE.test(effectiveText) ||
+    matchesAny(effectiveText, CHINESE_READ_PATTERNS);
 
   const needsWrite =
-    WRITE_TOOL_TOKENS_RE.test(text) ||
-    WRITE_VERB_OBJECT_RE.test(text) ||
-    matchesAny(text, CHINESE_WRITE_PATTERNS);
+    WRITE_TOOL_TOKENS_RE.test(effectiveText) ||
+    WRITE_VERB_OBJECT_RE.test(effectiveText) ||
+    matchesAny(effectiveText, CHINESE_WRITE_PATTERNS);
 
   const needsBash =
-    BASH_TOOL_TOKENS_RE.test(text) ||
-    BASH_VERB_OBJECT_RE.test(text) ||
-    matchesAny(text, CHINESE_BASH_PATTERNS);
+    BASH_TOOL_TOKENS_RE.test(effectiveText) ||
+    BASH_VERB_OBJECT_RE.test(effectiveText) ||
+    matchesAny(effectiveText, CHINESE_BASH_PATTERNS);
 
   const needsVerification =
-    VERIFICATION_TOKEN_RE.test(text) || matchesAny(text, CHINESE_VERIFICATION_PATTERNS);
+    VERIFICATION_TOKEN_RE.test(effectiveText) ||
+    matchesAny(effectiveText, CHINESE_VERIFICATION_PATTERNS);
 
   // requiresLocalTools is true iff any bucket fired (or a tool-name token did
   // — those always indicate local-tool intent even if the bucket categorisation
@@ -257,6 +267,14 @@ export function detectTaskToolIntent(text: string | null | undefined): TaskToolI
     needsVerification,
     requiresLocalTools,
   };
+}
+
+function stripNegatedChineseLocalToolPhrases(text: string): string {
+  let stripped = text;
+  for (const pattern of CHINESE_NEGATED_LOCAL_TOOL_PATTERNS) {
+    stripped = stripped.replace(pattern, ' ');
+  }
+  return stripped;
 }
 
 /**

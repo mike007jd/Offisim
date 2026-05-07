@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { ensureRuntimeBuild } from './harness-lib.mjs';
 
 await ensureRuntimeBuild({ force: process.argv.includes('--force-build') });
@@ -7,6 +8,18 @@ const { OpenAiAdapter } = await import(
 );
 const { AnthropicAdapter } = await import(
   new URL('../packages/core/dist/llm/anthropic-adapter.js', import.meta.url).href
+);
+const { ClaudeAgentSdkAdapter } = await import(
+  new URL('../packages/core/dist/llm/claude-agent-sdk-adapter.js', import.meta.url).href
+);
+const { OpenAiAgentsSdkAdapter } = await import(
+  new URL('../packages/core/dist/llm/openai-agents-sdk-adapter.js', import.meta.url).href
+);
+const { createExecutionAdapter } = await import(
+  new URL('../packages/core/dist/llm/execution-adapter-factory.js', import.meta.url).href
+);
+const { sdkLaneTextOnlyMessage } = await import(
+  new URL('../packages/core/dist/llm/sdk-lane-policy.js', import.meta.url).href
 );
 
 const request = {
@@ -39,6 +52,33 @@ assertToolCall(openaiToolCalls, 'openai-partial-function-args');
 assertToolCall(anthropicToolCalls, 'anthropic-partial-json-tool-use');
 await assertChatTimeout(OpenAiAdapter, 'openai-chat-timeout');
 await assertChatTimeout(AnthropicAdapter, 'anthropic-chat-timeout');
+await assertSdkAdapterRejectsTools(
+  () =>
+    new ClaudeAgentSdkAdapter(undefined, {
+      pathToClaudeCodeExecutable: '/__offisim_harness_should_not_spawn_claude__',
+    }),
+  'claude-agent-sdk-rejects-tools',
+  'Claude Agent SDK',
+);
+let openAiAgentsFetchCount = 0;
+await assertSdkAdapterRejectsTools(
+  () =>
+    new OpenAiAgentsSdkAdapter('test-key', {
+      baseURL: 'https://mock.openai-agents.local/v1',
+      fetch: async () => {
+        openAiAgentsFetchCount += 1;
+        return new Response('{}');
+      },
+      dangerouslyAllowBrowser: true,
+    }),
+  'openai-agents-sdk-rejects-tools',
+  'OpenAI Agents SDK',
+);
+if (openAiAgentsFetchCount !== 0) {
+  throw new Error('openai-agents-sdk-rejects-tools called transport before rejecting tools');
+}
+assertCodexCoreFactoryFailsClosed();
+assertCodexHostTextOnlyInstructions();
 
 console.log(
   JSON.stringify(
@@ -50,6 +90,10 @@ console.log(
         'anthropic-partial-json-tool-use',
         'openai-chat-timeout',
         'anthropic-chat-timeout',
+        'claude-agent-sdk-rejects-tools',
+        'openai-agents-sdk-rejects-tools',
+        'codex-agent-sdk-core-factory-fails-closed',
+        'codex-agent-host-text-only-instructions',
       ],
     },
     null,
@@ -108,6 +152,68 @@ async function assertChatTimeout(Adapter, scenarioId) {
   }
 
   throw new Error(`${scenarioId} unexpectedly completed`);
+}
+
+async function assertSdkAdapterRejectsTools(adapterFactory, scenarioId, laneLabel) {
+  const adapter = adapterFactory();
+  try {
+    await adapter.chat(request);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const expected = sdkLaneTextOnlyMessage(laneLabel);
+    if (!message.includes(expected)) {
+      throw new Error(`${scenarioId} surfaced unexpected error: ${message}`);
+    }
+    return;
+  }
+
+  throw new Error(`${scenarioId} unexpectedly accepted tool-bearing request`);
+}
+
+function assertCodexCoreFactoryFailsClosed() {
+  try {
+    createExecutionAdapter({
+      executionLane: 'codex-agent-sdk',
+      provider: 'openai',
+      model: 'mock-model',
+      apiKey: 'test-key',
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      !message.includes('codex-agent-sdk') ||
+      !message.includes('trusted desktop host') ||
+      !message.includes('unavailable in the generic core adapter factory')
+    ) {
+      throw new Error(`codex-agent-sdk-core-factory-fails-closed surfaced ${message}`);
+    }
+    return;
+  }
+
+  throw new Error('codex-agent-sdk-core-factory-fails-closed unexpectedly created adapter');
+}
+
+function assertCodexHostTextOnlyInstructions() {
+  const source = readFileSync(new URL('./tauri-codex-agent-host.mjs', import.meta.url), 'utf8');
+  const forbidden = [
+    'use them when needed to verify file or shell work',
+    'Prefer native trusted-host tools',
+  ];
+  for (const phrase of forbidden) {
+    if (source.includes(phrase)) {
+      throw new Error(`codex-agent-host-text-only-instructions still contains "${phrase}"`);
+    }
+  }
+  const required = [
+    'text/reasoning-only',
+    'Do not execute Offisim file, shell, memory, todo, skill, MCP, or builtin tools.',
+    'Gateway lane is required for Offisim tools',
+  ];
+  for (const phrase of required) {
+    if (!source.includes(phrase)) {
+      throw new Error(`codex-agent-host-text-only-instructions missing "${phrase}"`);
+    }
+  }
 }
 
 function sseResponse(body) {

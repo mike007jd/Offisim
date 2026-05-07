@@ -31,6 +31,7 @@ export const REPLAY_SCENARIO_IDS = [
   'orchestration-project-thread-scopes-runtime-context',
   'routing-accepts-verb-object-imperative',
   'routing-rejects-bare-noun-prose',
+  'routing-rejects-chinese-narrative-prose',
   'manager-rerouted-event-fires',
   'manager-whole-team-dispatches-all-employees',
   'employee-inherits-unified-model-setting',

@@ -406,6 +406,16 @@ interface KanbanMatrixAssertion {
   readonly mode?: InteractionMode;
   readonly origin?: 'pm-planner' | 'employee';
   readonly states?: Record<string, number>;
+  readonly taskRunBound?: boolean;
+  readonly assignedEmployeeId?: string | null;
+  readonly transitionTrail?: readonly KanbanMatrixTrailExpectation[];
+}
+
+interface KanbanMatrixTrailExpectation {
+  readonly op: 'created' | 'transitioned' | 'assigned';
+  readonly state?: SeedKanbanCard['state'];
+  readonly taskRunBound?: boolean;
+  readonly assignedEmployeeId?: string | null;
 }
 
 function evaluateKanbanMatrixAssertions(
@@ -472,10 +482,106 @@ function assertKanbanMatrixAssertion(
       throw new Error(`Expected ${expectedCount} ${mode} cards in ${state}, got ${actual}`);
     }
   }
+  if (assertion.taskRunBound !== undefined) {
+    assertCardsTaskRunBound(mode, cards, assertion.taskRunBound);
+  }
+  if (hasOwn(assertion, 'assignedEmployeeId')) {
+    assertCardsAssignedEmployee(mode, cards, assertion.assignedEmployeeId ?? null);
+  }
+  if (assertion.transitionTrail) {
+    assertKanbanTransitionTrail(mode, report.trace.events, assertion.transitionTrail);
+  }
 }
 
 function modeSuffix(mode: InteractionMode): string {
   return mode.replaceAll('_', '-');
+}
+
+function assertCardsTaskRunBound(
+  mode: InteractionMode,
+  cards: readonly Record<string, unknown>[],
+  expected: boolean,
+): void {
+  const mismatched = cards.filter((card) => isTaskRunBound(card) !== expected);
+  if (mismatched.length > 0) {
+    throw new Error(
+      `Expected all ${mode} cards taskRunBound=${expected}, got ${JSON.stringify(cards)}`,
+    );
+  }
+}
+
+function assertCardsAssignedEmployee(
+  mode: InteractionMode,
+  cards: readonly Record<string, unknown>[],
+  expected: string | null,
+): void {
+  const mismatched = cards.filter((card) => (card.assigned_employee_id ?? null) !== expected);
+  if (mismatched.length > 0) {
+    throw new Error(
+      `Expected all ${mode} cards assignedEmployeeId=${expected}, got ${JSON.stringify(cards)}`,
+    );
+  }
+}
+
+function assertKanbanTransitionTrail(
+  mode: InteractionMode,
+  events: readonly unknown[],
+  expectedTrail: readonly KanbanMatrixTrailExpectation[],
+): void {
+  const trail = toRecordArray(events)
+    .map((event) => {
+      const payload = toRecord(event.payload);
+      if (payload?.kind !== 'kanban') return null;
+      const card = toRecord(payload.card);
+      return {
+        op: payload.op,
+        state: card?.state,
+        taskRunBound: isTaskRunBound(card),
+        assignedEmployeeId: card?.assigned_employee_id ?? null,
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+  if (trail.length !== expectedTrail.length) {
+    throw new Error(
+      `Expected ${mode} kanban trail length ${expectedTrail.length}, got ${trail.length}: ${JSON.stringify(trail)}`,
+    );
+  }
+
+  expectedTrail.forEach((expected, index) => {
+    const actual = trail[index];
+    if (!actual) throw new Error(`Missing ${mode} kanban trail event at index ${index}`);
+    if (actual.op !== expected.op) {
+      throw new Error(
+        `Expected ${mode} kanban trail op ${expected.op} at index ${index}, got ${String(actual.op)}`,
+      );
+    }
+    if (expected.state !== undefined && actual.state !== expected.state) {
+      throw new Error(
+        `Expected ${mode} kanban trail state ${expected.state} at index ${index}, got ${String(actual.state)}`,
+      );
+    }
+    if (
+      expected.taskRunBound !== undefined &&
+      actual.taskRunBound !== expected.taskRunBound
+    ) {
+      throw new Error(
+        `Expected ${mode} kanban trail taskRunBound=${expected.taskRunBound} at index ${index}, got ${actual.taskRunBound}`,
+      );
+    }
+    if (
+      hasOwn(expected, 'assignedEmployeeId') &&
+      actual.assignedEmployeeId !== (expected.assignedEmployeeId ?? null)
+    ) {
+      throw new Error(
+        `Expected ${mode} kanban trail assignedEmployeeId=${expected.assignedEmployeeId ?? null} at index ${index}, got ${String(actual.assignedEmployeeId)}`,
+      );
+    }
+  });
+}
+
+function isTaskRunBound(card: Record<string, unknown> | null): boolean {
+  return typeof card?.task_run_id === 'string' && card.task_run_id.length > 0;
 }
 
 function toRecordArray(value: unknown): Record<string, unknown>[] {
@@ -484,6 +590,14 @@ function toRecordArray(value: unknown): Record<string, unknown>[] {
         Boolean(entry && typeof entry === 'object'),
       )
     : [];
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
+function hasOwn(value: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
 }
 
 function buildMatrixCaseScenario(matrixId: string, mode: InteractionMode): DeterministicScenario {
