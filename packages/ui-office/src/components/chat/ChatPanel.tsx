@@ -676,7 +676,7 @@ export function ChatPanel({
   return (
     <div
       data-chat-panel-root
-      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-elevated text-text-primary"
+      className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-surface-elevated text-text-primary"
     >
       {!isReady && (
         <div className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-muted px-3 py-1.5 text-[11px] text-warning">
@@ -725,7 +725,7 @@ export function ChatPanel({
       )}
 
       {compact ? (
-        <div className="box-border flex w-full flex-1 flex-col justify-end gap-2 py-2 pl-3 pr-7">
+        <div className="box-border flex w-full min-w-0 max-w-full flex-1 flex-col justify-end gap-2 overflow-hidden py-2 pl-3 pr-4">
           {latestMessage ? (
             <MessageBubble role={latestMessage.role} content={latestMessage.content} />
           ) : (
@@ -747,7 +747,7 @@ export function ChatPanel({
           {/* Message area */}
           {showEmpty ? (
             isRunning ? (
-              <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-x-hidden">
+              <ScrollArea className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden">
                 <div
                   ref={scrollRef}
                   className="box-border flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
@@ -772,7 +772,7 @@ export function ChatPanel({
               <div className="flex-1 min-h-0" aria-hidden="true" />
             )
           ) : (
-            <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-x-hidden">
+            <ScrollArea className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden">
               <div
                 ref={scrollRef}
                 className="box-border flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"

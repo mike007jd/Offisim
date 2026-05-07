@@ -1,6 +1,7 @@
 import type { ChatAttachmentRef } from '@offisim/shared-types';
 import { cn } from '@offisim/ui-core';
 import { ChevronRight } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import type { Deliverable } from '../../hooks/useDeliverables';
 import {
@@ -29,6 +30,9 @@ interface MessageBubbleProps {
 
 const FILENAME_LINE = /(^|\n)\s*Filename\s*:\s*[^\n]+\s*(?=\n|$)/gi;
 const FENCED_CODE_BLOCK_RE = /```[a-zA-Z0-9#+._-]*\s*\n[\s\S]*?\n```/g;
+const USER_MESSAGE_MAX_WIDTH_STYLE = {
+  maxWidth: 'min(32rem, calc(100% - 2rem))',
+} satisfies CSSProperties;
 
 function stripFencedArtifactContent(content: string): string {
   return content.replace(FENCED_CODE_BLOCK_RE, '').replace(FILENAME_LINE, '').trim();
@@ -156,10 +160,11 @@ export function MessageBubble({
       )}
       {!isAttachmentOnly && (
         <div
+          style={isUser ? USER_MESSAGE_MAX_WIDTH_STYLE : undefined}
           className={cn(
             'min-w-0 overflow-hidden break-words text-sm leading-relaxed',
             isUser
-              ? 'mx-auto max-w-[min(32rem,calc(100%_-_2rem))] rounded-xl bg-accent-muted px-3 py-1.5 text-accent-text'
+              ? 'mx-auto w-fit max-w-full rounded-xl bg-accent-muted px-3 py-1.5 text-accent-text'
               : 'w-full max-w-full px-1 py-0.5 text-text-primary',
             !isUser && status === 'failed' ? 'border-l-2 border-error pl-2' : '',
             !isUser && status === 'interrupted' ? 'border-l-2 border-warning pl-2' : '',
@@ -177,10 +182,13 @@ export function MessageBubble({
       )}
       {hasAttachments && attachments && (
         <div
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))' }}
+          style={{
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))',
+            ...(isUser ? USER_MESSAGE_MAX_WIDTH_STYLE : {}),
+          }}
           className={cn(
             'mt-1 grid w-full min-w-0 gap-1 overflow-hidden',
-            isUser ? 'mx-auto max-w-[min(32rem,calc(100%_-_2rem))]' : 'mr-auto max-w-full',
+            isUser ? 'mx-auto max-w-full' : 'mr-auto max-w-full',
           )}
         >
           {attachments.map((a) => (
