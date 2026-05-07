@@ -70,7 +70,7 @@ function ReasoningRegion({ reasoning, hasContent }: ReasoningRegionProps) {
   const expanded = expandedByUser ?? !hasContent;
 
   return (
-    <div className="mb-1 max-h-[40vh] w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg border border-info/35 bg-info-muted px-2.5 py-1.5 text-xs leading-snug text-text-primary">
+    <div className="mb-1 max-h-[40vh] w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain border-l-2 border-info/55 px-2 py-1 text-xs leading-snug text-text-primary">
       <button
         type="button"
         onClick={() => setExpandedByUser(!expanded)}

@@ -135,10 +135,10 @@ export function MessageBubble({
       )}
       {/* Reasoning collapsible section */}
       {reasoning && (
-        <div className="mb-1 min-w-0 max-w-full overflow-hidden rounded-lg border border-info/35 bg-info-muted px-2.5 py-1.5 text-xs leading-snug text-text-primary">
+        <div className="mb-1 w-full min-w-0 max-w-full overflow-hidden border-l-2 border-info/55 px-2 py-1 text-xs leading-snug text-text-primary">
           <button
             type="button"
-            className="mb-1 flex cursor-pointer items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-info"
+            className="mb-1 flex cursor-pointer items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-info transition-colors hover:text-text-primary"
             onClick={() => setReasoningOpen((o) => !o)}
           >
             <ChevronRight
@@ -159,7 +159,7 @@ export function MessageBubble({
           className={cn(
             'min-w-0 overflow-hidden break-words text-sm leading-relaxed',
             isUser
-              ? 'mx-auto max-w-[min(36rem,calc(100%-2rem))] rounded-xl bg-accent-muted px-3 py-1.5 text-accent-text'
+              ? 'mx-auto max-w-[min(32rem,calc(100%_-_2rem))] rounded-xl bg-accent-muted px-3 py-1.5 text-accent-text'
               : 'w-full max-w-full px-1 py-0.5 text-text-primary',
             !isUser && status === 'failed' ? 'border-l-2 border-error pl-2' : '',
             !isUser && status === 'interrupted' ? 'border-l-2 border-warning pl-2' : '',
@@ -180,7 +180,7 @@ export function MessageBubble({
           style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))' }}
           className={cn(
             'mt-1 grid w-full min-w-0 gap-1 overflow-hidden',
-            isUser ? 'mx-auto max-w-[min(36rem,calc(100%-2rem))]' : 'mr-auto max-w-full',
+            isUser ? 'mx-auto max-w-[min(32rem,calc(100%_-_2rem))]' : 'mr-auto max-w-full',
           )}
         >
           {attachments.map((a) => (
