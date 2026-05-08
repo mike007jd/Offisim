@@ -27,4 +27,5 @@
   - PASS 2026-05-09: `gitnexus_detect_changes(scope=all)` completed. Risk is high because the commit includes the previously uncommitted harness/runtime implementation plus this boundary cleanup; affected flows are the expected browser runtime, MCP, engine profile, main harness, and provider-lane surfaces.
 - [x] 4.4 Commit the cleanup and new OpenSpec on `main`.
   - PASS 2026-05-09: committed as `9951e19a feat: realign harness agent capabilities`.
-- [ ] 4.5 Push `main` to `origin/main` and verify the remote advanced.
+- [x] 4.5 Push `main` to `origin/main` and verify the remote advanced.
+  - PASS 2026-05-09: pushed `main` to `origin/main`; remote advanced from `a43f9ccd` to `eeb710b2`.
