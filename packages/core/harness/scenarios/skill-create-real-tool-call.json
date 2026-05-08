@@ -91,13 +91,22 @@
     }
   ],
   "assertions": [
-    { "kind": "llmCalls", "count": 2 },
+    { "kind": "llmCalls", "count": 1 },
     {
       "kind": "interactionHistoryContains",
       "interactionKind": "skill_install_confirm",
       "selectedOptionId": "confirm",
       "status": "resolved",
       "payloadType": "skill_install_confirm"
+    },
+    {
+      "kind": "conversationStateContains",
+      "minMessages": 2,
+      "pendingToolCalls": 1,
+      "toolResults": 1,
+      "permissionDenials": 0,
+      "activeTaskRunId": "task-skill-create",
+      "checkpointTaskRunId": "task-skill-create"
     },
     { "kind": "toolExecutions", "count": 0 }
   ]

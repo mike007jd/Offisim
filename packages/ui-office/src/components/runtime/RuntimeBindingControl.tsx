@@ -28,30 +28,30 @@ const ALL_OPTIONS: ReadonlyArray<PickerOption> = [
   {
     id: 'inherit',
     label: 'Inherit company default',
-    description: 'Use company default.',
+    description: 'Use the company capability profile.',
   },
   {
     id: 'provider',
-    label: 'Provider gateway',
-    description: 'Runs in Offisim with configured tools.',
+    label: 'Offisim gateway tools',
+    description: 'Default harness with Offisim file, shell, MCP, and evidence paths.',
   },
   {
     id: 'claude-engine',
-    label: 'Claude engine',
-    description: 'Desktop sidecar text runtime.',
+    label: 'Claude text engine',
+    description: 'Preview text/reasoning only; no Offisim local tools.',
     engineId: 'claude-engine',
   },
   {
     id: 'codex-engine',
-    label: 'Codex engine',
-    description: 'Desktop sidecar text runtime.',
+    label: 'Codex text engine',
+    description: 'Preview text/reasoning only; no Offisim local tools.',
     engineId: 'codex-engine',
   },
 ];
 
 const ENGINE_LABEL: Record<EngineId, string> = {
-  'claude-engine': 'Claude engine',
-  'codex-engine': 'Codex engine',
+  'claude-engine': 'Claude text engine',
+  'codex-engine': 'Codex text engine',
 };
 
 const SOURCE_SUFFIX: Record<RuntimeBindingResolvedSource, string> = {
@@ -60,7 +60,7 @@ const SOURCE_SUFFIX: Record<RuntimeBindingResolvedSource, string> = {
   baseline: 'baseline',
 };
 
-const ENGINE_UNAVAILABLE_HINT = 'Available on trusted desktop runtime';
+const ENGINE_UNAVAILABLE_HINT = 'Requires trusted desktop runtime';
 
 function bindingToOptionId(
   value: EmployeeRuntimeBinding | null,
@@ -111,7 +111,7 @@ export function RuntimeBindingControl({
 
   return (
     <fieldset className={`flex flex-col gap-3 border-0 p-0 ${className}`}>
-      <legend className="sr-only">Runtime binding</legend>
+      <legend className="sr-only">Employee runtime capability</legend>
       <RadioGroup
         value={selectedId}
         onValueChange={(next) => onChange(optionIdToBinding(next as PickerOptionId))}
@@ -161,7 +161,8 @@ export function RuntimeBindingControl({
       {showPreviewDisclosure && (
         <p className="rounded-lg border border-warning/30 bg-warning-muted px-3 py-2 text-[11px] leading-snug text-warning">
           Preview · limited tool telemetry. Engine sidecars stream text and reasoning today; tool
-          execution events and handoff proposals are not yet wired.
+          execution stays on the Offisim gateway path until a verified gateway-capable profile
+          exists.
         </p>
       )}
     </fieldset>

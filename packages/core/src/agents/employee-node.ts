@@ -10,10 +10,13 @@ import { getConfigSignal } from '../utils/get-signal.js';
 import { runEmployeeA2A } from './employee-a2a-executor.js';
 import { finalizeEmployeeSuccess } from './employee-completion.js';
 import { runEmployeeEngine } from './employee-engine-executor.js';
-import { finalizeEmployeeFailure } from './employee-error-finalize.js';
+import {
+  finalizeEmployeeCancellation,
+  finalizeEmployeeFailure,
+} from './employee-error-finalize.js';
 import { executeHandoff } from './employee-handoff.js';
 import { attemptLocalRecovery } from './employee-local-recovery.js';
-import { MAX_TOOL_ROUNDS } from './employee-node-constants.js';
+import { MAX_CONTEXT_MESSAGES, MAX_TOOL_ROUNDS } from './employee-node-constants.js';
 import { runPreflight } from './employee-preflight.js';
 import { assemblePrompt } from './employee-prompt-assembly.js';
 import { assembleToolKit } from './employee-tool-kit.js';
@@ -30,6 +33,17 @@ function appendRecentToolResults(
   next: readonly RecentToolResult[],
 ): RecentToolResult[] {
   return [...existing, ...next].slice(-MAX_RECENT_TOOL_RESULTS);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isAbortLikeError(error: unknown, signal: AbortSignal | undefined): boolean {
+  if (signal?.aborted) return true;
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  return /\babort(?:ed)?|cancelled\b/i.test(errorMessage(error));
 }
 
 export async function employeeNode(
@@ -76,18 +90,61 @@ export async function employeeNode(
   const streamEmployeeReplies = true;
 
   const { companyId, threadId } = runtimeCtx;
+  const signal = getConfigSignal(config);
+  const runScope = getRunScope(config);
+  runtimeCtx.conversationState.beginRun({
+    runId: taskRunId ?? runtimeCtx.determinism.id('run'),
+    threadId,
+    checkpointIdentity: {
+      graphThreadId: state.threadId,
+      ...(taskRunId ? { taskRunId } : {}),
+      ...(runScope?.threadId ? { runScopeThreadId: runScope.threadId } : {}),
+    },
+  });
+  runtimeCtx.conversationState.recordActiveContext({
+    companyId,
+    threadId,
+    projectId: state.projectId ?? null,
+    chatThreadId: state.chatThreadId ?? null,
+    employeeId: employee.employee_id,
+    ...(taskRunId ? { taskRunId } : {}),
+    ...(runScope?.threadId ? { runScopeThreadId: runScope.threadId } : {}),
+  });
+  if (signal?.aborted) {
+    const reason = 'aborted-before-employee-turn';
+    runtimeCtx.conversationState.recordCancellation(reason);
+    return finalizeEmployeeCancellation({
+      runtimeCtx,
+      state,
+      preflight: preflightOutcome.preflight,
+      reason,
+    });
+  }
 
   const { systemPrompt, citationMap } = await assemblePrompt(
     preflightOutcome.preflight,
     runtimeCtx,
-    getRunScope(config),
+    runScope,
   );
 
-  const { allTools, allowedMcpToolNames } = await assembleToolKit(
-    preflightOutcome.preflight,
-    runtimeCtx,
-    state,
-  );
+  const { allTools, toolRegistry, allowedRuntimeToolNames, allowedMcpToolNames } =
+    await assembleToolKit(preflightOutcome.preflight, runtimeCtx, state);
+  runtimeCtx.conversationState.recordDiscoveredTools({
+    allToolNames: allTools.map((tool) => tool.name),
+    allowedRuntimeToolNames: [...allowedRuntimeToolNames],
+    allowedMcpToolNames: [...allowedMcpToolNames],
+    toolRegistry: toolRegistry.map((tool) => ({
+      name: tool.name,
+      surface: tool.surface,
+      serverName: tool.serverName,
+      permissionIdentity: tool.permissionIdentity,
+      exposedToLlm: tool.exposedToLlm,
+    })),
+  });
+  runtimeCtx.conversationState.recordBudget({
+    maxToolRounds: MAX_TOOL_ROUNDS,
+    maxContextMessages: MAX_CONTEXT_MESSAGES,
+  });
 
   const runEmployeeTurn = buildTurnRunner({
     runtimeCtx,
@@ -98,7 +155,7 @@ export async function employeeNode(
     allTools,
     streamEnabled: streamEmployeeReplies,
     signal: getConfigSignal(config),
-    runScope: getRunScope(config),
+    runScope,
   });
 
   // Hoisted out of try scope so the recovery catch handler can report the
@@ -114,13 +171,17 @@ export async function employeeNode(
       { role: 'system', content: systemPrompt },
       { role: 'user', content: taskDescription },
     ];
+    runtimeCtx.conversationState.recordMessages(conversationHistory);
     let llmResponse = await runEmployeeTurn(conversationHistory, { taskRunId });
+    runtimeCtx.conversationState.recordUsage(llmResponse.usage);
+    runtimeCtx.conversationState.recordPendingToolCalls(llmResponse.toolCalls);
 
     // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
     let workingHistory = conversationHistory;
 
     while (llmResponse.toolCalls.length > 0 && round < MAX_TOOL_ROUNDS) {
       round++;
+      runtimeCtx.conversationState.recordBudget({ roundsUsed: round });
 
       const outcome = await runToolRound({
         llmResponse,
@@ -130,7 +191,7 @@ export async function employeeNode(
         state,
         allowedMcpToolNames,
         signal: getConfigSignal(config),
-        runScope: getRunScope(config),
+        runScope,
       });
 
       if (outcome.kind === 'handoff') {
@@ -164,12 +225,24 @@ export async function employeeNode(
       }
 
       workingHistory = outcome.nextHistory;
+      runtimeCtx.conversationState.recordMessages(workingHistory);
       recentToolResults = appendRecentToolResults(recentToolResults, outcome.recentToolResults);
       llmResponse = await runEmployeeTurn(workingHistory, { taskRunId });
+      runtimeCtx.conversationState.recordUsage(llmResponse.usage);
+      runtimeCtx.conversationState.recordPendingToolCalls(llmResponse.toolCalls);
     }
 
     if (round >= MAX_TOOL_ROUNDS && llmResponse.toolCalls.length > 0) {
-      logger.warn(`Tool loop hit max ${MAX_TOOL_ROUNDS} rounds`, { employeeName: employee.name });
+      const pendingNames = llmResponse.toolCalls.map((toolCall) => toolCall.name).join(', ');
+      const errorMessage = `[MAX_TOOL_ROUNDS_EXHAUSTED] Tool loop stopped after ${MAX_TOOL_ROUNDS} rounds with pending tool calls: ${pendingNames}.`;
+      logger.warn(errorMessage, { employeeName: employee.name });
+      runtimeCtx.conversationState.recordRetry(errorMessage);
+      return await finalizeEmployeeFailure({
+        runtimeCtx,
+        state: { ...state, recentToolResults },
+        preflight: preflightOutcome.preflight,
+        errorMessage,
+      });
     }
 
     return await finalizeEmployeeSuccess({
@@ -183,10 +256,20 @@ export async function employeeNode(
       signal: getConfigSignal(config),
     });
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
+    if (isAbortLikeError(err, signal)) {
+      runtimeCtx.conversationState.recordCancellation(message);
+      return finalizeEmployeeCancellation({
+        runtimeCtx,
+        state: { ...state, recentToolResults },
+        preflight: preflightOutcome.preflight,
+        reason: message,
+      });
+    }
+    runtimeCtx.conversationState.recordRetry(message);
 
     // --- Recovery-aware retry: try to fix locally before escalating ---
-    const recovered = await attemptLocalRecovery(runtimeCtx, config, errorMessage, {
+    const recovered = await attemptLocalRecovery(runtimeCtx, config, message, {
       systemPrompt,
       taskDescription,
       model: resolved.model,
@@ -215,7 +298,7 @@ export async function employeeNode(
       runtimeCtx,
       state,
       preflight: preflightOutcome.preflight,
-      errorMessage,
+      errorMessage: message,
     });
   }
 }

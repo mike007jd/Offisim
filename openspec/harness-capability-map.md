@@ -1,0 +1,43 @@
+# Offisim Harness Capability Map
+
+Last updated: 2026-05-09
+Git revision at audit start: `a43f9ccd`
+
+This map is the durable boundary between reference inspiration and shipped Offisim evidence for the default agent harness. A capability is `shipped` only when Offisim-owned runtime behavior and a named harness or release gate prove it. SDK or MCP documentation alone is `reference` or `pending`, not shipped product evidence.
+
+## Source Audit Map
+
+| Source | Local / doc anchor | Capabilities observed | Offisim interpretation |
+| --- | --- | --- | --- |
+| ClaudeSource | `/Users/haoshengli/Seafile/WebWorkSpace/ClaudeSource/claude-code-haha/src/tools/*`, `src/tasks/LocalMainSessionTask.ts`, `src/bridge/sessionRunner.ts`, `src/tools/MCPTool/MCPTool.ts`, `src/utils/sessionActivity.ts`; archived Offisim reference notes name `src/services/compact/microCompact.ts`, `snipCompact.ts`, and `sessionMemory/sessionMemory.ts` | Rich local tool pool, permission relay, session/task activity, MCP tool/resource surfaces, compacted long-session context | Reference only. Offisim must keep its own `offisim-core` planner, permission, tool, checkpoint, and evidence path. No direct code copy. |
+| ClaudeRust | `/Users/haoshengli/Seafile/WebWorkSpace/ClaudeRust/claw-code/src/session_store.py`, `tool_pool.py`, `tools.py`, `permissions.py`, `reference_data/tools_snapshot.json`; `.claw/sessions/*.jsonl` | Session persistence, tool registry snapshot, permission checks, terminal-style tool execution | Reference only. Useful for state and permission shape, not a replacement for Offisim runtime ownership. |
+| Claude Agent SDK | Context7 `/nothflare/claude-agent-sdk-docs`; repo ledger row in `openspec/protocols-ledger.md` | Streaming query, `canUseTool`, allowed tools, MCP servers, permission modes, file checkpointing, session resume, checkpoint rewind | Provider lane remains text/reasoning-only in Offisim 1.0. Full agent behavior must be configured as employee engine/control-plane profile and separately verified. |
+| OpenAI Agents JS | Context7 `/openai/openai-agents-js`; repo ledger row in `openspec/protocols-ledger.md` | Runner ownership, max turns, guardrails, handoffs, hosted tools, MCP tools, tracing, typed errors, partial state on failures | Provider lane remains text/reasoning-only unless a verified employee/control-plane profile exists. SDK features are not Offisim tool evidence. |
+| MCP TypeScript SDK | Context7 `/modelcontextprotocol/typescript-sdk`; repo ledger MCP row in `openspec/protocols-ledger.md` | Stateful client connect, capability negotiation by connection, list tools/resources/prompts, call/read/get operations, list-changed refresh, protocol/tool errors, graceful close | Offisim must own MCP client lifecycle and route calls through permission/audit/evidence. Static tool definitions alone are incomplete. |
+
+## Capability Status
+
+| Capability | Reference baseline | Current Offisim evidence | Status | Required next proof |
+| --- | --- | --- | --- | --- |
+| Default runtime ownership | Reference agents own their own loops | `offisim-core` remains the graph/runtime entry; provider matrix states SDK lanes are text/reasoning-only; `harness:main-control-plane` passes default-off and no-self-promotion cases | shipped backend; release blocked | Release `.app` Computer Use evidence showing main harness mode `offisim-core` for fresh employee work |
+| Provider lane tool boundary | SDKs can expose/native tools in their own runtimes | `openspec/provider-lane-matrix.md`; `sdk-lane-*-short-circuit-before-model` replay scenarios; `sdk-lane-policy.ts` | shipped for SDK lane fail-fast | Keep replay coverage for every new SDK provider variant |
+| Tool registry and permission path | ClaudeSource tool pool + permission relay; OpenAI/Claude SDK permission callbacks | `tool-registry.ts`, `AuditingToolExecutor`, `ToolPermissionEngine`, `builtin-tool-registry-audit-path`, `mcp-lifecycle-success`, `mcp-lifecycle-permission-denial` | shipped for built-in + MCP paths | Extend release evidence to runtime-profile tools before advertising tool-capable employee engines |
+| Streaming tool loop | ClaudeSource/OpenAI/Claude SDK stream tool events and recover typed failures | `stream-nonstream-middleware-parity`, `recorded-stream-tool-call-replay`, `tool-loop-duplicate-call-id-skips-side-effect`, `tool-loop-max-rounds-fails-fast`, `runToolRound` | shipped for bounded/replay tool loop | Add provider retry taxonomy evidence before archive |
+| Persistent run conversation state | ClaudeSource/ClaudeRust session stores; SDK resume/checkpoint | `RunConversationState` records messages, pending tools, results, denials, discovered tools, active context, usage, budget, retry, cancellation, and checkpoint identity | shipped for default employee path | Release `.app` evidence and resume/checkpoint production smoke still required |
+| Context survival | ClaudeSource compact/session memory; SDK checkpoint/resume | `long-running-microcompact-triggers`, `context-budget-policy-cooperates`, `prompt-too-long-recovery-budget`, `fork-subcontext-isolation`, `yolo-80-turn-multi-file-refactor` soak | shipped for deterministic/context/soak gates | Release long-session evidence still required before archive |
+| MCP lifecycle | MCP SDK connect/list/call/list-changed/close | `McpToolExecutor` owns stateful tools/resources/prompts/capabilities, abort-aware calls, list-changed refresh, shutdown; `harness:mcp-lifecycle` passes 6/6 | shipped for backend lifecycle | Release `.app` MCP evidence if MCP profile is advertised |
+| Cancellation propagation | SDKs and MCP expose cancellation/error surfaces | `cancellation-model-turn-cancels-task-run`, `cancellation-tool-request-cancels-before-side-effect`, `mcp-lifecycle-cancellation` | shipped for default model/tool/MCP paths | Release cancellation evidence still required |
+| Completion evidence | Reference agents can assert completion, but Offisim requires product evidence | Completion verifier scenarios block file/artifact claims without real evidence and allow pure text deliverables | shipped for current verifier cases | Extend to MCP/workspace/release evidence and employee-agent native vs gateway evidence |
+| Employee agent profiles | SDKs can run richer agent runtimes | `RuntimeEngineCapabilityProfile`, default Codex/Claude text-only preview profiles, `runEmployeeEngine` profile fit gate, `harness:engine-profiles` passes 10/10 | shipped for text-only preview boundary; full-agent pending | Full-agent/gateway-bridged profiles stay blocked until success, denied-path, cancellation, resume, telemetry, failure taxonomy, and release evidence exist |
+| Main harness driver/replacement | External agents can drive workflows | `MainHarnessPolicyConfig`, `resolveMainHarnessMode`, driver proposal contract, admin runtime status, `harness:main-control-plane` passes 9/9 | shipped for default-off policy and blocked/allowed resolution | Replacement remains blocked until equivalence/release evidence exists |
+| Release evidence | Reference repos have their own smoke/replay practices | Backend deterministic/context/MCP/profile/control-plane/stream/model-bench gates passed on 2026-05-09; release `.app` built at `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app` with binary SHA256 `2da1b501c40006d158db885d682bdb4d1ac976065500873015cf13e007c43b7b`; live smoke/load/edge are blocked by missing Anthropic gateway auth; Computer Use cannot attach in this session (`cgWindowNotFound` also reproduces on Chrome/Finder) | blocked for archive | Rerun smoke/load/edge with provider credentials and rerun release `.app` UI verification from a healthy Computer Use session |
+
+## Current Entry Gate Snapshot
+
+| Gate | Audit-start result | Meaning |
+| --- | --- | --- |
+| `pnpm harness:contract` | PASS inside `pnpm harness:deterministic` | Baseline scenario inventory and contract invariants are loadable. |
+| `pnpm harness:replay` | FAIL at audit start | Replay had stale skill assertions and a typed skill-error reply ordering bug. |
+| `pnpm harness:deterministic` | FAIL at audit start | Blocked by replay. No new parity claims should be accepted until fixed. |
+| `pnpm harness:context` | FAIL at audit start | Crashed on `undefined` initial state and reported placeholder zero metrics. |
+| Release `.app` default-harness ownership | BLOCKED 2026-05-09 | Release bundle built, but valid UI evidence is missing because Computer Use returns `Apple event error -10005: cgWindowNotFound` for Offisim, Chrome, and Finder in this session. Required before archive; cannot be replaced with localhost/dev-webview, shell, or AppleScript evidence. |

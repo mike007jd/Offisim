@@ -31,6 +31,7 @@ import { createMemoryCheckpointSaver } from '@offisim/core/dist/graph/checkpoint
 // These modules pull in @langchain/langgraph, openai SDK, etc.
 import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
 import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
+import { resolveMainHarnessMode } from '@offisim/core/dist/harness/main-harness-policy.js';
 import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';
@@ -296,6 +297,22 @@ export async function createBrowserRuntime(
     config.model,
     { tauri: false },
   );
+  const mainHarnessResolution = resolveMainHarnessMode({
+    policy: runtimePolicy.mainHarnessPolicy,
+    scope: 'thread',
+    scopeId: threadId,
+    executionMode: 'browser-limited',
+    providerLane: resolvedProvider.executionLane,
+    employeeRuntimeBinding: runtimePolicy.employeeRuntimeDefault ?? null,
+  });
+  if (mainHarnessResolution.mode !== 'offisim-core') {
+    throw new Error(
+      `[MAIN_HARNESS_NON_DEFAULT_UNAVAILABLE] Browser runtime cannot start ${mainHarnessResolution.mode} mode without a trusted desktop/backend bridge.`,
+    );
+  }
+  if (mainHarnessResolution.status === 'blocked') {
+    throw new Error(`[MAIN_HARNESS_OVERRIDE_BLOCKED] ${mainHarnessResolution.reason}`);
+  }
 
   const modelResolver = new ModelResolver(runtimePolicy, {
     provider: runtimePolicy.modelPolicy.default.provider,

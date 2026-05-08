@@ -332,9 +332,9 @@ export function evidenceToolsForIntent(intent: TaskToolIntent): readonly string[
 }
 
 /**
- * An employee is assignable to local-tool work iff it is enabled and runs in
- * the gateway lane (`is_external !== 1`). External A2A employees cannot reach
- * Offisim's `read_file` / `write_file` / `bash` tools.
+ * An employee is assignable to local-tool work iff it is enabled and runs in a
+ * verified internal tool-capable path. External A2A employees and plain SDK
+ * provider lanes cannot reach Offisim's local project tools.
  */
 export function isLocalToolAssignableEmployee(employee: EmployeeRow): boolean {
   return employee.enabled === 1 && employee.is_external !== 1;

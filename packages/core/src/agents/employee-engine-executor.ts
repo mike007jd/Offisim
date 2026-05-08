@@ -2,9 +2,15 @@ import { type InteractionRequest, chatScopeFields } from '@offisim/shared-types'
 import type {
   EngineArtifact,
   EngineProposal,
+  RuntimeEngineCapabilityProfile,
   RuntimeActivityEvent,
 } from '../engine/engine-types.js';
 import type { EmployeeRuntimeBinding } from '../engine/engine-types.js';
+import {
+  evaluateRuntimeEngineTaskFit,
+  profileToolTelemetryType,
+  resolveRuntimeEngineCapabilityProfile,
+} from '../engine/capability-profiles.js';
 import {
   engineActivity,
   engineProposalCreated,
@@ -21,6 +27,7 @@ import { finalizeEmployeeSuccess } from './employee-completion.js';
 import type { MaterializedEmployeeDeliverable } from './employee-deliverables.js';
 import { finalizeEmployeeFailure } from './employee-error-finalize.js';
 import type { PreflightResult } from './employee-preflight.js';
+import { detectTaskToolIntent } from './task-tool-intent.js';
 
 interface ToolTiming {
   readonly startedAt: number;
@@ -40,11 +47,13 @@ function materializeEngineArtifact(
 function proposalPayload(
   proposal: EngineProposal,
   runtimeBinding: Extract<EmployeeRuntimeBinding, { mode: 'engine' }>,
+  runtimeProfile: RuntimeEngineCapabilityProfile,
   preflight: PreflightResult,
 ) {
   return {
     proposalId: proposal.proposalId,
     engineId: runtimeBinding.engineId,
+    runtimeProfileId: runtimeProfile.profileId,
     kind: proposal.kind,
     title: proposal.title,
     description: proposal.description,
@@ -114,6 +123,7 @@ async function mapEngineEvent(
   runtimeCtx: RuntimeContext,
   preflight: PreflightResult,
   runtimeBinding: Extract<EmployeeRuntimeBinding, { mode: 'engine' }>,
+  runtimeProfile: RuntimeEngineCapabilityProfile,
   runId: string,
   event: RuntimeActivityEvent,
   toolTimings: Map<string, ToolTiming>,
@@ -150,12 +160,13 @@ async function mapEngineEvent(
       return null;
     case 'tool_started': {
       const startedAt = event.timestamp ?? Date.now();
+      const toolType = event.toolType ?? profileToolTelemetryType(runtimeProfile);
       toolTimings.set(event.toolCallId, { startedAt });
       eventBus.emit(
         toolExecutionTelemetry(companyId, threadId, {
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          toolType: event.toolType ?? 'builtin',
+          toolType,
           threadId,
           nodeName: 'employee',
           employeeId,
@@ -166,16 +177,32 @@ async function mapEngineEvent(
           ...chatScopeFields(runScope),
         }),
       );
+      eventBus.emit(
+        engineActivity(companyId, threadId, {
+          runId,
+          engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
+          employeeId,
+          employeeName,
+          taskRunId,
+          kind: 'tool',
+          status: 'started',
+          label: event.toolName,
+          toolName: event.toolName,
+          toolType,
+        }),
+      );
       return null;
     }
     case 'tool_completed': {
       const completedAt = event.timestamp ?? Date.now();
       const startedAt = toolTimings.get(event.toolCallId)?.startedAt ?? completedAt;
+      const toolType = event.toolType ?? profileToolTelemetryType(runtimeProfile);
       eventBus.emit(
         toolExecutionTelemetry(companyId, threadId, {
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          toolType: event.toolType ?? 'builtin',
+          toolType,
           threadId,
           nodeName: 'employee',
           employeeId,
@@ -189,6 +216,25 @@ async function mapEngineEvent(
           ...chatScopeFields(runScope),
         }),
       );
+      eventBus.emit(
+        engineActivity(companyId, threadId, {
+          runId,
+          engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
+          employeeId,
+          employeeName,
+          taskRunId,
+          kind: 'tool',
+          status:
+            event.status === 'error' || event.status === 'denied'
+              ? 'failed'
+              : (event.status ?? 'completed'),
+          label: event.toolName,
+          detail: event.errorType,
+          toolName: event.toolName,
+          toolType,
+        }),
+      );
       return null;
     }
     case 'subagent_started':
@@ -197,6 +243,7 @@ async function mapEngineEvent(
         engineActivity(companyId, threadId, {
           runId,
           engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
           employeeId,
           employeeName,
           taskRunId,
@@ -213,6 +260,7 @@ async function mapEngineEvent(
         engineActivity(companyId, threadId, {
           runId,
           engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
           employeeId,
           employeeName,
           taskRunId,
@@ -227,6 +275,7 @@ async function mapEngineEvent(
         engineActivity(companyId, threadId, {
           runId,
           engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
           employeeId,
           employeeName,
           taskRunId,
@@ -241,7 +290,7 @@ async function mapEngineEvent(
         proposalsSeen.add(event.proposal.proposalId);
         eventBus.emit(
           engineProposalCreated(companyId, threadId, {
-            proposal: proposalPayload(event.proposal, runtimeBinding, preflight),
+            proposal: proposalPayload(event.proposal, runtimeBinding, runtimeProfile, preflight),
           }),
         );
       }
@@ -252,7 +301,7 @@ async function mapEngineEvent(
         proposalsSeen.add(event.proposal.proposalId);
         eventBus.emit(
           engineProposalCreated(companyId, threadId, {
-            proposal: proposalPayload(event.proposal, runtimeBinding, preflight),
+            proposal: proposalPayload(event.proposal, runtimeBinding, runtimeProfile, preflight),
           }),
         );
       }
@@ -260,6 +309,7 @@ async function mapEngineEvent(
         engineActivity(companyId, threadId, {
           runId,
           engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
           employeeId,
           employeeName,
           taskRunId,
@@ -278,6 +328,7 @@ async function mapEngineEvent(
         engineActivity(companyId, threadId, {
           runId,
           engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
           employeeId,
           employeeName,
           taskRunId,
@@ -312,6 +363,33 @@ export async function runEmployeeEngine(
       errorMessage: `Engine adapter "${runtimeBinding.engineId}" is unavailable in this runtime.`,
     });
   }
+  let runtimeProfile: RuntimeEngineCapabilityProfile;
+  try {
+    runtimeProfile = resolveRuntimeEngineCapabilityProfile(
+      runtimeBinding,
+      runtimeCtx.runtimePolicy,
+      adapter.capabilityProfile,
+    ).profile;
+    const taskFit = evaluateRuntimeEngineTaskFit(
+      runtimeProfile,
+      detectTaskToolIntent(preflight.taskDescription),
+    );
+    if (!taskFit.allowed) {
+      return finalizeEmployeeFailure({
+        runtimeCtx,
+        state,
+        preflight,
+        errorMessage: `[${taskFit.code}] ${taskFit.reason}`,
+      });
+    }
+  } catch (err) {
+    return finalizeEmployeeFailure({
+      runtimeCtx,
+      state,
+      preflight,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   let runId: string | null = null;
   try {
@@ -330,6 +408,7 @@ export async function runEmployeeEngine(
         taskDescription: preflight.taskDescription,
         requiredSkills: preflight.requiredSkills,
         assignment: preflight.assignment,
+        runtimeProfile,
       },
       { signal },
     );
@@ -339,6 +418,7 @@ export async function runEmployeeEngine(
       engineActivity(runtimeCtx.companyId, runtimeCtx.threadId, {
         runId,
         engineId: runtimeBinding.engineId,
+        runtimeProfileId: runtimeProfile.profileId,
         employeeId: preflight.employee.employee_id,
         employeeName: preflight.employee.name,
         taskRunId: preflight.taskRunId ?? null,
@@ -357,6 +437,7 @@ export async function runEmployeeEngine(
         runtimeCtx,
         preflight,
         runtimeBinding,
+        runtimeProfile,
         runId,
         event,
         toolTimings,
@@ -373,7 +454,7 @@ export async function runEmployeeEngine(
       proposalsSeen.add(proposal.proposalId);
       runtimeCtx.eventBus.emit(
         engineProposalCreated(runtimeCtx.companyId, runtimeCtx.threadId, {
-          proposal: proposalPayload(proposal, runtimeBinding, preflight),
+          proposal: proposalPayload(proposal, runtimeBinding, runtimeProfile, preflight),
         }),
       );
     }

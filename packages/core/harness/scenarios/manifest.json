@@ -122,6 +122,33 @@
       ]
     },
     {
+      "id": "context-budget-policy-cooperates",
+      "category": "long-running-runtime",
+      "invariants": [
+        "context_budget.policy_bounds_tail_messages",
+        "context_budget.policy_compacts_old_tool_results",
+        "context_budget.policy_preserves_recent_tool_results"
+      ]
+    },
+    {
+      "id": "prompt-too-long-recovery-budget",
+      "category": "long-running-runtime",
+      "invariants": [
+        "context_budget.prompt_too_long_input_reduced",
+        "context_budget.recovered_prompt_under_limit",
+        "context_budget.recovered_prompt_keeps_tail_bound"
+      ]
+    },
+    {
+      "id": "fork-subcontext-isolation",
+      "category": "long-running-runtime",
+      "invariants": [
+        "context_budget.fork_child_transcript_not_returned",
+        "context_budget.fork_child_secret_not_leaked_to_parent",
+        "context_budget.fork_summary_is_bounded"
+      ]
+    },
+    {
       "id": "completion-verifier-blocks-without-evidence",
       "category": "long-running-runtime",
       "invariants": [
@@ -167,6 +194,30 @@
       "invariants": [
         "completion.failed_bash_string_evidence_blocks_completion",
         "completion.failed_bash_audit_not_counted_as_success"
+      ]
+    },
+    {
+      "id": "completion-verification-tool-evidence-completes",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.verification_tool_evidence_allows_completion",
+        "completion.verification_task_does_not_require_fake_file_evidence"
+      ]
+    },
+    {
+      "id": "completion-workspace-read-blocks-without-evidence",
+      "category": "long-running-runtime",
+      "invariants": [
+        "completion.workspace_read_requires_real_evidence",
+        "completion.workspace_claim_without_tool_blocks"
+      ]
+    },
+    {
+      "id": "long-running-objective-anchor-retained-across-assignments",
+      "category": "long-running-runtime",
+      "invariants": [
+        "long_running.original_objective_anchor_retained",
+        "long_running.followup_task_receives_anchor_without_repeating_objective"
       ]
     },
     {
@@ -260,6 +311,47 @@
       "id": "gateway-lane-yolo-has-fs-shell-tools",
       "category": "interaction-modes",
       "invariants": ["tools.gateway_yolo_exposes_fs_shell"]
+    },
+    {
+      "id": "builtin-tool-registry-audit-path",
+      "category": "default-harness",
+      "invariants": [
+        "tools.builtin_registry_surface",
+        "tools.builtin_uses_shared_audit_path",
+        "tools.builtin_telemetry_not_mcp"
+      ]
+    },
+    {
+      "id": "tool-loop-duplicate-call-id-skips-side-effect",
+      "category": "default-harness",
+      "invariants": [
+        "tools.duplicate_tool_call_id_single_side_effect",
+        "tools.duplicate_tool_call_gets_explicit_result"
+      ]
+    },
+    {
+      "id": "tool-loop-max-rounds-fails-fast",
+      "category": "default-harness",
+      "invariants": [
+        "tools.max_round_exhaustion_fails_task",
+        "tools.max_round_exhaustion_preserves_pending_call"
+      ]
+    },
+    {
+      "id": "cancellation-model-turn-cancels-task-run",
+      "category": "default-harness",
+      "invariants": [
+        "cancellation.model_turn_marks_task_cancelled",
+        "cancellation.conversation_state_records_model_abort"
+      ]
+    },
+    {
+      "id": "cancellation-tool-request-cancels-before-side-effect",
+      "category": "default-harness",
+      "invariants": [
+        "cancellation.tool_request_marks_task_cancelled",
+        "cancellation.tool_abort_prevents_fixture_side_effect"
+      ]
     },
     {
       "id": "tool-kit-without-builtins-omits-fs-shell",

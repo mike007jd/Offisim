@@ -1,5 +1,6 @@
 import type { KanbanOrigin, KanbanState, RuntimeEvent } from '@offisim/shared-types';
 import type { OffisimGraphState } from '../graph/state.js';
+import type { RunConversationStateSnapshot } from '../runtime/run-conversation-state.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
 import type { ScenarioAssertionReport } from './trace-recorder.js';
 
@@ -37,6 +38,7 @@ export type ScenarioAssertion =
   | {
       readonly kind: 'mcpAuditContains';
       readonly toolName: string;
+      readonly serverName?: string;
       readonly approvedBy?: string;
       readonly errorIncludes?: string;
     }
@@ -47,6 +49,12 @@ export type ScenarioAssertion =
       readonly nodeName?: string;
       readonly provider?: string;
       readonly model?: string;
+      readonly count?: number;
+    }
+  | {
+      readonly kind: 'llmRequestContains';
+      readonly nodeName?: string;
+      readonly contains: string;
       readonly count?: number;
     }
   | { readonly kind: 'firstGraphNodeIs'; readonly nodeName: string }
@@ -125,6 +133,18 @@ export type ScenarioAssertion =
        */
       readonly kind: 'taskToolIntentEquals';
       readonly value: Readonly<Record<string, unknown>>;
+    }
+  | {
+      readonly kind: 'conversationStateContains';
+      readonly minMessages?: number;
+      readonly pendingToolCalls?: number;
+      readonly toolResults?: number;
+      readonly permissionDenials?: number;
+      readonly cancellationRequested?: boolean;
+      readonly cancellationReasonIncludes?: string;
+      readonly activeTaskRunId?: string;
+      readonly checkpointTaskRunId?: string;
+      readonly discoveredTools?: readonly ConversationStateToolExpectation[];
     };
 
 export interface ScenarioAssertionContext {
@@ -134,6 +154,7 @@ export interface ScenarioAssertionContext {
   readonly threadId: string;
   readonly toolExecutions: readonly unknown[];
   readonly events: readonly RuntimeEvent[];
+  readonly conversationState?: RunConversationStateSnapshot;
 }
 
 type KanbanEventExpectation =
@@ -144,6 +165,14 @@ type KanbanEventExpectation =
       readonly cardId?: string;
       readonly blockedReason?: string | null;
     };
+
+interface ConversationStateToolExpectation {
+  readonly name: string;
+  readonly surface?: string;
+  readonly serverName?: string | null;
+  readonly permissionIdentity?: string | null;
+  readonly exposedToLlm?: boolean;
+}
 
 export async function evaluateScenarioAssertions(
   assertions: readonly ScenarioAssertion[],
@@ -202,6 +231,8 @@ async function evaluateAssertion(
       return assertLlmCalls(ctx.repos, ctx.threadId, assertion.count);
     case 'llmCallMatches':
       return assertLlmCallMatches(ctx.repos, ctx.threadId, assertion);
+    case 'llmRequestContains':
+      return assertLlmRequestContains(ctx.repos, ctx.threadId, assertion);
     case 'firstGraphNodeIs':
       return assertFirstGraphNode(ctx.events, assertion.nodeName);
     case 'kanbanCards':
@@ -234,6 +265,94 @@ async function evaluateAssertion(
       return assertEventNotEmitted(ctx.events, assertion.eventType);
     case 'taskToolIntentEquals':
       return assertTaskToolIntentEquals(ctx.finalState, assertion.value);
+    case 'conversationStateContains':
+      return assertConversationStateContains(ctx.conversationState, assertion);
+  }
+}
+
+function assertConversationStateContains(
+  state: RunConversationStateSnapshot | undefined,
+  assertion: Extract<ScenarioAssertion, { kind: 'conversationStateContains' }>,
+): void {
+  if (!state) throw new Error('Missing run conversation state snapshot');
+  if (assertion.minMessages !== undefined && state.messages.length < assertion.minMessages) {
+    throw new Error(
+      `Expected at least ${assertion.minMessages} messages, got ${state.messages.length}`,
+    );
+  }
+  if (
+    assertion.pendingToolCalls !== undefined &&
+    state.pendingToolCalls.length !== assertion.pendingToolCalls
+  ) {
+    throw new Error(
+      `Expected ${assertion.pendingToolCalls} pending tool call(s), got ${state.pendingToolCalls.length}`,
+    );
+  }
+  if (assertion.toolResults !== undefined && state.toolResults.length !== assertion.toolResults) {
+    throw new Error(
+      `Expected ${assertion.toolResults} tool result(s), got ${state.toolResults.length}`,
+    );
+  }
+  if (
+    assertion.permissionDenials !== undefined &&
+    state.permissionDenials.length !== assertion.permissionDenials
+  ) {
+    throw new Error(
+      `Expected ${assertion.permissionDenials} permission denial(s), got ${state.permissionDenials.length}`,
+    );
+  }
+  if (
+    assertion.cancellationRequested !== undefined &&
+    state.cancellation.requested !== assertion.cancellationRequested
+  ) {
+    throw new Error(
+      `Expected cancellation requested=${assertion.cancellationRequested}, got ${state.cancellation.requested}`,
+    );
+  }
+  if (
+    assertion.cancellationReasonIncludes !== undefined &&
+    !state.cancellation.reason?.includes(assertion.cancellationReasonIncludes)
+  ) {
+    throw new Error(
+      `Cancellation reason does not include "${assertion.cancellationReasonIncludes}"`,
+    );
+  }
+  if (
+    assertion.activeTaskRunId !== undefined &&
+    state.activeContext?.taskRunId !== assertion.activeTaskRunId
+  ) {
+    throw new Error(
+      `Expected active taskRunId ${assertion.activeTaskRunId}, got ${state.activeContext?.taskRunId ?? 'null'}`,
+    );
+  }
+  if (
+    assertion.checkpointTaskRunId !== undefined &&
+    state.checkpointIdentity?.taskRunId !== assertion.checkpointTaskRunId
+  ) {
+    throw new Error(
+      `Expected checkpoint taskRunId ${assertion.checkpointTaskRunId}, got ${state.checkpointIdentity?.taskRunId ?? 'null'}`,
+    );
+  }
+  for (const expected of assertion.discoveredTools ?? []) {
+    const found = state.discoveredToolSnapshot?.toolRegistry.find((tool) => {
+      if (tool.name !== expected.name) return false;
+      if (expected.surface !== undefined && tool.surface !== expected.surface) return false;
+      if (expected.serverName !== undefined && tool.serverName !== expected.serverName)
+        return false;
+      if (
+        expected.permissionIdentity !== undefined &&
+        tool.permissionIdentity !== expected.permissionIdentity
+      ) {
+        return false;
+      }
+      if (expected.exposedToLlm !== undefined && tool.exposedToLlm !== expected.exposedToLlm) {
+        return false;
+      }
+      return true;
+    });
+    if (!found) {
+      throw new Error(`Missing discovered tool ${JSON.stringify(expected)}`);
+    }
   }
 }
 
@@ -694,6 +813,7 @@ async function assertMcpAudit(
   const rows = await repos.mcpAudit.listByThread(threadId);
   const found = rows.find((row) => {
     if (row.tool_name !== assertion.toolName) return false;
+    if (assertion.serverName && row.server_name !== assertion.serverName) return false;
     if (assertion.approvedBy && row.approved_by !== assertion.approvedBy) return false;
     if (assertion.errorIncludes && !row.error?.includes(assertion.errorIncludes)) return false;
     return true;
@@ -736,6 +856,26 @@ async function assertLlmCallMatches(
       `Expected ${expected} matching LLM calls, got ${matches.length}: ${calls
         .map((call) => `${call.node_name}:${call.provider}/${call.model}`)
         .join(', ')}`,
+    );
+  }
+}
+
+async function assertLlmRequestContains(
+  repos: RuntimeRepositories,
+  threadId: string,
+  assertion: Extract<ScenarioAssertion, { kind: 'llmRequestContains' }>,
+): Promise<void> {
+  const calls = await repos.llmCalls.findByThread(threadId);
+  const matches = calls.filter((call) => {
+    if (assertion.nodeName && call.node_name !== assertion.nodeName) return false;
+    return call.request_json?.includes(assertion.contains) === true;
+  });
+  const expected = assertion.count ?? 1;
+  if (matches.length !== expected) {
+    throw new Error(
+      `Expected ${expected} LLM request(s) containing "${assertion.contains}", got ${
+        matches.length
+      }: ${calls.map((call) => `${call.node_name}:${call.llm_call_id}`).join(', ')}`,
     );
   }
 }

@@ -2,6 +2,7 @@ import type { OffisimGraphState } from '../graph/state.js';
 import type { ToolDef } from '../llm/gateway.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { ToolExecutor } from '../runtime/tool-executor.js';
+import type { RegisteredTool, RuntimeToolType } from '../tools/tool-registry.js';
 import { type DroppedTool, buildToolPool } from '../tools/tool-pool-builder.js';
 import { buildMemoryTools } from './employee-memory-tools.js';
 import { MAX_HANDOFF_COUNT } from './employee-node-constants.js';
@@ -13,6 +14,8 @@ export interface ToolKit {
   readonly virtualTools: ToolDef[];
   readonly mcpTools: ToolDef[];
   readonly allTools: ToolDef[];
+  readonly toolRegistry: readonly RegisteredTool[];
+  readonly allowedRuntimeToolNames: Set<string>;
   readonly allowedMcpToolNames: Set<string>;
   readonly deniedTools: readonly DroppedTool[];
   readonly toolsHash: string;
@@ -44,12 +47,16 @@ export async function assembleToolKit(
       mcpTools: [],
       runtimePolicy: runtimeCtx.runtimePolicy,
       serverForTool: serverResolverFromExecutor(toolExecutor),
+      toolTypeForTool: toolTypeResolverFromExecutor(toolExecutor),
     });
+    const allowedRuntimeToolNames = new Set(pool.mcpTools.map((t) => t.name));
     return {
       virtualTools: pool.virtualTools,
       mcpTools: pool.mcpTools,
       allTools: pool.llmTools,
-      allowedMcpToolNames: new Set(),
+      toolRegistry: pool.toolRegistry,
+      allowedRuntimeToolNames,
+      allowedMcpToolNames: allowedRuntimeToolNames,
       deniedTools: pool.deniedTools,
       toolsHash: pool.toolsHash,
     };
@@ -114,14 +121,17 @@ export async function assembleToolKit(
     mcpTools,
     runtimePolicy: runtimeCtx.runtimePolicy,
     serverForTool: serverResolverFromExecutor(toolExecutor),
+    toolTypeForTool: toolTypeResolverFromExecutor(toolExecutor),
   });
-  const allowedMcpToolNames = new Set(pool.mcpTools.map((t) => t.name));
+  const allowedRuntimeToolNames = new Set(pool.mcpTools.map((t) => t.name));
 
   return {
     virtualTools: pool.virtualTools,
     mcpTools: pool.mcpTools,
     allTools: pool.llmTools,
-    allowedMcpToolNames,
+    toolRegistry: pool.toolRegistry,
+    allowedRuntimeToolNames,
+    allowedMcpToolNames: allowedRuntimeToolNames,
     deniedTools: pool.deniedTools,
     toolsHash: pool.toolsHash,
   };
@@ -134,5 +144,18 @@ function serverResolverFromExecutor(
   return typeof maybeResolver === 'function'
     ? (toolName) =>
         (maybeResolver as (name: string) => string | undefined).call(toolExecutor, toolName)
+    : undefined;
+}
+
+function toolTypeResolverFromExecutor(
+  toolExecutor: ToolExecutor,
+): ((toolName: string) => RuntimeToolType | undefined) | undefined {
+  const maybeResolver = (toolExecutor as unknown as Record<string, unknown>).getToolTypeForTool;
+  return typeof maybeResolver === 'function'
+    ? (toolName) =>
+        (maybeResolver as (name: string) => RuntimeToolType | undefined).call(
+          toolExecutor,
+          toolName,
+        )
     : undefined;
 }

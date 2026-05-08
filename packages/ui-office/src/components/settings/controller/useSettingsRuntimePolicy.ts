@@ -1,6 +1,7 @@
 import type {
   EmployeeRuntimeBinding,
   LlmProvider,
+  MainHarnessPolicyConfig,
   ModelProfile,
   RuntimeExecutionMode,
   RuntimePolicyConfig,
@@ -39,6 +40,7 @@ export interface RuntimePolicySnapshot {
   gitAutoCommit: boolean;
   toolPermissions: RuntimeToolPermissionsPolicy;
   employeeRuntimeDefault: EmployeeRuntimeBinding | undefined;
+  mainHarnessPolicy: MainHarnessPolicyConfig | undefined;
   runtimeModelDefault: ModelProfile;
   runtimeModelOverrides: Record<string, ModelProfile> | undefined;
 }
@@ -68,6 +70,9 @@ export function useSettingsRuntimePolicy() {
   const [employeeRuntimeDefault, setEmployeeRuntimeDefault] = useState<
     EmployeeRuntimeBinding | undefined
   >(DEFAULT_POLICY.employeeRuntimeDefault);
+  const [mainHarnessPolicy, setMainHarnessPolicy] = useState<MainHarnessPolicyConfig | undefined>(
+    DEFAULT_POLICY.mainHarnessPolicy,
+  );
   const [runtimeModelDefault, setRuntimeModelDefault] = useState<ModelProfile>(
     DEFAULT_POLICY.modelPolicy.default,
   );
@@ -88,6 +93,7 @@ export function useSettingsRuntimePolicy() {
     setGitAutoCommit(policy.gitAutoCommit ?? true);
     setToolPermissions(policy.toolPermissions);
     setEmployeeRuntimeDefault(policy.employeeRuntimeDefault);
+    setMainHarnessPolicy(policy.mainHarnessPolicy);
     setRuntimeModelDefault(policy.modelPolicy.default);
     setRuntimeModelOverrides(policy.modelPolicy.overrides);
   }
@@ -105,6 +111,7 @@ export function useSettingsRuntimePolicy() {
     setGitAutoCommit(DEFAULT_POLICY.gitAutoCommit ?? true);
     setToolPermissions(DEFAULT_POLICY.toolPermissions);
     setEmployeeRuntimeDefault(DEFAULT_POLICY.employeeRuntimeDefault);
+    setMainHarnessPolicy(DEFAULT_POLICY.mainHarnessPolicy);
     setRuntimeModelDefault({
       ...DEFAULT_POLICY.modelPolicy.default,
       provider: providerDefaults?.provider ?? DEFAULT_POLICY.modelPolicy.default.provider,
@@ -150,6 +157,7 @@ export function useSettingsRuntimePolicy() {
       },
       toolPermissions,
       ...(employeeRuntimeDefault ? { employeeRuntimeDefault } : {}),
+      ...(mainHarnessPolicy ? { mainHarnessPolicy } : {}),
       gitAutoCommit,
     };
   }
@@ -168,6 +176,7 @@ export function useSettingsRuntimePolicy() {
       gitAutoCommit,
       toolPermissions,
       employeeRuntimeDefault,
+      mainHarnessPolicy,
       runtimeModelDefault,
       runtimeModelOverrides,
     }),
@@ -184,6 +193,7 @@ export function useSettingsRuntimePolicy() {
       gitAutoCommit,
       toolPermissions,
       employeeRuntimeDefault,
+      mainHarnessPolicy,
       runtimeModelDefault,
       runtimeModelOverrides,
     ],
@@ -202,6 +212,7 @@ export function useSettingsRuntimePolicy() {
     gitAutoCommit,
     toolPermissions,
     employeeRuntimeDefault,
+    mainHarnessPolicy,
     runtimeModelDefault,
     runtimeModelOverrides,
     setExecutionMode,
@@ -216,6 +227,7 @@ export function useSettingsRuntimePolicy() {
     setGitAutoCommit,
     setToolPermissions,
     setEmployeeRuntimeDefault,
+    setMainHarnessPolicy,
     setRuntimeModelDefault,
     setRuntimeModelOverrides,
     applyFromSaved,

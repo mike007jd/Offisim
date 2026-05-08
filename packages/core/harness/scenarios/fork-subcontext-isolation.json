@@ -1,0 +1,14 @@
+{
+  "id": "fork-subcontext-isolation",
+  "category": "long-running-runtime",
+  "fixture": {
+    "forkSubcontextIsolation": true,
+    "parentObjective": "Parent thread keeps the product objective only.",
+    "childSecret": "CHILD_PRIVATE_TRANSCRIPT_SHOULD_NOT_LEAK"
+  },
+  "invariants": [
+    "context_budget.fork_child_transcript_not_returned",
+    "context_budget.fork_child_secret_not_leaked_to_parent",
+    "context_budget.fork_summary_is_bounded"
+  ]
+}

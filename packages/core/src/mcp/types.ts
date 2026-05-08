@@ -39,10 +39,48 @@ export interface McpToolDef {
   readonly inputSchema: unknown;
 }
 
+export interface McpResourceDef {
+  readonly uri: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly mimeType?: string;
+}
+
+export interface McpPromptDef {
+  readonly name: string;
+  readonly description?: string;
+  readonly arguments?: readonly {
+    readonly name: string;
+    readonly description?: string;
+    readonly required?: boolean;
+  }[];
+}
+
+export interface McpServerCapabilities {
+  readonly tools?: boolean;
+  readonly resources?: boolean;
+  readonly prompts?: boolean;
+  readonly listChanged?: boolean;
+}
+
+export interface McpOperationOptions {
+  readonly signal?: AbortSignal;
+}
+
 export interface McpConnection {
   readonly config: McpServerConfig;
   readonly tools: ReadonlyArray<McpToolDef>;
-  callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
+  readonly resources?: ReadonlyArray<McpResourceDef>;
+  readonly prompts?: ReadonlyArray<McpPromptDef>;
+  readonly capabilities?: McpServerCapabilities;
+  listTools?(): Promise<ReadonlyArray<McpToolDef>>;
+  listResources?(): Promise<ReadonlyArray<McpResourceDef>>;
+  listPrompts?(): Promise<ReadonlyArray<McpPromptDef>>;
+  callTool(
+    name: string,
+    args: Record<string, unknown>,
+    options?: McpOperationOptions,
+  ): Promise<unknown>;
   close(): Promise<void>;
 }
 

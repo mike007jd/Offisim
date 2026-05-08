@@ -68,13 +68,13 @@ export function getChatRuntimeOutcomeFollowUp(
       return {
         mode: 'message',
         message:
-          'Attachments require the Gateway lane so Offisim can read the file locally. Switch this employee/runtime back to Gateway, then resend the attachment.',
+          'Attachments require the default Offisim harness/gateway attachment tool, or a verified tool-capable employee profile. Plain SDK provider lanes are text/reasoning-only; switch runtime, then resend the attachment.',
       };
     case LOCAL_TOOLS_REQUIRE_GATEWAY_LANE:
       return {
         mode: 'message',
         message:
-          'Local files, shell commands, workspace tools, memory, todo, skills, and MCP tools require the Gateway lane. SDK lanes are text/reasoning-only in Offisim; switch this employee/runtime back to Gateway, then resend the request.',
+          'Local files, shell commands, workspace tools, memory, todo, skills, and MCP tools require the default Offisim harness/gateway tools or a verified tool-capable employee profile. Plain SDK provider lanes are text/reasoning-only; switch runtime, then resend the request.',
       };
   }
 }

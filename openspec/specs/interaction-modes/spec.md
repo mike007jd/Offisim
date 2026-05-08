@@ -48,11 +48,11 @@ Adapters for SDK lanes SHALL fail closed with explicit user-facing text if any t
 
 - **WHEN** a tool request reaches an SDK lane adapter
 - **THEN** the adapter rejects the request instead of forwarding it to a sidecar that cannot execute Offisim tools
-- **AND** the error points the user to the gateway lane for project file and command work.
+- **AND** the error points the user to the default Offisim harness / gateway tools or a verified tool-capable employee profile for project file and command work.
 
 ### Requirement: Local tool work SHALL NOT route to external A2A employees
 
-Requests that require Offisim-local filesystem, shell, workspace, or path-bounded project tools SHALL route only to enabled internal employees running in a tools-capable gateway context. External A2A employees and text/reasoning-only SDK lanes SHALL NOT be selected for those tasks as if they could access local project files or commands.
+Requests that require Offisim-local filesystem, shell, workspace, or path-bounded project tools SHALL route only to enabled internal employees running in a verified tool-capable context. The current verified context is the default Offisim harness / gateway path; future employee agent profiles need separate evidence before they qualify. External A2A employees and text/reasoning-only SDK provider lanes SHALL NOT be selected for those tasks as if they could access local project files or commands.
 
 The "requires local tools" decision SHALL be the precomputed `state.taskToolIntent.requiresLocalTools` from the `task-tool-intent` capability, NOT a per-call regex match against task text. Routing nodes (`boss-node`, `manager-node`, `pm-planner/preflight`, `employee-direct-setup-node`) SHALL read this state field; they SHALL NOT call any text-matching helper to re-derive the same decision.
 

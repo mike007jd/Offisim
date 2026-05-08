@@ -21,6 +21,7 @@ export type EngineProposalKind =
 export interface EngineProposalEventPayload {
   readonly proposalId: string;
   readonly engineId: EngineId;
+  readonly runtimeProfileId?: string;
   readonly kind: EngineProposalKind;
   readonly title: string;
   readonly description: string;
@@ -33,6 +34,7 @@ export interface EngineProposalEventPayload {
 export interface EngineActivityPayload {
   readonly runId: string;
   readonly engineId: EngineId;
+  readonly runtimeProfileId?: string;
   readonly employeeId: string;
   readonly employeeName: string;
   readonly taskRunId?: string | null;
@@ -42,6 +44,8 @@ export interface EngineActivityPayload {
   readonly label?: string;
   readonly detail?: string;
   readonly proposalId?: string;
+  readonly toolName?: string;
+  readonly toolType?: 'builtin' | 'mcp' | 'workstation' | 'runtime-profile';
 }
 
 export interface EngineProposalCreatedPayload {

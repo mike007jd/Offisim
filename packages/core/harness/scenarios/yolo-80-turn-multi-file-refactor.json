@@ -18,6 +18,8 @@
     "final_non_system_tokens_under_120k",
     "micro_compact_pass_count_at_least_3",
     "rolling_journal_write_count_at_least_9",
+    "anchor_retained_after_80_turns",
+    "latest_tool_evidence_retained_after_compaction",
     "completion_verifier_allows_final_done"
   ]
 }

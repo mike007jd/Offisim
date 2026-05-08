@@ -17,7 +17,15 @@ function parseRuntimeBinding(raw: unknown): EmployeeRuntimeBinding | undefined {
   const candidate = raw as { mode?: unknown; engineId?: unknown };
   if (candidate.mode === 'provider') return PROVIDER_RUNTIME_BINDING;
   if (candidate.mode === 'engine' && isEngineId(candidate.engineId)) {
-    return { mode: 'engine', engineId: candidate.engineId };
+    const profileId =
+      'profileId' in candidate && typeof candidate.profileId === 'string'
+        ? candidate.profileId.trim()
+        : '';
+    return {
+      mode: 'engine',
+      engineId: candidate.engineId,
+      ...(profileId ? { profileId } : {}),
+    };
   }
   return undefined;
 }
@@ -72,6 +80,8 @@ export function runtimeBindingsEqual(
   if (a === b) return true;
   if (!a || !b) return false;
   if (a.mode !== b.mode) return false;
-  if (a.mode === 'engine' && b.mode === 'engine') return a.engineId === b.engineId;
+  if (a.mode === 'engine' && b.mode === 'engine') {
+    return a.engineId === b.engineId && (a.profileId ?? null) === (b.profileId ?? null);
+  }
   return true;
 }

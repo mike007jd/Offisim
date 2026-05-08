@@ -1,4 +1,5 @@
 import type { EngineAdapter } from '@offisim/core/dist/engine/engine-adapter.js';
+import { DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES } from '@offisim/core/dist/engine/capability-profiles.js';
 import type {
   EngineRunContext,
   EngineRunHandle,
@@ -80,6 +81,8 @@ function serializeRequest(envelope: EngineTaskEnvelope): Record<string, unknown>
   return {
     messages: buildMessages(envelope),
     model: envelope.model,
+    runtimeProfileId: envelope.runtimeProfile.profileId,
+    runtimeProfileTier: envelope.runtimeProfile.tier,
     temperature: 0.7,
     maxTokens: 4096,
     approvalPolicy: 'on-request',
@@ -218,6 +221,9 @@ abstract class BaseTauriEngineAdapter implements EngineAdapter {
 
 export class TauriCodexEngineAdapter extends BaseTauriEngineAdapter {
   readonly engineId = 'codex-engine' as const;
+  readonly capabilityProfile = DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES.find(
+    (profile) => profile.engineId === this.engineId,
+  );
 
   constructor(
     options: Omit<TauriEngineAdapterOptions, 'command' | 'abortCommand' | 'requestPrefix'> = {},
@@ -233,6 +239,9 @@ export class TauriCodexEngineAdapter extends BaseTauriEngineAdapter {
 
 export class TauriClaudeEngineAdapter extends BaseTauriEngineAdapter {
   readonly engineId = 'claude-engine' as const;
+  readonly capabilityProfile = DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES.find(
+    (profile) => profile.engineId === this.engineId,
+  );
 
   constructor(
     options: Omit<TauriEngineAdapterOptions, 'command' | 'abortCommand' | 'requestPrefix'> = {},

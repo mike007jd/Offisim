@@ -7,6 +7,9 @@ export interface ConversationBudgetServiceOptions {
   synopsisRefreshMinMessages?: number;
   toolResultKeepRecent?: number;
   toolResultMaxContentChars?: number;
+  microMaxToolResultBytes?: number;
+  microSnippetBytes?: number;
+  microPreserveLastN?: number;
   synopsisFailureThreshold?: number;
   postCompactKeepNodeSummaries?: number;
   fullCompactTriggerTokens?: number;
@@ -24,6 +27,9 @@ export interface ResolvedConversationBudgetOptions {
   synopsisTriggerTokens: number;
   toolResultKeepRecent: number;
   toolResultMaxContentChars: number;
+  microMaxToolResultBytes: number;
+  microSnippetBytes: number;
+  microPreserveLastN: number;
   synopsisFailureThreshold: number;
   postCompactKeepNodeSummaries: number;
   fullCompactTriggerTokens: number;
@@ -37,6 +43,9 @@ export const DEFAULT_SYNOPSIS_TRIGGER_MESSAGES = 80;
 export const DEFAULT_SYNOPSIS_REFRESH_MIN_MESSAGES = 6;
 export const DEFAULT_TOOL_RESULT_KEEP_RECENT = 4;
 export const DEFAULT_TOOL_RESULT_MAX_CONTENT_CHARS = 400;
+export const DEFAULT_MICRO_MAX_TOOL_RESULT_BYTES = 8000;
+export const DEFAULT_MICRO_SNIPPET_BYTES = 400;
+export const DEFAULT_MICRO_PRESERVE_LAST_N = 1;
 export const DEFAULT_SYNOPSIS_FAILURE_THRESHOLD = 3;
 export const DEFAULT_POST_COMPACT_KEEP_NODE_SUMMARIES = 12;
 export const DEFAULT_FULL_COMPACT_TRIGGER_TOKENS = 90_000;
@@ -66,6 +75,10 @@ export function resolveOptions(
     toolResultKeepRecent: defaults.toolResultKeepRecent ?? DEFAULT_TOOL_RESULT_KEEP_RECENT,
     toolResultMaxContentChars:
       defaults.toolResultMaxContentChars ?? DEFAULT_TOOL_RESULT_MAX_CONTENT_CHARS,
+    microMaxToolResultBytes:
+      defaults.microMaxToolResultBytes ?? DEFAULT_MICRO_MAX_TOOL_RESULT_BYTES,
+    microSnippetBytes: defaults.microSnippetBytes ?? DEFAULT_MICRO_SNIPPET_BYTES,
+    microPreserveLastN: defaults.microPreserveLastN ?? DEFAULT_MICRO_PRESERVE_LAST_N,
     synopsisFailureThreshold:
       defaults.synopsisFailureThreshold ?? DEFAULT_SYNOPSIS_FAILURE_THRESHOLD,
     postCompactKeepNodeSummaries:

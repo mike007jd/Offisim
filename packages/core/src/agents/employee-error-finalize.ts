@@ -15,6 +15,13 @@ export interface FinalizeFailureContext {
   readonly errorMessage: string;
 }
 
+export interface FinalizeCancellationContext {
+  readonly runtimeCtx: RuntimeContext;
+  readonly state: OffisimGraphState;
+  readonly preflight: PreflightResult;
+  readonly reason: string;
+}
+
 /**
  * Failure-path finalization. Called when the LLM call AND `attemptLocalRecovery`
  * both fail.
@@ -109,5 +116,78 @@ export async function finalizeEmployeeFailure(
     pendingAssignments: remaining,
     interruptReason: JSON.stringify(structuredError),
     currentStepOutputs: state.currentStepOutputs,
+  };
+}
+
+export async function finalizeEmployeeCancellation(
+  ctx: FinalizeCancellationContext,
+): Promise<Partial<OffisimGraphState>> {
+  const { runtimeCtx, state, preflight, reason } = ctx;
+  const { remaining, employee, taskRunId, taskLabel, totalAssignments, completedSoFar } = preflight;
+  const { repos, eventBus, companyId, threadId } = runtimeCtx;
+
+  if (taskRunId) {
+    await repos.taskRuns.updateStatus(
+      taskRunId,
+      'cancelled',
+      JSON.stringify({ error: { code: 'RUN_CANCELLED', message: reason } }),
+    );
+    eventBus.emit(
+      taskStateChanged(
+        companyId,
+        taskRunId,
+        'running',
+        'cancelled',
+        threadId,
+        employee.employee_id,
+        'employee',
+        employee.name,
+      ),
+    );
+  }
+
+  eventBus.emit(
+    taskSubtaskProgress(
+      companyId,
+      employee.employee_id,
+      completedSoFar,
+      taskLabel,
+      'failed',
+      totalAssignments,
+      completedSoFar,
+      threadId,
+      { employeeId: employee.employee_id, assigneeKind: 'employee', assigneeName: employee.name },
+    ),
+  );
+
+  eventBus.emit(
+    employeeStateChanged(companyId, employee.employee_id, 'executing', 'idle', threadId, taskRunId),
+  );
+
+  await appendAgentEvent(runtimeCtx, {
+    projectId: state.projectId,
+    threadId: state.threadId,
+    agentName: `employee:${employee.employee_id}`,
+    eventType: 'action',
+    payload: {
+      action: 'cancelled',
+      reason,
+      employeeName: employee.name,
+      taskRunId,
+    },
+  }).catch(() => {});
+
+  const blockedStepIndices =
+    typeof preflight.stepIndex === 'number'
+      ? [...new Set([...(state.blockedStepIndices ?? []), preflight.stepIndex])]
+      : state.blockedStepIndices;
+
+  return {
+    currentEmployeeId: employee.employee_id,
+    currentTaskRunId: taskRunId ?? null,
+    pendingAssignments: remaining,
+    interruptReason: null,
+    currentStepOutputs: state.currentStepOutputs,
+    ...(blockedStepIndices ? { blockedStepIndices } : {}),
   };
 }

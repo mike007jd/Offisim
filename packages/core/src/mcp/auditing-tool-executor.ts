@@ -17,12 +17,17 @@ import type { ToolDef } from '../llm/gateway.js';
 import type { McpAuditRepository, NewMcpAudit } from '../runtime/repositories.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import type { InteractionService } from '../services/interaction-service.js';
+import {
+  type RuntimeToolSource,
+  type RuntimeToolType,
+  resolveRuntimeToolSource,
+} from '../tools/tool-registry.js';
 import { generateId } from '../utils/generate-id.js';
 
 interface ToolExecutionRecordContext {
   readonly auditId: string;
   readonly call: ToolCallRequest;
-  readonly serverName: string;
+  readonly toolSource: RuntimeToolSource;
   readonly threadId: string;
   readonly startedAt: number;
   readonly concurrentWith: string[];
@@ -52,23 +57,28 @@ export class AuditingToolExecutor implements ToolExecutor {
   }
 
   getServerForTool(toolName: string): string | undefined {
-    return this.resolveServerName(toolName);
+    return this.resolveToolSource(toolName).serverName;
+  }
+
+  getToolTypeForTool(toolName: string): RuntimeToolType {
+    return this.resolveToolSource(toolName).toolType;
   }
 
   async execute(call: ToolCallRequest): Promise<ToolCallResponse> {
     const auditId = generateId('ma');
     const startedAt = Date.now();
     const concurrentWith = [...this.activeToolCalls];
-    const serverName = this.resolveServerName(call.name);
+    const toolSource = this.resolveToolSource(call.name);
+    const { serverName, toolType } = toolSource;
     const threadId = call.threadId ?? this.threadId;
-    const recordCtx = { auditId, call, serverName, threadId, startedAt, concurrentWith };
+    const recordCtx = { auditId, call, toolSource, threadId, startedAt, concurrentWith };
 
     this.activeToolCalls.add(call.toolCallId);
     this.eventBus.emit(
       toolExecutionTelemetry(this.companyId, threadId, {
         toolCallId: call.toolCallId,
         toolName: call.name,
-        toolType: 'mcp',
+        toolType,
         threadId,
         nodeName: call.nodeName,
         employeeId: call.employeeId,
@@ -105,7 +115,7 @@ export class AuditingToolExecutor implements ToolExecutor {
         toolExecutionTelemetry(this.companyId, threadId, {
           toolCallId: call.toolCallId,
           toolName: call.name,
-          toolType: 'mcp',
+          toolType,
           threadId,
           nodeName: call.nodeName,
           employeeId: call.employeeId,
@@ -126,18 +136,28 @@ export class AuditingToolExecutor implements ToolExecutor {
     }
   }
 
-  private resolveServerName(toolName: string): string {
+  private resolveToolSource(toolName: string): RuntimeToolSource {
     if (
       'getServerForTool' in this.inner &&
       typeof (this.inner as Record<string, unknown>).getServerForTool === 'function'
     ) {
-      return (
+      const serverName =
         (this.inner as { getServerForTool(n: string): string | undefined }).getServerForTool(
           toolName,
-        ) ?? toolName
-      );
+        ) ?? toolName;
+      const toolType =
+        'getToolTypeForTool' in this.inner &&
+        typeof (this.inner as Record<string, unknown>).getToolTypeForTool === 'function'
+          ? (
+              this.inner as { getToolTypeForTool(n: string): RuntimeToolType | undefined }
+            ).getToolTypeForTool(toolName)
+          : undefined;
+      return resolveRuntimeToolSource(toolName, {
+        serverForTool: () => serverName,
+        toolTypeForTool: () => toolType,
+      });
     }
-    return toolName;
+    return resolveRuntimeToolSource(toolName);
   }
 
   private async evaluatePermission(
@@ -163,10 +183,10 @@ export class AuditingToolExecutor implements ToolExecutor {
   ): Promise<
     { kind: 'continue'; approvedBy: string } | { kind: 'return'; response: ToolCallResponse }
   > {
-    const { call, serverName } = ctx;
+    const { call, toolSource } = ctx;
     const request = this.buildPermissionInteractionRequest(
       call,
-      serverName,
+      toolSource.serverName,
       decision.reason,
       ctx.threadId,
       decision.policyHash,
@@ -195,7 +215,7 @@ export class AuditingToolExecutor implements ToolExecutor {
       };
     }
 
-    const afterGrant = await this.evaluatePermission(call, serverName, ctx.threadId);
+    const afterGrant = await this.evaluatePermission(call, toolSource.serverName, ctx.threadId);
     if (afterGrant.behavior !== 'allow') {
       const response = this.buildPermissionResponse(afterGrant.behavior, afterGrant.reason);
       return {
@@ -216,14 +236,14 @@ export class AuditingToolExecutor implements ToolExecutor {
     await this.writeAudit({
       auditId: ctx.auditId,
       call: ctx.call,
-      serverName: ctx.serverName,
+      serverName: ctx.toolSource.serverName,
       response,
       latencyMs: completedAt - ctx.startedAt,
       approvedBy,
     });
     this.emitToolResult(
       ctx.call,
-      ctx.serverName,
+      ctx.toolSource,
       response,
       ctx.startedAt,
       completedAt,
@@ -342,7 +362,7 @@ export class AuditingToolExecutor implements ToolExecutor {
 
   private emitToolResult(
     call: ToolCallRequest,
-    serverName: string,
+    toolSource: RuntimeToolSource,
     response: ToolCallResponse,
     startedAt: number,
     completedAt: number,
@@ -352,7 +372,7 @@ export class AuditingToolExecutor implements ToolExecutor {
     this.eventBus.emit(
       mcpToolResult(
         this.companyId,
-        serverName,
+        toolSource.serverName,
         call.name,
         call.employeeId ?? 'unknown',
         call.toolCallId,
@@ -365,12 +385,12 @@ export class AuditingToolExecutor implements ToolExecutor {
       toolExecutionTelemetry(this.companyId, call.threadId ?? this.threadId, {
         toolCallId: call.toolCallId,
         toolName: call.name,
-        toolType: 'mcp',
+        toolType: toolSource.toolType,
         threadId: call.threadId ?? this.threadId,
         nodeName: call.nodeName,
         employeeId: call.employeeId,
         taskRunId: call.taskRunId ?? null,
-        serverName,
+        serverName: toolSource.serverName,
         startedAt,
         completedAt,
         durationMs: latencyMs,

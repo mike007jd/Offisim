@@ -22,7 +22,7 @@ export interface McpToolResultPayload {
 export interface ToolExecutionTelemetryPayload {
   readonly toolCallId: string;
   readonly toolName: string;
-  readonly toolType: 'builtin' | 'mcp' | 'workstation';
+  readonly toolType: 'builtin' | 'mcp' | 'workstation' | 'runtime-profile';
   readonly threadId: string;
   readonly nodeName?: string;
   readonly employeeId?: string;

@@ -1,0 +1,17 @@
+{
+  "id": "prompt-too-long-recovery-budget",
+  "category": "long-running-runtime",
+  "fixture": {
+    "promptTooLongRecovery": true,
+    "nonSystemMessages": 140,
+    "messageBytes": 4000,
+    "tailNonSystemMessages": 20,
+    "promptTooLongThresholdTokens": 120000,
+    "maxRecoveredTokens": 40000
+  },
+  "invariants": [
+    "context_budget.prompt_too_long_input_reduced",
+    "context_budget.recovered_prompt_under_limit",
+    "context_budget.recovered_prompt_keeps_tail_bound"
+  ]
+}

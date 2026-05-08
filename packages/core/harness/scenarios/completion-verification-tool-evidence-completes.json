@@ -1,0 +1,83 @@
+{
+  "id": "completion-verification-tool-evidence-completes",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": { "companyId": "company-verification-evidence", "name": "Verification Evidence Co" },
+    "thread": { "threadId": "thread-verification-evidence", "status": "running" },
+    "employees": [{ "id": "emp-verification-evidence", "name": "Verification Engineer", "role": "engineer" }],
+    "taskRuns": [
+      {
+        "id": "task-verification-evidence",
+        "employeeId": "emp-verification-evidence",
+        "taskType": "verification",
+        "input": {
+          "description": "Run verification evidence with pnpm-test for the default harness change."
+        }
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "pnpm-test",
+      "description": "Run pnpm test.",
+      "parameters": {
+        "type": "object",
+        "properties": { "command": { "type": "string" } },
+        "required": ["command"]
+      }
+    }
+  ],
+  "toolFixtures": {
+    "pnpm-test": [{ "success": true, "result": "pnpm test passed" }]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "verification",
+        "employeeId": "emp-verification-evidence",
+        "assigneeKind": "employee",
+        "assigneeName": "Verification Engineer",
+        "taskRunId": "task-verification-evidence",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Run verification evidence with pnpm-test for the default harness change.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-runs-pnpm-test",
+      "match": {
+        "contains": "Run verification evidence with pnpm-test",
+        "toolNames": ["pnpm-test"]
+      },
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call-pnpm-test-evidence",
+          "name": "pnpm-test",
+          "arguments": { "command": "pnpm test" }
+        }
+      ]
+    },
+    {
+      "id": "employee-final-after-pnpm-test",
+      "match": { "contains": "pnpm test passed" },
+      "content": "Verification evidence observed."
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-verification-evidence", "status": "completed" },
+    { "kind": "taskStateEvent", "taskRunId": "task-verification-evidence", "next": "completed" },
+    { "kind": "mcpAuditContains", "toolName": "pnpm-test" },
+    { "kind": "toolExecutions", "count": 1 },
+    { "kind": "finalOutputNotContains", "contains": "Task blocked:" }
+  ]
+}

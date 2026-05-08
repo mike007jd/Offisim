@@ -15,19 +15,22 @@ function toneForActivity(payload: EngineActivityPayload): RuntimeActivityTone {
 
 function labelForActivity(payload: EngineActivityPayload): string {
   const label = payload.label ? truncate(payload.label, 44) : 'runtime activity';
+  const profile = payload.runtimeProfileId ? ` · ${payload.runtimeProfileId}` : '';
   switch (payload.kind) {
     case 'run':
-      return `${payload.employeeName}: engine ${payload.status}`;
+      return `${payload.employeeName}: engine ${payload.status}${profile}`;
     case 'subagent':
-      return `${payload.employeeName}: internal ${label} ${payload.status}`;
+      return `${payload.employeeName}: internal ${label} ${payload.status}${profile}`;
     case 'artifact':
-      return `${payload.employeeName}: artifact ready`;
+      return `${payload.employeeName}: artifact ready${profile}`;
     case 'approval':
-      return `${payload.employeeName}: approval requested`;
+      return `${payload.employeeName}: approval requested${profile}`;
     case 'proposal':
-      return `${payload.employeeName}: proposal ${label}`;
+      return `${payload.employeeName}: proposal ${label}${profile}`;
     case 'tool':
-      return `${payload.employeeName}: engine tool ${payload.status}`;
+      return payload.toolType === 'runtime-profile'
+        ? `${payload.employeeName}: native engine tool ${payload.status}${profile}`
+        : `${payload.employeeName}: Offisim gateway tool ${payload.status}${profile}`;
     default:
       return `${payload.employeeName}: ${label}`;
   }
@@ -62,7 +65,7 @@ export function subscribeEngineMappers(
         id: `engine-proposal-${proposal.proposalId}`,
         kind: 'engine',
         tone: 'warning',
-        label: `Engine proposal: ${truncate(proposal.title, 48)}`,
+        label: `Engine proposal (not applied): ${truncate(proposal.title, 48)}`,
         timestamp: event.timestamp,
         employeeId: proposal.employeeId,
         burstKey: `${proposal.engineId}:proposal`,

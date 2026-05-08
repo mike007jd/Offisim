@@ -30,8 +30,10 @@ import { AuditingToolExecutor } from '../mcp/auditing-tool-executor.js';
 import { ToolPermissionEngine } from '../permissions/tool-permission-engine.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
+import type { RunConversationStateSnapshot } from '../runtime/run-conversation-state.js';
 import { type RuntimeContext, createRuntimeContext } from '../runtime/runtime-context.js';
 import type { RuntimeDeterminism } from '../runtime/runtime-context.js';
+import { createRuntimeRollingJournal } from '../services/conversation-budget/rolling-journal-runtime.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { InteractionService } from '../services/interaction-service.js';
 import { OrchestrationService } from '../services/orchestration-service.js';
@@ -39,6 +41,7 @@ import type { SkillInstallEnvironment } from '../skills/skill-install-environmen
 import { SkillLoader } from '../skills/skill-loader.js';
 import { SkillStagingManager } from '../skills/skill-staging.js';
 import type { BuiltinTool } from '../tools/builtin/types.js';
+import { CompositeToolExecutor } from '../tools/composite-tool-executor.js';
 import { canonicalJson } from './canonical-json.js';
 import { FakeGateway, type FakeGatewayTurn, fakeResponse } from './fake-gateway.js';
 import { sha256Text } from './hash.js';
@@ -186,6 +189,9 @@ interface ScenarioRun {
   readonly executionThreadId?: string;
   readonly runtimeContextThreadId?: string;
   readonly useOrchestrationService?: boolean;
+  readonly abortBeforeRun?: boolean;
+  readonly abortOnLlmTurnIds?: readonly string[];
+  readonly abortOnToolNames?: readonly string[];
   readonly autoResolveInteractions?: readonly ScenarioInteractionResolution[];
   readonly resolveAfterRun?: readonly ScenarioInteractionResolution[];
 }
@@ -222,6 +228,12 @@ interface ToolResultFixture {
   readonly error?: string;
 }
 
+interface ScenarioAbortHarness {
+  controller: AbortController | null;
+  llmTurnIds: Set<string>;
+  toolNames: Set<string>;
+}
+
 export async function runDeterministicScenario(
   scenario: DeterministicScenario,
 ): Promise<ScenarioTraceReport> {
@@ -234,8 +246,20 @@ export async function runDeterministicScenario(
   const companyId = scenario.seed.company?.companyId ?? `company-${scenario.id}`;
   const threadId = scenario.seed.thread?.threadId ?? `thread-${scenario.id}`;
   const trace = new TraceRecorder(eventBus);
-  const gateway = new FakeGateway((scenario.llmTurns ?? []).map(toFakeGatewayTurn));
-  const toolExecutor = new RecordingToolExecutor(scenario.tools ?? [], scenario.toolFixtures ?? {});
+  const abortHarness: ScenarioAbortHarness = {
+    controller: null,
+    llmTurnIds: new Set(),
+    toolNames: new Set(),
+  };
+  const gateway = new FakeGateway((scenario.llmTurns ?? []).map(toFakeGatewayTurn), {
+    abortController: () => abortHarness.controller,
+    shouldAbortTurn: (turnId) => abortHarness.llmTurnIds.has(turnId),
+  });
+  const toolExecutor = new RecordingToolExecutor(
+    scenario.tools ?? [],
+    scenario.toolFixtures ?? {},
+    abortHarness,
+  );
   const needsSkillInstall = scenarioUsesSkillInstallTools(scenario);
   const skillLoader = needsSkillInstall ? SkillLoader.forRepos(repos) : null;
   const skillStagingManager = needsSkillInstall
@@ -253,10 +277,20 @@ export async function runDeterministicScenario(
   await seedScenario({ scenario, repos, companyId, threadId });
 
   let finalState: Partial<OffisimGraphState> = buildInitialState(scenario, companyId, threadId);
+  let conversationStateSnapshot: RunConversationStateSnapshot | undefined;
   try {
     const runs = scenario.runs ?? [{ startAt: 'boss' as const }];
     for (const [index, run] of runs.entries()) {
       const executionThreadId = run.executionThreadId ?? threadId;
+      const abortController = new AbortController();
+      abortHarness.controller = abortController;
+      abortHarness.llmTurnIds = new Set(run.abortOnLlmTurnIds ?? []);
+      abortHarness.toolNames = new Set(run.abortOnToolNames ?? []);
+      if (run.abortBeforeRun) {
+        abortController.abort(
+          new DOMException(`Harness cancelled run ${index} before graph execution.`, 'AbortError'),
+        );
+      }
       const runtimeCtx = createScenarioRuntime({
         eventBus,
         repos,
@@ -273,6 +307,7 @@ export async function runDeterministicScenario(
         llmToolCallsEnabled: scenario.llmToolCallsEnabled ?? true,
         determinism,
       });
+      conversationStateSnapshot = runtimeCtx.conversationState.toJSON();
       const unsubscribe = installAutoInteractionResolver(
         eventBus,
         interactionService,
@@ -299,11 +334,12 @@ export async function runDeterministicScenario(
             configurable: {
               thread_id: executionThreadId,
               runtimeCtx,
-              signal: new AbortController().signal,
+              signal: abortController.signal,
               ...(runScope ? { runScope } : {}),
             },
           });
         }
+        conversationStateSnapshot = runtimeCtx.conversationState.toJSON();
         if (run.expectError) {
           throw new Error(`Expected run ${index} to throw ${run.expectError}`);
         }
@@ -312,6 +348,9 @@ export async function runDeterministicScenario(
           throw error;
         }
       } finally {
+        abortHarness.controller = null;
+        abortHarness.llmTurnIds = new Set();
+        abortHarness.toolNames = new Set();
         unsubscribe();
       }
 
@@ -337,6 +376,7 @@ export async function runDeterministicScenario(
       threadId,
       toolExecutions: toolExecutor.executions,
       events: trace.events,
+      conversationState: conversationStateSnapshot,
     });
     const passed = assertions.every((assertion) => assertion.passed);
     return trace.report({
@@ -570,10 +610,7 @@ function assertKanbanTransitionTrail(
         `Expected ${mode} kanban trail state ${expected.state} at index ${index}, got ${String(actual.state)}`,
       );
     }
-    if (
-      expected.taskRunBound !== undefined &&
-      actual.taskRunBound !== expected.taskRunBound
-    ) {
+    if (expected.taskRunBound !== undefined && actual.taskRunBound !== expected.taskRunBound) {
       throw new Error(
         `Expected ${mode} kanban trail taskRunBound=${expected.taskRunBound} at index ${index}, got ${actual.taskRunBound}`,
       );
@@ -765,8 +802,13 @@ function createScenarioRuntime(params: {
     runtimePolicy: HARNESS_RUNTIME_POLICY,
     grants: params.interactionService,
   });
+  const builtinToolMap = createScenarioBuiltinTools(params.builtinTools);
+  const executionToolExecutor =
+    builtinToolMap.size > 0
+      ? new CompositeToolExecutor(builtinToolMap, params.toolExecutor)
+      : params.toolExecutor;
   const auditedToolExecutor = new AuditingToolExecutor(
-    params.toolExecutor,
+    executionToolExecutor,
     params.repos.mcpAudit,
     params.eventBus,
     params.companyId,
@@ -774,7 +816,14 @@ function createScenarioRuntime(params: {
     authorizer,
     params.interactionService,
   );
-  return createRuntimeContext({
+  let runtimeCtx: RuntimeContext | null = null;
+  const rollingJournal = createRuntimeRollingJournal(() => {
+    if (!runtimeCtx) {
+      throw new Error('Scenario runtime context is not ready for rolling journal.');
+    }
+    return runtimeCtx;
+  });
+  runtimeCtx = createRuntimeContext({
     repos: params.repos,
     eventBus: params.eventBus,
     llmGateway: params.gateway,
@@ -795,8 +844,9 @@ function createScenarioRuntime(params: {
     ...(params.modelRegistryEntries.length > 0
       ? { modelRegistry: createScenarioModelRegistry(params.modelRegistryEntries) }
       : {}),
-    builtinTools: createScenarioBuiltinTools(params.builtinTools),
+    builtinTools: builtinToolMap,
     interactionService: params.interactionService,
+    rollingJournal,
     ...(params.skillLoader ? { skillLoader: params.skillLoader } : {}),
     ...(params.skillStagingManager ? { skillStagingManager: params.skillStagingManager } : {}),
     ...(params.skillInstallRuntime
@@ -807,6 +857,7 @@ function createScenarioRuntime(params: {
         }
       : {}),
   });
+  return runtimeCtx;
 }
 
 function createScenarioModelRegistry(
@@ -876,7 +927,7 @@ function createScenarioDeterminism(scenarioId: string): RuntimeDeterminism {
   };
 }
 
-function createScenarioBuiltinTools(tools: readonly ToolDef[]): ReadonlyMap<string, BuiltinTool> {
+function createScenarioBuiltinTools(tools: readonly ToolDef[]): Map<string, BuiltinTool> {
   return new Map(
     tools.map((def) => [
       def.name,
@@ -1130,9 +1181,21 @@ class RecordingToolExecutor implements ToolExecutor {
   constructor(
     private readonly tools: readonly ToolDef[],
     private readonly fixtures: Record<string, readonly ToolResultFixture[]>,
+    private readonly abortHarness: ScenarioAbortHarness,
   ) {}
 
   async execute(call: ToolCallRequest): Promise<ToolCallResponse> {
+    if (this.abortHarness.toolNames.has(call.name)) {
+      const reason = new DOMException(
+        `Harness cancelled tool request "${call.name}".`,
+        'AbortError',
+      );
+      this.abortHarness.controller?.abort(reason);
+      throw reason;
+    }
+    if (call.signal?.aborted) {
+      throw abortErrorFromSignal(call.signal, new DOMException('Aborted', 'AbortError'));
+    }
     this.executions.push(call);
     const callIndex = this.callCounts.get(call.name) ?? 0;
     this.callCounts.set(call.name, callIndex + 1);
@@ -1150,4 +1213,11 @@ class RecordingToolExecutor implements ToolExecutor {
   async listAvailable(_companyId: string): Promise<ToolDef[]> {
     return [...this.tools];
   }
+}
+
+function abortErrorFromSignal(signal: AbortSignal | undefined, fallback: DOMException): Error {
+  const reason = signal?.reason;
+  if (reason instanceof Error) return reason;
+  if (typeof reason === 'string') return new DOMException(reason, 'AbortError');
+  return fallback;
 }

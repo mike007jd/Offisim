@@ -19,22 +19,36 @@ export interface FakeGatewayTurn {
   readonly streamChunks?: readonly LlmStreamChunk[];
 }
 
+export interface FakeGatewayAbortHarness {
+  abortController(): AbortController | null;
+  shouldAbortTurn(turnId: string): boolean;
+}
+
 export class FakeGateway implements LlmGateway {
   private cursor = 0;
   readonly requests: LlmRequest[] = [];
 
-  constructor(private readonly turns: readonly FakeGatewayTurn[]) {}
+  constructor(
+    private readonly turns: readonly FakeGatewayTurn[],
+    private readonly abortHarness?: FakeGatewayAbortHarness,
+  ) {}
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
+    throwIfAborted(request.signal);
     this.requests.push(request);
-    return this.next(request).response;
+    const turn = this.next(request);
+    this.abortTurnIfConfigured(turn, request.signal);
+    return turn.response;
   }
 
   async *chatStream(request: LlmRequest): AsyncIterable<LlmStreamChunk> {
+    throwIfAborted(request.signal);
     this.requests.push(request);
     const turn = this.next(request);
+    this.abortTurnIfConfigured(turn, request.signal);
     if (turn.streamChunks) {
       for (const chunk of turn.streamChunks) {
+        throwIfAborted(request.signal);
         yield chunk;
       }
       return;
@@ -63,6 +77,16 @@ export class FakeGateway implements LlmGateway {
     }
     assertTurnMatch(turn, request);
     return turn;
+  }
+
+  private abortTurnIfConfigured(turn: FakeGatewayTurn, signal: AbortSignal | undefined): void {
+    if (!this.abortHarness?.shouldAbortTurn(turn.id)) return;
+    const reason = new DOMException(
+      `Harness cancelled LLM turn "${turn.id}".`,
+      'AbortError',
+    );
+    this.abortHarness.abortController()?.abort(reason);
+    throw abortErrorFromSignal(signal, reason);
   }
 }
 
@@ -104,6 +128,18 @@ function hasMatchConstraint(
       (match?.toolNames && match.toolNames.length > 0) ||
       (match?.absentToolNames && match.absentToolNames.length > 0),
   );
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  throw abortErrorFromSignal(signal, new DOMException('Aborted', 'AbortError'));
+}
+
+function abortErrorFromSignal(signal: AbortSignal | undefined, fallback: DOMException): Error {
+  const reason = signal?.reason;
+  if (reason instanceof Error) return reason;
+  if (typeof reason === 'string') return new DOMException(reason, 'AbortError');
+  return fallback;
 }
 
 export function fakeResponse(

@@ -1,7 +1,21 @@
-import type { EmployeeRuntimeBinding, EngineId, EngineProposalKind } from '@offisim/shared-types';
+import type {
+  EmployeeRuntimeBinding,
+  EngineId,
+  EngineProposalKind,
+  RuntimeEngineCapabilityProfile,
+  RuntimeEngineCapabilityTier,
+  RuntimeEngineToolModel,
+} from '@offisim/shared-types';
 import type { PendingAssignment } from '../graph/state.js';
 
-export type { EmployeeRuntimeBinding, EngineId, EngineProposalKind };
+export type {
+  EmployeeRuntimeBinding,
+  EngineId,
+  EngineProposalKind,
+  RuntimeEngineCapabilityProfile,
+  RuntimeEngineCapabilityTier,
+  RuntimeEngineToolModel,
+};
 
 export interface EngineTaskEnvelope {
   readonly companyId: string;
@@ -17,6 +31,7 @@ export interface EngineTaskEnvelope {
   readonly taskDescription: string;
   readonly requiredSkills: readonly string[];
   readonly assignment: PendingAssignment;
+  readonly runtimeProfile: RuntimeEngineCapabilityProfile;
 }
 
 export interface EngineRunContext {
@@ -54,16 +69,18 @@ export type RuntimeActivityEvent =
       readonly kind: 'tool_started';
       readonly toolCallId: string;
       readonly toolName: string;
-      readonly toolType?: 'builtin' | 'mcp' | 'workstation';
+      readonly toolType?: 'builtin' | 'mcp' | 'workstation' | 'runtime-profile';
       readonly serverName?: string;
+      readonly runtimeProfileId?: string;
       readonly timestamp?: number;
     }
   | {
       readonly kind: 'tool_completed';
       readonly toolCallId: string;
       readonly toolName: string;
-      readonly toolType?: 'builtin' | 'mcp' | 'workstation';
+      readonly toolType?: 'builtin' | 'mcp' | 'workstation' | 'runtime-profile';
       readonly serverName?: string;
+      readonly runtimeProfileId?: string;
       readonly status?: 'completed' | 'error' | 'denied';
       readonly errorType?: string;
       readonly timestamp?: number;

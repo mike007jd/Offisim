@@ -54,6 +54,86 @@ export type LlmExecutionLane =
 export const ENGINE_IDS = ['codex-engine', 'claude-engine'] as const;
 export type EngineId = (typeof ENGINE_IDS)[number];
 
+export type RuntimeEngineCapabilityTier =
+  | 'text-only'
+  | 'sandbox-native-tools'
+  | 'gateway-bridged-tools'
+  | 'full-agent-employee';
+
+export type RuntimeEngineAvailability = 'production' | 'preview' | 'blocked';
+
+export type RuntimeEngineToolModel = 'none' | 'native-sdk' | 'gateway-bridged' | 'mixed';
+
+export type RuntimeEngineVerificationStatus = 'verified' | 'partial' | 'missing' | 'blocked';
+
+export interface RuntimeEngineCapabilityProfile {
+  readonly profileId: string;
+  readonly engineId: EngineId;
+  readonly displayName: string;
+  readonly tier: RuntimeEngineCapabilityTier;
+  readonly availability: RuntimeEngineAvailability;
+  readonly trustTier: 'text-only' | 'sandboxed' | 'trusted-gateway' | 'trusted-full-agent';
+  readonly supportedTaskClasses: ReadonlyArray<string>;
+  readonly unsupportedTaskClasses: ReadonlyArray<string>;
+  readonly toolNamespace: 'none' | 'native-engine' | 'offisim-gateway' | 'mixed';
+  readonly toolModel: RuntimeEngineToolModel;
+  readonly sandbox: {
+    readonly boundary: 'none' | 'engine-sandbox' | 'offisim-gateway' | 'desktop-trusted';
+    readonly workspaceAccess: 'none' | 'read-only' | 'write';
+  };
+  readonly permissions: {
+    readonly model: 'none' | 'engine-native' | 'offisim-policy' | 'offisim-bridge';
+    readonly deniedPath: RuntimeEngineVerificationStatus;
+  };
+  readonly contextRetention: RuntimeEngineVerificationStatus;
+  readonly cancellation: RuntimeEngineVerificationStatus;
+  readonly checkpoint: RuntimeEngineVerificationStatus;
+  readonly telemetry: RuntimeEngineVerificationStatus;
+  readonly rollback: RuntimeEngineVerificationStatus;
+  readonly failureTaxonomy: RuntimeEngineVerificationStatus;
+  readonly nativeCapabilities: {
+    readonly tools: boolean;
+    readonly mcp: boolean;
+    readonly subagents: boolean;
+    readonly handoffs: boolean;
+    readonly sessionResume: boolean;
+  };
+  readonly verification: {
+    readonly status: RuntimeEngineVerificationStatus;
+    readonly evidence: ReadonlyArray<string>;
+    readonly blockers: ReadonlyArray<string>;
+  };
+}
+
+export type MainHarnessMode = 'offisim-core' | 'driver' | 'replacement';
+
+export type MainHarnessOverrideScope =
+  | 'system'
+  | 'company'
+  | 'thread'
+  | 'employee'
+  | 'task';
+
+export interface MainHarnessOverridePolicyRecord {
+  readonly overrideId: string;
+  readonly scope: MainHarnessOverrideScope;
+  readonly scopeId: string;
+  readonly actorId: string;
+  readonly reason: string;
+  readonly previousMode: MainHarnessMode;
+  readonly nextMode: MainHarnessMode;
+  readonly runtimeProfileId: string;
+  readonly verificationStatus: RuntimeEngineVerificationStatus;
+  readonly trustedRuntimeAvailable: boolean;
+  readonly timestamp: string;
+  readonly rollbackCheckpoint: string;
+}
+
+export interface MainHarnessPolicyConfig {
+  readonly defaultMode: 'offisim-core';
+  readonly overrides?: ReadonlyArray<MainHarnessOverridePolicyRecord>;
+}
+
 /**
  * Per-employee runtime binding. Provider mode keeps the Offisim-owned
  * prompt/tool-loop runtime; engine mode delegates one assigned task to a
@@ -61,7 +141,7 @@ export type EngineId = (typeof ENGINE_IDS)[number];
  */
 export type EmployeeRuntimeBinding =
   | { readonly mode: 'provider' }
-  | { readonly mode: 'engine'; readonly engineId: EngineId };
+  | { readonly mode: 'engine'; readonly engineId: EngineId; readonly profileId?: string };
 
 /** Provider-variant metadata after product resolution. */
 export interface ResolvedProviderVariant {
@@ -133,6 +213,10 @@ export interface RuntimePolicyConfig {
   readonly recording?: RuntimeRecordingPolicy;
   /** Company default for local employees; employee config overrides this. */
   readonly employeeRuntimeDefault?: EmployeeRuntimeBinding;
+  /** Capability profiles for non-default employee runtime engines. */
+  readonly runtimeEngineProfiles?: ReadonlyArray<RuntimeEngineCapabilityProfile>;
+  /** Explicit policy for non-default main harness driver/replacement modes. */
+  readonly mainHarnessPolicy?: MainHarnessPolicyConfig;
   /** Auto-commit file changes after each plan step (desktop only). */
   readonly gitAutoCommit?: boolean;
 }

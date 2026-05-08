@@ -17,6 +17,8 @@ import {
 } from './skill-install-tools.js';
 
 const logger = new Logger('employee-tool-round');
+const DUPLICATE_TOOL_CALL = 'DUPLICATE_TOOL_CALL';
+const MISSING_TOOL_RESULT = 'MISSING_TOOL_RESULT';
 
 export interface HandoffArgs {
   readonly targetEmployeeId: string;
@@ -62,16 +64,32 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
     ctx;
   const { employee, taskRunId } = preflight;
   const { toolExecutor, workstationToolResolver, memoryService, companyId, threadId } = runtimeCtx;
+  runtimeCtx.conversationState.recordPendingToolCalls(llmResponse.toolCalls);
+  throwIfAborted(signal);
 
   const handoffCall = llmResponse.toolCalls.find((tc) => tc.name === 'handoff_to');
   if (handoffCall) {
     return { kind: 'handoff', args: handoffCall.arguments as unknown as HandoffArgs };
   }
 
+  const executedToolCallIds = new Set<string>();
   const settled = await runToolCallsInBatches({
     calls: llmResponse.toolCalls,
     isConcurrencySafe: isConcurrencySafeToolCall,
     execute: async (toolCall) => {
+      if (executedToolCallIds.has(toolCall.id)) {
+        return {
+          callId: toolCall.id,
+          name: toolCall.name,
+          result: {
+            success: false,
+            result: null,
+            error: `[${DUPLICATE_TOOL_CALL}] Duplicate tool call id skipped to avoid repeating side effects.`,
+          },
+        };
+      }
+      executedToolCallIds.add(toolCall.id);
+
       if (
         memoryService &&
         MEMORY_TOOL_NAMES.includes(toolCall.name as (typeof MEMORY_TOOL_NAMES)[number])
@@ -142,10 +160,24 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
     },
   });
 
+  throwIfAborted(signal);
+
   // Unwrap settled results — failed tools get an error string (not a crash).
   const toolResults = settled.map((s, i) => {
-    if (s.status === 'fulfilled') return s.value;
     const tc = llmResponse.toolCalls[i];
+    if (!s) {
+      const toolCallId = tc?.id ?? generateId('tool');
+      return {
+        callId: toolCallId,
+        name: tc?.name ?? 'unknown_tool',
+        result: {
+          success: false,
+          result: null,
+          error: `[${MISSING_TOOL_RESULT}] Tool round ended without a result for ${toolCallId}.`,
+        },
+      };
+    }
+    if (s.status === 'fulfilled') return s.value;
     if (!tc) {
       const errMsg = s.reason instanceof Error ? s.reason.message : String(s.reason);
       logger.warn('Tool call failed without matching tool call metadata', { error: errMsg });
@@ -166,6 +198,23 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
     success: toolResultSucceeded(result.result),
     bytes: toolResultBytes(result.result),
   }));
+  runtimeCtx.conversationState.recordToolResults(
+    toolResults.map((result) => ({
+      toolCallId: result.callId,
+      toolName: result.name,
+      success: toolResultSucceeded(result.result),
+      bytes: toolResultBytes(result.result),
+    })),
+  );
+  for (const result of toolResults) {
+    const denialReason = permissionDenialReason(result.result);
+    if (denialReason) {
+      runtimeCtx.conversationState.recordPermissionDenial({
+        toolName: result.name,
+        reason: denialReason,
+      });
+    }
+  }
   if (typedReply) {
     return { kind: 'typed_reply', content: typedReply, recentToolResults };
   }
@@ -211,6 +260,14 @@ function isConcurrencySafeToolCall(toolCall: ToolCallResult): boolean {
 
 const textEncoder = new TextEncoder();
 
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  const reason = signal.reason;
+  if (reason instanceof Error) throw reason;
+  if (typeof reason === 'string') throw new DOMException(reason, 'AbortError');
+  throw new DOMException('Tool round aborted', 'AbortError');
+}
+
 function toolResultText(result: unknown): string {
   if (typeof result === 'string') return result;
   return JSON.stringify(result) ?? String(result);
@@ -243,6 +300,13 @@ function toolResultTextIndicatesFailure(result: string): boolean {
   return !!exitCodeMatch && Number(exitCodeMatch[1]) !== 0;
 }
 
+function permissionDenialReason(result: unknown): string | null {
+  const text = toolResultText(result);
+  if (text.includes(WORKSTATION_ACCESS_DENIED)) return WORKSTATION_ACCESS_DENIED;
+  if (/\b(permission|access)\s+denied\b/iu.test(text)) return 'permission-denied';
+  return null;
+}
+
 function typedReplyFromToolResults(
   toolResults: readonly { name: string; result: unknown }[],
 ): string | null {
@@ -250,9 +314,6 @@ function typedReplyFromToolResults(
     const parsed = parseStructuredToolResult(toolResult.result);
     if (isSkillInstallTool(toolResult.name) && parsed?.status === 'pending-confirm') {
       return 'Waiting for your input to continue.';
-    }
-    if (isSkillInstallTool(toolResult.name) && parsed?.kind) {
-      return toolResultText(toolResult.result);
     }
     if (toolResult.name === 'sync_from_claude_code' && parsed?.kind === 'desktop-only-tool') {
       return 'This skill source requires the desktop app.';
@@ -262,6 +323,9 @@ function typedReplyFromToolResults(
       parsed?.kind === 'target-employee-mismatch'
     ) {
       return 'Skill author must match the active chat employee.';
+    }
+    if (isSkillInstallTool(toolResult.name) && parsed?.kind) {
+      return toolResultText(toolResult.result);
     }
   }
   return null;

@@ -2,6 +2,7 @@ import type { ToolDef } from '../llm/gateway.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { Logger } from '../services/logger.js';
 import type { BuiltinTool, BuiltinToolExecutionContext } from './builtin/types.js';
+import type { RuntimeToolType } from './tool-registry.js';
 
 const logger = new Logger('composite-tool');
 
@@ -62,5 +63,13 @@ export class CompositeToolExecutor implements ToolExecutor {
     return typeof resolver === 'function'
       ? (resolver as (name: string) => string | undefined).call(this.mcpExecutor, toolName)
       : undefined;
+  }
+
+  getToolTypeForTool(toolName: string): RuntimeToolType | undefined {
+    if (this.builtinTools.has(toolName)) return 'builtin';
+    const resolver = (this.mcpExecutor as unknown as Record<string, unknown>).getToolTypeForTool;
+    return typeof resolver === 'function'
+      ? (resolver as (name: string) => RuntimeToolType | undefined).call(this.mcpExecutor, toolName)
+      : 'mcp';
   }
 }

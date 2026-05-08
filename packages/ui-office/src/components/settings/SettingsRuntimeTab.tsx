@@ -1,4 +1,5 @@
 import type { RuntimeExecutionMode } from '@offisim/shared-types';
+import { listMainHarnessRuntimeStatus } from '@offisim/core/browser';
 import {
   Input,
   SegmentedControl,
@@ -104,6 +105,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
     memoryEnabled,
     memoryInjectionEnabled,
     memoryMaxFacts,
+    mainHarnessPolicy,
     resolvedTheme,
     setDensity,
     setEmployeeRuntimeDefault,
@@ -124,6 +126,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
     toolSearchEnabled,
     theme,
   } = controller;
+  const mainHarnessStatuses = listMainHarnessRuntimeStatus(mainHarnessPolicy);
 
   return (
     <div className="space-y-4">
@@ -196,6 +199,41 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
             />
           </div>
         </div>
+      </SettingsSection>
+
+      <SettingsSection title="Main harness control">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-md border border-border-default bg-surface px-3 py-3">
+            <div className="text-xs font-medium text-text-secondary">Default owner</div>
+            <div className="mt-1 text-sm font-semibold text-text-primary">Offisim core</div>
+          </div>
+          <div className="rounded-md border border-border-default bg-surface px-3 py-3">
+            <div className="text-xs font-medium text-text-secondary">Driver profiles</div>
+            <div className="mt-1 text-sm font-semibold text-text-primary">
+              {mainHarnessStatuses.filter((status) => status.mode === 'driver' && status.selectable)
+                .length || 'None verified'}
+            </div>
+          </div>
+          <div className="rounded-md border border-warning/30 bg-warning-muted px-3 py-3">
+            <div className="text-xs font-medium text-warning">Replacement mode</div>
+            <div className="mt-1 text-sm font-semibold text-warning">Blocked</div>
+          </div>
+        </div>
+        {mainHarnessStatuses.length > 0 ? (
+          <div className="mt-3 grid gap-2">
+            {mainHarnessStatuses.map((status) => (
+              <div
+                key={`${status.mode}:${status.runtimeProfileId}`}
+                className="flex items-center justify-between rounded-md border border-border-default px-3 py-2 text-xs"
+              >
+                <span className="font-medium text-text-primary">{status.runtimeProfileId}</span>
+                <span className={status.selectable ? 'text-success' : 'text-warning'}>
+                  {status.selectable ? 'Verified' : 'Blocked'}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </SettingsSection>
 
       <SettingsSection title="Conversation memory & summarization">

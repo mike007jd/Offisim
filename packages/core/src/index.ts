@@ -160,6 +160,19 @@ export { createRuntimeContext, disposeRuntime } from './runtime/runtime-context.
 export { resolveActiveContextSnapshot } from './runtime/active-context-snapshot.js';
 export type { ActiveContextSnapshot } from './runtime/active-context-snapshot.js';
 export { ResumeCoordinator } from './runtime/resume-coordinator.js';
+export { RunConversationState } from './runtime/run-conversation-state.js';
+export type {
+  RunActiveContextSnapshot,
+  RunBudgetSnapshot,
+  RunCancellationSnapshot,
+  RunCheckpointIdentity,
+  RunConversationStateSnapshot,
+  RunDiscoveredToolRecord,
+  RunDiscoveredToolSnapshot,
+  RunPermissionDenialRecord,
+  RunRetrySnapshot,
+  RunToolResultRecord,
+} from './runtime/run-conversation-state.js';
 export { HookRegistry } from './runtime/hook-registry.js';
 export { Scratchpad } from './runtime/scratchpad.js';
 export { createCheckpointSaver, createMemoryCheckpointSaver } from './graph/checkpoint-saver.js';
@@ -231,6 +244,28 @@ export type {
 } from './runtime/completion-verifier.js';
 
 // --- Runtime Engines ---
+export {
+  DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES,
+  defaultRuntimeEngineProfileId,
+  evaluateRuntimeEngineTaskFit,
+  profileToolTelemetryType,
+  resolveRuntimeEngineCapabilityProfile,
+} from './engine/capability-profiles.js';
+export type {
+  RuntimeEngineProfileResolution,
+  RuntimeEngineTaskFit,
+} from './engine/capability-profiles.js';
+export {
+  createAgentDriverProposal,
+  listMainHarnessRuntimeStatus,
+  resolveMainHarnessMode,
+} from './harness/main-harness-policy.js';
+export type {
+  AgentDriverProposal,
+  MainHarnessModeResolution,
+  MainHarnessResolutionInput,
+  MainHarnessRuntimeStatus,
+} from './harness/main-harness-policy.js';
 export {
   resolveEmployeeRuntimeBinding,
   resolveRuntimeBindingFromInput,
@@ -384,6 +419,10 @@ export type {
   McpConnection,
   McpClientFactory,
   McpToolDef,
+  McpResourceDef,
+  McpPromptDef,
+  McpServerCapabilities,
+  McpOperationOptions,
   ToolApprovalMode,
   ToolPermissionPolicy,
 } from './mcp/types.js';
@@ -450,6 +489,12 @@ export type {
   FsAdapter,
 } from './tools/builtin/index.js';
 export { CompositeToolExecutor } from './tools/composite-tool-executor.js';
+export type {
+  RegisteredTool,
+  RuntimeToolSource,
+  RuntimeToolType,
+  ToolRegistrySurface,
+} from './tools/tool-registry.js';
 
 // --- Skills (two-tier: company-global + employee-specific) ---
 export {

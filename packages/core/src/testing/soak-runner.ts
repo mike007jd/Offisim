@@ -62,6 +62,8 @@ export interface SoakScenarioMetrics {
   readonly finalNonSystemTokens: number;
   readonly microCompactPasses: number;
   readonly rollingJournalWrites: number;
+  readonly anchorRetained: number;
+  readonly evidenceRetained: number;
   readonly completionVerifierAllows: number;
   readonly completionVerifierBlocks: number;
 }
@@ -287,6 +289,13 @@ async function runYoloSoakScenario(scenario: YoloSoakScenario): Promise<Scenario
   const completion = verifyCompletion({
     recentToolResults: [{ toolName: 'pnpm-test', success: true, bytes: 2048 }],
   });
+  const retainedAnchor =
+    journal.anchorText()?.includes('Refactor a multi-file counter component') ?? false;
+  const latestToolTurn =
+    Math.floor(fixture.turns / fixture.toolResultEveryNTurns) * fixture.toolResultEveryNTurns;
+  const retainedEvidence = messages.some((message) =>
+    message.content.includes(`tool-result-${latestToolTurn}`),
+  );
   const finalNonSystemTokens = estimateTokens(
     messages
       .filter((message) => message.role !== 'system')
@@ -298,6 +307,8 @@ async function runYoloSoakScenario(scenario: YoloSoakScenario): Promise<Scenario
     finalNonSystemTokens,
     microCompactPasses,
     rollingJournalWrites: journalWrites.length,
+    anchorRetained: retainedAnchor ? 1 : 0,
+    evidenceRetained: retainedEvidence ? 1 : 0,
     completionVerifierAllows: completion.ok ? 1 : 0,
     completionVerifierBlocks: completion.ok ? 0 : 1,
   };
@@ -334,6 +345,18 @@ async function runYoloSoakScenario(scenario: YoloSoakScenario): Promise<Scenario
         journalWrites.length >= fixture.minRollingJournalWrites
           ? undefined
           : `Expected >= ${fixture.minRollingJournalWrites}, got ${journalWrites.length}`,
+    },
+    {
+      kind: 'soak.anchor_retained',
+      passed: retainedAnchor,
+      message: retainedAnchor ? undefined : `Anchor was not retained: ${journal.anchorText()}`,
+    },
+    {
+      kind: 'soak.evidence_retained',
+      passed: retainedEvidence,
+      message: retainedEvidence
+        ? undefined
+        : `Expected latest tool evidence marker tool-result-${latestToolTurn}`,
     },
     {
       kind: 'soak.completion_verifier_allowed',
@@ -445,6 +468,8 @@ function extractSoakMetrics(report: ScenarioTraceReport): SoakScenarioMetrics | 
   if (typeof record.finalNonSystemTokens !== 'number') return null;
   if (typeof record.microCompactPasses !== 'number') return null;
   if (typeof record.rollingJournalWrites !== 'number') return null;
+  if (typeof record.anchorRetained !== 'number') return null;
+  if (typeof record.evidenceRetained !== 'number') return null;
   if (typeof record.completionVerifierAllows !== 'number') return null;
   if (typeof record.completionVerifierBlocks !== 'number') return null;
   return {
@@ -452,6 +477,8 @@ function extractSoakMetrics(report: ScenarioTraceReport): SoakScenarioMetrics | 
     finalNonSystemTokens: record.finalNonSystemTokens,
     microCompactPasses: record.microCompactPasses,
     rollingJournalWrites: record.rollingJournalWrites,
+    anchorRetained: record.anchorRetained,
+    evidenceRetained: record.evidenceRetained,
     completionVerifierAllows: record.completionVerifierAllows,
     completionVerifierBlocks: record.completionVerifierBlocks,
   };

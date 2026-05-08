@@ -165,7 +165,14 @@ export function interactionRestoredLabel(kind: InteractionKind): string {
 
 export function telemetryLabel(payload: ToolExecutionTelemetryPayload): string {
   const base = payload.serverName ? `${payload.serverName}/${payload.toolName}` : payload.toolName;
-  return truncate(base.replaceAll('_', ' '), 42);
+  const normalized = base.replaceAll('_', ' ');
+  if (payload.toolType === 'runtime-profile') {
+    return truncate(`native engine/${normalized}`, 42);
+  }
+  if (payload.toolType === 'builtin' || payload.toolType === 'mcp' || payload.toolType === 'workstation') {
+    return truncate(`Offisim gateway/${normalized}`, 42);
+  }
+  return truncate(normalized, 42);
 }
 
 export function formatStalenessReason(payload: WorkspaceStalenessDetectedPayload): string {

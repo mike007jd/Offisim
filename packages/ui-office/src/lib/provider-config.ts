@@ -3,12 +3,14 @@ import type {
   EngineId,
   LlmExecutionLane,
   LlmProvider,
+  MainHarnessPolicyConfig,
   ModelPolicyConfig,
   ModelProfile,
   ProviderAuthStrategy,
   ProviderProductAccessMode,
   ProviderProductId,
   RuntimeExecutionMode,
+  RuntimeEngineCapabilityProfile,
   RuntimeMemoryPolicy,
   RuntimePolicyConfig,
   RuntimeSummarizationPolicy,
@@ -340,12 +342,46 @@ function normalizeEmployeeRuntimeBinding(candidate: unknown): EmployeeRuntimeBin
     return { mode: 'provider' };
   }
   if (candidate.mode === 'engine' && ENGINE_IDS.has(candidate.engineId as EngineId)) {
+    const profileId =
+      typeof candidate.profileId === 'string' && candidate.profileId.trim()
+        ? candidate.profileId.trim()
+        : undefined;
     return {
       mode: 'engine',
       engineId: candidate.engineId as EngineId,
+      ...(profileId ? { profileId } : {}),
     };
   }
   return undefined;
+}
+
+function normalizeRuntimeEngineProfiles(
+  candidate: unknown,
+): RuntimeEngineCapabilityProfile[] | undefined {
+  if (!Array.isArray(candidate)) return undefined;
+  const profiles = candidate.flatMap((profile) => {
+    if (!isRecord(profile)) return [];
+    if (
+      typeof profile.profileId !== 'string' ||
+      !profile.profileId.trim() ||
+      !ENGINE_IDS.has(profile.engineId as EngineId)
+    ) {
+      return [];
+    }
+    return [profile as unknown as RuntimeEngineCapabilityProfile];
+  });
+  return profiles.length > 0 ? profiles : undefined;
+}
+
+function normalizeMainHarnessPolicy(candidate: unknown): MainHarnessPolicyConfig | undefined {
+  if (!isRecord(candidate)) return undefined;
+  const overrides = Array.isArray(candidate.overrides) ? candidate.overrides.filter(isRecord) : [];
+  return {
+    defaultMode: 'offisim-core',
+    ...(overrides.length > 0
+      ? { overrides: overrides as unknown as MainHarnessPolicyConfig['overrides'] }
+      : {}),
+  };
 }
 
 function normalizeEndpointOverride(value: unknown): string | undefined {
@@ -405,6 +441,8 @@ export function normalizeRuntimePolicy(
 ): RuntimePolicyConfig {
   const candidate = isRecord(policy) ? policy : {};
   const employeeRuntimeDefault = normalizeEmployeeRuntimeBinding(candidate.employeeRuntimeDefault);
+  const runtimeEngineProfiles = normalizeRuntimeEngineProfiles(candidate.runtimeEngineProfiles);
+  const mainHarnessPolicy = normalizeMainHarnessPolicy(candidate.mainHarnessPolicy);
   return {
     executionMode: normalizeExecutionMode(candidate.executionMode),
     modelPolicy: normalizeModelPolicy(candidate.modelPolicy, provider, model),
@@ -413,6 +451,8 @@ export function normalizeRuntimePolicy(
     toolSearch: normalizeToolSearch(candidate.toolSearch),
     toolPermissions: normalizeToolPermissions(candidate.toolPermissions),
     ...(employeeRuntimeDefault ? { employeeRuntimeDefault } : {}),
+    ...(runtimeEngineProfiles ? { runtimeEngineProfiles } : {}),
+    ...(mainHarnessPolicy ? { mainHarnessPolicy } : {}),
     ...(typeof candidate.gitAutoCommit === 'boolean'
       ? { gitAutoCommit: candidate.gitAutoCommit }
       : {}),

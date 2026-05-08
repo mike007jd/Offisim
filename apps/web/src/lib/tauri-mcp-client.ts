@@ -1,6 +1,9 @@
 import type {
   McpClientFactory,
   McpConnection,
+  McpOperationOptions,
+  McpPromptDef,
+  McpResourceDef,
   McpServerConfig,
   McpToolDef,
 } from '@offisim/core/browser';
@@ -73,7 +76,24 @@ export class TauriMcpClientFactory implements McpClientFactory {
     return {
       config,
       tools,
-      async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+      capabilities: { tools: true, resources: false, prompts: false, listChanged: false },
+      async listTools(): Promise<ReadonlyArray<McpToolDef>> {
+        return tools;
+      },
+      async listResources(): Promise<ReadonlyArray<McpResourceDef>> {
+        return [];
+      },
+      async listPrompts(): Promise<ReadonlyArray<McpPromptDef>> {
+        return [];
+      },
+      async callTool(
+        name: string,
+        args: Record<string, unknown>,
+        options?: McpOperationOptions,
+      ): Promise<unknown> {
+        if (options?.signal?.aborted) {
+          throw new DOMException('MCP tool call aborted before desktop IPC.', 'AbortError');
+        }
         return invoke('mcp_call_tool', {
           request: {
             server: config.name,

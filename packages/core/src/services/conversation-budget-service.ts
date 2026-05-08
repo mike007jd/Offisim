@@ -25,7 +25,11 @@ export class ConversationBudgetService {
     let compactBaseline: CompactBaselineState | null = parseCompactBaseline(
       thread?.compact_baseline_json ?? null,
     );
-    const compactedMessages = microCompactMessages(request.messages).messages;
+    const compactedMessages = microCompactMessages(request.messages, {
+      maxToolResultBytes: options.microMaxToolResultBytes,
+      snippetBytes: options.microSnippetBytes,
+      preserveLastN: options.microPreserveLastN,
+    }).messages;
     const systemMessages = compactedMessages.filter((message) => message.role === 'system');
     const rawNonSystemMessages = compactedMessages.filter((message) => message.role !== 'system');
     let nonSystemMessages = compactBaseline
@@ -48,7 +52,11 @@ export class ConversationBudgetService {
         ...request,
         messages: pruneLlmMessages(
           buildRequestMessages(systemMessages, compactBaseline, nonSystemMessages),
-          { maxNonSystemMessages: effectiveTailNonSystemMessages },
+          {
+            maxNonSystemMessages: effectiveTailNonSystemMessages,
+            toolResultKeepRecent: options.toolResultKeepRecent,
+            toolResultMaxContentChars: options.toolResultMaxContentChars,
+          },
         ),
       };
     }
@@ -138,7 +146,11 @@ export class ConversationBudgetService {
       ...request,
       messages: pruneLlmMessages(
         buildRequestMessages(systemMessages, compactBaseline, nonSystemMessages, synopsisMessage),
-        { maxNonSystemMessages: effectiveTailNonSystemMessages },
+        {
+          maxNonSystemMessages: effectiveTailNonSystemMessages,
+          toolResultKeepRecent: options.toolResultKeepRecent,
+          toolResultMaxContentChars: options.toolResultMaxContentChars,
+        },
       ),
     };
   }

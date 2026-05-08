@@ -1,0 +1,60 @@
+{
+  "id": "cancellation-model-turn-cancels-task-run",
+  "category": "default-harness",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": { "companyId": "company-cancel-model", "name": "Cancel Model Co" },
+    "thread": { "threadId": "thread-cancel-model", "status": "running" },
+    "employees": [{ "id": "emp-cancel-model", "name": "Cancel Analyst", "role": "analyst" }],
+    "taskRuns": [
+      {
+        "id": "task-cancel-model",
+        "employeeId": "emp-cancel-model",
+        "taskType": "analysis",
+        "input": {
+          "description": "Analyze the cancellation propagation path."
+        }
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "analysis",
+        "employeeId": "emp-cancel-model",
+        "assigneeKind": "employee",
+        "assigneeName": "Cancel Analyst",
+        "taskRunId": "task-cancel-model",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Analyze the cancellation propagation path.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-cancel-model-turn",
+      "match": { "contains": "Analyze the cancellation propagation path." },
+      "content": "This response must not complete after cancellation."
+    }
+  ],
+  "runs": [{ "startAt": "employee", "abortOnLlmTurnIds": ["employee-cancel-model-turn"] }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-cancel-model", "status": "cancelled" },
+    { "kind": "taskStateEvent", "taskRunId": "task-cancel-model", "next": "cancelled" },
+    {
+      "kind": "conversationStateContains",
+      "cancellationRequested": true,
+      "cancellationReasonIncludes": "Harness cancelled LLM turn",
+      "activeTaskRunId": "task-cancel-model",
+      "checkpointTaskRunId": "task-cancel-model"
+    },
+    { "kind": "toolExecutions", "count": 0 },
+    { "kind": "finalOutputNotContains", "contains": "This response must not complete" }
+  ]
+}

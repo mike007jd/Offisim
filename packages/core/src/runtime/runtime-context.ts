@@ -21,6 +21,8 @@ import type { AttachmentStoreBridge } from './attachment-store-bridge.js';
 import { HookRegistry } from './hook-registry.js';
 import type { RuntimeRepositories } from './repositories.js';
 import type { ResumeCoordinator } from './resume-coordinator.js';
+import { RunConversationState } from './run-conversation-state.js';
+import type { RunConversationState as RunConversationStateType } from './run-conversation-state.js';
 import { Scratchpad } from './scratchpad.js';
 import type { SessionCostTracker } from './session-cost-tracker.js';
 import type { ToolExecutor } from './tool-executor.js';
@@ -80,8 +82,8 @@ export interface RuntimeContext {
   readonly toolTelemetryService?: ToolTelemetryService;
   /**
    * Whether the active LLM transport can execute Offisim tool calls for this
-   * runtime. SDK sidecars are text/reasoning-only until they provide a real
-   * tool bridge; exposing tool schemas there creates false evidence.
+   * runtime. Provider SDK sidecars are text/reasoning-only; tool-capable
+   * employee profiles need separate bridge evidence before schemas are exposed.
    */
   readonly llmToolCallsEnabled?: boolean;
   /** Desktop-trusted built-in file/shell tools exposed outside workstation MCP scoping. */
@@ -98,6 +100,8 @@ export interface RuntimeContext {
   readonly resumeCoordinator?: ResumeCoordinator;
   /** Optional lifecycle hook registry for graph/task/interaction instrumentation. */
   readonly hookRegistry: HookRegistry;
+  /** Run-scoped conversation state for default harness turns. */
+  readonly conversationState: RunConversationStateType;
   /** Shared in-memory scratchpad for cross-node planning notes. */
   readonly scratchpad: Scratchpad;
   /** Progressive-disclosure skill loader; optional until skill foundation is wired. */
@@ -170,6 +174,7 @@ export function createRuntimeContext(deps: {
   rollingJournal?: RollingJournal;
   resumeCoordinator?: ResumeCoordinator;
   hookRegistry?: HookRegistry;
+  conversationState?: RunConversationStateType;
   scratchpad?: Scratchpad;
   skillLoader?: SkillLoader;
   skillStagingManager?: SkillStagingManager;
@@ -177,13 +182,21 @@ export function createRuntimeContext(deps: {
   attachmentStoreBridge?: AttachmentStoreBridge;
   determinism?: RuntimeDeterminism;
 }): RuntimeContext {
-  const { meetingInterruptBox, interactionBox, hookRegistry, scratchpad, determinism, ...rest } =
-    deps;
+  const {
+    meetingInterruptBox,
+    interactionBox,
+    hookRegistry,
+    conversationState,
+    scratchpad,
+    determinism,
+    ...rest
+  } = deps;
   return Object.freeze({
     ...rest,
     meetingInterruptBox: meetingInterruptBox ?? { pending: null },
     interactionBox: interactionBox ?? { pending: null },
     hookRegistry: hookRegistry ?? new HookRegistry(),
+    conversationState: conversationState ?? new RunConversationState(),
     scratchpad: scratchpad ?? new Scratchpad(),
     determinism: determinism ?? defaultDeterminism,
   });

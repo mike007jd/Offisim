@@ -185,6 +185,10 @@ export type {
   McpConnection,
   McpClientFactory,
   McpToolDef,
+  McpResourceDef,
+  McpPromptDef,
+  McpServerCapabilities,
+  McpOperationOptions,
   ToolApprovalMode,
   ToolPermissionPolicy,
 } from './mcp/types.js';
@@ -247,6 +251,28 @@ export {
   chatThreadUpdated,
 } from './events/event-factories.js';
 
+export {
+  DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES,
+  defaultRuntimeEngineProfileId,
+  evaluateRuntimeEngineTaskFit,
+  profileToolTelemetryType,
+  resolveRuntimeEngineCapabilityProfile,
+} from './engine/capability-profiles.js';
+export type {
+  RuntimeEngineProfileResolution,
+  RuntimeEngineTaskFit,
+} from './engine/capability-profiles.js';
+export {
+  createAgentDriverProposal,
+  listMainHarnessRuntimeStatus,
+  resolveMainHarnessMode,
+} from './harness/main-harness-policy.js';
+export type {
+  AgentDriverProposal,
+  MainHarnessModeResolution,
+  MainHarnessResolutionInput,
+  MainHarnessRuntimeStatus,
+} from './harness/main-harness-policy.js';
 export {
   resolveEmployeeRuntimeBinding,
   resolveRuntimeBindingFromInput,
@@ -334,6 +360,25 @@ export { WORKSTATION_ACCESS_DENIED } from './runtime/tool-executor.js';
 export { TOOL_PERMISSION_DENIED, TOOL_PERMISSION_REQUIRED } from './runtime/tool-executor.js';
 export { ToolPermissionEngine } from './permissions/tool-permission-engine.js';
 export { HookRegistry } from './runtime/hook-registry.js';
+export { RunConversationState } from './runtime/run-conversation-state.js';
+export type {
+  RunActiveContextSnapshot,
+  RunBudgetSnapshot,
+  RunCancellationSnapshot,
+  RunCheckpointIdentity,
+  RunConversationStateSnapshot,
+  RunDiscoveredToolRecord,
+  RunDiscoveredToolSnapshot,
+  RunPermissionDenialRecord,
+  RunRetrySnapshot,
+  RunToolResultRecord,
+} from './runtime/run-conversation-state.js';
+export type {
+  RegisteredTool,
+  RuntimeToolSource,
+  RuntimeToolType,
+  ToolRegistrySurface,
+} from './tools/tool-registry.js';
 export { Scratchpad } from './runtime/scratchpad.js';
 
 // --- A2A Protocol (HTTP JSON-RPC — cross-agent communication) ---

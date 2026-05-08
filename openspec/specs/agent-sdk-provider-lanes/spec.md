@@ -15,7 +15,7 @@ The selected lane SHALL be evaluated together with runtime execution mode. `brow
 
 - **WHEN** a saved provider config selects `executionLane = "claude-agent-sdk"` and runtime execution mode resolves to `browser-limited`
 - **THEN** runtime init rejects the config before chat execution starts
-- **AND** the user is guided to switch back to `gateway` or move to a trusted runtime
+- **AND** the user is guided to the default Offisim harness / gateway path, or to a trusted runtime with a verified tool-capable employee profile
 
 #### Scenario: Trusted runtime accepts verified lane
 
@@ -87,4 +87,4 @@ Harness coverage SHALL prove this per adapter: Claude Agent SDK and OpenAI Agent
 
 - **WHEN** the Codex desktop host bridge builds its developer instructions
 - **THEN** the instructions state that SDK lanes are text/reasoning-only
-- **AND** they tell the model to switch to `gateway` for Offisim tools rather than executing local file, shell, memory, todo, skill, MCP, or builtin tools
+- **AND** they tell the model to use the default Offisim harness / gateway tools or a verified tool-capable employee profile rather than executing local file, shell, memory, todo, skill, MCP, or builtin tools through the provider SDK lane

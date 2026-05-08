@@ -53,8 +53,8 @@
 
 - Global model profile is the default source of truth.
 - Employee override only applies when the employee explicitly opts out of inheritance.
-- Gateway lane must own local file/project/Desktop operations.
-- SDK lanes remain text/reasoning only.
+- Current verified local file/project/Desktop operations use the default Offisim harness / gateway path.
+- SDK provider lanes remain text/reasoning only; future tool-capable employee profiles need separate release evidence.
 
 ### Test Coverage
 

@@ -209,7 +209,7 @@ function assertCodexHostTextOnlyInstructions() {
   const required = [
     'text/reasoning-only',
     'Do not execute Offisim file, shell, memory, todo, skill, MCP, or builtin tools.',
-    'Gateway lane is required for Offisim tools',
+    'default Offisim harness/gateway tools or a verified tool-capable employee profile',
   ];
   for (const phrase of required) {
     if (!source.includes(phrase)) {

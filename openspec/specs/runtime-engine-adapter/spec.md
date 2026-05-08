@@ -61,7 +61,7 @@ If a trusted sidecar host later emits legal tool lifecycle events, those events 
 #### Scenario: SDK tool parity is not faked
 - **WHEN** no legal SDK lane tool path exists
 - **THEN** replay and live verification do not fabricate gateway-vs-SDK tool parity
-- **AND** local file or shell tasks continue to route through the gateway lane
+- **AND** local file or shell tasks continue to route through the current verified default harness / gateway path unless a separate tool-capable employee profile has release evidence
 
 #### Scenario: Artifact completion
 - **WHEN** an engine returns an artifact
@@ -140,17 +140,18 @@ While engine adapters surface only partial runtime activity (text, reasoning, ru
 
 ### Requirement: SDK lanes SHALL be text/reasoning-only
 
-SDK execution lanes SHALL NOT receive Offisim builtin tools.
+SDK provider execution lanes SHALL NOT receive Offisim builtin tools.
 This covers `claude-agent-sdk`, `codex-agent-sdk`, and
 `openai-agents-sdk`, including file / shell / memory / todo / skill /
-MCP tools. Per CLAUDE.md "1.0 交付口径", these lanes are
-text/reasoning-only — Offisim tool surfaces ship through the `gateway`
-lane only. SDK lane adapters that receive a tool request from the
-model SHALL fail closed (return an error result, not silently route to
-a side channel). When the user request itself is classified as requiring
-local Offisim tools, SDK lanes SHALL fail fast before any model call
-with a typed, chat-visible outcome instructing the user to switch back
-to Gateway.
+MCP tools. These lanes are text/reasoning-only provider leaf lanes, not
+employee agent profiles. Tool-capable work uses the default Offisim
+harness / gateway path today, or a separately verified tool-capable
+employee profile once such a profile has release evidence. SDK provider
+lane adapters that receive a tool request from the model SHALL fail
+closed (return an error result, not silently route to a side channel).
+When the user request itself is classified as requiring local Offisim
+tools, SDK provider lanes SHALL fail fast before any model call with a
+typed, chat-visible outcome explaining the required runtime switch.
 
 #### Scenario: claude-agent-sdk lane has no builtin tools in its kit
 

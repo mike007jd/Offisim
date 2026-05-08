@@ -3,6 +3,13 @@ import type { ToolDef } from '../llm/gateway.js';
 import { canonicalJson } from '../utils/canonical-json.js';
 import { globToRegex } from '../utils/glob-match.js';
 import { sha256Text } from '../utils/hash.js';
+import {
+  type RegisteredTool,
+  type RuntimeToolType,
+  resolveRuntimeToolSource,
+  runtimeToolRegistryRecord,
+  virtualToolRegistryRecord,
+} from './tool-registry.js';
 
 export interface DroppedTool {
   readonly name: string;
@@ -16,12 +23,14 @@ export interface ToolPoolBuildInput {
   readonly mcpTools: readonly ToolDef[];
   readonly runtimePolicy?: RuntimePolicyConfig;
   readonly serverForTool?: (toolName: string) => string | undefined;
+  readonly toolTypeForTool?: (toolName: string) => RuntimeToolType | undefined;
 }
 
 export interface ToolPoolBuildResult {
   readonly virtualTools: ToolDef[];
   readonly mcpTools: ToolDef[];
   readonly llmTools: ToolDef[];
+  readonly toolRegistry: RegisteredTool[];
   readonly deniedTools: DroppedTool[];
   readonly toolsHash: string;
 }
@@ -43,8 +52,20 @@ export async function buildToolPool(input: ToolPoolBuildInput): Promise<ToolPool
     new Set(virtualTools.map((tool) => tool.name)),
   );
   const llmTools = [...virtualTools, ...mcpTools];
+  const toolRegistry = [
+    ...virtualTools.map(virtualToolRegistryRecord),
+    ...mcpTools.map((tool) =>
+      runtimeToolRegistryRecord(
+        tool,
+        resolveRuntimeToolSource(tool.name, {
+          serverForTool: input.serverForTool,
+          toolTypeForTool: input.toolTypeForTool,
+        }),
+      ),
+    ),
+  ];
   const toolsHash = await sha256Text(canonicalJson(llmTools));
-  return { virtualTools, mcpTools, llmTools, deniedTools, toolsHash };
+  return { virtualTools, mcpTools, llmTools, toolRegistry, deniedTools, toolsHash };
 }
 
 function stableDedupe(
