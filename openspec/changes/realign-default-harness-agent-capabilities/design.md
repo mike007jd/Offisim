@@ -26,6 +26,14 @@ When Offisim exposes a tool-capable employee agent, driver, or replacement route
 
 Runtime architecture changes must include a stale-doc sweep and, when memory has misleading old entries, an additive correction note. We do not rewrite historical memory or archived changes, but we must leave an explicit newer truth source that future agents can prefer.
 
+### Decision 5: Mainstream harness parity is a hard floor
+
+The default harness cannot be judged only against old Offisim behavior. It must be measured against the mainstream agent-harness capability floor visible in Claude Code-style runtimes, Claude Agent SDK, OpenAI Agents, MCP, and the two reference source trees: multi-turn agent loop, stateful tools, MCP lifecycle, sessions/resume/fork, context compaction, permissions/hooks/guardrails, subagents/handoffs, tracing, cancellation, sandboxing, checkpoint/rollback, and release evidence.
+
+### Decision 6: Full-power SDK runtime is a separate production route
+
+Plain provider SDK lanes stay text/reasoning-only. Separately, Offisim should support a verified SDK-native employee runtime that keeps the SDK's own agent loop and tools alive. "Full-power SDK" means Offisim hosts and audits the runtime without stripping it down to `maxTurns=1`, final-text-only output, or provider-lane behavior. It is allowed only as an employee runtime/control-plane profile with explicit permissions, sandbox, evidence, and rollback.
+
 ## Rollout
 
 1. Create the corrected OpenSpec change and validate it strictly.
@@ -33,10 +41,12 @@ Runtime architecture changes must include a stale-doc sweep and, when memory has
 3. Update durable docs and user-visible messages that over-broaden Gateway-only language.
 4. Add a memory correction note under the allowed ad hoc memory-extension path.
 5. Run structural validation and relevant type/harness checks.
-6. Commit on `main`, push to `origin/main`, and verify the remote branch advanced.
+6. Add the second-audit parity/full-power SDK gates and leave implementation tasks open until the production route is actually verified.
+7. Commit on `main`, push to `origin/main`, and verify the remote branch advanced.
 
 ## Risks
 
 - Existing code has a large uncommitted implementation set from the previous change. This change must avoid accidentally reverting it; only incorrect architecture wording and specs should be corrected.
 - User-facing copy changes touch high-impact runtime paths. The intended behavior remains fail-closed for provider SDK lanes; only the guidance wording changes.
 - Archived OpenSpec history can still be found by search. The archive must mark the old change as superseded and point to the new change.
+- Full-power SDK runtime expands the security surface. The mitigation is not to keep it weak, but to require sandbox, permission mapping, telemetry normalization, checkpoint/rollback, and release evidence before advertising it.

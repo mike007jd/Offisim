@@ -35,3 +35,21 @@ Provider lane selection, employee binding, SDK availability, and external peer d
 - **WHEN** a replacement runtime lacks current rollback or checkpoint-handoff evidence
 - **THEN** Offisim refuses to select it as production replacement
 - **AND** the default `offisim-core` harness remains active
+
+### Requirement: Control plane SHALL support full-power SDK routes without arbitrary takeover
+
+The harness control plane SHALL support full-power SDK-native employee, driver, and replacement routes as production targets. Support SHALL preserve the selected SDK runtime's real agent loop, tool model, MCP integration, sessions, handoffs/subagents, guardrails/hooks, tracing, and cancellation semantics while keeping Offisim's policy, audit, checkpoint, and rollback ownership.
+
+Full-power SDK availability SHALL NOT allow automatic takeover. A route becomes selectable only through explicit profile selection or explicit main-harness policy.
+
+#### Scenario: Full-power employee route keeps native SDK capabilities
+
+- **WHEN** an employee is configured with a verified Claude, Codex, or OpenAI full-power SDK runtime
+- **THEN** the runtime may use its declared native tools, MCP servers, sessions, handoffs/subagents, hooks/guardrails, streaming, interrupt/cancel, and budget controls
+- **AND** Offisim records normalized activity, permission decisions, checkpoint identity, failure taxonomy, and final evidence
+
+#### Scenario: SDK availability does not promote itself
+
+- **WHEN** the desktop detects a working Claude/Codex/OpenAI SDK with native tool support
+- **THEN** the main harness remains `offisim-core` unless explicit policy selects driver or replacement
+- **AND** no provider lane, employee profile, or peer discovery silently changes the owner

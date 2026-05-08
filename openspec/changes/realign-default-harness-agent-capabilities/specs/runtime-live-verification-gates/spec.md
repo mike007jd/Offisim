@@ -17,3 +17,19 @@ Provider SDK lane text/reasoning evidence SHALL NOT satisfy this gate.
 - **WHEN** release verification records a successful tool-capable task
 - **THEN** the evidence names whether the owner was default `offisim-core`, a gateway-bridged employee profile, a native employee agent profile, a driver, or a replacement runtime
 - **AND** archive is blocked if the evidence cannot distinguish those owners
+
+### Requirement: Full-power SDK release verification SHALL prove native capability preservation
+
+Release verification for a SDK-native full-power profile SHALL prove that native SDK capabilities are preserved end to end. Evidence SHALL include the SDK runtime options/profile, available native tools or hosted tools, MCP server status, permission/guardrail decisions, session identity, resume/fork identity, cancellation result, checkpoint/rollback artifact, usage/cost, and normalized Offisim activity events.
+
+#### Scenario: SDK full-power live evidence is complete
+
+- **WHEN** a release `.app` verifies a SDK-native full-power employee profile
+- **THEN** the evidence includes success, denied path, cancellation, resume/fork, MCP lifecycle, native tool telemetry, guardrail/hook behavior, budget/max-turn exhaustion, and rollback
+- **AND** the evidence proves the runtime was not reduced to provider-lane text-only behavior
+
+#### Scenario: Main harness parity and SDK full-power are both required
+
+- **WHEN** a release candidate advertises both a stronger default harness and SDK-native full-power employees
+- **THEN** release evidence includes a comparable benchmark for both routes
+- **AND** neither route can be advertised from the other route's evidence alone

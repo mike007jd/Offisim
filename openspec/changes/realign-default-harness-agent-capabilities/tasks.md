@@ -29,3 +29,22 @@
   - PASS 2026-05-09: committed as `9951e19a feat: realign harness agent capabilities`.
 - [x] 4.5 Push `main` to `origin/main` and verify the remote advanced.
   - PASS 2026-05-09: pushed `main` to `origin/main`; remote advanced from `a43f9ccd` to `eeb710b2`.
+
+## 5. Second Audit: Mainstream Harness Parity And SDK Full-Power Runtime
+
+- [x] 5.1 Re-audit the active OpenSpec against current mainstream harness capabilities from Claude Agent SDK, OpenAI Agents, MCP, ClaudeSource, and ClaudeRust.
+  - PASS 2026-05-09: found two gaps in the prior spec wording: the default harness lacked an explicit mainstream parity floor, and SDK full-power runtime was allowed only indirectly as a future employee profile instead of being specified as a first-class production route.
+- [x] 5.2 Add a mainstream parity floor for the default `offisim-core` harness.
+- [x] 5.3 Add a first-class SDK-native full-power employee runtime capability.
+- [x] 5.4 Add release gates proving SDK-native full-power routes preserve native tools, MCP, sessions, hooks/guardrails, handoffs/subagents, streaming, cancellation, budget, sandbox, telemetry, and checkpoint behavior.
+- [x] 5.5 Validate the updated OpenSpec after the second audit.
+  - PASS 2026-05-09: `openspec validate realign-default-harness-agent-capabilities --strict --json` returned valid=true with 0 issues.
+
+## 6. Implementation Work Opened By The Second Audit
+
+- [ ] 6.1 Implement and verify the default harness parity matrix across multi-turn loop, tool recovery, MCP lifecycle, context survival, permissions/hooks/guardrails, subagents/handoffs, tracing, cancellation, sandbox, checkpoint/rollback, and release evidence.
+- [ ] 6.2 Implement SDK-native full-power employee profiles for Claude, Codex, and OpenAI as runtime engine profiles, not provider lanes.
+- [ ] 6.3 Preserve SDK-native agent loop semantics: no forced `maxTurns=1`, no final-text-only collapse, no hidden native tool/MCP/session/guardrail events.
+- [ ] 6.4 Normalize SDK-native telemetry into Offisim activity and evidence with distinct `sdk-native`, `gateway-bridged`, and `offisim-gateway` evidence classes.
+- [ ] 6.5 Add deterministic/backend/release gates for SDK-native success, denied path, cancellation, resume/fork, checkpoint rollback, MCP status/calls/failures, hooks/guardrails, handoffs/subagents, budget exhaustion, sandbox denial, usage/cost, and completion evidence.
+- [ ] 6.6 Add cross-route benchmark comparing default `offisim-core` and SDK-native full-power routes on the same production workflows.

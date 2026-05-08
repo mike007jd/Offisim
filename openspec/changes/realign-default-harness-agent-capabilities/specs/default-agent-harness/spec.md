@@ -35,3 +35,38 @@ Tool-capable work MAY use the default Offisim gateway harness or a verified tool
 - **WHEN** an employee agent profile later passes full-agent or gateway-bridged release gates
 - **THEN** existing docs and runtime messages do not contradict that product route
 - **AND** they still preserve provider SDK lane fail-closed behavior
+
+### Requirement: Default harness SHALL meet the mainstream agent-harness parity floor
+
+The default `offisim-core` harness SHALL be evaluated against a mainstream agent-harness parity floor before release. The floor SHALL include at minimum:
+
+- multi-turn agent loop with bounded continuation, partial-state recovery, and max-turn exhaustion handling
+- persistent run state, session resume, session fork, checkpoint identity, and rollback
+- streaming text/reasoning/tool activity with no fake completion
+- unified tool registry for builtin, MCP, gateway, workstation, and future runtime-profile tools
+- tool input/output validation, permission callbacks, pre/post tool hooks, and guardrail outcomes
+- MCP lifecycle including initialize, capability negotiation, tools, resources, prompts, roots, sampling, elicitation, logging, progress/task cancellation, list-changed notifications, and shutdown
+- context budget, compaction, prompt-too-long recovery, anchor retention, and context usage reporting
+- subagent/handoff proposal semantics that do not mutate global plan state without Offisim approval
+- cancellation/interrupt propagation across model turn, tool call, MCP request, task-run state, and UI
+- sandbox and filesystem boundary enforcement for local work
+- tracing, telemetry, cost/usage, failure taxonomy, and replayable audit evidence
+- release `.app` evidence for default ownership, successful tool work, denied path, cancellation, resume/checkpoint, and rollback where applicable
+
+#### Scenario: Parity floor has no silent gaps
+
+- **WHEN** a release candidate claims the default harness is production-grade
+- **THEN** each parity-floor capability has an Offisim module, deterministic/backend/live gate, and evidence status
+- **AND** any missing capability is recorded as a release blocker or explicitly scoped out of the claim
+
+#### Scenario: Mainstream feature is absorbed rather than name-dropped
+
+- **WHEN** Claude Agent SDK, OpenAI Agents, MCP, ClaudeSource, or ClaudeRust expose a capability such as hooks, guardrails, subagents, session fork, hosted MCP, or partial-state error recovery
+- **THEN** Offisim does not claim parity until the same product outcome is implemented or intentionally superseded by an Offisim-owned equivalent
+- **AND** the evidence identifies why the Offisim equivalent is not weaker for the target workflow
+
+#### Scenario: Main harness is not weaker than SDK route for local productivity
+
+- **WHEN** a task can be executed by both `offisim-core` and a verified SDK-native employee runtime
+- **THEN** the harness benchmark compares task completion, tool validity, context retention, cancellation, cost/latency, and evidence quality
+- **AND** release sign-off blocks if `offisim-core` is materially weaker without an explicit product reason
