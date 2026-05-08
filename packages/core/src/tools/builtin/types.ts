@@ -6,6 +6,7 @@ import type { AttachmentStoreBridge } from '../../runtime/attachment-store-bridg
 export interface ShellExecOptions {
   cwd?: string;
   threadId?: string;
+  employeeId?: string;
   timeoutMs?: number;
   maxOutputBytes?: number;
 }
@@ -33,6 +34,7 @@ export interface BuiltinTool {
 export interface BuiltinToolExecutionContext {
   readonly companyId?: string;
   readonly threadId?: string;
+  readonly employeeId?: string;
   readonly runScope?: RunScope | null;
 }
 

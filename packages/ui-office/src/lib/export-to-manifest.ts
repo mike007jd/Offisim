@@ -15,13 +15,14 @@ export interface PublishMeta {
   readonly networkScope?: 'none' | 'limited' | 'unrestricted';
   readonly creatorHandle?: string;
   readonly creatorDisplayName?: string;
-  readonly artifactUrl?: string;
 }
 
 export interface PackageExportBundle {
   readonly fileName: string;
   readonly manifest: PackageManifest;
   readonly archiveBytes: Uint8Array;
+  readonly artifactSha256: string;
+  readonly artifactSizeBytes: number;
 }
 
 type ExportedFiles = Record<string, Uint8Array>;
@@ -85,13 +86,14 @@ function buildBaseManifest(
       summary: meta.summary.trim(),
       license: meta.license.trim() || 'UNLICENSED',
       tags: meta.tags,
-      publisher:
-        meta.creatorHandle || meta.creatorDisplayName
-          ? {
+      ...(meta.creatorHandle || meta.creatorDisplayName
+        ? {
+            publisher: {
               ...(meta.creatorHandle ? { creator_handle: meta.creatorHandle } : {}),
               ...(meta.creatorDisplayName ? { display_name: meta.creatorDisplayName } : {}),
-            }
-          : undefined,
+            },
+          }
+        : {}),
     },
     compatibility: {
       runtime_range: '>=1.0 <2.0',
@@ -109,12 +111,9 @@ function buildBaseManifest(
       network_scope: meta.networkScope ?? 'none',
     },
     assets,
-    distribution: meta.artifactUrl
-      ? {
-          source_url: meta.artifactUrl,
-          mirror_policy: 'external_only',
-        }
-      : undefined,
+    distribution: {
+      mirror_policy: 'registry_only',
+    },
     integrity: {
       package_sha256: '0'.repeat(64),
       files: integrityFiles,
@@ -123,6 +122,24 @@ function buildBaseManifest(
       readme_path: 'README.md',
     },
     custom,
+  };
+}
+
+async function finalizeRegistryBundle(
+  fileName: string,
+  manifest: PackageManifest,
+  files: ExportedFiles,
+): Promise<PackageExportBundle> {
+  const archiveBytes = zipSync({
+    ...files,
+    'manifest.json': encodeJson(manifest),
+  });
+  return {
+    fileName,
+    manifest,
+    archiveBytes,
+    artifactSha256: await sha256Hex(archiveBytes),
+    artifactSizeBytes: archiveBytes.byteLength,
   };
 }
 
@@ -194,14 +211,7 @@ export async function buildSkillPackage(
     },
     integrityFiles,
   );
-  return {
-    fileName: `${slug}-${manifest.package.version}.offisimpkg`,
-    manifest,
-    archiveBytes: zipSync({
-      ...files,
-      'manifest.json': encodeJson(manifest),
-    }),
-  };
+  return finalizeRegistryBundle(`${slug}-${manifest.package.version}.offisimpkg`, manifest, files);
 }
 
 export async function buildEmployeePackage(
@@ -226,12 +236,5 @@ export async function buildEmployeePackage(
     { marketplace_export_kind: 'employee', employee_role_slug: employee.role_slug },
     integrityFiles,
   );
-  return {
-    fileName: `${slug}-${manifest.package.version}.offisimpkg`,
-    manifest,
-    archiveBytes: zipSync({
-      ...files,
-      'manifest.json': encodeJson(manifest),
-    }),
-  };
+  return finalizeRegistryBundle(`${slug}-${manifest.package.version}.offisimpkg`, manifest, files);
 }

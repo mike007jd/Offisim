@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS install_transactions (
   source_ref TEXT,
   target_package_id TEXT,
   target_version TEXT,
+  idempotency_key TEXT,
   state TEXT NOT NULL CHECK (
     state IN (
       'created',
@@ -87,6 +88,10 @@ CREATE TABLE IF NOT EXISTS install_transactions (
   started_at TEXT NOT NULL,
   finished_at TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS install_transactions_company_idempotency
+  ON install_transactions(company_id, idempotency_key)
+  WHERE idempotency_key IS NOT NULL
+    AND state NOT IN ('failed', 'rolled_back', 'cancelled');
 CREATE TABLE IF NOT EXISTS installed_packages (
   installed_package_id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,

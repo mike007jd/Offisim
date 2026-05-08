@@ -47,8 +47,9 @@ function normalizeInvokeError(err: unknown): Error {
 export class TauriClaudeAgentSdkGateway implements LlmGateway {
   constructor(
     private readonly options: {
-      baseURL?: string;
+      providerProfileId?: string;
       cwd?: string;
+      resolveProjectId?: () => Promise<string | null | undefined>;
       credentialMode?: 'api-key' | 'local-auth';
     } = {},
   ) {}
@@ -114,12 +115,21 @@ export class TauriClaudeAgentSdkGateway implements LlmGateway {
       signal.addEventListener('abort', onAbort, { once: true });
     }
 
+    const resolvedProjectId =
+      request.executionContext?.projectId ?? (await this.options.resolveProjectId?.());
+
     void invoke('claude_agent_execute', {
       req: {
         requestId,
         request: serializeRequest(request),
-        ...(this.options.baseURL ? { baseURL: this.options.baseURL } : {}),
+        ...(this.options.providerProfileId
+          ? { providerProfileId: this.options.providerProfileId }
+          : {}),
         ...(this.options.cwd ? { cwd: this.options.cwd } : {}),
+        ...(resolvedProjectId ? { projectId: resolvedProjectId } : {}),
+        ...(request.executionContext?.employeeId
+          ? { employeeId: request.executionContext.employeeId }
+          : {}),
         ...(this.options.credentialMode ? { credentialMode: this.options.credentialMode } : {}),
       },
       onEvent: channel,

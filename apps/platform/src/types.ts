@@ -57,6 +57,8 @@ export interface PlatformEnv {
     requestId: string;
     userId?: string;
     userEmail?: string;
+    authKind?: 'session' | 'api-token';
+    apiTokenScopes?: string[];
     authLinkConflict?: boolean;
     creatorId?: string;
     resumeCoordinator?: PlatformResumeCoordinator;

@@ -58,6 +58,7 @@ export class TauriCodexAgentSdkGateway implements LlmGateway {
   constructor(
     private readonly options: {
       cwd?: string;
+      resolveProjectId?: () => Promise<string | null | undefined>;
     } = {},
   ) {}
 
@@ -120,11 +121,18 @@ export class TauriCodexAgentSdkGateway implements LlmGateway {
       signal.addEventListener('abort', onAbort, { once: true });
     }
 
+    const resolvedProjectId =
+      request.executionContext?.projectId ?? (await this.options.resolveProjectId?.());
+
     void invoke('codex_agent_execute', {
       req: {
         requestId,
         request: serializeRequest(request),
         ...(this.options.cwd ? { cwd: this.options.cwd } : {}),
+        ...(resolvedProjectId ? { projectId: resolvedProjectId } : {}),
+        ...(request.executionContext?.employeeId
+          ? { employeeId: request.executionContext.employeeId }
+          : {}),
       },
       onEvent: channel,
     }).catch((err: unknown) => {

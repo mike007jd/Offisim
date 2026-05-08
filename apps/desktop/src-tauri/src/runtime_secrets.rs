@@ -14,7 +14,7 @@
 //! the industry baseline for BYO-key desktop apps.
 
 use once_cell::sync::OnceCell;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -25,6 +25,8 @@ use tauri::Manager;
 static STORAGE_DIR: OnceCell<PathBuf> = OnceCell::new();
 static LOCAL_ENV: OnceCell<HashMap<String, String>> = OnceCell::new();
 const SECRET_FILE_NAME: &str = "runtime_secret.txt";
+const PROVIDER_PROFILES_FILE_NAME: &str = "runtime_provider_profiles.json";
+const PROVIDER_PROFILE_AUDIT_FILE_NAME: &str = "runtime_provider_profile_audit.jsonl";
 const NO_STORED_SECRET_MESSAGE: &str = "No provider credential stored on this device.";
 const NO_CLAUDE_LOCAL_AUTH_MESSAGE: &str =
     "No verified Claude local-auth source was found under CLAUDE_CONFIG_DIR or ~/.claude.";
@@ -173,15 +175,161 @@ pub(crate) fn read_provider_secret(secret_ref: Option<&str>) -> Result<Option<St
     Ok(env_or_local(env_name))
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeProviderProfile {
+    pub(crate) id: String,
+    display_name: String,
+    pub(crate) provider: String,
+    model: String,
+    pub(crate) base_url: String,
+    pub(crate) secret_ref: String,
+    pub(crate) auth_scheme: String,
+    pub(crate) allowed_host: String,
+    pub(crate) local_endpoint: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeProviderProfileUpsertRequest {
     id: String,
     display_name: String,
     provider: String,
     model: String,
     base_url: String,
-    secret_ref: String,
+    #[serde(default)]
+    secret_ref: Option<String>,
+    #[serde(default)]
+    local_endpoint: Option<bool>,
+}
+
+fn provider_profiles_path() -> Result<PathBuf, String> {
+    STORAGE_DIR
+        .get()
+        .map(|d| d.join(PROVIDER_PROFILES_FILE_NAME))
+        .ok_or_else(|| "runtime_secrets storage not initialised".to_string())
+}
+
+fn provider_profile_audit_path() -> Result<PathBuf, String> {
+    STORAGE_DIR
+        .get()
+        .map(|d| d.join(PROVIDER_PROFILE_AUDIT_FILE_NAME))
+        .ok_or_else(|| "runtime_secrets storage not initialised".to_string())
+}
+
+fn host_from_base_url(base_url: &str) -> Result<String, String> {
+    let parsed =
+        url::Url::parse(base_url).map_err(|err| format!("invalid provider baseURL: {err}"))?;
+    parsed
+        .host_str()
+        .map(|host| host.to_ascii_lowercase())
+        .ok_or_else(|| "provider baseURL must include a host".to_string())
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    matches!(host, "localhost" | "127.0.0.1" | "::1" | "[::1]")
+}
+
+fn is_local_endpoint_url(base_url: &str) -> bool {
+    url::Url::parse(base_url)
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(|host| host.to_ascii_lowercase()))
+        .map(|host| is_loopback_host(&host))
+        .unwrap_or(false)
+}
+
+fn auth_scheme_for(provider: &str, base_url: &str) -> String {
+    if provider == "anthropic" {
+        if let Ok(parsed) = url::Url::parse(base_url) {
+            if parsed
+                .host_str()
+                .map(|host| host.ends_with("api.anthropic.com"))
+                .unwrap_or(false)
+            {
+                return "x-api-key".into();
+            }
+        }
+    }
+    "bearer".into()
+}
+
+fn normalize_profile(
+    mut profile: RuntimeProviderProfile,
+) -> Result<RuntimeProviderProfile, String> {
+    let base_url = profile.base_url.trim().trim_end_matches('/').to_string();
+    if base_url.is_empty() {
+        return Err("provider baseURL cannot be empty".into());
+    }
+    let allowed_host = host_from_base_url(&base_url)?;
+    let parsed =
+        url::Url::parse(&base_url).map_err(|err| format!("invalid provider baseURL: {err}"))?;
+    let local_endpoint = profile.local_endpoint || is_local_endpoint_url(&base_url);
+    if parsed.scheme() != "https" && !(local_endpoint && parsed.scheme() == "http") {
+        return Err(
+            "provider baseURL must use https unless explicitly marked as a local endpoint".into(),
+        );
+    }
+    if local_endpoint && !is_loopback_host(&allowed_host) {
+        return Err("local provider profiles must use localhost or loopback host".into());
+    }
+    profile.base_url = base_url;
+    profile.allowed_host = allowed_host;
+    profile.local_endpoint = local_endpoint;
+    profile.auth_scheme = auth_scheme_for(&profile.provider, &profile.base_url);
+    Ok(profile)
+}
+
+fn read_stored_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String> {
+    let path = provider_profiles_path()?;
+    match fs::read_to_string(&path) {
+        Ok(raw) => {
+            let profiles: Vec<RuntimeProviderProfile> = serde_json::from_str(&raw)
+                .map_err(|err| format!("parse provider profiles: {err}"))?;
+            profiles.into_iter().map(normalize_profile).collect()
+        }
+        Err(err) if err.kind() == ErrorKind::NotFound => Ok(Vec::new()),
+        Err(err) => Err(format!("read provider profiles: {err}")),
+    }
+}
+
+fn write_stored_provider_profiles(profiles: &[RuntimeProviderProfile]) -> Result<(), String> {
+    let path = provider_profiles_path()?;
+    let tmp = path.with_extension("json.tmp");
+    let raw = serde_json::to_string_pretty(profiles)
+        .map_err(|err| format!("serialize profiles: {err}"))?;
+    fs::write(&tmp, raw).map_err(|err| format!("write provider profiles tmp: {err}"))?;
+    fs::rename(&tmp, &path).map_err(|err| format!("replace provider profiles: {err}"))
+}
+
+fn append_provider_profile_audit(
+    profile: &RuntimeProviderProfile,
+    action: &str,
+) -> Result<(), String> {
+    let path = provider_profile_audit_path()?;
+    let event = serde_json::json!({
+        "action": action,
+        "profileId": profile.id,
+        "provider": profile.provider,
+        "scheme": url::Url::parse(&profile.base_url).ok().map(|url| url.scheme().to_string()),
+        "host": profile.allowed_host,
+        "pathPrefix": url::Url::parse(&profile.base_url).ok().map(|url| url.path().to_string()),
+        "localEndpoint": profile.local_endpoint,
+        "createdAt": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis())
+            .unwrap_or(0),
+    });
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|err| format!("open provider profile audit: {err}"))?;
+    writeln!(
+        file,
+        "{}",
+        serde_json::to_string(&event).map_err(|err| format!("serialize profile audit: {err}"))?
+    )
+    .map_err(|err| format!("write provider profile audit: {err}"))
 }
 
 fn profile_from_env(
@@ -195,19 +343,23 @@ fn profile_from_env(
     let model = env_or_local(model_env)?;
     let base_url = env_or_local(base_url_env)?;
     let _secret = env_or_local(secret_env)?;
-    Some(RuntimeProviderProfile {
+    normalize_profile(RuntimeProviderProfile {
         id: id.into(),
         display_name: display_name.into(),
         provider: provider.into(),
         model,
         base_url,
         secret_ref: id.into(),
+        auth_scheme: String::new(),
+        allowed_host: String::new(),
+        local_endpoint: false,
     })
+    .ok()
 }
 
 #[tauri::command]
 pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String> {
-    Ok([
+    let mut profiles: Vec<RuntimeProviderProfile> = [
         profile_from_env(
             "minimax",
             "MiniMax",
@@ -235,7 +387,68 @@ pub fn runtime_provider_profiles() -> Result<Vec<RuntimeProviderProfile>, String
     ]
     .into_iter()
     .flatten()
-    .collect())
+    .collect();
+
+    for stored in read_stored_provider_profiles()? {
+        if let Some(existing) = profiles.iter_mut().find(|profile| profile.id == stored.id) {
+            *existing = stored;
+        } else {
+            profiles.push(stored);
+        }
+    }
+    Ok(profiles)
+}
+
+pub(crate) fn resolve_runtime_provider_profile(
+    profile_id: &str,
+) -> Result<RuntimeProviderProfile, String> {
+    runtime_provider_profiles()?
+        .into_iter()
+        .find(|profile| profile.id == profile_id)
+        .ok_or_else(|| format!("provider profile not found: {profile_id}"))
+}
+
+#[tauri::command]
+pub fn runtime_provider_profile_upsert(
+    req: RuntimeProviderProfileUpsertRequest,
+) -> Result<RuntimeProviderProfile, String> {
+    let id = req.id.trim();
+    if id.is_empty() {
+        return Err("provider profile id cannot be empty".into());
+    }
+    let provider = req.provider.trim();
+    if !matches!(provider, "openai" | "anthropic" | "openai-compat") {
+        return Err("provider profile provider is unsupported".into());
+    }
+    let profile = normalize_profile(RuntimeProviderProfile {
+        id: id.to_string(),
+        display_name: req.display_name.trim().to_string(),
+        provider: provider.to_string(),
+        model: req.model.trim().to_string(),
+        base_url: req.base_url.trim().to_string(),
+        secret_ref: req.secret_ref.unwrap_or_else(|| id.to_string()),
+        auth_scheme: String::new(),
+        allowed_host: String::new(),
+        local_endpoint: req.local_endpoint.unwrap_or(false),
+    })?;
+    if profile.display_name.is_empty() || profile.model.is_empty() {
+        return Err("provider profile displayName and model are required".into());
+    }
+
+    let mut profiles = read_stored_provider_profiles()?;
+    let action = if let Some(existing) = profiles
+        .iter_mut()
+        .find(|existing| existing.id == profile.id)
+    {
+        *existing = profile.clone();
+        "updated"
+    } else {
+        profiles.push(profile.clone());
+        "created"
+    };
+    write_stored_provider_profiles(&profiles)?;
+    append_provider_profile_audit(&profile, action)?;
+    Ok(profile)
 }
 
 #[tauri::command]

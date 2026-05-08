@@ -1,6 +1,6 @@
 # Offisim Verified Provider Lane Matrix
 
-Last updated: 2026-05-02
+Last updated: 2026-05-08
 
 This file is the durable evidence log for product-taxonomy lane exposure.
 Curated provider facts such as endpoints and models come from
@@ -75,3 +75,10 @@ permission to route local workspace tool work through SDK lanes. The
 `openai-agents-sdk` lane has runtime + Tauri transport support, but products
 remain gateway-only until native OpenAI and any third-party compat provider
 accumulate real smoke/load/edge evidence here.
+
+As of 2026-05-08, desktop credential transport is provider-profile scoped in
+Tauri mode. The webview may request a provider profile id and endpoint kind, but
+Rust owns canonical base URL resolution, credential host binding, auth scheme,
+HTTPS/local-endpoint policy, cross-host redirect blocking, and credential-shaped
+response-header filtering. Provider lane evidence must therefore name both the
+product lane and the credential destination class verified in the release app.

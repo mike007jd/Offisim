@@ -43,7 +43,11 @@ import { isNoCredentialError } from '../../lib/tauri-llm-fetch';
 import { getChatRuntimeOutcomeFollowUp } from '../interaction-follow-up';
 import type { FailedRunState, LastFailedMessage } from '../last-failed-message';
 
-type DesktopMcpServerConfig = McpServerConfig & { registeredServerId?: string };
+type DesktopMcpServerConfig = McpServerConfig & {
+  registeredServerId?: string;
+  approvalId?: string;
+  commandFingerprint?: string;
+};
 
 function isInteractionRequiredError(message: string): boolean {
   return (
@@ -449,6 +453,8 @@ export function useRuntimeInit({
             name: cfg.name,
             transport: cfg.transport,
             registeredServerId: cfg.serverId,
+            approvalId: cfg.approvalId,
+            commandFingerprint: cfg.commandFingerprint,
             url: cfg.url,
           };
           executor

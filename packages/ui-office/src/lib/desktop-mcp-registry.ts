@@ -7,6 +7,15 @@ export interface DesktopMcpServerRecord {
   command?: string;
   args: string[];
   url?: string;
+  source?: string;
+  sourcePackageId?: string;
+  sourcePackageVersion?: string;
+  sourceManifestHash?: string;
+  approvalId?: string;
+  riskClass?: string;
+  commandFingerprint?: string;
+  requestedTools?: string[];
+  requestSurface?: string;
 }
 
 export interface RegisterDesktopMcpServerInput {
@@ -15,6 +24,14 @@ export interface RegisterDesktopMcpServerInput {
   command?: string;
   args?: string[];
   url?: string;
+  source?: 'user-config' | 'installed-asset' | 'developer-runtime';
+  sourcePackageId?: string;
+  sourcePackageVersion?: string;
+  sourceManifestHash?: string;
+  approvalId?: string;
+  riskClass?: string;
+  requestedTools?: string[];
+  requestSurface?: 'settings' | 'installed-asset-runtime' | 'developer-runtime';
 }
 
 export interface BrowserMcpServerRecord {
@@ -46,18 +63,18 @@ async function invokeDesktop<T>(command: string, args?: Record<string, unknown>)
 
 export async function listDesktopMcpServers(): Promise<DesktopMcpServerRecord[]> {
   if (!isTauri()) return [];
-  return invokeDesktop<DesktopMcpServerRecord[]>('plugin:mcp_bridge|mcp_list_registered_servers');
+  return invokeDesktop<DesktopMcpServerRecord[]>('mcp_list_registered_servers');
 }
 
 export async function registerDesktopMcpServer(
   input: RegisterDesktopMcpServerInput,
 ): Promise<DesktopMcpServerRecord> {
-  return invokeDesktop<DesktopMcpServerRecord>('plugin:mcp_bridge|mcp_register_server', { input });
+  return invokeDesktop<DesktopMcpServerRecord>('mcp_register_server', { input });
 }
 
 export async function unregisterDesktopMcpServer(serverId: string): Promise<void> {
   if (!isTauri()) return;
-  await invokeDesktop('plugin:mcp_bridge|mcp_unregister_server', { serverId });
+  await invokeDesktop('mcp_unregister_server', { serverId });
 }
 
 export function loadStoredBrowserMcpServers(

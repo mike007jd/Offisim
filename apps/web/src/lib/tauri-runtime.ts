@@ -79,10 +79,10 @@ import { TauriAttachmentStore } from './tauri-attachment-store';
 import { TauriCheckpointSaver } from './tauri-checkpoint';
 import { TauriClaudeAgentSdkGateway } from './tauri-claude-agent-sdk';
 import { TauriCodexAgentSdkGateway } from './tauri-codex-agent-sdk';
-import { createTauriDrizzleDb } from './tauri-drizzle';
+import { createTauriDrizzleDb, withTauriSqlTransaction } from './tauri-drizzle';
 import { createTauriEngineAdapterRegistry } from './tauri-engine-adapters';
 import { TauriFileSnapshotAdapter } from './tauri-file-snapshot-adapter';
-import { type AuthScheme, createTauriLlmFetch } from './tauri-llm-fetch';
+import { createTauriLlmFetch } from './tauri-llm-fetch';
 import { TauriMcpClientFactory } from './tauri-mcp-client';
 import { createTauriRepositories } from './tauri-repos';
 import {
@@ -93,31 +93,7 @@ import {
 } from './tauri-skill-install-adapters';
 import { tryActivateTauriVault } from './vault-tauri-activation';
 
-// ---------------------------------------------------------------------------
-// Credential-isolated transport: every Tauri LLM gateway gets a Rust-backed
-// fetch. The auth scheme is decided once per gateway construction from the
-// provider kind + baseURL; it does not change per-request within a gateway's
-// lifetime (see openspec/specs/desktop-llm-credential-isolation/spec.md).
-// ---------------------------------------------------------------------------
-
-function authSchemeFor(provider: ResolvedProviderConfig['provider'], baseURL?: string): AuthScheme {
-  if (provider === 'anthropic') {
-    // Official api.anthropic.com uses the legacy `x-api-key` header. Every
-    // third-party Anthropic-compatible endpoint (MiniMax et al.) expects a
-    // standard Bearer token instead, matching what the adapter's old
-    // buildBrowserCompatHeaders shim emitted.
-    if (!baseURL) return 'x-api-key';
-    try {
-      const host = new URL(baseURL).host;
-      return host.endsWith('api.anthropic.com') ? 'x-api-key' : 'bearer';
-    } catch {
-      return 'bearer';
-    }
-  }
-  // OpenAI and every OpenAI-compatible endpoint (Kimi / OpenRouter / Gemini
-  // compat / Zai / MiniMax openai-compat / LM Studio / etc.) use Bearer.
-  return 'bearer';
-}
+const ACTIVE_PROVIDER_PROFILE_ID = 'active-provider';
 
 interface TauriProviderProfile {
   readonly id: string;
@@ -164,9 +140,7 @@ class TauriProviderModelRegistry {
       apiKey: 'ignored',
       baseURL: profile.baseUrl,
       dangerouslyAllowBrowser: true,
-      fetch: createTauriLlmFetch(authSchemeFor(profile.provider, profile.baseUrl), {
-        secretRef: profile.secretRef,
-      }),
+      fetch: createTauriLlmFetch(profile.id, { providerLabel: profile.displayName }),
     });
     this.gateways.set(modelId, gateway);
     if (modelId !== profile.model) this.gateways.set(profile.model, gateway);
@@ -215,6 +189,38 @@ async function createTauriProviderModelRegistry(): Promise<ModelRegistry | undef
   return new TauriProviderModelRegistry(valid) as unknown as ModelRegistry;
 }
 
+function canonicalProviderBaseUrl(resolved: ResolvedProviderConfig): string {
+  if (resolved.transport.baseURL?.trim()) return resolved.transport.baseURL.trim();
+  if (resolved.provider === 'anthropic') return 'https://api.anthropic.com';
+  if (resolved.provider === 'openai') return 'https://api.openai.com/v1';
+  throw new Error('OpenAI-compatible providers require a canonical base URL.');
+}
+
+async function upsertActiveProviderProfile(
+  resolved: ResolvedProviderConfig,
+): Promise<{ id: string; baseUrl: string }> {
+  const baseUrl = canonicalProviderBaseUrl(resolved);
+  const parsed = new URL(baseUrl);
+  const localEndpoint =
+    parsed.protocol === 'http:' &&
+    ['localhost', '127.0.0.1', '[::1]', '::1'].includes(parsed.hostname);
+  const { invoke } = (await import('@tauri-apps/api/core')) as {
+    invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  };
+  await invoke('runtime_provider_profile_upsert', {
+    req: {
+      id: ACTIVE_PROVIDER_PROFILE_ID,
+      displayName: resolved.product.displayName,
+      provider: resolved.provider,
+      model: resolved.model,
+      baseUrl,
+      secretRef: ACTIVE_PROVIDER_PROFILE_ID,
+      localEndpoint,
+    },
+  });
+  return { id: ACTIVE_PROVIDER_PROFILE_ID, baseUrl };
+}
+
 const PERSISTED_RUNTIME_EVENT_PREFIXES = ['boss.', 'workspace-binding.'] as const;
 
 const persistedRuntimeEventBuses = new WeakSet<EventBus>();
@@ -260,6 +266,8 @@ function persistSelectedRuntimeEvents(repos: RuntimeRepositories, eventBus: Even
 function createTauriExecutionAdapter(
   config: ProviderConfig,
   resolved: ResolvedProviderConfig,
+  providerProfile: { id: string; baseUrl: string },
+  options: { resolveProjectId?: () => Promise<string | null | undefined> } = {},
 ): LlmGateway {
   switch (resolved.executionLane) {
     case 'gateway':
@@ -269,10 +277,12 @@ function createTauriExecutionAdapter(
         // Rust storage and is injected by the Rust-side bridge. The HTTP SDK
         // clients still demand a non-empty string, so we pass a sentinel.
         apiKey: 'ignored',
-        baseURL: resolved.transport.baseURL,
+        baseURL: providerProfile.baseUrl,
         defaultHeaders: resolved.transport.defaultHeaders,
         dangerouslyAllowBrowser: true,
-        fetch: createTauriLlmFetch(authSchemeFor(resolved.provider, resolved.transport.baseURL)),
+        fetch: createTauriLlmFetch(providerProfile.id, {
+          providerLabel: resolved.product.displayName,
+        }),
       });
     case 'claude-agent-sdk':
       if (resolved.provider !== 'anthropic') {
@@ -281,7 +291,8 @@ function createTauriExecutionAdapter(
         );
       }
       return new TauriClaudeAgentSdkGateway({
-        baseURL: resolved.transport.baseURL,
+        providerProfileId: providerProfile.id,
+        resolveProjectId: options.resolveProjectId,
         credentialMode:
           resolved.transport.authStrategy === 'trusted-local-auth' ? 'local-auth' : 'api-key',
       });
@@ -291,7 +302,7 @@ function createTauriExecutionAdapter(
           `Execution lane "codex-agent-sdk" currently requires provider "openai"; received "${resolved.provider}".`,
         );
       }
-      return new TauriCodexAgentSdkGateway();
+      return new TauriCodexAgentSdkGateway({ resolveProjectId: options.resolveProjectId });
     case 'openai-agents-sdk':
       assertOpenAiAgentsSdkLaneSupported({
         provider: resolved.provider,
@@ -302,7 +313,9 @@ function createTauriExecutionAdapter(
         baseURL: resolved.transport.baseURL,
         defaultHeaders: resolved.transport.defaultHeaders,
         dangerouslyAllowBrowser: true,
-        fetch: createTauriLlmFetch('bearer'),
+        fetch: createTauriLlmFetch(providerProfile.id, {
+          providerLabel: resolved.product.displayName,
+        }),
       });
     default:
       throw new Error(`Unknown execution lane: ${config.executionLane as string}`);
@@ -366,6 +379,15 @@ async function workspaceBindingsFor(
     if (root) roots.set(`project:${project.project_id}`, { projectId: project.project_id, root });
   }
   return [...roots.values()];
+}
+
+async function resolveSingleActiveProjectId(
+  repos: RuntimeRepositories,
+  companyId: string,
+): Promise<string | null> {
+  const projects = await repos.projects.findActiveByCompany(companyId);
+  const boundProjects = projects.filter((project) => project.workspace_root?.trim());
+  return boundProjects.length === 1 ? (boundProjects[0]?.project_id ?? null) : null;
 }
 
 const WORKSPACE_BINDING_UNAVAILABLE_MESSAGE =
@@ -590,6 +612,8 @@ function createTauriShellExec(deps: WorkspaceRootResolverDeps): ShellExec {
         cmd: command,
         timeoutMs: options.timeoutMs ?? 30_000,
         maxOutputBytes: options.maxOutputBytes ?? 1024 * 1024,
+        ...(options.employeeId ? { employeeId: options.employeeId } : {}),
+        networkPolicy: 'approval-gated-disclosed',
       },
       'builtin-sandbox',
       options.threadId,
@@ -708,7 +732,13 @@ export async function createTauriRuntime(
     repo: repos.deliverables,
   });
 
-  const gateway = createTauriExecutionAdapter(config, resolvedProvider);
+  const providerProfile = await upsertActiveProviderProfile(resolvedProvider);
+  const gateway = createTauriExecutionAdapter(config, resolvedProvider, providerProfile, {
+    async resolveProjectId() {
+      const thread = await repos.threads.findById(threadId);
+      return thread?.project_id ?? (await resolveSingleActiveProjectId(repos, companyId));
+    },
+  });
 
   const runtimePolicy = resolveEffectiveRuntimePolicy(
     config.runtimePolicy,
@@ -780,24 +810,52 @@ export async function createTauriRuntime(
   const skillStagingManager = new SkillStagingManager();
   const uploadRefResolver = new InMemoryUploadRefResolver();
   await prefetchTauriHomeDir();
-  const skillInstallBinding = await optionalWorkspaceBindingForThread(
+  let defaultSkillInstallBinding = await optionalWorkspaceBindingForThread(
     workspaceRootResolverDeps,
     threadId,
   );
-  const skillInstallEnvironment = createTauriSkillInstallEnvironment({
-    clone: createTauriGitCloneAdapter(),
-    gitFs: createTauriGitLocalFsAdapter(),
-    localDir: createTauriLocalDirAdapter(
-      skillInstallBinding
-        ? {
-            projectRoot: skillInstallBinding.root,
-            ...(skillInstallBinding.projectId ? { projectId: skillInstallBinding.projectId } : {}),
+  const buildSkillInstallEnvironment = (
+    binding: WorkspaceBinding | undefined,
+  ): ReturnType<typeof createTauriSkillInstallEnvironment> =>
+    createTauriSkillInstallEnvironment({
+      clone: createTauriGitCloneAdapter(
+        binding
+          ? {
+              projectRoot: binding.root,
+              ...(binding.projectId ? { projectId: binding.projectId } : {}),
+            }
+          : undefined,
+      ),
+      gitFs: createTauriGitLocalFsAdapter(
+        binding
+          ? {
+              projectRoot: binding.root,
+              ...(binding.projectId ? { projectId: binding.projectId } : {}),
+            }
+          : undefined,
+      ),
+      localDir: createTauriLocalDirAdapter(
+        binding
+          ? {
+              projectRoot: binding.root,
+              ...(binding.projectId ? { projectId: binding.projectId } : {}),
+            }
+          : undefined,
+      ),
+      uploadResolver: uploadRefResolver,
+      ...(binding ? { repoRoot: binding.root } : {}),
+      async forProject(projectId) {
+        if (projectId) {
+          const project = await repos.projects.findById(projectId);
+          const root = project?.workspace_root?.trim();
+          if (project && root) {
+            return buildSkillInstallEnvironment({ projectId: project.project_id, root });
           }
-        : undefined,
-    ),
-    uploadResolver: uploadRefResolver,
-    ...(skillInstallBinding ? { repoRoot: skillInstallBinding.root } : {}),
-  });
+        }
+        return buildSkillInstallEnvironment(defaultSkillInstallBinding);
+      },
+    });
+  const skillInstallEnvironment = buildSkillInstallEnvironment(defaultSkillInstallBinding);
   const skillInstallCommitter = skillLoader
     ? new SkillInstallCommitter({
         companyId,
@@ -912,7 +970,13 @@ export async function createTauriRuntime(
     llmToolCallsEnabled: resolvedProvider.executionLane === 'gateway',
     ...(builtinTools.size > 0 ? { builtinTools } : {}),
     fileHistoryService,
-    engineAdapters: createTauriEngineAdapterRegistry({ enableProviderHostPreviewAdapters: true }),
+    engineAdapters: createTauriEngineAdapterRegistry({
+      enableProviderHostPreviewAdapters: true,
+      async resolveProjectId() {
+        const thread = await repos.threads.findById(threadId);
+        return thread?.project_id ?? (await resolveSingleActiveProjectId(repos, companyId));
+      },
+    }),
     interactionService,
     rollingJournal,
     resumeCoordinator,
@@ -927,7 +991,23 @@ export async function createTauriRuntime(
     const { invoke } = (await import('@tauri-apps/api/core')) as {
       invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
     };
-    return invoke<{ ok: boolean; stdout: string; stderr: string }>('git_exec', { args, cwd });
+    const projects = await repos.projects.findActiveByCompany(companyId);
+    const normalizedCwd = cwd.replace(/\/+$/u, '');
+    const project = projects.find((candidate) => {
+      const root = candidate.workspace_root?.replace(/\/+$/u, '');
+      return root && (normalizedCwd === root || normalizedCwd.startsWith(`${root}/`));
+    });
+    if (!project?.workspace_root) {
+      throw new Error('Git command requires a bound project workspace.');
+    }
+    const root = project.workspace_root.replace(/\/+$/u, '');
+    const relativeCwd =
+      normalizedCwd === root ? '.' : normalizedCwd.slice(root.length).replace(/^\/+/u, '');
+    return invoke<{ ok: boolean; stdout: string; stderr: string }>('git_exec', {
+      args,
+      cwd: relativeCwd || '.',
+      projectId: project.project_id,
+    });
   };
   const gitAutoCommitService = new GitAutoCommitService(
     {
@@ -953,8 +1033,8 @@ export async function createTauriRuntime(
   await seedCostRates(repos);
 
   // Install service — Drizzle-backed repos for persistent install state.
-  // sqlite-proxy repos are async, so they intentionally do not expose the
-  // synchronous transact() contract used by the better-sqlite3 runtime.
+  // Tauri batches materialization writes through a Rust-owned SQLite
+  // transaction so all package/asset/employee/binding rows commit together.
   const installService = new InstallService({
     repos: createInstallReposAdapter(repos),
     events: createEventEmitterAdapter(eventBus),
@@ -964,7 +1044,7 @@ export async function createTauriRuntime(
       environment: getInstallEnvironmentForExecutionMode(runtimePolicy.executionMode),
       schemaVersion: '2026-03',
     },
-    transact: undefined,
+    asyncTransact: withTauriSqlTransaction,
   });
 
   const { OrchestrationService } = await import(

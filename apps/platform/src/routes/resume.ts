@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { requireLocalRuntimeAccess } from '../middleware/auth.js';
 import type { PlatformEnv } from '../types.js';
 
 const encoder = new TextEncoder();
@@ -8,6 +9,8 @@ function sseEvent(event: string, data: unknown): Uint8Array {
 }
 
 export const resumeRoute = new Hono<PlatformEnv>();
+
+resumeRoute.use('/api/conversations/*', requireLocalRuntimeAccess);
 
 resumeRoute.get('/api/conversations/:id/resume', async (c) => {
   const conversationId = c.req.param('id');

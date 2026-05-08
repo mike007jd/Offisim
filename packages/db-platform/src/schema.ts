@@ -60,32 +60,46 @@ export const listings = pgTable('listings', {
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const packageVersions = pgTable('package_versions', {
-  package_version_id: uuid('package_version_id').primaryKey().defaultRandom(),
-  listing_id: uuid('listing_id')
-    .notNull()
-    .references(() => listings.listing_id),
-  package_id: text('package_id').notNull(),
-  version: text('version').notNull(),
-  manifest_json: jsonb('manifest_json').notNull(),
-  runtime_range: text('runtime_range').notNull(),
-  schema_version: text('schema_version').notNull(),
-  environments: jsonb('environments').notNull(),
-  risk_class: text('risk_class').notNull(),
-  artifact_url: text('artifact_url'),
-  artifact_sha256: text('artifact_sha256'),
-  artifact_size_bytes: integer('artifact_size_bytes'),
-  changelog: text('changelog'),
-  status: text('status').notNull().default('active'),
-  published_at: timestamp('published_at').notNull().defaultNow(),
-});
+export const packageVersions = pgTable(
+  'package_versions',
+  {
+    package_version_id: uuid('package_version_id').primaryKey().defaultRandom(),
+    listing_id: uuid('listing_id')
+      .notNull()
+      .references(() => listings.listing_id),
+    package_id: text('package_id').notNull(),
+    version: text('version').notNull(),
+    manifest_json: jsonb('manifest_json').notNull(),
+    runtime_range: text('runtime_range').notNull(),
+    schema_version: text('schema_version').notNull(),
+    environments: jsonb('environments').notNull(),
+    risk_class: text('risk_class').notNull(),
+    artifact_url: text('artifact_url'),
+    artifact_sha256: text('artifact_sha256'),
+    artifact_size_bytes: integer('artifact_size_bytes'),
+    changelog: text('changelog'),
+    status: text('status').notNull().default('active'),
+    published_at: timestamp('published_at').notNull().defaultNow(),
+  },
+  (table) => [
+    unique('package_versions_listing_package_version_unique').on(
+      table.listing_id,
+      table.package_id,
+      table.version,
+    ),
+  ],
+);
 
-export const listingTags = pgTable('listing_tags', {
-  listing_id: uuid('listing_id')
-    .notNull()
-    .references(() => listings.listing_id),
-  tag: text('tag').notNull(),
-});
+export const listingTags = pgTable(
+  'listing_tags',
+  {
+    listing_id: uuid('listing_id')
+      .notNull()
+      .references(() => listings.listing_id),
+    tag: text('tag').notNull(),
+  },
+  (table) => [unique('listing_tags_listing_tag_unique').on(table.listing_id, table.tag)],
+);
 
 export const listingPreviews = pgTable('listing_previews', {
   preview_id: uuid('preview_id').primaryKey().defaultRandom(),
@@ -142,21 +156,25 @@ export const moderationJobs = pgTable('moderation_jobs', {
 
 // ── 004: Reviews, Library, and Moderation ──
 
-export const reviews = pgTable('reviews', {
-  review_id: uuid('review_id').primaryKey().defaultRandom(),
-  listing_id: uuid('listing_id')
-    .notNull()
-    .references(() => listings.listing_id),
-  user_id: uuid('user_id')
-    .notNull()
-    .references(() => users.user_id),
-  rating: integer('rating').notNull(),
-  title: text('title'),
-  body: text('body'),
-  moderation_state: text('moderation_state').notNull().default('visible'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+export const reviews = pgTable(
+  'reviews',
+  {
+    review_id: uuid('review_id').primaryKey().defaultRandom(),
+    listing_id: uuid('listing_id')
+      .notNull()
+      .references(() => listings.listing_id),
+    user_id: uuid('user_id')
+      .notNull()
+      .references(() => users.user_id),
+    rating: integer('rating').notNull(),
+    title: text('title'),
+    body: text('body'),
+    moderation_state: text('moderation_state').notNull().default('visible'),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+    updated_at: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [unique('reviews_listing_user_unique').on(table.listing_id, table.user_id)],
+);
 
 export const userLibrary = pgTable(
   'user_library',

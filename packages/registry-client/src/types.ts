@@ -187,6 +187,7 @@ export interface PutDraftManifestRequest {
     external_url?: string;
     sha256?: string;
     size_bytes?: number;
+    bytes_base64?: string;
   };
 }
 

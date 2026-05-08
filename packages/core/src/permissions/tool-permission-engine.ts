@@ -83,11 +83,24 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
     }
 
     if (!request.employeeId) {
+      return this.defaultMcpDecision(request, runtimeDecision);
+    }
+
+    return (
+      runtimeDecision ?? this.defaultMcpDecision(request, null)
+    );
+  }
+
+  private async defaultMcpDecision(
+    request: ToolPermissionRequest,
+    runtimeDecision: ToolPermissionDecision | null,
+  ): Promise<ToolPermissionDecision> {
+    if (isClearlyReadOnlyMcpTool(request.toolName)) {
       return {
         behavior: 'allow',
         source: runtimeDecision?.source ?? 'default',
-        reason: runtimeDecision?.reason ?? 'No employee-scoped permission policy applies.',
-        approvedBy: runtimeDecision?.approvedBy ?? 'auto',
+        reason: runtimeDecision?.reason ?? 'Tool name is classified as read-only by default.',
+        approvedBy: runtimeDecision?.approvedBy ?? 'default:read_only_mcp',
         ...(runtimeDecision?.matchedPattern
           ? { matchedPattern: runtimeDecision.matchedPattern }
           : {}),
@@ -95,14 +108,14 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
       };
     }
 
-    return (
-      runtimeDecision ?? {
-        behavior: 'allow',
-        source: 'default',
-        reason: 'No employee tool permission policy configured.',
-        approvedBy: 'auto',
-      }
-    );
+    return {
+      behavior: 'ask',
+      source: 'default',
+      reason:
+        'MCP tool side effects are unknown or ambiguous; explicit approval is required before execution.',
+      approvedBy: 'default:unknown_mcp',
+      policyHash: await buildRuntimePolicyHash('default:unknown_mcp', 'ask'),
+    };
   }
 
   private async evaluateEmployeePolicy(
@@ -206,6 +219,12 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
       matchedBy: 'Runtime default policy',
     });
   }
+}
+
+function isClearlyReadOnlyMcpTool(toolName: string): boolean {
+  return /^(get|list|read|search|find|fetch|query|lookup|describe|inspect|status|show|preview|count)[_.:/-]/i.test(
+    `${toolName}-`,
+  );
 }
 
 async function runtimeBehaviorToDecision(

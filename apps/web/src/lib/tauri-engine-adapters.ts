@@ -20,6 +20,7 @@ interface TauriEngineAdapterOptions {
   readonly requestPrefix: string;
   readonly baseURL?: string;
   readonly cwd?: string;
+  readonly resolveProjectId?: () => Promise<string | null | undefined>;
   readonly credentialMode?: 'api-key' | 'local-auth';
 }
 
@@ -36,6 +37,7 @@ export interface TauriEngineAdapterRegistryOptions {
    * events and engine handoff proposals.
    */
   readonly enableProviderHostPreviewAdapters?: boolean;
+  readonly resolveProjectId?: () => Promise<string | null | undefined>;
 }
 
 let requestCounter = 0;
@@ -176,12 +178,14 @@ abstract class BaseTauriEngineAdapter implements EngineAdapter {
       onAbort();
     } else {
       signal?.addEventListener('abort', onAbort, { once: true });
+      const resolvedProjectId = envelope.projectId ?? (await this.options.resolveProjectId?.());
       void invoke(this.options.command, {
         req: {
           requestId,
           request: serializeRequest(envelope),
           ...(this.options.baseURL ? { baseURL: this.options.baseURL } : {}),
           ...(this.options.cwd ? { cwd: this.options.cwd } : {}),
+          ...(resolvedProjectId ? { projectId: resolvedProjectId } : {}),
           ...(this.options.credentialMode ? { credentialMode: this.options.credentialMode } : {}),
         },
         onEvent: channel,
@@ -250,7 +254,13 @@ export function createTauriEngineAdapterRegistry(
   }
 
   return new Map<EngineId, EngineAdapter>([
-    ['codex-engine', new TauriCodexEngineAdapter()],
-    ['claude-engine', new TauriClaudeEngineAdapter({ credentialMode: 'local-auth' })],
+    ['codex-engine', new TauriCodexEngineAdapter({ resolveProjectId: options.resolveProjectId })],
+    [
+      'claude-engine',
+      new TauriClaudeEngineAdapter({
+        credentialMode: 'local-auth',
+        resolveProjectId: options.resolveProjectId,
+      }),
+    ],
   ]);
 }

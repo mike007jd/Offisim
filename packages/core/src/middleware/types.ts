@@ -7,6 +7,8 @@ export interface LlmCallMeta {
   provider: string;
   model: string;
   taskRunId?: string;
+  projectId?: string | null;
+  employeeId?: string | null;
 }
 
 /** Context object passed through the middleware chain. Middleware may mutate `request`. */

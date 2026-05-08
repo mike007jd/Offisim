@@ -4,14 +4,22 @@
  * and auto-moderation for the Offisim marketplace.
  */
 
-import { creators, moderationJobs, publishDrafts } from '@offisim/db-platform';
+import type { PackageManifest } from '@offisim/asset-schema';
+import { creators, moderationJobs, packageVersions, publishDrafts } from '@offisim/db-platform';
 import { and, desc, eq } from 'drizzle-orm';
+import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { getRequiredCreatorId, requireAuth, requireCreator } from '../middleware/auth.js';
+import {
+  getRequiredCreatorId,
+  requireAuth,
+  requireCreator,
+  requireScope,
+} from '../middleware/auth.js';
 import { publishRateLimit } from '../middleware/rate-limit.js';
 import { DraftCreateSchema, ManifestUploadSchema, SubmitDraftSchema } from '../schemas/index.js';
 import { processModerationJob } from '../services/moderation.js';
+import { assertListingOwnedByCreator } from '../services/publish-ownership.js';
 import { validateManifest } from '../services/validation.js';
 import type { PlatformEnv } from '../types.js';
 
@@ -20,6 +28,7 @@ const publish = new Hono<PlatformEnv>();
 // All publish routes require auth and are rate-limited
 publish.use('/*', publishRateLimit);
 publish.use('/*', requireAuth);
+publish.use('/*', requireScope('publish:write'));
 
 // GET /v1/publish/me — registered before requireCreator because non-creators get { creator: null }
 publish.get('/me', async (c) => {
@@ -58,6 +67,9 @@ publish.post('/drafts', async (c) => {
   const db = c.get('db');
   const creatorId = getRequiredCreatorId(c);
   const body = DraftCreateSchema.parse(await c.req.json());
+  if (body.listing_id) {
+    await assertListingOwnedByCreator(db, body.listing_id, creatorId);
+  }
 
   const rows = await db
     .insert(publishDrafts)
@@ -200,9 +212,12 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
   if (draft.status === 'submitted')
     throw new HTTPException(400, { message: 'Draft already submitted' });
+  if (draft.listing_id) {
+    await assertListingOwnedByCreator(db, draft.listing_id, creatorId);
+  }
 
   // Validate manifest
-  const validation = validateManifest(body.manifest_json);
+  const validation = validateManifest(body.manifest_json, body.artifact);
 
   const updateRows = await db
     .update(publishDrafts)
@@ -210,7 +225,11 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
       manifest_json: body.manifest_json,
       artifact_id: body.artifact?.external_url ?? null,
       validation_state: validation.valid ? 'valid' : 'invalid',
-      validation_report: { errors: validation.errors, warnings: validation.warnings },
+      validation_report: {
+        errors: validation.errors,
+        warnings: validation.warnings,
+        artifact: validation.artifact ?? null,
+      },
       status: 'draft',
       updated_at: new Date(),
     })
@@ -265,6 +284,24 @@ publish.post('/submit', async (c) => {
   if (draft.validation_state !== 'valid') {
     throw new HTTPException(400, { message: 'Draft manifest must be valid before submission' });
   }
+  if (draft.listing_id) {
+    await assertListingOwnedByCreator(db, draft.listing_id, creatorId);
+    const manifest = draft.manifest_json as PackageManifest;
+    const [existingVersion] = await db
+      .select({ package_version_id: packageVersions.package_version_id })
+      .from(packageVersions)
+      .where(
+        and(
+          eq(packageVersions.listing_id, draft.listing_id),
+          eq(packageVersions.package_id, manifest.package.id),
+          eq(packageVersions.version, manifest.package.version),
+        ),
+      )
+      .limit(1);
+    if (existingVersion) {
+      return duplicatePackageVersionResponse(c);
+    }
+  }
 
   // Update draft status
   await db
@@ -298,6 +335,10 @@ publish.post('/submit', async (c) => {
     .where(eq(moderationJobs.job_id, job.job_id))
     .limit(1);
 
+  if (isDuplicatePackageVersionRejection(updatedJob?.result)) {
+    return duplicatePackageVersionResponse(c);
+  }
+
   return c.json(
     {
       draft_id: draft.draft_id,
@@ -307,5 +348,23 @@ publish.post('/submit', async (c) => {
     202,
   );
 });
+
+function duplicatePackageVersionResponse(c: Context<PlatformEnv>) {
+  return c.json(
+    {
+      error: {
+        code: 'DUPLICATE_PACKAGE_VERSION',
+        message: 'This listing already has an active package with the same package id and version.',
+      },
+    },
+    409,
+  );
+}
+
+function isDuplicatePackageVersionRejection(result: unknown): boolean {
+  if (!result || typeof result !== 'object') return false;
+  const raw = result as Record<string, unknown>;
+  return raw.outcome === 'rejected' && raw.code === 'duplicate_package_version';
+}
 
 export { publish };

@@ -73,7 +73,7 @@ fn restore_main_window<R: tauri::Runtime>(
     let _ = window.show();
     force_macos_foreground(window);
     let _ = window.set_focus();
-    window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false)
+    window.is_visible().unwrap_or(false)
 }
 
 fn ensure_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
@@ -102,15 +102,20 @@ pub fn run() {
         // the shared appDataDir) and the second window hangs with a black
         // webview. The callback focuses the existing window instead.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
-            let _ = ensure_main_window(app);
+            let app_for_main_thread = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                let _ = app_for_main_thread.set_activation_policy(tauri::ActivationPolicy::Regular);
+                let _ = ensure_main_window(&app_for_main_thread);
+            });
         }))
         .invoke_handler(tauri::generate_handler![
             runtime_secrets::runtime_secret_status,
             runtime_secrets::runtime_secret_set,
             runtime_secrets::runtime_secret_clear,
             runtime_secrets::runtime_provider_profiles,
+            runtime_secrets::runtime_provider_profile_upsert,
             runtime_secrets::trusted_host_product_status,
+            local_db::local_db_execute_transaction,
             builtin_tools::project_read_file,
             builtin_tools::project_read_file_preview,
             builtin_tools::project_list_dir,
@@ -132,6 +137,14 @@ pub fn run() {
             kanban::create_kanban_card,
             kanban::transition_kanban_card,
             kanban::count_kanban_for_employee,
+            mcp_bridge::commands::mcp_list_registered_servers,
+            mcp_bridge::commands::mcp_register_server,
+            mcp_bridge::commands::mcp_unregister_server,
+            mcp_bridge::commands::mcp_connect_registered,
+            mcp_bridge::commands::mcp_call_tool,
+            mcp_bridge::commands::mcp_kill,
+            mcp_bridge::commands::mcp_list_servers,
+            mcp_bridge::commands::mcp_reconnect,
             attachment_store::attachment_write,
             attachment_store::attachment_read,
             attachment_store::attachment_list,
@@ -239,4 +252,52 @@ pub fn run() {
             }
             _ => {}
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn capability(json: &str) -> Value {
+        serde_json::from_str(json).expect("capability json parses")
+    }
+
+    fn assert_privileged_capability_is_main_window_only(capability: &Value) {
+        let windows = capability
+            .get("windows")
+            .and_then(Value::as_array)
+            .expect("windows array");
+        assert_eq!(
+            windows,
+            &vec![
+                Value::String(MAIN_WINDOW_LABEL.into()),
+                Value::String(MAIN_WINDOW_FALLBACK_LABEL.into()),
+            ]
+        );
+        assert!(capability.get("remote").is_none());
+        assert!(capability.get("webviews").is_none());
+    }
+
+    #[test]
+    fn agent_bridge_capability_does_not_expose_privileged_ipc_to_other_webviews() {
+        let capability = capability(include_str!("../capabilities/agent-bridges.json"));
+        assert_privileged_capability_is_main_window_only(&capability);
+        let permissions = capability
+            .get("permissions")
+            .and_then(Value::as_array)
+            .expect("permissions array");
+        assert_eq!(permissions, &vec![Value::String("agent-bridges".into())]);
+    }
+
+    #[test]
+    fn fs_shell_capability_does_not_expose_project_tools_to_other_webviews() {
+        let capability = capability(include_str!("../capabilities/fs-shell.json"));
+        assert_privileged_capability_is_main_window_only(&capability);
+        let permissions = capability
+            .get("permissions")
+            .and_then(Value::as_array)
+            .expect("permissions array");
+        assert_eq!(permissions, &vec![Value::String("fs-shell".into())]);
+    }
 }

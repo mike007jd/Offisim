@@ -34,6 +34,22 @@ export interface McpServerConfig {
   command?: string;
   args?: string[];
   url?: string;
+  approvalId?: string;
+  commandFingerprint?: string;
+  source?: 'user-config' | 'installed-asset' | 'developer-runtime';
+  sourcePackageId?: string;
+  sourcePackageVersion?: string;
+  sourceManifestHash?: string;
+  requestSurface?: 'settings' | 'installed-asset-runtime' | 'developer-runtime';
+}
+
+interface PendingStdioConfirmation {
+  name: string;
+  command: string;
+  args: string[];
+  source: 'user-config';
+  requestedTools: string[];
+  riskClass: 'high';
 }
 
 const STORAGE_KEY = 'offisim:mcp-servers';
@@ -64,6 +80,13 @@ function toCoreConfig(cfg: McpServerConfig): CoreMcpServerConfig {
     name: cfg.name,
     transport: cfg.transport,
     registeredServerId: cfg.serverId,
+    approvalId: cfg.approvalId,
+    commandFingerprint: cfg.commandFingerprint,
+    source: cfg.source,
+    sourcePackageId: cfg.sourcePackageId,
+    sourcePackageVersion: cfg.sourcePackageVersion,
+    sourceManifestHash: cfg.sourceManifestHash,
+    requestSurface: cfg.requestSurface,
     url: cfg.transport === 'sse' ? cfg.url : undefined,
     command: cfg.transport === 'stdio' ? cfg.command : undefined,
     args: cfg.transport === 'stdio' ? cfg.args : undefined,
@@ -86,6 +109,7 @@ export function McpConfigPanel() {
   const [argsText, setArgsText] = useState('');
   const [url, setUrl] = useState('');
   const [formError, setFormError] = useState('');
+  const [pendingStdio, setPendingStdio] = useState<PendingStdioConfirmation | null>(null);
 
   useEffect(() => {
     if (!isTauri()) saveMcpServers(servers);
@@ -106,6 +130,11 @@ export function McpConfigPanel() {
             command: record.command,
             args: record.args,
             url: record.url,
+            source: record.source as McpServerConfig['source'],
+            sourcePackageId: record.sourcePackageId,
+            sourcePackageVersion: record.sourcePackageVersion,
+            sourceManifestHash: record.sourceManifestHash,
+            requestSurface: record.requestSurface as McpServerConfig['requestSurface'],
           })),
         );
       })
@@ -118,8 +147,34 @@ export function McpConfigPanel() {
     };
   }, []);
 
+  const addServerConfig = useCallback(
+    async (newConfig: McpServerConfig) => {
+      setServers((prev) => [...prev, newConfig]);
+
+      if (isReady) {
+        setConnecting(newConfig.name);
+        try {
+          await connectMcpServer(toCoreConfig(newConfig));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          setFormError(`Saved, but connection failed: ${msg}`);
+        } finally {
+          setConnecting(null);
+        }
+      }
+
+      setName('');
+      setCommand('');
+      setArgsText('');
+      setUrl('');
+      setPendingStdio(null);
+    },
+    [connectMcpServer, isReady],
+  );
+
   const handleAdd = useCallback(async () => {
     setFormError('');
+    setPendingStdio(null);
     const trimmedName = name.trim();
     const trimmedCommand = command.trim();
     const trimmedUrl = url.trim();
@@ -142,12 +197,33 @@ export function McpConfigPanel() {
       return;
     }
 
+    if (isTauri() && transport === 'stdio') {
+      setPendingStdio({
+        name: trimmedName,
+        command: trimmedCommand,
+        args,
+        source: 'user-config',
+        requestedTools: [],
+        riskClass: 'high',
+      });
+      return;
+    }
+
     let newConfig: McpServerConfig;
     if (isTauri()) {
       const record = await registerDesktopMcpServer({
         name: trimmedName,
         transport,
-        ...(transport === 'stdio' ? { command: trimmedCommand, args } : { url: trimmedUrl }),
+        ...(transport === 'stdio'
+          ? {
+              command: trimmedCommand,
+              args,
+              source: 'user-config',
+              approvalId: `settings-${Date.now().toString(36)}`,
+              riskClass: 'high',
+              requestSurface: 'settings',
+            }
+          : { url: trimmedUrl }),
       });
       newConfig = {
         serverId: record.serverId,
@@ -156,6 +232,13 @@ export function McpConfigPanel() {
         command: record.command,
         args: record.args,
         url: record.url,
+        approvalId: record.approvalId,
+        commandFingerprint: record.commandFingerprint,
+        source: record.source as McpServerConfig['source'],
+        sourcePackageId: record.sourcePackageId,
+        sourcePackageVersion: record.sourcePackageVersion,
+        sourceManifestHash: record.sourceManifestHash,
+        requestSurface: record.requestSurface as McpServerConfig['requestSurface'],
       };
     } else {
       newConfig = {
@@ -165,25 +248,39 @@ export function McpConfigPanel() {
       };
     }
 
-    setServers((prev) => [...prev, newConfig]);
+    await addServerConfig(newConfig);
+  }, [name, transport, command, url, argsText, servers, addServerConfig]);
 
-    if (isReady) {
-      setConnecting(trimmedName);
-      try {
-        await connectMcpServer(toCoreConfig(newConfig));
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setFormError(`Saved, but connection failed: ${msg}`);
-      } finally {
-        setConnecting(null);
-      }
-    }
-
-    setName('');
-    setCommand('');
-    setArgsText('');
-    setUrl('');
-  }, [name, transport, command, url, argsText, servers, isReady, connectMcpServer]);
+  const handleConfirmStdio = useCallback(async () => {
+    if (!pendingStdio) return;
+    setFormError('');
+    const record = await registerDesktopMcpServer({
+      name: pendingStdio.name,
+      transport: 'stdio',
+      command: pendingStdio.command,
+      args: pendingStdio.args,
+      source: pendingStdio.source,
+      approvalId: `settings-${Date.now().toString(36)}`,
+      riskClass: pendingStdio.riskClass,
+      requestedTools: pendingStdio.requestedTools,
+      requestSurface: 'settings',
+    });
+    await addServerConfig({
+      serverId: record.serverId,
+      name: record.name,
+      transport: record.transport,
+      command: record.command,
+      args: record.args,
+      url: record.url,
+      approvalId: record.approvalId,
+      commandFingerprint: record.commandFingerprint,
+      source: record.source as McpServerConfig['source'],
+      sourcePackageId: record.sourcePackageId,
+      sourcePackageVersion: record.sourcePackageVersion,
+      sourceManifestHash: record.sourceManifestHash,
+      requestSurface: record.requestSurface as McpServerConfig['requestSurface'],
+    });
+  }, [addServerConfig, pendingStdio]);
 
   const handleRemove = useCallback(
     async (server: McpServerConfig) => {
@@ -285,6 +382,58 @@ export function McpConfigPanel() {
             placeholder="Arguments (one per line, optional)"
             className={surfaceInputProps('text-sm')}
           />
+        )}
+        {pendingStdio && (
+          <div className="rounded-md border border-warning/40 bg-warning-muted px-3 py-3 text-xs text-text-secondary">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="font-medium text-text-primary">Confirm stdio MCP server</span>
+              <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-[10px]">
+                High risk
+              </Badge>
+            </div>
+            <dl className="grid gap-1">
+              <div className="grid gap-1 sm:grid-cols-[96px,1fr]">
+                <dt className="text-text-muted">Command</dt>
+                <dd className="break-all font-mono">{pendingStdio.command}</dd>
+              </div>
+              <div className="grid gap-1 sm:grid-cols-[96px,1fr]">
+                <dt className="text-text-muted">Args</dt>
+                <dd className="break-all font-mono">
+                  {pendingStdio.args.length > 0 ? pendingStdio.args.join(' ') : '(none)'}
+                </dd>
+              </div>
+              <div className="grid gap-1 sm:grid-cols-[96px,1fr]">
+                <dt className="text-text-muted">Source</dt>
+                <dd>{pendingStdio.source}</dd>
+              </div>
+              <div className="grid gap-1 sm:grid-cols-[96px,1fr]">
+                <dt className="text-text-muted">Tools</dt>
+                <dd>
+                  {pendingStdio.requestedTools.length > 0
+                    ? pendingStdio.requestedTools.join(', ')
+                    : 'Unknown until startup'}
+                </dd>
+              </div>
+            </dl>
+            <div className="mt-3 flex gap-2">
+              <Button
+                onClick={handleConfirmStdio}
+                size="sm"
+                variant="secondary"
+                disabled={connecting !== null}
+              >
+                Confirm
+              </Button>
+              <Button
+                onClick={() => setPendingStdio(null)}
+                size="sm"
+                variant="ghost"
+                disabled={connecting !== null}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
         )}
         {formError && <p className="text-xs text-error">{formError}</p>}
       </SettingsSection>

@@ -563,6 +563,7 @@ export async function handleSkillInstallTool(
   ctx: RuntimeContext,
   callerEmployeeId: string,
   callerModelKey = 'unknown/unknown',
+  projectId?: string | null,
 ): Promise<string> {
   try {
     return await handleSkillInstallToolInner(
@@ -571,6 +572,7 @@ export async function handleSkillInstallTool(
       ctx,
       callerEmployeeId,
       callerModelKey,
+      projectId,
     );
   } catch (err) {
     // Top-level catch so a T2.3 bug doesn't crash the tool-round promise. Stack
@@ -590,6 +592,7 @@ async function handleSkillInstallToolInner(
   ctx: RuntimeContext,
   callerEmployeeId: string,
   callerModelKey: string,
+  projectId?: string | null,
 ): Promise<string> {
   // Fork / edit have their own dispatch — no install environment required.
   if (toolName === 'fork_skill') {
@@ -602,7 +605,8 @@ async function handleSkillInstallToolInner(
     return handleCreateSkillFromScratch(rawArgs, ctx, callerEmployeeId, callerModelKey);
   }
 
-  const env = ctx.skillInstallEnvironment;
+  const baseEnv = ctx.skillInstallEnvironment;
+  const env = baseEnv?.forProject ? await baseEnv.forProject(projectId) : baseEnv;
   if (!env) {
     return JSON.stringify({
       kind: 'skill-install-not-configured',

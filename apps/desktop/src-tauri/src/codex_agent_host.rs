@@ -1,10 +1,13 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use sqlx::Row;
 use tauri::{ipc::Channel, path::BaseDirectory, AppHandle, Manager};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::{Child, Command};
@@ -76,6 +79,10 @@ pub struct CodexAgentExecuteRequest {
     request: serde_json::Value,
     #[serde(default)]
     cwd: Option<String>,
+    #[serde(default)]
+    project_id: Option<String>,
+    #[serde(default)]
+    employee_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -101,6 +108,7 @@ struct SidecarError {
     message: String,
 }
 
+#[derive(Debug)]
 enum HostError {
     Aborted,
     HostUnavailable(String),
@@ -128,7 +136,7 @@ impl HostError {
     }
 }
 
-fn workspace_root() -> Option<PathBuf> {
+fn dev_workspace_root() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("OFFISIM_WORKSPACE_ROOT") {
         let candidate = PathBuf::from(path);
         if candidate.exists() {
@@ -143,27 +151,70 @@ fn workspace_root() -> Option<PathBuf> {
         .filter(|candidate| candidate.exists())
 }
 
-fn default_host_cwd(workspace_root: Option<&PathBuf>) -> Result<PathBuf, HostError> {
-    if let Some(workspace_root) = workspace_root {
-        return Ok(workspace_root.clone());
-    }
+async fn project_workspace_root<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    project_id: Option<&str>,
+) -> Result<PathBuf, HostError> {
+    let project_id = project_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            HostError::Request(
+                "projectId is required for trusted Codex lane workspace binding.".into(),
+            )
+        })?;
+    let pool = crate::local_db::get_offisim_pool(app)
+        .map_err(|err| HostError::HostUnavailable(format!("open offisim.db failed: {err}")))?;
+    let row = sqlx::query(
+        r#"
+        SELECT workspace_root
+        FROM projects
+        WHERE project_id = ?
+          AND workspace_root IS NOT NULL
+          AND trim(workspace_root) <> ''
+        "#,
+    )
+    .bind(project_id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|err| HostError::Request(format!("project workspace lookup failed: {err}")))?
+    .ok_or_else(|| {
+        HostError::Request("No workspace_root is bound for the trusted Codex project.".into())
+    })?;
+    let raw: String = row
+        .try_get("workspace_root")
+        .map_err(|err| HostError::Request(format!("decode workspace_root: {err}")))?;
+    PathBuf::from(raw)
+        .canonicalize()
+        .map_err(|err| HostError::Request(format!("Resolve project workspace: {err}")))
+}
 
-    if let Ok(home) = std::env::var("HOME") {
-        let candidate = PathBuf::from(home);
-        if candidate.exists() {
-            return Ok(candidate);
-        }
-    }
+fn default_host_cwd(workspace_root: &Path) -> PathBuf {
+    workspace_root.to_path_buf()
+}
 
-    if let Ok(current_dir) = std::env::current_dir() {
-        if current_dir.exists() {
-            return Ok(current_dir);
-        }
+fn resolved_request_cwd(
+    requested: Option<&str>,
+    workspace_root: &Path,
+) -> Result<PathBuf, HostError> {
+    let root = workspace_root;
+    let cwd = if let Some(cwd) = requested.and_then(|value| {
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then_some(trimmed)
+    }) {
+        PathBuf::from(cwd)
+    } else {
+        default_host_cwd(root)
+    };
+    let canonical = cwd
+        .canonicalize()
+        .map_err(|err| HostError::Request(format!("Resolve trusted Codex cwd: {err}")))?;
+    if !canonical.starts_with(root) {
+        return Err(HostError::Request(
+            "Trusted Codex cwd is outside the bound project workspace.".into(),
+        ));
     }
-
-    Err(HostError::HostUnavailable(
-        "Unable to resolve a working directory for the trusted Codex lane host.".into(),
-    ))
+    Ok(canonical)
 }
 
 fn sidecar_script_path<R: tauri::Runtime>(
@@ -193,20 +244,6 @@ fn sidecar_script_path<R: tauri::Runtime>(
     )))
 }
 
-fn resolved_request_cwd(
-    requested: Option<&str>,
-    workspace_root: Option<&PathBuf>,
-) -> Result<PathBuf, HostError> {
-    if let Some(cwd) = requested.and_then(|value| {
-        let trimmed = value.trim();
-        (!trimmed.is_empty()).then_some(trimmed)
-    }) {
-        return Ok(PathBuf::from(cwd));
-    }
-
-    default_host_cwd(workspace_root)
-}
-
 fn build_env(workspace_root: Option<&PathBuf>) -> HashMap<String, String> {
     let mut env = HashMap::new();
     for key in ENV_WHITELIST {
@@ -230,6 +267,36 @@ fn build_env(workspace_root: Option<&PathBuf>) -> HashMap<String, String> {
     }
 
     env
+}
+
+fn append_sidecar_audit<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    req: &CodexAgentExecuteRequest,
+    cwd: &Path,
+    status: &str,
+) {
+    let Some(dir) = app.path().app_local_data_dir().ok() else {
+        return;
+    };
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("trusted-sidecar-audit.jsonl");
+    let event = serde_json::json!({
+        "status": status,
+        "requestId": req.request_id,
+        "projectId": req.project_id,
+        "employeeId": req.employee_id,
+        "cwd": cwd.to_string_lossy(),
+        "providerProfileId": serde_json::Value::Null,
+        "executionLane": "codex-agent-sdk",
+        "credentialBytesRecorded": false,
+        "atUnixMs": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis())
+            .unwrap_or_default(),
+    });
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(file, "{event}");
+    }
 }
 
 async fn kill_child(child: &mut Child) {
@@ -331,9 +398,11 @@ async fn do_execute<R: tauri::Runtime>(
     on_event: &Channel<CodexAgentHostEvent>,
     token: CancellationToken,
 ) -> Result<(), HostError> {
-    let workspace_root = workspace_root();
-    let cwd = resolved_request_cwd(req.cwd.as_deref(), workspace_root.as_ref())?;
-    let script_path = sidecar_script_path(app, workspace_root.as_ref())?;
+    let workspace_root = project_workspace_root(app, req.project_id.as_deref()).await?;
+    let cwd = resolved_request_cwd(req.cwd.as_deref(), &workspace_root)?;
+    append_sidecar_audit(app, &req, &cwd, "started");
+    let dev_root = dev_workspace_root();
+    let script_path = sidecar_script_path(app, dev_root.as_ref())?;
     let node_executable =
         std::env::var("OFFISIM_NODE_EXECUTABLE").unwrap_or_else(|_| "node".to_string());
     let payload = serde_json::json!({
@@ -346,7 +415,7 @@ async fn do_execute<R: tauri::Runtime>(
         .arg(&script_path)
         .current_dir(&cwd)
         .env_clear()
-        .envs(build_env(workspace_root.as_ref()))
+        .envs(build_env(Some(&workspace_root)))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
@@ -427,4 +496,36 @@ pub fn codex_agent_abort(request_id: String) -> Result<(), String> {
         token.cancel();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_project_root(label: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("offisim-codex-sidecar-{label}-{suffix}"));
+        std::fs::create_dir_all(&root).expect("create temp project root");
+        root.canonicalize().expect("canonical temp project root")
+    }
+
+    #[test]
+    fn trusted_codex_cwd_defaults_to_project_workspace() {
+        let root = temp_project_root("default");
+        let cwd = resolved_request_cwd(None, &root).expect("resolve default cwd");
+        assert_eq!(cwd, root);
+    }
+
+    #[test]
+    fn trusted_codex_cwd_rejects_outside_project_workspace() {
+        let root = temp_project_root("root");
+        let outside = temp_project_root("outside");
+        let err = resolved_request_cwd(Some(outside.to_string_lossy().as_ref()), &root)
+            .expect_err("outside cwd should fail");
+        assert!(matches!(err, HostError::Request(message) if message.contains("outside")));
+    }
 }

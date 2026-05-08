@@ -537,6 +537,7 @@ export async function finalizeEmployeeSuccess(
           signal,
         },
         taskRunId,
+        state.projectId,
       )))
     : null;
 

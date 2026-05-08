@@ -9,11 +9,14 @@ interface GitExecResult {
 
 type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 
-export function useGitBranch(workspaceRoot: string | null | undefined): string | null {
+export function useGitBranch(
+  workspaceRoot: string | null | undefined,
+  projectId: string | null | undefined,
+): string | null {
   const [branch, setBranch] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!workspaceRoot || !isTauri()) {
+    if (!workspaceRoot || !projectId || !isTauri()) {
       setBranch(null);
       return;
     }
@@ -23,7 +26,8 @@ export function useGitBranch(workspaceRoot: string | null | undefined): string |
         const { invoke } = (await import('@tauri-apps/api/core')) as { invoke: InvokeFn };
         const result = await invoke<GitExecResult>('git_exec', {
           args: ['rev-parse', '--abbrev-ref', 'HEAD'],
-          cwd: workspaceRoot,
+          cwd: '.',
+          projectId,
         });
         if (cancelled) return;
         if (!result.ok) {
@@ -39,7 +43,7 @@ export function useGitBranch(workspaceRoot: string | null | undefined): string |
     return () => {
       cancelled = true;
     };
-  }, [workspaceRoot]);
+  }, [workspaceRoot, projectId]);
 
   return branch;
 }

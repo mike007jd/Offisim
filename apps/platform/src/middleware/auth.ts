@@ -49,6 +49,8 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
         if (offisimUser) {
           c.set('userId', offisimUser.user_id);
           c.set('userEmail', offisimUser.email);
+          c.set('authKind', 'api-token');
+          c.set('apiTokenScopes', Array.isArray(tokenRow.scopes) ? tokenRow.scopes : []);
         }
 
         // Update last_used_at (fire-and-forget)
@@ -78,10 +80,11 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
         .where(eq(users.ba_user_id, session.user.id))
         .limit(1);
 
-      if (offisimUser) {
-        c.set('userId', offisimUser.user_id);
-        c.set('userEmail', offisimUser.email);
-      } else {
+          if (offisimUser) {
+            c.set('userId', offisimUser.user_id);
+            c.set('userEmail', offisimUser.email);
+            c.set('authKind', 'session');
+          } else {
         // Auto-create Offisim user if not linked yet (first login after migration)
         try {
           const [created] = await db
@@ -96,10 +99,11 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
             })
             .returning({ user_id: users.user_id });
 
-          if (created) {
-            c.set('userId', created.user_id);
-            c.set('userEmail', session.user.email);
-          }
+            if (created) {
+              c.set('userId', created.user_id);
+              c.set('userEmail', session.user.email);
+              c.set('authKind', 'session');
+            }
         } catch {
           // May fail on unique constraint if email already exists —
           // try linking existing user by email
@@ -122,6 +126,7 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
 
               c.set('userId', existingByEmail.user_id);
               c.set('userEmail', existingByEmail.email);
+              c.set('authKind', 'session');
             }
           }
         }
@@ -170,6 +175,50 @@ export function getRequiredUserId(c: { get: (key: 'userId') => string | undefine
   }
   return userId;
 }
+
+export function requireScope(scope: string) {
+  return createMiddleware<PlatformEnv>(async (c, next) => {
+    if (c.get('authKind') !== 'api-token') {
+      await next();
+      return;
+    }
+    const scopes = c.get('apiTokenScopes') ?? [];
+    if (!scopes.includes(scope)) {
+      return c.json(
+        {
+          error: {
+            code: 'FORBIDDEN_SCOPE',
+            message: `API token requires scope: ${scope}`,
+          },
+        },
+        403,
+      );
+    }
+    await next();
+  });
+}
+
+export const requireLocalRuntimeAccess = createMiddleware<PlatformEnv>(async (c, next) => {
+  if (c.get('userId')) {
+    await next();
+    return;
+  }
+  const expected = process.env.OFFISIM_LOCAL_RUNTIME_TOKEN?.trim();
+  const provided = c.req.header('x-offisim-local-runtime-token')?.trim();
+  if (expected && provided && provided === expected) {
+    await next();
+    return;
+  }
+  return c.json(
+    {
+      error: {
+        code: 'LOCAL_RUNTIME_AUTH_REQUIRED',
+        message: 'Local runtime route requires a session or local runtime token.',
+      },
+    },
+    401,
+  );
+});
 
 // ---------------------------------------------------------------------------
 // Creator middleware — ensures authenticated user has a creator profile

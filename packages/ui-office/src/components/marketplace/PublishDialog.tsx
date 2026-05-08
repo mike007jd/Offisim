@@ -42,7 +42,6 @@ interface PublishFormState {
   readonly tags: string;
   readonly license: string;
   readonly riskClass: 'data_asset' | 'logic_asset' | 'privileged_asset';
-  readonly artifactUrl: string;
 }
 
 const DEFAULT_FORM: PublishFormState = {
@@ -53,7 +52,6 @@ const DEFAULT_FORM: PublishFormState = {
   tags: '',
   license: 'MIT',
   riskClass: 'data_asset',
-  artifactUrl: '',
 };
 
 function downloadBytes(fileName: string, bytes: Uint8Array): void {
@@ -178,7 +176,6 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     setStatus(null);
   }, [
     selectedSourceId,
-    form.artifactUrl,
     form.description,
     form.summary,
     form.tags,
@@ -207,7 +204,6 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
       riskClass: form.riskClass,
       creatorHandle: creator?.handle,
       creatorDisplayName: creator?.display_name,
-      artifactUrl: form.artifactUrl.trim() || undefined,
     }),
     [creator?.display_name, creator?.handle, form],
   );
@@ -241,9 +237,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     try {
       const bundle = await buildBundle();
       downloadBytes(bundle.fileName, bundle.archiveBytes);
-      setStatus(
-        `Downloaded ${bundle.fileName}. Upload it to GitHub Releases, then paste the URL here.`,
-      );
+      setStatus(`Downloaded ${bundle.fileName}.`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to build package archive.');
     } finally {
@@ -257,16 +251,15 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
 
     try {
       const bundle = await buildBundle();
-      if (!publishMeta.artifactUrl) {
-        throw new Error('Artifact URL is required before submitting the draft.');
-      }
 
       const response = await submitDraft({
         kind: bundle.manifest.package.kind,
         title: bundle.manifest.package.title,
         summary: bundle.manifest.package.summary ?? '',
         manifest: bundle.manifest,
-        artifactUrl: publishMeta.artifactUrl,
+        artifactBytes: bundle.archiveBytes,
+        artifactSha256: bundle.artifactSha256,
+        artifactSizeBytes: bundle.artifactSizeBytes,
         submitMessage: `Submitted from Offisim on ${new Date().toISOString()}`,
       });
 
@@ -276,7 +269,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     } finally {
       setIsPackaging(false);
     }
-  }, [buildBundle, publishMeta.artifactUrl, submitDraft]);
+  }, [buildBundle, submitDraft]);
 
   const sourceOptions = useMemo(() => {
     if (kind === 'skill') {
@@ -304,8 +297,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
       form.description !== DEFAULT_FORM.description ||
       form.tags !== DEFAULT_FORM.tags ||
       form.license !== DEFAULT_FORM.license ||
-      form.riskClass !== DEFAULT_FORM.riskClass ||
-      form.artifactUrl !== DEFAULT_FORM.artifactUrl,
+      form.riskClass !== DEFAULT_FORM.riskClass,
     [form, kind, selectedSourceId],
   );
 
@@ -367,7 +359,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         onOpenChange={onOpenChange}
         size="xl"
         title="Publish To Market"
-        description="Build a package from an employee or a skill, download the archive, and submit a registry draft that points at an external artifact URL."
+        description="Build a package from an employee or a skill, then submit a registry draft with platform-verified artifact bytes."
         footer={footer}
         onRequestClose={handleRequestClose}
         className="border-border-default bg-surface-elevated text-text-primary"
@@ -504,19 +496,6 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                   value={form.description}
                   onChange={(event) => updateForm('description', event.target.value)}
                   placeholder="What this package includes, who it is for, and setup notes."
-                />
-              </Field>
-
-              <Field
-                label="Artifact URL"
-                htmlFor="publish-artifact-url"
-                hint="Direct download URL for the package archive."
-              >
-                <Input
-                  id="publish-artifact-url"
-                  value={form.artifactUrl}
-                  onChange={(event) => updateForm('artifactUrl', event.target.value)}
-                  placeholder="https://github.com/owner/repo/releases/download/v0.1.0/package.offisimpkg"
                 />
               </Field>
 

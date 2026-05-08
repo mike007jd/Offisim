@@ -144,7 +144,9 @@ export interface InstallImportOptions {
   readonly sourceRef?: string | null;
   readonly targetPackageId?: string | null;
   readonly targetVersion?: string | null;
+  readonly idempotencyKey?: string | null;
   readonly descriptor?: InstallImportDescriptor | null;
+  readonly expectedArtifactSha256?: string | null;
 }
 
 export interface InstallProvenance {
@@ -163,6 +165,7 @@ export interface InstallTransactionRow {
   readonly source_ref: string | null;
   readonly target_package_id: string | null;
   readonly target_version: string | null;
+  readonly idempotency_key: string | null;
   readonly state: InstallState;
   readonly error_code: string | null;
   readonly error_detail: string | null;
@@ -254,6 +257,10 @@ export interface InstallRepositories {
   readonly installTransactions: {
     create(txn: Omit<InstallTransactionRow, 'finished_at'>): Promise<InstallTransactionRow>;
     findById(id: string): Promise<InstallTransactionRow | null>;
+    findByIdempotencyKey(
+      companyId: string,
+      idempotencyKey: string,
+    ): Promise<InstallTransactionRow | null>;
     updateState(
       id: string,
       state: InstallState,

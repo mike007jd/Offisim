@@ -11,14 +11,17 @@ import { Channel, invoke } from '@tauri-apps/api/core';
  * the alternate transport.
  */
 
-export type AuthScheme = 'bearer' | 'x-api-key' | 'none';
-
 export interface TauriLlmFetchOptions {
-  /** Override the header name when scheme === 'x-api-key'. */
-  headerName?: string;
-  /** Named Rust-side credential slot. The secret value never crosses IPC. */
-  secretRef?: string;
+  /** Human-readable provider label for unsupported endpoint diagnostics. */
+  providerLabel?: string;
 }
+
+type EndpointKind =
+  | 'open-ai-chat-completions'
+  | 'open-ai-responses'
+  | 'open-ai-embeddings'
+  | 'open-ai-models'
+  | 'anthropic-messages';
 
 type TransportEvent =
   | { kind: 'headers'; status: number; headers: Array<[string, string]> }
@@ -62,6 +65,20 @@ export function isNoCredentialError(err: unknown): boolean {
   return /\bno-credential\b/.test(msg);
 }
 
+function endpointKindForRequest(requestUrl: string): EndpointKind {
+  const parsed = new URL(requestUrl);
+  const path = parsed.pathname.replace(/\/+$/u, '');
+  if (path.endsWith('/chat/completions')) return 'open-ai-chat-completions';
+  if (path.endsWith('/responses')) return 'open-ai-responses';
+  if (path.endsWith('/embeddings')) return 'open-ai-embeddings';
+  if (path.endsWith('/models')) return 'open-ai-models';
+  if (path.endsWith('/messages')) return 'anthropic-messages';
+  throw new TauriLlmFetchError(
+    'unsupported-endpoint',
+    `Provider endpoint is not supported by the desktop credential bridge: ${path || '/'}`,
+  );
+}
+
 let requestCounter = 0;
 function nextRequestId(): string {
   requestCounter = (requestCounter + 1) >>> 0;
@@ -94,13 +111,12 @@ async function extractBody(
 }
 
 export function createTauriLlmFetch(
-  scheme: AuthScheme,
+  providerProfileId: string,
   opts: TauriLlmFetchOptions = {},
 ): typeof fetch {
-  const headerName = opts.headerName;
   const tauriFetch: typeof fetch = async (input, init) => {
     const request = input instanceof Request ? input : new Request(input, init);
-    const url = request.url;
+    const endpointKind = endpointKindForRequest(request.url);
     const method = (init?.method ?? request.method ?? 'GET').toUpperCase();
 
     const headerMap = new Headers(request.headers);
@@ -217,19 +233,19 @@ export function createTauriLlmFetch(
     void invoke('llm_fetch', {
       req: {
         requestId,
-        url,
+        providerProfileId,
+        endpointKind,
         method,
         headers,
         body,
-        auth: {
-          scheme,
-          ...(headerName ? { headerName } : {}),
-          ...(opts.secretRef ? { secretRef: opts.secretRef } : {}),
-        },
       },
       onEvent: channel,
     }).catch((err: unknown) => {
-      const error = err instanceof Error ? err : new Error(String(err));
+      const message = String(err instanceof Error ? err.message : err);
+      const error = new TauriLlmFetchError(
+        message.includes(':') ? message.split(':', 1)[0] || 'request' : 'request',
+        opts.providerLabel ? `${opts.providerLabel}: ${message}` : message,
+      );
       rejectResponse(error);
       finish(error);
     });

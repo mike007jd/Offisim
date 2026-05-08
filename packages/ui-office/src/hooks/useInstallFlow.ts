@@ -446,6 +446,8 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
             sourceRef: listingId,
             targetPackageId: matchedVersion.package_id ?? null,
             targetVersion: matchedVersion.version,
+            idempotencyKey: `registry:${packageVersionId}`,
+            expectedArtifactSha256: downloadInfo.artifact_sha256 ?? null,
             descriptor: {
               listing_id: listingId,
               package_version_id: packageVersionId,

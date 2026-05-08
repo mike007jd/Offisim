@@ -18,6 +18,7 @@ import type {
   InstallProvenance,
   InstallRepositories,
   InstallTransactionRow,
+  InstalledPackageRow,
   RuntimeEnvironment,
 } from './types.js';
 
@@ -49,6 +50,7 @@ export interface InstallServiceDeps {
    * When provided, materialize() wraps all writes in a single SQLite transaction.
    */
   readonly transact?: <T>(fn: () => T) => T;
+  readonly asyncTransact?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,7 +77,9 @@ export class InstallService {
   private readonly companyId: string;
   private readonly environment: RuntimeEnvironment;
   private readonly transact: (<T>(fn: () => T) => T) | undefined;
+  private readonly asyncTransact: (<T>(fn: () => Promise<T>) => Promise<T>) | undefined;
   private readonly planCache = new Map<string, InstallPlan>();
+  private readonly materializeLocks = new Map<string, Promise<void>>();
 
   constructor(deps: InstallServiceDeps) {
     this.repos = deps.repos;
@@ -83,6 +87,7 @@ export class InstallService {
     this.companyId = deps.companyId;
     this.environment = deps.environment;
     this.transact = deps.transact;
+    this.asyncTransact = deps.asyncTransact;
   }
 
   // -------------------------------------------------------------------------
@@ -107,6 +112,34 @@ export class InstallService {
     // 1. Create transaction row
     const installTxnId = globalThis.crypto.randomUUID();
     const now = new Date().toISOString();
+    const idempotencyKey = this.resolveIdempotencyKey(options);
+    if (idempotencyKey) {
+      const existing = await this.repos.installTransactions.findByIdempotencyKey(
+        this.companyId,
+        idempotencyKey,
+      );
+      if (existing && !this.allowsNewAttemptForIdempotency(existing.state)) {
+        const cachedPlan = this.planCache.get(existing.install_txn_id);
+        if (cachedPlan && !isTerminalState(existing.state)) {
+          return { installTxnId: existing.install_txn_id, plan: cachedPlan };
+        }
+        if (existing.state === 'materializing') {
+          await this.transitionToFailed(
+            existing.install_txn_id,
+            'materializing',
+            'stale_materializing',
+            'Install transaction was materializing without an in-memory plan and was marked failed so the registry install can be retried.',
+          );
+        } else {
+          return {
+            installTxnId: existing.install_txn_id,
+            error:
+              existing.error_detail ??
+              `Install request already exists in state '${existing.state}' for idempotency key '${idempotencyKey}'.`,
+          };
+        }
+      }
+    }
 
     const txnRow: Omit<InstallTransactionRow, 'finished_at'> = {
       install_txn_id: installTxnId,
@@ -115,6 +148,7 @@ export class InstallService {
       source_ref: options.sourceRef ?? null,
       target_package_id: options.targetPackageId ?? null,
       target_version: options.targetVersion ?? null,
+      idempotency_key: idempotencyKey,
       state: 'created',
       error_code: null,
       error_detail: null,
@@ -126,7 +160,12 @@ export class InstallService {
     await this.repos.installTransactions.create(txnRow);
 
     // 2. Run the install planner
-    const planResult = await createInstallPlan(archiveBytes, this.environment);
+    const expectedArtifactSha256 = options.expectedArtifactSha256?.trim() || undefined;
+    const planResult = await createInstallPlan(
+      archiveBytes,
+      this.environment,
+      expectedArtifactSha256,
+    );
 
     if (!planResult.ok) {
       // Map the stage to the state we should transition through before failing
@@ -191,6 +230,28 @@ export class InstallService {
     return { installTxnId, plan };
   }
 
+  private allowsNewAttemptForIdempotency(state: InstallState): boolean {
+    return state === 'failed' || state === 'rolled_back' || state === 'cancelled';
+  }
+
+  private resolveIdempotencyKey(options: InstallImportOptions): string | null {
+    const explicit = options.idempotencyKey?.trim();
+    if (explicit) return explicit.slice(0, 256);
+    if (options.sourceType === 'registry') {
+      const packageVersionId = options.descriptor?.package_version_id?.trim();
+      if (packageVersionId) return `registry:${packageVersionId}`.slice(0, 256);
+      if (options.sourceRef && options.targetPackageId && options.targetVersion) {
+        return [
+          'registry',
+          options.sourceRef,
+          options.targetPackageId,
+          options.targetVersion,
+        ].join(':').slice(0, 256);
+      }
+    }
+    return null;
+  }
+
   // -------------------------------------------------------------------------
   // confirmBindings
   // -------------------------------------------------------------------------
@@ -205,27 +266,85 @@ export class InstallService {
     installTxnId: string,
     bindings: BindingConfirmation[],
   ): Promise<MaterializeResult> {
+    const plan = this.planCache.get(installTxnId);
+    if (plan) {
+      return this.withMaterializeLock(plan, () =>
+        this.confirmBindingsLocked(installTxnId, bindings, plan),
+      );
+    }
+
+    const txn = await this.loadTxn(installTxnId);
+    if (txn.state === 'installed') {
+      const existing = await this.findInstalledPackageExact(
+        txn.target_package_id,
+        txn.target_version,
+      );
+      if (existing) {
+        return {
+          installedPackageId: existing.installed_package_id,
+          installedAssetIds: [],
+          employeeIds: [],
+          bindingIds: [],
+        };
+      }
+    }
+    if (txn.state === 'materializing') {
+      throw new InstallServiceError(
+        'install_conflict',
+        `Install transaction '${installTxnId}' is already materializing.`,
+      );
+    }
+    throw new InstallServiceError(
+      'plan_not_found',
+      `Install plan for transaction '${installTxnId}' not found in cache. Was importFile called?`,
+    );
+  }
+
+  private async confirmBindingsLocked(
+    installTxnId: string,
+    bindings: BindingConfirmation[],
+    plan: InstallPlan,
+  ): Promise<MaterializeResult> {
     const txn = await this.loadTxn(installTxnId);
     const currentState = txn.state;
+
+    const existing = await this.findInstalledPackageExact(
+      plan.manifest.package.id,
+      plan.manifest.package.version,
+    );
+    if (existing) {
+      if (currentState === 'materializing') {
+        await this.transition(
+          installTxnId,
+          'materializing',
+          'installed',
+          txn.target_package_id ?? undefined,
+        );
+        await this.repos.installTransactions.finish(installTxnId, 'installed');
+        this.planCache.delete(installTxnId);
+        return {
+          installedPackageId: existing.installed_package_id,
+          installedAssetIds: [],
+          employeeIds: [],
+          bindingIds: [],
+        };
+      }
+      throw new InstallServiceError(
+        'already_installed',
+        `Package '${plan.manifest.package.id}' version '${plan.manifest.package.version}' is already installed for this company.`,
+      );
+    }
 
     // Validate current state allows proceeding
     if (
       currentState !== 'awaiting_confirmation' &&
       currentState !== 'awaiting_bindings' &&
-      currentState !== 'ready_to_install'
+      currentState !== 'ready_to_install' &&
+      currentState !== 'materializing'
     ) {
       throw new InstallServiceError(
         'invalid_state',
-        `Cannot confirm bindings in state '${currentState}'. Expected 'awaiting_confirmation', 'awaiting_bindings', or 'ready_to_install'.`,
-      );
-    }
-
-    // Retrieve cached plan
-    const plan = this.planCache.get(installTxnId);
-    if (!plan) {
-      throw new InstallServiceError(
-        'plan_not_found',
-        `Install plan for transaction '${installTxnId}' not found in cache. Was importFile called?`,
+        `Cannot confirm bindings in state '${currentState}'. Expected 'awaiting_confirmation', 'awaiting_bindings', 'ready_to_install', or 'materializing'.`,
       );
     }
 
@@ -262,8 +381,15 @@ export class InstallService {
       state = 'ready_to_install';
     }
 
-    // ready_to_install -> materializing
-    await this.transition(installTxnId, state, 'materializing', txn.target_package_id ?? undefined);
+    if (state !== 'materializing') {
+      // ready_to_install -> materializing
+      await this.transition(
+        installTxnId,
+        state,
+        'materializing',
+        txn.target_package_id ?? undefined,
+      );
+    }
 
     const provenance = this.extractProvenance(txn);
 
@@ -273,6 +399,7 @@ export class InstallService {
       result = await materialize(plan, bindings, this.repos, this.companyId, installTxnId, {
         provenance,
         transact: this.transact,
+        asyncTransact: this.asyncTransact,
       });
     } catch (err) {
       // Materialization failed — DB writes are already atomic via this.transact
@@ -344,6 +471,42 @@ export class InstallService {
     }
 
     return result;
+  }
+
+  private async withMaterializeLock<T>(plan: InstallPlan, fn: () => Promise<T>): Promise<T> {
+    const key = [
+      this.companyId,
+      plan.manifest.package.kind,
+      plan.manifest.package.id,
+      plan.manifest.package.version,
+    ].join('::');
+    const previous = this.materializeLocks.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const chained = previous.then(() => gate);
+    this.materializeLocks.set(key, chained);
+    await previous;
+    try {
+      return await fn();
+    } finally {
+      release();
+      if (this.materializeLocks.get(key) === chained) {
+        this.materializeLocks.delete(key);
+      }
+    }
+  }
+
+  private async findInstalledPackageExact(
+    packageId: string | null,
+    version: string | null,
+  ): Promise<InstalledPackageRow | null> {
+    if (!packageId || !version) return null;
+    const installed = await this.repos.installedPackages.findByPackageId(this.companyId, packageId);
+    return (
+      installed.find((row) => row.version === version && row.install_state === 'installed') ?? null
+    );
   }
 
   private extractProvenance(txn: InstallTransactionRow): InstallProvenance | undefined {

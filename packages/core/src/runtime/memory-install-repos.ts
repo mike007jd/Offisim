@@ -32,6 +32,19 @@ export class MemoryInstallTransactionRepository implements InstallTransactionRep
   }
 
   async create(txn: Omit<InstallTransactionRow, 'finished_at'>): Promise<InstallTransactionRow> {
+    if (txn.idempotency_key) {
+      const duplicate = [...this.store.values()].find(
+        (row) =>
+          row.company_id === txn.company_id &&
+          row.idempotency_key === txn.idempotency_key &&
+          row.state !== 'failed' &&
+          row.state !== 'rolled_back' &&
+          row.state !== 'cancelled',
+      );
+      if (duplicate) {
+        throw new Error(`Duplicate install transaction idempotency key '${txn.idempotency_key}'`);
+      }
+    }
     const row: InstallTransactionRow = { ...txn, finished_at: null };
     this.store.set(row.install_txn_id, row);
     return row;
@@ -39,6 +52,22 @@ export class MemoryInstallTransactionRepository implements InstallTransactionRep
 
   async findById(id: string): Promise<InstallTransactionRow | null> {
     return this.store.get(id) ?? null;
+  }
+
+  async findByIdempotencyKey(
+    companyId: string,
+    idempotencyKey: string,
+  ): Promise<InstallTransactionRow | null> {
+    return (
+      [...this.store.values()].find(
+        (row) =>
+          row.company_id === companyId &&
+          row.idempotency_key === idempotencyKey &&
+          row.state !== 'failed' &&
+          row.state !== 'rolled_back' &&
+          row.state !== 'cancelled',
+      ) ?? null
+    );
   }
 
   async updateState(

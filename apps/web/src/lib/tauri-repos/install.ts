@@ -12,7 +12,7 @@ import type {
   InstalledPackageRow,
 } from '@offisim/install-core';
 import type { BindingStatus, InstallState } from '@offisim/shared-types';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, notInArray } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 function now(): string {
@@ -40,6 +40,19 @@ export function createInstallTauriRepos(db: TauriDrizzleDb): InstallTauriRepos {
         .select()
         .from(schema.installTransactions)
         .where(eq(schema.installTransactions.install_txn_id, id));
+      return (rows[0] as InstallTransactionRow | undefined) ?? null;
+    },
+    async findByIdempotencyKey(companyId, idempotencyKey) {
+      const rows = await db
+        .select()
+        .from(schema.installTransactions)
+        .where(
+          and(
+            eq(schema.installTransactions.company_id, companyId),
+            eq(schema.installTransactions.idempotency_key, idempotencyKey),
+            notInArray(schema.installTransactions.state, ['failed', 'rolled_back', 'cancelled']),
+          ),
+        );
       return (rows[0] as InstallTransactionRow | undefined) ?? null;
     },
     async updateState(id, state: InstallState, errorCode?: string, errorDetail?: string) {

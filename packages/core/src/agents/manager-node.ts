@@ -271,7 +271,12 @@ export async function managerNode(
         signal,
         timeoutMs: MANAGER_ROUTING_TIMEOUT_MS,
       },
-      { nodeName: 'manager', provider: resolved.provider, model: resolved.model },
+      {
+        nodeName: 'manager',
+        provider: resolved.provider,
+        model: resolved.model,
+        projectId: state.projectId,
+      },
       forwardStreamChunks(runtimeCtx, state.threadId, 'manager', {
         content: false,
         runScope,

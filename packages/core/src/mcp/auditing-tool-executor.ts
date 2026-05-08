@@ -298,9 +298,14 @@ export class AuditingToolExecutor implements ToolExecutor {
   }
 
   private classifyPermissionSeverity(toolName: string): 'normal' | 'high' {
-    return /(write|edit|delete|remove|create|push|commit|bash|exec|run|apply)/i.test(toolName)
-      ? 'high'
-      : 'normal';
+    if (/(write|edit|delete|remove|create|push|commit|bash|exec|run|apply)/i.test(toolName)) {
+      return 'high';
+    }
+    return /^(get|list|read|search|find|fetch|query|lookup|describe|inspect|status|show|preview|count)[_.:/-]/i.test(
+      `${toolName}-`,
+    )
+      ? 'normal'
+      : 'high';
   }
 
   private async writeAudit(params: {

@@ -211,7 +211,10 @@ export function RightSidebar({
                 <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
                   Outputs
                 </h3>
-                <PitchHall activeThreadId={activeThreadId ?? null} />
+                <PitchHall
+                  activeThreadId={activeThreadId ?? null}
+                  activeProjectId={activeProjectId ?? null}
+                />
               </section>
             ) : null}
 

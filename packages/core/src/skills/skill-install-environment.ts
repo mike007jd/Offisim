@@ -18,6 +18,12 @@ export interface SkillInstallEnvironment {
   clone?: GitCloneAdapter | undefined;
   gitFs?: GitLocalFsAdapter | undefined;
   localDir?: LocalDirAdapter | undefined;
+  /**
+   * Optional runtime rebinder for project-scoped installs. Desktop runtimes can
+   * initialize before the user selects a project, so tool execution passes the
+   * current run project id here before resolving git/local sources.
+   */
+  forProject?: (projectId: string | null | undefined) => Promise<SkillInstallEnvironment>;
   /** Optional current-repo root — forwarded to sync resolvers so they can scan `.claude/skills/`. */
   repoRoot?: string | undefined;
   /**

@@ -21,6 +21,14 @@ interface McpSpawnResult {
 
 type DesktopMcpServerConfig = McpServerConfig & {
   readonly registeredServerId?: string;
+  readonly approvalId?: string;
+  readonly commandFingerprint?: string;
+  readonly projectId?: string;
+  readonly source?: string;
+  readonly sourcePackageId?: string;
+  readonly sourcePackageVersion?: string;
+  readonly sourceManifestHash?: string;
+  readonly requestSurface?: string;
 };
 
 export class TauriMcpClientFactory implements McpClientFactory {
@@ -35,10 +43,24 @@ export class TauriMcpClientFactory implements McpClientFactory {
     if (!desktopConfig.registeredServerId) {
       throw new Error(`MCP server '${config.name}' uses stdio but has no registered server id.`);
     }
+    if (!desktopConfig.approvalId || !desktopConfig.commandFingerprint) {
+      throw new Error(`MCP server '${config.name}' is missing approval metadata.`);
+    }
 
-    const result = await invoke<McpSpawnResult>('plugin:mcp_bridge|mcp_connect_registered', {
+    const result = await invoke<McpSpawnResult>('mcp_connect_registered', {
       request: {
         serverId: desktopConfig.registeredServerId,
+        approvalId: desktopConfig.approvalId,
+        commandFingerprint: desktopConfig.commandFingerprint,
+        requestSurface: desktopConfig.requestSurface ?? 'settings',
+        ...(desktopConfig.projectId ? { projectId: desktopConfig.projectId } : {}),
+        ...(desktopConfig.sourcePackageId ? { sourcePackageId: desktopConfig.sourcePackageId } : {}),
+        ...(desktopConfig.sourcePackageVersion
+          ? { sourcePackageVersion: desktopConfig.sourcePackageVersion }
+          : {}),
+        ...(desktopConfig.sourceManifestHash
+          ? { sourceManifestHash: desktopConfig.sourceManifestHash }
+          : {}),
       },
     });
 
@@ -52,14 +74,28 @@ export class TauriMcpClientFactory implements McpClientFactory {
       config,
       tools,
       async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
-        return invoke('plugin:mcp_bridge|mcp_call_tool', {
-          server: config.name,
-          tool: name,
-          args,
+        return invoke('mcp_call_tool', {
+          request: {
+            server: config.name,
+            tool: name,
+            args,
+            approvalId: desktopConfig.approvalId,
+            commandFingerprint: desktopConfig.commandFingerprint,
+            ...(desktopConfig.projectId ? { projectId: desktopConfig.projectId } : {}),
+            ...(desktopConfig.sourcePackageId
+              ? { sourcePackageId: desktopConfig.sourcePackageId }
+              : {}),
+            ...(desktopConfig.sourcePackageVersion
+              ? { sourcePackageVersion: desktopConfig.sourcePackageVersion }
+              : {}),
+            ...(desktopConfig.sourceManifestHash
+              ? { sourceManifestHash: desktopConfig.sourceManifestHash }
+              : {}),
+          },
         });
       },
       async close(): Promise<void> {
-        await invoke('plugin:mcp_bridge|mcp_kill', { server: config.name });
+        await invoke('mcp_kill', { server: config.name });
       },
     };
   }

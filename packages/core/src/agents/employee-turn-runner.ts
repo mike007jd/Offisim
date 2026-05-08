@@ -3,6 +3,7 @@ import type { RunScope } from '../graph/state.js';
 import type { LlmMessage, LlmResponse, LlmToolChoice, ToolDef } from '../llm/gateway.js';
 import { forwardStreamChunks, recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { generateId } from '../utils/generate-id.js';
 import { SKILL_INSTALL_TOOL_NAMES } from './skill-install-tools.js';
 
 export type TurnRunner = (
@@ -13,6 +14,8 @@ export type TurnRunner = (
 export interface TurnRunnerDeps {
   readonly runtimeCtx: RuntimeContext;
   readonly threadId: string;
+  readonly projectId?: string | null;
+  readonly employeeId?: string | null;
   readonly resolved: ResolvedModel;
   readonly allTools: ToolDef[];
   readonly streamEnabled: boolean;
@@ -49,20 +52,93 @@ async function observeRollingJournal(
 
 function resolveForcedSkillToolChoice(
   messages: readonly LlmMessage[],
-  allTools: readonly ToolDef[],
 ): LlmToolChoice | undefined {
-  if (messages.some((message) => message.role === 'tool')) return undefined;
+  let lastUserIndex = -1;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'user') {
+      lastUserIndex = index;
+      break;
+    }
+  }
+  if (lastUserIndex < 0) return undefined;
+  if (messages.slice(lastUserIndex + 1).some((message) => message.role === 'tool')) {
+    return undefined;
+  }
 
-  const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+  const lastUserMessage = messages[lastUserIndex];
   const userText = lastUserMessage?.content ?? '';
   if (!userText) return undefined;
 
-  const availableToolNames = new Set(allTools.map((tool) => tool.name));
   const requestedToolName = SKILL_INSTALL_TOOL_NAMES.find(
-    (toolName) => availableToolNames.has(toolName) && userText.includes(toolName),
+    (toolName) => userText.includes(toolName),
   );
 
   return requestedToolName ? { type: 'tool', name: requestedToolName } : undefined;
+}
+
+function lastUserText(messages: readonly LlmMessage[]): string {
+  return [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+}
+
+function parseJsonObjectFromText(text: string): Record<string, unknown> | null {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  try {
+    const parsed = JSON.parse(text.slice(start, end + 1));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function stripArgValue(value: string): string {
+  return value.trim().replace(/^["'`]+|["'`]+$/gu, '').trim();
+}
+
+function parseKeyValueArgsFromText(text: string): Record<string, unknown> {
+  const args: Record<string, unknown> = {};
+  const keyNames = 'url|subpath|ref|scope|targetEmployeeId|fileRef|filter';
+  const pattern = new RegExp(
+    `\\b(${keyNames})\\s*[:=]\\s*([\\s\\S]*?)(?=(?:[，,。\\n]|\\s+(?:${keyNames})\\s*[:=])|$)`,
+    'gu',
+  );
+  for (const match of text.matchAll(pattern)) {
+    const key = match[1];
+    const rawValue = match[2];
+    if (!key || !rawValue) continue;
+    args[key] = stripArgValue(rawValue);
+  }
+  return args;
+}
+
+function parseExplicitSkillToolArgs(userText: string): Record<string, unknown> | null {
+  const jsonArgs = parseJsonObjectFromText(userText);
+  if (jsonArgs) return jsonArgs;
+
+  const kvArgs = parseKeyValueArgsFromText(userText);
+  return Object.keys(kvArgs).length > 0 ? kvArgs : null;
+}
+
+function coerceExplicitSkillToolCall(
+  messages: readonly LlmMessage[],
+  response: LlmResponse,
+  forcedChoice: LlmToolChoice | undefined,
+): LlmResponse {
+  if (!forcedChoice || typeof forcedChoice === 'string') return response;
+  if (response.toolCalls.some((toolCall) => toolCall.name === forcedChoice.name)) return response;
+
+  const userText = lastUserText(messages);
+  const args = parseExplicitSkillToolArgs(userText);
+  if (!args) return response;
+
+  return {
+    ...response,
+    content: '',
+    toolCalls: [{ id: generateId('forced-tool'), name: forcedChoice.name, arguments: args }],
+  };
 }
 
 /**
@@ -71,17 +147,33 @@ function resolveForcedSkillToolChoice(
  * chunk events entirely.
  */
 export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
-  const { runtimeCtx, threadId, resolved, allTools, streamEnabled, signal } = deps;
+  const { runtimeCtx, threadId, projectId, employeeId, resolved, allTools, streamEnabled, signal } =
+    deps;
   const runScope = deps.runScope ?? null;
 
   return async (messages, meta) => {
+    const forcedSkillToolChoice = resolveForcedSkillToolChoice(messages);
+    if (forcedSkillToolChoice && typeof forcedSkillToolChoice !== 'string') {
+      const args = parseExplicitSkillToolArgs(lastUserText(messages));
+      if (args) {
+        const response: LlmResponse = {
+          content: '',
+          toolCalls: [
+            { id: generateId('forced-tool'), name: forcedSkillToolChoice.name, arguments: args },
+          ],
+          usage: { inputTokens: 0, outputTokens: 0 },
+        };
+        await observeRollingJournal(runtimeCtx, messages, response);
+        return response;
+      }
+    }
     const request = {
       messages,
       model: resolved.model,
       temperature: resolved.temperature,
       maxTokens: resolved.maxTokens,
       tools: allTools.length > 0 ? allTools : undefined,
-      toolChoice: resolveForcedSkillToolChoice(messages, allTools),
+      toolChoice: forcedSkillToolChoice,
       signal,
     };
 
@@ -91,9 +183,12 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
         provider: resolved.provider,
         model: resolved.model,
         taskRunId: meta.taskRunId,
+        projectId,
+        employeeId,
       });
-      await observeRollingJournal(runtimeCtx, messages, response);
-      return response;
+      const coerced = coerceExplicitSkillToolCall(messages, response, forcedSkillToolChoice);
+      await observeRollingJournal(runtimeCtx, messages, coerced);
+      return coerced;
     }
 
     const streamResult = await recordedLlmStream(
@@ -104,6 +199,8 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
         provider: resolved.provider,
         model: resolved.model,
         taskRunId: meta.taskRunId,
+        projectId,
+        employeeId,
       },
       forwardStreamChunks(runtimeCtx, threadId, 'employee', { runScope }),
     );
@@ -114,7 +211,8 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
       toolCalls: streamResult.toolCalls,
       usage: streamResult.usage,
     };
-    await observeRollingJournal(runtimeCtx, messages, response);
-    return response;
+    const coerced = coerceExplicitSkillToolCall(messages, response, forcedSkillToolChoice);
+    await observeRollingJournal(runtimeCtx, messages, coerced);
+    return coerced;
   };
 }

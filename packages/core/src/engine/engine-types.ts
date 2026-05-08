@@ -6,6 +6,7 @@ export type { EmployeeRuntimeBinding, EngineId, EngineProposalKind };
 export interface EngineTaskEnvelope {
   readonly companyId: string;
   readonly threadId: string;
+  readonly projectId?: string | null;
   readonly employeeId: string;
   readonly employeeName: string;
   readonly roleSlug: string;

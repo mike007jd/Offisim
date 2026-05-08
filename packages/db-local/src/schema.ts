@@ -147,6 +147,7 @@ export const installTransactions = sqliteTable(
     source_ref: text('source_ref'),
     target_package_id: text('target_package_id'),
     target_version: text('target_version'),
+    idempotency_key: text('idempotency_key'),
     state: text('state').$type<InstallState>().notNull(),
     error_code: text('error_code'),
     error_detail: text('error_detail'),
@@ -155,7 +156,14 @@ export const installTransactions = sqliteTable(
     started_at: text('started_at').notNull(),
     finished_at: text('finished_at'),
   },
-  (table) => [index('idx_install_transactions_company').on(table.company_id, table.started_at)],
+  (table) => [
+    index('idx_install_transactions_company').on(table.company_id, table.started_at),
+    uniqueIndex('install_transactions_company_idempotency')
+      .on(table.company_id, table.idempotency_key)
+      .where(
+        sql`${table.idempotency_key} IS NOT NULL AND ${table.state} NOT IN ('failed', 'rolled_back', 'cancelled')`,
+      ),
+  ],
 );
 
 export const installedPackages = sqliteTable(

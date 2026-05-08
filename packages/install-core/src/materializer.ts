@@ -37,6 +37,7 @@ export interface MaterializeResult {
 export interface MaterializeOptions {
   readonly provenance?: InstallProvenance;
   readonly transact?: <T>(fn: () => T) => T;
+  readonly asyncTransact?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +115,7 @@ export async function materialize(
 ): Promise<MaterializeResult> {
   const now = nowIso();
   const manifest = plan.manifest;
-  const { provenance, transact } = options;
+  const { provenance, transact, asyncTransact } = options;
 
   if (transact) {
     // ── Drizzle / better-sqlite3 path ─────────────────────────────────────
@@ -189,6 +190,12 @@ export async function materialize(
 
       return { installedPackageId, installedAssetIds, employeeIds, bindingIds };
     });
+  }
+
+  if (asyncTransact) {
+    return asyncTransact(() =>
+      materialize(plan, bindings, repos, companyId, installTxnId, { provenance }),
+    );
   }
 
   // ── Memory-repos / fallback async path ──────────────────────────────────

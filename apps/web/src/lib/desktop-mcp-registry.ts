@@ -7,6 +7,15 @@ export interface DesktopMcpServerRecord {
   command?: string;
   args: string[];
   url?: string;
+  source?: string;
+  sourcePackageId?: string;
+  sourcePackageVersion?: string;
+  sourceManifestHash?: string;
+  requestSurface?: string;
+  approvalId?: string;
+  riskClass?: string;
+  commandFingerprint?: string;
+  requestedTools?: string[];
 }
 
 type DesktopInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -22,9 +31,7 @@ async function invokeDesktop<T>(command: string, args?: Record<string, unknown>)
 export async function listDesktopMcpServers(): Promise<DesktopMcpServerRecord[]> {
   if (!isTauri()) return [];
   try {
-    return await invokeDesktop<DesktopMcpServerRecord[]>(
-      'plugin:mcp_bridge|mcp_list_registered_servers',
-    );
+    return await invokeDesktop<DesktopMcpServerRecord[]>('mcp_list_registered_servers');
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('not allowed by ACL')) {

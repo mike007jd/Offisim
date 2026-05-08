@@ -130,7 +130,7 @@ export function AppMainShell(props: AppMainShellProps) {
     () => projects.find((project) => project.project_id === activeProjectId) ?? null,
     [activeProjectId, projects],
   );
-  const gitBranch = useGitBranch(activeProject?.workspace_root ?? null);
+  const gitBranch = useGitBranch(activeProject?.workspace_root ?? null, activeProject?.project_id ?? null);
   const projectSelectorProps = useMemo(
     () => ({
       projects,

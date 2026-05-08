@@ -319,6 +319,7 @@ export async function runEmployeeEngine(
       {
         companyId: runtimeCtx.companyId,
         threadId: runtimeCtx.threadId,
+        projectId: state.projectId ?? null,
         employeeId: preflight.employee.employee_id,
         employeeName: preflight.employee.name,
         roleSlug: preflight.employee.role_slug,

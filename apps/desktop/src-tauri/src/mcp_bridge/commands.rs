@@ -5,14 +5,39 @@ use crate::mcp_bridge::registry_store::{
 };
 use crate::mcp_bridge::types::*;
 use std::collections::HashMap;
+use std::fs;
+use std::io::Write;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 use tokio::sync::Mutex;
 
 /// IMPORTANT: Uses tokio::sync::Mutex (NOT std::sync::Mutex) because
 /// ManagedProcess methods are async and we must not hold a std Mutex across .await.
 pub struct ProcessRegistry {
     pub servers: Arc<Mutex<HashMap<String, Arc<Mutex<ManagedProcess>>>>>,
+}
+
+fn audit_event<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    event: serde_json::Value,
+) -> Result<(), McpBridgeError> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| McpBridgeError::Registry(err.to_string()))?;
+    fs::create_dir_all(&dir).map_err(|err| McpBridgeError::Registry(err.to_string()))?;
+    let path = dir.join("mcp-stdio-audit.jsonl");
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|err| McpBridgeError::Registry(err.to_string()))?;
+    writeln!(
+        file,
+        "{}",
+        serde_json::to_string(&event).map_err(|err| McpBridgeError::Registry(err.to_string()))?
+    )
+    .map_err(|err| McpBridgeError::Registry(err.to_string()))
 }
 
 impl ProcessRegistry {
@@ -85,6 +110,15 @@ pub fn mcp_list_registered_servers(
             command: server.command,
             args: server.args,
             url: server.url,
+            source: server.source,
+            source_package_id: server.source_package_id,
+            source_package_version: server.source_package_version,
+            source_manifest_hash: server.source_manifest_hash,
+            request_surface: server.request_surface,
+            approval_id: server.approval_id,
+            risk_class: server.risk_class,
+            command_fingerprint: server.command_fingerprint,
+            requested_tools: server.requested_tools,
         })
         .collect())
 }
@@ -102,6 +136,15 @@ pub fn mcp_register_server(
         command: server.command,
         args: server.args,
         url: server.url,
+        source: server.source,
+        source_package_id: server.source_package_id,
+        source_package_version: server.source_package_version,
+        source_manifest_hash: server.source_manifest_hash,
+        request_surface: server.request_surface,
+        approval_id: server.approval_id,
+        risk_class: server.risk_class,
+        command_fingerprint: server.command_fingerprint,
+        requested_tools: server.requested_tools,
     })
 }
 
@@ -117,6 +160,7 @@ pub fn mcp_unregister_server(
 
 #[tauri::command(async)]
 pub async fn mcp_connect_registered(
+    app: AppHandle,
     request: McpConnectRequest,
     process_registry: State<'_, ProcessRegistry>,
     registered_registry: State<'_, RegisteredServerStore>,
@@ -133,22 +177,86 @@ pub async fn mcp_connect_registered(
 
     match server.transport {
         McpTransport::Stdio => {
+            let source = server.source.as_deref().unwrap_or_default();
+            match source {
+                "user-config" if request.request_surface != "settings" => {
+                    return Err(McpBridgeError::Registry(
+                        "user-config stdio MCP startup must originate from settings".into(),
+                    ));
+                }
+                "installed-asset" if request.request_surface != "installed-asset-runtime" => {
+                    return Err(McpBridgeError::Registry(
+                        "installed-asset stdio MCP startup must originate from installed-asset-runtime".into(),
+                    ));
+                }
+                "developer-runtime" if request.request_surface != "developer-runtime" => {
+                    return Err(McpBridgeError::Registry(
+                        "developer-runtime stdio MCP startup must originate from developer-runtime"
+                            .into(),
+                    ));
+                }
+                _ => {}
+            }
+            if source == "installed-asset"
+                && (server.source_package_id != request.source_package_id
+                    || server.source_package_version != request.source_package_version
+                    || server.source_manifest_hash != request.source_manifest_hash)
+            {
+                return Err(McpBridgeError::Registry(
+                    "MCP stdio startup source package metadata did not match registration".into(),
+                ));
+            }
+            if server.approval_id.as_deref() != Some(request.approval_id.as_str()) {
+                return Err(McpBridgeError::Registry(
+                    "MCP stdio approval id did not match registration".into(),
+                ));
+            }
+            if server.command_fingerprint.as_deref() != Some(request.command_fingerprint.as_str()) {
+                return Err(McpBridgeError::Registry(
+                    "MCP stdio command fingerprint did not match registration".into(),
+                ));
+            }
             let command = server.command.clone().ok_or_else(|| {
                 McpBridgeError::Registry(format!(
                     "Registered server '{}' has no command",
                     server.name
                 ))
             })?;
-            spawn_managed_process(
+            let result = spawn_managed_process(
                 McpProcessConfig {
-                    name: server.name,
+                    name: server.name.clone(),
                     command,
-                    args: server.args,
+                    args: server.args.clone(),
                     env: HashMap::new(),
+                    approval_id: Some(request.approval_id.clone()),
+                    command_fingerprint: Some(request.command_fingerprint.clone()),
+                    project_id: request.project_id.clone(),
+                    source: server.source.clone(),
+                    source_package_id: server.source_package_id.clone(),
+                    source_package_version: server.source_package_version.clone(),
+                    source_manifest_hash: server.source_manifest_hash.clone(),
                 },
                 process_registry,
             )
-            .await
+            .await?;
+            audit_event(
+                &app,
+                serde_json::json!({
+                    "event": "mcp_stdio_started",
+                    "serverId": server.server_id,
+                    "serverName": server.name,
+                    "source": server.source,
+                    "sourcePackageId": server.source_package_id,
+                    "sourcePackageVersion": server.source_package_version,
+                    "sourceManifestHash": server.source_manifest_hash,
+                    "approvalId": request.approval_id,
+                    "commandFingerprint": request.command_fingerprint,
+                    "projectId": request.project_id,
+                    "riskClass": server.risk_class,
+                    "toolCount": result.tools.len(),
+                }),
+            )?;
+            Ok(result)
         }
         McpTransport::Sse => Err(McpBridgeError::Registry(
             "SSE servers should connect directly from the web runtime".into(),
@@ -158,20 +266,59 @@ pub async fn mcp_connect_registered(
 
 #[tauri::command(async)]
 pub async fn mcp_call_tool(
-    server: String,
-    tool: String,
-    args: serde_json::Value,
+    app: AppHandle,
+    request: McpToolCallRequest,
     registry: State<'_, ProcessRegistry>,
 ) -> Result<serde_json::Value, McpBridgeError> {
     let process = {
         let servers = registry.servers.lock().await;
         servers
-            .get(&server)
+            .get(&request.server)
             .cloned()
-            .ok_or_else(|| McpBridgeError::ServerNotFound(server.clone()))?
+            .ok_or_else(|| McpBridgeError::ServerNotFound(request.server.clone()))?
     };
     let mut process = process.lock().await;
-    let result = process.call_tool(&tool, args).await;
+    if process.config.approval_id.as_deref() != Some(request.approval_id.as_str()) {
+        return Err(McpBridgeError::Registry(
+            "MCP stdio tool call approval id did not match startup approval".into(),
+        ));
+    }
+    if process.config.command_fingerprint.as_deref() != Some(request.command_fingerprint.as_str()) {
+        return Err(McpBridgeError::Registry(
+            "MCP stdio tool call command fingerprint did not match startup fingerprint".into(),
+        ));
+    }
+    if process.config.project_id != request.project_id {
+        return Err(McpBridgeError::Registry(
+            "MCP stdio tool call project scope did not match startup scope".into(),
+        ));
+    }
+    if process.config.source.as_deref() == Some("installed-asset")
+        && (process.config.source_package_id != request.source_package_id
+            || process.config.source_package_version != request.source_package_version
+            || process.config.source_manifest_hash != request.source_manifest_hash)
+    {
+        return Err(McpBridgeError::Registry(
+            "MCP stdio tool call source package metadata did not match startup scope".into(),
+        ));
+    }
+    let result = process.call_tool(&request.tool, request.args.clone()).await;
+    let _ = audit_event(
+        &app,
+        serde_json::json!({
+            "event": "mcp_tool_called",
+            "serverName": request.server,
+            "toolName": request.tool,
+            "approvalId": request.approval_id,
+            "commandFingerprint": request.command_fingerprint,
+            "projectId": request.project_id,
+            "source": process.config.source.clone(),
+            "sourcePackageId": process.config.source_package_id.clone(),
+            "sourcePackageVersion": process.config.source_package_version.clone(),
+            "sourceManifestHash": process.config.source_manifest_hash.clone(),
+            "inputKind": if result.is_ok() { "executed" } else { "error" },
+        }),
+    );
     result
 }
 

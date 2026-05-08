@@ -3,10 +3,9 @@
 //! Contract: the provider secret (stored plaintext in a Rust-only file under
 //! `app_local_data_dir`, mode 0600 — see `runtime_secrets`) is read here
 //! per-request and injected into the outbound `reqwest` call only. It MUST
-//! NOT cross the Rust→webview IPC boundary. The webview sends an
-//! `auth: { scheme, headerName? }` discriminator that names _how_ to inject
-//! the credential, never the credential bytes themselves. See
-//! `openspec/specs/desktop-llm-credential-isolation/spec.md`.
+//! NOT cross the Rust→webview IPC boundary. The webview sends a provider
+//! profile id plus endpoint kind; Rust resolves the canonical destination and
+//! auth scheme from its provider profile registry.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -17,6 +16,7 @@ use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tokio_util::sync::CancellationToken;
+use url::Url;
 
 use crate::runtime_secrets;
 
@@ -30,25 +30,25 @@ enum AuthScheme {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AuthInject {
-    scheme: AuthScheme,
-    #[serde(default)]
-    header_name: Option<String>,
-    #[serde(default)]
-    secret_ref: Option<String>,
+#[serde(rename_all = "kebab-case")]
+enum LlmEndpointKind {
+    OpenAiChatCompletions,
+    OpenAiResponses,
+    OpenAiEmbeddings,
+    OpenAiModels,
+    AnthropicMessages,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LlmFetchRequest {
     request_id: String,
-    url: String,
+    provider_profile_id: String,
+    endpoint_kind: LlmEndpointKind,
     method: String,
     headers: Vec<(String, String)>,
     #[serde(default)]
     body: Option<String>,
-    auth: AuthInject,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -103,21 +103,21 @@ pub async fn llm_fetch(
 ) -> Result<(), String> {
     let LlmFetchRequest {
         request_id,
-        url,
+        provider_profile_id,
+        endpoint_kind,
         method,
         headers,
         body,
-        auth,
     } = req;
 
     let token = register_token(&request_id);
 
     let result = do_fetch(
-        &url,
+        &provider_profile_id,
+        &endpoint_kind,
         &method,
         headers,
         body.as_deref(),
-        &auth,
         &on_event,
         token.clone(),
     )
@@ -146,6 +146,7 @@ pub async fn llm_fetch(
     }
 }
 
+#[derive(Debug)]
 enum FetchError {
     Aborted,
     NoCredential,
@@ -172,11 +173,11 @@ impl FetchError {
 }
 
 async fn do_fetch(
-    url: &str,
+    provider_profile_id: &str,
+    endpoint_kind: &LlmEndpointKind,
     method: &str,
     mut headers: Vec<(String, String)>,
     body: Option<&str>,
-    auth: &AuthInject,
     on_event: &Channel<TransportEvent>,
     token: CancellationToken,
 ) -> Result<(), FetchError> {
@@ -189,30 +190,42 @@ async fn do_fetch(
         lower != "authorization" && lower != "x-api-key"
     });
 
-    match auth.scheme {
+    let profile = runtime_secrets::resolve_runtime_provider_profile(provider_profile_id)
+        .map_err(FetchError::Request)?;
+    let url = endpoint_url(&profile.base_url, endpoint_kind)?;
+    enforce_profile_destination(&url, &profile.allowed_host, profile.local_endpoint)?;
+    let auth_scheme = match profile.auth_scheme.as_str() {
+        "bearer" => AuthScheme::Bearer,
+        "x-api-key" => AuthScheme::XApiKey,
+        "none" => AuthScheme::None,
+        other => {
+            return Err(FetchError::Request(format!(
+                "unsupported auth scheme for provider profile: {other}"
+            )))
+        }
+    };
+
+    match auth_scheme {
         AuthScheme::None => {}
         AuthScheme::Bearer => {
-            let secret = read_secret(auth.secret_ref.as_deref())?;
+            let secret = read_secret(Some(&profile.secret_ref))?;
             headers.push(("authorization".into(), format!("Bearer {secret}")));
         }
         AuthScheme::XApiKey => {
-            let secret = read_secret(auth.secret_ref.as_deref())?;
-            let name = auth
-                .header_name
-                .clone()
-                .unwrap_or_else(|| "x-api-key".into());
-            headers.push((name, secret));
+            let secret = read_secret(Some(&profile.secret_ref))?;
+            headers.push(("x-api-key".into(), secret));
         }
     }
 
     let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|e| FetchError::Request(format!("reqwest build: {e}")))?;
 
     let method_parsed = Method::from_bytes(method.as_bytes())
         .map_err(|e| FetchError::Request(format!("invalid method {method}: {e}")))?;
 
-    let mut req_builder = client.request(method_parsed, url);
+    let mut req_builder = client.request(method_parsed, url.clone());
     for (name, value) in headers {
         req_builder = req_builder.header(name, value);
     }
@@ -225,10 +238,23 @@ async fn do_fetch(
         res = req_builder.send() => res.map_err(|e| FetchError::Network(format!("request send: {e}")))?,
     };
 
+    if response.status().is_redirection() {
+        if let Some(location) = response.headers().get(reqwest::header::LOCATION) {
+            let location = location
+                .to_str()
+                .map_err(|_| FetchError::Network("redirect location was not UTF-8".into()))?;
+            validate_redirect_target(&url, location, &profile.allowed_host)?;
+        }
+        return Err(FetchError::Network(
+            "provider redirect was blocked for credential isolation".into(),
+        ));
+    }
+
     let status = response.status().as_u16();
     let headers_out: Vec<(String, String)> = response
         .headers()
         .iter()
+        .filter(|(name, _)| !is_filtered_response_header(name.as_str()))
         .filter_map(|(k, v)| {
             v.to_str()
                 .ok()
@@ -273,10 +299,160 @@ fn read_secret(secret_ref: Option<&str>) -> Result<String, FetchError> {
     }
 }
 
+fn endpoint_url(base_url: &str, endpoint_kind: &LlmEndpointKind) -> Result<Url, FetchError> {
+    let mut base = Url::parse(base_url)
+        .map_err(|err| FetchError::Request(format!("invalid baseURL: {err}")))?;
+    if !base.path().ends_with('/') {
+        let normalized_path = format!("{}/", base.path().trim_end_matches('/'));
+        base.set_path(&normalized_path);
+    }
+    let path = match endpoint_kind {
+        LlmEndpointKind::OpenAiChatCompletions => "chat/completions",
+        LlmEndpointKind::OpenAiResponses => "responses",
+        LlmEndpointKind::OpenAiEmbeddings => "embeddings",
+        LlmEndpointKind::OpenAiModels => "models",
+        LlmEndpointKind::AnthropicMessages => "v1/messages",
+    };
+    base.join(path)
+        .map_err(|err| FetchError::Request(format!("resolve endpoint path: {err}")))
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    matches!(host, "localhost" | "127.0.0.1" | "::1" | "[::1]")
+}
+
+fn enforce_profile_destination(
+    url: &Url,
+    allowed_host: &str,
+    local_endpoint: bool,
+) -> Result<(), FetchError> {
+    let host = url
+        .host_str()
+        .map(|host| host.to_ascii_lowercase())
+        .ok_or_else(|| FetchError::Request("provider endpoint has no host".into()))?;
+    if host != allowed_host {
+        return Err(FetchError::Request(
+            "provider endpoint host did not match provider profile".into(),
+        ));
+    }
+    if url.scheme() == "https" {
+        return Ok(());
+    }
+    if local_endpoint && url.scheme() == "http" && is_loopback_host(&host) {
+        return Ok(());
+    }
+    Err(FetchError::Request(
+        "provider endpoint must use https unless profile is explicit localhost".into(),
+    ))
+}
+
+fn validate_redirect_target(
+    current_url: &Url,
+    location: &str,
+    allowed_host: &str,
+) -> Result<(), FetchError> {
+    let redirected = current_url
+        .join(location)
+        .map_err(|err| FetchError::Network(format!("invalid redirect location: {err}")))?;
+    let redirected_host = redirected
+        .host_str()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if redirected_host != allowed_host {
+        return Err(FetchError::Network(
+            "provider redirect to a different credential host was blocked".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn is_filtered_response_header(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower == "authorization"
+        || lower == "proxy-authorization"
+        || lower == "set-cookie"
+        || lower == "cookie"
+        || lower == "x-api-key"
+        || lower.contains("secret")
+        || lower.contains("token")
+}
+
 #[tauri::command]
 pub fn llm_fetch_abort(request_id: String) -> Result<(), String> {
     if let Some(token) = pluck_token(&request_id) {
         token.cancel();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profile_destination_rejects_cross_host() {
+        let url = Url::parse("https://evil.example/v1/chat/completions").unwrap();
+        let err = enforce_profile_destination(&url, "api.openai.com", false).unwrap_err();
+        assert!(matches!(err, FetchError::Request(_)));
+    }
+
+    #[test]
+    fn profile_destination_rejects_plain_http_for_remote_hosts() {
+        let url = Url::parse("http://api.openai.com/v1/chat/completions").unwrap();
+        let err = enforce_profile_destination(&url, "api.openai.com", false).unwrap_err();
+        assert!(matches!(err, FetchError::Request(_)));
+    }
+
+    #[test]
+    fn profile_destination_accepts_explicit_loopback_http() {
+        let url = Url::parse("http://localhost:1234/v1/chat/completions").unwrap();
+        enforce_profile_destination(&url, "localhost", true).unwrap();
+    }
+
+    #[test]
+    fn provider_redirect_to_cross_host_is_blocked() {
+        let url = Url::parse("https://api.openai.com/v1/chat/completions").unwrap();
+        let err = validate_redirect_target(&url, "https://evil.example/capture", "api.openai.com")
+            .unwrap_err();
+        assert!(matches!(err, FetchError::Network(_)));
+    }
+
+    #[test]
+    fn filtered_headers_cover_credential_shapes() {
+        assert!(is_filtered_response_header("Authorization"));
+        assert!(is_filtered_response_header("Set-Cookie"));
+        assert!(is_filtered_response_header("X-Api-Key"));
+        assert!(is_filtered_response_header("X-Provider-Token"));
+        assert!(!is_filtered_response_header("content-type"));
+    }
+
+    #[test]
+    fn endpoint_kind_resolves_provider_relative_paths() {
+        let url = endpoint_url(
+            "https://api.openai.com/v1/",
+            &LlmEndpointKind::OpenAiChatCompletions,
+        )
+        .unwrap();
+        assert_eq!(url.as_str(), "https://api.openai.com/v1/chat/completions");
+    }
+
+    #[test]
+    fn endpoint_kind_preserves_base_path_without_trailing_slash() {
+        let url = endpoint_url(
+            "https://api.openai.com/v1",
+            &LlmEndpointKind::OpenAiChatCompletions,
+        )
+        .unwrap();
+        assert_eq!(url.as_str(), "https://api.openai.com/v1/chat/completions");
+    }
+
+    #[test]
+    fn anthropic_endpoint_resolves_v1_messages_under_provider_base() {
+        let url = endpoint_url(
+            "https://api.minimax.io/anthropic",
+            &LlmEndpointKind::AnthropicMessages,
+        )
+        .unwrap();
+        assert_eq!(url.as_str(), "https://api.minimax.io/anthropic/v1/messages");
+    }
 }

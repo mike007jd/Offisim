@@ -8,7 +8,9 @@ export interface PublishDraftInput {
   readonly title: string;
   readonly summary: string;
   readonly manifest: PackageManifest;
-  readonly artifactUrl: string;
+  readonly artifactBytes: Uint8Array;
+  readonly artifactSha256: string;
+  readonly artifactSizeBytes: number;
   readonly submitMessage?: string;
 }
 
@@ -96,14 +98,16 @@ export function usePublish(authToken?: string | null): UsePublishResult {
           kind: input.kind,
           title: input.title,
           summary: input.summary,
-          artifact_upload_mode: 'external_url',
+          artifact_upload_mode: 'registry_object',
         });
 
         await client.putDraftManifest(draft.draft_id, {
           manifest_json: input.manifest as unknown as Record<string, unknown>,
           artifact: {
-            storage_backend: 'external_url',
-            external_url: input.artifactUrl,
+            storage_backend: 'registry_object',
+            sha256: input.artifactSha256,
+            size_bytes: input.artifactSizeBytes,
+            bytes_base64: bytesToBase64(input.artifactBytes),
           },
         });
 
@@ -137,4 +141,14 @@ export function usePublish(authToken?: string | null): UsePublishResult {
     }),
     [creator, drafts, error, isLoading, isSubmitting, refreshDrafts, submitDraft],
   );
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.subarray(offset, offset + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }

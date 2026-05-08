@@ -10,12 +10,40 @@ pub struct McpProcessConfig {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
+    pub approval_id: Option<String>,
+    pub command_fingerprint: Option<String>,
+    pub project_id: Option<String>,
+    pub source: Option<String>,
+    pub source_package_id: Option<String>,
+    pub source_package_version: Option<String>,
+    pub source_manifest_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct McpConnectRequest {
     pub server_id: String,
+    pub approval_id: String,
+    pub command_fingerprint: String,
+    pub project_id: Option<String>,
+    pub request_surface: String,
+    pub source_package_id: Option<String>,
+    pub source_package_version: Option<String>,
+    pub source_manifest_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpToolCallRequest {
+    pub server: String,
+    pub tool: String,
+    pub args: serde_json::Value,
+    pub approval_id: String,
+    pub command_fingerprint: String,
+    pub project_id: Option<String>,
+    pub source_package_id: Option<String>,
+    pub source_package_version: Option<String>,
+    pub source_manifest_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -27,6 +55,15 @@ pub struct RegisteredMcpServerSummary {
     pub command: Option<String>,
     pub args: Vec<String>,
     pub url: Option<String>,
+    pub source: Option<String>,
+    pub source_package_id: Option<String>,
+    pub source_package_version: Option<String>,
+    pub source_manifest_hash: Option<String>,
+    pub request_surface: Option<String>,
+    pub approval_id: Option<String>,
+    pub risk_class: Option<String>,
+    pub command_fingerprint: Option<String>,
+    pub requested_tools: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -97,5 +134,34 @@ impl JsonRpcMessage {
             result: None,
             error: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registered_summary_serializes_request_surface() {
+        let summary = RegisteredMcpServerSummary {
+            server_id: "server-installed-asset".into(),
+            name: "Installed Asset MCP".into(),
+            transport: McpTransport::Stdio,
+            command: Some("node".into()),
+            args: vec!["server.mjs".into()],
+            url: None,
+            source: Some("installed-asset".into()),
+            source_package_id: Some("pkg.customer-research".into()),
+            source_package_version: Some("1.0.0".into()),
+            source_manifest_hash: Some("manifest-a".into()),
+            request_surface: Some("installed-asset-runtime".into()),
+            approval_id: Some("approval-1".into()),
+            risk_class: Some("high".into()),
+            command_fingerprint: Some("fingerprint-a".into()),
+            requested_tools: vec!["search".into()],
+        };
+
+        let value = serde_json::to_value(summary).unwrap();
+        assert_eq!(value["requestSurface"], "installed-asset-runtime");
     }
 }

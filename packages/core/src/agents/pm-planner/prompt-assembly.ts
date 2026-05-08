@@ -105,7 +105,12 @@ export async function generatePmLlmContent(
       signal: getConfigSignal(config),
       timeoutMs: PM_PLANNING_TIMEOUT_MS,
     },
-    { nodeName: 'pm_planner', provider: resolved.provider, model: resolved.model },
+    {
+      nodeName: 'pm_planner',
+      provider: resolved.provider,
+      model: resolved.model,
+      projectId: prep.state.projectId,
+    },
   );
 
   return response.content;

@@ -92,6 +92,8 @@ export async function employeeNode(
   const runEmployeeTurn = buildTurnRunner({
     runtimeCtx,
     threadId,
+    projectId: state.projectId,
+    employeeId: employee.employee_id,
     resolved,
     allTools,
     streamEnabled: streamEmployeeReplies,

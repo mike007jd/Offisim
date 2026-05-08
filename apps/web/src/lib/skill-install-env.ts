@@ -107,6 +107,7 @@ export function createTauriSkillInstallEnvironment(opts: {
   localDir: LocalDirAdapter;
   uploadResolver: UploadRefResolver;
   repoRoot?: string;
+  forProject?: (projectId: string | null | undefined) => Promise<SkillInstallEnvironment>;
 }): SkillInstallEnvironment {
   return {
     runtime: 'desktop',
@@ -115,6 +116,7 @@ export function createTauriSkillInstallEnvironment(opts: {
     gitFs: opts.gitFs,
     localDir: opts.localDir,
     uploadResolver: opts.uploadResolver,
+    ...(opts.forProject ? { forProject: opts.forProject } : {}),
     ...(opts.repoRoot ? { repoRoot: opts.repoRoot } : {}),
   };
 }

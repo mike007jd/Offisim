@@ -107,25 +107,74 @@ async function readTreeRecursive(rootAbs: string): Promise<VirtualTree> {
   return { files };
 }
 
+async function readProjectTreeRecursive(
+  rootAbs: string,
+  opts: { projectRoot: string; projectId?: string | undefined },
+): Promise<VirtualTree> {
+  const inv = await invoke();
+  const encoder = new TextEncoder();
+  const files: VirtualFile[] = [];
+  const rootRel = relativeToRoot(rootAbs, opts.projectRoot);
+  if (!rootRel) return { files };
+  async function walk(rel: string, outRel: string): Promise<void> {
+    let entries: ProjectDirEntry[];
+    try {
+      entries = await inv<ProjectDirEntry[]>('project_list_dir', {
+        path: rel,
+        cwd: opts.projectRoot,
+        ...(opts.projectId ? { projectId: opts.projectId } : {}),
+      });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const childRel = rel === '.' ? e.name : `${rel}/${e.name}`;
+      const childOutRel = outRel.length > 0 ? `${outRel}/${e.name}` : e.name;
+      if (e.isDirectory) {
+        await walk(childRel, childOutRel);
+      } else if (e.isFile) {
+        try {
+          const text = await inv<string>('project_read_file', {
+            path: childRel,
+            cwd: opts.projectRoot,
+            ...(opts.projectId ? { projectId: opts.projectId } : {}),
+          });
+          files.push({ path: childOutRel, content: encoder.encode(text) });
+        } catch {
+          /* skip unreadable or non-text entries */
+        }
+      }
+    }
+  }
+  await walk(rootRel, '');
+  return { files };
+}
+
 /**
  * Tauri git clone adapter. Uses the sandboxed `git_exec` invoke handler
  * (whitelisted to `clone` among other subcommands). Clones into a fresh tmp
- * directory under `$TMPDIR/offisim-skill-<rand>/`.
+ * directory under the bound project workspace at `.offisim/tmp/offisim-skill-<rand>/`.
  */
-export function createTauriGitCloneAdapter(): GitCloneAdapter {
+export function createTauriGitCloneAdapter(opts?: {
+  projectRoot?: string;
+  projectId?: string;
+}): GitCloneAdapter {
   return {
     async clone({ url, ref }) {
-      const p = await path();
-      const tmpBase = await p.tempDir();
+      if (!opts?.projectRoot || !opts.projectId) {
+        throw new Error('Git clone requires a bound project workspace.');
+      }
+      const tmpBase = `${normalize(opts.projectRoot)}/.offisim/tmp`;
       const randSuffix = Math.random().toString(36).slice(2, 10);
-      const tmpPath = `${normalize(tmpBase)}/offisim-skill-${randSuffix}`;
+      const tmpPath = `${tmpBase}/offisim-skill-${randSuffix}`;
       const args = ref
         ? ['clone', '--depth', '1', '--branch', ref, url, tmpPath]
         : ['clone', '--depth', '1', url, tmpPath];
       const inv = await invoke();
       const result = await inv<{ ok: boolean; stdout: string; stderr: string }>('git_exec', {
         args,
-        cwd: normalize(tmpBase),
+        cwd: '.',
+        projectId: opts.projectId,
       });
       if (!result.ok) {
         throw new Error(`git clone failed: ${result.stderr || 'unknown error'}`);
@@ -135,9 +184,19 @@ export function createTauriGitCloneAdapter(): GitCloneAdapter {
   };
 }
 
-export function createTauriGitLocalFsAdapter(): GitLocalFsAdapter {
+export function createTauriGitLocalFsAdapter(opts?: {
+  projectRoot?: string;
+  projectId?: string;
+}): GitLocalFsAdapter {
   return {
     async readTree(localPath) {
+      if (opts?.projectRoot && opts.projectId) {
+        const tree = await readProjectTreeRecursive(localPath, {
+          projectRoot: opts.projectRoot,
+          projectId: opts.projectId,
+        });
+        if (tree.files.length > 0) return tree;
+      }
       return readTreeRecursive(localPath);
     },
     async cleanup(localPath) {

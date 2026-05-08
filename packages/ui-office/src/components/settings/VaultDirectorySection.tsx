@@ -2,7 +2,6 @@ import { pickBrowserVaultDirectory } from '@offisim/core/browser';
 import { Button } from '@offisim/ui-core';
 import { FolderOpen, Link2Off, PackageOpen } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { openDesktopLocalPath } from '../../lib/desktop-local-paths';
 import { isTauri } from '../../lib/env';
 import { exportVaultSnapshotZip } from '../../lib/vault-export';
 import {
@@ -152,7 +151,7 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
               onClick={async () => {
                 if (!desktopVaultRoot) return;
                 try {
-                  await openDesktopLocalPath(desktopVaultRoot);
+                  notify('Open local folders from a bound project workspace.', 'error');
                 } catch (err) {
                   notify(err instanceof Error ? err.message : String(err), 'error');
                 }

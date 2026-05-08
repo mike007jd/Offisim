@@ -73,6 +73,7 @@ export async function materializeFileDeliverableIfNeeded(
   response: DeliverableResponse,
   request: DeliverableRepairRequest,
   taskRunId?: string,
+  projectId?: string | null,
 ): Promise<MaterializedEmployeeDeliverable | null> {
   if (taskTargetsLocalPath(taskDescription)) return null;
   const primaryArtifact = buildInferredArtifact(taskDescription, response.content);
@@ -99,6 +100,8 @@ export async function materializeFileDeliverableIfNeeded(
       provider: request.provider,
       model: request.model,
       taskRunId,
+      projectId,
+      employeeId: employee.employee_id,
     },
   );
 

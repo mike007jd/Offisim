@@ -426,7 +426,12 @@ export async function bossSummaryNode(
       temperature: resolved.temperature,
       maxTokens: resolved.maxTokens,
     },
-    { nodeName: 'boss_summary', provider: resolved.provider, model: resolved.model },
+    {
+      nodeName: 'boss_summary',
+      provider: resolved.provider,
+      model: resolved.model,
+      projectId: state.projectId,
+    },
     forwardStreamChunks(runtimeCtx, state.threadId, 'boss_summary', {
       runScope: getRunScope(config),
     }),

@@ -193,7 +193,13 @@ export async function participantTurnNode(
       temperature: resolved.temperature,
       maxTokens: resolved.maxTokens,
     },
-    { nodeName: 'meeting_participant', provider: resolved.provider, model: resolved.model },
+    {
+      nodeName: 'meeting_participant',
+      provider: resolved.provider,
+      model: resolved.model,
+      projectId: state.projectId,
+      employeeId: employee.employee_id,
+    },
   );
 
   // Advance turn state
@@ -443,6 +449,7 @@ async function extractMeetingActionItems(
   runtimeCtx: RuntimeContext,
   transcript: string[],
   employees: EmployeeRow[],
+  projectId: string | null,
 ): Promise<MeetingActionItem[]> {
   const employeeIds = employees.map((e) => e.employee_id);
   if (employeeIds.length === 0) return [];
@@ -490,7 +497,12 @@ Do not include any text outside the JSON object.`;
         temperature: 0.2,
         maxTokens: resolved.maxTokens,
       },
-      { nodeName: 'meeting_end', provider: resolved.provider, model: resolved.model },
+      {
+        nodeName: 'meeting_end',
+        provider: resolved.provider,
+        model: resolved.model,
+        projectId,
+      },
     );
 
     // Parse JSON from response (handles markdown code blocks and embedded JSON)
@@ -580,6 +592,7 @@ export async function meetingEndNode(
     runtimeCtx,
     turnState.transcript,
     employees,
+    state.projectId,
   );
 
   // 3. Emit meeting.action.created events

@@ -166,7 +166,12 @@ export async function pmReplanNode(
       maxTokens: resolved.maxTokens,
       signal: getConfigSignal(config),
     },
-    { nodeName: 'pm_replan', provider: resolved.provider, model: resolved.model },
+    {
+      nodeName: 'pm_replan',
+      provider: resolved.provider,
+      model: resolved.model,
+      projectId: state.projectId,
+    },
   );
 
   const replanResult = parseReplanResult(llmResponse.content);

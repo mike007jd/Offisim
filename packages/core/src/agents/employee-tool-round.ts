@@ -94,6 +94,7 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
           runtimeCtx,
           employee.employee_id,
           `${preflight.resolved.provider}/${preflight.resolved.model}`,
+          ctx.state.projectId,
         );
         return { callId: toolCall.id, name: toolCall.name, result };
       }
@@ -247,6 +248,12 @@ function typedReplyFromToolResults(
 ): string | null {
   for (const toolResult of toolResults) {
     const parsed = parseStructuredToolResult(toolResult.result);
+    if (isSkillInstallTool(toolResult.name) && parsed?.status === 'pending-confirm') {
+      return 'Waiting for your input to continue.';
+    }
+    if (isSkillInstallTool(toolResult.name) && parsed?.kind) {
+      return toolResultText(toolResult.result);
+    }
     if (toolResult.name === 'sync_from_claude_code' && parsed?.kind === 'desktop-only-tool') {
       return 'This skill source requires the desktop app.';
     }
@@ -260,7 +267,7 @@ function typedReplyFromToolResults(
   return null;
 }
 
-function parseStructuredToolResult(result: unknown): { kind?: unknown } | null {
+function parseStructuredToolResult(result: unknown): { kind?: unknown; status?: unknown } | null {
   const value =
     typeof result === 'string'
       ? (() => {

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm -C ../.. --filter @offisim/db-platform build && node ../../scripts/ensure-port-free.mjs 4100 && tsx watch src/index.ts",
     "prebuild": "node ../../scripts/check-platform-tauri-origin-sync.mjs",
-    "build": "node ../../scripts/tsc-build-if-dist-missing.mjs --project tsconfig.json",
+    "build": "node ../../scripts/tsc-build-if-dist-missing.mjs --project tsconfig.json && mkdir -p dist/seed/payloads && cp src/seed/payloads/*.md dist/seed/payloads/",
     "typecheck": "tsc -p tsconfig.typecheck.json",
     "start": "node dist/index.js",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"

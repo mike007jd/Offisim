@@ -37,6 +37,32 @@ const EMPTY_REPLAY_VALUES = {
   responseHash: null,
 } as const;
 
+async function withExecutionContext(
+  ctx: RuntimeContext,
+  request: LlmRequest,
+  meta: LlmCallMeta,
+): Promise<LlmRequest> {
+  const existing = request.executionContext ?? {};
+  let projectId = existing.projectId ?? meta.projectId ?? null;
+  if (!projectId) {
+    try {
+      const thread = await ctx.repos.threads.findById(ctx.threadId);
+      projectId = thread?.project_id ?? null;
+    } catch {
+      projectId = null;
+    }
+  }
+  return {
+    ...request,
+    executionContext: {
+      ...existing,
+      projectId,
+      threadId: existing.threadId ?? ctx.threadId,
+      employeeId: existing.employeeId ?? meta.employeeId ?? null,
+    },
+  };
+}
+
 /**
  * Build an `onChunk` callback for `recordedLlmStream` that forwards reasoning and/or
  * content deltas onto the runtime eventBus as `llm.stream.chunk` events. Set
@@ -96,9 +122,10 @@ export async function recordedLlmCall(
     // policy's keepRecentMessages / triggerTokens settings.
     // Only apply a basic prune fallback when NO middleware chain exists at all
     // (e.g., in tests or minimal runtime setups).
-    const effectiveRequest = ctx.middlewareChain
+    const preparedRequest = ctx.middlewareChain
       ? callCtx.request
       : { ...callCtx.request, messages: pruneLlmMessages(callCtx.request.messages) };
+    const effectiveRequest = await withExecutionContext(ctx, preparedRequest, meta);
 
     // Resolve gateway: prefer modelRegistry if the meta.model has a dedicated gateway
     const gateway = ctx.modelRegistry?.getGateway(meta.model) ?? ctx.llmGateway;
@@ -219,9 +246,10 @@ export async function recordedLlmStream(
     }
 
     // Same logic as recordedLlmCall: trust middleware chain, fallback basic prune.
-    const effectiveRequest = ctx.middlewareChain
+    const preparedRequest = ctx.middlewareChain
       ? callCtx.request
       : { ...callCtx.request, messages: pruneLlmMessages(callCtx.request.messages) };
+    const effectiveRequest = await withExecutionContext(ctx, preparedRequest, meta);
 
     // Resolve gateway: prefer modelRegistry if the meta.model has a dedicated gateway
     const gateway = ctx.modelRegistry?.getGateway(meta.model) ?? ctx.llmGateway;

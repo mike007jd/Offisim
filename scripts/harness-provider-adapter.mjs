@@ -79,6 +79,7 @@ if (openAiAgentsFetchCount !== 0) {
 }
 assertCodexCoreFactoryFailsClosed();
 assertCodexHostTextOnlyInstructions();
+assertTauriEngineAdaptersResolveProjectId();
 
 console.log(
   JSON.stringify(
@@ -94,6 +95,7 @@ console.log(
         'openai-agents-sdk-rejects-tools',
         'codex-agent-sdk-core-factory-fails-closed',
         'codex-agent-host-text-only-instructions',
+        'tauri-engine-adapters-project-id',
       ],
     },
     null,
@@ -213,6 +215,46 @@ function assertCodexHostTextOnlyInstructions() {
     if (!source.includes(phrase)) {
       throw new Error(`codex-agent-host-text-only-instructions missing "${phrase}"`);
     }
+  }
+}
+
+function assertTauriEngineAdaptersResolveProjectId() {
+  const engineSource = readFileSync(
+    new URL('../apps/web/src/lib/tauri-engine-adapters.ts', import.meta.url),
+    'utf8',
+  );
+  const runtimeSource = readFileSync(
+    new URL('../apps/web/src/lib/tauri-runtime.ts', import.meta.url),
+    'utf8',
+  );
+  const executorSource = readFileSync(
+    new URL('../packages/core/src/agents/employee-engine-executor.ts', import.meta.url),
+    'utf8',
+  );
+  const requiredEnginePhrases = [
+    'readonly resolveProjectId?: () => Promise<string | null | undefined>;',
+    'const resolvedProjectId = envelope.projectId ?? (await this.options.resolveProjectId?.());',
+    'projectId: resolvedProjectId',
+    'new TauriCodexEngineAdapter({ resolveProjectId: options.resolveProjectId })',
+    'resolveProjectId: options.resolveProjectId',
+  ];
+  for (const phrase of requiredEnginePhrases) {
+    if (!engineSource.includes(phrase)) {
+      throw new Error(`tauri-engine-adapters-project-id missing "${phrase}"`);
+    }
+  }
+  const requiredRuntimePhrases = [
+    'engineAdapters: createTauriEngineAdapterRegistry({',
+    'async resolveProjectId()',
+    'thread?.project_id ?? (await resolveSingleActiveProjectId(repos, companyId))',
+  ];
+  for (const phrase of requiredRuntimePhrases) {
+    if (!runtimeSource.includes(phrase)) {
+      throw new Error(`tauri-runtime-engine-project-id missing "${phrase}"`);
+    }
+  }
+  if (!executorSource.includes('projectId: state.projectId ?? null,')) {
+    throw new Error('tauri-engine-adapters-project-id missing engine envelope projectId');
   }
 }
 

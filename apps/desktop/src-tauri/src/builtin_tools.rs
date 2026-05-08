@@ -1,8 +1,10 @@
 use serde::Serialize;
 use sqlx::Row;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::process::Stdio;
-use tauri::Runtime;
+use tauri::{Manager, Runtime};
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
@@ -23,6 +25,25 @@ pub struct BashExecuteResult {
     stderr: String,
     exit_code: i32,
     timed_out: bool,
+    project_id: String,
+    cwd: String,
+    network_policy: String,
+    approval_id: Option<String>,
+}
+
+#[derive(Debug)]
+struct ShellAuditInput<'a> {
+    command: &'a str,
+    cwd: &'a Path,
+    project_id: &'a str,
+    employee_id: Option<&'a str>,
+    approval_id: Option<&'a str>,
+    timeout_ms: u32,
+    exit_code: i32,
+    timed_out: bool,
+    network_policy: &'a str,
+    stdout: &'a str,
+    stderr: &'a str,
 }
 
 #[derive(Debug, Serialize)]
@@ -275,6 +296,75 @@ fn truncate_text(bytes: &[u8], max_bytes: usize) -> String {
     text
 }
 
+fn redacted_text(bytes: &[u8], max_bytes: usize) -> String {
+    let text = truncate_text(bytes, max_bytes);
+    let mut redacted = String::new();
+    for token in text.split_inclusive(char::is_whitespace) {
+        let bare =
+            token.trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_' && ch != '-');
+        let looks_secret = bare.len() >= 24
+            && (bare.starts_with("sk-")
+                || bare.starts_with("offisim_")
+                || bare.to_ascii_lowercase().contains("api_key")
+                || bare.to_ascii_lowercase().contains("token"));
+        if looks_secret {
+            redacted.push_str(token.replace(bare, "[REDACTED]").as_str());
+        } else {
+            redacted.push_str(token);
+        }
+    }
+    redacted
+}
+
+fn append_shell_audit<R: Runtime>(app: &tauri::AppHandle<R>, input: ShellAuditInput<'_>) {
+    let Some(dir) = app.path().app_local_data_dir().ok() else {
+        return;
+    };
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("shell-execution-audit.jsonl");
+    let event = serde_json::json!({
+        "command": input.command,
+        "cwd": input.cwd.to_string_lossy(),
+        "projectId": input.project_id,
+        "employeeId": input.employee_id,
+        "approvalId": input.approval_id,
+        "timeoutMs": input.timeout_ms,
+        "exitCode": input.exit_code,
+        "timedOut": input.timed_out,
+        "networkPolicy": input.network_policy,
+        "stdout": {
+            "redactedPreview": input.stdout,
+            "redactedChars": input.stdout.len(),
+        },
+        "stderr": {
+            "redactedPreview": input.stderr,
+            "redactedChars": input.stderr.len(),
+        },
+        "credentialBytesRecorded": false,
+        "atUnixMs": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis())
+            .unwrap_or_default(),
+    });
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(file, "{event}");
+    }
+}
+
+fn scrubbed_shell_env() -> Vec<(String, String)> {
+    const ALLOW: &[&str] = &[
+        "PATH", "HOME", "USER", "LANG", "TERM", "TMPDIR", "LC_ALL", "LC_CTYPE",
+    ];
+    ALLOW
+        .iter()
+        .filter_map(|key| {
+            std::env::var(key)
+                .ok()
+                .map(|value| ((*key).to_string(), value))
+        })
+        .collect()
+}
+
 fn relative_path_for_entry(root: &Path, entry_path: &Path) -> String {
     entry_path
         .strip_prefix(root)
@@ -467,6 +557,7 @@ pub async fn project_write_file<R: Runtime>(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn bash_execute<R: Runtime>(
     app: tauri::AppHandle<R>,
     cwd: String,
@@ -474,17 +565,29 @@ pub async fn bash_execute<R: Runtime>(
     timeout_ms: u32,
     max_output_bytes: Option<u32>,
     project_id: Option<String>,
+    approval_id: Option<String>,
+    employee_id: Option<String>,
+    network_policy: Option<String>,
 ) -> Result<BashExecuteResult, String> {
-    let roots = workspace_roots(&app, project_id.as_deref()).await?;
+    let project_id = project_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "projectId is required for bash_execute".to_string())?
+        .to_string();
+    let roots = workspace_roots(&app, Some(&project_id)).await?;
     let cwd_path = PathBuf::from(&cwd)
         .canonicalize()
         .map_err(|err| fs_resolve_error("resolve shell cwd", Path::new(&cwd), err))?;
     ensure_inside_workspace(&cwd_path, &roots)?;
+    let network_policy = network_policy.unwrap_or_else(|| "approval-gated-disclosed".into());
 
     let child = Command::new("bash")
         .arg("-c")
-        .arg(cmd)
+        .arg(&cmd)
         .current_dir(&cwd_path)
+        .env_clear()
+        .envs(scrubbed_shell_env())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -505,19 +608,66 @@ pub async fn bash_execute<R: Runtime>(
         Ok(output) => {
             let output =
                 output.map_err(|err| fs_op_error("wait for bash in", &cwd_path, &roots, err))?;
+            let stdout = redacted_text(&output.stdout, max_bytes);
+            let stderr = redacted_text(&output.stderr, max_bytes);
+            let exit_code = output.status.code().unwrap_or(-1);
+            append_shell_audit(
+                &app,
+                ShellAuditInput {
+                    command: &cmd,
+                    cwd: &cwd_path,
+                    project_id: &project_id,
+                    employee_id: employee_id.as_deref(),
+                    approval_id: approval_id.as_deref(),
+                    timeout_ms,
+                    exit_code,
+                    timed_out: false,
+                    network_policy: &network_policy,
+                    stdout: &stdout,
+                    stderr: &stderr,
+                },
+            );
             Ok(BashExecuteResult {
-                stdout: truncate_text(&output.stdout, max_bytes),
-                stderr: truncate_text(&output.stderr, max_bytes),
-                exit_code: output.status.code().unwrap_or(-1),
+                stdout,
+                stderr,
+                exit_code,
                 timed_out: false,
+                project_id,
+                cwd: cwd_path.to_string_lossy().to_string(),
+                network_policy,
+                approval_id,
             })
         }
-        Err(_) => Ok(BashExecuteResult {
-            stdout: String::new(),
-            stderr: "Command timed out".to_string(),
-            exit_code: -1,
-            timed_out: true,
-        }),
+        Err(_) => {
+            let stdout = String::new();
+            let stderr = "Command timed out".to_string();
+            append_shell_audit(
+                &app,
+                ShellAuditInput {
+                    command: &cmd,
+                    cwd: &cwd_path,
+                    project_id: &project_id,
+                    employee_id: employee_id.as_deref(),
+                    approval_id: approval_id.as_deref(),
+                    timeout_ms,
+                    exit_code: -1,
+                    timed_out: true,
+                    network_policy: &network_policy,
+                    stdout: &stdout,
+                    stderr: &stderr,
+                },
+            );
+            Ok(BashExecuteResult {
+                stdout,
+                stderr,
+                exit_code: -1,
+                timed_out: true,
+                project_id,
+                cwd: cwd_path.to_string_lossy().to_string(),
+                network_policy,
+                approval_id,
+            })
+        }
     }
 }
 
@@ -597,8 +747,11 @@ mod builtin_tools_contracts {
     fn resolves_nonexistent_tail_under_canonical_root() {
         let workspace = TestDir::new("tail");
         let root = workspace.path.canonicalize().expect("canonical workspace");
-        let target = resolve_write_target(&workspace.path.join("nested/file.txt"), &[root.clone()])
-            .expect("target resolves");
+        let target = resolve_write_target(
+            &workspace.path.join("nested/file.txt"),
+            std::slice::from_ref(&root),
+        )
+        .expect("target resolves");
         assert!(target.starts_with(root));
         assert!(target.ends_with("nested/file.txt"));
     }
@@ -673,5 +826,31 @@ mod builtin_tools_contracts {
         let bytes = "hello".as_bytes().to_vec();
         let recovered = utf8_boundary_safe_string(bytes);
         assert_eq!(recovered, "hello");
+    }
+
+    #[test]
+    fn shell_output_redaction_removes_secret_like_tokens() {
+        let output = redacted_text(
+            b"ok sk-test_abcdefghijklmnopqrstuvwxyz offisim_token_abcdefghijklmnopqrstuvwxyz",
+            1024,
+        );
+
+        assert!(output.contains("[REDACTED]"));
+        assert!(!output.contains("sk-test_abcdefghijklmnopqrstuvwxyz"));
+        assert!(!output.contains("offisim_token_abcdefghijklmnopqrstuvwxyz"));
+    }
+
+    #[test]
+    fn shell_env_scrub_uses_minimal_allowlist() {
+        let env = scrubbed_shell_env();
+        let keys: std::collections::HashSet<_> = env.iter().map(|(key, _)| key.as_str()).collect();
+
+        assert!(!keys.contains("OPENAI_API_KEY"));
+        assert!(!keys.contains("ANTHROPIC_API_KEY"));
+        assert!(!keys.contains("COOKIE"));
+        assert!(keys.iter().all(|key| matches!(
+            *key,
+            "PATH" | "HOME" | "USER" | "LANG" | "TERM" | "TMPDIR" | "LC_ALL" | "LC_CTYPE"
+        )));
     }
 }

@@ -25,6 +25,7 @@ import type { LlmResponse, ToolDef } from '../llm/gateway.js';
 import type { LlmGateway } from '../llm/gateway.js';
 import type { ModelRegistry, ModelRegistryEntry } from '../llm/model-registry.js';
 import { ModelResolver } from '../llm/model-resolver.js';
+import { RecordedSystemLlmCaller } from '../llm/recorded-system-caller.js';
 import { AuditingToolExecutor } from '../mcp/auditing-tool-executor.js';
 import { ToolPermissionEngine } from '../permissions/tool-permission-engine.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
@@ -61,6 +62,14 @@ const HARNESS_RUNTIME_POLICY = {
   toolPermissions: { enabled: true, defaultBehavior: 'allow', rules: [] },
   recording: { mode: 'replay' },
 } satisfies RuntimePolicyConfig;
+
+const HARNESS_SYSTEM_GATEWAY: LlmGateway = {
+  async chat(): Promise<LlmResponse> {
+    return fakeResponse('{}', { inputTokens: 1, outputTokens: 1 });
+  },
+  async *chatStream(): AsyncIterable<never> {},
+  dispose(): void {},
+};
 
 export interface DeterministicScenario {
   readonly id: string;
@@ -776,6 +785,13 @@ function createScenarioRuntime(params: {
     runtimePolicy: HARNESS_RUNTIME_POLICY,
     llmToolCallsEnabled: params.llmToolCallsEnabled,
     determinism: params.determinism,
+    systemCaller: new RecordedSystemLlmCaller({
+      llmGateway: HARNESS_SYSTEM_GATEWAY,
+      llmCalls: params.repos.llmCalls,
+      eventBus: params.eventBus,
+      companyId: params.companyId,
+      threadId: params.threadId,
+    }),
     ...(params.modelRegistryEntries.length > 0
       ? { modelRegistry: createScenarioModelRegistry(params.modelRegistryEntries) }
       : {}),

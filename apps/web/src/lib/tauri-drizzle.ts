@@ -1,6 +1,18 @@
 import * as schema from '@offisim/db-local';
+import { invoke } from '@tauri-apps/api/core';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { getTauriDb } from './tauri-db';
+
+interface QueuedTransactionStatement {
+  readonly sql: string;
+  readonly params: readonly unknown[];
+}
+
+interface ActiveTransactionQueue {
+  readonly statements: QueuedTransactionStatement[];
+}
+
+let activeTransactionQueue: ActiveTransactionQueue | null = null;
 
 /**
  * Convert Drizzle's `?` placeholders to tauri-plugin-sql's `$1, $2, ...` format.
@@ -57,8 +69,16 @@ export function createTauriDrizzleDb() {
       const convertedSql = convertPlaceholders(sql);
 
       if (method === 'run') {
+        if (activeTransactionQueue) {
+          activeTransactionQueue.statements.push({ sql: convertedSql, params: [...params] });
+          return { rows: [] };
+        }
         await db.execute(convertedSql, params);
         return { rows: [] };
+      }
+
+      if (activeTransactionQueue) {
+        throw new Error('Tauri SQL write transaction does not support SELECT statements.');
       }
 
       // tauri-plugin-sql returns object rows, while drizzle sqlite-proxy maps
@@ -74,3 +94,18 @@ export function createTauriDrizzleDb() {
 }
 
 export type TauriDrizzleDb = ReturnType<typeof createTauriDrizzleDb>;
+
+export async function withTauriSqlTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  if (activeTransactionQueue) {
+    throw new Error('Nested Tauri SQL transactions are not supported.');
+  }
+  const queue: ActiveTransactionQueue = { statements: [] };
+  activeTransactionQueue = queue;
+  try {
+    const result = await fn();
+    await invoke('local_db_execute_transaction', { statements: queue.statements });
+    return result;
+  } finally {
+    activeTransactionQueue = null;
+  }
+}

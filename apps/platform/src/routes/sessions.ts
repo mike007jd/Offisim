@@ -6,6 +6,7 @@ import {
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
+import { requireLocalRuntimeAccess } from '../middleware/auth.js';
 import type { PlatformEnv } from '../types.js';
 
 const SessionModeSchema = z.object({
@@ -13,6 +14,8 @@ const SessionModeSchema = z.object({
 });
 
 export const sessionsRoute = new Hono<PlatformEnv>();
+
+sessionsRoute.use('/api/sessions/*', requireLocalRuntimeAccess);
 
 sessionsRoute.get('/api/sessions/:id', async (c) => {
   const sessionStore = c.get('sessionStore');

@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
+import { requireLocalRuntimeAccess } from '../middleware/auth.js';
 import type { PlatformEnv, PlatformKanbanEvent } from '../types.js';
 
 const encoder = new TextEncoder();
@@ -34,6 +35,8 @@ const TransitionCardSchema = z.object({
 });
 
 export const kanbanRoute = new Hono<PlatformEnv>();
+
+kanbanRoute.use('*', requireLocalRuntimeAccess);
 
 kanbanRoute.get('/api/projects/:projectId/kanban', async (c) => {
   const store = requireKanbanStore(c);

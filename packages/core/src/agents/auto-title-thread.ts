@@ -83,7 +83,12 @@ export function autoTitleThread(ctx: RuntimeContext, state: OffisimGraphState): 
             temperature: 0.2,
             maxTokens: 32,
           },
-          { nodeName: 'thread_auto_title', provider: resolved.provider, model: resolved.model },
+          {
+            nodeName: 'thread_auto_title',
+            provider: resolved.provider,
+            model: resolved.model,
+            projectId: existing.project_id,
+          },
         );
         const candidate = clampTitle(response.content ?? '');
         if (candidate) summary = candidate;

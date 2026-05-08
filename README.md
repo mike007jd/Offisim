@@ -37,18 +37,29 @@ Common local entrypoints:
 
 ## Validation Policy
 
-The repository no longer keeps automated test suites or scripted smoke flows.
+Offisim does not keep a broad product unit-test suite. Release validation is a
+smaller set of retained gates that must match the risk of the change:
 
-Validation now happens in live runtime:
+- deterministic harness scenarios for graph/runtime/permission/planner/LLM replay invariants
+- targeted Rust safety checks for desktop credential transport, sidecars, workspace containment, local shell/git/path commands, and install materialization
+- platform migration generation/drift checks for `apps/platform` / `packages/db-platform`
+- package builds for changed desktop UI surfaces before any desktop verification
+- release `.app` live verification from the current worktree path for desktop runtime behavior
 
-- run the affected app/package directly
-- verify the exact UI/runtime behavior by hand
-- keep evidence in commit notes or handoff notes when a phase is closed
+Do not reintroduce broad `vitest`, Playwright, `pnpm test`, `test:ai`, or ad-hoc
+smoke suites as product gates. Temporary local exploration is allowed, but
+release evidence must name the deterministic harness/Rust/platform/build/live
+gate that actually proved the behavior.
 
-Do not reintroduce `vitest`, `playwright`, `pnpm test`, `test:ai`, or ad-hoc smoke scripts.
+For desktop release verification, dev webviews, dev servers, localhost browser
+results, and old bundle-id launches are not sufficient. Build `@offisim/ui-office`
+first when it changes, then build `@offisim/desktop`, launch the exact release
+`.app` path from this worktree, and record the app path/hash plus Computer Use or
+equivalent release-app evidence.
 
 Detailed machine setup, env notes, and startup combinations live in `Docs/00_start_here/LOCAL_DEVELOPMENT.md`.
 Deployment-specific guidance lives in `Docs/00_start_here/DEPLOYMENT.md`.
+Release gate commands and evidence requirements live in `Docs/00_start_here/RELEASE_GATES.md`.
 
 For platform-backed local or deployed usage, the most important environment variables are:
 

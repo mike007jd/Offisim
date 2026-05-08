@@ -30,6 +30,7 @@ export function createBashTool(config: BuiltinToolConfig): BuiltinTool | null {
       const result = await shellExec(command, {
         cwd,
         ...(context?.threadId ? { threadId: context.threadId } : {}),
+        ...(context?.employeeId ? { employeeId: context.employeeId } : {}),
         timeoutMs,
         maxOutputBytes: maxOutput,
       });

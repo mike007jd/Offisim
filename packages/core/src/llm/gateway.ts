@@ -41,6 +41,16 @@ export interface LlmRequest {
   readonly maxTokens?: number;
   readonly tools?: readonly ToolDef[];
   readonly toolChoice?: LlmToolChoice;
+  /**
+   * Host-only execution context. Gateway implementations may use this for
+   * local sandbox binding/audit, but provider adapters must not serialize it
+   * into the upstream LLM request body.
+   */
+  readonly executionContext?: {
+    readonly projectId?: string | null;
+    readonly threadId?: string | null;
+    readonly employeeId?: string | null;
+  };
   /** AbortSignal for cancellation. */
   readonly signal?: AbortSignal;
   /** Request timeout in milliseconds. Default: 60000 for chat, 120000 for stream. */

@@ -11,6 +11,18 @@ export interface McpServerConfig {
   readonly transport: 'stdio' | 'sse';
   /** Rust-side registered server identifier for desktop stdio servers */
   readonly registeredServerId?: string;
+  /** Rust-side approval id required before desktop stdio startup */
+  readonly approvalId?: string;
+  /** Fingerprint of canonical command + args + trusted source */
+  readonly commandFingerprint?: string;
+  /** Optional project scope for desktop stdio startup */
+  readonly projectId?: string;
+  /** Trusted stdio source class for desktop command policy */
+  readonly source?: 'user-config' | 'installed-asset' | 'developer-runtime';
+  readonly sourcePackageId?: string;
+  readonly sourcePackageVersion?: string;
+  readonly sourceManifestHash?: string;
+  readonly requestSurface?: 'settings' | 'installed-asset-runtime' | 'developer-runtime';
   /** Command to execute for stdio transport */
   readonly command?: string;
   /** Arguments for the stdio command */

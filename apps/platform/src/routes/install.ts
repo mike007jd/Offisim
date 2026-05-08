@@ -13,10 +13,11 @@ import { installReceipts, listings, packageVersions } from '@offisim/db-platform
 import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireScope } from '../middleware/auth.js';
 import { installRateLimit } from '../middleware/rate-limit.js';
 import { InstallReceiptSchema } from '../schemas/index.js';
 import { getSeededArtifact } from '../seed/artifact-store.js';
+import { getRegistryArtifact } from '../services/artifacts.js';
 import type { PlatformEnv } from '../types.js';
 
 const installRoute = new Hono<PlatformEnv>();
@@ -30,7 +31,7 @@ const installRoute = new Hono<PlatformEnv>();
  *
  * Uses a transaction to guarantee atomicity — no count drift on concurrent requests.
  */
-installRoute.post('/receipts', installRateLimit, requireAuth, async (c) => {
+installRoute.post('/receipts', installRateLimit, requireAuth, requireScope('install:receipt'), async (c) => {
   const db = c.get('db');
   const userId = c.get('userId');
 
@@ -150,23 +151,24 @@ installRoute.get('/download/:versionId', async (c) => {
  * seeded (e.g. user-published listings — they should use their own external
  * `artifact_url`).
  */
-installRoute.get('/artifacts/:versionId', (c) => {
+installRoute.get('/artifacts/:versionId', async (c) => {
   const versionId = c.req.param('versionId');
-  const artifact = getSeededArtifact(versionId);
+  const artifact = getSeededArtifact(versionId) ?? (await getRegistryArtifact(versionId));
   if (!artifact) {
     return c.json(
-      { error: { code: 'NOT_FOUND', message: 'No seeded artifact for this version' } },
+      { error: { code: 'NOT_FOUND', message: 'No platform artifact for this version' } },
       404,
     );
   }
   // Cast to Uint8Array<ArrayBuffer> — WHATWG Response accepts Uint8Array at
   // runtime; the DOM typings in Node's lib.d.ts don't expose BodyInit.
   const body = artifact.bytes as unknown as ReadableStream | ArrayBuffer;
+  const artifactSize = 'size' in artifact ? artifact.size : artifact.size_bytes;
   return new Response(body, {
     status: 200,
     headers: {
       'Content-Type': 'application/octet-stream',
-      'Content-Length': String(artifact.size),
+      'Content-Length': String(artifactSize),
       'Cache-Control': 'no-store',
     },
   });

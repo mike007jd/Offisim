@@ -164,6 +164,7 @@ interface DeliverableCardProps {
   variant: 'compact' | 'full';
   employeeLabel?: string | null;
   desktopVaultRoot?: string | null;
+  activeProjectId?: string | null;
   onSaveAsSop?: (item: Deliverable) => Promise<void>;
   isNew?: boolean;
 }
@@ -175,6 +176,7 @@ export function DeliverableCard(props: DeliverableCardProps) {
     <FullCard
       item={props.item}
       desktopVaultRoot={props.desktopVaultRoot ?? null}
+      activeProjectId={props.activeProjectId ?? null}
       onSaveAsSop={props.onSaveAsSop}
       isNew={props.isNew}
     />
@@ -229,11 +231,12 @@ function CompactCard({ item, employeeLabel }: CompactCardProps) {
 interface FullCardProps {
   item: Deliverable;
   desktopVaultRoot: string | null;
+  activeProjectId: string | null;
   onSaveAsSop?: (item: Deliverable) => Promise<void>;
   isNew?: boolean;
 }
 
-function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps) {
+function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew }: FullCardProps) {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('docx');
   const [exporting, setExporting] = useState(false);
   const [savingSop, setSavingSop] = useState(false);
@@ -279,17 +282,17 @@ function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps)
   ]);
 
   const handleSaveLocal = useCallback(async () => {
-    if (!desktopMode || !desktopVaultRoot || !fileName) return;
+    if (!desktopMode || !activeProjectId || !fileName) return;
     setSavingLocal(true);
     try {
-      const path = await saveDesktopDeliverable(desktopVaultRoot, fileName, content);
+      const path = await saveDesktopDeliverable(activeProjectId, fileName, content);
       setLocalPath(path);
     } catch (err) {
       console.error('[DeliverableCard] Save locally failed:', err);
     } finally {
       setSavingLocal(false);
     }
-  }, [desktopMode, desktopVaultRoot, fileName, content]);
+  }, [desktopMode, activeProjectId, fileName, content]);
 
   const handleSaveAsSop = useCallback(async () => {
     if (!onSaveAsSop || savingSop || sopSaved) return;
@@ -363,19 +366,21 @@ function FullCard({ item, desktopVaultRoot, onSaveAsSop, isNew }: FullCardProps)
               size="sm"
               className={ACTION_CLASS}
               onClick={() =>
-                localPath ? void openDesktopLocalPath(localPath) : void handleSaveLocal()
+                localPath && activeProjectId
+                  ? void openDesktopLocalPath(activeProjectId, localPath)
+                  : void handleSaveLocal()
               }
-              disabled={savingLocal || !desktopVaultRoot}
+              disabled={savingLocal || !activeProjectId}
             >
               {savingLocal ? '...' : localPath ? 'Open file' : 'Save locally'}
             </Button>
           )}
-          {desktopMode && desktopVaultRoot && (
+          {desktopMode && desktopVaultRoot && activeProjectId && (
             <Button
               variant="ghost"
               size="sm"
               className={ACTION_CLASS}
-              onClick={() => void openDesktopLocalPath(`${desktopVaultRoot}/deliverables`)}
+              onClick={() => void openDesktopLocalPath(activeProjectId, 'deliverables')}
             >
               Open folder
             </Button>

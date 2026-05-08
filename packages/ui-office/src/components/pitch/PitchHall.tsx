@@ -11,7 +11,13 @@ import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 import { DeliverableCard } from '../deliverable/DeliverableCard';
 
-export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }) {
+export function PitchHall({
+  activeThreadId,
+  activeProjectId,
+}: {
+  activeThreadId?: string | null;
+  activeProjectId?: string | null;
+}) {
   // `activeThreadId` is the product-layer chat_threads.thread_id (RunScope.threadId).
   // Pass it as the `useDeliverables` filter so the right-rail Outputs panel scopes
   // to the active thread; pass null in cross-thread surfaces to see everything.
@@ -133,6 +139,7 @@ export function PitchHall({ activeThreadId }: { activeThreadId?: string | null }
           item={item}
           variant="full"
           desktopVaultRoot={desktopVaultRoot ?? null}
+          activeProjectId={activeProjectId ?? null}
           onSaveAsSop={handleSaveAsSop}
           isNew={item.id === newestId}
         />

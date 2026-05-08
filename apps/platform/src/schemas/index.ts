@@ -24,6 +24,9 @@ export const VALID_RISK_CLASSES = ['data_asset', 'logic_asset', 'privileged_asse
 
 export const VALID_ENVIRONMENTS = ['desktop', 'docker', 'web_limited'] as const;
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SHA256_REGEX = /^[a-f0-9]{64}$/i;
+
 // ── Review ──
 
 export const ReviewCreateSchema = z.object({
@@ -40,7 +43,7 @@ export const DraftCreateSchema = z.object({
   kind: z.string().min(1, 'kind is required'),
   title: z.string().min(1, 'title is required'),
   summary: z.string().optional(),
-  listing_id: z.string().optional(),
+  listing_id: z.string().regex(UUID_REGEX, 'listing_id must be a valid UUID').optional(),
 });
 export type DraftCreateBody = z.infer<typeof DraftCreateSchema>;
 
@@ -51,8 +54,10 @@ export const ManifestUploadSchema = z.object({
   artifact: z
     .object({
       external_url: z.string().optional(),
-      sha256: z.string().optional(),
-      size_bytes: z.number().optional(),
+      sha256: z.string().regex(SHA256_REGEX, 'artifact.sha256 must be 64 hex').optional(),
+      size_bytes: z.number().int().positive('artifact.size_bytes must be positive').optional(),
+      storage_backend: z.enum(['registry_object', 'external_url', 'github_release', 'npm']).optional(),
+      bytes_base64: z.string().optional(),
     })
     .optional(),
 });
@@ -67,8 +72,6 @@ export const SubmitDraftSchema = z.object({
 export type SubmitDraftBody = z.infer<typeof SubmitDraftSchema>;
 
 // ── Install: Receipt ──
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const InstallReceiptSchema = z.object({
   listing_id: z
