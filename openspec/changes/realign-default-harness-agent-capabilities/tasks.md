@@ -25,5 +25,6 @@
   - PASS 2026-05-09: `pnpm --filter @offisim/core typecheck`, `pnpm --filter @offisim/web typecheck`, `pnpm harness:provider-adapter`, `pnpm harness:deterministic`, `pnpm harness:context`, `pnpm harness:mcp-lifecycle -- --force-build`, `pnpm harness:engine-profiles -- --force-build`, `pnpm harness:main-control-plane -- --force-build`, `pnpm harness:stream-tools`, and `pnpm harness:model-bench` passed.
 - [x] 4.3 Run `gitnexus_detect_changes()` before commit.
   - PASS 2026-05-09: `gitnexus_detect_changes(scope=all)` completed. Risk is high because the commit includes the previously uncommitted harness/runtime implementation plus this boundary cleanup; affected flows are the expected browser runtime, MCP, engine profile, main harness, and provider-lane surfaces.
-- [ ] 4.4 Commit the cleanup and new OpenSpec on `main`.
+- [x] 4.4 Commit the cleanup and new OpenSpec on `main`.
+  - PASS 2026-05-09: committed as `9951e19a feat: realign harness agent capabilities`.
 - [ ] 4.5 Push `main` to `origin/main` and verify the remote advanced.
