@@ -21,9 +21,7 @@ function listMigrationFiles(dir) {
 }
 
 const schemaText = readText(schemaPath);
-const migrationText = listMigrationFiles(migrationsDir)
-  .map(readText)
-  .join('\n');
+const migrationText = listMigrationFiles(migrationsDir).map(readText).join('\n');
 
 const schemaConstraints = [...schemaText.matchAll(/unique\('([^']+)'\)\.on\(/g)].map(
   (match) => match[1],

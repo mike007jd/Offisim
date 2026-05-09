@@ -4,10 +4,10 @@
  */
 
 import {
-  validateManifest as validateCanonicalManifest,
   type PackageManifest,
+  validateManifest as validateCanonicalManifest,
 } from '@offisim/asset-schema';
-import { decodeRegistryArtifactBase64, MAX_ARTIFACT_BYTES } from './artifacts.js';
+import { MAX_ARTIFACT_BYTES, decodeRegistryArtifactBase64 } from './artifacts.js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -48,10 +48,7 @@ type ArtifactInput = {
   bytes_base64?: string;
 };
 
-export function validateManifest(
-  json: unknown,
-  artifact?: ArtifactInput,
-): ValidationResult {
+export function validateManifest(json: unknown, artifact?: ArtifactInput): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -61,9 +58,7 @@ export function validateManifest(
 
   const result = validateCanonicalManifest(json);
   if (!result.valid) {
-    errors.push(
-      ...(result.errors ?? []).map((issue) => `${issue.path}: ${issue.message}`),
-    );
+    errors.push(...(result.errors ?? []).map((issue) => `${issue.path}: ${issue.message}`));
   }
 
   // Warnings (advisory only — not schema errors)

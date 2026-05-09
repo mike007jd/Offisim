@@ -2,26 +2,30 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { zipSync } from '../packages/install-core/node_modules/fflate/esm/index.mjs';
-import { InstallService, InstallServiceError } from '../packages/install-core/src/install-service.ts';
-import { InMemoryEventBus } from '../packages/core/src/events/event-bus.ts';
 import { runToolRound } from '../packages/core/src/agents/employee-tool-round.ts';
 import { handleSkillInstallTool } from '../packages/core/src/agents/skill-install-tools.ts';
+import { InMemoryEventBus } from '../packages/core/src/events/event-bus.ts';
+import { createMemoryInstallRepositories } from '../packages/core/src/runtime/memory-install-repos.ts';
+import { createMemoryRepositories } from '../packages/core/src/runtime/memory-repositories.ts';
+import { RunConversationState } from '../packages/core/src/runtime/run-conversation-state.ts';
+import type { RuntimeContext } from '../packages/core/src/runtime/runtime-context.ts';
 import { InteractionService } from '../packages/core/src/services/interaction-service.ts';
+import { SkillInstallCommitter } from '../packages/core/src/skills/skill-install-committer.ts';
+import { SkillLoader } from '../packages/core/src/skills/skill-loader.ts';
+import type { VirtualTree } from '../packages/core/src/skills/skill-source-resolvers/types.ts';
+import { SkillStagingManager } from '../packages/core/src/skills/skill-staging.ts';
+import type { VaultFileSystem } from '../packages/core/src/vault/fs.ts';
+import { zipSync } from '../packages/install-core/node_modules/fflate/esm/index.mjs';
+import {
+  InstallService,
+  InstallServiceError,
+} from '../packages/install-core/src/install-service.ts';
 import type {
   InstallEventEmitter,
   InstallPlan,
   InstallRepositories,
   NewEmployee,
 } from '../packages/install-core/src/types.ts';
-import { createMemoryInstallRepositories } from '../packages/core/src/runtime/memory-install-repos.ts';
-import { createMemoryRepositories } from '../packages/core/src/runtime/memory-repositories.ts';
-import type { RuntimeContext } from '../packages/core/src/runtime/runtime-context.ts';
-import { SkillInstallCommitter } from '../packages/core/src/skills/skill-install-committer.ts';
-import { SkillLoader } from '../packages/core/src/skills/skill-loader.ts';
-import { SkillStagingManager } from '../packages/core/src/skills/skill-staging.ts';
-import type { VirtualTree } from '../packages/core/src/skills/skill-source-resolvers/types.ts';
-import type { VaultFileSystem } from '../packages/core/src/vault/fs.ts';
 
 const companyId = 'company-install-harness';
 
@@ -398,11 +402,7 @@ function assertMarketplaceDoesNotInvokeMcpRegistration() {
     '../packages/ui-office/src/components/marketplace',
     import.meta.url,
   );
-  const forbidden = [
-    'registerDesktopMcpServer',
-    'mcp_register_server',
-    'mcp_connect_registered',
-  ];
+  const forbidden = ['registerDesktopMcpServer', 'mcp_register_server', 'mcp_connect_registered'];
   for (const file of walkFiles(marketplaceDir.pathname)) {
     const source = readFileSync(file, 'utf8');
     for (const token of forbidden) {
@@ -583,6 +583,7 @@ async function assertGitSkillInstallStagesAndMaterializesAfterConfirmation() {
     },
     skillStagingManager: staging,
     interactionService,
+    conversationState: new RunConversationState(),
   } as unknown as RuntimeContext;
 
   const staged = JSON.parse(
@@ -740,6 +741,7 @@ async function assertSkillInstallToolRoundStopsForConfirmation() {
     },
     skillStagingManager: staging,
     interactionService,
+    conversationState: new RunConversationState(),
   } as unknown as RuntimeContext;
 
   const outcome = await runToolRound({
@@ -812,7 +814,13 @@ async function assertInstalledReplayIsIdempotent() {
 async function assertCachedMaterializingTransactionCanResume() {
   const { service, repos } = createService();
   const installPlan = plan('pkg.harness.materializing-resume', '1.0.0');
-  await seedReadyTransaction(service, repos, 'txn-materializing-resume', installPlan, 'materializing');
+  await seedReadyTransaction(
+    service,
+    repos,
+    'txn-materializing-resume',
+    installPlan,
+    'materializing',
+  );
 
   const result = await service.confirmBindings('txn-materializing-resume', []);
   assert.ok(result.installedPackageId);

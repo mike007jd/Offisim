@@ -1,7 +1,7 @@
 import type { KanbanOrigin, KanbanState, RuntimeEvent } from '@offisim/shared-types';
 import type { OffisimGraphState } from '../graph/state.js';
-import type { RunConversationStateSnapshot } from '../runtime/run-conversation-state.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
+import type { RunConversationStateSnapshot } from '../runtime/run-conversation-state.js';
 import type { ScenarioAssertionReport } from './trace-recorder.js';
 
 export type ScenarioAssertion =

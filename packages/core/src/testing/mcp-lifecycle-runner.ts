@@ -275,7 +275,11 @@ async function runShutdownCase(record: CaseRecorder): Promise<void> {
   assertEqual(first.closeCount, 1, 'first connection was not closed');
   assertEqual(second.closeCount, 1, 'second connection was not closed');
   assertEqual(deps.mcpExecutor.serverCount, 0, 'executor retained connected servers');
-  assertEqual(await deps.mcpExecutor.listAvailable('company-mcp'), [], 'tool registry was not cleared');
+  assertEqual(
+    await deps.mcpExecutor.listAvailable('company-mcp'),
+    [],
+    'tool registry was not cleared',
+  );
   record('shutdown-clears-registry');
 }
 

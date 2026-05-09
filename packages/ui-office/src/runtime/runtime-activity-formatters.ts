@@ -169,7 +169,11 @@ export function telemetryLabel(payload: ToolExecutionTelemetryPayload): string {
   if (payload.toolType === 'runtime-profile') {
     return truncate(`native engine/${normalized}`, 42);
   }
-  if (payload.toolType === 'builtin' || payload.toolType === 'mcp' || payload.toolType === 'workstation') {
+  if (
+    payload.toolType === 'builtin' ||
+    payload.toolType === 'mcp' ||
+    payload.toolType === 'workstation'
+  ) {
     return truncate(`Offisim gateway/${normalized}`, 42);
   }
   return truncate(normalized, 42);

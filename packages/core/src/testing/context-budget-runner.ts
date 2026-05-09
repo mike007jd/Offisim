@@ -1,5 +1,5 @@
-import type { LlmMessage } from '../llm/gateway.js';
 import { forkSubContext } from '../a2a/fork-sub-context.js';
+import type { LlmMessage } from '../llm/gateway.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { ConversationBudgetService } from '../services/conversation-budget-service.js';
@@ -160,7 +160,9 @@ function isForkSubcontextIsolationScenario(
   return (fixture as Record<string, unknown>).forkSubcontextIsolation === true;
 }
 
-function runMicroCompactContextCase(scenario: MicroCompactContextScenario): ContextBudgetCaseReport {
+function runMicroCompactContextCase(
+  scenario: MicroCompactContextScenario,
+): ContextBudgetCaseReport {
   const messages = Array.from({ length: scenario.fixture.toolResultCount }, (_, index) => ({
     role: 'tool' as const,
     content: `${String(index).repeat(scenario.fixture.toolResultBytes)}`,
@@ -376,7 +378,9 @@ function buildPromptTooLongMessages(
 async function runForkSubcontextIsolationCase(
   scenario: ForkSubcontextIsolationScenario,
 ): Promise<ContextBudgetCaseReport> {
-  const parentMessages: LlmMessage[] = [{ role: 'user', content: scenario.fixture.parentObjective }];
+  const parentMessages: LlmMessage[] = [
+    { role: 'user', content: scenario.fixture.parentObjective },
+  ];
   const result = await forkSubContext({
     subTask: `Investigate privately: ${scenario.fixture.childSecret}`,
     runChild: async (childMessages) => {
@@ -412,7 +416,9 @@ async function runForkSubcontextIsolationCase(
 }
 
 function estimateScenarioInputTokens(scenario: DeterministicScenario): number {
-  return estimateTokens(JSON.stringify(scenario.initialState ?? null)) + estimateTokens(scenario.id);
+  return (
+    estimateTokens(JSON.stringify(scenario.initialState ?? null)) + estimateTokens(scenario.id)
+  );
 }
 
 function estimateTraceTokens(value: unknown): number {

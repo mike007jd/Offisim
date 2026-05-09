@@ -11,7 +11,7 @@ import type { CitationRef, OffisimGraphState } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
 import { type VerifyOutcome, verifyCompletion } from '../runtime/completion-verifier.js';
 import type { TaskCompletionVerifyingPayload } from '../runtime/hook-registry.js';
-import { employeeBrandFields, type McpAuditRow } from '../runtime/repositories.js';
+import { type McpAuditRow, employeeBrandFields } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import type { CitationEntry } from '../services/library-service.js';
 import { Logger } from '../services/logger.js';

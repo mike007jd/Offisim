@@ -4,6 +4,7 @@
  * Future: queue for human review, AI-assisted checks.
  */
 
+import type { PackageManifest } from '@offisim/asset-schema';
 import {
   listingTags,
   listings,
@@ -12,7 +13,6 @@ import {
   packageVersions,
   publishDrafts,
 } from '@offisim/db-platform';
-import type { PackageManifest } from '@offisim/asset-schema';
 import { and, eq } from 'drizzle-orm';
 import type { PlatformDb } from '../db.js';
 import { persistRegistryArtifact, registryArtifactPublicUrl } from './artifacts.js';

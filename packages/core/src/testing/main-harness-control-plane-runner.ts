@@ -1,4 +1,7 @@
-import type { MainHarnessOverridePolicyRecord, MainHarnessPolicyConfig } from '@offisim/shared-types';
+import type {
+  MainHarnessOverridePolicyRecord,
+  MainHarnessPolicyConfig,
+} from '@offisim/shared-types';
 import {
   createAgentDriverProposal,
   listMainHarnessRuntimeStatus,

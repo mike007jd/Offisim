@@ -241,12 +241,9 @@ export class InstallService {
       const packageVersionId = options.descriptor?.package_version_id?.trim();
       if (packageVersionId) return `registry:${packageVersionId}`.slice(0, 256);
       if (options.sourceRef && options.targetPackageId && options.targetVersion) {
-        return [
-          'registry',
-          options.sourceRef,
-          options.targetPackageId,
-          options.targetVersion,
-        ].join(':').slice(0, 256);
+        return ['registry', options.sourceRef, options.targetPackageId, options.targetVersion]
+          .join(':')
+          .slice(0, 256);
       }
     }
     return null;

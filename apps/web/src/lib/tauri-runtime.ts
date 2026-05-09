@@ -810,7 +810,7 @@ export async function createTauriRuntime(
   const skillStagingManager = new SkillStagingManager();
   const uploadRefResolver = new InMemoryUploadRefResolver();
   await prefetchTauriHomeDir();
-  let defaultSkillInstallBinding = await optionalWorkspaceBindingForThread(
+  const defaultSkillInstallBinding = await optionalWorkspaceBindingForThread(
     workspaceRootResolverDeps,
     threadId,
   );

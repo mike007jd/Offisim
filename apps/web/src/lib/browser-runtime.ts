@@ -30,8 +30,8 @@ import { createMemoryCheckpointSaver } from '@offisim/core/dist/graph/checkpoint
 // Heavy imports — direct dist paths to bypass the @offisim/core barrel alias.
 // These modules pull in @langchain/langgraph, openai SDK, etc.
 import { buildOffisimGraph } from '@offisim/core/dist/graph/main-graph.js';
-import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
 import { resolveMainHarnessMode } from '@offisim/core/dist/harness/main-harness-policy.js';
+import { createGateway } from '@offisim/core/dist/llm/gateway-factory.js';
 import { ModelResolver } from '@offisim/core/dist/llm/model-resolver.js';
 import { RecordedSystemLlmCaller } from '@offisim/core/dist/llm/recorded-system-caller.js';
 import { AuditingToolExecutor } from '@offisim/core/dist/mcp/auditing-tool-executor.js';

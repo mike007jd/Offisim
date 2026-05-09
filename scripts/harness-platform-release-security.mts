@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { Buffer } from 'node:buffer';
 import { createHash, webcrypto } from 'node:crypto';
-import { unzipSync } from '../packages/ui-office/node_modules/fflate/esm/index.mjs';
+import { readFileSync } from 'node:fs';
 import { Hono } from '../apps/platform/node_modules/hono/dist/index.js';
 import { publish } from '../apps/platform/src/routes/publish.js';
 import { assertListingOwnedByCreator } from '../apps/platform/src/services/publish-ownership.js';
 import { validateManifest } from '../apps/platform/src/services/validation.js';
+import { unzipSync } from '../packages/ui-office/node_modules/fflate/esm/index.mjs';
 import { buildSkillPackage } from '../packages/ui-office/src/lib/export-to-manifest.ts';
 
 if (!globalThis.crypto) {
@@ -178,7 +178,9 @@ function expectArtifactShaIndependentFromManifestHashAccepted() {
     bytes_base64: Buffer.from(bytes).toString('base64'),
   });
   if (!result.valid) {
-    throw new Error(`artifact metadata decoupled from manifest hash was rejected: ${result.errors.join('; ')}`);
+    throw new Error(
+      `artifact metadata decoupled from manifest hash was rejected: ${result.errors.join('; ')}`,
+    );
   }
   if (result.artifact?.sha256 !== artifactSha) {
     throw new Error('platform artifact sha was not recorded from artifact bytes');

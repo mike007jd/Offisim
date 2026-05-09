@@ -50,9 +50,7 @@ async function observeRollingJournal(
   }
 }
 
-function resolveForcedSkillToolChoice(
-  messages: readonly LlmMessage[],
-): LlmToolChoice | undefined {
+function resolveForcedSkillToolChoice(messages: readonly LlmMessage[]): LlmToolChoice | undefined {
   let lastUserIndex = -1;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index]?.role === 'user') {
@@ -69,8 +67,8 @@ function resolveForcedSkillToolChoice(
   const userText = lastUserMessage?.content ?? '';
   if (!userText) return undefined;
 
-  const requestedToolName = SKILL_INSTALL_TOOL_NAMES.find(
-    (toolName) => userText.includes(toolName),
+  const requestedToolName = SKILL_INSTALL_TOOL_NAMES.find((toolName) =>
+    userText.includes(toolName),
   );
 
   return requestedToolName ? { type: 'tool', name: requestedToolName } : undefined;
@@ -95,7 +93,10 @@ function parseJsonObjectFromText(text: string): Record<string, unknown> | null {
 }
 
 function stripArgValue(value: string): string {
-  return value.trim().replace(/^["'`]+|["'`]+$/gu, '').trim();
+  return value
+    .trim()
+    .replace(/^["'`]+|["'`]+$/gu, '')
+    .trim();
 }
 
 function parseKeyValueArgsFromText(text: string): Record<string, unknown> {

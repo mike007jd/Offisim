@@ -174,14 +174,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers — reset status when any form field changes
   useEffect(() => {
     setStatus(null);
-  }, [
-    selectedSourceId,
-    form.description,
-    form.summary,
-    form.tags,
-    form.title,
-    form.version,
-  ]);
+  }, [selectedSourceId, form.description, form.summary, form.tags, form.title, form.version]);
 
   const updateForm = useCallback(
     <K extends keyof PublishFormState>(key: K, value: PublishFormState[K]) => {

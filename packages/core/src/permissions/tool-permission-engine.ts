@@ -86,9 +86,7 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
       return this.defaultMcpDecision(request, runtimeDecision);
     }
 
-    return (
-      runtimeDecision ?? this.defaultMcpDecision(request, null)
-    );
+    return runtimeDecision ?? this.defaultMcpDecision(request, null);
   }
 
   private async defaultMcpDecision(

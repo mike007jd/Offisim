@@ -57,7 +57,9 @@ export class TauriMcpClientFactory implements McpClientFactory {
         commandFingerprint: desktopConfig.commandFingerprint,
         requestSurface: desktopConfig.requestSurface ?? 'settings',
         ...(desktopConfig.projectId ? { projectId: desktopConfig.projectId } : {}),
-        ...(desktopConfig.sourcePackageId ? { sourcePackageId: desktopConfig.sourcePackageId } : {}),
+        ...(desktopConfig.sourcePackageId
+          ? { sourcePackageId: desktopConfig.sourcePackageId }
+          : {}),
         ...(desktopConfig.sourcePackageVersion
           ? { sourcePackageVersion: desktopConfig.sourcePackageVersion }
           : {}),

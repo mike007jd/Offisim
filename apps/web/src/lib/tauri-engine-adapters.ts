@@ -1,5 +1,5 @@
-import type { EngineAdapter } from '@offisim/core/dist/engine/engine-adapter.js';
 import { DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES } from '@offisim/core/dist/engine/capability-profiles.js';
+import type { EngineAdapter } from '@offisim/core/dist/engine/engine-adapter.js';
 import type {
   EngineRunContext,
   EngineRunHandle,

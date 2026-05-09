@@ -403,7 +403,12 @@ export async function bossNode(
       maxTokens: resolved.maxTokens,
       signal: getConfigSignal(config),
     },
-    { nodeName: 'boss', provider: resolved.provider, model: resolved.model, projectId: state.projectId },
+    {
+      nodeName: 'boss',
+      provider: resolved.provider,
+      model: resolved.model,
+      projectId: state.projectId,
+    },
     forwardStreamChunks(runtimeCtx, state.threadId, 'boss', {
       content: false,
       runScope,

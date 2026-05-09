@@ -56,7 +56,9 @@ export const ManifestUploadSchema = z.object({
       external_url: z.string().optional(),
       sha256: z.string().regex(SHA256_REGEX, 'artifact.sha256 must be 64 hex').optional(),
       size_bytes: z.number().int().positive('artifact.size_bytes must be positive').optional(),
-      storage_backend: z.enum(['registry_object', 'external_url', 'github_release', 'npm']).optional(),
+      storage_backend: z
+        .enum(['registry_object', 'external_url', 'github_release', 'npm'])
+        .optional(),
       bytes_base64: z.string().optional(),
     })
     .optional(),

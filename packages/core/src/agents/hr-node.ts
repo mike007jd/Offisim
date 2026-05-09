@@ -121,7 +121,12 @@ export async function hrNode(
       maxTokens: resolved.maxTokens,
       signal: getConfigSignal(config),
     },
-    { nodeName: 'hr', provider: resolved.provider, model: resolved.model, projectId: state.projectId },
+    {
+      nodeName: 'hr',
+      provider: resolved.provider,
+      model: resolved.model,
+      projectId: state.projectId,
+    },
     forwardStreamChunks(runtimeCtx, state.threadId, 'hr', {
       runScope: getRunScope(config),
     }),

@@ -100,11 +100,9 @@ export class BrowserMcpClientFactory implements McpClientFactory {
         args: Record<string, unknown>,
         options?: McpOperationOptions,
       ): Promise<unknown> {
-        const result = await client.callTool(
-          { name, arguments: args },
-          undefined,
-          { signal: options?.signal },
-        );
+        const result = await client.callTool({ name, arguments: args }, undefined, {
+          signal: options?.signal,
+        });
         return result;
       },
       async close(): Promise<void> {

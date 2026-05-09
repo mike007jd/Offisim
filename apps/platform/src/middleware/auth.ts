@@ -80,11 +80,11 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
         .where(eq(users.ba_user_id, session.user.id))
         .limit(1);
 
-          if (offisimUser) {
-            c.set('userId', offisimUser.user_id);
-            c.set('userEmail', offisimUser.email);
-            c.set('authKind', 'session');
-          } else {
+      if (offisimUser) {
+        c.set('userId', offisimUser.user_id);
+        c.set('userEmail', offisimUser.email);
+        c.set('authKind', 'session');
+      } else {
         // Auto-create Offisim user if not linked yet (first login after migration)
         try {
           const [created] = await db
@@ -99,11 +99,11 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
             })
             .returning({ user_id: users.user_id });
 
-            if (created) {
-              c.set('userId', created.user_id);
-              c.set('userEmail', session.user.email);
-              c.set('authKind', 'session');
-            }
+          if (created) {
+            c.set('userId', created.user_id);
+            c.set('userEmail', session.user.email);
+            c.set('authKind', 'session');
+          }
         } catch {
           // May fail on unique constraint if email already exists —
           // try linking existing user by email

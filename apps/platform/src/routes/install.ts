@@ -31,74 +31,80 @@ const installRoute = new Hono<PlatformEnv>();
  *
  * Uses a transaction to guarantee atomicity — no count drift on concurrent requests.
  */
-installRoute.post('/receipts', installRateLimit, requireAuth, requireScope('install:receipt'), async (c) => {
-  const db = c.get('db');
-  const userId = c.get('userId');
+installRoute.post(
+  '/receipts',
+  installRateLimit,
+  requireAuth,
+  requireScope('install:receipt'),
+  async (c) => {
+    const db = c.get('db');
+    const userId = c.get('userId');
 
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Unauthorized' });
-  }
-  const body = InstallReceiptSchema.parse(await c.req.json());
-
-  // Generate a receipt ID (deterministic for idempotency: user + listing + version)
-  const receiptId = `rcpt_${userId}_${body.listing_id}_${body.package_version_id}`;
-
-  // Use transaction to guarantee atomicity of receipt insert + count increment
-  const result = await db.transaction(async (tx) => {
-    // Verify version belongs to the claimed listing
-    const [validVersion] = await tx
-      .select({ package_version_id: packageVersions.package_version_id })
-      .from(packageVersions)
-      .where(
-        and(
-          eq(packageVersions.package_version_id, body.package_version_id),
-          eq(packageVersions.listing_id, body.listing_id),
-        ),
-      )
-      .limit(1);
-
-    if (!validVersion) {
-      throw new HTTPException(400, {
-        message: 'package_version_id does not belong to listing_id',
-      });
+    if (!userId) {
+      throw new HTTPException(401, { message: 'Unauthorized' });
     }
+    const body = InstallReceiptSchema.parse(await c.req.json());
 
-    // Upsert receipt — ON CONFLICT DO NOTHING returns 0 rows if duplicate
-    const inserted = await tx
-      .insert(installReceipts)
-      .values({
-        install_receipt_id: receiptId,
-        user_id: userId,
-        listing_id: body.listing_id,
-        package_version_id: body.package_version_id,
-        install_source: body.install_source,
-      })
-      .onConflictDoNothing()
-      .returning({ install_receipt_id: installReceipts.install_receipt_id });
+    // Generate a receipt ID (deterministic for idempotency: user + listing + version)
+    const receiptId = `rcpt_${userId}_${body.listing_id}_${body.package_version_id}`;
 
-    if (inserted.length > 0) {
-      // Receipt was actually inserted (not a duplicate) — increment count
-      await tx
-        .update(listings)
-        .set({
-          install_count: sql`COALESCE(${listings.install_count}, 0) + 1`,
+    // Use transaction to guarantee atomicity of receipt insert + count increment
+    const result = await db.transaction(async (tx) => {
+      // Verify version belongs to the claimed listing
+      const [validVersion] = await tx
+        .select({ package_version_id: packageVersions.package_version_id })
+        .from(packageVersions)
+        .where(
+          and(
+            eq(packageVersions.package_version_id, body.package_version_id),
+            eq(packageVersions.listing_id, body.listing_id),
+          ),
+        )
+        .limit(1);
+
+      if (!validVersion) {
+        throw new HTTPException(400, {
+          message: 'package_version_id does not belong to listing_id',
+        });
+      }
+
+      // Upsert receipt — ON CONFLICT DO NOTHING returns 0 rows if duplicate
+      const inserted = await tx
+        .insert(installReceipts)
+        .values({
+          install_receipt_id: receiptId,
+          user_id: userId,
+          listing_id: body.listing_id,
+          package_version_id: body.package_version_id,
+          install_source: body.install_source,
         })
-        .where(eq(listings.listing_id, body.listing_id));
+        .onConflictDoNothing()
+        .returning({ install_receipt_id: installReceipts.install_receipt_id });
 
-      return 'recorded' as const;
-    }
+      if (inserted.length > 0) {
+        // Receipt was actually inserted (not a duplicate) — increment count
+        await tx
+          .update(listings)
+          .set({
+            install_count: sql`COALESCE(${listings.install_count}, 0) + 1`,
+          })
+          .where(eq(listings.listing_id, body.listing_id));
 
-    // Duplicate receipt — no count increment
-    return 'already_exists' as const;
-  });
+        return 'recorded' as const;
+      }
 
-  return c.json({
-    install_receipt_id: receiptId,
-    listing_id: body.listing_id,
-    package_version_id: body.package_version_id,
-    status: result,
-  });
-});
+      // Duplicate receipt — no count increment
+      return 'already_exists' as const;
+    });
+
+    return c.json({
+      install_receipt_id: receiptId,
+      listing_id: body.listing_id,
+      package_version_id: body.package_version_id,
+      status: result,
+    });
+  },
+);
 
 /**
  * GET /v1/install/download/:versionId — Get artifact download URL.

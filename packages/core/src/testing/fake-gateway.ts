@@ -81,10 +81,7 @@ export class FakeGateway implements LlmGateway {
 
   private abortTurnIfConfigured(turn: FakeGatewayTurn, signal: AbortSignal | undefined): void {
     if (!this.abortHarness?.shouldAbortTurn(turn.id)) return;
-    const reason = new DOMException(
-      `Harness cancelled LLM turn "${turn.id}".`,
-      'AbortError',
-    );
+    const reason = new DOMException(`Harness cancelled LLM turn "${turn.id}".`, 'AbortError');
     this.abortHarness.abortController()?.abort(reason);
     throw abortErrorFromSignal(signal, reason);
   }
