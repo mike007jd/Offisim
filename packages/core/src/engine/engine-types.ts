@@ -5,6 +5,7 @@ import type {
   RuntimeEngineCapabilityProfile,
   RuntimeEngineCapabilityTier,
   RuntimeEngineToolModel,
+  RuntimeEvidenceClass,
 } from '@offisim/shared-types';
 import type { PendingAssignment } from '../graph/state.js';
 
@@ -15,6 +16,7 @@ export type {
   RuntimeEngineCapabilityProfile,
   RuntimeEngineCapabilityTier,
   RuntimeEngineToolModel,
+  RuntimeEvidenceClass,
 };
 
 export interface EngineTaskEnvelope {
@@ -70,6 +72,7 @@ export type RuntimeActivityEvent =
       readonly toolCallId: string;
       readonly toolName: string;
       readonly toolType?: 'builtin' | 'mcp' | 'workstation' | 'runtime-profile';
+      readonly evidenceClass?: RuntimeEvidenceClass;
       readonly serverName?: string;
       readonly runtimeProfileId?: string;
       readonly timestamp?: number;
@@ -79,6 +82,7 @@ export type RuntimeActivityEvent =
       readonly toolCallId: string;
       readonly toolName: string;
       readonly toolType?: 'builtin' | 'mcp' | 'workstation' | 'runtime-profile';
+      readonly evidenceClass?: RuntimeEvidenceClass;
       readonly serverName?: string;
       readonly runtimeProfileId?: string;
       readonly status?: 'completed' | 'error' | 'denied';

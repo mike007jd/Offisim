@@ -14,4 +14,9 @@ logger.setLogHandler(() => {});
 
 const report = await runDeterministicModelBench(loadHarnessScenarios());
 console.log(JSON.stringify({ ...report, mode: args.quick ? 'quick' : 'default' }, null, 2));
-process.exit(report.cases.every((testCase) => testCase.passed) ? 0 : 1);
+process.exit(
+  report.cases.every((testCase) => testCase.passed) &&
+    report.routeComparisons.every((testCase) => testCase.gateSatisfied)
+    ? 0
+    : 1,
+);

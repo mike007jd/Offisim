@@ -1,4 +1,4 @@
-import type { EmployeeRuntimeBinding, EngineId } from '@offisim/shared-types';
+import { ENGINE_IDS, type EmployeeRuntimeBinding, type EngineId } from '@offisim/shared-types';
 import { RadioGroup, RadioGroupItem } from '@offisim/ui-core';
 import { useAvailableEngineAdapters } from '../../runtime/offisim-runtime-context.js';
 
@@ -15,7 +15,7 @@ export interface RuntimeBindingControlProps {
   className?: string;
 }
 
-type PickerOptionId = 'inherit' | 'provider' | 'claude-engine' | 'codex-engine';
+type PickerOptionId = 'inherit' | 'provider' | EngineId;
 
 interface PickerOption {
   id: PickerOptionId;
@@ -23,6 +23,21 @@ interface PickerOption {
   description: string;
   engineId?: EngineId;
 }
+
+const ENGINE_OPTIONS: Record<EngineId, Omit<PickerOption, 'id' | 'engineId'>> = {
+  'claude-engine': {
+    label: 'Claude text engine',
+    description: 'Preview text/reasoning only; no Offisim local tools.',
+  },
+  'codex-engine': {
+    label: 'Codex text engine',
+    description: 'Preview text/reasoning only; no Offisim local tools.',
+  },
+  'openai-engine': {
+    label: 'OpenAI text engine',
+    description: 'Preview text/reasoning only; no Offisim local tools.',
+  },
+};
 
 const ALL_OPTIONS: ReadonlyArray<PickerOption> = [
   {
@@ -35,24 +50,12 @@ const ALL_OPTIONS: ReadonlyArray<PickerOption> = [
     label: 'Offisim gateway tools',
     description: 'Default harness with Offisim file, shell, MCP, and evidence paths.',
   },
-  {
-    id: 'claude-engine',
-    label: 'Claude text engine',
-    description: 'Preview text/reasoning only; no Offisim local tools.',
-    engineId: 'claude-engine',
-  },
-  {
-    id: 'codex-engine',
-    label: 'Codex text engine',
-    description: 'Preview text/reasoning only; no Offisim local tools.',
-    engineId: 'codex-engine',
-  },
+  ...ENGINE_IDS.map((engineId) => ({ id: engineId, engineId, ...ENGINE_OPTIONS[engineId] })),
 ];
 
-const ENGINE_LABEL: Record<EngineId, string> = {
-  'claude-engine': 'Claude text engine',
-  'codex-engine': 'Codex text engine',
-};
+const ENGINE_LABEL: Record<EngineId, string> = Object.fromEntries(
+  ENGINE_IDS.map((engineId) => [engineId, ENGINE_OPTIONS[engineId].label]),
+) as Record<EngineId, string>;
 
 const SOURCE_SUFFIX: Record<RuntimeBindingResolvedSource, string> = {
   override: 'override',
@@ -77,10 +80,8 @@ function optionIdToBinding(id: PickerOptionId): EmployeeRuntimeBinding | null {
       return null;
     case 'provider':
       return { mode: 'provider' };
-    case 'claude-engine':
-      return { mode: 'engine', engineId: 'claude-engine' };
-    case 'codex-engine':
-      return { mode: 'engine', engineId: 'codex-engine' };
+    default:
+      return { mode: 'engine', engineId: id };
   }
 }
 

@@ -9,8 +9,9 @@ import type {
   ProviderAuthStrategy,
   ProviderProductAccessMode,
   ProviderProductId,
-  RuntimeExecutionMode,
   RuntimeEngineCapabilityProfile,
+  RuntimeEvidenceClass,
+  RuntimeExecutionMode,
   RuntimeMemoryPolicy,
   RuntimePolicyConfig,
   RuntimeSummarizationPolicy,
@@ -18,6 +19,7 @@ import type {
   RuntimeToolPermissionsPolicy,
   RuntimeToolSearchPolicy,
 } from '@offisim/shared-types';
+import { ENGINE_IDS } from '@offisim/shared-types';
 import { isTauri } from './env';
 import {
   type ProviderCapabilities,
@@ -150,7 +152,7 @@ const EXECUTION_LANES = new Set<LlmExecutionLane>([
   'codex-agent-sdk',
   'openai-agents-sdk',
 ]);
-const ENGINE_IDS = new Set<EngineId>(['codex-engine', 'claude-engine']);
+const ENGINE_ID_SET = new Set<EngineId>(ENGINE_IDS);
 
 function trimEnvString(value: string | boolean | undefined): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -312,6 +314,10 @@ function isRuntimeToolPermissionBehavior(value: unknown): value is RuntimeToolPe
   return value === 'allow' || value === 'deny' || value === 'ask';
 }
 
+function isRuntimeEvidenceClass(value: unknown): value is RuntimeEvidenceClass {
+  return value === 'sdk-native' || value === 'gateway-bridged' || value === 'offisim-gateway';
+}
+
 function normalizeToolPermissions(candidate: unknown): RuntimeToolPermissionsPolicy {
   const policy = isRecord(candidate) ? candidate : {};
   return {
@@ -341,7 +347,7 @@ function normalizeEmployeeRuntimeBinding(candidate: unknown): EmployeeRuntimeBin
   if (candidate.mode === 'provider') {
     return { mode: 'provider' };
   }
-  if (candidate.mode === 'engine' && ENGINE_IDS.has(candidate.engineId as EngineId)) {
+  if (candidate.mode === 'engine' && ENGINE_ID_SET.has(candidate.engineId as EngineId)) {
     const profileId =
       typeof candidate.profileId === 'string' && candidate.profileId.trim()
         ? candidate.profileId.trim()
@@ -364,7 +370,8 @@ function normalizeRuntimeEngineProfiles(
     if (
       typeof profile.profileId !== 'string' ||
       !profile.profileId.trim() ||
-      !ENGINE_IDS.has(profile.engineId as EngineId)
+      !ENGINE_ID_SET.has(profile.engineId as EngineId) ||
+      !isRuntimeEvidenceClass(profile.evidenceClass)
     ) {
       return [];
     }

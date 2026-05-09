@@ -1,4 +1,4 @@
-import type { EngineId } from '../models.js';
+import type { EngineId, RuntimeEvidenceClass } from '../models.js';
 
 export type EngineActivityKind = 'run' | 'subagent' | 'tool' | 'artifact' | 'approval' | 'proposal';
 
@@ -46,6 +46,7 @@ export interface EngineActivityPayload {
   readonly proposalId?: string;
   readonly toolName?: string;
   readonly toolType?: 'builtin' | 'mcp' | 'workstation' | 'runtime-profile';
+  readonly evidenceClass?: RuntimeEvidenceClass;
 }
 
 export interface EngineProposalCreatedPayload {

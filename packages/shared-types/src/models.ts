@@ -51,7 +51,7 @@ export type LlmExecutionLane =
   | 'openai-agents-sdk';
 
 /** External runtime engines that can execute a single Offisim-dispatched employee task. */
-export const ENGINE_IDS = ['codex-engine', 'claude-engine'] as const;
+export const ENGINE_IDS = ['codex-engine', 'claude-engine', 'openai-engine'] as const;
 export type EngineId = (typeof ENGINE_IDS)[number];
 
 export type RuntimeEngineCapabilityTier =
@@ -66,6 +66,8 @@ export type RuntimeEngineToolModel = 'none' | 'native-sdk' | 'gateway-bridged' |
 
 export type RuntimeEngineVerificationStatus = 'verified' | 'partial' | 'missing' | 'blocked';
 
+export type RuntimeEvidenceClass = 'sdk-native' | 'gateway-bridged' | 'offisim-gateway';
+
 export interface RuntimeEngineCapabilityProfile {
   readonly profileId: string;
   readonly engineId: EngineId;
@@ -77,6 +79,7 @@ export interface RuntimeEngineCapabilityProfile {
   readonly unsupportedTaskClasses: ReadonlyArray<string>;
   readonly toolNamespace: 'none' | 'native-engine' | 'offisim-gateway' | 'mixed';
   readonly toolModel: RuntimeEngineToolModel;
+  readonly evidenceClass: RuntimeEvidenceClass;
   readonly sandbox: {
     readonly boundary: 'none' | 'engine-sandbox' | 'offisim-gateway' | 'desktop-trusted';
     readonly workspaceAccess: 'none' | 'read-only' | 'write';
@@ -107,12 +110,7 @@ export interface RuntimeEngineCapabilityProfile {
 
 export type MainHarnessMode = 'offisim-core' | 'driver' | 'replacement';
 
-export type MainHarnessOverrideScope =
-  | 'system'
-  | 'company'
-  | 'thread'
-  | 'employee'
-  | 'task';
+export type MainHarnessOverrideScope = 'system' | 'company' | 'thread' | 'employee' | 'task';
 
 export interface MainHarnessOverridePolicyRecord {
   readonly overrideId: string;

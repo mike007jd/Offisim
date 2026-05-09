@@ -2,6 +2,7 @@ import type {
   EmployeeRuntimeBinding,
   EngineId,
   RuntimeEngineCapabilityProfile,
+  RuntimeEvidenceClass,
   RuntimePolicyConfig,
 } from '@offisim/shared-types';
 import type { TaskToolIntent } from '../agents/task-tool-intent.js';
@@ -30,6 +31,10 @@ export const DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES: ReadonlyArray<RuntimeEn
   [
     textOnlyPreviewProfile('codex-engine', 'Codex engine text-only preview'),
     textOnlyPreviewProfile('claude-engine', 'Claude engine text-only preview'),
+    textOnlyPreviewProfile('openai-engine', 'OpenAI engine text-only preview'),
+    sdkNativeFullPowerBlockedProfile('codex-engine', 'Codex SDK-native full-power profile'),
+    sdkNativeFullPowerBlockedProfile('claude-engine', 'Claude SDK-native full-power profile'),
+    sdkNativeFullPowerBlockedProfile('openai-engine', 'OpenAI SDK-native full-power profile'),
   ];
 
 export function defaultRuntimeEngineProfileId(engineId: EngineId): string {
@@ -42,15 +47,18 @@ export function resolveRuntimeEngineCapabilityProfile(
   adapterProfile?: RuntimeEngineCapabilityProfile,
 ): RuntimeEngineProfileResolution {
   const policyProfiles = runtimePolicy?.runtimeEngineProfiles ?? [];
-  const builtinProfile = findProfile(
-    DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES,
+  const builtinProfiles = DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES.filter(
+    (profile) => profile.engineId === binding.engineId,
+  );
+  const builtinDefaultProfile = findProfile(
+    builtinProfiles,
     defaultRuntimeEngineProfileId(binding.engineId),
     binding.engineId,
   );
   const candidates = [
     ...policyProfiles,
     ...(adapterProfile ? [adapterProfile] : []),
-    ...(builtinProfile ? [builtinProfile] : []),
+    ...builtinProfiles,
   ];
 
   if (binding.profileId) {
@@ -69,7 +77,7 @@ export function resolveRuntimeEngineCapabilityProfile(
   const policyDefault = policyProfiles.find((profile) => profile.engineId === binding.engineId);
   if (policyDefault) return { profile: policyDefault, source: 'runtime-policy' };
   if (adapterProfile) return { profile: adapterProfile, source: 'adapter' };
-  if (builtinProfile) return { profile: builtinProfile, source: 'builtin-default' };
+  if (builtinDefaultProfile) return { profile: builtinDefaultProfile, source: 'builtin-default' };
 
   throw new Error(`No runtime engine capability profile is configured for ${binding.engineId}.`);
 }
@@ -120,6 +128,12 @@ export function profileToolTelemetryType(
   return profile.toolModel === 'gateway-bridged' ? 'workstation' : 'runtime-profile';
 }
 
+export function profileEvidenceClass(
+  profile: RuntimeEngineCapabilityProfile,
+): RuntimeEvidenceClass {
+  return profile.evidenceClass;
+}
+
 function requiresGatewayEvidence(intent: TaskToolIntent): boolean {
   return intent.requiresLocalTools || intent.needsVerification;
 }
@@ -133,7 +147,9 @@ function findProfile(
   profileId: string,
   engineId: EngineId,
 ): RuntimeEngineCapabilityProfile | undefined {
-  return profiles.find((profile) => profile.profileId === profileId && profile.engineId === engineId);
+  return profiles.find(
+    (profile) => profile.profileId === profileId && profile.engineId === engineId,
+  );
 }
 
 function textOnlyPreviewProfile(
@@ -151,6 +167,7 @@ function textOnlyPreviewProfile(
     unsupportedTaskClasses: [...TEXT_ONLY_UNSUPPORTED],
     toolNamespace: 'none',
     toolModel: 'none',
+    evidenceClass: 'sdk-native',
     sandbox: {
       boundary: 'engine-sandbox',
       workspaceAccess: 'none',
@@ -180,6 +197,77 @@ function textOnlyPreviewProfile(
         'no denied-path evidence',
         'no checkpoint/resume evidence',
         'no release full-agent evidence',
+      ],
+    },
+  };
+}
+
+function sdkNativeFullPowerBlockedProfile(
+  engineId: EngineId,
+  displayName: string,
+): RuntimeEngineCapabilityProfile {
+  return {
+    profileId: `${engineId}:sdk-native-full-power`,
+    engineId,
+    displayName,
+    tier: 'full-agent-employee',
+    availability: 'blocked',
+    trustTier: 'trusted-full-agent',
+    supportedTaskClasses: [
+      'text_answer',
+      'reasoning',
+      'native_tool_call',
+      'mcp_tool',
+      'session_resume',
+      'session_fork',
+      'subagent_handoff',
+      'guardrail_hook',
+      'checkpoint_rollback',
+    ],
+    unsupportedTaskClasses: ['production_local_tool_work_without_release_evidence'],
+    toolNamespace: 'native-engine',
+    toolModel: 'native-sdk',
+    evidenceClass: 'sdk-native',
+    sandbox: {
+      boundary: 'engine-sandbox',
+      workspaceAccess: 'write',
+    },
+    permissions: {
+      model: 'engine-native',
+      deniedPath: 'blocked',
+    },
+    contextRetention: 'blocked',
+    cancellation: 'blocked',
+    checkpoint: 'blocked',
+    telemetry: 'blocked',
+    rollback: 'blocked',
+    failureTaxonomy: 'blocked',
+    nativeCapabilities: {
+      tools: true,
+      mcp: true,
+      subagents: true,
+      handoffs: true,
+      sessionResume: true,
+    },
+    verification: {
+      status: 'blocked',
+      evidence: [
+        'profile exists as a blocked SDK-native employee runtime target',
+        'native SDK tool/MCP/session/handoff events must be normalized before availability',
+      ],
+      blockers: [
+        'no release .app SDK-native success evidence',
+        'no denied native tool path evidence',
+        'no SDK-native cancellation evidence',
+        'no session resume/fork evidence',
+        'no checkpoint rollback evidence',
+        'no MCP status/call/failure/cancellation evidence',
+        'no hook/guardrail allow/deny evidence',
+        'no handoff/subagent telemetry evidence',
+        'no budget exhaustion evidence',
+        'no sandbox escape denial evidence',
+        'no usage/cost evidence',
+        'no cross-route benchmark against offisim-core',
       ],
     },
   };

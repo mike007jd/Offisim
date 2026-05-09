@@ -248,6 +248,7 @@ export {
   DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES,
   defaultRuntimeEngineProfileId,
   evaluateRuntimeEngineTaskFit,
+  profileEvidenceClass,
   profileToolTelemetryType,
   resolveRuntimeEngineCapabilityProfile,
 } from './engine/capability-profiles.js';

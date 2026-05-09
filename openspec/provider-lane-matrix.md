@@ -83,10 +83,12 @@ Tool-capable work currently uses the default Offisim harness / gateway evidence
 path unless a separate runtime engine capability profile or main-harness control
 plane route has been verified. Model transport selection alone cannot enable
 employee-agent mode, main-harness driver mode, replacement mode, SDK-native
-tools, or Offisim gateway tools. Current Codex/Claude engine profiles are
-text-only preview profiles; full-agent and gateway-bridged profiles remain
-blocked until their denied-path, cancellation, checkpoint/resume, telemetry,
-rollback, tool-bridge, and release evidence exist.
+tools, or Offisim gateway tools. Current Codex, Claude, and OpenAI engine
+profiles are text-only preview profiles. Separate Codex, Claude, and OpenAI
+`sdk-native-full-power` employee profiles exist as blocked runtime targets, and
+stay unavailable until their success, denied-path, cancellation,
+checkpoint/resume, MCP, hook/guardrail, handoff/subagent, budget, sandbox,
+usage/cost, rollback, tool-bridge, benchmark, and release evidence exist.
 
 As of 2026-05-08, desktop credential transport is provider-profile scoped in
 Tauri mode. The webview may request a provider profile id and endpoint kind, but

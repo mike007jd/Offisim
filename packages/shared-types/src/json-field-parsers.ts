@@ -1,4 +1,4 @@
-import type { EmployeeRuntimeBinding, EngineId } from './models.js';
+import { ENGINE_IDS, type EmployeeRuntimeBinding, type EngineId } from './models.js';
 import type { CommunicationFrequency, DecisionStyle, RiskPreference } from './persona.js';
 import type { PrefabBinding } from './prefab.js';
 
@@ -135,7 +135,9 @@ function pickToolPermissionPolicy(value: unknown): EmployeeToolPermissionPolicy 
 }
 
 function pickEngineId(value: unknown): EngineId | undefined {
-  return value === 'codex-engine' || value === 'claude-engine' ? value : undefined;
+  return typeof value === 'string' && (ENGINE_IDS as readonly string[]).includes(value)
+    ? (value as EngineId)
+    : undefined;
 }
 
 function pickEmployeeRuntimeBinding(value: unknown): EmployeeRuntimeBinding | undefined {

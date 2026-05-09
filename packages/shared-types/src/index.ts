@@ -235,6 +235,7 @@ export type {
   RuntimeEngineAvailability,
   RuntimeEngineCapabilityProfile,
   RuntimeEngineCapabilityTier,
+  RuntimeEvidenceClass,
   RuntimeEngineToolModel,
   RuntimeEngineVerificationStatus,
   MainHarnessMode,

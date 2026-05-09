@@ -1,16 +1,17 @@
 import { type InteractionRequest, chatScopeFields } from '@offisim/shared-types';
-import type {
-  EngineArtifact,
-  EngineProposal,
-  RuntimeEngineCapabilityProfile,
-  RuntimeActivityEvent,
-} from '../engine/engine-types.js';
-import type { EmployeeRuntimeBinding } from '../engine/engine-types.js';
 import {
   evaluateRuntimeEngineTaskFit,
+  profileEvidenceClass,
   profileToolTelemetryType,
   resolveRuntimeEngineCapabilityProfile,
 } from '../engine/capability-profiles.js';
+import type {
+  EngineArtifact,
+  EngineProposal,
+  RuntimeActivityEvent,
+  RuntimeEngineCapabilityProfile,
+} from '../engine/engine-types.js';
+import type { EmployeeRuntimeBinding } from '../engine/engine-types.js';
 import {
   engineActivity,
   engineProposalCreated,
@@ -161,12 +162,14 @@ async function mapEngineEvent(
     case 'tool_started': {
       const startedAt = event.timestamp ?? Date.now();
       const toolType = event.toolType ?? profileToolTelemetryType(runtimeProfile);
+      const evidenceClass = event.evidenceClass ?? profileEvidenceClass(runtimeProfile);
       toolTimings.set(event.toolCallId, { startedAt });
       eventBus.emit(
         toolExecutionTelemetry(companyId, threadId, {
           toolCallId: event.toolCallId,
           toolName: event.toolName,
           toolType,
+          evidenceClass,
           threadId,
           nodeName: 'employee',
           employeeId,
@@ -190,6 +193,7 @@ async function mapEngineEvent(
           label: event.toolName,
           toolName: event.toolName,
           toolType,
+          evidenceClass,
         }),
       );
       return null;
@@ -198,11 +202,13 @@ async function mapEngineEvent(
       const completedAt = event.timestamp ?? Date.now();
       const startedAt = toolTimings.get(event.toolCallId)?.startedAt ?? completedAt;
       const toolType = event.toolType ?? profileToolTelemetryType(runtimeProfile);
+      const evidenceClass = event.evidenceClass ?? profileEvidenceClass(runtimeProfile);
       eventBus.emit(
         toolExecutionTelemetry(companyId, threadId, {
           toolCallId: event.toolCallId,
           toolName: event.toolName,
           toolType,
+          evidenceClass,
           threadId,
           nodeName: 'employee',
           employeeId,
@@ -233,6 +239,7 @@ async function mapEngineEvent(
           detail: event.errorType,
           toolName: event.toolName,
           toolType,
+          evidenceClass,
         }),
       );
       return null;

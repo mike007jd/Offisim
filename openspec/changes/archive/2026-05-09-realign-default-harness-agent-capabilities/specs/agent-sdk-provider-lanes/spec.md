@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Legacy agent SDK lane wording SHALL be transport-only
 

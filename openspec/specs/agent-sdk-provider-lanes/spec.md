@@ -2,9 +2,7 @@
 
 ## Purpose
 Defines legacy execution-binding fields as model transport bindings so Offisim can call providers through gateway, Codex Agent SDK, Claude Agent SDK, OpenAI Agents SDK, or compatible adapters without bypassing Offisim orchestration. These bindings are provider-side model transport details; they are not employee engine modes or product-level SDK lanes.
-
 ## Requirements
-
 ### Requirement: Provider configuration SHALL declare a model transport binding
 
 Offisim provider configuration SHALL carry an explicit model transport binding for every active provider binding. Legacy field names MAY still use `executionLane` for migration compatibility. Supported transport bindings include `gateway`, `codex-agent-sdk`, `claude-agent-sdk`, and `openai-agents-sdk`.
@@ -88,3 +86,21 @@ Harness coverage SHALL prove this per adapter: Claude Agent SDK and OpenAI Agent
 - **WHEN** the Codex desktop host bridge builds its developer instructions
 - **THEN** the instructions state that model transport is not a tool-capable runtime
 - **AND** they tell the model to use the default Offisim harness / gateway tools or a verified tool-capable employee profile rather than executing local file, shell, memory, todo, skill, MCP, or builtin tools through an unverified SDK-backed transport
+
+### Requirement: Legacy agent SDK lane wording SHALL be transport-only
+
+`claude-agent-sdk`, `codex-agent-sdk`, and `openai-agents-sdk` names that appear in legacy provider config, migration fields, or adapter code SHALL be interpreted as model transport bindings under Offisim harness ownership. They SHALL NOT be documented or exposed as ordinary product lanes.
+
+This requirement SHALL NOT be interpreted as a ban on verified employee agent profiles or main-harness control-plane modes. Full agent capability belongs to runtime engine capability profiles or the harness control plane, not to model transport selection.
+
+#### Scenario: SDK transport rejects Offisim tools before unmanaged execution
+
+- **WHEN** a SDK-backed model transport receives Offisim-local tool definitions or a local-tool task without a verified bridge/runtime profile
+- **THEN** it fails closed before model/tool execution
+- **AND** the user-facing message points to the default Offisim harness/gateway tools or a verified tool-capable employee profile
+
+#### Scenario: Employee engine profile uses a different contract
+
+- **WHEN** an admin wants an SDK-backed employee to use native or gateway-bridged tools
+- **THEN** the admin configures an employee runtime capability profile
+- **AND** model transport selection alone remains insufficient

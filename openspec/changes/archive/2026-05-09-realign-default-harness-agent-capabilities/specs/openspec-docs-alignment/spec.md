@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Runtime architecture changes SHALL include stale truth-source cleanup
 
