@@ -22,7 +22,7 @@ Each tier SHALL declare supported tasks, unsupported tasks, permission behavior,
 
 Main harness driver or replacement mode SHALL resolve only from an explicit trusted policy. The policy SHALL include scope, actor, reason, previous mode, next mode, runtime profile, verification status, timestamp, and rollback checkpoint.
 
-Provider lane selection, employee binding, SDK availability, and external peer discovery SHALL NOT self-promote into main harness driver or replacement mode.
+Model transport selection, employee binding, SDK availability, and external peer discovery SHALL NOT self-promote into main harness driver or replacement mode.
 
 #### Scenario: Driver proposes, Offisim executes
 
@@ -52,4 +52,4 @@ Full-power SDK availability SHALL NOT allow automatic takeover. A route becomes 
 
 - **WHEN** the desktop detects a working Claude/Codex/OpenAI SDK with native tool support
 - **THEN** the main harness remains `offisim-core` unless explicit policy selects driver or replacement
-- **AND** no provider lane, employee profile, or peer discovery silently changes the owner
+- **AND** no model transport, employee profile, or peer discovery silently changes the owner

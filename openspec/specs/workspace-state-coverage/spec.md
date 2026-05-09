@@ -318,7 +318,7 @@ save submission errors).
 Workspaces SHALL render an explicit "Available on desktop" notice in
 place of any desktop-only feature on the web build. The desktop-only
 features in scope are the Tauri folder picker, the project file tree,
-the MCP transport list, and the agent SDK lane configuration. The
+the MCP transport list, and the SDK-backed model transport configuration. The
 notice SHALL include an explanation and (where applicable) a download
 link.
 
@@ -340,4 +340,3 @@ desktop" and a brief explanation of why the feature requires desktop
 - **THEN** the folder picker row SHALL render the "Available on
   desktop" hint instead of the Choose button (existing behavior, now
   formalized)
-

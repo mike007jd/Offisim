@@ -68,13 +68,13 @@ export function getChatRuntimeOutcomeFollowUp(
       return {
         mode: 'message',
         message:
-          'Attachments require the default Offisim harness/gateway attachment tool, or a verified tool-capable employee profile. Plain SDK provider lanes are text/reasoning-only; switch runtime, then resend the attachment.',
+          'Attachments require the default Offisim harness/gateway attachment tool, or a verified tool-capable employee profile. Model transport alone is not a tool-capable runtime; switch runtime, then resend the attachment.',
       };
     case LOCAL_TOOLS_REQUIRE_GATEWAY_LANE:
       return {
         mode: 'message',
         message:
-          'Local files, shell commands, workspace tools, memory, todo, skills, and MCP tools require the default Offisim harness/gateway tools or a verified tool-capable employee profile. Plain SDK provider lanes are text/reasoning-only; switch runtime, then resend the request.',
+          'Local files, shell commands, workspace tools, memory, todo, skills, and MCP tools require the default Offisim harness/gateway tools or a verified tool-capable employee profile. Model transport alone is not a tool-capable runtime; switch runtime, then resend the request.',
       };
   }
 }

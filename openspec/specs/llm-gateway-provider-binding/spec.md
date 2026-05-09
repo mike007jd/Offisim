@@ -34,31 +34,31 @@ Legacy short-format records (for example `{"provider":"openai","model":"gpt-4o-m
 - **THEN** normalization returns the corresponding product-centric config
 - **AND** the migrated product identity becomes the runtime's primary provider selection
 
-### Requirement: A runtime has exactly one LlmGateway bound to its active execution lane
+### Requirement: A runtime has exactly one model execution binding
 
-Each `RuntimeContext` SHALL hold a single active model execution binding constructed once during runtime init from the selected product config after resolution into a concrete provider variant, transport profile, and execution lane. The active binding MAY be:
+Each `RuntimeContext` SHALL hold a single active model execution binding constructed once during runtime init from the selected product config after resolution into a concrete provider variant, transport profile, and legacy execution binding. The active binding MAY be:
 
-- a `gateway` lane backed by `createGateway(...)`, or
-- an agent SDK lane backed by a single Offisim-owned execution adapter (`claude-agent-sdk` or `openai-agents-sdk`)
+- a `gateway` transport backed by `createGateway(...)`, or
+- a SDK-backed model transport backed by a single Offisim-owned execution adapter (`claude-agent-sdk` or `openai-agents-sdk`)
 
 All LLM-calling nodes and services SHALL reach the active binding through one Offisim-owned execution abstraction. Product identity is resolved before adapter construction; nodes and services SHALL NOT branch on product IDs directly.
 
 #### Scenario: Product selection resolves before gateway creation
 
 - **WHEN** a runtime loads a saved `qwen-model-studio` product config
-- **THEN** runtime init first resolves it to a concrete provider variant, transport profile, and execution lane
+- **THEN** runtime init first resolves it to a concrete provider variant, transport profile, and model execution binding
 - **AND** only then creates the single active gateway/execution adapter for that runtime
 
-#### Scenario: Gateway lane creates one gateway per runtime init
+#### Scenario: Gateway transport creates one gateway per runtime init
 
 - **WHEN** a runtime selects `executionLane = "gateway"`
 - **THEN** exactly one `createGateway(...)` invocation per runtime-bundle-init exists
 - **AND** no node / service / middleware file directly instantiates provider SDK clients outside the active Offisim execution binding
 
-#### Scenario: Agent SDK lane creates one execution adapter per runtime init
+#### Scenario: SDK-backed transport creates one execution adapter per runtime init
 
 - **WHEN** a runtime selects `executionLane = "claude-agent-sdk"` or `executionLane = "openai-agents-sdk"`
-- **THEN** runtime init creates exactly one active execution adapter for that lane
+- **THEN** runtime init creates exactly one active model transport adapter for that binding
 - **AND** no node / service / middleware file instantiates a second vendor runtime for the same thread
 
 #### Scenario: Codex product does not create multiple bindings

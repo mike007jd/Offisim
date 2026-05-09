@@ -4,9 +4,9 @@
  * core / agent code MUST NOT write attachments (the composer owns that).
  *
  * The injection point is `RuntimeContext.attachmentStoreBridge`. Bridge
- * presence + `llmToolCallsEnabled !== false` together gate the
- * gateway-lane `read_attachment` tool registration; SDK lanes (which set
- * `llmToolCallsEnabled = false`) never see the schema.
+ * presence + `llmToolCallsEnabled !== false` together gate the verified
+ * attachment-capable `read_attachment` tool registration; SDK-backed model
+ * transports (which set `llmToolCallsEnabled = false`) never see the schema.
  */
 import type { AttachmentMeta, VaultRef } from '@offisim/shared-types';
 

@@ -199,13 +199,13 @@ Historical attachments (older user messages under the same `chat_thread`) SHALL 
 - **THEN** the tool SHALL return `{ kind: 'attachment-forbidden', vaultRef, reason }`
 - **AND** the attachment store SHALL NOT be read
 
-### Requirement: SDK lanes are fail-closed at four layers
+### Requirement: SDK-backed model transports are fail-closed at four layers
 
-`claude-agent-sdk`, `codex-agent-sdk`, and `openai-agents-sdk` lanes SHALL refuse attachment access at four enforcement layers:
+`claude-agent-sdk`, `codex-agent-sdk`, and `openai-agents-sdk` model transports SHALL refuse attachment access at four enforcement layers unless a separately verified tool-capable runtime profile grants attachment authority:
 
-1. **Tool kit registration**: SHALL NOT register `read_attachment`. The schema SHALL be invisible to SDK adapters.
-2. **Chat-send pre-flight**: when `state.pendingAttachments.length > 0 && env.lane !== 'gateway'`, the boss-node entry SHALL short-circuit BEFORE any model call and surface typed chat outcome `attachments-require-gateway-lane`. The user SHALL see a system message; no tokens SHALL be charged.
-3. **System preface listing**: SHALL be built only when `lane === 'gateway'`. SDK-lane prompts SHALL NEVER carry `[attachment ...]` lines, even if `pendingAttachments` is non-empty in state.
+1. **Tool kit registration**: SHALL NOT register `read_attachment`. The schema SHALL be invisible to unverified SDK-backed transport adapters.
+2. **Chat-send pre-flight**: when `state.pendingAttachments.length > 0` and the resolved transport/profile lacks verified attachment authority, the boss-node entry SHALL short-circuit BEFORE any model call and surface typed chat outcome `attachments-require-gateway-lane`. The user SHALL see a system message; no tokens SHALL be charged.
+3. **System preface listing**: SHALL be built only for verified attachment-capable tool paths. SDK-backed transport prompts SHALL NEVER carry `[attachment ...]` lines, even if `pendingAttachments` is non-empty in state.
 4. **Adapter-side rejection**: existing `llmToolCallsEnabled=false` invariant on SDK adapters SHALL reject any unknown tool request, including `read_attachment` if a future bug bypasses layers 1–3.
 
 Each layer SHALL have an explicit test asserting the contract.
@@ -215,16 +215,16 @@ Each layer SHALL have an explicit test asserting the contract.
 - **WHEN** the runtime initializes with `lane=claude-agent-sdk` and a chat turn carries attachments
 - **THEN** the assembled tool kit SHALL NOT include `read_attachment`
 
-#### Scenario: SDK lane pre-flight surfaces typed outcome
+#### Scenario: SDK transport pre-flight surfaces typed outcome
 
 - **WHEN** the runtime is `lane=codex-agent-sdk` and the user sends a message with attachments
 - **THEN** the chat turn SHALL surface the typed outcome `attachments-require-gateway-lane` to the user as a chat-level system message
 - **AND** no model call SHALL be issued
 - **AND** no provider tokens SHALL be charged
 
-#### Scenario: SDK system preface never lists attachments
+#### Scenario: SDK transport system preface never lists attachments
 
-- **WHEN** an SDK lane chat turn is dispatched with non-empty `pendingAttachments` (e.g., a regression bypasses layer 2)
+- **WHEN** a SDK-backed transport chat turn is dispatched with non-empty `pendingAttachments` (e.g., a regression bypasses layer 2)
 - **THEN** the assembled system message SHALL NOT contain any `[attachment ...]` lines
 
 #### Scenario: SDK adapter rejects accidental tool request

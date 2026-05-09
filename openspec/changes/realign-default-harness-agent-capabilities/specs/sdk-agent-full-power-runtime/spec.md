@@ -2,7 +2,7 @@
 
 ### Requirement: SDK-native employee runtime SHALL preserve full agent capability
 
-Offisim SHALL support a distinct SDK-native employee runtime profile for Claude, Codex, and OpenAI agent SDKs. This profile SHALL be separate from provider SDK lanes. When selected and verified, it SHALL run the SDK as a full agent runtime rather than reducing it to final text output.
+Offisim SHALL support a distinct SDK-native employee runtime profile for Claude, Codex, and OpenAI agent SDKs. This profile SHALL be separate from internal model transport/provider-adapter use. When selected and verified, it SHALL run the SDK as a full agent runtime rather than reducing it to final text output.
 
 The profile SHALL preserve the SDK's declared capabilities where available: native tools, custom tools, MCP servers, hosted tools, permission callbacks, hooks, guardrails, handoffs/subagents, streaming partial messages, sessions, resume, fork, checkpoint/file checkpointing, interrupt/cancel, model/fallback selection, budget/max-turn controls, sandbox settings, tracing, cost/usage, structured output, and typed error/partial-state recovery.
 

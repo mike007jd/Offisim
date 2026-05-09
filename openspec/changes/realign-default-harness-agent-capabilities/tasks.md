@@ -1,8 +1,8 @@
 ## 1. Canonical OpenSpec Truth
 
 - [x] 1.1 Create a new OpenSpec change that supersedes the previous active `strengthen-default-agent-harness` framing.
-- [x] 1.2 Define the corrected three-layer architecture: default Offisim harness, provider SDK leaf lanes, and non-default agent employee/control-plane routes.
-- [x] 1.3 Add spec deltas for default harness ownership, control-plane tiers, provider lane boundary, runtime engine profiles, provider matrix language, docs alignment, and release verification gates.
+- [x] 1.2 Define the corrected three-layer architecture: default Offisim harness, model transport boundary, and non-default agent employee/control-plane routes.
+- [x] 1.3 Add spec deltas for default harness ownership, model transport boundary, control-plane tiers, runtime engine profiles, provider matrix language, docs alignment, and release verification gates.
 
 ## 2. Poisoned Truth-Source Sweep
 
@@ -12,9 +12,9 @@
 
 ## 3. Repo Cleanup
 
-- [x] 3.1 Update AGENTS/CLAUDE guidance so provider SDK lane fail-closed remains true without banning verified employee agent profiles or harness control-plane routes.
-- [x] 3.2 Update provider matrix and protocol ledger wording to distinguish provider lane evidence from full-agent/runtime profile evidence.
-- [x] 3.3 Update SDK-lane rejection messages and host instructions so users are pointed to the default Offisim harness/gateway tools or verified tool-capable employee profiles.
+- [x] 3.1 Update AGENTS/CLAUDE guidance so model transport fail-closed remains true without inventing a plain SDK product lane or banning verified employee agent profiles/control-plane routes.
+- [x] 3.2 Update provider matrix and protocol ledger wording to distinguish model transport evidence from full-agent/runtime profile evidence.
+- [x] 3.3 Update transport rejection messages and host instructions so users are pointed to the default Offisim harness/gateway tools or verified tool-capable employee profiles.
 - [x] 3.4 Mark the previous active change as superseded and archive it without syncing old delta specs into main specs.
 
 ## 4. Validation And Git Closure
@@ -48,3 +48,5 @@
 - [ ] 6.4 Normalize SDK-native telemetry into Offisim activity and evidence with distinct `sdk-native`, `gateway-bridged`, and `offisim-gateway` evidence classes.
 - [ ] 6.5 Add deterministic/backend/release gates for SDK-native success, denied path, cancellation, resume/fork, checkpoint rollback, MCP status/calls/failures, hooks/guardrails, handoffs/subagents, budget exhaustion, sandbox denial, usage/cost, and completion evidence.
 - [ ] 6.6 Add cross-route benchmark comparing default `offisim-core` and SDK-native full-power routes on the same production workflows.
+- [x] 6.7 Remove or migrate implementation/user-facing naming that presents model calling as an ordinary SDK lane; keep only internal adapter/transport naming where backward compatibility requires it.
+  - PASS 2026-05-09: updated AGENTS/CLAUDE, current specs, provider matrix, protocol ledger, runtime user-facing follow-ups, host instructions, provider taxonomy, and local-tool denial text to describe SDK usage as model transport or verified SDK-native runtime profile. Legacy filenames/fields such as `executionLane` and `sdk-lane-policy.ts` remain internal compatibility names only.

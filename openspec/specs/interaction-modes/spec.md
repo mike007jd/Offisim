@@ -19,7 +19,7 @@ Direct-to-employee and YOLO entry paths SHALL clear stale SOP/plan execution sta
 
 In a `desktop-trusted` Tauri runtime using the `gateway` lane, employee and YOLO tool pools SHALL include bounded built-in `read_file`, `write_file`, and `bash` capabilities for project workspaces.
 
-Browser-limited runtimes SHALL NOT expose those built-ins. Agent SDK lanes SHALL be treated as text/reasoning-only Offisim lanes unless a true tool bridge is implemented and verified.
+Browser-limited runtimes SHALL NOT expose those built-ins. SDK-backed model transports SHALL NOT receive Offisim runtime tools unless a true tool bridge or SDK-native employee runtime profile is implemented and verified.
 
 #### Scenario: Desktop gateway YOLO sees project tools
 
@@ -32,27 +32,27 @@ Browser-limited runtimes SHALL NOT expose those built-ins. Agent SDK lanes SHALL
 - **WHEN** a browser-limited runtime starts an employee turn without desktop built-ins
 - **THEN** the model request does not expose `read_file`, `write_file`, or `bash`.
 
-### Requirement: Agent SDK lanes SHALL NOT expose Offisim runtime tools
+### Requirement: SDK-backed model transports SHALL NOT expose Offisim runtime tools
 
-Until SDK-lane tool bridging is implemented, Claude, Codex, and OpenAI agent SDK lanes SHALL set runtime tool-call capability false and SHALL NOT expose file, shell, memory, todo, skill, MCP, or built-in tool schemas to the model.
+Until a tool bridge or full SDK-native employee runtime profile is implemented and verified, Claude, Codex, and OpenAI SDK-backed model transports SHALL set runtime tool-call capability false and SHALL NOT expose file, shell, memory, todo, skill, MCP, or built-in tool schemas to the model.
 
-Adapters for SDK lanes SHALL fail closed with explicit user-facing text if any tool request reaches them. Provider/UI capability copy SHALL NOT label SDK-lane execution as an Offisim tools-capable path.
+Adapters for SDK-backed model transports SHALL fail closed with explicit user-facing text if any tool request reaches them. Provider/UI capability copy SHALL NOT label transport selection as an Offisim tools-capable path.
 
-#### Scenario: SDK lane hides all Offisim tools
+#### Scenario: SDK transport hides all Offisim tools
 
-- **WHEN** an employee or YOLO turn runs under an SDK lane
+- **WHEN** an employee or YOLO turn would call a model through an SDK-backed transport
 - **THEN** the model request contains none of `read_file`, `write_file`, `bash`, `todo_create`, `todo_update`, `todo_list`, `handoff_to`, skill tools, memory tools, MCP tools, or built-in tools
-- **AND** settings copy describes the lane as text/reasoning-only for Offisim tools.
+- **AND** settings copy describes the transport as not tool-capable for Offisim tools.
 
-#### Scenario: SDK adapter fails closed on unexpected tools
+#### Scenario: SDK transport adapter fails closed on unexpected tools
 
-- **WHEN** a tool request reaches an SDK lane adapter
+- **WHEN** a tool request reaches an SDK-backed model transport adapter
 - **THEN** the adapter rejects the request instead of forwarding it to a sidecar that cannot execute Offisim tools
 - **AND** the error points the user to the default Offisim harness / gateway tools or a verified tool-capable employee profile for project file and command work.
 
 ### Requirement: Local tool work SHALL NOT route to external A2A employees
 
-Requests that require Offisim-local filesystem, shell, workspace, or path-bounded project tools SHALL route only to enabled internal employees running in a verified tool-capable context. The current verified context is the default Offisim harness / gateway path; future employee agent profiles need separate evidence before they qualify. External A2A employees and text/reasoning-only SDK provider lanes SHALL NOT be selected for those tasks as if they could access local project files or commands.
+Requests that require Offisim-local filesystem, shell, workspace, or path-bounded project tools SHALL route only to enabled internal employees running in a verified tool-capable context. The current verified context is the default Offisim harness / gateway path; future employee agent profiles need separate evidence before they qualify. External A2A employees and unverified SDK-backed model transports SHALL NOT be selected for those tasks as if they could access local project files or commands.
 
 The "requires local tools" decision SHALL be the precomputed `state.taskToolIntent.requiresLocalTools` from the `task-tool-intent` capability, NOT a per-call regex match against task text. Routing nodes (`boss-node`, `manager-node`, `pm-planner/preflight`, `employee-direct-setup-node`) SHALL read this state field; they SHALL NOT call any text-matching helper to re-derive the same decision.
 

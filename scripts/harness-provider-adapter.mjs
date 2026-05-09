@@ -207,7 +207,7 @@ function assertCodexHostTextOnlyInstructions() {
     }
   }
   const required = [
-    'text/reasoning-only',
+    'model transport is not a tool-capable runtime',
     'Do not execute Offisim file, shell, memory, todo, skill, MCP, or builtin tools.',
     'default Offisim harness/gateway tools or a verified tool-capable employee profile',
   ];

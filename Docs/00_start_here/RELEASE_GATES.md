@@ -9,7 +9,7 @@ is implemented but unverified.
 - Provider transport: webview sends provider profile id and endpoint kind only;
   Rust resolves credential destination, auth scheme, host allowlist, HTTPS/local
   exception, redirect policy, and response-header filtering.
-- Trusted sidecars: Claude/Codex SDK lanes resolve cwd inside the bound
+- Trusted sidecars: Claude/Codex SDK-backed model transports resolve cwd inside the bound
   workspace, do not receive raw base URLs from the webview, and emit no-secret
   sidecar audit events.
 - Local workspace commands: path open/save, git, deliverables, and shell require

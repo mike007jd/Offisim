@@ -67,18 +67,21 @@ Credential notes:
 
 ## Host exposure rule
 
-As of 2026-05-09, provider SDK lanes are text/reasoning-only leaf execution
-adapters for Offisim-owned graph nodes. They must not expose or claim execution
-of file, shell, memory, todo, skill, MCP, workspace, or builtin Offisim tool
-schemas. Verified `claude-agent-sdk` rows in this matrix are LLM execution
-evidence, not permission to route local workspace tool work through SDK provider
-lanes. The `openai-agents-sdk` lane has runtime + Tauri transport support, but
-product exposure remains text/reasoning-only until native OpenAI and any
-third-party compat provider accumulate real smoke/load/edge evidence here.
+As of 2026-05-09, model calling is owned by the default `offisim-core` harness.
+`claude-agent-sdk`, `codex-agent-sdk`, and `openai-agents-sdk` rows in this
+matrix are model transport/provider adapter evidence, not ordinary SDK product
+lanes. Unverified model transports must not expose or claim execution of file,
+shell, memory, todo, skill, MCP, workspace, or builtin Offisim tool schemas.
+Verified `claude-agent-sdk` rows are LLM/model transport evidence, not
+permission to route local workspace tool work through SDK transport. The
+`openai-agents-sdk` transport has runtime + Tauri transport support, but
+full-agent product exposure remains blocked until native OpenAI and any
+third-party compat provider accumulate real smoke/load/edge evidence here and
+the corresponding employee runtime profile has release `.app` proof.
 
 Tool-capable work currently uses the default Offisim harness / gateway evidence
 path unless a separate runtime engine capability profile or main-harness control
-plane route has been verified. Provider lane selection alone cannot enable
+plane route has been verified. Model transport selection alone cannot enable
 employee-agent mode, main-harness driver mode, replacement mode, SDK-native
 tools, or Offisim gateway tools. Current Codex/Claude engine profiles are
 text-only preview profiles; full-agent and gateway-bridged profiles remain
@@ -89,5 +92,5 @@ As of 2026-05-08, desktop credential transport is provider-profile scoped in
 Tauri mode. The webview may request a provider profile id and endpoint kind, but
 Rust owns canonical base URL resolution, credential host binding, auth scheme,
 HTTPS/local-endpoint policy, cross-host redirect blocking, and credential-shaped
-response-header filtering. Provider lane evidence must therefore name both the
-product lane and the credential destination class verified in the release app.
+response-header filtering. Provider transport evidence must therefore name both
+the product transport and the credential destination class verified in the release app.

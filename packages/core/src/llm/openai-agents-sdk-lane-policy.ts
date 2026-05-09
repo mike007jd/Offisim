@@ -8,7 +8,7 @@ export interface OpenAiAgentsSdkLanePolicyInput {
 
 /**
  * OpenAI-compatible providers stay opt-in until backend harness evidence
- * proves that a preset can sustain the Agents SDK lane reliably.
+ * proves that a preset can sustain the Agents SDK-backed model transport reliably.
  */
 export const VERIFIED_OPENAI_AGENTS_SDK_COMPAT_PRESET_IDS = new Set<string>();
 

@@ -136,7 +136,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   const laneHelp =
     executionLane === 'gateway'
       ? 'Gateway lane exposes Offisim tools when the active runtime has a trusted host and configured workspace.'
-      : 'This SDK lane is text/reasoning-only in Offisim; file, shell, memory, todo, and skill tools are hidden.';
+      : 'This SDK-backed transport only calls the model; file, shell, memory, todo, and skill tools require the default harness/gateway path or a verified runtime profile.';
   const credentialDestination = (() => {
     if (!effectiveEndpoint) return 'No endpoint resolved';
     try {

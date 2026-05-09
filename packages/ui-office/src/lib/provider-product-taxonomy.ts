@@ -250,7 +250,7 @@ const LOCAL_VARIANTS: Record<string, ProviderVariantDefinition> = {
       'claude-sonnet-4-20250514': 'Claude Sonnet 4',
     },
     notes:
-      'Repo-owned local-auth product. Desktop trusted host resolves local Claude auth without exposing credential bytes to TypeScript. This SDK lane is text/reasoning-only in Offisim; use gateway for Offisim tools.',
+      'Repo-owned local-auth product. Desktop trusted host resolves local Claude auth without exposing credential bytes to TypeScript. This is SDK-backed model transport, not a tool-capable runtime; use gateway or a verified runtime profile for Offisim tools.',
   },
   'codex-local-auth': {
     productId: 'codex',
@@ -275,7 +275,7 @@ const LOCAL_VARIANTS: Record<string, ProviderVariantDefinition> = {
       'gpt-5.4': 'GPT-5.4',
     },
     notes:
-      'Repo-owned local-auth product. Codex is host-gated and fails closed until a trusted local-auth resolver is available. This SDK lane is text/reasoning-only in Offisim; use gateway for Offisim tools.',
+      'Repo-owned local-auth product. Codex is host-gated and fails closed until a trusted local-auth resolver is available. This is SDK-backed model transport, not a tool-capable runtime; use gateway or a verified runtime profile for Offisim tools.',
   },
   'qwen-model-studio-manual': {
     productId: 'qwen-model-studio',

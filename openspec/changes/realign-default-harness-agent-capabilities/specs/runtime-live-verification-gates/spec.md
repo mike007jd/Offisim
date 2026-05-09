@@ -4,12 +4,12 @@
 
 Any employee agent engine, main-harness driver, or main-harness replacement mode SHALL have release `.app` evidence before product UI, docs, or marketing can call it available. The evidence SHALL include success, denied/blocked behavior, cancellation, checkpoint/resume, telemetry, failure classification, and rollback where applicable for the exact runtime profile.
 
-Provider SDK lane text/reasoning evidence SHALL NOT satisfy this gate.
+Model transport smoke evidence SHALL NOT satisfy this gate.
 
-#### Scenario: Provider SDK evidence does not advertise full-agent employee
+#### Scenario: Transport evidence does not advertise full-agent employee
 
-- **WHEN** a provider SDK lane has successful text/reasoning smoke evidence
-- **THEN** Offisim may mark that provider lane verified for text/reasoning
+- **WHEN** a SDK-backed model transport has successful text/reasoning smoke evidence
+- **THEN** Offisim may mark that transport verified for model calling
 - **AND** it does not mark any full-agent, gateway-bridged employee, driver, or replacement route production-ready without separate release `.app` evidence
 
 #### Scenario: Release evidence names the owner
@@ -26,7 +26,7 @@ Release verification for a SDK-native full-power profile SHALL prove that native
 
 - **WHEN** a release `.app` verifies a SDK-native full-power employee profile
 - **THEN** the evidence includes success, denied path, cancellation, resume/fork, MCP lifecycle, native tool telemetry, guardrail/hook behavior, budget/max-turn exhaustion, and rollback
-- **AND** the evidence proves the runtime was not reduced to provider-lane text-only behavior
+- **AND** the evidence proves the runtime was not reduced to model-transport text-only behavior
 
 #### Scenario: Main harness parity and SDK full-power are both required
 

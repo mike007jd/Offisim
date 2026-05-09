@@ -3,10 +3,10 @@
 The user-corrected product model has three layers:
 
 1. Default runtime: Offisim's own `offisim-core` harness remains the default and must become stronger before release.
-2. Provider SDK lanes: Claude/Codex/OpenAI SDK provider lanes are leaf text/reasoning transports for Offisim-owned graph nodes.
+2. Model transport: `offisim-core` can call models directly through its own provider adapter/transport boundary. SDKs may implement that transport, but this is not a product lane.
 3. Non-default agent routes: an employee may be configured with a complete agent runtime, and the main harness may later be driven or replaced, but only through explicit capability profiles and evidence gates.
 
-The previous active change contained useful implementation work, but the surrounding wording can still train future agents into the wrong simplification: "tool execution must always be gateway-only." The correct statement is narrower: current provider SDK lanes cannot execute Offisim-local tools; current verified full-agent/gateway-bridged profiles are not production-advertised yet.
+The previous active change contained useful implementation work, but the surrounding wording can still train future agents into two wrong simplifications: "calling a model means selecting a SDK lane" and "tool execution must always be gateway-only." The correct statement is narrower: model calling is owned by `offisim-core`; non-default agent runtimes require explicit capability profiles and evidence.
 
 ## Decisions
 
@@ -14,9 +14,9 @@ The previous active change contained useful implementation work, but the surroun
 
 `offisim-core` remains the owner of planning, routing, permissions, checkpointing, task state, MCP lifecycle, completion evidence, and release verification by default. Reference projects and SDK docs are capability targets that Offisim should absorb into its own harness, not replacements for the default path.
 
-### Decision 2: Provider lane is not employee engine profile
+### Decision 2: Model transport is not employee engine profile
 
-Provider lane selection answers "how does this Offisim graph node call a model?" Employee engine profile answers "what runtime owns this employee task?" These must not share UI copy, docs wording, or code comments that imply the SDK provider lane can become a tool-capable employee simply because the SDK supports tools.
+The default harness must be able to call models directly. A provider adapter, HTTP gateway, or SDK transport answers "how does this Offisim-owned harness call a model?" Employee engine profile answers "what runtime owns this employee task?" These must not share UI copy, docs wording, or code comments that imply a transport adapter is a product lane.
 
 ### Decision 3: Non-default routes must be complete, not casual
 
@@ -32,7 +32,12 @@ The default harness cannot be judged only against old Offisim behavior. It must 
 
 ### Decision 6: Full-power SDK runtime is a separate production route
 
-Plain provider SDK lanes stay text/reasoning-only. Separately, Offisim should support a verified SDK-native employee runtime that keeps the SDK's own agent loop and tools alive. "Full-power SDK" means Offisim hosts and audits the runtime without stripping it down to `maxTurns=1`, final-text-only output, or provider-lane behavior. It is allowed only as an employee runtime/control-plane profile with explicit permissions, sandbox, evidence, and rollback.
+There is no ordinary SDK product lane. SDKs have two allowed identities:
+
+1. internal model transport/provider-adapter implementation detail owned by `offisim-core`
+2. verified SDK-native employee runtime that keeps the SDK's own agent loop and tools alive
+
+"Full-power SDK" means Offisim hosts and audits the runtime without stripping it down to `maxTurns=1`, final-text-only output, or transport-adapter behavior. It is allowed only as an employee runtime/control-plane profile with explicit permissions, sandbox, evidence, and rollback.
 
 ## Rollout
 
@@ -47,6 +52,6 @@ Plain provider SDK lanes stay text/reasoning-only. Separately, Offisim should su
 ## Risks
 
 - Existing code has a large uncommitted implementation set from the previous change. This change must avoid accidentally reverting it; only incorrect architecture wording and specs should be corrected.
-- User-facing copy changes touch high-impact runtime paths. The intended behavior remains fail-closed for provider SDK lanes; only the guidance wording changes.
+- User-facing copy changes touch high-impact runtime paths. The intended behavior remains fail-closed for unverified model transports that receive local-tool requests; only the product framing changes.
 - Archived OpenSpec history can still be found by search. The archive must mark the old change as superseded and point to the new change.
 - Full-power SDK runtime expands the security surface. The mitigation is not to keep it weak, but to require sandbox, permission mapping, telemetry normalization, checkpoint/rollback, and release evidence before advertising it.

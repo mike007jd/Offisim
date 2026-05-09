@@ -16,8 +16,8 @@ This file is the source of truth for roadmap debt reviews. Do not use raw unchec
 
 | Item | Why it remains true debt | Primary evidence |
 | --- | --- | --- |
-| Provider lane exposure / host gating / verification matrix | Product-centric provider work is underway, but lane exposure policy and evidence closure are not fully complete. | `openspec/provider-lane-matrix.md`, `openspec/specs/provider-product-taxonomy/spec.md` |
-| Agent SDK lanes without Offisim tool-enabled turns | `claude-agent-sdk` and `openai-agents-sdk` are not yet drop-in replacements for tool-enabled Offisim turns. | `packages/core/src/llm/claude-agent-sdk-adapter.ts`, `packages/core/src/llm/openai-agents-sdk-adapter.ts` |
+| Provider transport exposure / host gating / verification matrix | Product-centric provider work is underway, but transport exposure policy and evidence closure are not fully complete. | `openspec/provider-lane-matrix.md`, `openspec/specs/provider-product-taxonomy/spec.md` |
+| SDK-backed transports without Offisim tool-enabled runtime profiles | `claude-agent-sdk` and `openai-agents-sdk` transports are not drop-in replacements for tool-enabled Offisim runtime profiles. | `packages/core/src/llm/claude-agent-sdk-adapter.ts`, `packages/core/src/llm/openai-agents-sdk-adapter.ts` |
 | Codex local-auth resolver | Product entry exists, but trusted-host local auth is not yet fully wired end to end. | `apps/desktop/src-tauri/src/runtime_secrets.rs` |
 | Skills UX/product closure | The skill platform is live, but upload affordances, local sync UX, and end-user evidence are not fully closed. | `openspec/specs/skill-fork-and-edit/spec.md`, archived T2.1/T2.3 verify records |
 | A2A server completeness | Outbound/external employee wiring exists, but full server completeness is not finished. | `packages/core/src/a2a/a2a-server.ts` |

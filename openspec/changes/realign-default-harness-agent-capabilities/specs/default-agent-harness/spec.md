@@ -6,6 +6,8 @@ Offisim SHALL keep `offisim-core` as the default runtime harness. The default ha
 
 Reference agent implementations, Claude Agent SDK, OpenAI Agents SDK, MCP docs, and Context7 research SHALL be used as capability targets for strengthening Offisim's own harness. They SHALL NOT be treated as automatic replacement of the default harness.
 
+`offisim-core` SHALL be able to call models directly through an Offisim-owned model transport/provider adapter boundary. Using a vendor SDK inside that boundary SHALL NOT create a product-level SDK lane, SHALL NOT change runtime ownership, and SHALL NOT bypass Offisim planning, policy, telemetry, checkpoints, or completion evidence.
+
 #### Scenario: Reference capability becomes Offisim evidence only after implementation
 
 - **WHEN** a reference implementation or SDK exposes a capability such as tool-loop recovery, session resume, MCP lifecycle, or subagent handoff
@@ -18,23 +20,29 @@ Reference agent implementations, Claude Agent SDK, OpenAI Agents SDK, MCP docs, 
 - **THEN** the runtime owner is `offisim-core`
 - **AND** provider SDK availability or external agent discovery does not change the main harness owner
 
-### Requirement: Gateway-only wording SHALL be scoped to current provider SDK lanes
+#### Scenario: Harness calls model without becoming a SDK lane
 
-Docs, specs, code comments, and user-facing copy SHALL NOT state that all future tool-capable work must always use the gateway lane. They SHALL state the narrower current truth: provider SDK lanes are text/reasoning leaf lanes and cannot execute Offisim-local file, shell, memory, todo, skill, MCP, workspace, or builtin tools.
+- **WHEN** `offisim-core` invokes Claude, OpenAI, Codex-compatible, Anthropic-compatible, or custom model transport
+- **THEN** the product runtime remains the default Offisim harness
+- **AND** SDK usage is recorded only as model transport/provider adapter detail unless a verified SDK-native employee runtime profile was explicitly selected
 
-Tool-capable work MAY use the default Offisim gateway harness or a verified tool-capable employee profile once that profile has the required evidence.
+### Requirement: Docs SHALL distinguish tool ownership from model transport
 
-#### Scenario: Provider lane warning points to both valid concepts
+Docs, specs, code comments, and user-facing copy SHALL NOT state or imply that calling a model means selecting an ordinary SDK lane. They SHALL state that the default harness owns model calling through Offisim model transport, while full SDK agent behavior belongs only to a verified SDK-native employee runtime or harness control-plane profile.
 
-- **WHEN** a provider SDK lane rejects a local-tool task
-- **THEN** the warning says the provider SDK lane is text/reasoning-only
+Docs also SHALL NOT state that all future tool-capable work must always use one fixed gateway route. Tool-capable work MAY use the default Offisim gateway harness or a verified tool-capable employee profile once that profile has the required evidence.
+
+#### Scenario: Transport warning points to both valid concepts
+
+- **WHEN** an unverified model transport receives a local-tool task it cannot execute
+- **THEN** the warning says model transport is not a product runtime owner
 - **AND** it points to the default Offisim harness/gateway tools or a verified tool-capable employee profile
 
 #### Scenario: Future full-agent route is not forbidden by old wording
 
 - **WHEN** an employee agent profile later passes full-agent or gateway-bridged release gates
 - **THEN** existing docs and runtime messages do not contradict that product route
-- **AND** they still preserve provider SDK lane fail-closed behavior
+- **AND** they still preserve fail-closed behavior for unverified local-tool requests
 
 ### Requirement: Default harness SHALL meet the mainstream agent-harness parity floor
 

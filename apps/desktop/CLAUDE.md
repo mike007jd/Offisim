@@ -22,7 +22,7 @@ Tauri 2 桌面壳，零 npm deps，frontendDist 直接指 `../../web/dist`。改
 
 ## Builtin tool sandbox
 
-`src-tauri/src/builtin_tools.rs` 实现 `read_file` / `write_file` / `bash` / `project_read_file_preview` 等 builtin，仅 `gateway` lane 注入（commits `3f618ce9` / `50c1e296`），SDK lane 不暴露。硬上限不可绕：
+`src-tauri/src/builtin_tools.rs` 实现 `read_file` / `write_file` / `bash` / `project_read_file_preview` 等 builtin，仅注入已验证的 Offisim harness/gateway tool path（commits `3f618ce9` / `50c1e296`）。未验证 model transport 不暴露本机工具。硬上限不可绕：
 
 - `MAX_PREVIEW_BYTES` = 64 KB（`project_read_file_preview`，UI 文件树唯一入口）
 - `MAX_READ_BYTES` = 8 MB（`project_read_file`，agent tool lane）
@@ -68,7 +68,7 @@ Tauri release `.app` CSP `connect-src` 与 `apps/platform/src/startup.ts` `DEV_D
 | `lib.rs` | plugin 注册顺序 + command 注册（特权 command 必须挂 capability） |
 | `builtin_tools.rs` | `read_file` / `write_file` / `bash` / 文件预览 sandbox |
 | `llm_transport.rs` | `gateway` lane HTTP transport bridge |
-| `claude_agent_host.rs` / `codex_agent_host.rs` | SDK lane sidecar |
+| `claude_agent_host.rs` / `codex_agent_host.rs` | SDK-backed model transport sidecar |
 | `runtime_secrets.rs` | provider secret atomic IO |
 | `local_db.rs` | SQLite bootstrap + connection pool |
 | `local_paths.rs` | workspace_root resolution + 路径校验 helper |

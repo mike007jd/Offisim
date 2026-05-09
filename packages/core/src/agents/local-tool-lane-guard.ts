@@ -23,7 +23,7 @@ export function localToolsGatewayLaneOutcomeState(
       new AIMessage({
         content: [
           LOCAL_TOOLS_REQUIRE_GATEWAY_LANE,
-          'The selected SDK/provider lane is text/reasoning-only and cannot execute local file, shell, memory, todo, skill, MCP, or workspace tools. Use the default Offisim gateway harness or a verified gateway-capable employee profile for this task.',
+          'The selected model transport is not a tool-capable Offisim runtime and cannot execute local file, shell, memory, todo, skill, MCP, or workspace tools. Use the default Offisim gateway harness or a verified tool-capable employee profile for this task.',
         ].join('\n'),
       }),
     ],

@@ -35,7 +35,7 @@ An `EngineAdapter` SHALL expose `startRun(taskEnvelope, context)` and `cancelRun
 
 The employee engine executor SHALL map engine activity into Offisim event families. It SHALL NOT directly mutate `TaskPlan`, `pendingAssignments`, `currentStepOutputs` except by returning the normal employee completion state update after the assigned task finishes.
 
-Offisim 1.0 SDK lanes SHALL remain text/reasoning-only and SHALL NOT expose Offisim file, shell, memory, todo, skill, or MCP tools. SDK activity MUST be truthful: placeholder activity such as “engine accepted the assigned task” MUST NOT be emitted when no real stream, tool, completion, or error event exists.
+Unverified SDK-backed model transports SHALL NOT expose Offisim file, shell, memory, todo, skill, or MCP tools. SDK/native runtime activity MUST be truthful: placeholder activity such as “engine accepted the assigned task” MUST NOT be emitted when no real stream, tool, completion, or error event exists.
 
 If a trusted sidecar host later emits legal tool lifecycle events, those events SHALL be serialized as JSON over the trusted IPC channel and consumed by `apps/web/src/lib/tauri-engine-adapters.ts`. The adapter SHALL yield `RuntimeActivityEvent` items with `kind: 'tool_started'` and `kind: 'tool_completed'`, using the same structural fields rendered for gateway lane tool activity.
 
@@ -43,8 +43,8 @@ If a trusted sidecar host later emits legal tool lifecycle events, those events 
 - **WHEN** an engine emits text, reasoning, tool-started, and tool-completed activity
 - **THEN** Offisim emits `llm.stream.chunk` and `tool.execution.telemetry` events with employee/task context
 
-#### Scenario: SDK lane does not expose Offisim tools
-- **WHEN** a Claude Agent SDK or Codex Agent SDK lane runs under the Offisim 1.0 product boundary
+#### Scenario: Unverified SDK transport does not expose Offisim tools
+- **WHEN** a Claude Agent SDK or Codex Agent SDK transport runs under the Offisim model-calling boundary without a verified full-power runtime profile
 - **THEN** it does not expose Offisim file, shell, memory, todo, skill, or MCP tools
 - **AND** the activity stream does not imply those tools ran
 
@@ -54,12 +54,12 @@ If a trusted sidecar host later emits legal tool lifecycle events, those events 
 - **AND** provider-specific sidecar payload fields do not leak into the renderer contract
 
 #### Scenario: Placeholder activity is removed
-- **WHEN** SDK lane accepts an assigned task but no real tool has started
+- **WHEN** SDK-backed transport or runtime accepts an assigned task but no real tool has started
 - **THEN** the activity stream does not emit a synthetic “engine accepted the assigned task” row
 - **AND** the activity feed waits for real stream, tool, completion, or error events
 
 #### Scenario: SDK tool parity is not faked
-- **WHEN** no legal SDK lane tool path exists
+- **WHEN** no legal SDK-backed tool path exists
 - **THEN** replay and live verification do not fabricate gateway-vs-SDK tool parity
 - **AND** local file or shell tasks continue to route through the current verified default harness / gateway path unless a separate tool-capable employee profile has release evidence
 
@@ -138,61 +138,61 @@ While engine adapters surface only partial runtime activity (text, reasoning, ru
 - **WHEN** the resolved binding is `{ mode: 'provider' }`
 - **THEN** the Personnel Runtime tab card SHALL NOT render the preview disclosure
 
-### Requirement: SDK lanes SHALL be text/reasoning-only
+### Requirement: SDK-backed model transports SHALL fail closed for local tools
 
-SDK provider execution lanes SHALL NOT receive Offisim builtin tools.
+SDK-backed model transport bindings SHALL NOT receive Offisim builtin tools unless a separate verified employee runtime or gateway bridge profile grants that authority.
 This covers `claude-agent-sdk`, `codex-agent-sdk`, and
 `openai-agents-sdk`, including file / shell / memory / todo / skill /
-MCP tools. These lanes are text/reasoning-only provider leaf lanes, not
-employee agent profiles. Tool-capable work uses the default Offisim
-harness / gateway path today, or a separately verified tool-capable
-employee profile once such a profile has release evidence. SDK provider
-lane adapters that receive a tool request from the model SHALL fail
+MCP tools. These transports are not employee agent profiles and do not
+create an ordinary SDK product lane. Tool-capable work uses the default
+Offisim harness / gateway path today, or a separately verified
+tool-capable employee profile once such a profile has release evidence.
+SDK-backed transport adapters that receive a tool request from the model SHALL fail
 closed (return an error result, not silently route to a side channel).
 When the user request itself is classified as requiring local Offisim
-tools, SDK provider lanes SHALL fail fast before any model call with a
+tools, SDK-backed transports SHALL fail fast before any model call with a
 typed, chat-visible outcome explaining the required runtime switch.
 
-#### Scenario: claude-agent-sdk lane has no builtin tools in its kit
+#### Scenario: claude-agent-sdk transport has no builtin tools in its kit
 
-- **WHEN** an employee is bound to `claude-agent-sdk` engine
+- **WHEN** an Offisim-owned model call is bound to `claude-agent-sdk` transport
 - **AND** a chat session starts on that employee
 - **THEN** the assembled tool kit for that session SHALL NOT include
   `read_file`, `write_file`, `bash`, memory, todo, skill, or MCP tools
 
-#### Scenario: codex-agent-sdk lane fails closed on tool request
+#### Scenario: codex-agent-sdk transport fails closed on tool request
 
-- **WHEN** an employee is bound to `codex-agent-sdk` engine
+- **WHEN** an Offisim-owned model call is bound to `codex-agent-sdk` transport
 - **AND** the model returns a tool-call request anyway
 - **THEN** the adapter SHALL return an error result identifying the
-  request as out-of-lane
+  request as out of transport authority
 - **AND** SHALL NOT route the request to the gateway lane's builtin
   sandbox
 
-#### Scenario: SDK lane local-tool request short-circuits before model
+#### Scenario: SDK transport local-tool request short-circuits before model
 
-- **WHEN** a boss, direct employee, or YOLO chat session is bound to
-  `claude-agent-sdk`, `codex-agent-sdk`, or `openai-agents-sdk`
+- **WHEN** a boss, direct employee, or YOLO chat session would call a model through
+  `claude-agent-sdk`, `codex-agent-sdk`, or `openai-agents-sdk` transport
 - **AND** the user asks to read files, write files, run shell commands,
   access workspace tools, memory, todo, skills, or MCP tools
 - **THEN** the graph SHALL return a typed chat outcome before any model
   call
 - **AND** it SHALL NOT create task runs, execute tools, or write MCP
   audit rows
-- **AND** the user-visible follow-up SHALL tell the user to switch the
-  employee/runtime back to Gateway
+- **AND** the user-visible follow-up SHALL tell the user to use the
+  default Offisim harness/gateway tool path or a verified tool-capable employee profile
 
-### Requirement: Every chat lane SHALL receive the same active-context snapshot at session-start
+### Requirement: Every chat transport SHALL receive the same active-context snapshot at session-start
 
-Every chat lane SHALL read the same active-context snapshot at session-start.
+Every chat transport SHALL read the same active-context snapshot at session-start.
 This covers gateway, claude-agent-sdk, codex-agent-sdk, and
 openai-agents-sdk. The snapshot includes active-{project, company,
 employee, workspace_root, providerConfig} from the same canonical
-resolver. Lanes SHALL NOT carry their own divergent init path that
+resolver. Transports SHALL NOT carry their own divergent init path that
 forks from the canonical resolver under any platform (release `.app` /
 desktop dev / web dev).
 
-#### Scenario: Snapshot equivalence across lanes
+#### Scenario: Snapshot equivalence across transports
 
 - **GIVEN** an active project P, active company C, and active
   employee E with engine ∈ {gateway, claude-agent-sdk,
@@ -200,12 +200,12 @@ desktop dev / web dev).
 - **WHEN** a chat session starts on E
 - **THEN** the session-start snapshot SHALL be byte-equivalent to
   what the gateway lane would have read for the same E (excluding
-  tool-kit fields, which are lane-specific per the
-  text/reasoning-only requirement)
+  tool-kit fields, which are transport/profile-specific per the
+  model transport boundary)
 
-#### Scenario: Release `.app` lane has no fork from dev lane
+#### Scenario: Release `.app` transport has no fork from dev transport
 
-- **WHEN** a release `.app` session starts on any lane
+- **WHEN** a release `.app` session starts on any transport
 - **THEN** the resolver path consulted at session-start SHALL be the
   same module / function as in desktop dev
 - **AND** SHALL NOT have a release-only branch that bypasses the

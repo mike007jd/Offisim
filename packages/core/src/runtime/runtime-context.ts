@@ -82,7 +82,7 @@ export interface RuntimeContext {
   readonly toolTelemetryService?: ToolTelemetryService;
   /**
    * Whether the active LLM transport can execute Offisim tool calls for this
-   * runtime. Provider SDK sidecars are text/reasoning-only; tool-capable
+   * runtime. Unverified SDK-backed model transports are not tool-capable;
    * employee profiles need separate bridge evidence before schemas are exposed.
    */
   readonly llmToolCallsEnabled?: boolean;
@@ -116,8 +116,9 @@ export interface RuntimeContext {
   readonly skillInstallEnvironment?: SkillInstallEnvironment;
   /**
    * Read-only bridge to the platform attachment store. When present AND
-   * `llmToolCallsEnabled !== false`, the gateway-lane `read_attachment` tool
-   * is registered on every employee + the boss tool kit. SDK lanes leave
+   * `llmToolCallsEnabled !== false`, the verified attachment-capable
+   * `read_attachment` tool is registered on every employee + the boss tool kit.
+   * SDK-backed model transports leave
    * this bound (so chat-send pre-flight can detect attachments) but the tool
    * stays unregistered because `llmToolCallsEnabled === false` short-circuits
    * the entire tool kit.
