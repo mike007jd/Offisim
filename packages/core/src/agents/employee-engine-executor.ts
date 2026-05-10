@@ -22,11 +22,15 @@ import {
 } from '../events/event-factories.js';
 import type { OffisimGraphState, RunScope } from '../graph/state.js';
 import type { LlmResponse } from '../llm/gateway.js';
+import type { RecentToolResult } from '../runtime/completion-verifier.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId } from '../utils/generate-id.js';
 import { finalizeEmployeeSuccess } from './employee-completion.js';
 import type { MaterializedEmployeeDeliverable } from './employee-deliverables.js';
-import { finalizeEmployeeFailure } from './employee-error-finalize.js';
+import {
+  finalizeEmployeeCancellation,
+  finalizeEmployeeFailure,
+} from './employee-error-finalize.js';
 import type { PreflightResult } from './employee-preflight.js';
 import { detectTaskToolIntent } from './task-tool-intent.js';
 
@@ -43,6 +47,33 @@ function materializeEngineArtifact(
     mimeType: artifact.mimeType ?? null,
     artifactContent: artifact.content,
   };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isAbortLikeError(error: unknown, signal: AbortSignal | undefined): boolean {
+  if (signal?.aborted) return true;
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  return /\babort(?:ed)?|cancelled\b/i.test(errorMessage(error));
+}
+
+function completionEvidenceToolName(
+  event: Extract<RuntimeActivityEvent, { kind: 'tool_completed' }>,
+  runtimeProfile: RuntimeEngineCapabilityProfile,
+): string {
+  if (event.evidenceToolName) return event.evidenceToolName;
+  const toolType = event.toolType ?? profileToolTelemetryType(runtimeProfile);
+  const evidenceClass = event.evidenceClass ?? profileEvidenceClass(runtimeProfile);
+  if (toolType === 'runtime-profile' && evidenceClass === 'sdk-native') {
+    return `sdk-native:${event.toolName}`;
+  }
+  if (toolType === 'runtime-profile' && evidenceClass === 'gateway-bridged') {
+    return `gateway-bridged:${event.toolName}`;
+  }
+  return event.toolName;
 }
 
 function proposalPayload(
@@ -328,6 +359,134 @@ async function mapEngineEvent(
         }),
       );
       return null;
+    case 'mcp_status':
+      eventBus.emit(
+        engineActivity(companyId, threadId, {
+          runId,
+          engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
+          employeeId,
+          employeeName,
+          taskRunId,
+          kind: 'mcp',
+          status:
+            event.status === 'connected'
+              ? 'completed'
+              : event.status === 'shutdown'
+                ? 'cancelled'
+                : event.status,
+          label: event.serverName,
+          detail: event.detail,
+        }),
+      );
+      return null;
+    case 'permission_decision':
+    case 'guardrail_decision':
+      if (event.proposal && !proposalsSeen.has(event.proposal.proposalId)) {
+        proposalsSeen.add(event.proposal.proposalId);
+        eventBus.emit(
+          engineProposalCreated(companyId, threadId, {
+            proposal: proposalPayload(event.proposal, runtimeBinding, runtimeProfile, preflight),
+          }),
+        );
+      }
+      eventBus.emit(
+        engineActivity(companyId, threadId, {
+          runId,
+          engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
+          employeeId,
+          employeeName,
+          taskRunId,
+          kind: event.kind === 'permission_decision' ? 'permission' : 'guardrail',
+          status:
+            event.decision === 'deny'
+              ? 'denied'
+              : event.decision === 'allow'
+                ? 'allowed'
+                : event.decision === 'ask'
+                  ? 'requested'
+                  : 'updated',
+          label: event.title,
+          detail: event.detail,
+          proposalId: event.proposal?.proposalId,
+        }),
+      );
+      return null;
+    case 'handoff_started':
+    case 'handoff_completed':
+      eventBus.emit(
+        engineActivity(companyId, threadId, {
+          runId,
+          engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
+          employeeId,
+          employeeName,
+          taskRunId,
+          kind: 'handoff',
+          status: event.kind === 'handoff_started' ? 'started' : 'completed',
+          label: event.label,
+          detail: event.detail,
+        }),
+      );
+      return null;
+    case 'session_event':
+      eventBus.emit(
+        engineActivity(companyId, threadId, {
+          runId,
+          engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
+          employeeId,
+          employeeName,
+          taskRunId,
+          kind: 'session',
+          status: event.action === 'started' ? 'started' : 'completed',
+          label: event.sessionId,
+          detail: event.detail ?? event.parentSessionId,
+        }),
+      );
+      return null;
+    case 'checkpoint_created':
+    case 'rollback_started':
+    case 'rollback_completed':
+    case 'budget_exhausted':
+    case 'cancellation_requested':
+    case 'partial_state':
+      eventBus.emit(
+        engineActivity(companyId, threadId, {
+          runId,
+          engineId: runtimeBinding.engineId,
+          runtimeProfileId: runtimeProfile.profileId,
+          employeeId,
+          employeeName,
+          taskRunId,
+          kind:
+            event.kind === 'checkpoint_created'
+              ? 'checkpoint'
+              : event.kind === 'rollback_started' || event.kind === 'rollback_completed'
+                ? 'rollback'
+                : event.kind === 'budget_exhausted'
+                  ? 'budget'
+                  : event.kind === 'cancellation_requested'
+                    ? 'cancellation'
+                    : 'failure',
+          status:
+            event.kind === 'rollback_completed'
+              ? 'rolled_back'
+              : event.kind === 'rollback_started'
+                ? 'started'
+                : event.kind === 'budget_exhausted'
+                  ? 'exhausted'
+                  : event.kind === 'cancellation_requested'
+                    ? 'requested'
+                    : event.kind === 'checkpoint_created'
+                      ? 'created'
+                      : 'pending',
+          label: event.label ?? event.checkpointId ?? event.budgetName ?? event.failureType,
+          detail: event.detail,
+        }),
+      );
+      return null;
     case 'run_completed':
     case 'run_failed':
     case 'run_cancelled':
@@ -437,6 +596,7 @@ export async function runEmployeeEngine(
 
     const toolTimings = new Map<string, ToolTiming>();
     const proposalsSeen = new Set<string>();
+    const engineToolResults: RecentToolResult[] = [];
     let latestArtifact: EngineArtifact | null = null;
 
     for await (const event of handle.events) {
@@ -453,6 +613,15 @@ export async function runEmployeeEngine(
         runScope,
       );
       if (artifact) latestArtifact = artifact;
+      if (event.kind === 'tool_completed') {
+        engineToolResults.push({
+          toolName: completionEvidenceToolName(event, runtimeProfile),
+          success: event.status !== 'error' && event.status !== 'denied',
+          bytes: 1,
+          evidenceClass: event.evidenceClass ?? profileEvidenceClass(runtimeProfile),
+          taskRunId: preflight.taskRunId ?? null,
+        });
+      }
     }
 
     const result = await handle.result;
@@ -494,9 +663,19 @@ export async function runEmployeeEngine(
       },
     };
 
+    const completionState =
+      engineToolResults.length > 0
+        ? {
+            ...state,
+            recentToolResults: [...(state.recentToolResults ?? []), ...engineToolResults].slice(
+              -24,
+            ),
+          }
+        : state;
+
     return finalizeEmployeeSuccess({
       runtimeCtx,
-      state,
+      state: completionState,
       preflight,
       llmResponse,
       citationMap: [],
@@ -509,11 +688,20 @@ export async function runEmployeeEngine(
     if (runId) {
       await adapter.cancelRun(runId).catch(() => {});
     }
+    const message = errorMessage(err);
+    if (isAbortLikeError(err, signal)) {
+      return finalizeEmployeeCancellation({
+        runtimeCtx,
+        state,
+        preflight,
+        reason: message,
+      });
+    }
     return finalizeEmployeeFailure({
       runtimeCtx,
       state,
       preflight,
-      errorMessage: err instanceof Error ? err.message : String(err),
+      errorMessage: message,
     });
   }
 }

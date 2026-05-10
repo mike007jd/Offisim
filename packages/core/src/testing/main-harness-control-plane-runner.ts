@@ -160,6 +160,7 @@ function runVerifiedDriverCase(record: CaseRecorder): void {
   });
   assert(resolution.mode === 'driver', 'verified driver was not selected');
   assert(resolution.overrideRecord?.rollbackCheckpoint === 'checkpoint-1', 'rollback missing');
+  assert(resolution.overrideRecord?.rollbackPlan.includes('Offisim core'), 'rollback plan missing');
   record('verified-explicit-driver-allowed');
 }
 
@@ -194,6 +195,7 @@ function overrideRecord(
     trustedRuntimeAvailable: true,
     timestamp: '2026-05-09T00:00:00.000Z',
     rollbackCheckpoint: 'checkpoint-1',
+    rollbackPlan: 'Disable the override and return ownership to Offisim core.',
   };
 }
 

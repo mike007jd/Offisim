@@ -390,7 +390,7 @@ async function verifyTaskCompletion(input: {
           {
             recentToolResults: state.recentToolResults ?? [],
           },
-          { evidenceTools },
+          { evidenceTools, taskRunId },
         );
   const routingEventOutcome = await verifyRoutingEventEvidence({
     runtimeCtx,

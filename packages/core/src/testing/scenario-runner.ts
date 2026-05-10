@@ -420,7 +420,7 @@ async function runKanbanMatrixScenario(
   const trace = {
     events: reports.map((report) => ({
       scenarioId: report.scenarioId,
-      traceHash: report.traceHash,
+      traceHash: '<hash>',
       events: report.trace.events,
     })),
     db: {
@@ -437,7 +437,7 @@ async function runKanbanMatrixScenario(
       cases: reports.map((report) => ({
         scenarioId: report.scenarioId,
         passed: report.passed,
-        traceHash: report.traceHash,
+        traceHash: '<hash>',
       })),
     },
   };

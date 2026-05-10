@@ -1,3 +1,5 @@
+import type { RecentToolResult } from './completion-verifier.js';
+
 export type HookEvent =
   | 'graph.node.before'
   | 'graph.node.after'
@@ -10,7 +12,7 @@ export type HookEvent =
 export interface TaskCompletionVerifyingPayload {
   taskRunId: string;
   employeeId: string;
-  recentToolResults: ReadonlyArray<{ toolName: string; success: boolean; bytes: number }>;
+  recentToolResults: ReadonlyArray<RecentToolResult>;
   allow: () => void;
   block: (reason: string) => void;
 }

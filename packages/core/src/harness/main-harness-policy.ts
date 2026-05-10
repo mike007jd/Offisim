@@ -56,6 +56,7 @@ const REQUIRED_OVERRIDE_FIELDS: ReadonlyArray<keyof MainHarnessOverridePolicyRec
   'trustedRuntimeAvailable',
   'timestamp',
   'rollbackCheckpoint',
+  'rollbackPlan',
 ];
 
 const SCOPE_RANK: Record<MainHarnessOverrideScope, number> = {

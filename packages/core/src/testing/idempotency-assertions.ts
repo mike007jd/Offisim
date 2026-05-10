@@ -11,15 +11,15 @@ export interface IdempotencyAssertionReport {
 export function assertTraceIdempotency(report: ScenarioTraceReport): IdempotencyAssertionReport {
   const result = {
     duplicateTaskRuns: countDuplicateRowsByKey(
-      toRecordRows(report.trace.db.taskRuns),
+      rowsWithStableKey(toRecordRows(report.trace.db.taskRuns), 'task_run_id'),
       'task_run_id',
     ),
     duplicateToolCalls: countDuplicateRowsByKey(
-      toRecordRows(report.trace.db.mcpAudit),
+      rowsWithStableKey(toRecordRows(report.trace.db.mcpAudit), 'tool_call_id'),
       'tool_call_id',
     ),
     duplicateInteractions: countDuplicateRowsByKey(
-      toRecordRows(report.trace.db.interactionHistory),
+      rowsWithStableKey(toRecordRows(report.trace.db.interactionHistory), 'interaction_id'),
       'interaction_id',
     ),
   };
@@ -30,4 +30,14 @@ export function assertTraceIdempotency(report: ScenarioTraceReport): Idempotency
       result.duplicateInteractions === 0,
     ...result,
   };
+}
+
+function rowsWithStableKey(
+  rows: readonly Record<string, unknown>[],
+  key: string,
+): readonly Record<string, unknown>[] {
+  return rows.filter((row) => {
+    const value = row[key];
+    return typeof value === 'string' && !value.includes('<uuid>') && !value.includes('<id>');
+  });
 }

@@ -1,6 +1,6 @@
 # Offisim Verified Provider Lane Matrix
 
-Last updated: 2026-05-09
+Last updated: 2026-05-11
 
 This file is the durable evidence log for product-taxonomy lane exposure.
 Curated provider facts such as endpoints and models come from
@@ -75,20 +75,31 @@ shell, memory, todo, skill, MCP, workspace, or builtin Offisim tool schemas.
 Verified `claude-agent-sdk` rows are LLM/model transport evidence, not
 permission to route local workspace tool work through SDK transport. The
 `openai-agents-sdk` transport has runtime + Tauri transport support, but
-full-agent product exposure remains blocked until native OpenAI and any
+full-agent product exposure remains unavailable until native OpenAI and any
 third-party compat provider accumulate real smoke/load/edge evidence here and
 the corresponding employee runtime profile has release `.app` proof.
 
-Tool-capable work currently uses the default Offisim harness / gateway evidence
-path unless a separate runtime engine capability profile or main-harness control
+Tool-capable work uses the default Offisim harness / gateway evidence path
+unless a separate runtime engine capability profile or main-harness control
 plane route has been verified. Model transport selection alone cannot enable
 employee-agent mode, main-harness driver mode, replacement mode, SDK-native
-tools, or Offisim gateway tools. Current Codex, Claude, and OpenAI engine
-profiles are text-only preview profiles. Separate Codex, Claude, and OpenAI
-`sdk-native-full-power` employee profiles exist as blocked runtime targets, and
-stay unavailable until their success, denied-path, cancellation,
-checkpoint/resume, MCP, hook/guardrail, handoff/subagent, budget, sandbox,
-usage/cost, rollback, tool-bridge, benchmark, and release evidence exist.
+tools, or Offisim gateway tools. Current Codex, Claude, and OpenAI engine text
+profiles remain text-only preview profiles.
+
+Separate Codex, Claude, and OpenAI `sdk-native-full-power` employee profiles
+live under the `sdk-native-full-agent` tier, but none are currently promoted.
+As of the 2026-05-11 review fix, `codex-engine:sdk-native-full-power` is
+blocked again: the exact release `.app` hash
+`bf10cbcb54a79f94cb5ed312fe2f5793179b0e35e480d9d458134991a0254525` passed the
+model-pass-through and fail-closed checks, but the active Offisim selected model
+is `MiniMax-M2.7`, which Codex local auth rejects with a 400 unsupported-model
+error. Direct sidecar probing with `gpt-5.4` proves the Codex event bridge can
+emit native shell evidence, but that is not release promotion evidence for the
+currently selected product model. Codex, Claude, and OpenAI full-agent profiles
+remain unavailable until they pass selected-model compatibility, native/gateway
+tool success, denied-path, cancellation, checkpoint/resume, MCP,
+hook/guardrail, handoff/subagent, budget, sandbox, usage/cost, rollback,
+tool-bridge, benchmark, credential-boundary, and release `.app` evidence.
 
 As of 2026-05-08, desktop credential transport is provider-profile scoped in
 Tauri mode. The webview may request a provider profile id and endpoint kind, but

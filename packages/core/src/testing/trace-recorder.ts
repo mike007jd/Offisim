@@ -80,7 +80,9 @@ export class TraceRecorder {
     return {
       taskRuns: normalizeRows(filterByThread(snapshot?.taskRuns, threadId)),
       kanbanCards: normalizeRows(snapshotRows(snapshot?.kanbanCards)),
-      llmCalls: normalizeRows(await repos.llmCalls.findByThread(threadId)),
+      llmCalls: normalizeRows(
+        (await repos.llmCalls.findByThread(threadId)).filter((row) => !isAsyncReflectionCall(row)),
+      ),
       mcpAudit: normalizeRows(await repos.mcpAudit.listByThread(threadId)),
       activeInteractions: normalizeRows(filterByThread(snapshot?.activeInteractions, threadId)),
       interactionHistory: normalizeRows(await repos.interactionHistory.listByThread(threadId)),
@@ -152,6 +154,16 @@ function normalizeRows(rows: readonly unknown[]): unknown[] {
   return rows.map((row) => normalizeDynamicValues(row));
 }
 
+function isAsyncReflectionCall(row: unknown): boolean {
+  if (!row || typeof row !== 'object') return false;
+  const request = (row as Record<string, unknown>).request_json;
+  return (
+    typeof request === 'string' &&
+    request.includes('You are a knowledge extraction AI') &&
+    request.includes('Summarize the execution experience')
+  );
+}
+
 function normalizeDynamicValues(value: unknown, key = ''): unknown {
   if (Array.isArray(value)) return value.map((item) => normalizeDynamicValues(item, key));
   if (!value || typeof value !== 'object') {
@@ -179,7 +191,7 @@ function normalizeDynamicValues(value: unknown, key = ''): unknown {
 function normalizeString(value: string, key: string): string {
   if (key.endsWith('_json')) {
     try {
-      return canonicalJson(normalizeDynamicValues(JSON.parse(value), key));
+      return canonicalJson(normalizeDynamicValues(normalizeParsedJson(JSON.parse(value)), key));
     } catch {
       // Fall through for non-JSON strings.
     }
@@ -187,13 +199,42 @@ function normalizeString(value: string, key: string): string {
   if (/^(companyId|company_id|threadId|thread_id|employeeId|employee_id)$/u.test(key)) {
     return value;
   }
-  if (/_hash$/iu.test(key) && value.startsWith('sha256:')) {
+  if (/hash$/iu.test(key) && value.startsWith('sha256:')) {
     return '<hash>';
   }
   if (GENERATED_ID_KEY.test(key) && !STABLE_ENTITY_ID.test(value)) {
     return '<id>';
   }
   return value.replace(UUID_PATTERN, '<uuid>').replace(GENERATED_ID_PATTERN, '$1-<id>');
+}
+
+function normalizeParsedJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeParsedJson);
+  if (!value || typeof value !== 'object') return value;
+  const normalized: Record<string, unknown> = {};
+  for (const [childKey, childValue] of Object.entries(value)) {
+    if (childKey === 'content' && typeof childValue === 'string') {
+      normalized[childKey] = normalizeSharedScratchpad(childValue);
+      continue;
+    }
+    normalized[childKey] = normalizeParsedJson(childValue);
+  }
+  return normalized;
+}
+
+function normalizeSharedScratchpad(value: string): string {
+  const marker = '\n\n## Shared scratchpad\n';
+  const markerIndex = value.indexOf(marker);
+  if (markerIndex < 0) return value;
+  const sectionStart = markerIndex + marker.length;
+  const nextSectionIndex = value.indexOf('\n\n## ', sectionStart);
+  const before = value.slice(0, sectionStart);
+  const section =
+    nextSectionIndex >= 0 ? value.slice(sectionStart, nextSectionIndex) : value.slice(sectionStart);
+  const after = nextSectionIndex >= 0 ? value.slice(nextSectionIndex) : '';
+  const lines = section.split('\n');
+  if (!lines.every((line) => line.startsWith('- '))) return value;
+  return `${before}${[...lines].sort().join('\n')}${after}`;
 }
 
 function isTimeKey(key: string): boolean {

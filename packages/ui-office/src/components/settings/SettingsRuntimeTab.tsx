@@ -216,7 +216,9 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
           </div>
           <div className="rounded-md border border-warning/30 bg-warning-muted px-3 py-3">
             <div className="text-xs font-medium text-warning">Replacement mode</div>
-            <div className="mt-1 text-sm font-semibold text-warning">Blocked</div>
+            <div className="mt-1 text-sm font-semibold text-warning">
+              Unavailable until release evidence
+            </div>
           </div>
         </div>
         {mainHarnessStatuses.length > 0 ? (
@@ -228,7 +230,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
               >
                 <span className="font-medium text-text-primary">{status.runtimeProfileId}</span>
                 <span className={status.selectable ? 'text-success' : 'text-warning'}>
-                  {status.selectable ? 'Verified' : 'Blocked'}
+                  {status.selectable ? 'Verified' : status.reason}
                 </span>
               </div>
             ))}

@@ -1,6 +1,26 @@
 import type { EngineId, RuntimeEvidenceClass } from '../models.js';
 
-export type EngineActivityKind = 'run' | 'subagent' | 'tool' | 'artifact' | 'approval' | 'proposal';
+export type EngineNativeActivityKind =
+  | 'mcp'
+  | 'permission'
+  | 'guardrail'
+  | 'handoff'
+  | 'session'
+  | 'checkpoint'
+  | 'rollback'
+  | 'usage'
+  | 'budget'
+  | 'cancellation'
+  | 'failure';
+
+export type EngineActivityKind =
+  | 'run'
+  | 'subagent'
+  | 'tool'
+  | 'artifact'
+  | 'approval'
+  | 'proposal'
+  | EngineNativeActivityKind;
 
 export type EngineActivityStatus =
   | 'started'
@@ -9,7 +29,15 @@ export type EngineActivityStatus =
   | 'cancelled'
   | 'ready'
   | 'requested'
-  | 'created';
+  | 'created'
+  | 'allowed'
+  | 'denied'
+  | 'blocked'
+  | 'updated'
+  | 'degraded'
+  | 'exhausted'
+  | 'pending'
+  | 'rolled_back';
 
 export type EngineProposalKind =
   | 'split_step'

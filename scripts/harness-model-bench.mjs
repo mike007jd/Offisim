@@ -1,4 +1,6 @@
 import { ensureRuntimeBuild, parseArgs } from './harness-lib.mjs';
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { loadHarnessScenarios } from './harness-scenario-loader.mjs';
 
 const args = parseArgs(process.argv.slice(2));
@@ -13,7 +15,12 @@ const logger = await import(
 logger.setLogHandler(() => {});
 
 const report = await runDeterministicModelBench(loadHarnessScenarios());
-console.log(JSON.stringify({ ...report, mode: args.quick ? 'quick' : 'default' }, null, 2));
+const output = { ...report, mode: args.quick ? 'quick' : 'default' };
+const reportFile = args.reportFile ?? args['report-file'];
+if (typeof reportFile === 'string' && reportFile.trim().length > 0) {
+  writeFileSync(resolve(reportFile), `${JSON.stringify(output, null, 2)}\n`);
+}
+console.log(JSON.stringify(output, null, 2));
 process.exit(
   report.cases.every((testCase) => testCase.passed) &&
     report.routeComparisons.every((testCase) => testCase.gateSatisfied)

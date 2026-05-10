@@ -15,6 +15,20 @@ type AgentHostEvent =
   | { kind: 'result'; response: LlmResponse }
   | { kind: 'error'; code: string; message: string };
 
+type RuntimeEventResponse = LlmResponse & {
+  readonly _offisimRuntimeEvents?: readonly RuntimeActivityEvent[];
+};
+
+class AgentHostError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'AgentHostError';
+  }
+}
+
 interface TauriEngineAdapterOptions {
   readonly command: 'codex_agent_execute' | 'claude_agent_execute';
   readonly abortCommand: 'codex_agent_abort' | 'claude_agent_abort';
@@ -51,6 +65,16 @@ function nextRequestId(prefix: string): string {
 function normalizeInvokeError(err: unknown): Error {
   if (err instanceof Error) return err;
   return new Error(String(err ?? 'Unknown trusted engine error'));
+}
+
+function isAbortError(err: unknown): boolean {
+  return (
+    err instanceof DOMException && err.name === 'AbortError'
+  ) || (err instanceof Error && /aborted|abort/i.test(`${err.name} ${err.message}`));
+}
+
+function isBudgetError(err: unknown): boolean {
+  return err instanceof AgentHostError && err.code === 'timeout';
 }
 
 function buildMessages(envelope: EngineTaskEnvelope): LlmMessage[] {
@@ -92,18 +116,23 @@ function serializeRequest(envelope: EngineTaskEnvelope): Record<string, unknown>
 
 async function* resultEvents(
   engineId: EngineId,
+  runtimeProfileTier: EngineTaskEnvelope['runtimeProfile']['tier'],
   responsePromise: Promise<LlmResponse>,
 ): AsyncIterable<RuntimeActivityEvent> {
-  // TODO(remediation-2026-04-29): wire trusted sidecar tool_started/tool_completed
-  // events to the UI once the host protocol exposes structured tool telemetry.
-  yield {
-    kind: 'text_delta',
-    channel: 'reasoning',
-    content: `${engineId} accepted the assigned task.`,
-  };
-
   try {
     const response = await responsePromise;
+    const runtimeEvents = (response as RuntimeEventResponse)._offisimRuntimeEvents ?? [];
+    if (runtimeEvents.length > 0) {
+      for (const event of runtimeEvents) {
+        yield event;
+      }
+    } else if (runtimeProfileTier === 'text-only') {
+      yield {
+        kind: 'text_delta',
+        channel: 'reasoning',
+        content: `${engineId} accepted the assigned task.`,
+      };
+    }
     if (response.reasoningContent) {
       yield {
         kind: 'reasoning_delta',
@@ -119,6 +148,31 @@ async function* resultEvents(
     }
     yield { kind: 'run_completed' };
   } catch (err) {
+    if (isAbortError(err)) {
+      yield {
+        kind: 'cancellation_requested',
+        label: 'Engine run aborted',
+        detail: err instanceof Error ? err.message : String(err),
+      };
+      yield {
+        kind: 'run_cancelled',
+        detail: err instanceof Error ? err.message : String(err),
+      };
+      return;
+    }
+    if (isBudgetError(err)) {
+      yield {
+        kind: 'budget_exhausted',
+        budgetName: 'trusted engine timeout',
+        detail: err instanceof Error ? err.message : String(err),
+      };
+      yield {
+        kind: 'partial_state',
+        failureType: 'budget_exhausted',
+        detail: err instanceof Error ? err.message : String(err),
+      };
+      return;
+    }
     yield {
       kind: 'run_failed',
       detail: err instanceof Error ? err.message : String(err),
@@ -163,7 +217,12 @@ abstract class BaseTauriEngineAdapter implements EngineAdapter {
           settleSuccess(event.response);
           break;
         case 'error':
-          settleError(new Error(event.message || 'Trusted engine request failed.'));
+          settleError(
+            new AgentHostError(
+              event.code || 'unknown',
+              event.message || 'Trusted engine request failed.',
+            ),
+          );
           break;
       }
     };
@@ -209,7 +268,7 @@ abstract class BaseTauriEngineAdapter implements EngineAdapter {
 
     return {
       runId: requestId,
-      events: resultEvents(this.engineId, responsePromise),
+      events: resultEvents(this.engineId, envelope.runtimeProfile.tier, responsePromise),
       result,
     };
   }

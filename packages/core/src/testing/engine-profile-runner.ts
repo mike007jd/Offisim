@@ -120,7 +120,7 @@ function runExplicitBindingCase(record: CaseRecorder): void {
 
 function runFullAgentBlockedCase(record: CaseRecorder): void {
   for (const profile of textOnlyProfiles()) {
-    assert(profile.tier !== 'full-agent-employee', `${profile.profileId} advertises full-agent`);
+    assert(profile.tier !== 'sdk-native-full-agent', `${profile.profileId} advertises full-agent`);
     assert(profile.verification.status !== 'verified', `${profile.profileId} overstates evidence`);
     assert(profile.verification.blockers.length > 0, `${profile.profileId} lacks blockers`);
     record(`${profile.profileId}:full-agent-not-advertised`);
@@ -184,8 +184,7 @@ function runFailureClassificationCase(record: CaseRecorder): void {
 function runSdkNativeFullPowerCase(record: CaseRecorder): void {
   for (const engineId of ENGINE_IDS) {
     const profile = mustProfile(`${engineId}:sdk-native-full-power`);
-    assert(profile.tier === 'full-agent-employee', `${profile.profileId} tier mismatch`);
-    assert(profile.availability === 'blocked', `${profile.profileId} is selectable`);
+    assert(profile.tier === 'sdk-native-full-agent', `${profile.profileId} tier mismatch`);
     assert(profile.toolModel === 'native-sdk', `${profile.profileId} strips native tools`);
     assert(profile.nativeCapabilities.mcp, `${profile.profileId} does not declare MCP`);
     assert(profile.nativeCapabilities.subagents, `${profile.profileId} does not declare subagents`);
@@ -195,13 +194,31 @@ function runSdkNativeFullPowerCase(record: CaseRecorder): void {
       `${profile.profileId} omits rollback task class`,
     );
     assert(
-      profile.verification.blockers.some((blocker) => blocker.includes('cross-route benchmark')),
-      `${profile.profileId} lacks benchmark blocker`,
+      profile.evidenceRequirements.referenceFeatureRows.includes('F24'),
+      `${profile.profileId} missing release-app feature row mapping`,
     );
     const fit = evaluateRuntimeEngineTaskFit(
       profile,
       detectTaskToolIntent('Edit a file through the native SDK tools and verify it.'),
     );
+    assert(profile.availability === 'blocked', `${profile.profileId} is selectable`);
+    assert(
+      profile.capabilityMatrix.nativeTools === 'blocked' &&
+        profile.capabilityMatrix.mcp === 'blocked' &&
+        profile.capabilityMatrix.credentialBoundary === 'blocked',
+      `${profile.profileId} capability matrix is incomplete`,
+    );
+    if (engineId === 'codex-engine') {
+      assert(
+        profile.verification.blockers.some((blocker) => blocker.includes('MiniMax-M2.7')),
+        `${profile.profileId} lacks selected-model release blocker`,
+      );
+    } else {
+      assert(
+        profile.verification.blockers.some((blocker) => blocker.includes('cross-route benchmark')),
+        `${profile.profileId} lacks benchmark blocker`,
+      );
+    }
     assert(!fit.allowed, `${profile.profileId} allowed production use without evidence`);
     assert(fit.code === 'ENGINE_PROFILE_BLOCKED', `${profile.profileId} wrong block code`);
     record(`${profile.profileId}:full-power-blocked-until-release-evidence`);

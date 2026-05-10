@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureRuntimeBuild } from './harness-lib.mjs';
@@ -76,6 +76,8 @@ const invariants = [
   assertTaskRunStatusBaseline(),
   assertLongRunningMicroCompactScenario(microCompact),
   assertCompletionVerifierScenario(completionVerifier),
+  assertCompletionEvidenceFamilies(completionVerifier),
+  assertCodexFullAgentRequestGuards(),
   assertBashEvidenceCanSatisfyFileIntent(completionVerifier, taskToolIntent),
   await assertArtifactTasksRequireWriteAudit(employeeCompletion),
   await assertBossSummaryWaitsForPendingPlan(bossSummary),
@@ -197,7 +199,6 @@ function ensureDesktopAgentHosts() {
     },
   ];
   for (const host of hosts) {
-    if (existsSync(host.file)) continue;
     const result = spawnSync(process.execPath, [host.script], {
       cwd: ROOT,
       encoding: 'utf8',
@@ -307,6 +308,253 @@ function assertCompletionVerifierScenario(completionVerifier) {
     throw new Error(`unexpected blocked event fixture: ${scenario.fixture.expectedEventKind}`);
   }
   return { id: 'completion.verifier_blocks_without_evidence', passed: true };
+}
+
+function assertCompletionEvidenceFamilies(completionVerifier) {
+  const cases = [
+    {
+      family: 'file',
+      positive: { toolName: 'write_file', success: true, bytes: 128 },
+      negative: { toolName: 'pure_text', success: true, bytes: 0 },
+    },
+    {
+      family: 'shell',
+      positive: { toolName: 'bash', success: true, bytes: 128 },
+      negative: { toolName: 'read_file', success: true, bytes: 128 },
+    },
+    {
+      family: 'mcp',
+      positive: { toolName: 'mcp:filesystem.read', success: true, bytes: 128 },
+      negative: { toolName: 'read_file', success: true, bytes: 128 },
+    },
+    {
+      family: 'git-worktree',
+      positive: { toolName: 'git_diff', success: true, bytes: 128 },
+      negative: { toolName: 'bash', success: true, bytes: 128 },
+    },
+    {
+      family: 'artifact',
+      positive: { toolName: 'deliverable_created', success: true, bytes: 128 },
+      negative: { toolName: 'read_file', success: true, bytes: 128 },
+    },
+    {
+      family: 'memory-todo-skill',
+      positive: { toolName: 'skill_install', success: true, bytes: 128 },
+      negative: { toolName: 'write_file', success: true, bytes: 128 },
+    },
+    {
+      family: 'browser-desktop',
+      positive: { toolName: 'computer_use', success: true, bytes: 128 },
+      negative: { toolName: 'bash', success: true, bytes: 128 },
+    },
+    {
+      family: 'sdk-native',
+      positive: { toolName: 'native_tool', evidenceClass: 'sdk-native', success: true, bytes: 128 },
+      negative: {
+        toolName: 'native_tool',
+        evidenceClass: 'gateway-bridged',
+        success: true,
+        bytes: 128,
+      },
+    },
+    {
+      family: 'gateway-bridged',
+      positive: {
+        toolName: 'bridge_tool',
+        evidenceClass: 'gateway-bridged',
+        success: true,
+        bytes: 128,
+      },
+      negative: { toolName: 'bridge_tool', evidenceClass: 'sdk-native', success: true, bytes: 128 },
+    },
+    {
+      family: 'pure-text',
+      positive: { toolName: 'pure_text', success: true, bytes: 1 },
+      negative: { toolName: 'bash', success: true, bytes: 128 },
+    },
+    {
+      family: 'verification',
+      positive: { toolName: 'harness-contract', success: true, bytes: 128 },
+      negative: { toolName: 'read_file', success: true, bytes: 128 },
+    },
+  ];
+
+  for (const testCase of cases) {
+    const positive = completionVerifier.verifyCompletion(
+      { recentToolResults: [testCase.positive] },
+      { evidenceTools: [], evidenceFamilies: [testCase.family] },
+    );
+    if (!positive.ok) {
+      throw new Error(`completion verifier rejected ${testCase.family} evidence family`);
+    }
+    const negative = completionVerifier.verifyCompletion(
+      { recentToolResults: [testCase.negative] },
+      { evidenceTools: [], evidenceFamilies: [testCase.family] },
+    );
+    if (negative.ok) {
+      throw new Error(`completion verifier accepted mislabeled ${testCase.family} evidence`);
+    }
+  }
+
+  const scoped = completionVerifier.verifyCompletion(
+    {
+      recentToolResults: [
+        { toolName: 'write_file', success: true, bytes: 128, taskRunId: 'wrong-task' },
+        { toolName: 'read_file', success: true, bytes: 128, taskRunId: 'task-1' },
+      ],
+    },
+    { evidenceTools: ['write_file'], taskRunId: 'task-1' },
+  );
+  if (scoped.ok) {
+    throw new Error('completion verifier accepted evidence from the wrong task run');
+  }
+  const nativeFunctionAsWrite = completionVerifier.verifyCompletion(
+    {
+      recentToolResults: [
+        {
+          toolName: 'sdk-native:write_file',
+          evidenceClass: 'sdk-native',
+          success: true,
+          bytes: 128,
+          taskRunId: 'task-1',
+        },
+      ],
+    },
+    { evidenceTools: ['write_file'], taskRunId: 'task-1' },
+  );
+  if (nativeFunctionAsWrite.ok) {
+    throw new Error('completion verifier accepted native function evidence as file evidence');
+  }
+  return { id: 'completion.evidence_families_are_classified', passed: true };
+}
+
+function assertCodexFullAgentRequestGuards() {
+  const adapterSource = readFileSync(
+    resolve(ROOT, 'apps/web/src/lib/tauri-engine-adapters.ts'),
+    'utf8',
+  );
+  if (!/model:\s*envelope\.model/u.test(adapterSource)) {
+    throw new Error('Tauri engine adapter must always pass the selected model');
+  }
+  if (/runtimeProfile\.tier\s*!==\s*['"]sdk-native-full-agent['"]/u.test(adapterSource)) {
+    throw new Error('Tauri engine adapter still strips model from sdk-native full-agent requests');
+  }
+  if (/approvalPolicy:\s*[^,\n]*['"]never['"]/u.test(adapterSource)) {
+    throw new Error(
+      'Tauri engine adapter must not hardcode approvalPolicy never for full-agent requests',
+    );
+  }
+
+  const hostFiles = [
+    {
+      label: 'source',
+      path: resolve(ROOT, 'scripts/tauri-codex-agent-host.mjs'),
+    },
+    {
+      label: 'bundled',
+      path: resolve(ROOT, 'apps/desktop/src-tauri/resources/codex-agent-host.mjs'),
+    },
+  ];
+  for (const hostFile of hostFiles) {
+    const hostSource = readFileSync(hostFile.path, 'utf8');
+    if (/thread\/rollback['"][\s\S]{0,80}\{\s*threadId\s*,\s*numTurns/u.test(hostSource)) {
+      throw new Error(`Codex host ${hostFile.label} must not rollback the main threadId directly`);
+    }
+    if (!/threadId:\s*forkThreadId/u.test(hostSource)) {
+      throw new Error(`Codex host ${hostFile.label} rollback must target the fork thread id`);
+    }
+    if (
+      /return\s+['"]connecting['"]/u.test(hostSource) ||
+      /return\s+['"]error['"]/u.test(hostSource)
+    ) {
+      throw new Error(
+        `Codex host ${hostFile.label} MCP status mapper must not emit connecting or error product states`,
+      );
+    }
+  }
+
+  for (const testCase of [
+    {
+      id: 'missing-model',
+      request: { runtimeProfileTier: 'sdk-native-full-agent', messages: [] },
+      expected: 'Codex trusted-host requests must include a selected model.',
+    },
+    {
+      id: 'gateway-bridged-native-host',
+      request: {
+        runtimeProfileTier: 'gateway-bridged-tools',
+        model: 'gpt-5.4',
+        messages: [],
+      },
+      expected: 'Gateway-bridged runtime profiles must execute through the Offisim gateway adapter',
+    },
+    {
+      id: 'native-event-bypass',
+      request: {
+        runtimeProfileTier: 'text-only',
+        enableNativeRuntimeEvents: true,
+        model: 'gpt-5.4',
+        messages: [],
+      },
+      expected: 'Native runtime events require runtimeProfileTier "sdk-native-full-agent"',
+    },
+    {
+      id: 'lifecycle-verification-bypass',
+      request: {
+        runtimeProfileTier: 'text-only',
+        enableLifecycleVerification: true,
+        model: 'gpt-5.4',
+        messages: [],
+      },
+      expected: 'Lifecycle verification requires runtimeProfileTier "sdk-native-full-agent"',
+    },
+    {
+      id: 'full-agent-never-approval',
+      request: {
+        runtimeProfileTier: 'sdk-native-full-agent',
+        approvalPolicy: 'never',
+        model: 'gpt-5.4',
+        messages: [],
+      },
+      expected: 'SDK-native full-agent requests must not use approvalPolicy "never"',
+    },
+  ]) {
+    for (const hostFile of hostFiles) {
+      const result = spawnSync(process.execPath, [hostFile.path], {
+        input: JSON.stringify({ request: testCase.request, cwd: ROOT }),
+        encoding: 'utf8',
+        env: { ...process.env, OFFISIM_CODEX_EXECUTABLE: '/definitely/not/codex' },
+        timeout: 10_000,
+      });
+      const payload = parseHostStdout(result.stdout, `${hostFile.label}:${testCase.id}`);
+      if (
+        result.status !== 1 ||
+        payload.ok !== false ||
+        payload.error?.code !== 'invalid-request'
+      ) {
+        throw new Error(
+          `Codex host ${hostFile.label} ${testCase.id} guard failed: status=${result.status}, stdout=${result.stdout}, stderr=${result.stderr}`,
+        );
+      }
+      if (!String(payload.error?.message ?? '').includes(testCase.expected)) {
+        throw new Error(`Codex host ${hostFile.label} ${testCase.id} guard returned wrong message`);
+      }
+    }
+  }
+
+  return { id: 'codex.full_agent_request_guards', passed: true };
+}
+
+function parseHostStdout(stdout, label) {
+  try {
+    return JSON.parse(String(stdout || '').trim());
+  } catch (error) {
+    throw new Error(
+      `Codex host ${label} returned non-JSON stdout: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
 function assertArtifactFallbackIsPhased(pmPlanParser) {

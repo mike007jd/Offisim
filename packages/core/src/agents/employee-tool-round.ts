@@ -197,6 +197,7 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
     toolName: result.name,
     success: toolResultSucceeded(result.result),
     bytes: toolResultBytes(result.result),
+    taskRunId: taskRunId ?? null,
   }));
   runtimeCtx.conversationState.recordToolResults(
     toolResults.map((result) => ({
@@ -204,6 +205,7 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
       toolName: result.name,
       success: toolResultSucceeded(result.result),
       bytes: toolResultBytes(result.result),
+      taskRunId: taskRunId ?? null,
     })),
   );
   for (const result of toolResults) {

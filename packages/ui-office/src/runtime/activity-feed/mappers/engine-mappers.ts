@@ -8,8 +8,23 @@ import type { ActivityEventBus, ActivityMapperSink, RuntimeActivityTone } from '
 
 function toneForActivity(payload: EngineActivityPayload): RuntimeActivityTone {
   if (payload.status === 'failed') return 'error';
-  if (payload.status === 'cancelled' || payload.status === 'requested') return 'warning';
-  if (payload.status === 'completed' || payload.status === 'ready') return 'success';
+  if (
+    payload.status === 'cancelled' ||
+    payload.status === 'requested' ||
+    payload.status === 'denied' ||
+    payload.status === 'blocked' ||
+    payload.status === 'exhausted'
+  ) {
+    return 'warning';
+  }
+  if (
+    payload.status === 'completed' ||
+    payload.status === 'ready' ||
+    payload.status === 'allowed' ||
+    payload.status === 'rolled_back'
+  ) {
+    return 'success';
+  }
   return 'info';
 }
 
@@ -31,6 +46,28 @@ function labelForActivity(payload: EngineActivityPayload): string {
       return payload.toolType === 'runtime-profile'
         ? `${payload.employeeName}: native engine tool ${payload.status}${profile}`
         : `${payload.employeeName}: Offisim gateway tool ${payload.status}${profile}`;
+    case 'mcp':
+      return `${payload.employeeName}: native MCP ${label} ${payload.status}${profile}`;
+    case 'permission':
+      return `${payload.employeeName}: permission ${payload.status}${profile}`;
+    case 'guardrail':
+      return `${payload.employeeName}: guardrail ${payload.status}${profile}`;
+    case 'handoff':
+      return `${payload.employeeName}: handoff ${label} ${payload.status}${profile}`;
+    case 'session':
+      return `${payload.employeeName}: session ${label} ${payload.status}${profile}`;
+    case 'checkpoint':
+      return `${payload.employeeName}: checkpoint ${payload.status}${profile}`;
+    case 'rollback':
+      return `${payload.employeeName}: rollback ${payload.status}${profile}`;
+    case 'usage':
+      return `${payload.employeeName}: usage ${label}${profile}`;
+    case 'budget':
+      return `${payload.employeeName}: budget ${payload.status}${profile}`;
+    case 'cancellation':
+      return `${payload.employeeName}: cancellation ${payload.status}${profile}`;
+    case 'failure':
+      return `${payload.employeeName}: partial state ${payload.status}${profile}`;
     default:
       return `${payload.employeeName}: ${label}`;
   }

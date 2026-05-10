@@ -126,11 +126,59 @@ function buildPrompt(messages) {
   ].join('\n');
 }
 
-function buildDeveloperInstructions(messages, tools) {
+function isFullAgentRuntime(request) {
+  return request?.runtimeProfileTier === 'sdk-native-full-agent';
+}
+
+function shouldCollectLifecycleVerificationEvents(request) {
+  return request?.enableLifecycleVerification === true;
+}
+
+function assertSupportedRuntimeRequest(request) {
+  const tier = request?.runtimeProfileTier;
+  const nativeRuntime = isFullAgentRuntime(request);
+  if (!asNonEmptyString(request.model)) {
+    throw Object.assign(new Error('Codex trusted-host requests must include a selected model.'), {
+      code: 'invalid-request',
+    });
+  }
+  if (tier === 'gateway-bridged-tools') {
+    throw Object.assign(
+      new Error(
+        'Gateway-bridged runtime profiles must execute through the Offisim gateway adapter, not the Codex native host.',
+      ),
+      { code: 'invalid-request' },
+    );
+  }
+  if (request?.enableNativeRuntimeEvents === true && !nativeRuntime) {
+    throw Object.assign(
+      new Error('Native runtime events require runtimeProfileTier "sdk-native-full-agent".'),
+      { code: 'invalid-request' },
+    );
+  }
+  if (shouldCollectLifecycleVerificationEvents(request) && !nativeRuntime) {
+    throw Object.assign(
+      new Error('Lifecycle verification requires runtimeProfileTier "sdk-native-full-agent".'),
+      { code: 'invalid-request' },
+    );
+  }
+  if (nativeRuntime && asNonEmptyString(request.approvalPolicy) === 'never') {
+    throw Object.assign(
+      new Error(
+        'SDK-native full-agent requests must not use approvalPolicy "never" until a verified approval-bypass policy exists.',
+      ),
+      { code: 'invalid-request' },
+    );
+  }
+}
+
+function buildDeveloperInstructions(messages, tools, allowNativeTools) {
   const sections = [
     "You are Offisim's trusted Codex local-auth text/reasoning bridge.",
     'Return exactly one plain assistant reply.',
-    'Offisim model transport is not a tool-capable runtime. Do not execute Offisim file, shell, memory, todo, skill, MCP, or builtin tools. If workspace verification is required, say the user must use the default Offisim harness/gateway tools or a verified tool-capable employee profile.',
+    allowNativeTools
+      ? 'This request is running under an explicit Offisim full-agent runtime profile. You may use native Codex tools inside the provided workspace sandbox, and every native tool event must be surfaced to Offisim as runtime evidence.'
+      : 'Offisim model transport is not a tool-capable runtime. Do not execute Offisim file, shell, memory, todo, skill, MCP, or builtin tools. If workspace verification is required, say the user must use the default Offisim harness/gateway tools or a verified tool-capable employee profile.',
   ];
 
   const systemPrompt = buildSystemPrompt(messages);
@@ -139,13 +187,185 @@ function buildDeveloperInstructions(messages, tools) {
     sections.push(systemPrompt.join('\n\n'));
   }
 
-  if (Array.isArray(tools) && tools.length > 0) {
+  if (!allowNativeTools && Array.isArray(tools) && tools.length > 0) {
     sections.push(
       'The upstream caller supplied Offisim tool definitions, but this Codex model transport must not execute them without a verified runtime profile. State that the default Offisim harness/gateway tools or a verified tool-capable employee profile are required instead of simulating tool results.',
     );
   }
 
   return sections.join('\n\n');
+}
+
+function mapMcpStatus(status) {
+  switch (status) {
+    case 'ready':
+      return 'connected';
+    case 'starting':
+      return 'degraded';
+    case 'shutdown':
+      return 'shutdown';
+    default:
+      return status === 'error' ? 'failed' : 'degraded';
+  }
+}
+
+function commandToolName(item) {
+  if (typeof item?.command === 'string' && item.command.trim()) {
+    return item.command.trim().split(/\s+/)[0] ?? 'shell';
+  }
+  return 'shell';
+}
+
+function parseFunctionCallArguments(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function functionCallToolName(item) {
+  if (typeof item?.name === 'string' && item.name.trim()) {
+    if (item.name === 'exec_command') {
+      const args = parseFunctionCallArguments(item.arguments);
+      if (typeof args.cmd === 'string' && args.cmd.trim()) {
+        return args.cmd.trim().split(/\s+/)[0] ?? 'exec_command';
+      }
+    }
+    return item.name.trim();
+  }
+  return 'native_tool';
+}
+
+function outputIndicatesDenial(output) {
+  if (typeof output !== 'string') return false;
+  return /Operation not permitted|Permission denied|outside (?:bound )?project|sandbox|not allowed/i.test(
+    output,
+  );
+}
+
+function outputIndicatesFailure(output) {
+  return typeof output === 'string' && /Process exited with code [1-9][0-9]*/.test(output);
+}
+
+function rememberCompletedToolCall(completedToolCalls, toolCallId) {
+  completedToolCalls.add(toolCallId);
+  if (completedToolCalls.size > 512) {
+    const oldest = completedToolCalls.values().next().value;
+    if (typeof oldest === 'string') {
+      completedToolCalls.delete(oldest);
+    }
+  }
+}
+
+function mapRuntimeEventFromNotification(message, pendingToolCalls, completedToolCalls) {
+  const params = message?.params;
+  switch (message?.method) {
+    case 'thread/started':
+      return {
+        kind: 'session_event',
+        action: 'started',
+        sessionId: params?.thread?.id ?? params?.threadId ?? 'codex-app-server',
+        detail: params?.thread?.cwd,
+      };
+    case 'mcpServer/startupStatus/updated':
+      return {
+        kind: 'mcp_status',
+        serverName: params?.name ?? 'mcp',
+        status: mapMcpStatus(params?.status),
+        ...(params?.error ? { detail: String(params.error) } : {}),
+      };
+    case 'item/started': {
+      const item = params?.item;
+      if (item?.type !== 'commandExecution') return null;
+      if (
+        typeof item.id === 'string' &&
+        (pendingToolCalls.has(item.id) || completedToolCalls.has(item.id))
+      ) {
+        return null;
+      }
+      return {
+        kind: 'tool_started',
+        toolCallId: item.id,
+        toolName: commandToolName(item),
+        toolType: 'runtime-profile',
+        evidenceClass: 'sdk-native',
+        evidenceToolName: 'bash',
+      };
+    }
+    case 'item/completed': {
+      const item = params?.item;
+      if (item?.type !== 'commandExecution') return null;
+      if (
+        typeof item.id === 'string' &&
+        (pendingToolCalls.has(item.id) || completedToolCalls.has(item.id))
+      ) {
+        return null;
+      }
+      return {
+        kind: 'tool_completed',
+        toolCallId: item.id,
+        toolName: commandToolName(item),
+        toolType: 'runtime-profile',
+        evidenceClass: 'sdk-native',
+        evidenceToolName: 'bash',
+        status: item.status === 'completed' ? 'completed' : 'error',
+        ...(item.status !== 'completed' ? { errorType: item.status ?? 'command_failed' } : {}),
+      };
+    }
+    case 'rawResponseItem/completed': {
+      const item = params?.item;
+      if (item?.type === 'function_call' && typeof item.call_id === 'string') {
+        const toolName = functionCallToolName(item);
+        pendingToolCalls.set(item.call_id, toolName);
+        const isShellFunction = item.name === 'exec_command';
+        return {
+          kind: 'tool_started',
+          toolCallId: item.call_id,
+          toolName,
+          toolType: 'runtime-profile',
+          evidenceClass: 'sdk-native',
+          ...(isShellFunction ? { evidenceToolName: 'bash' } : {}),
+        };
+      }
+      if (item?.type === 'function_call_output' && typeof item.call_id === 'string') {
+        const output = typeof item.output === 'string' ? item.output : JSON.stringify(item.output);
+        const denied = outputIndicatesDenial(output);
+        const failed = denied || outputIndicatesFailure(output);
+        const toolName = pendingToolCalls.get(item.call_id) ?? 'native_tool';
+        pendingToolCalls.delete(item.call_id);
+        rememberCompletedToolCall(completedToolCalls, item.call_id);
+        return {
+          kind: 'tool_completed',
+          toolCallId: item.call_id,
+          toolName,
+          toolType: 'runtime-profile',
+          evidenceClass: 'sdk-native',
+          ...(isShellCommandName(toolName) ? { evidenceToolName: 'bash' } : {}),
+          status: denied ? 'denied' : failed ? 'error' : 'completed',
+          ...(denied
+            ? { errorType: 'sandbox_denied' }
+            : failed
+              ? { errorType: 'command_failed' }
+              : {}),
+        };
+      }
+      return null;
+    }
+    case 'item/autoApprovalReview/completed': {
+      const review = params?.review ?? params?.item;
+      return {
+        kind: 'guardrail_decision',
+        decision: review?.approved === false ? 'deny' : 'allow',
+        title: 'Codex approval review',
+        detail: review?.reason ?? review?.message,
+      };
+    }
+    default:
+      return null;
+  }
 }
 
 function unexpectedExitMessage(stderr, code, signal) {
@@ -308,6 +528,151 @@ function createUsage(breakdown) {
   };
 }
 
+function codexModel(request) {
+  return asNonEmptyString(request.model);
+}
+
+function isShellCommandName(toolName) {
+  return [
+    'bash',
+    'sh',
+    'zsh',
+    'exec_command',
+    'shell',
+    'pwd',
+    'ls',
+    'cat',
+    'mkdir',
+    'touch',
+    'rm',
+    'cp',
+    'mv',
+    'grep',
+    'rg',
+    'find',
+    'git',
+    'pnpm',
+    'npm',
+    'node',
+    'python',
+    'python3',
+    'cargo',
+    'sleep',
+    'timeout',
+  ].includes(toolName);
+}
+
+function codexApprovalPolicy(request) {
+  return asNonEmptyString(request.approvalPolicy) ?? 'on-request';
+}
+
+function codexSandbox(request) {
+  return asNonEmptyString(request.sandbox) ?? 'workspace-write';
+}
+
+async function collectLifecycleVerificationEvents(
+  client,
+  threadId,
+  request,
+  cwd,
+  allowNativeTools,
+) {
+  const events = [];
+  const developerInstructions = buildDeveloperInstructions(
+    request.messages ?? [],
+    request.tools,
+    allowNativeTools,
+  );
+  const commonParams = {
+    model: codexModel(request),
+    cwd,
+    approvalPolicy: codexApprovalPolicy(request),
+    sandbox: codexSandbox(request),
+    developerInstructions,
+  };
+
+  try {
+    const resumed = await client.send('thread/resume', {
+      threadId,
+      ...commonParams,
+      personality: 'pragmatic',
+    });
+    events.push({
+      kind: 'session_event',
+      action: 'resumed',
+      sessionId: resumed?.thread?.id ?? threadId,
+      detail: resumed?.cwd ?? cwd,
+    });
+  } catch (error) {
+    events.push({
+      kind: 'partial_state',
+      failureType: 'resume_failed',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  let forkThreadId = null;
+  try {
+    const forked = await client.send('thread/fork', {
+      threadId,
+      ...commonParams,
+      ephemeral: true,
+    });
+    forkThreadId = asNonEmptyString(forked?.thread?.id);
+    if (!forkThreadId) {
+      throw new Error('thread/fork did not return a fork thread id.');
+    }
+    events.push({
+      kind: 'session_event',
+      action: 'forked',
+      sessionId: forkThreadId,
+      parentSessionId: threadId,
+      detail: forked?.cwd ?? cwd,
+    });
+  } catch (error) {
+    events.push({
+      kind: 'partial_state',
+      failureType: 'fork_failed',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  if (!forkThreadId) {
+    return events;
+  }
+
+  const checkpointId = `${forkThreadId}:post-turn`;
+  events.push({
+    kind: 'checkpoint_created',
+    checkpointId,
+    label: 'Codex app-server fork checkpoint',
+    detail: forkThreadId,
+  });
+  events.push({
+    kind: 'rollback_started',
+    checkpointId,
+    label: 'Codex app-server fork rollback',
+    detail: forkThreadId,
+  });
+  try {
+    await client.send('thread/rollback', { threadId: forkThreadId, numTurns: 1 });
+    events.push({
+      kind: 'rollback_completed',
+      checkpointId,
+      label: 'Codex app-server fork rollback',
+      detail: forkThreadId,
+    });
+  } catch (error) {
+    events.push({
+      kind: 'partial_state',
+      failureType: 'rollback_failed',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return events;
+}
+
 async function runCodexTurn(payload) {
   const request = payload.request;
   if (!request || typeof request !== 'object') {
@@ -317,6 +682,8 @@ async function runCodexTurn(payload) {
   }
 
   const cwd = asNonEmptyString(payload.cwd) ?? process.cwd();
+  assertSupportedRuntimeRequest(request);
+  const allowNativeTools = isFullAgentRuntime(request);
   const codexExecutable = resolveCodexExecutable();
   const child = spawn(codexExecutable, ['app-server', '--listen', 'stdio://'], {
     cwd,
@@ -335,9 +702,13 @@ async function runCodexTurn(payload) {
 
   const responsePromise = new Promise((resolve, reject) => {
     let turnId = null;
+    let threadId = null;
     let finalText = '';
     let reasoningText = '';
     let usage = createUsage();
+    const runtimeEvents = [];
+    const pendingToolCalls = new Map();
+    const completedToolCalls = new Set();
     let settled = false;
 
     const rejectOnce = (error) => {
@@ -393,6 +764,17 @@ async function runCodexTurn(payload) {
           return;
         }
 
+        if (allowNativeTools) {
+          const runtimeEvent = mapRuntimeEventFromNotification(
+            message,
+            pendingToolCalls,
+            completedToolCalls,
+          );
+          if (runtimeEvent) {
+            runtimeEvents.push(runtimeEvent);
+          }
+        }
+
         switch (message?.method) {
           case 'error':
             rejectOnce(
@@ -444,11 +826,36 @@ async function runCodexTurn(payload) {
               rejectOnce(Object.assign(new Error(errorMessage), { code: 'upstream' }));
               return;
             }
-            resolveOnce({
-              content: finalText,
-              ...(reasoningText ? { reasoningContent: reasoningText } : {}),
-              toolCalls: [],
-              usage,
+            void (async () => {
+              if (allowNativeTools && shouldCollectLifecycleVerificationEvents(request)) {
+                const lifecycleThreadId = message.params?.threadId ?? turn?.threadId ?? threadId;
+                if (typeof lifecycleThreadId === 'string' && lifecycleThreadId) {
+                  runtimeEvents.push(
+                    ...(await collectLifecycleVerificationEvents(
+                      client,
+                      lifecycleThreadId,
+                      request,
+                      cwd,
+                      allowNativeTools,
+                    )),
+                  );
+                }
+              }
+              resolveOnce({
+                content: finalText,
+                ...(reasoningText ? { reasoningContent: reasoningText } : {}),
+                toolCalls: [],
+                usage,
+                ...(runtimeEvents.length > 0 ? { _offisimRuntimeEvents: runtimeEvents } : {}),
+              });
+            })().catch((error) => {
+              rejectOnce(
+                error instanceof Error
+                  ? error
+                  : Object.assign(new Error(String(error ?? 'Unknown Codex lifecycle error')), {
+                      code: 'upstream',
+                    }),
+              );
             });
             break;
           }
@@ -470,24 +877,29 @@ async function runCodexTurn(payload) {
       try {
         await client.send('initialize', {
           clientInfo: { name: 'offisim-desktop', version: '0.0.1' },
-          capabilities: null,
+          capabilities: allowNativeTools ? { experimentalApi: true } : null,
         });
         client.sendNotification('initialized');
 
         const thread = await client.send('thread/start', {
-          model: asNonEmptyString(request.model) ?? 'gpt-5.4',
+          model: codexModel(request),
           cwd,
-          approvalPolicy: asNonEmptyString(request.approvalPolicy) ?? 'on-request',
-          sandbox: asNonEmptyString(request.sandbox) ?? 'workspace-write',
-          developerInstructions: buildDeveloperInstructions(request.messages ?? [], request.tools),
-          ephemeral: true,
-          experimentalRawEvents: false,
+          approvalPolicy: codexApprovalPolicy(request),
+          sandbox: codexSandbox(request),
+          developerInstructions: buildDeveloperInstructions(
+            request.messages ?? [],
+            request.tools,
+            allowNativeTools,
+          ),
+          ephemeral: allowNativeTools ? false : true,
+          experimentalRawEvents: allowNativeTools,
           persistExtendedHistory: false,
           personality: 'pragmatic',
         });
+        threadId = thread.thread.id;
 
         const started = await client.send('turn/start', {
-          threadId: thread.thread.id,
+          threadId,
           input: [
             {
               type: 'text',
@@ -495,7 +907,7 @@ async function runCodexTurn(payload) {
               text_elements: [],
             },
           ],
-          model: asNonEmptyString(request.model) ?? 'gpt-5.4',
+          model: codexModel(request),
           effort: 'low',
           summary: 'none',
         });

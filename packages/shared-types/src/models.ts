@@ -58,7 +58,9 @@ export type RuntimeEngineCapabilityTier =
   | 'text-only'
   | 'sandbox-native-tools'
   | 'gateway-bridged-tools'
-  | 'full-agent-employee';
+  | 'sdk-native-full-agent'
+  | 'driver'
+  | 'replacement';
 
 export type RuntimeEngineAvailability = 'production' | 'preview' | 'blocked';
 
@@ -67,6 +69,42 @@ export type RuntimeEngineToolModel = 'none' | 'native-sdk' | 'gateway-bridged' |
 export type RuntimeEngineVerificationStatus = 'verified' | 'partial' | 'missing' | 'blocked';
 
 export type RuntimeEvidenceClass = 'sdk-native' | 'gateway-bridged' | 'offisim-gateway';
+
+export type RuntimeEngineCapabilityStatus = 'unsupported' | RuntimeEngineVerificationStatus;
+
+export interface RuntimeEngineCapabilityMatrix {
+  readonly nativeTools: RuntimeEngineCapabilityStatus;
+  readonly gatewayTools: RuntimeEngineCapabilityStatus;
+  readonly mcp: RuntimeEngineCapabilityStatus;
+  readonly sessions: RuntimeEngineCapabilityStatus;
+  readonly resume: RuntimeEngineCapabilityStatus;
+  readonly fork: RuntimeEngineCapabilityStatus;
+  readonly subagents: RuntimeEngineCapabilityStatus;
+  readonly handoffs: RuntimeEngineCapabilityStatus;
+  readonly hooksGuardrails: RuntimeEngineCapabilityStatus;
+  readonly cancellation: RuntimeEngineCapabilityStatus;
+  readonly budget: RuntimeEngineCapabilityStatus;
+  readonly usageCost: RuntimeEngineCapabilityStatus;
+  readonly sandbox: RuntimeEngineCapabilityStatus;
+  readonly checkpoint: RuntimeEngineCapabilityStatus;
+  readonly rollback: RuntimeEngineCapabilityStatus;
+  readonly telemetry: RuntimeEngineCapabilityStatus;
+  readonly failureTaxonomy: RuntimeEngineCapabilityStatus;
+  readonly memoryTodoSkill: RuntimeEngineCapabilityStatus;
+  readonly artifactDeliverable: RuntimeEngineCapabilityStatus;
+  readonly gitWorktree: RuntimeEngineCapabilityStatus;
+  readonly processControl: RuntimeEngineCapabilityStatus;
+  readonly browserDesktop: RuntimeEngineCapabilityStatus;
+  readonly credentialBoundary: RuntimeEngineCapabilityStatus;
+}
+
+export interface RuntimeEngineEvidenceRequirements {
+  readonly deterministic: RuntimeEngineVerificationStatus;
+  readonly benchmark: RuntimeEngineVerificationStatus;
+  readonly releaseApp: RuntimeEngineVerificationStatus;
+  readonly liveProvider: RuntimeEngineVerificationStatus;
+  readonly referenceFeatureRows: ReadonlyArray<string>;
+}
 
 export interface RuntimeEngineCapabilityProfile {
   readonly profileId: string;
@@ -94,6 +132,8 @@ export interface RuntimeEngineCapabilityProfile {
   readonly telemetry: RuntimeEngineVerificationStatus;
   readonly rollback: RuntimeEngineVerificationStatus;
   readonly failureTaxonomy: RuntimeEngineVerificationStatus;
+  readonly capabilityMatrix: RuntimeEngineCapabilityMatrix;
+  readonly evidenceRequirements: RuntimeEngineEvidenceRequirements;
   readonly nativeCapabilities: {
     readonly tools: boolean;
     readonly mcp: boolean;
@@ -125,6 +165,7 @@ export interface MainHarnessOverridePolicyRecord {
   readonly trustedRuntimeAvailable: boolean;
   readonly timestamp: string;
   readonly rollbackCheckpoint: string;
+  readonly rollbackPlan: string;
 }
 
 export interface MainHarnessPolicyConfig {

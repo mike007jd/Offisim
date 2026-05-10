@@ -1,6 +1,9 @@
 import type {
   EmployeeRuntimeBinding,
   EngineId,
+  RuntimeEngineCapabilityMatrix,
+  RuntimeEngineCapabilityStatus,
+  RuntimeEngineEvidenceRequirements,
   RuntimeEngineCapabilityProfile,
   RuntimeEvidenceClass,
   RuntimePolicyConfig,
@@ -27,12 +30,39 @@ const TEXT_ONLY_UNSUPPORTED = [
   'verification_gate',
 ] as const;
 
+const ALL_PARITY_FEATURE_ROWS = [
+  'F01',
+  'F02',
+  'F03',
+  'F04',
+  'F05',
+  'F06',
+  'F07',
+  'F08',
+  'F09',
+  'F10',
+  'F11',
+  'F12',
+  'F13',
+  'F14',
+  'F15',
+  'F16',
+  'F17',
+  'F18',
+  'F19',
+  'F20',
+  'F21',
+  'F22',
+  'F23',
+  'F24',
+] as const;
+
 export const DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES: ReadonlyArray<RuntimeEngineCapabilityProfile> =
   [
     textOnlyPreviewProfile('codex-engine', 'Codex engine text-only preview'),
     textOnlyPreviewProfile('claude-engine', 'Claude engine text-only preview'),
     textOnlyPreviewProfile('openai-engine', 'OpenAI engine text-only preview'),
-    sdkNativeFullPowerBlockedProfile('codex-engine', 'Codex SDK-native full-power profile'),
+    codexSdkNativeFullPowerBlockedAfterReviewProfile(),
     sdkNativeFullPowerBlockedProfile('claude-engine', 'Claude SDK-native full-power profile'),
     sdkNativeFullPowerBlockedProfile('openai-engine', 'OpenAI SDK-native full-power profile'),
   ];
@@ -94,7 +124,11 @@ export function evaluateRuntimeEngineTaskFit(
     };
   }
 
-  if (requiresGatewayEvidence(intent) && !hasGatewayBridge(profile)) {
+  if (
+    requiresGatewayEvidence(intent) &&
+    !hasGatewayBridge(profile) &&
+    !hasVerifiedNativeTools(profile)
+  ) {
     return {
       allowed: false,
       code: 'ENGINE_PROFILE_CAPABILITY_GAP',
@@ -105,7 +139,7 @@ export function evaluateRuntimeEngineTaskFit(
     };
   }
 
-  if (profile.tier === 'full-agent-employee' && profile.verification.status !== 'verified') {
+  if (profile.tier === 'sdk-native-full-agent' && profile.verification.status !== 'verified') {
     return {
       allowed: false,
       code: 'ENGINE_PROFILE_BLOCKED',
@@ -140,6 +174,14 @@ function requiresGatewayEvidence(intent: TaskToolIntent): boolean {
 
 function hasGatewayBridge(profile: RuntimeEngineCapabilityProfile): boolean {
   return profile.toolModel === 'gateway-bridged' || profile.toolModel === 'mixed';
+}
+
+function hasVerifiedNativeTools(profile: RuntimeEngineCapabilityProfile): boolean {
+  return (
+    profile.tier === 'sdk-native-full-agent' &&
+    profile.toolModel === 'native-sdk' &&
+    profile.capabilityMatrix.nativeTools === 'verified'
+  );
 }
 
 function findProfile(
@@ -182,6 +224,19 @@ function textOnlyPreviewProfile(
     telemetry: 'partial',
     rollback: 'missing',
     failureTaxonomy: 'partial',
+    capabilityMatrix: capabilityMatrix({
+      cancellation: 'partial',
+      usageCost: 'partial',
+      telemetry: 'partial',
+      failureTaxonomy: 'partial',
+    }),
+    evidenceRequirements: evidenceRequirements({
+      deterministic: 'partial',
+      benchmark: 'blocked',
+      releaseApp: 'blocked',
+      liveProvider: 'blocked',
+      referenceFeatureRows: ['F01', 'F13', 'F14', 'F21', 'F23'],
+    }),
     nativeCapabilities: {
       tools: false,
       mcp: false,
@@ -210,7 +265,7 @@ function sdkNativeFullPowerBlockedProfile(
     profileId: `${engineId}:sdk-native-full-power`,
     engineId,
     displayName,
-    tier: 'full-agent-employee',
+    tier: 'sdk-native-full-agent',
     availability: 'blocked',
     trustTier: 'trusted-full-agent',
     supportedTaskClasses: [
@@ -242,6 +297,37 @@ function sdkNativeFullPowerBlockedProfile(
     telemetry: 'blocked',
     rollback: 'blocked',
     failureTaxonomy: 'blocked',
+    capabilityMatrix: capabilityMatrix({
+      nativeTools: 'blocked',
+      mcp: 'blocked',
+      sessions: 'blocked',
+      resume: 'blocked',
+      fork: 'blocked',
+      subagents: 'blocked',
+      handoffs: 'blocked',
+      hooksGuardrails: 'blocked',
+      cancellation: 'blocked',
+      budget: 'blocked',
+      usageCost: 'blocked',
+      sandbox: 'blocked',
+      checkpoint: 'blocked',
+      rollback: 'blocked',
+      telemetry: 'blocked',
+      failureTaxonomy: 'blocked',
+      memoryTodoSkill: 'blocked',
+      artifactDeliverable: 'blocked',
+      gitWorktree: 'blocked',
+      processControl: 'blocked',
+      browserDesktop: 'blocked',
+      credentialBoundary: 'blocked',
+    }),
+    evidenceRequirements: evidenceRequirements({
+      deterministic: 'blocked',
+      benchmark: 'blocked',
+      releaseApp: 'blocked',
+      liveProvider: 'blocked',
+      referenceFeatureRows: [...ALL_PARITY_FEATURE_ROWS],
+    }),
     nativeCapabilities: {
       tools: true,
       mcp: true,
@@ -271,4 +357,64 @@ function sdkNativeFullPowerBlockedProfile(
       ],
     },
   };
+}
+
+function codexSdkNativeFullPowerBlockedAfterReviewProfile(): RuntimeEngineCapabilityProfile {
+  const profile = sdkNativeFullPowerBlockedProfile(
+    'codex-engine',
+    'Codex SDK-native full-power profile',
+  );
+  return {
+    ...profile,
+    verification: {
+      status: 'blocked',
+      evidence: [
+        ...profile.verification.evidence,
+        '2026-05-11 release .app attached through Computer Use and failed closed when no project workspace was selected',
+        '2026-05-11 sidecar/direct Codex check confirmed the selected Offisim model is passed through instead of silently falling back',
+      ],
+      blockers: [
+        ...profile.verification.blockers,
+        '2026-05-11 release .app could not complete SDK-native smoke with selected model MiniMax-M2.7; Codex local-auth returned 400 model unsupported for ChatGPT account',
+        'Codex SDK-native full-agent must not be promoted until the selected Offisim model is Codex-supported or the product exposes a dedicated Codex model selection with release .app evidence',
+      ],
+    },
+  };
+}
+
+function capabilityMatrix(
+  overrides: Partial<Record<keyof RuntimeEngineCapabilityMatrix, RuntimeEngineCapabilityStatus>>,
+): RuntimeEngineCapabilityMatrix {
+  return {
+    nativeTools: 'unsupported',
+    gatewayTools: 'unsupported',
+    mcp: 'unsupported',
+    sessions: 'unsupported',
+    resume: 'unsupported',
+    fork: 'unsupported',
+    subagents: 'unsupported',
+    handoffs: 'unsupported',
+    hooksGuardrails: 'unsupported',
+    cancellation: 'unsupported',
+    budget: 'unsupported',
+    usageCost: 'unsupported',
+    sandbox: 'unsupported',
+    checkpoint: 'unsupported',
+    rollback: 'unsupported',
+    telemetry: 'unsupported',
+    failureTaxonomy: 'unsupported',
+    memoryTodoSkill: 'unsupported',
+    artifactDeliverable: 'unsupported',
+    gitWorktree: 'unsupported',
+    processControl: 'unsupported',
+    browserDesktop: 'unsupported',
+    credentialBoundary: 'unsupported',
+    ...overrides,
+  };
+}
+
+function evidenceRequirements(
+  input: RuntimeEngineEvidenceRequirements,
+): RuntimeEngineEvidenceRequirements {
+  return input;
 }

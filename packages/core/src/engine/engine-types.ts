@@ -73,6 +73,7 @@ export type RuntimeActivityEvent =
       readonly toolName: string;
       readonly toolType?: 'builtin' | 'mcp' | 'workstation' | 'runtime-profile';
       readonly evidenceClass?: RuntimeEvidenceClass;
+      readonly evidenceToolName?: string;
       readonly serverName?: string;
       readonly runtimeProfileId?: string;
       readonly timestamp?: number;
@@ -83,6 +84,7 @@ export type RuntimeActivityEvent =
       readonly toolName: string;
       readonly toolType?: 'builtin' | 'mcp' | 'workstation' | 'runtime-profile';
       readonly evidenceClass?: RuntimeEvidenceClass;
+      readonly evidenceToolName?: string;
       readonly serverName?: string;
       readonly runtimeProfileId?: string;
       readonly status?: 'completed' | 'error' | 'denied';
@@ -111,6 +113,55 @@ export type RuntimeActivityEvent =
   | {
       readonly kind: 'proposal_created';
       readonly proposal: EngineProposal;
+      readonly timestamp?: number;
+    }
+  | {
+      readonly kind: 'mcp_status';
+      readonly serverName: string;
+      readonly status: 'connected' | 'degraded' | 'failed' | 'shutdown';
+      readonly detail?: string;
+      readonly toolCount?: number;
+      readonly resourceCount?: number;
+      readonly promptCount?: number;
+      readonly timestamp?: number;
+    }
+  | {
+      readonly kind: 'permission_decision' | 'guardrail_decision';
+      readonly decision: 'allow' | 'deny' | 'ask' | 'update';
+      readonly title: string;
+      readonly detail?: string;
+      readonly toolCallId?: string;
+      readonly proposal?: EngineProposal;
+      readonly timestamp?: number;
+    }
+  | {
+      readonly kind: 'handoff_started' | 'handoff_completed';
+      readonly label: string;
+      readonly detail?: string;
+      readonly targetEmployeeId?: string;
+      readonly timestamp?: number;
+    }
+  | {
+      readonly kind: 'session_event';
+      readonly action: 'started' | 'resumed' | 'forked';
+      readonly sessionId: string;
+      readonly parentSessionId?: string;
+      readonly detail?: string;
+      readonly timestamp?: number;
+    }
+  | {
+      readonly kind:
+        | 'checkpoint_created'
+        | 'rollback_started'
+        | 'rollback_completed'
+        | 'budget_exhausted'
+        | 'cancellation_requested'
+        | 'partial_state';
+      readonly label?: string;
+      readonly detail?: string;
+      readonly checkpointId?: string;
+      readonly budgetName?: string;
+      readonly failureType?: string;
       readonly timestamp?: number;
     }
   | {
