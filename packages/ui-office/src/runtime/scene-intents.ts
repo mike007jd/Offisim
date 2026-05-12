@@ -3,6 +3,10 @@ import type {
   HandoffInitiatedPayload,
   InteractionKind,
 } from '@offisim/shared-types';
+import type {
+  EmployeePerformanceClearIntentPayload,
+  EmployeePerformanceCueIntentPayload,
+} from './employee-performance-cues.js';
 
 export type SceneIntentType =
   | 'scene.task.dispatched'
@@ -11,7 +15,9 @@ export type SceneIntentType =
   | 'scene.handoff.initiated'
   | 'scene.handoff.completed'
   | 'scene.employee.escalated'
-  | 'scene.reporting.started';
+  | 'scene.reporting.started'
+  | 'scene.employee.performance.cue'
+  | 'scene.employee.performance.clear';
 
 export interface SceneTaskDispatchedPayload {
   readonly employeeId: string;
@@ -59,6 +65,8 @@ export interface SceneIntentPayloadMap {
   'scene.handoff.completed': SceneHandoffCompletedPayload;
   'scene.employee.escalated': SceneEmployeeEscalatedPayload;
   'scene.reporting.started': SceneReportingStartedPayload;
+  'scene.employee.performance.cue': EmployeePerformanceCueIntentPayload;
+  'scene.employee.performance.clear': EmployeePerformanceClearIntentPayload;
 }
 
 export interface SceneIntent<TType extends SceneIntentType = SceneIntentType> {
