@@ -10,6 +10,7 @@ import {
   getMovementDebugInfo,
   getMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
+import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
 import {
   buildDispatchRoute,
   buildReturnToMeetingRoute,
@@ -67,6 +68,7 @@ interface Office3DViewProps {
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
   onRequestForce2D?: () => void;
+  employeePerformanceCues: EmployeePerformanceCueMap;
   renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
 }
 
@@ -78,6 +80,7 @@ interface Office3DSceneData {
   prefabInstances: Office3DPrefabInstance[];
   zoneActivity: Record<string, { count: number; blocked: boolean }>;
   ceremony: CeremonyState;
+  employeePerformanceCues: EmployeePerformanceCueMap;
 }
 
 interface Office3DSceneUiState {
@@ -131,6 +134,7 @@ export default function Office3DView({
   onSelectEmployee,
   onDeselectEmployee,
   onRequestForce2D,
+  employeePerformanceCues,
   renderEmployeeBadge,
 }: Office3DViewProps) {
   const agents = useAgentStates();
@@ -403,6 +407,7 @@ export default function Office3DView({
     prefabInstances,
     zoneActivity,
     ceremony,
+    employeePerformanceCues,
   };
 
   const ui: Office3DSceneUiState = {
@@ -475,6 +480,7 @@ function Office3DViewInner({
   renderEmployeeBadge,
 }: Office3DViewInnerProps) {
   const { agents, placed, zones3D, hasPrefabData, prefabInstances, zoneActivity, ceremony } = scene;
+  const { employeePerformanceCues } = scene;
   const {
     selectedEmployeeId,
     isDragging,
@@ -561,6 +567,7 @@ function Office3DViewInner({
           dragState={dragState}
           handleSelectEmployee={handleSelectEmployee}
           handleEmployeeDragStart={handleEmployeeDragStart}
+          employeePerformanceCues={employeePerformanceCues}
           renderEmployeeBadge={renderEmployeeBadge}
         />
 

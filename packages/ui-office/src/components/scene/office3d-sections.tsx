@@ -2,6 +2,7 @@ import { DARK_SEMANTIC_COLORS } from '@offisim/ui-core/tokens';
 import { Html } from '@react-three/drei';
 import { useRef } from 'react';
 import { CEREMONY_LABELS } from '../../lib/ceremony-labels';
+import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { ManagerPresence3D } from './ManagerPresence3D.js';
 import { MeetingBubble3D } from './MeetingBubble3D.js';
@@ -136,6 +137,7 @@ export function Office3DEmployeeLayer({
   dragState,
   handleSelectEmployee,
   handleEmployeeDragStart,
+  employeePerformanceCues,
   renderEmployeeBadge,
 }: {
   placed: PlacedEmployee[];
@@ -148,6 +150,7 @@ export function Office3DEmployeeLayer({
     agent: AgentState,
     e: React.PointerEvent<Element>,
   ) => void;
+  employeePerformanceCues: EmployeePerformanceCueMap;
   renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
 }) {
   return (
@@ -160,6 +163,7 @@ export function Office3DEmployeeLayer({
           isDragSource={isDragging && dragState?.employeeId === employee.id}
           onSelect={handleSelectEmployee}
           onDragStart={handleEmployeeDragStart}
+          performanceCue={employeePerformanceCues.get(employee.id) ?? null}
           badge={renderEmployeeBadge?.(employee.id)}
         />
       ))}

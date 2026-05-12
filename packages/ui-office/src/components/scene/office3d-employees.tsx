@@ -11,6 +11,7 @@ import {
   registerMovementHandle,
   unregisterMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
+import type { EmployeePerformanceCue } from '../../runtime/employee-performance-cues.js';
 import {
   type SeatRegistry,
   computeRestSeatPosition,
@@ -328,12 +329,102 @@ function StatusBubble3D({
   );
 }
 
+function PerformanceCueBubble3D({
+  cue,
+  compact,
+}: {
+  cue: EmployeePerformanceCue;
+  compact: boolean;
+}) {
+  const style = cueBubbleStyle(cue.category);
+  const label = compact
+    ? cue.icon || cue.category.toUpperCase().slice(0, 1)
+    : `${cue.icon ? `${cue.icon} ` : ''}${cue.shortText}`;
+
+  return (
+    <Html
+      position={[0, compact ? 2.05 : 2.28, 0]}
+      center
+      distanceFactor={compact ? 14 : 12}
+      style={{ pointerEvents: 'none' }}
+    >
+      <div
+        style={{
+          borderRadius: '9999px',
+          background: style.bg,
+          backdropFilter: 'blur(4px)',
+          border: `1px solid ${style.border}`,
+          padding: compact ? '2px 6px' : '3px 9px',
+          fontSize: compact ? '8px' : '9px',
+          fontFamily: 'monospace',
+          color: style.text,
+          whiteSpace: 'nowrap',
+          maxWidth: compact ? '24px' : '180px',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          boxShadow: cue.category === 'blocked' ? '0 0 16px rgba(239,68,68,0.20)' : undefined,
+        }}
+      >
+        {label}
+      </div>
+    </Html>
+  );
+}
+
+function cueBubbleStyle(category: EmployeePerformanceCue['category']): {
+  bg: string;
+  border: string;
+  text: string;
+} {
+  if (category === 'blocked') {
+    return {
+      bg: 'rgba(127,29,29,0.82)',
+      border: 'rgba(248,113,113,0.70)',
+      text: '#fecaca',
+    };
+  }
+  if (category === 'waiting') {
+    return {
+      bg: 'rgba(113,63,18,0.82)',
+      border: 'rgba(251,191,36,0.70)',
+      text: '#fde68a',
+    };
+  }
+  if (category === 'success') {
+    return {
+      bg: 'rgba(20,83,45,0.82)',
+      border: 'rgba(74,222,128,0.65)',
+      text: '#bbf7d0',
+    };
+  }
+  if (category === 'handoff') {
+    return {
+      bg: 'rgba(49,46,129,0.82)',
+      border: 'rgba(129,140,248,0.65)',
+      text: '#c7d2fe',
+    };
+  }
+  if (category === 'report') {
+    return {
+      bg: 'rgba(22,78,99,0.82)',
+      border: 'rgba(103,232,249,0.65)',
+      text: '#a5f3fc',
+    };
+  }
+  return {
+    bg: 'rgba(15,23,42,0.82)',
+    border: 'rgba(255,255,255,0.16)',
+    text: 'rgba(255,255,255,0.86)',
+  };
+}
+
 export function EmployeeMarker({
   emp,
   isSelected,
   isDragSource,
   taskDesc,
   badge,
+  performanceCue,
   onSelect,
   onDragStart,
 }: {
@@ -342,6 +433,7 @@ export function EmployeeMarker({
   isDragSource?: boolean;
   taskDesc?: string;
   badge?: ReactNode;
+  performanceCue?: EmployeePerformanceCue | null;
   onSelect: (id: string) => void;
   onDragStart?: (empId: string, agent: AgentState, e: React.PointerEvent<Element>) => void;
 }) {
@@ -499,9 +591,11 @@ export function EmployeeMarker({
           <meshBasicMaterial color={sc.textMuted} transparent opacity={0.3} />
         </mesh>
       )}
-      {!isFar && emp.agent.state !== 'idle' && !isDragSource && (
+      {performanceCue && !isDragSource ? (
+        <PerformanceCueBubble3D cue={performanceCue} compact={isFar} />
+      ) : !isFar && emp.agent.state !== 'idle' && !isDragSource ? (
         <StatusBubble3D state={emp.agent.state} taskDesc={taskDesc} subTasks={emp.agent.subTasks} />
-      )}
+      ) : null}
     </group>
   );
 }

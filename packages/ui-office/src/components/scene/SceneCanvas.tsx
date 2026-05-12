@@ -1,5 +1,7 @@
 import React, { Suspense, lazy, useEffect, useReducer, useRef } from 'react';
 import { IDLE_CEREMONY } from '../../hooks/useSceneOrchestrator.js';
+import { useCompany } from '../company/CompanyContext.js';
+import { useEmployeePerformanceCues } from '../../runtime/employee-performance-cues.js';
 import { useSceneCeremony } from '../../runtime/scene-ceremony-context.js';
 import { PerformanceHUD } from './PerformanceHUD';
 import { SceneErrorPanel } from './scene-error-panel.js';
@@ -111,6 +113,8 @@ export function SceneCanvas({
   renderEmployeeBadge,
 }: SceneCanvasProps) {
   const ceremony = useSceneCeremony() ?? IDLE_CEREMONY;
+  const { activeCompanyId } = useCompany();
+  const employeePerformanceCues = useEmployeePerformanceCues(activeCompanyId);
   useScene(reducedMotion);
   const [state, dispatch] = useReducer(fallbackReducer, INITIAL_FALLBACK_STATE);
   const effectiveViewMode = state.force2D ? '2D' : viewMode;
@@ -190,6 +194,7 @@ export function SceneCanvas({
                     dispatch({ type: 'fpsTierOff' });
                     onFallbackTo2D?.();
                   }}
+                  employeePerformanceCues={employeePerformanceCues}
                   renderEmployeeBadge={renderEmployeeBadge}
                 />
               </Suspense>
