@@ -153,6 +153,9 @@ const EXECUTION_LANES = new Set<LlmExecutionLane>([
   'openai-agents-sdk',
 ]);
 const ENGINE_ID_SET = new Set<EngineId>(ENGINE_IDS);
+const BLOCKED_DEFAULT_EMPLOYEE_RUNTIME_PROFILE_IDS = new Set(
+  ENGINE_IDS.map((engineId) => `${engineId}:sdk-native-full-power`),
+);
 
 function trimEnvString(value: string | boolean | undefined): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
@@ -361,6 +364,20 @@ function normalizeEmployeeRuntimeBinding(candidate: unknown): EmployeeRuntimeBin
   return undefined;
 }
 
+function normalizeDefaultEmployeeRuntimeBinding(
+  candidate: unknown,
+): EmployeeRuntimeBinding | undefined {
+  const binding = normalizeEmployeeRuntimeBinding(candidate);
+  if (
+    binding?.mode === 'engine' &&
+    binding.profileId &&
+    BLOCKED_DEFAULT_EMPLOYEE_RUNTIME_PROFILE_IDS.has(binding.profileId)
+  ) {
+    return undefined;
+  }
+  return binding;
+}
+
 function normalizeRuntimeEngineProfiles(
   candidate: unknown,
 ): RuntimeEngineCapabilityProfile[] | undefined {
@@ -447,7 +464,9 @@ export function normalizeRuntimePolicy(
   model: string,
 ): RuntimePolicyConfig {
   const candidate = isRecord(policy) ? policy : {};
-  const employeeRuntimeDefault = normalizeEmployeeRuntimeBinding(candidate.employeeRuntimeDefault);
+  const employeeRuntimeDefault = normalizeDefaultEmployeeRuntimeBinding(
+    candidate.employeeRuntimeDefault,
+  );
   const runtimeEngineProfiles = normalizeRuntimeEngineProfiles(candidate.runtimeEngineProfiles);
   const mainHarnessPolicy = normalizeMainHarnessPolicy(candidate.mainHarnessPolicy);
   return {
