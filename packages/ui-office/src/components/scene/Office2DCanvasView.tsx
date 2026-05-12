@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
+import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
@@ -22,6 +23,7 @@ import { useSceneSnapshot } from './use-scene-snapshot';
 
 interface Office2DCanvasViewProps {
   ceremony: CeremonyState;
+  employeePerformanceCues: EmployeePerformanceCueMap;
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
@@ -29,6 +31,7 @@ interface Office2DCanvasViewProps {
 
 export default function Office2DCanvasView({
   ceremony,
+  employeePerformanceCues,
   selectedEmployeeId: externalSelectedId = null,
   onSelectEmployee,
   onDeselectEmployee,
@@ -50,7 +53,7 @@ export default function Office2DCanvasView({
   const [hasCanvasContextError, setHasCanvasContextError] = useState(false);
 
   const { sceneData, hitMap, dropTargetZoneIds, employeeRenderData, zoneEmployees } =
-    useSceneSnapshot({ ceremony, needsRedrawRef });
+    useSceneSnapshot({ ceremony, employeePerformanceCues, needsRedrawRef });
 
   // Keep interactionRef.selectedEmployeeId in sync with the controlled prop
   // and request a redraw when selection changes.

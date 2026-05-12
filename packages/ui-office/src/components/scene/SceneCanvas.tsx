@@ -156,6 +156,7 @@ export function SceneCanvas({
             >
               <Office2DCanvasView
                 ceremony={ceremony}
+                employeePerformanceCues={employeePerformanceCues}
                 selectedEmployeeId={selectedEmployeeId}
                 onSelectEmployee={onSelectEmployee}
                 onDeselectEmployee={onDeselectEmployee}

@@ -107,6 +107,11 @@ function drawEmployeeNode(
     ctx.fill();
   }
 
+  if (emp.performanceCue) {
+    if (degraded) drawCueCategoryDot(ctx, emp, r, palette);
+    else drawEmployeeBubble(ctx, emp, r, palette);
+  }
+
   if (degraded) {
     ctx.fillStyle = palette.nameLabelMuted;
     ctx.font = 'bold 9px sans-serif';
@@ -117,6 +122,81 @@ function drawEmployeeNode(
   } else {
     drawNamePill(ctx, emp.x, emp.y + r + 12, emp.name, 64, palette);
   }
+}
+
+function drawEmployeeBubble(
+  ctx: CanvasRenderingContext2D,
+  emp: EmployeeRenderData,
+  r: number,
+  palette: SceneCanvasPalette,
+): void {
+  if (!emp.performanceCue) return;
+  const label = `${emp.performanceCue.icon ? `${emp.performanceCue.icon} ` : ''}${
+    emp.performanceCue.text
+  }`;
+  ctx.save();
+  ctx.font = '8px monospace';
+  const maxWidth = 118;
+  const textWidth = Math.min(maxWidth, Math.ceil(ctx.measureText(label).width + 14));
+  const bubbleW = Math.max(46, textWidth);
+  const bubbleH = 17;
+  const bubbleY = emp.y - r - 38;
+  const paletteForCue = cuePalette(emp.performanceCue.category, palette);
+  drawRoundedRect(ctx, emp.x - bubbleW / 2, bubbleY - bubbleH / 2, bubbleW, bubbleH, {
+    fill: paletteForCue.bg,
+    stroke: paletteForCue.stroke,
+    lineWidth: 0.7,
+    radius: 8,
+  });
+  ctx.fillStyle = paletteForCue.text;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, emp.x, bubbleY, bubbleW - 10);
+  ctx.restore();
+}
+
+function drawCueCategoryDot(
+  ctx: CanvasRenderingContext2D,
+  emp: EmployeeRenderData,
+  r: number,
+  palette: SceneCanvasPalette,
+): void {
+  if (!emp.performanceCue) return;
+  const p = cuePalette(emp.performanceCue.category, palette);
+  ctx.save();
+  ctx.fillStyle = p.text;
+  ctx.strokeStyle = p.stroke;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(emp.x, emp.y - r - 10, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function cuePalette(
+  category: NonNullable<EmployeeRenderData['performanceCue']>['category'],
+  palette: SceneCanvasPalette,
+): { bg: string; stroke: string; text: string } {
+  if (category === 'blocked') {
+    return {
+      bg: palette.stateBadgeBgBlocked,
+      stroke: palette.stateBadgeStrokeBlocked,
+      text: palette.stateBadgeTextBlocked,
+    };
+  }
+  if (category === 'success') {
+    return {
+      bg: palette.stateBadgeBgSuccess,
+      stroke: palette.stateBadgeStrokeSuccess,
+      text: palette.stateBadgeTextSuccess,
+    };
+  }
+  return {
+    bg: palette.stateBadgeBg,
+    stroke: palette.stateBadgeStroke,
+    text: palette.stateBadgeText,
+  };
 }
 
 function drawStateBadge(

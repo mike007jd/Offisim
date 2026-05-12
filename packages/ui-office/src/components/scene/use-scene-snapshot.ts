@@ -9,6 +9,7 @@ import {
   getPhaseColor,
   prepareWaitingDisplay,
 } from '../../lib/ceremony-visuals';
+import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
 import { SeatRegistry } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
@@ -32,6 +33,7 @@ import { resolveEmployeeSceneZoneId } from './office3d-shared.js';
 
 interface Params {
   ceremony: CeremonyState;
+  employeePerformanceCues: EmployeePerformanceCueMap;
   needsRedrawRef: MutableRefObject<boolean>;
 }
 
@@ -43,7 +45,11 @@ interface Returns {
   zoneEmployees: ReadonlyMap<string, ReadonlyArray<{ empId: string }>>;
 }
 
-export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns {
+export function useSceneSnapshot({
+  ceremony,
+  employeePerformanceCues,
+  needsRedrawRef,
+}: Params): Returns {
   const agents = useAgentStates();
   const { activeCompanyId } = useCompany();
   const { zones } = useCompanyZones();
@@ -223,6 +229,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     }) => {
       const { agent } = entry;
       const skillHighlight = skillHighlights.get(entry.empId);
+      const performanceCue = employeePerformanceCues.get(entry.empId) ?? null;
       result.push({
         employeeId: entry.empId,
         x: entry.x,
@@ -239,6 +246,15 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
         isActive: agent.state !== 'idle',
         isExternal: agent.isExternal,
         brandKey: agent.brandKey,
+        performanceCue: performanceCue
+          ? {
+              text: performanceCue.shortText,
+              icon: performanceCue.icon ?? '',
+              category: performanceCue.category,
+              priority: performanceCue.priority,
+              sourceId: performanceCue.sourceId,
+            }
+          : null,
       });
     };
 
@@ -280,6 +296,7 @@ export function useSceneSnapshot({ ceremony, needsRedrawRef }: Params): Returns 
     loadAvatar,
     statusColors,
     skillHighlights,
+    employeePerformanceCues,
   ]);
 
   const sceneData: SceneSnapshot = useMemo(() => {

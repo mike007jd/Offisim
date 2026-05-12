@@ -170,6 +170,15 @@ export interface EmployeeRenderData {
   isActive: boolean;
   isExternal: boolean;
   brandKey: string | null;
+  performanceCue: EmployeeBubbleRenderData | null;
+}
+
+export interface EmployeeBubbleRenderData {
+  text: string;
+  icon: string;
+  category: 'blocked' | 'waiting' | 'report' | 'tool' | 'dispatch' | 'handoff' | 'success' | 'ambient';
+  priority: number;
+  sourceId: string;
 }
 
 export interface CeremonyRenderData {
