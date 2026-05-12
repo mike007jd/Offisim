@@ -36,7 +36,13 @@ function rank(tier: SceneLightingTier): number {
   return TIER_RANK[tier];
 }
 
-export function useScenePerformanceTier(requestForce2D?: () => void): {
+export function useScenePerformanceTier({
+  enabled = true,
+  requestForce2D,
+}: {
+  enabled?: boolean;
+  requestForce2D?: () => void;
+} = {}): {
   tier: SceneLightingTier;
   sampledFps: number;
   isOverridden: boolean;
@@ -64,6 +70,16 @@ export function useScenePerformanceTier(requestForce2D?: () => void): {
     };
   }, []);
 
+  useEffect(() => {
+    if (enabled) return;
+    frameTimesRef.current = [];
+    upgradeFramesRef.current = 0;
+    downgradeFramesRef.current = 0;
+    offSinceRef.current = null;
+    lastFpsReportRef.current = { value: 0, at: 0 };
+    setSampledFps(0);
+  }, [enabled]);
+
   useFrame((_state, delta) => {
     const nextOverride = getDevTierOverride();
     if (nextOverride !== override) setOverride(nextOverride);
@@ -71,6 +87,7 @@ export function useScenePerformanceTier(requestForce2D?: () => void): {
       if (tier !== nextOverride) setTier(nextOverride);
       return;
     }
+    if (!enabled) return;
 
     const frameTimes = frameTimesRef.current;
     frameTimes.push(delta * 1000);

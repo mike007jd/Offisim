@@ -45,6 +45,19 @@ pub struct CreateKanbanCardInput {
     sort_order: Option<i64>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateKanbanCardInput {
+    id: String,
+    title: Option<String>,
+    #[serde(default)]
+    note: Option<Option<String>>,
+    #[serde(default)]
+    assigned_employee_id: Option<Option<String>>,
+    #[serde(default)]
+    blocked_reason: Option<Option<String>>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct KanbanUpdatePayload {
@@ -243,6 +256,61 @@ pub async fn create_kanban_card<R: Runtime>(
         .await?
         .ok_or_else(|| "created kanban card not found".to_string())?;
     emit_kanban_update(&app, "created", &card);
+    Ok(card)
+}
+
+#[tauri::command]
+pub async fn update_kanban_card<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    input: UpdateKanbanCardInput,
+) -> Result<Option<KanbanCard>, String> {
+    let pool = get_offisim_pool(&app)?;
+    let current = match fetch_card(&pool, &input.id).await? {
+        Some(card) => card,
+        None => return Ok(None),
+    };
+    let title = match input.title {
+        Some(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                return Err("kanban card title is required".to_string());
+            }
+            trimmed.to_string()
+        }
+        None => current.title.clone(),
+    };
+    let note = input
+        .note
+        .map(|value| value.unwrap_or_default())
+        .unwrap_or_else(|| current.note.clone());
+    let assigned_employee_id = input
+        .assigned_employee_id
+        .unwrap_or_else(|| current.assigned_employee_id.clone());
+    let blocked_reason = input
+        .blocked_reason
+        .unwrap_or_else(|| current.blocked_reason.clone());
+
+    sqlx::query(
+        r#"
+        UPDATE kanban_cards
+        SET title = ?, note = ?, assigned_employee_id = ?, blocked_reason = ?,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        WHERE id = ?
+        "#,
+    )
+    .bind(title)
+    .bind(note)
+    .bind(assigned_employee_id)
+    .bind(blocked_reason)
+    .bind(&input.id)
+    .execute(&pool)
+    .await
+    .map_err(|err| format!("update kanban card: {err}"))?;
+
+    let card = fetch_card(&pool, &input.id).await?;
+    if let Some(card) = &card {
+        emit_kanban_update(&app, "updated", card);
+    }
     Ok(card)
 }
 

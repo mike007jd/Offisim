@@ -19,7 +19,10 @@ class DrizzleKanbanStorage implements KanbanRepoStorage {
   async update(
     id: string,
     patch: Partial<
-      Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+      Pick<
+        KanbanCardRow,
+        'title' | 'note' | 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'
+      >
     >,
   ): Promise<KanbanCardRow | null> {
     this.db.update(schema.kanbanCards).set(patch).where(eq(schema.kanbanCards.id, id)).run();
@@ -30,7 +33,10 @@ class DrizzleKanbanStorage implements KanbanRepoStorage {
     id: string,
     expectedState: KanbanState,
     patch: Partial<
-      Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+      Pick<
+        KanbanCardRow,
+        'title' | 'note' | 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'
+      >
     >,
   ): Promise<KanbanCardRow | null> {
     const result = this.db

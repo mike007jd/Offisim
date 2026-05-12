@@ -24,15 +24,30 @@ const KANBAN_STATE_VALUES = [
 const CreateCardSchema = z.object({
   title: z.string().trim().min(1),
   note: z.string().optional().nullable(),
+  state: z.enum(KANBAN_STATE_VALUES).optional(),
   origin: z.enum(KANBAN_ORIGIN_VALUES),
   assignedEmployeeId: z.string().optional().nullable(),
   createdByEmployeeId: z.string().optional().nullable(),
-});
-
-const TransitionCardSchema = z.object({
-  state: z.enum(KANBAN_STATE_VALUES),
   blockedReason: z.string().optional().nullable(),
 });
+
+const PatchCardSchema = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    note: z.string().optional().nullable(),
+    assignedEmployeeId: z.string().optional().nullable(),
+    blockedReason: z.string().optional().nullable(),
+    state: z.enum(KANBAN_STATE_VALUES).optional(),
+  })
+  .refine(
+    (body) =>
+      body.title !== undefined ||
+      body.note !== undefined ||
+      body.assignedEmployeeId !== undefined ||
+      body.blockedReason !== undefined ||
+      body.state !== undefined,
+    { message: 'Kanban patch is empty' },
+  );
 
 export const kanbanRoute = new Hono<PlatformEnv>();
 
@@ -53,8 +68,28 @@ kanbanRoute.post('/api/projects/:projectId/kanban', async (c) => {
 
 kanbanRoute.patch('/api/kanban/:id', async (c) => {
   const store = requireKanbanStore(c);
-  const body = TransitionCardSchema.parse(await c.req.json());
-  const card = await store.transition(c.req.param('id'), body.state, body.blockedReason);
+  const id = c.req.param('id');
+  const body = PatchCardSchema.parse(await c.req.json());
+  const hasMetadataPatch =
+    body.title !== undefined ||
+    body.note !== undefined ||
+    body.assignedEmployeeId !== undefined ||
+    (body.state === undefined && body.blockedReason !== undefined);
+  const updateCard = store.update;
+  let card = body.state
+    ? await store.transition(id, body.state, body.blockedReason)
+    : null;
+  if (!body.state || hasMetadataPatch) {
+    if (!updateCard) {
+      unavailableKanbanUpdate();
+    }
+    card = await updateCard(id, {
+      title: body.title,
+      note: body.note,
+      assignedEmployeeId: body.assignedEmployeeId,
+      blockedReason: body.blockedReason,
+    });
+  }
   if (!card) {
     throw new HTTPException(404, { message: 'Kanban card not found' });
   }
@@ -110,6 +145,10 @@ function requireKanbanStore(
     throw new HTTPException(503, { message: 'Local kanban store is not attached' });
   }
   return store;
+}
+
+function unavailableKanbanUpdate(): never {
+  throw new HTTPException(503, { message: 'Kanban update store is not attached' });
 }
 
 function sseEvent(event: string, data: unknown): Uint8Array {

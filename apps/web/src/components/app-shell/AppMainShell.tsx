@@ -11,11 +11,20 @@ import {
   StatusBar,
 } from '@offisim/ui-office/web';
 import React, { Suspense, useMemo } from 'react';
-import { PEER_WORKSPACE_ITEMS } from '../../lib/workspace-navigation';
+import {
+  PEER_WORKSPACE_ITEMS,
+  buildOfficeToolItems,
+  visibleOfficeToolsFor,
+} from '../../lib/workspace-navigation';
 import { useGitBranch } from '../../runtime/useGitBranch';
 import { useKanbanStream } from '../../runtime/useKanbanStream';
+import { GitWorkbench } from '../git/GitWorkbench';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
-import type { CreateKanbanCardInput, KanbanState } from '../workspaces/kanban/types';
+import type {
+  CreateKanbanCardInput,
+  KanbanState,
+  UpdateKanbanCardInput,
+} from '../workspaces/kanban/types';
 import type {
   OfficeSessionState,
   UpdateWorkspaceStateFn,
@@ -134,6 +143,25 @@ export function AppMainShell(props: AppMainShellProps) {
     activeProject?.workspace_root ?? null,
     activeProject?.project_id ?? null,
   );
+  const officeTools = useMemo(
+    () =>
+      visibleOfficeToolsFor(
+        activeWorkspace,
+        buildOfficeToolItems({
+          hasActiveCompany: Boolean(activeCompanyName),
+          dashboardOpen: officeState.dashboardOpen,
+          onOpenStudio: collaborationRailProps.onOpenStudio,
+          onToggleDashboard,
+        }),
+      ),
+    [
+      activeCompanyName,
+      activeWorkspace,
+      collaborationRailProps.onOpenStudio,
+      officeState.dashboardOpen,
+      onToggleDashboard,
+    ],
+  );
   const projectSelectorProps = useMemo(
     () => ({
       projects,
@@ -170,9 +198,24 @@ export function AppMainShell(props: AppMainShellProps) {
           workspaceTitle={WORKSPACE_TITLES[activeWorkspace]}
           peerWorkspaces={PEER_WORKSPACE_ITEMS}
           onSelectWorkspace={onSelectWorkspace}
+          officeTools={officeTools}
         />
       }
-      taskTray={null}
+      taskTray={
+        isOffice ? (
+          <KanbanTray
+            expanded={officeState.kanbanOpen}
+            requestText={lastUserRequest ?? undefined}
+            cards={kanban.cards}
+            onMove={kanban.move as (id: string, next: KanbanState) => Promise<void>}
+            onCreate={kanban.create as (input: CreateKanbanCardInput) => Promise<void>}
+            onUpdate={
+              kanban.update as (id: string, input: UpdateKanbanCardInput) => Promise<void>
+            }
+            onToggle={onToggleKanban}
+          />
+        ) : null
+      }
       agentPanel={
         isOffice ? (
           <AgentPanel
@@ -223,17 +266,10 @@ export function AppMainShell(props: AppMainShellProps) {
                 ) : null
               }
               kanbanCardCount={kanban.cards.length}
+              kanbanOpen={officeState.kanbanOpen}
+              onToggleKanban={onToggleKanban}
+              gitSlot={<GitWorkbench activeProject={activeProject} />}
               onSearchSelectEmployee={onEditExternalEmployee}
-              kanbanSlot={
-                <KanbanTray
-                  expanded
-                  requestText={lastUserRequest ?? undefined}
-                  cards={kanban.cards}
-                  onMove={kanban.move as (id: string, next: KanbanState) => Promise<void>}
-                  onCreate={kanban.create as (input: CreateKanbanCardInput) => Promise<void>}
-                  onToggle={onToggleKanban}
-                />
-              }
             />
           </Suspense>
         ) : null

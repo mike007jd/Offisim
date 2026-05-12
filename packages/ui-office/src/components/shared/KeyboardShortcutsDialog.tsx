@@ -7,7 +7,7 @@ interface KeyboardShortcutsDialogProps {
 
 const SHORTCUTS = [
   { keys: 'Cmd/Ctrl + D', description: 'Toggle Dashboard' },
-  { keys: 'Cmd/Ctrl + J', description: 'Toggle Project Board' },
+  { keys: 'Cmd/Ctrl + J', description: 'Toggle Kanban' },
   { keys: 'Cmd/Ctrl + 1', description: 'Toggle 3D / 2D view' },
   { keys: 'Cmd/Ctrl + E', description: 'Edit selected employee' },
   { keys: 'Cmd/Ctrl + /', description: 'Open keyboard shortcuts' },

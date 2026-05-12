@@ -23,7 +23,16 @@ export interface KanbanCard {
 export interface CreateKanbanCardInput {
   title: string;
   note?: string | null;
+  state?: KanbanState;
   origin?: KanbanOrigin;
   assignedEmployeeId?: string | null;
   createdByEmployeeId?: string | null;
+  blockedReason?: string | null;
+}
+
+export interface UpdateKanbanCardInput {
+  title?: string;
+  note?: string | null;
+  assignedEmployeeId?: string | null;
+  blockedReason?: string | null;
 }

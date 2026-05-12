@@ -7,7 +7,7 @@ import {
   TabsTrigger,
   cn,
 } from '@offisim/ui-core';
-import { ClipboardList, Files, MessageSquare, Terminal } from 'lucide-react';
+import { ClipboardList, Files, GitBranch, MessageSquare, Terminal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { usePlanStepStore } from '../../hooks/plan-step-store';
@@ -33,9 +33,13 @@ interface RightSidebarProps {
   /** Thread switch must go through `updateWorkspaceState('office', …)` (SSOT). */
   onSelectThread?: (threadId: string) => void;
   kanbanCardCount?: number;
-  kanbanSlot?: ReactNode;
+  kanbanOpen?: boolean;
+  onToggleKanban?: () => void;
+  gitSlot?: ReactNode;
   onSelectEmployee?: (employeeId: string) => void;
 }
+
+type RightSidebarTab = 'chat' | 'inspector' | 'tasks' | 'git';
 
 const PILL_TRIGGER_BASE =
   'h-auto min-w-fit shrink-0 rounded-full border border-transparent text-text-secondary data-[state=active]:border-border-focus data-[state=active]:bg-accent-muted data-[state=active]:text-accent-text hover:bg-surface-hover hover:text-text-primary';
@@ -51,23 +55,23 @@ export function RightSidebar({
   activeProjectId,
   onSelectThread,
   kanbanCardCount = 0,
-  kanbanSlot,
+  kanbanOpen = false,
+  onToggleKanban,
+  gitSlot,
   onSelectEmployee,
 }: RightSidebarProps) {
   const agents = useAgentStates();
   const { stage } = usePipelineStage();
   const { isRunning } = useOffisimRuntimeStatus();
-  const [activeTab, setActiveTab] = useState<'chat' | 'inspector' | 'tasks'>('chat');
+  const [activeTab, setActiveTab] = useState<RightSidebarTab>('chat');
   const projectSelectorRef = useTourTarget('office:project-selector');
   const tasksTargetRef = useTourTarget('office:tasks-tab');
 
   const planSteps = usePlanStepStore().steps;
   const deliverables = useDeliverables(activeThreadId ?? null);
-  const [kanbanOpen, setKanbanOpen] = useState(false);
 
   const hasPlan = planSteps.length > 0 || stage === 'planning';
   const hasOutputs = deliverables.length > 0;
-  const hasKanban = kanbanCardCount > 0;
   const hasInspectorContent =
     Boolean(projectSummarySlot) || Boolean(activeProjectId && onSelectThread) || hasOutputs;
 
@@ -82,10 +86,6 @@ export function RightSidebar({
       setActiveTab('chat');
     }
   }, [requestChatToken]);
-
-  useEffect(() => {
-    if (!hasKanban) setKanbanOpen(false);
-  }, [hasKanban]);
 
   const workflowLabel = useMemo(() => {
     if (!stage && !isRunning) return null;
@@ -126,7 +126,7 @@ export function RightSidebar({
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value as 'chat' | 'inspector' | 'tasks')}
+        onValueChange={(value) => setActiveTab(value as RightSidebarTab)}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <div className="border-b border-border-default px-2 pt-2">
@@ -158,6 +158,15 @@ export function RightSidebar({
             >
               <Terminal className="h-4 w-4" />
               <span>Tasks</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="git"
+              title="Git"
+              aria-label="Git"
+              className={MAIN_TAB_TRIGGER_CLASS}
+            >
+              <GitBranch className="h-4 w-4" />
+              <span>Git</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -251,23 +260,51 @@ export function RightSidebar({
               </section>
             ) : null}
 
-            {hasKanban ? (
-              <section className="px-3 py-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1 px-2 text-[11px]"
-                  onClick={() => setKanbanOpen((v) => !v)}
-                  aria-expanded={kanbanOpen}
-                >
-                  <ClipboardList className="h-3.5 w-3.5" />
-                  <span>Board</span>
-                  <span className="text-text-muted">{kanbanOpen ? '▴' : '▾'}</span>
-                </Button>
-                {kanbanOpen && kanbanSlot ? <div className="mt-2">{kanbanSlot}</div> : null}
-              </section>
-            ) : null}
+            <section className="px-3 py-3">
+              <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                      Board
+                    </h3>
+                    <p className="mt-1 text-[11px] text-text-muted">
+                      {kanbanCardCount} cards in the project board
+                    </p>
+                  </div>
+                  {onToggleKanban ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      data-kanban-toggle
+                      className="h-7 shrink-0 gap-1 px-2 text-[11px]"
+                      onClick={onToggleKanban}
+                      aria-expanded={kanbanOpen}
+                    >
+                      <ClipboardList className="h-3.5 w-3.5" />
+                      <span>{kanbanOpen ? 'Hide' : 'Open'}</span>
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </section>
           </div>
+        </TabsContent>
+
+        <TabsContent
+          value="git"
+          forceMount
+          className={cn(
+            'mt-0 flex min-h-0 flex-1 flex-col overflow-hidden',
+            TABS_RETAIN_STATE_CLASS,
+          )}
+        >
+          {gitSlot ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{gitSlot}</div>
+          ) : (
+            <div className="px-3 py-6 text-xs text-text-muted">
+              Select a project with a local workspace folder to inspect Git changes.
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

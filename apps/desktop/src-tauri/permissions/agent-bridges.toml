@@ -23,6 +23,7 @@ commands.allow = [
   "set_session_mode",
   "list_kanban_cards",
   "create_kanban_card",
+  "update_kanban_card",
   "transition_kanban_card",
   "count_kanban_for_employee",
   "mcp_list_registered_servers",

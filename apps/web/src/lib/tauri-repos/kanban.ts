@@ -6,12 +6,15 @@ import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 type KanbanCardPatch = Partial<
-  Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+  Pick<
+    KanbanCardRow,
+    'title' | 'note' | 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'
+  >
 >;
 
 function emitKanban(
   eventBus: EventBus | undefined,
-  op: 'created' | 'transitioned' | 'assigned',
+  op: 'created' | 'updated' | 'transitioned' | 'assigned',
   card: KanbanCardRow,
 ): void {
   eventBus?.emit({
@@ -89,6 +92,23 @@ export function createKanbanTauriRepos(db: TauriDrizzleDb, eventBus?: EventBus):
       await db.insert(schema.kanbanCards).values(row);
       emitKanban(eventBus, 'created', row);
       return row;
+    },
+    async update(id, input) {
+      const patch: KanbanCardPatch = { updated_at: new Date().toISOString() };
+      if (input.title !== undefined) {
+        const title = input.title.trim();
+        if (!title) throw new Error('Kanban card title is required');
+        patch.title = title;
+      }
+      if (input.note !== undefined) patch.note = input.note ?? '';
+      if (input.assigned_employee_id !== undefined) {
+        patch.assigned_employee_id = input.assigned_employee_id;
+      }
+      if (input.blocked_reason !== undefined) patch.blocked_reason = input.blocked_reason;
+      await db.update(schema.kanbanCards).set(patch).where(eq(schema.kanbanCards.id, id));
+      const card = await findById(id);
+      if (card) emitKanban(eventBus, 'updated', card);
+      return card;
     },
     async transition(id, next, blockedReason) {
       const current = await findById(id);

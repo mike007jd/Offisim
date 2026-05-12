@@ -4,10 +4,13 @@ import {
   isKanbanTransitionAllowed,
 } from '@offisim/shared-types';
 import type { EventBus } from '../../events/event-bus.js';
-import type { KanbanCardRow, NewKanbanCard } from '../repositories.js';
+import type { KanbanCardRow, KanbanCardUpdate, NewKanbanCard } from '../repositories.js';
 
 type KanbanCardPatch = Partial<
-  Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+  Pick<
+    KanbanCardRow,
+    'title' | 'note' | 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'
+  >
 >;
 
 export class KanbanInvalidTransitionError extends Error {
@@ -78,6 +81,24 @@ export class KanbanRepo {
     return card;
   }
 
+  async update(id: string, input: KanbanCardUpdate): Promise<KanbanCardRow | null> {
+    const patch: KanbanCardPatch = { updated_at: new Date().toISOString() };
+    if (input.title !== undefined) {
+      const title = input.title.trim();
+      if (!title) throw new Error('Kanban card title is required');
+      patch.title = title;
+    }
+    if (input.note !== undefined) patch.note = input.note ?? '';
+    if (input.assigned_employee_id !== undefined) {
+      patch.assigned_employee_id = input.assigned_employee_id;
+    }
+    if (input.blocked_reason !== undefined) patch.blocked_reason = input.blocked_reason;
+
+    const card = await this.storage.update(id, patch);
+    if (card) this.emit('updated', card);
+    return card;
+  }
+
   async transition(
     id: string,
     next: KanbanState,
@@ -131,7 +152,7 @@ export class KanbanRepo {
     if (card) this.emit('assigned', card);
   }
 
-  private emit(op: 'created' | 'transitioned' | 'assigned', card: KanbanCardRow): void {
+  private emit(op: 'created' | 'updated' | 'transitioned' | 'assigned', card: KanbanCardRow): void {
     this.eventBus?.emit({
       type: `kanban.card.${op}`,
       entityId: card.id,

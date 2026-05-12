@@ -12,6 +12,8 @@ const ALLOWED_SUBCOMMANDS: &[&str] = &[
     "diff",
     "log",
     "rev-parse",
+    "branch",
+    "remote",
     "init",
     "clone",
 ];
@@ -28,7 +30,7 @@ pub struct GitResult {
     pub stderr: String,
 }
 
-fn is_allowed(args: &[String]) -> Result<(), String> {
+fn is_allowed(args: &[String], root: &Path) -> Result<(), String> {
     if args.is_empty() {
         return Err("No git arguments provided".to_string());
     }
@@ -48,7 +50,28 @@ fn is_allowed(args: &[String]) -> Result<(), String> {
         }
     }
 
-    Ok(())
+    match subcommand.as_str() {
+        "status" => validate_status(args),
+        "add" => validate_pathspec_command(args, root, "git add"),
+        "commit" => validate_commit(args, root),
+        "diff" => validate_diff(args, root),
+        "log" => validate_log(args, root),
+        "rev-parse" => validate_rev_parse(args),
+        "branch" => validate_branch(args),
+        "remote" => validate_remote(args),
+        "init" => {
+            if args.len() == 1 {
+                Ok(())
+            } else {
+                Err("git init does not accept options in Offisim".into())
+            }
+        }
+        "clone" => {
+            clone_destination_arg(args)?;
+            Ok(())
+        }
+        _ => Err(format!("Git subcommand '{}' is not allowed", subcommand)),
+    }
 }
 
 #[tauri::command]
@@ -58,8 +81,8 @@ pub async fn git_exec<R: Runtime>(
     project_id: String,
     cwd: Option<String>,
 ) -> Result<GitResult, String> {
-    is_allowed(&args)?;
     let root = project_workspace_root(&app, &project_id).await?;
+    is_allowed(&args, &root)?;
     if args.first().map(String::as_str) == Some("clone") {
         prepare_clone_destination(&root, &args)?;
     }
@@ -84,6 +107,158 @@ pub async fn git_exec<R: Runtime>(
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
         stderr: String::from_utf8_lossy(&output.stderr).to_string(),
     })
+}
+
+fn validate_status(args: &[String]) -> Result<(), String> {
+    for arg in args.iter().skip(1) {
+        match arg.as_str() {
+            "--porcelain"
+            | "--porcelain=v1"
+            | "--branch"
+            | "--short"
+            | "-sb"
+            | "--untracked-files=all" => {}
+            value => return Err(format!("git status option '{}' is not allowed", value)),
+        }
+    }
+    Ok(())
+}
+
+fn validate_pathspec_command(args: &[String], root: &Path, label: &str) -> Result<(), String> {
+    if args.len() < 2 {
+        return Err(format!("{label} requires at least one path"));
+    }
+    let mut seen_separator = false;
+    let mut path_count = 0usize;
+    for arg in args.iter().skip(1) {
+        if arg == "--" {
+            seen_separator = true;
+            continue;
+        }
+        if !seen_separator && arg.starts_with('-') {
+            return Err(format!("{label} option '{}' is not allowed", arg));
+        }
+        validate_git_pathspec(arg, root, label)?;
+        path_count += 1;
+    }
+    if path_count == 0 {
+        return Err(format!("{label} requires at least one path"));
+    }
+    Ok(())
+}
+
+fn validate_commit(args: &[String], root: &Path) -> Result<(), String> {
+    if args.len() < 3 {
+        return Err("git commit is restricted to: commit -m <message> [-- <path>...]".into());
+    }
+    if !matches!(args[1].as_str(), "-m" | "--message") {
+        return Err(format!("git commit option '{}' is not allowed", args[1]));
+    }
+    reject_option_like_value(&args[2], "git commit message")?;
+    if args.len() == 3 {
+        return Ok(());
+    }
+    if args.get(3).map(String::as_str) != Some("--") {
+        return Err("git commit pathspecs must follow --".into());
+    }
+    if args.len() == 4 {
+        return Err("git commit pathspec requires at least one path".into());
+    }
+    for path in args.iter().skip(4) {
+        validate_git_pathspec(path, root, "git commit path")?;
+    }
+    Ok(())
+}
+
+fn validate_diff(args: &[String], root: &Path) -> Result<(), String> {
+    let mut path_mode = false;
+    for arg in args.iter().skip(1) {
+        if arg == "--" {
+            path_mode = true;
+            continue;
+        }
+        if path_mode {
+            validate_git_pathspec(arg, root, "git diff path")?;
+            continue;
+        }
+        match arg.as_str() {
+            "--cached" | "--numstat" | "--stat" | "--name-only" | "--name-status" => {}
+            value if value.starts_with("--unified=") => {}
+            value if value.starts_with('-') => {
+                return Err(format!("git diff option '{}' is not allowed", value));
+            }
+            value => validate_git_pathspec(value, root, "git diff path")?,
+        }
+    }
+    Ok(())
+}
+
+fn validate_log(args: &[String], root: &Path) -> Result<(), String> {
+    let mut path_mode = false;
+    let mut expect_count = false;
+    for arg in args.iter().skip(1) {
+        if expect_count {
+            if arg.parse::<u16>().is_err() {
+                return Err("git log -n requires a numeric count".into());
+            }
+            expect_count = false;
+            continue;
+        }
+        if arg == "--" {
+            path_mode = true;
+            continue;
+        }
+        if path_mode {
+            validate_git_pathspec(arg, root, "git log path")?;
+            continue;
+        }
+        match arg.as_str() {
+            "--oneline" | "--decorate" | "--graph" => {}
+            "-n" => expect_count = true,
+            value if value.starts_with("--max-count=") => {
+                let count = value.trim_start_matches("--max-count=");
+                if count.parse::<u16>().is_err() {
+                    return Err("git log --max-count requires a numeric count".into());
+                }
+            }
+            value if value.starts_with('-') => {
+                return Err(format!("git log option '{}' is not allowed", value));
+            }
+            value => validate_git_pathspec(value, root, "git log path")?,
+        }
+    }
+    if expect_count {
+        return Err("git log -n requires a numeric count".into());
+    }
+    Ok(())
+}
+
+fn validate_rev_parse(args: &[String]) -> Result<(), String> {
+    let tail: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    match tail.as_slice() {
+        ["--is-inside-work-tree"]
+        | ["--abbrev-ref", "HEAD"]
+        | ["--show-toplevel"]
+        | ["--short", "HEAD"]
+        | ["HEAD"] => Ok(()),
+        _ => Err("git rev-parse arguments are not allowed".into()),
+    }
+}
+
+fn validate_branch(args: &[String]) -> Result<(), String> {
+    let tail: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    match tail.as_slice() {
+        [] | ["--list"] | ["--show-current"] => Ok(()),
+        _ => Err("git branch arguments are not allowed".into()),
+    }
+}
+
+fn validate_remote(args: &[String]) -> Result<(), String> {
+    let tail: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    match tail.as_slice() {
+        ["get-url", "origin"] => Ok(()),
+        _ => Err("git remote is restricted to: remote get-url origin".into()),
+    }
 }
 
 async fn project_workspace_root<R: Runtime>(
@@ -232,6 +407,21 @@ fn reject_option_like_value(value: &str, label: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_git_pathspec(value: &str, root: &Path, label: &str) -> Result<(), String> {
+    reject_option_like_value(value, label)?;
+    let path = PathBuf::from(value);
+    if path
+        .components()
+        .any(|component| matches!(component, Component::ParentDir))
+    {
+        return Err(format!("{label} cannot contain parent-directory segments"));
+    }
+    if path.is_absolute() && !path.starts_with(root) {
+        return Err(format!("{label} is outside the bound project workspace"));
+    }
+    Ok(())
+}
+
 fn resolve_new_path_under_root(root: &Path, input: &str, label: &str) -> Result<PathBuf, String> {
     let input_path = PathBuf::from(input);
     if input_path
@@ -255,17 +445,26 @@ fn resolve_new_path_under_root(root: &Path, input: &str, label: &str) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEMP_ROOT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn temp_root() -> PathBuf {
         let root = std::env::temp_dir().join(format!(
-            "offisim-git-cwd-{}",
+            "offisim-git-cwd-{}-{}-{}",
+            std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            TEMP_ROOT_COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::create_dir_all(root.join("sub")).unwrap();
         root.canonicalize().unwrap()
+    }
+
+    fn cleanup_root(root: PathBuf) {
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
@@ -273,7 +472,7 @@ mod tests {
         let root = temp_root();
         let cwd = resolve_git_cwd(&root, "sub").unwrap();
         assert!(cwd.starts_with(&root));
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 
     #[test]
@@ -281,7 +480,7 @@ mod tests {
         let root = temp_root();
         let err = resolve_git_cwd(&root, "../outside").unwrap_err();
         assert!(err.contains("parent-directory"));
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 
     #[test]
@@ -289,7 +488,50 @@ mod tests {
         let root = temp_root();
         let err = resolve_git_cwd(&root, std::env::temp_dir().to_str().unwrap()).unwrap_err();
         assert!(err.contains("outside"));
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
+    }
+
+    #[test]
+    fn is_allowed_accepts_workbench_status_diff_remote_commit() {
+        let root = temp_root();
+        let cases = vec![
+            vec![
+                "status",
+                "--porcelain=v1",
+                "--branch",
+                "--untracked-files=all",
+            ],
+            vec!["diff", "--numstat"],
+            vec!["diff", "--cached", "--", "src/main.ts"],
+            vec!["remote", "get-url", "origin"],
+            vec!["rev-parse", "--abbrev-ref", "HEAD"],
+            vec!["add", "--", "src/main.ts"],
+            vec!["commit", "-m", "workbench commit"],
+            vec!["commit", "-m", "selected commit", "--", "src/main.ts"],
+        ];
+        for args in cases {
+            let owned = args.into_iter().map(String::from).collect::<Vec<_>>();
+            is_allowed(&owned, &root).unwrap();
+        }
+        cleanup_root(root);
+    }
+
+    #[test]
+    fn is_allowed_rejects_destructive_or_remote_mutation_git() {
+        let root = temp_root();
+        let cases = vec![
+            vec!["push", "origin", "main"],
+            vec!["reset", "--hard"],
+            vec!["commit", "--amend"],
+            vec!["add", "-A"],
+            vec!["remote", "add", "origin", "https://example.test/repo.git"],
+            vec!["diff", "--ext-diff"],
+        ];
+        for args in cases {
+            let owned = args.into_iter().map(String::from).collect::<Vec<_>>();
+            assert!(is_allowed(&owned, &root).is_err());
+        }
+        cleanup_root(root);
     }
 
     #[test]
@@ -306,7 +548,7 @@ mod tests {
         let prepared = prepare_clone_destination(&root, &args).unwrap();
         assert_eq!(prepared, dest);
         assert!(root.join(".offisim/tmp").is_dir());
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 
     #[test]
@@ -321,7 +563,7 @@ mod tests {
         ];
         let err = prepare_clone_destination(&root, &args).unwrap_err();
         assert!(err.contains("parent-directory"));
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 
     #[test]
@@ -339,7 +581,7 @@ mod tests {
         ];
         let err = prepare_clone_destination(&root, &args).unwrap_err();
         assert!(err.contains("outside"));
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 
     #[test]
@@ -353,7 +595,7 @@ mod tests {
         ];
         let err = prepare_clone_destination(&root, &args).unwrap_err();
         assert!(err.contains("restricted to"));
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 
     #[test]
@@ -371,7 +613,7 @@ mod tests {
         ];
         let prepared = prepare_clone_destination(&root, &args).unwrap();
         assert_eq!(prepared, dest);
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 
     #[test]
@@ -388,7 +630,7 @@ mod tests {
         ];
         let err = prepare_clone_destination(&root, &args).unwrap_err();
         assert!(err.contains("--separate-git-dir"));
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 
     #[test]
@@ -405,7 +647,7 @@ mod tests {
         ];
         let err = prepare_clone_destination(&root, &args).unwrap_err();
         assert!(err.contains("-c"));
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 
     #[test]
@@ -422,6 +664,6 @@ mod tests {
         ];
         let err = prepare_clone_destination(&root, &args).unwrap_err();
         assert!(err.contains("--reference"));
-        std::fs::remove_dir_all(root).unwrap();
+        cleanup_root(root);
     }
 }

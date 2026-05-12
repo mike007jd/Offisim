@@ -27,14 +27,24 @@ export interface PlatformSessionStore {
 export interface PlatformKanbanCreateInput {
   title: string;
   note?: string | null;
+  state?: KanbanState;
   origin: KanbanOrigin;
   assignedEmployeeId?: string | null;
   createdByEmployeeId?: string | null;
+  blockedReason?: string | null;
+}
+
+export interface PlatformKanbanUpdateInput {
+  title?: string;
+  note?: string | null;
+  assignedEmployeeId?: string | null;
+  blockedReason?: string | null;
 }
 
 export interface PlatformKanbanStore {
   listByProject(projectId: string): Promise<KanbanCardRow[]>;
   create(projectId: string, input: PlatformKanbanCreateInput): Promise<KanbanCardRow>;
+  update?(id: string, input: PlatformKanbanUpdateInput): Promise<KanbanCardRow | null>;
   transition(
     id: string,
     next: KanbanState,
@@ -46,7 +56,7 @@ export interface PlatformKanbanStore {
 export type PlatformKanbanEventBus = Pick<EventBus, 'on'>;
 export type PlatformKanbanEvent = RuntimeEvent<{
   kind: 'kanban';
-  op: 'created' | 'transitioned' | 'assigned';
+  op: 'created' | 'updated' | 'transitioned' | 'assigned';
   card: KanbanCardRow;
 }>;
 

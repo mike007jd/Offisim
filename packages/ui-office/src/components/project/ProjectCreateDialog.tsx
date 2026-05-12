@@ -198,15 +198,15 @@ export function ProjectCreateDialog({
               <div className="flex items-center gap-2">
                 <div className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary">
                   <Folder className="h-4 w-4 flex-shrink-0 text-info" />
-                  {workspaceRoot ? (
-                    <span className="truncate" title={workspaceRoot}>
-                      {workspaceRoot}
-                    </span>
-                  ) : (
-                    <span className={workspaceRequired ? 'text-error' : 'text-text-muted'}>
-                      No folder bound
-                    </span>
-                  )}
+                  <input
+                    aria-label="Workspace folder path"
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-text-muted disabled:opacity-60"
+                    value={workspaceRoot ?? ''}
+                    onChange={(e) => setWorkspaceRoot(trimToNull(e.target.value))}
+                    placeholder="Paste local workspace path"
+                    title={workspaceRoot ?? undefined}
+                    disabled={picking || submitting}
+                  />
                 </div>
                 <Button
                   type="button"

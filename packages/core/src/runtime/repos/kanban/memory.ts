@@ -26,7 +26,10 @@ export class MemoryKanbanStorage implements KanbanRepoStorage {
   async update(
     id: string,
     patch: Partial<
-      Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+      Pick<
+        KanbanCardRow,
+        'title' | 'note' | 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'
+      >
     >,
   ): Promise<KanbanCardRow | null> {
     const current = this.store.get(id);
@@ -40,7 +43,10 @@ export class MemoryKanbanStorage implements KanbanRepoStorage {
     id: string,
     expectedState: KanbanState,
     patch: Partial<
-      Pick<KanbanCardRow, 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'>
+      Pick<
+        KanbanCardRow,
+        'title' | 'note' | 'state' | 'blocked_reason' | 'assigned_employee_id' | 'updated_at'
+      >
     >,
   ): Promise<KanbanCardRow | null> {
     const current = this.store.get(id);

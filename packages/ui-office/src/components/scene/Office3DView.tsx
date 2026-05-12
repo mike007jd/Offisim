@@ -453,13 +453,15 @@ export default function Office3DView({
 }
 
 function ScenePerformanceController({
+  enabled,
   onTierChange,
   onRequestForce2D,
 }: {
+  enabled: boolean;
   onTierChange: (tier: SceneLightingTier) => void;
   onRequestForce2D?: () => void;
 }) {
-  const { tier } = useScenePerformanceTier(onRequestForce2D);
+  const { tier } = useScenePerformanceTier({ enabled, requestForce2D: onRequestForce2D });
   useEffect(() => onTierChange(tier), [tier, onTierChange]);
   return null;
 }
@@ -531,6 +533,7 @@ function Office3DViewInner({
         camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
       >
         <ScenePerformanceController
+          enabled={shouldAnimate}
           onTierChange={setLightingTier}
           onRequestForce2D={onRequestForce2D}
         />

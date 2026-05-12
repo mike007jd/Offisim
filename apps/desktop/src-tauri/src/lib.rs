@@ -135,6 +135,7 @@ pub fn run() {
             sessions::set_session_mode,
             kanban::list_kanban_cards,
             kanban::create_kanban_card,
+            kanban::update_kanban_card,
             kanban::transition_kanban_card,
             kanban::count_kanban_for_employee,
             mcp_bridge::commands::mcp_list_registered_servers,

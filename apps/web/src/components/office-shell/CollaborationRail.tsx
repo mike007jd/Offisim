@@ -29,7 +29,8 @@ interface CollaborationSidebarProps extends CollaborationRailProps {
   projectSlot?: ReactNode;
   projectSummarySlot?: ReactNode;
   kanbanCardCount?: number;
-  kanbanSlot?: ReactNode;
+  kanbanOpen?: boolean;
+  gitSlot?: ReactNode;
   onSearchSelectEmployee?: (employeeId: string) => void;
 }
 
@@ -112,7 +113,9 @@ export function CollaborationSidebar(props: CollaborationSidebarProps) {
       activeProjectId={projectId}
       onSelectThread={props.onSelectThread}
       kanbanCardCount={props.kanbanCardCount}
-      kanbanSlot={props.kanbanSlot}
+      kanbanOpen={props.kanbanOpen}
+      onToggleKanban={props.onToggleKanban}
+      gitSlot={props.gitSlot}
       onSelectEmployee={props.onSearchSelectEmployee}
     />
   );

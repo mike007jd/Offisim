@@ -168,8 +168,15 @@ export type NewKanbanCard = Pick<KanbanCardRow, 'project_id' | 'company_id' | 't
     >
   >;
 
+export type KanbanCardUpdate = Partial<
+  Pick<KanbanCardRow, 'title' | 'assigned_employee_id' | 'blocked_reason'>
+> & {
+  note?: string | null;
+};
+
 export interface KanbanRepository {
   create(input: NewKanbanCard): Promise<KanbanCardRow>;
+  update(id: string, input: KanbanCardUpdate): Promise<KanbanCardRow | null>;
   transition(
     id: string,
     next: KanbanState,

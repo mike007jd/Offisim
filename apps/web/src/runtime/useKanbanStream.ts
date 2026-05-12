@@ -6,6 +6,7 @@ import type {
   KanbanCard,
   KanbanOrigin,
   KanbanState,
+  UpdateKanbanCardInput,
 } from '../components/workspaces/kanban/types';
 
 type RawKanbanCard = Partial<Record<string, unknown>>;
@@ -24,6 +25,7 @@ export interface UseKanbanStreamResult {
   error: string | null;
   move: (id: string, next: KanbanState, blockedReason?: string | null) => Promise<void>;
   create: (input: CreateKanbanCardInput) => Promise<void>;
+  update: (id: string, input: UpdateKanbanCardInput) => Promise<void>;
 }
 
 export function useKanbanStream(projectId: string | null | undefined): UseKanbanStreamResult {
@@ -75,7 +77,7 @@ export function useKanbanStream(projectId: string | null | undefined): UseKanban
 
   const create = useCallback(
     async (input: CreateKanbanCardInput) => {
-      if (!projectId) return;
+      if (!projectId) throw new Error('Select a project before creating Kanban cards.');
       const origin: KanbanOrigin = input.origin ?? 'human';
       const card = isTauri()
         ? await createViaTauri(projectId, { ...input, origin })
@@ -85,7 +87,12 @@ export function useKanbanStream(projectId: string | null | undefined): UseKanban
     [projectId],
   );
 
-  return { cards, loading, error, move, create };
+  const update = useCallback(async (id: string, input: UpdateKanbanCardInput) => {
+    const card = isTauri() ? await updateViaTauri(id, input) : await updateViaWeb(id, input);
+    if (card) dispatch({ type: 'upsert', card });
+  }, []);
+
+  return { cards, loading, error, move, create, update };
 }
 
 function cardsReducer(cards: KanbanCard[], action: CardsAction): KanbanCard[] {
@@ -120,6 +127,7 @@ async function startWebStream(
   source.addEventListener('kanban.card.created', handler);
   source.addEventListener('kanban.card.transitioned', handler);
   source.addEventListener('kanban.card.assigned', handler);
+  source.addEventListener('kanban.card.updated', handler);
   source.onerror = () => {
     source.close();
   };
@@ -153,6 +161,18 @@ async function createViaWeb(
   return normalizeCard(requireCard(payload.card));
 }
 
+async function updateViaWeb(id: string, input: UpdateKanbanCardInput): Promise<KanbanCard | null> {
+  const res = await fetch(`/api/kanban/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Kanban update failed: ${res.status}`);
+  const payload = (await res.json()) as { card?: RawKanbanCard };
+  return normalizeCard(requireCard(payload.card));
+}
+
 async function createViaTauri(
   projectId: string,
   input: CreateKanbanCardInput & { origin: KanbanOrigin },
@@ -162,6 +182,17 @@ async function createViaTauri(
     input: { ...input, projectId },
   });
   return normalizeCard(card);
+}
+
+async function updateViaTauri(
+  id: string,
+  input: UpdateKanbanCardInput,
+): Promise<KanbanCard | null> {
+  const { invoke } = (await import('@tauri-apps/api/core')) as { invoke: InvokeFn };
+  const card = await invoke<RawKanbanCard | null>('update_kanban_card', {
+    input: { id, ...input },
+  });
+  return card ? normalizeCard(card) : null;
 }
 
 async function transitionViaWeb(

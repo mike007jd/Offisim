@@ -92,8 +92,8 @@ function CollapsedBar({
 
 const PANEL_SHADOW = 'shadow-overlay';
 const PANEL_SHADOW_GLOW = 'shadow-overlay';
-const LEFT_PANEL_WIDTH = 280;
-const RIGHT_PANEL_WIDTH = 440;
+const LEFT_PANEL_WIDTH = 300;
+const RIGHT_PANEL_WIDTH = 360;
 const COLLAPSED_PANEL_WIDTH = 44;
 const RIGHT_RAIL_STORAGE_KEY = 'offisim-rightrail-open';
 

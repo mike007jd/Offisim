@@ -4,12 +4,22 @@ import {
   isKanbanTransitionAllowed,
 } from '@offisim/shared-types';
 import { cn } from '@offisim/ui-core';
-import { ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react';
-import { type FormEvent, useCallback, useMemo, useRef, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, ClipboardList, Pencil, X } from 'lucide-react';
+import {
+  type DragEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { toErrorMessage } from '../../lib/error-message.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import type { AgentState } from '../../runtime/use-agent-states';
+import { EmployeeAvatar } from '../shared/EmployeeAvatar';
 import { KanbanColumn } from './KanbanColumn';
 
 // ---------------------------------------------------------------------------
@@ -18,12 +28,13 @@ import { KanbanColumn } from './KanbanColumn';
 
 export interface KanbanBoardProps {
   /** Agent map for name resolution */
-  agents?: Map<string, { name: string }>;
+  agents?: Map<string, AgentState>;
   /** Summary text override (e.g. user's original request) */
   requestText?: string;
   cards?: KanbanCardData[];
   onMove?: (id: string, next: KanbanState) => Promise<void>;
   onCreate?: (input: CreateKanbanInput) => Promise<void>;
+  onUpdate?: (id: string, input: UpdateKanbanInput) => Promise<void>;
 }
 
 export type KanbanState = SharedKanbanState;
@@ -49,9 +60,18 @@ export interface KanbanCardData {
 export interface CreateKanbanInput {
   title: string;
   note?: string | null;
+  state?: KanbanState;
   origin?: KanbanOrigin;
   assignedEmployeeId?: string | null;
   createdByEmployeeId?: string | null;
+  blockedReason?: string | null;
+}
+
+export interface UpdateKanbanInput {
+  title?: string;
+  note?: string | null;
+  assignedEmployeeId?: string | null;
+  blockedReason?: string | null;
 }
 
 const KANBAN_STATES: KanbanState[] = ['todo', 'doing', 'blocked', 'review', 'done'];
@@ -71,13 +91,36 @@ const ORIGIN_COLOR: Record<KanbanOrigin, string> = {
   human: 'var(--color-foam)',
 };
 
+const STATE_ACCENTS: Record<KanbanState, string> = {
+  todo: 'var(--color-sea-blue)',
+  doing: 'var(--color-coral-orange)',
+  blocked: 'var(--color-error)',
+  review: 'var(--color-accent)',
+  done: 'var(--color-success)',
+};
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function KanbanBoard({ agents, requestText, cards, onMove, onCreate }: KanbanBoardProps) {
+export function KanbanBoard({
+  agents,
+  requestText,
+  cards,
+  onMove,
+  onCreate,
+  onUpdate,
+}: KanbanBoardProps) {
   if (cards) {
-    return <LiveKanbanBoard cards={cards} onMove={onMove} onCreate={onCreate} />;
+    return (
+      <LiveKanbanBoard
+        agents={agents}
+        cards={cards}
+        onMove={onMove}
+        onCreate={onCreate}
+        onUpdate={onUpdate}
+      />
+    );
   }
   return <PlanKanbanBoard agents={agents} requestText={requestText} />;
 }
@@ -223,39 +266,56 @@ function PlanKanbanBoard({
 }
 
 function LiveKanbanBoard({
+  agents,
   cards,
   onMove,
   onCreate,
+  onUpdate,
 }: {
+  agents?: Map<string, AgentState>;
   cards: KanbanCardData[];
   onMove?: (id: string, next: KanbanState) => Promise<void>;
   onCreate?: (input: CreateKanbanInput) => Promise<void>;
+  onUpdate?: (id: string, input: UpdateKanbanInput) => Promise<void>;
 }) {
-  const [title, setTitle] = useState('');
-  const [note, setNote] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
+  const [creatingState, setCreatingState] = useState<KanbanState | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const grouped = useMemo(() => groupCards(cards), [cards]);
+  const assignees = useMemo(() => [...(agents?.entries() ?? [])], [agents]);
 
   const handleCreate = useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
+    async (event: FormEvent<HTMLFormElement>, state: KanbanState) => {
       event.preventDefault();
+      const form = event.currentTarget;
+      const data = new FormData(form);
+      const title = String(data.get('title') ?? '');
+      const note = String(data.get('note') ?? '');
+      const assignedEmployeeId = String(data.get('assignedEmployeeId') ?? '').trim() || null;
+      const blockedReason = String(data.get('blockedReason') ?? '').trim() || null;
       const trimmed = title.trim();
       if (!trimmed || !onCreate) return;
-      setCreating(true);
+      setBusyId(`new:${state}`);
       setErrorMessage(null);
       try {
-        await onCreate({ title: trimmed, note: note.trim() || null, origin: 'human' });
-        setTitle('');
-        setNote('');
+        await onCreate({
+          title: trimmed,
+          note: note.trim() || null,
+          state,
+          origin: 'human',
+          assignedEmployeeId,
+          blockedReason,
+        });
+        form.reset();
+        setCreatingState(null);
       } catch (error) {
         setErrorMessage(toErrorMessage(error));
       } finally {
-        setCreating(false);
+        setBusyId(null);
       }
     },
-    [note, onCreate, title],
+    [onCreate],
   );
 
   const handleMove = useCallback(
@@ -274,70 +334,150 @@ function LiveKanbanBoard({
     [onMove],
   );
 
+  const handleDrop = useCallback(
+    (event: DragEvent<HTMLElement>, state: KanbanState) => {
+      event.preventDefault();
+      const id = event.dataTransfer.getData('text/plain') || draggedCardId;
+      const card = cards.find((item) => item.id === id);
+      setDraggedCardId(null);
+      if (!card || card.state === state) return;
+      if (!isKanbanTransitionAllowed(card.state, state)) {
+        setErrorMessage(`Invalid transition: ${KANBAN_LABELS[card.state]} -> ${KANBAN_LABELS[state]}`);
+        return;
+      }
+      void handleMove(card, state);
+    },
+    [cards, draggedCardId, handleMove],
+  );
+
+  const handleUpdate = useCallback(
+    async (card: KanbanCardData, input: UpdateKanbanInput) => {
+      if (!onUpdate) return;
+      setBusyId(card.id);
+      setErrorMessage(null);
+      try {
+        await onUpdate(card.id, input);
+      } catch (error) {
+        setErrorMessage(toErrorMessage(error));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [onUpdate],
+  );
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <form
-        className="flex shrink-0 items-end gap-3 border-b border-border-subtle px-4 py-3"
-        onSubmit={handleCreate}
-      >
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">Card title</span>
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Add a card"
-            className="h-9 w-full rounded-lg border border-border-default bg-surface-elevated px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-border-focus"
-          />
-        </label>
-        <label className="hidden min-w-0 flex-1 md:block">
-          <span className="sr-only">Card note</span>
-          <input
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="Note"
-            className="h-9 w-full rounded-lg border border-border-default bg-surface-elevated px-3 text-sm text-text-primary outline-none placeholder:text-text-muted focus:border-border-focus"
-          />
-        </label>
-        <button
-          type="submit"
-          className="h-9 shrink-0 rounded-lg border border-accent bg-accent-muted px-4 text-sm font-semibold text-accent-text transition-colors hover:bg-accent hover:text-text-inverse disabled:opacity-40"
-          disabled={!onCreate || creating || title.trim().length === 0}
-        >
-          Add
-        </button>
-      </form>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden px-4 pb-7 pt-3">
       {errorMessage && (
         <div
           role="alert"
-          className="border-b border-error/30 bg-error-muted px-4 py-2 text-xs font-medium text-error"
+          className="mb-2 rounded-lg border border-error/30 bg-error-muted px-3 py-2 text-xs font-medium text-error"
         >
           {errorMessage}
         </div>
       )}
 
-      <div className="custom-scrollbar grid min-h-0 flex-1 grid-cols-[repeat(5,minmax(220px,1fr))] gap-3 overflow-x-auto p-4">
+      <div className="custom-scrollbar grid min-h-0 flex-1 grid-cols-[repeat(5,minmax(88px,1fr))] gap-3 overflow-x-auto">
         {KANBAN_STATES.map((state) => (
           <section
             key={state}
-            className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-elevated"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => handleDrop(event, state)}
+            className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface/68 shadow-sm"
           >
-            <header className="flex items-center justify-between border-b border-border-subtle px-3 py-1.5">
-              <span className="text-xs font-bold text-text-primary">{KANBAN_LABELS[state]}</span>
-              <span className="font-mono text-[10px] text-text-muted">{grouped[state].length}</span>
+            <header
+              className="flex items-center justify-between border-b border-border-subtle px-3 py-3"
+              style={{ borderTop: `3px solid ${STATE_ACCENTS[state]}` }}
+            >
+              <span className="truncate text-[12px] font-bold text-text-primary">{KANBAN_LABELS[state]}</span>
+              <span className="rounded-full bg-surface-muted px-1.5 font-mono text-[10px] text-text-muted">
+                {grouped[state].length}
+              </span>
             </header>
-            <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
+            <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
               {grouped[state].map((card) => (
                 <LiveKanbanCard
                   key={card.id}
+                  agents={agents}
                   card={card}
                   busy={busyId === card.id}
-                  onMove={handleMove}
+                  onUpdate={handleUpdate}
+                  onDragStart={() => setDraggedCardId(card.id)}
+                  onDragEnd={() => setDraggedCardId(null)}
                 />
               ))}
               {grouped[state].length === 0 && (
-                <div className="flex flex-1 items-center justify-center text-[10px] text-text-muted">
-                  No cards
+                <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-border-subtle bg-surface/35 text-[11px] text-text-muted">
+                  Drop here
                 </div>
+              )}
+              {creatingState === state ? (
+                <form
+                  className="mt-auto space-y-2 rounded-lg border border-border-subtle bg-surface-elevated p-2.5"
+                  onSubmit={(event) => handleCreate(event, state)}
+                >
+                  <input
+                    name="title"
+                    autoFocus
+                    placeholder="Card title"
+                    className="h-8 w-full rounded-md border border-border-subtle bg-surface px-2 text-[11px] text-text-primary outline-none placeholder:text-text-muted focus:border-border-focus"
+                    disabled={!onCreate || busyId === `new:${state}`}
+                  />
+                  <select
+                    name="assignedEmployeeId"
+                    className="h-8 w-full rounded-md border border-border-subtle bg-surface px-2 text-[11px] text-text-secondary outline-none focus:border-border-focus"
+                    disabled={!onCreate || busyId === `new:${state}`}
+                    defaultValue=""
+                  >
+                    <option value="">No assignee</option>
+                    {assignees.map(([id, agent]) => (
+                      <option key={id} value={id}>
+                        {agent.name}
+                      </option>
+                    ))}
+                  </select>
+                  {state === 'blocked' ? (
+                    <input
+                      name="blockedReason"
+                      placeholder="Blocked reason"
+                      className="h-8 w-full rounded-md border border-error/25 bg-error-muted/20 px-2 text-[11px] text-text-secondary outline-none placeholder:text-text-muted focus:border-error"
+                      disabled={!onCreate || busyId === `new:${state}`}
+                    />
+                  ) : (
+                    <input
+                      name="note"
+                      placeholder="Note"
+                      className="h-8 w-full rounded-md border border-border-subtle bg-surface px-2 text-[11px] text-text-secondary outline-none placeholder:text-text-muted focus:border-border-focus"
+                      disabled={!onCreate || busyId === `new:${state}`}
+                    />
+                  )}
+                  <div className="flex gap-1">
+                    <button
+                      type="submit"
+                      className="flex h-7 flex-1 items-center justify-center rounded-md bg-accent px-2 text-[10px] font-semibold text-text-inverse transition hover:bg-accent-hover disabled:opacity-40"
+                      disabled={!onCreate || busyId === `new:${state}`}
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      className="flex h-7 items-center justify-center rounded-md border border-border-default px-2 text-[10px] text-text-secondary hover:text-text-primary"
+                      disabled={busyId === `new:${state}`}
+                      onClick={() => setCreatingState(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  className="mt-auto flex h-9 w-full items-center justify-center rounded-lg border border-transparent text-[12px] font-medium text-text-secondary transition hover:border-border-subtle hover:bg-surface-hover hover:text-accent disabled:opacity-40"
+                  disabled={!onCreate}
+                  onClick={() => setCreatingState(state)}
+                >
+                  + Add Card
+                </button>
               )}
             </div>
           </section>
@@ -348,58 +488,193 @@ function LiveKanbanBoard({
 }
 
 function LiveKanbanCard({
+  agents,
   card,
   busy,
-  onMove,
+  onUpdate,
+  onDragStart,
+  onDragEnd,
 }: {
+  agents?: Map<string, AgentState>;
   card: KanbanCardData;
   busy: boolean;
-  onMove: (card: KanbanCardData, next: KanbanState) => Promise<void>;
+  onUpdate: (card: KanbanCardData, input: UpdateKanbanInput) => Promise<void>;
+  onDragStart: () => void;
+  onDragEnd: () => void;
 }) {
-  const allowedTargets = KANBAN_STATES.filter(
-    (state) => state !== card.state && isKanbanTransitionAllowed(card.state, state),
-  );
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(card.title);
+  const [note, setNote] = useState(card.note);
+  const [assignee, setAssignee] = useState(card.assignedEmployeeId ?? '');
+  const [blockedReason, setBlockedReason] = useState(card.blockedReason ?? '');
+  const assignedAgent = card.assignedEmployeeId ? agents?.get(card.assignedEmployeeId) : null;
+  const assignees = useMemo(() => [...(agents?.entries() ?? [])], [agents]);
+
+  useEffect(() => {
+    if (editing) return;
+    setTitle(card.title);
+    setNote(card.note);
+    setAssignee(card.assignedEmployeeId ?? '');
+    setBlockedReason(card.blockedReason ?? '');
+  }, [card.assignedEmployeeId, card.blockedReason, card.note, card.title, editing]);
+
+  const save = useCallback(async () => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    await onUpdate(card, {
+      title: trimmed,
+      note: note.trim() || null,
+      assignedEmployeeId: assignee.trim() || null,
+      blockedReason: blockedReason.trim() || null,
+    });
+    setEditing(false);
+  }, [assignee, blockedReason, card, note, onUpdate, title]);
 
   return (
-    <article className="rounded-lg border border-border-subtle bg-surface-muted p-3">
+    <article
+      className="group relative rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-sm transition hover:border-border-focus"
+      draggable={!editing}
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/plain', card.id);
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+    >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="min-w-0 flex-1 text-xs font-semibold text-text-primary">{card.title}</h3>
-        <span
-          className="shrink-0 rounded-full border px-1.5 text-[10px] font-bold uppercase"
-          style={{ color: ORIGIN_COLOR[card.origin], borderColor: ORIGIN_COLOR[card.origin] }}
-        >
-          {card.origin}
-        </span>
-      </div>
-      {card.note && (
-        <p className="mt-2 text-[11px] leading-relaxed text-text-secondary">{card.note}</p>
-      )}
-      {card.blockedReason && (
-        <div className="mt-2 rounded-lg bg-warning-muted px-2 py-1 text-[11px] font-medium text-warning">
-          ⛔ {card.blockedReason}
-        </div>
-      )}
-      <div className="mt-3 flex flex-wrap gap-1">
-        {allowedTargets.length > 0 ? (
-          allowedTargets.map((state) => (
-            <button
-              key={state}
-              type="button"
-              className="rounded-lg border border-border-default px-2 py-1 text-[10px] text-text-secondary hover:border-border-focus hover:text-accent disabled:opacity-40"
-              disabled={busy}
-              onClick={() => void onMove(card, state)}
-            >
-              {KANBAN_LABELS[state]}
-            </button>
-          ))
+        {editing ? (
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            className="min-w-0 flex-1 rounded border border-border-subtle bg-surface px-2 py-1 text-xs font-semibold text-text-primary outline-none focus:border-border-focus"
+          />
         ) : (
-          <span className="rounded-lg border border-border-default px-2 py-1 text-[10px] uppercase text-text-muted">
-            Terminal
+          <h3 className="min-w-0 flex-1 pr-5 text-[12px] font-semibold leading-snug text-text-primary">{card.title}</h3>
+        )}
+        {!editing ? (
+          <button
+            type="button"
+            aria-label="Edit card"
+            className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-subtle bg-surface/85 text-text-muted opacity-0 shadow-sm transition hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
+            disabled={busy}
+            onClick={() => setEditing(true)}
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        ) : (
+          <span
+            className="hidden shrink-0 rounded-full border px-1.5 text-[9px] font-bold uppercase min-[980px]:inline-flex"
+            style={{ color: ORIGIN_COLOR[card.origin], borderColor: ORIGIN_COLOR[card.origin] }}
+          >
+            {card.origin}
           </span>
         )}
       </div>
+      {editing ? (
+        <div className="mt-2 space-y-1.5">
+          <textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            rows={2}
+            placeholder="Note"
+            className="w-full resize-none rounded border border-border-subtle bg-surface px-2 py-1 text-[11px] leading-relaxed text-text-secondary outline-none focus:border-border-focus"
+          />
+          <select
+            value={assignee}
+            onChange={(event) => setAssignee(event.target.value)}
+            className="h-7 w-full rounded border border-border-subtle bg-surface px-2 text-[10px] text-text-secondary outline-none focus:border-border-focus"
+          >
+            <option value="">No assignee</option>
+            {assignees.map(([id, agent]) => (
+              <option key={id} value={id}>
+                {agent.name}
+              </option>
+            ))}
+          </select>
+          <input
+            value={blockedReason}
+            onChange={(event) => setBlockedReason(event.target.value)}
+            placeholder="Blocked reason"
+            className="h-7 w-full rounded border border-border-subtle bg-surface px-2 text-[10px] text-text-secondary outline-none placeholder:text-text-muted focus:border-border-focus"
+          />
+        </div>
+      ) : (
+        card.note && (
+          <p className="mt-1.5 line-clamp-2 text-[10px] leading-relaxed text-text-secondary">{card.note}</p>
+        )
+      )}
+      {!editing && (
+        <div className="mt-3 flex items-end justify-between gap-2">
+          <div className="min-w-0 space-y-1">
+            <span
+              className="inline-flex max-w-full truncate rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
+              style={{
+                color: card.blockedReason ? 'var(--color-error)' : ORIGIN_COLOR[card.origin],
+                backgroundColor: card.blockedReason
+                  ? 'var(--color-error-muted, rgba(239, 68, 68, 0.12))'
+                  : 'var(--color-accent-muted, rgba(37, 99, 235, 0.12))',
+              }}
+            >
+              {card.blockedReason || originLabel(card.origin)}
+            </span>
+            {assignedAgent ? (
+              <span className="flex min-w-0 items-center gap-1 text-[10px] font-medium text-text-secondary">
+                <EmployeeAvatar agent={assignedAgent} size={18} className="h-[18px] w-[18px] rounded-full" />
+                <span className="truncate">{assignedAgent.name}</span>
+              </span>
+            ) : null}
+          </div>
+          <span
+            className="mb-1 h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: STATE_ACCENTS[card.state] }}
+            aria-label={`${KANBAN_LABELS[card.state]} status`}
+          />
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap gap-1">
+        {editing ? (
+          <>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-lg border border-success/40 bg-success-muted px-2 py-1 text-[10px] font-semibold text-success disabled:opacity-40"
+              disabled={busy || title.trim().length === 0}
+              onClick={() => void save()}
+            >
+              <Check className="h-3 w-3" />
+              Save
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-lg border border-border-default px-2 py-1 text-[10px] text-text-secondary hover:text-text-primary"
+              disabled={busy}
+              onClick={() => {
+                setTitle(card.title);
+                setNote(card.note);
+                setAssignee(card.assignedEmployeeId ?? '');
+                setBlockedReason(card.blockedReason ?? '');
+                setEditing(false);
+              }}
+            >
+              <X className="h-3 w-3" />
+              Cancel
+            </button>
+          </>
+        ) : null}
+      </div>
     </article>
   );
+}
+
+function originLabel(origin: KanbanOrigin): string {
+  switch (origin) {
+    case 'pm-planner':
+      return 'PM Planned';
+    case 'employee':
+      return 'Employee';
+    case 'manager':
+      return 'Manager';
+    case 'human':
+      return 'Human';
+  }
 }
 
 function groupCards(cards: KanbanCardData[]): Record<KanbanState, KanbanCardData[]> {
