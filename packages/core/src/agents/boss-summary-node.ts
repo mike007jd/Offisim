@@ -267,7 +267,7 @@ export async function bossSummaryNode(
     }
     return {
       completed: false,
-      interruptReason: 'boss-summary-blocked-plan',
+      interruptReason: null,
       messages: [new AIMessage({ content })],
     };
   }
