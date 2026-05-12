@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useReducer, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useReducer, useRef } from 'react';
 import { IDLE_CEREMONY } from '../../hooks/useSceneOrchestrator.js';
 import { useSceneCeremony } from '../../runtime/scene-ceremony-context.js';
 import { PerformanceHUD } from './PerformanceHUD';
@@ -93,7 +93,7 @@ interface SceneCanvasProps {
   selectedEmployeeId?: string | null;
   onSelectEmployee?: (id: string) => void;
   onDeselectEmployee?: () => void;
-  onFallbackTo2D?: (error: Error) => void;
+  onFallbackTo2D?: (error?: Error) => void;
   renderEmployeeBadge?: (employeeId: string) => React.ReactNode;
 }
 
@@ -114,18 +114,9 @@ export function SceneCanvas({
   useScene(reducedMotion);
   const [state, dispatch] = useReducer(fallbackReducer, INITIAL_FALLBACK_STATE);
   const effectiveViewMode = state.force2D ? '2D' : viewMode;
-  const [hasMounted2D, setHasMounted2D] = useState(viewMode === '2D');
-  const [hasMounted3D, setHasMounted3D] = useState(viewMode === '3D');
-
-  useEffect(() => {
-    if (effectiveViewMode === '2D') {
-      setHasMounted2D(true);
-    } else {
-      setHasMounted3D(true);
-    }
-  }, [effectiveViewMode]);
 
   const lastNonceRef = useRef<number | null>(null);
+  const lastViewModeRef = useRef(viewMode);
   useEffect(() => {
     if (lastNonceRef.current === null) {
       lastNonceRef.current = viewModeNonce;
@@ -137,16 +128,19 @@ export function SceneCanvas({
     }
   }, [viewModeNonce]);
 
+  useEffect(() => {
+    const previous = lastViewModeRef.current;
+    lastViewModeRef.current = viewMode;
+    if (previous !== viewMode && viewMode === '3D') {
+      dispatch({ type: 'viewModeBumped' });
+    }
+  }, [viewMode]);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-surface">
       <SceneErrorBoundary>
-        <div
-          aria-hidden={effectiveViewMode !== '2D'}
-          className={`absolute inset-0 transition-opacity duration-200 ${
-            effectiveViewMode === '2D' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          {hasMounted2D && (
+        {effectiveViewMode === '2D' && (
+          <div className="absolute inset-0">
             <Suspense
               fallback={
                 <div className="flex h-full w-full items-center justify-center">
@@ -163,8 +157,8 @@ export function SceneCanvas({
                 onDeselectEmployee={onDeselectEmployee}
               />
             </Suspense>
-          )}
-        </div>
+          </div>
+        )}
 
         <SceneErrorBoundary
           fallback={null}
@@ -173,13 +167,8 @@ export function SceneCanvas({
             onFallbackTo2D?.(error);
           }}
         >
-          <div
-            aria-hidden={effectiveViewMode !== '3D'}
-            className={`absolute inset-0 transition-opacity duration-200 ${
-              effectiveViewMode === '3D' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}
-          >
-            {hasMounted3D && (
+          {effectiveViewMode === '3D' && (
+            <div className="absolute inset-0">
               <Suspense
                 fallback={
                   <div className="flex h-full w-full items-center justify-center">
@@ -197,12 +186,15 @@ export function SceneCanvas({
                   selectedEmployeeId={selectedEmployeeId}
                   onSelectEmployee={onSelectEmployee}
                   onDeselectEmployee={onDeselectEmployee}
-                  onRequestForce2D={() => dispatch({ type: 'fpsTierOff' })}
+                  onRequestForce2D={() => {
+                    dispatch({ type: 'fpsTierOff' });
+                    onFallbackTo2D?.();
+                  }}
                   renderEmployeeBadge={renderEmployeeBadge}
                 />
               </Suspense>
-            )}
-          </div>
+            </div>
+          )}
         </SceneErrorBoundary>
       </SceneErrorBoundary>
 
