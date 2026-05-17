@@ -161,6 +161,7 @@ export class McpToolExecutor implements ToolExecutor {
           name: tool.name,
           description: tool.description,
           parameters: (tool.inputSchema as Record<string, unknown>) ?? {},
+          ...(tool.annotations ? { annotations: tool.annotations } : {}),
         });
       }
     }

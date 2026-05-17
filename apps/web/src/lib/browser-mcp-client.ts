@@ -52,6 +52,7 @@ export class BrowserMcpClientFactory implements McpClientFactory {
       name: t.name,
       description: t.description ?? '',
       inputSchema: t.inputSchema,
+      ...(t.annotations ? { annotations: { readOnlyHint: t.annotations.readOnlyHint } } : {}),
     }));
     const capabilities = client.getServerCapabilities();
 
@@ -74,6 +75,7 @@ export class BrowserMcpClientFactory implements McpClientFactory {
           name: t.name,
           description: t.description ?? '',
           inputSchema: t.inputSchema,
+          ...(t.annotations ? { annotations: { readOnlyHint: t.annotations.readOnlyHint } } : {}),
         }));
       },
       async listResources(): Promise<ReadonlyArray<McpResourceDef>> {

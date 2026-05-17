@@ -131,6 +131,8 @@ export class SessionCostTracker {
         nodeName: call.node_name,
         inputTokens: call.input_tokens,
         outputTokens: call.output_tokens,
+        cacheReadInputTokens: call.cache_read_input_tokens,
+        cacheCreationInputTokens: call.cache_creation_input_tokens,
         latencyMs: call.latency_ms ?? 0,
       });
     }
@@ -167,6 +169,8 @@ export class SessionCostTracker {
       model: payload.model,
       inputTokens: payload.inputTokens,
       outputTokens: payload.outputTokens,
+      cacheReadInputTokens: payload.cacheReadInputTokens,
+      cacheCreationInputTokens: payload.cacheCreationInputTokens,
     });
 
     this.state.totalCalls += 1;

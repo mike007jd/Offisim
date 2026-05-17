@@ -96,6 +96,21 @@
       ]
     },
     {
+      "id": "boss-summary-single-artifact-already-emitted-no-duplicate",
+      "category": "graph",
+      "invariants": ["deliverable.already_emitted_artifact_does_not_emit_again"]
+    },
+    {
+      "id": "boss-summary-ordinary-team-summary-no-deliverable",
+      "category": "graph",
+      "invariants": ["deliverable.ordinary_team_summary_does_not_emit"]
+    },
+    {
+      "id": "boss-summary-existing-document-no-deliverable",
+      "category": "graph",
+      "invariants": ["deliverable.existing_document_summary_does_not_emit"]
+    },
+    {
       "id": "step-advance-segregates-blocked-from-completed",
       "category": "graph",
       "invariants": [
@@ -253,6 +268,39 @@
       ]
     },
     {
+      "id": "completion-coffee-tagline-no-deliverable",
+      "category": "long-running-runtime",
+      "invariants": ["deliverable.coffee_tagline_does_not_emit"]
+    },
+    {
+      "id": "completion-chinese-chat-no-deliverable",
+      "category": "long-running-runtime",
+      "invariants": ["deliverable.chinese_chat_does_not_emit"]
+    },
+    {
+      "id": "completion-explicit-markdown-file-emits-deliverable",
+      "category": "long-running-runtime",
+      "invariants": [
+        "deliverable.explicit_markdown_file_emits",
+        "deliverable.chat_thread_scope_persists"
+      ]
+    },
+    {
+      "id": "completion-read-existing-file-no-deliverable",
+      "category": "long-running-runtime",
+      "invariants": ["deliverable.existing_file_read_does_not_emit"]
+    },
+    {
+      "id": "completion-bare-filename-text-repairs-deliverable",
+      "category": "long-running-runtime",
+      "invariants": ["deliverable.bare_filename_plain_text_repairs_to_file"]
+    },
+    {
+      "id": "completion-document-deliverable-no-boss-duplicate",
+      "category": "long-running-runtime",
+      "invariants": ["deliverable.document_employee_artifact_prevents_boss_duplicate"]
+    },
+    {
       "id": "pm-heartbeat-flags-blocked-task",
       "category": "long-running-runtime",
       "invariants": [
@@ -333,7 +381,7 @@
       "id": "tool-loop-max-rounds-fails-fast",
       "category": "default-harness",
       "invariants": [
-        "tools.max_round_exhaustion_fails_task",
+        "tools.max_round_exhaustion_completes_with_partial",
         "tools.max_round_exhaustion_preserves_pending_call"
       ]
     },
@@ -621,6 +669,21 @@
         "matrix.boss_proxy_creates_done_card",
         "matrix.direct_to_employee_creates_done_card",
         "matrix.yolo_creates_done_card"
+      ]
+    },
+    {
+      "id": "mainstream-agent-gap-boundary",
+      "category": "mainstream-gap",
+      "invariants": [
+        "transport.prompt_cache_breakpoints_and_noop",
+        "tools.shell_command_classification",
+        "tools.shell_interaction_ask_flow",
+        "context_budget.window_and_cjk_estimates",
+        "tools.validation_and_result_spill",
+        "tools.core_edit_search_builtins",
+        "transport.retry_stop_reason_model_fallback",
+        "permissions.hook_and_argument_boundaries",
+        "delegation.isolated_sub_run_primitive"
       ]
     }
   ]

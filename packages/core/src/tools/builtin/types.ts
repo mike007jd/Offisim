@@ -22,6 +22,10 @@ export interface FsAdapter {
   readFile(path: string, options?: { threadId?: string }): Promise<string>;
   writeFile(path: string, content: string, options?: { threadId?: string }): Promise<void>;
   exists(path: string, options?: { threadId?: string }): Promise<boolean>;
+  listDir?(
+    path: string,
+    options?: { threadId?: string },
+  ): Promise<ReadonlyArray<{ name: string; path: string; isFile: boolean; isDirectory: boolean }>>;
 }
 
 export type ShellExec = (command: string, options: ShellExecOptions) => Promise<ShellExecResult>;
@@ -53,6 +57,8 @@ export interface BuiltinToolConfig {
   bashTimeoutMs?: number;
   /** Max output bytes (default 100KB) */
   maxOutputBytes?: number;
+  /** Fail-closed read-only mode for shell/file mutation tools. */
+  readOnly?: boolean;
   /**
    * Optional attachment-store bridge. When supplied AND
    * `runtimeCtx.llmToolCallsEnabled !== false`, `createBuiltinTools` registers

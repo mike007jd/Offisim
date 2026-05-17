@@ -24,6 +24,8 @@ export interface ToolPermissionRequest {
   readonly threadId: string;
   readonly serverName: string;
   readonly toolName: string;
+  readonly arguments?: Record<string, unknown>;
+  readonly readOnlyHint?: boolean;
   readonly employeeId?: string;
   readonly employeeConfigJson?: string | null;
 }
@@ -82,30 +84,18 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
       return employeeDecision;
     }
 
-    if (!request.employeeId) {
-      return this.defaultMcpDecision(request, runtimeDecision);
+    if (request.readOnlyHint === true) {
+      return this.defaultReadOnlyMcpDecision();
     }
 
-    return runtimeDecision ?? this.defaultMcpDecision(request, null);
+    if (!request.employeeId) {
+      return this.defaultMcpDecision();
+    }
+
+    return runtimeDecision ?? this.defaultMcpDecision();
   }
 
-  private async defaultMcpDecision(
-    request: ToolPermissionRequest,
-    runtimeDecision: ToolPermissionDecision | null,
-  ): Promise<ToolPermissionDecision> {
-    if (isClearlyReadOnlyMcpTool(request.toolName)) {
-      return {
-        behavior: 'allow',
-        source: runtimeDecision?.source ?? 'default',
-        reason: runtimeDecision?.reason ?? 'Tool name is classified as read-only by default.',
-        approvedBy: runtimeDecision?.approvedBy ?? 'default:read_only_mcp',
-        ...(runtimeDecision?.matchedPattern
-          ? { matchedPattern: runtimeDecision.matchedPattern }
-          : {}),
-        ...(runtimeDecision?.policyHash ? { policyHash: runtimeDecision.policyHash } : {}),
-      };
-    }
-
+  private async defaultMcpDecision(): Promise<ToolPermissionDecision> {
     return {
       behavior: 'ask',
       source: 'default',
@@ -113,6 +103,16 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
         'MCP tool side effects are unknown or ambiguous; explicit approval is required before execution.',
       approvedBy: 'default:unknown_mcp',
       policyHash: await buildRuntimePolicyHash('default:unknown_mcp', 'ask'),
+    };
+  }
+
+  private async defaultReadOnlyMcpDecision(): Promise<ToolPermissionDecision> {
+    return {
+      behavior: 'allow',
+      source: 'default',
+      reason: 'MCP server marked this tool read-only via annotations.',
+      approvedBy: 'default:mcp_read_only_annotation',
+      policyHash: await buildRuntimePolicyHash('default:mcp_read_only_annotation', 'allow'),
     };
   }
 
@@ -199,9 +199,9 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
     const policy = this.deps.runtimePolicy?.toolPermissions;
     if (!policy?.enabled) return null;
 
-    const identity = buildRuntimeIdentity(request.serverName, request.toolName);
+    const identities = buildRuntimeIdentities(request.serverName, request.toolName, request.arguments);
     const matchedRule = [...policy.rules]
-      .filter((rule) => globToRegex(rule.pattern).test(identity))
+      .filter((rule) => identities.some((identity) => globToRegex(rule.pattern).test(identity)))
       .sort((a, b) => b.pattern.length - a.pattern.length)[0];
 
     if (matchedRule) {
@@ -217,12 +217,6 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
       matchedBy: 'Runtime default policy',
     });
   }
-}
-
-function isClearlyReadOnlyMcpTool(toolName: string): boolean {
-  return /^(get|list|read|search|find|fetch|query|lookup|describe|inspect|status|show|preview|count)[_.:/-]/i.test(
-    `${toolName}-`,
-  );
 }
 
 async function runtimeBehaviorToDecision(
@@ -251,8 +245,14 @@ async function runtimeBehaviorToDecision(
   };
 }
 
-function buildRuntimeIdentity(serverName: string, toolName: string): string {
-  return `mcp:${serverName}:${toolName}`;
+function buildRuntimeIdentities(
+  serverName: string,
+  toolName: string,
+  args: Record<string, unknown> | undefined,
+): string[] {
+  const base = `mcp:${serverName}:${toolName}`;
+  const argText = args ? JSON.stringify(args) : '';
+  return argText ? [base, `${base}:${argText}`] : [base];
 }
 
 function parseEmployeeToolPermissionPolicy(raw: string | null): ToolPermissionPolicy | null {

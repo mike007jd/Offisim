@@ -1,7 +1,9 @@
 import type { BuiltinTool, BuiltinToolConfig } from './types.js';
+import { classifyShellCommand } from './shell-command-classifier.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT = 100 * 1024; // 100KB
+export const BASH_DESTRUCTIVE_APPROVED_ARG = '__offisimDestructiveApproved';
 
 export function createBashTool(config: BuiltinToolConfig): BuiltinTool | null {
   if (config.executionMode === 'browser-limited' || !config.shellExec) return null;
@@ -27,6 +29,13 @@ export function createBashTool(config: BuiltinToolConfig): BuiltinTool | null {
     async execute(args, context) {
       const command = args.command as string;
       const cwd = args.cwd as string | undefined;
+      const classification = classifyShellCommand(command, { readOnly: config.readOnly });
+      if (classification.decision === 'deny') {
+        throw new Error(`[SHELL_COMMAND_DENIED] ${classification.reason}`);
+      }
+      if (classification.decision === 'ask' && args[BASH_DESTRUCTIVE_APPROVED_ARG] !== true) {
+        throw new Error(`[TOOL_PERMISSION_REQUIRED] ${classification.reason}`);
+      }
       const result = await shellExec(command, {
         cwd,
         ...(context?.threadId ? { threadId: context.threadId } : {}),

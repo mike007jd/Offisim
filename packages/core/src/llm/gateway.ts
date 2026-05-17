@@ -13,6 +13,10 @@ export interface ToolDef {
   readonly name: string;
   readonly description: string;
   readonly parameters: Record<string, unknown>;
+  readonly maxResultSizeChars?: number;
+  readonly annotations?: {
+    readonly readOnlyHint?: boolean;
+  };
 }
 
 export interface ToolCallResult {
@@ -32,6 +36,8 @@ export type LlmToolChoice =
 export interface LlmUsage {
   readonly inputTokens: number;
   readonly outputTokens: number;
+  readonly cacheReadInputTokens?: number;
+  readonly cacheCreationInputTokens?: number;
 }
 
 export interface LlmRequest {
@@ -62,6 +68,7 @@ export interface LlmResponse {
   readonly reasoningContent?: string;
   readonly toolCalls: readonly ToolCallResult[];
   readonly usage: LlmUsage;
+  readonly stopReason?: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | 'refusal' | 'unknown';
 }
 
 export interface LlmStreamChunk {
@@ -69,6 +76,7 @@ export interface LlmStreamChunk {
   readonly reasoning?: string;
   readonly toolCalls?: readonly ToolCallResult[];
   readonly usage?: LlmUsage;
+  readonly stopReason?: LlmResponse['stopReason'];
   readonly done: boolean;
 }
 

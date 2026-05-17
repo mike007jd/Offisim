@@ -98,6 +98,7 @@ export {
   getProviderPreset,
   getSupportedExecutionLanesForPreset,
 } from './components/settings/provider-presets.js';
+export { resolveModelContextWindow } from './lib/provider-product-taxonomy.js';
 export { loadStoredBrowserMcpServers } from './lib/desktop-mcp-registry.js';
 export { getTrustedHostProductStatus } from './lib/desktop-provider-secrets.js';
 export { NotificationProvider } from './runtime/notification-provider.js';

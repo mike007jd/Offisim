@@ -29,8 +29,14 @@ export interface ModelRegistryEntry {
   temperature?: number;
   /** Default max tokens */
   maxTokens?: number;
+  /** Real model context window used by conversation budgeting */
+  contextWindow?: number;
+  /** Provider supports Anthropic prompt-cache cache_control blocks */
+  supportsPromptCaching?: boolean;
   /** Whether this is the default model */
   isDefault?: boolean;
+  /** Use as deterministic fallback when another profile repeatedly hits provider capacity. */
+  fallbackForCapacity?: boolean;
 }
 
 /**
@@ -47,6 +53,8 @@ export class ModelRegistry {
   private entries = new Map<string, ModelRegistryEntry>();
   private gateways = new Map<string, LlmGateway>();
   private defaultId: string | null = null;
+  private capacityFailures = new Map<string, number>();
+  private readonly capacityFailureThreshold = 2;
 
   /** Load models from parsed config. Does not do file I/O. */
   loadConfig(config: ModelRegistryConfig): void {
@@ -92,20 +100,24 @@ export class ModelRegistry {
     const cached = this.gateways.get(modelId);
     if (cached) return cached;
 
-    const entry = this.entries.get(modelId);
+    const entry = this.entryOrFallback(modelId);
     if (!entry) return null;
+    const cacheKey = entry.id;
+    const fallbackCached = this.gateways.get(cacheKey);
+    if (fallbackCached) return fallbackCached;
 
     const gatewayConfig: GatewayConfig = {
       provider: entry.provider,
       apiKey: entry.apiKey,
       baseURL: entry.baseURL,
       defaultHeaders: entry.defaultHeaders,
+      supportsPromptCaching: entry.supportsPromptCaching,
       dangerouslyAllowBrowser: true,
     };
 
     try {
       const gateway = createGateway(gatewayConfig);
-      this.gateways.set(modelId, gateway);
+      this.gateways.set(cacheKey, gateway);
       return gateway;
     } catch (err) {
       logger.error(`Failed to create gateway for model "${modelId}"`, err);
@@ -126,7 +138,33 @@ export class ModelRegistry {
 
   /** Find a model by ID. */
   findById(modelId: string): ModelRegistryEntry | null {
-    return this.entries.get(modelId) ?? null;
+    return this.entryByIdOrModel(modelId);
+  }
+
+  resolveForRequest(modelId: string): ModelRegistryEntry | null {
+    if ((this.capacityFailures.get(modelId) ?? 0) >= this.capacityFailureThreshold) {
+      const fallback = this.capacityFallbackEntry(modelId);
+      if (fallback) {
+        logger.warn(
+          `Model "${modelId}" has repeated capacity failures; downgrading to "${fallback.id}"`,
+        );
+        return fallback;
+      }
+    }
+    return this.entryOrFallback(modelId);
+  }
+
+  recordCapacityError(modelId: string): ModelRegistryEntry | null {
+    const key = this.entryByIdOrModel(modelId)?.id ?? modelId;
+    const next = (this.capacityFailures.get(key) ?? 0) + 1;
+    this.capacityFailures.set(key, next);
+    if (next < this.capacityFailureThreshold) return null;
+    return this.capacityFallbackEntry(key);
+  }
+
+  recordSuccess(modelId: string): void {
+    const key = this.entryByIdOrModel(modelId)?.id ?? modelId;
+    this.capacityFailures.delete(key);
   }
 
   /** Dispose all cached gateways. */
@@ -155,5 +193,33 @@ export class ModelRegistry {
       return resolved;
     }
     return value;
+  }
+
+  private entryOrFallback(modelId: string): ModelRegistryEntry | null {
+    const entry = this.entryByIdOrModel(modelId);
+    if (entry) return entry;
+    const fallback = this.getDefault() ?? this.entries.values().next().value ?? null;
+    if (fallback) {
+      logger.warn(`Model "${modelId}" not registered; falling back to "${fallback.id}"`);
+    }
+    return fallback;
+  }
+
+  private capacityFallbackEntry(modelId: string): ModelRegistryEntry | null {
+    const explicit = [...this.entries.values()].find(
+      (entry) => entry.id !== modelId && entry.fallbackForCapacity === true,
+    );
+    if (explicit) return explicit;
+    const defaultEntry = this.getDefault();
+    if (defaultEntry && defaultEntry.id !== modelId) return defaultEntry;
+    return [...this.entries.values()].find((entry) => entry.id !== modelId) ?? null;
+  }
+
+  private entryByIdOrModel(modelId: string): ModelRegistryEntry | null {
+    return (
+      this.entries.get(modelId) ??
+      [...this.entries.values()].find((entry) => entry.model === modelId) ??
+      null
+    );
   }
 }

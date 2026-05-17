@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { PROMPT_CACHE_VOLATILE_MARKER } from '../agents/employee-prompt-assembly.js';
 import { LlmError } from '../errors.js';
 import type {
   LlmGateway,
@@ -104,7 +105,10 @@ function mapMessages(
     } else {
       const baseMessage = {
         role: msg.role as 'system' | 'user' | 'assistant',
-        content: msg.content,
+        content:
+          msg.role === 'system'
+            ? msg.content.replaceAll(PROMPT_CACHE_VOLATILE_MARKER, '').trim()
+            : msg.content,
       };
       if (msg.role === 'assistant' && msg.reasoningContent) {
         result.push({
@@ -205,12 +209,15 @@ export class OpenAiAdapter implements LlmGateway {
       async function* generate(): AsyncGenerator<LlmStreamChunk> {
         try {
           let finalUsage: LlmUsage | undefined;
+          let stopReason: LlmResponse['stopReason'];
           // Accumulate tool calls during streaming
           const streamToolCalls: Map<number, { id: string; name: string; argChunks: string[] }> =
             new Map();
 
           for await (const chunk of stream) {
             const delta = chunk.choices[0]?.delta as CompatDelta | undefined;
+            const finishReason = chunk.choices[0]?.finish_reason;
+            if (finishReason) stopReason = mapFinishReason(finishReason);
             if (delta?.reasoning_content) {
               yield { reasoning: delta.reasoning_content, done: false };
             }
@@ -264,6 +271,7 @@ export class OpenAiAdapter implements LlmGateway {
             done: true,
             toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
             usage: finalUsage,
+            stopReason,
           };
         } catch (error: unknown) {
           throw self.mapError(error);
@@ -317,6 +325,7 @@ export class OpenAiAdapter implements LlmGateway {
         inputTokens: response.usage?.prompt_tokens ?? 0,
         outputTokens: response.usage?.completion_tokens ?? 0,
       },
+      stopReason: mapFinishReason(choice?.finish_reason),
     };
   }
 
@@ -334,5 +343,21 @@ export class OpenAiAdapter implements LlmGateway {
       undefined,
       { cause: error },
     );
+  }
+}
+
+function mapFinishReason(reason: string | null | undefined): LlmResponse['stopReason'] {
+  switch (reason) {
+    case 'stop':
+      return 'end_turn';
+    case 'tool_calls':
+    case 'function_call':
+      return 'tool_use';
+    case 'length':
+      return 'max_tokens';
+    case 'content_filter':
+      return 'refusal';
+    default:
+      return 'unknown';
   }
 }

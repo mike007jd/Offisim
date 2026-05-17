@@ -6,6 +6,9 @@ import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId } from '../utils/generate-id.js';
 import { SKILL_INSTALL_TOOL_NAMES } from './skill-install-tools.js';
 
+const OUTPUT_TRUNCATED_NOTICE =
+  '[OUTPUT_TRUNCATED] Model stopped at max output tokens; response may be incomplete.';
+
 export type TurnRunner = (
   messages: LlmMessage[],
   meta: { taskRunId?: string },
@@ -142,6 +145,17 @@ function coerceExplicitSkillToolCall(
   };
 }
 
+function surfaceOutputTruncation(response: LlmResponse): LlmResponse {
+  if (response.stopReason !== 'max_tokens' || response.toolCalls.length > 0) return response;
+  if (response.content.includes(OUTPUT_TRUNCATED_NOTICE)) return response;
+  return {
+    ...response,
+    content: response.content
+      ? `${response.content}\n\n${OUTPUT_TRUNCATED_NOTICE}`
+      : OUTPUT_TRUNCATED_NOTICE,
+  };
+}
+
 /**
  * Build the per-turn LLM caller used by the employee node. Stream branch forwards
  * both reasoning and content deltas onto the event bus; non-stream branch skips
@@ -187,7 +201,9 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
         projectId,
         employeeId,
       });
-      const coerced = coerceExplicitSkillToolCall(messages, response, forcedSkillToolChoice);
+      const coerced = surfaceOutputTruncation(
+        coerceExplicitSkillToolCall(messages, response, forcedSkillToolChoice),
+      );
       await observeRollingJournal(runtimeCtx, messages, coerced);
       return coerced;
     }
@@ -211,8 +227,11 @@ export function buildTurnRunner(deps: TurnRunnerDeps): TurnRunner {
       reasoningContent: streamResult.fullReasoning || undefined,
       toolCalls: streamResult.toolCalls,
       usage: streamResult.usage,
+      stopReason: streamResult.stopReason,
     };
-    const coerced = coerceExplicitSkillToolCall(messages, response, forcedSkillToolChoice);
+    const coerced = surfaceOutputTruncation(
+      coerceExplicitSkillToolCall(messages, response, forcedSkillToolChoice),
+    );
     await observeRollingJournal(runtimeCtx, messages, coerced);
     return coerced;
   };

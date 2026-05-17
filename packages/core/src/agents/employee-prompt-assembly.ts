@@ -11,6 +11,7 @@ import type { PreflightResult } from './employee-preflight.js';
 import { buildEnrichedEmployeeList } from './employee-roster.js';
 
 const DESCRIPTION_TRUNCATION_LIMIT = 200;
+export const PROMPT_CACHE_VOLATILE_MARKER = '<!-- offisim-cache-volatile -->';
 
 function truncateDescription(text: string): string {
   if (text.length <= DESCRIPTION_TRUNCATION_LIMIT) return text;
@@ -59,10 +60,6 @@ export async function assemblePrompt(
   const { memoryService, repos, eventBus, scratchpad, companyId, skillLoader } = runtimeCtx;
 
   let systemPrompt = buildEmployeePrompt(employee, company, taskDescription);
-  const anchor = runtimeCtx.rollingJournal?.anchorText();
-  if (anchor) {
-    systemPrompt += `\n\n<anchor>${sanitizeForPrompt(anchor, 2000)}</anchor>`;
-  }
 
   if (skillLoader) {
     try {
@@ -71,6 +68,13 @@ export async function assemblePrompt(
     } catch {
       // Skill listing failures are non-critical — prompt assembly must not throw.
     }
+  }
+
+  systemPrompt += `\n\n${PROMPT_CACHE_VOLATILE_MARKER}`;
+
+  const anchor = runtimeCtx.rollingJournal?.anchorText();
+  if (anchor) {
+    systemPrompt += `\n\n<anchor>${sanitizeForPrompt(anchor, 2000)}</anchor>`;
   }
 
   try {

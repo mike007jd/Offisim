@@ -41,6 +41,8 @@ export function llmCallCompleted(
   latencyMs: number,
   inputTokens: number,
   outputTokens: number,
+  cacheReadInputTokens = 0,
+  cacheCreationInputTokens = 0,
 ): RuntimeEvent<LlmCallCompletedPayload> {
   return {
     type: 'llm.call.completed',
@@ -48,7 +50,15 @@ export function llmCallCompleted(
     entityType: 'llm',
     companyId,
     timestamp: Date.now(),
-    payload: { llmCallId, nodeName, latencyMs, inputTokens, outputTokens },
+    payload: {
+      llmCallId,
+      nodeName,
+      latencyMs,
+      inputTokens,
+      outputTokens,
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+    },
   };
 }
 
@@ -63,6 +73,8 @@ export function llmUsageRecorded(
   inputTokens: number,
   outputTokens: number,
   latencyMs: number,
+  cacheReadInputTokens = 0,
+  cacheCreationInputTokens = 0,
 ): RuntimeEvent<LlmUsageRecordedPayload> {
   return {
     type: 'llm.usage.recorded',
@@ -80,6 +92,8 @@ export function llmUsageRecorded(
       nodeName,
       inputTokens,
       outputTokens,
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
       latencyMs,
     },
   };

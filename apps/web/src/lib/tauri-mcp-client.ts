@@ -69,11 +69,15 @@ export class TauriMcpClientFactory implements McpClientFactory {
       },
     });
 
-    const tools: McpToolDef[] = result.tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      inputSchema: t.input_schema,
-    }));
+    const tools: McpToolDef[] = result.tools.map((t) => {
+      const annotations = (t as { annotations?: { readOnlyHint?: boolean } }).annotations;
+      return {
+        name: t.name,
+        description: t.description,
+        inputSchema: t.input_schema,
+        ...(annotations ? { annotations: { readOnlyHint: annotations.readOnlyHint } } : {}),
+      };
+    });
 
     return {
       config,

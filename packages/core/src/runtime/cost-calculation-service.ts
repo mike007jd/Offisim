@@ -100,6 +100,8 @@ export class CostCalculationService {
       model: call.model,
       inputTokens: call.input_tokens,
       outputTokens: call.output_tokens,
+      cacheReadInputTokens: call.cache_read_input_tokens,
+      cacheCreationInputTokens: call.cache_creation_input_tokens,
     });
   }
 
@@ -145,6 +147,8 @@ export class CostCalculationService {
         model: call.model,
         inputTokens: call.input_tokens,
         outputTokens: call.output_tokens,
+        cacheReadInputTokens: call.cache_read_input_tokens,
+        cacheCreationInputTokens: call.cache_creation_input_tokens,
       });
 
       existing.inputTokens += call.input_tokens;
@@ -204,6 +208,8 @@ export class CostCalculationService {
         model: call.model,
         inputTokens: call.input_tokens,
         outputTokens: call.output_tokens,
+        cacheReadInputTokens: call.cache_read_input_tokens,
+        cacheCreationInputTokens: call.cache_creation_input_tokens,
       });
 
       totalCost += estimate.totalCost;

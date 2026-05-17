@@ -19,8 +19,21 @@ export class ConversationBudgetService {
 
   constructor(private readonly defaults: ConversationBudgetServiceOptions = {}) {}
 
-  async prepareRequest(ctx: RuntimeContext, request: LlmRequest): Promise<LlmRequest> {
-    const options = resolveOptions(ctx, this.defaults);
+  async prepareRequest(
+    ctx: RuntimeContext,
+    request: LlmRequest,
+    preparation: { forceFullCompact?: boolean } = {},
+  ): Promise<LlmRequest> {
+    const registryContextWindow = ctx.modelRegistry?.findById(request.model)?.contextWindow;
+    const resolvedContextWindow =
+      this.defaults.resolvedContextWindowTokens ??
+      registryContextWindow ??
+      this.defaults.contextWindowResolver?.(request.model);
+    const options = resolveOptions(ctx, {
+      ...this.defaults,
+      resolvedContextWindowTokens: resolvedContextWindow,
+      reservedOutputTokens: this.defaults.reservedOutputTokens ?? request.maxTokens,
+    });
     const thread = await ctx.repos.threads.findById(ctx.threadId);
     let compactBaseline: CompactBaselineState | null = parseCompactBaseline(
       thread?.compact_baseline_json ?? null,
@@ -47,7 +60,9 @@ export class ConversationBudgetService {
       effectiveTailNonSystemMessages,
     );
 
-    if (!options.enabled) {
+    const forceFullCompact = preparation.forceFullCompact === true;
+
+    if (!options.enabled && !forceFullCompact) {
       return {
         ...request,
         messages: pruneLlmMessages(
@@ -61,7 +76,7 @@ export class ConversationBudgetService {
       };
     }
 
-    if (nonSystemMessages.length <= effectiveMaxNonSystemMessages) {
+    if (!forceFullCompact && nonSystemMessages.length <= effectiveMaxNonSystemMessages) {
       const prepared = buildRequestMessages(systemMessages, compactBaseline, nonSystemMessages);
       return compactedMessages === request.messages && !compactBaseline
         ? request
@@ -74,8 +89,9 @@ export class ConversationBudgetService {
     const approximateTokens = estimateTokens(nonSystemMessages);
     const wantsInitialFullCompact =
       !compactBaseline &&
-      rawNonSystemMessages.length >= options.fullCompactTriggerMessages &&
-      approximateTokens >= options.fullCompactTriggerTokens;
+      (forceFullCompact ||
+        (rawNonSystemMessages.length >= options.fullCompactTriggerMessages &&
+          approximateTokens >= options.fullCompactTriggerTokens));
     const overflowCount = Math.max(0, nonSystemMessages.length - effectiveTailNonSystemMessages);
     const newOverflowSinceSynopsis = existingSynopsis
       ? Math.max(0, overflowCount - existingSynopsis.prunedMessageCount)
@@ -116,8 +132,9 @@ export class ConversationBudgetService {
 
     if (
       compactBaseline &&
-      nonSystemMessages.length >= options.fullCompactTriggerMessages &&
-      approximateTokens >= options.fullCompactTriggerTokens
+      (forceFullCompact ||
+        (nonSystemMessages.length >= options.fullCompactTriggerMessages &&
+          approximateTokens >= options.fullCompactTriggerTokens))
     ) {
       const result = await this.fullCompactOrchestrator.tryRefreshCompact(ctx, {
         rawNonSystemMessages,

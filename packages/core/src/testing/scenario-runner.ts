@@ -33,6 +33,7 @@ import type { RuntimeRepositories } from '../runtime/repositories.js';
 import type { RunConversationStateSnapshot } from '../runtime/run-conversation-state.js';
 import { type RuntimeContext, createRuntimeContext } from '../runtime/runtime-context.js';
 import type { RuntimeDeterminism } from '../runtime/runtime-context.js';
+import { HookRegistry } from '../runtime/hook-registry.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { createRuntimeRollingJournal } from '../services/conversation-budget/rolling-journal-runtime.js';
 import { InteractionService } from '../services/interaction-service.js';
@@ -46,6 +47,7 @@ import { canonicalJson } from './canonical-json.js';
 import { FakeGateway, type FakeGatewayTurn, fakeResponse } from './fake-gateway.js';
 import { sha256Text } from './hash.js';
 import { type ScenarioAssertion, evaluateScenarioAssertions } from './invariant-assertions.js';
+import { mainstreamGapCaseEvents, runMainstreamGapCases } from './mainstream-gap-cases.js';
 import { type ScenarioTraceReport, TraceRecorder } from './trace-recorder.js';
 
 const HARNESS_RUNTIME_POLICY = {
@@ -64,6 +66,7 @@ const HARNESS_RUNTIME_POLICY = {
   toolSearch: { enabled: false },
   toolPermissions: { enabled: true, defaultBehavior: 'allow', rules: [] },
   recording: { mode: 'replay' },
+  toolLoop: { maxRounds: 5 },
 } satisfies RuntimePolicyConfig;
 
 const HARNESS_SYSTEM_GATEWAY: LlmGateway = {
@@ -94,6 +97,7 @@ export interface DeterministicScenario {
   readonly toolFixtures?: Record<string, readonly ToolResultFixture[]>;
   readonly skillInstallRuntime?: SkillInstallEnvironment['runtime'];
   readonly llmTurns?: readonly ScenarioLlmTurn[];
+  readonly gapCases?: readonly string[];
   readonly interactionMode?: InteractionMode;
   readonly runs?: readonly ScenarioRun[];
   readonly assertions: readonly ScenarioAssertion[];
@@ -148,6 +152,7 @@ interface ScenarioModelRegistryEntry {
   readonly model: string;
   readonly temperature?: number;
   readonly maxTokens?: number;
+  readonly contextWindow?: number;
 }
 
 interface SeedKanbanCard {
@@ -162,6 +167,7 @@ interface SeedKanbanCard {
 
 interface ScenarioInitialState {
   readonly projectId?: string | null;
+  readonly chatThreadId?: string | null;
   readonly managerDirective?: OffisimGraphState['managerDirective'];
   readonly taskPlan?: TaskPlan;
   readonly pendingAssignments?: readonly PendingAssignment[];
@@ -239,6 +245,9 @@ export async function runDeterministicScenario(
 ): Promise<ScenarioTraceReport> {
   if (isKanbanMatrixScenario(scenario)) {
     return runKanbanMatrixScenario(scenario);
+  }
+  if (isMainstreamGapScenario(scenario)) {
+    return runMainstreamGapScenario(scenario);
   }
 
   const eventBus = new InMemoryEventBus();
@@ -396,6 +405,42 @@ export async function runDeterministicScenario(
 
 function isKanbanMatrixScenario(scenario: DeterministicScenario): boolean {
   return scenario.category === 'kanban-matrix';
+}
+
+function isMainstreamGapScenario(scenario: DeterministicScenario): boolean {
+  return scenario.category === 'mainstream-gap';
+}
+
+async function runMainstreamGapScenario(
+  scenario: DeterministicScenario,
+): Promise<ScenarioTraceReport> {
+  const repos = createMemoryRepositories();
+  const companyId = scenario.seed.company?.companyId ?? `company-${scenario.id}`;
+  const threadId = scenario.seed.thread?.threadId ?? `thread-${scenario.id}`;
+  const results = await runMainstreamGapCases(scenario.gapCases ?? []);
+  const events = mainstreamGapCaseEvents(companyId, threadId, results);
+  const assertions = await evaluateScenarioAssertions(scenario.assertions, {
+    scenarioId: scenario.id,
+    finalState: {},
+    repos,
+    threadId,
+    toolExecutions: [],
+    events,
+  });
+  const trace = {
+    events,
+    db: {},
+    finalState: {
+      cases: results,
+    },
+  };
+  return {
+    scenarioId: scenario.id,
+    passed: assertions.every((assertion) => assertion.passed),
+    traceHash: await sha256Text(canonicalJson(trace)),
+    assertions,
+    trace,
+  };
 }
 
 async function runKanbanMatrixScenario(
@@ -807,6 +852,7 @@ function createScenarioRuntime(params: {
     builtinToolMap.size > 0
       ? new CompositeToolExecutor(builtinToolMap, params.toolExecutor)
       : params.toolExecutor;
+  const hookRegistry = new HookRegistry();
   const auditedToolExecutor = new AuditingToolExecutor(
     executionToolExecutor,
     params.repos.mcpAudit,
@@ -815,6 +861,7 @@ function createScenarioRuntime(params: {
     params.threadId,
     authorizer,
     params.interactionService,
+    hookRegistry,
   );
   let runtimeCtx: RuntimeContext | null = null;
   const rollingJournal = createRuntimeRollingJournal(() => {
@@ -846,6 +893,7 @@ function createScenarioRuntime(params: {
       : {}),
     builtinTools: builtinToolMap,
     interactionService: params.interactionService,
+    hookRegistry,
     rollingJournal,
     ...(params.skillLoader ? { skillLoader: params.skillLoader } : {}),
     ...(params.skillStagingManager ? { skillStagingManager: params.skillStagingManager } : {}),
@@ -872,6 +920,7 @@ function createScenarioModelRegistry(
       apiKey: '$HARNESS_FAKE_KEY',
       ...(entry.temperature !== undefined ? { temperature: entry.temperature } : {}),
       ...(entry.maxTokens !== undefined ? { maxTokens: entry.maxTokens } : {}),
+      ...(entry.contextWindow !== undefined ? { contextWindow: entry.contextWindow } : {}),
     }),
   );
   return {
@@ -1075,6 +1124,7 @@ function buildInitialState(
       scenario.seed.thread?.projectId ??
       scenario.seed.projects?.[0]?.id ??
       null,
+    chatThreadId: scenario.initialState.chatThreadId ?? null,
     targetEmployeeId: scenario.initialState.targetEmployeeId ?? null,
     messages: (scenario.initialState.messages ?? []).map(
       (message) => new HumanMessage(message.content),

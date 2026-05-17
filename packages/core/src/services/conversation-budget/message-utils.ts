@@ -2,6 +2,7 @@ import type { CompactBaselineState } from '../../graph/state.js';
 import type { LlmRequest } from '../../llm/gateway.js';
 
 type LlmMessage = LlmRequest['messages'][number];
+const encoder = new TextEncoder();
 
 export function buildRequestMessages(
   systemMessages: readonly LlmMessage[],
@@ -26,11 +27,16 @@ export function buildRequestMessages(
 
 export function estimateTokens(messages: readonly LlmMessage[]): number {
   const rawEstimate = messages.reduce((total, message) => {
-    const contentTokens = Math.ceil(message.content.length / 4);
+    const contentTokens = estimateTextTokens(message.content);
     const toolTokens = message.toolCalls
-      ? Math.ceil(JSON.stringify(message.toolCalls).length / 4)
+      ? estimateTextTokens(JSON.stringify(message.toolCalls))
       : 0;
     return total + contentTokens + toolTokens;
   }, 0);
   return Math.ceil(rawEstimate * (4 / 3));
+}
+
+function estimateTextTokens(text: string): number {
+  if (!text) return 0;
+  return Math.ceil(Math.max(text.length / 4, encoder.encode(text).byteLength / 4));
 }

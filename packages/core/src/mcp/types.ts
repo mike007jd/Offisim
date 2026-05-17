@@ -37,6 +37,9 @@ export interface McpToolDef {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: unknown;
+  readonly annotations?: {
+    readonly readOnlyHint?: boolean;
+  };
 }
 
 export interface McpResourceDef {

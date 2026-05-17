@@ -8,6 +8,7 @@ export interface TeeResult {
   fullReasoning: string;
   toolCalls: ToolCallResult[];
   usage: LlmUsage;
+  stopReason?: LlmStreamChunk['stopReason'];
 }
 
 export async function teeStream(
@@ -18,6 +19,7 @@ export async function teeStream(
   let fullReasoning = '';
   let usage: LlmUsage = { inputTokens: 0, outputTokens: 0 };
   const toolCalls: ToolCallResult[] = [];
+  let stopReason: LlmStreamChunk['stopReason'];
 
   for await (const chunk of stream) {
     try {
@@ -29,7 +31,8 @@ export async function teeStream(
     if (chunk.reasoning) fullReasoning += chunk.reasoning;
     if (chunk.toolCalls) toolCalls.push(...chunk.toolCalls);
     if (chunk.usage) usage = chunk.usage;
+    if (chunk.stopReason) stopReason = chunk.stopReason;
   }
 
-  return { fullContent, fullReasoning, toolCalls, usage };
+  return { fullContent, fullReasoning, toolCalls, usage, stopReason };
 }

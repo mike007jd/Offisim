@@ -38,6 +38,7 @@ export interface ModelProfile {
   readonly model: string;
   readonly temperature?: number;
   readonly maxTokens?: number;
+  readonly contextWindow?: number;
 }
 
 /** Runtime execution mode advertised by the local policy surface. */
@@ -241,6 +242,10 @@ export interface RuntimeRecordingPolicy {
   readonly mode: RuntimeRecordingMode;
 }
 
+export interface RuntimeToolLoopPolicy {
+  readonly maxRounds?: number;
+}
+
 /** Unified runtime policy stored alongside the provider configuration. */
 export interface RuntimePolicyConfig {
   readonly executionMode: RuntimeExecutionMode;
@@ -250,6 +255,7 @@ export interface RuntimePolicyConfig {
   readonly toolSearch: RuntimeToolSearchPolicy;
   readonly toolPermissions: RuntimeToolPermissionsPolicy;
   readonly recording?: RuntimeRecordingPolicy;
+  readonly toolLoop?: RuntimeToolLoopPolicy;
   /** Company default for local employees; employee config overrides this. */
   readonly employeeRuntimeDefault?: EmployeeRuntimeBinding;
   /** Capability profiles for non-default employee runtime engines. */
@@ -266,4 +272,5 @@ export interface ResolvedModel {
   readonly model: string;
   readonly temperature: number;
   readonly maxTokens: number;
+  readonly contextWindow?: number;
 }

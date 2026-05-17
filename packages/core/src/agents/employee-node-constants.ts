@@ -9,4 +9,4 @@ export const MAX_CONTEXT_MESSAGES = 20;
 export const TASK_TYPE_HANDOFF_CONTINUATION = 'handoff_continuation';
 
 /** Maximum LLM tool-call rounds per employee turn before the loop is broken. */
-export const MAX_TOOL_ROUNDS = 5;
+export const MAX_TOOL_ROUNDS = 32;

@@ -77,7 +77,7 @@
     {
       "kind": "conversationStateContains",
       "pendingToolCalls": 1,
-      "toolResults": 0,
+      "toolResults": 1,
       "cancellationRequested": true,
       "cancellationReasonIncludes": "Harness cancelled tool request",
       "activeTaskRunId": "task-cancel-tool",

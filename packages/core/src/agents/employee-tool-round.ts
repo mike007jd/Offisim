@@ -160,7 +160,8 @@ export async function runToolRound(ctx: ToolRoundContext): Promise<ToolRoundOutc
     },
   });
 
-  throwIfAborted(signal);
+  // If cancellation arrives mid-round, keep going through result reconciliation
+  // so every assistant tool_use receives a matching tool result in history.
 
   // Unwrap settled results — failed tools get an error string (not a crash).
   const toolResults = settled.map((s, i) => {

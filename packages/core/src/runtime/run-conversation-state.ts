@@ -142,8 +142,24 @@ export class RunConversationState {
   }
 
   recordCancellation(reason: string | null = null): void {
+    // Abort reconciliation (G04): synthesize an error tool-result for every
+    // dispatched-but-unfinished tool call so the persisted snapshot never holds
+    // a tool_use without a matching tool_result. Centralized here so EVERY
+    // cancellation path (pre-turn abort, mid-round abort, catch) is well-formed
+    // for checkpoint resume — not just one call site.
+    const matched = new Set(this.snapshot.toolResults.map((result) => result.toolCallId));
+    const synthesized: RunToolResultRecord[] = this.snapshot.pendingToolCalls
+      .filter((call) => !matched.has(call.id))
+      .map((call) => ({
+        toolCallId: call.id,
+        toolName: call.name,
+        success: false,
+        bytes: 0,
+        taskRunId: null,
+      }));
     this.snapshot = {
       ...this.snapshot,
+      toolResults: [...this.snapshot.toolResults, ...synthesized],
       cancellation: { requested: true, reason },
     };
   }

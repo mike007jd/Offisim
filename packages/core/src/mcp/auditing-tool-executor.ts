@@ -17,11 +17,15 @@ import type { ToolDef } from '../llm/gateway.js';
 import type { McpAuditRepository, NewMcpAudit } from '../runtime/repositories.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import type { InteractionService } from '../services/interaction-service.js';
+import type { HookRegistry } from '../runtime/hook-registry.js';
 import {
   type RuntimeToolSource,
   type RuntimeToolType,
   resolveRuntimeToolSource,
 } from '../tools/tool-registry.js';
+import { BASH_DESTRUCTIVE_APPROVED_ARG } from '../tools/builtin/bash-tool.js';
+import { classifyShellCommand } from '../tools/builtin/shell-command-classifier.js';
+import { capToolResultForModel } from '../tools/tool-result-size.js';
 import { generateId } from '../utils/generate-id.js';
 
 interface ToolExecutionRecordContext {
@@ -50,6 +54,7 @@ export class AuditingToolExecutor implements ToolExecutor {
     private readonly threadId: string,
     private readonly permissionAuthorizer?: ToolPermissionAuthorizer,
     private readonly interactionService?: InteractionService,
+    private readonly hookRegistry?: HookRegistry,
   ) {}
 
   async listAvailable(companyId: string): Promise<ToolDef[]> {
@@ -94,22 +99,50 @@ export class AuditingToolExecutor implements ToolExecutor {
 
     try {
       let approvedBy = 'auto';
+      const before = await this.hookRegistry?.runToolBefore({
+        toolName: call.name,
+        input: call.arguments,
+        threadId,
+        ...(call.employeeId ? { employeeId: call.employeeId } : {}),
+      });
+      if (before?.blocked) {
+        const response = this.buildPermissionResponse('deny', before.reason ?? 'Blocked by hook.');
+        return this.recordAndEmit(recordCtx, response, 'hook:tool.before');
+      }
+      const effectiveCall = before?.input ? { ...call, arguments: before.input } : call;
+      let executionCall = effectiveCall;
+      let effectiveRecordCtx = before?.input
+        ? { ...recordCtx, call: effectiveCall }
+        : recordCtx;
+      const shellGate = await this.resolveShellPermissionGate(effectiveRecordCtx, executionCall);
+      if (shellGate.kind === 'return') return shellGate.response;
+      executionCall = shellGate.call;
+      effectiveRecordCtx =
+        executionCall === effectiveCall ? effectiveRecordCtx : { ...effectiveRecordCtx, call: executionCall };
+      if (shellGate.approvedBy) approvedBy = shellGate.approvedBy;
       if (this.permissionAuthorizer) {
-        const decision = await this.evaluatePermission(call, serverName, threadId);
-        approvedBy = decision.approvedBy;
+        const decision = await this.evaluatePermission(executionCall, serverName, threadId);
+        approvedBy = approvedBy === 'auto' ? decision.approvedBy : approvedBy;
         if (decision.behavior === 'deny') {
           const response = this.buildPermissionResponse(decision.behavior, decision.reason);
-          return this.recordAndEmit(recordCtx, response, approvedBy);
+          return this.recordAndEmit(effectiveRecordCtx, response, approvedBy);
         }
         if (decision.behavior === 'ask') {
-          const askOutcome = await this.resolveAskDecision(recordCtx, decision);
+          const askOutcome = await this.resolveAskDecision(effectiveRecordCtx, decision);
           if (askOutcome.kind === 'return') return askOutcome.response;
           approvedBy = askOutcome.approvedBy;
         }
       }
 
-      const response = await this.inner.execute(call);
-      return this.recordAndEmit(recordCtx, response, approvedBy);
+      const response = await this.capResponse(executionCall, await this.inner.execute(executionCall));
+      await this.hookRegistry?.emit('tool.after', {
+        toolName: executionCall.name,
+        input: executionCall.arguments,
+        response,
+        threadId,
+        employeeId: executionCall.employeeId,
+      });
+      return this.recordAndEmit(effectiveRecordCtx, response, approvedBy);
     } catch (error) {
       const completedAt = Date.now();
       this.eventBus.emit(
@@ -162,6 +195,15 @@ export class AuditingToolExecutor implements ToolExecutor {
     return resolveRuntimeToolSource(toolName);
   }
 
+  private async capResponse(
+    call: ToolCallRequest,
+    response: ToolCallResponse,
+  ): Promise<ToolCallResponse> {
+    if (!response.success) return response;
+    const tool = (await this.inner.listAvailable(this.companyId)).find((item) => item.name === call.name);
+    return tool ? { ...response, result: await capToolResultForModel(tool, response.result) } : response;
+  }
+
   private async evaluatePermission(
     call: ToolCallRequest,
     serverName: string,
@@ -174,9 +216,98 @@ export class AuditingToolExecutor implements ToolExecutor {
       threadId,
       serverName,
       toolName: call.name,
+      arguments: call.arguments,
+      readOnlyHint: await this.readOnlyHintForTool(call.name),
       employeeId: call.employeeId,
       employeeConfigJson: call.employeeConfigJson,
     });
+  }
+
+  private async resolveShellPermissionGate(
+    ctx: ToolExecutionRecordContext,
+    call: ToolCallRequest,
+  ): Promise<
+    | { kind: 'continue'; call: ToolCallRequest; approvedBy?: string }
+    | { kind: 'return'; response: ToolCallResponse }
+  > {
+    if (call.name !== 'bash') return { kind: 'continue', call };
+    const command = typeof call.arguments.command === 'string' ? call.arguments.command : '';
+    const classification = classifyShellCommand(command);
+    if (classification.decision === 'allow') return { kind: 'continue', call };
+    if (classification.decision === 'deny') {
+      const response = this.buildPermissionResponse('deny', classification.reason);
+      return { kind: 'return', response: await this.recordAndEmit(ctx, response, 'shell-classifier:deny') };
+    }
+    if (call.arguments[BASH_DESTRUCTIVE_APPROVED_ARG] === true) {
+      return { kind: 'continue', call };
+    }
+    const decision: ToolPermissionDecision = {
+      behavior: 'ask',
+      source: 'runtime',
+      reason: classification.reason,
+      approvedBy: 'shell-classifier:ask',
+      policyHash: 'shell-command-classifier:destructive',
+    };
+    const outcome = await this.resolveShellAskDecision(ctx, decision);
+    if (outcome.kind === 'return') return outcome;
+    return {
+      kind: 'continue',
+      approvedBy: outcome.approvedBy,
+      call: {
+        ...call,
+        arguments: {
+          ...call.arguments,
+          [BASH_DESTRUCTIVE_APPROVED_ARG]: true,
+        },
+      },
+    };
+  }
+
+  private async resolveShellAskDecision(
+    ctx: ToolExecutionRecordContext,
+    decision: ToolPermissionDecision,
+  ): Promise<
+    { kind: 'continue'; approvedBy: string } | { kind: 'return'; response: ToolCallResponse }
+  > {
+    const request = this.buildPermissionInteractionRequest(
+      ctx.call,
+      ctx.toolSource.serverName,
+      decision.reason,
+      ctx.threadId,
+      decision.policyHash,
+    );
+
+    if (this.interactionService?.getMode() !== 'human_in_loop') {
+      if (this.interactionService) {
+        await this.interactionService.request(request, { runScope: ctx.call.runScope ?? null });
+      }
+      const response = this.buildPermissionResponse('ask', decision.reason);
+      return {
+        kind: 'return',
+        response: await this.recordAndEmit(ctx, response, decision.approvedBy),
+      };
+    }
+
+    const resolved = await this.interactionService.requestAndWait(request, {
+      signal: ctx.call.signal,
+      runScope: ctx.call.runScope ?? null,
+    });
+    if (resolved.selectedOptionId === 'reject') {
+      const response = this.buildPermissionResponse('deny', 'Denied by user approval prompt.');
+      return {
+        kind: 'return',
+        response: await this.recordAndEmit(ctx, response, 'interaction:reject'),
+      };
+    }
+    return {
+      kind: 'continue',
+      approvedBy: resolved.selectedOptionId === 'approve_thread' ? 'interaction:thread' : 'interaction:once',
+    };
+  }
+
+  private async readOnlyHintForTool(toolName: string): Promise<boolean | undefined> {
+    const tool = (await this.inner.listAvailable(this.companyId)).find((item) => item.name === toolName);
+    return tool?.annotations?.readOnlyHint;
   }
 
   private async resolveAskDecision(

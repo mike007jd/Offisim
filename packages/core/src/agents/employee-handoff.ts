@@ -1,6 +1,13 @@
 import { Command } from '@langchain/langgraph';
-import { employeeStateChanged, handoffInitiated } from '../events/event-factories.js';
+import { parseEmployeeConfig } from '@offisim/shared-types';
+import { forkSubContext } from '../a2a/fork-sub-context.js';
+import {
+  employeeStateChanged,
+  handoffInitiated,
+  taskStateChanged,
+} from '../events/event-factories.js';
 import type { OffisimGraphState, PendingAssignment } from '../graph/state.js';
+import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { generateId } from '../utils/generate-id.js';
@@ -96,23 +103,20 @@ export async function executeHandoff(
     employeeStateChanged(companyId, employee.employee_id, 'executing', 'idle', threadId, taskRunId),
   );
 
+  const subRun = await runIsolatedHandoffSubRun({
+    args,
+    state,
+    targetEmp,
+    taskRunId: newTaskRunId,
+    runtimeCtx,
+    companyId,
+    threadId,
+  });
+
   return new Command({
     goto: 'employee',
     update: {
-      pendingAssignments: [
-        {
-          taskType: TASK_TYPE_HANDOFF_CONTINUATION,
-          employeeId: args.targetEmployeeId,
-          inputJson: {
-            description: args.remainingWork,
-            priorWork: args.completedWork,
-            handoffReason: args.reason,
-          },
-          taskRunId: newTaskRunId,
-          stepIndex,
-        },
-        ...remaining,
-      ],
+      pendingAssignments: remaining,
       handoffCount: state.handoffCount + 1,
       currentStepOutputs: [
         ...state.currentStepOutputs,
@@ -125,7 +129,149 @@ export async function executeHandoff(
           taskRunId: taskRunId ?? '',
           stepIndex,
         },
+        {
+          employeeId: targetEmp.employee_id,
+          employeeName: targetEmp.name,
+          sourceKind: 'employee',
+          roleSlug: targetEmp.role_slug,
+          content: subRun.summary,
+          taskRunId: newTaskRunId,
+          stepIndex,
+          isExternal: targetEmp.is_external === 1,
+          brandKey: targetEmp.brand_key ?? null,
+        },
       ],
     },
   });
+}
+
+async function runIsolatedHandoffSubRun(input: {
+  readonly args: HandoffArgs;
+  readonly state: OffisimGraphState;
+  readonly targetEmp: EmployeeRow;
+  readonly taskRunId: string;
+  readonly runtimeCtx: RuntimeContext;
+  readonly companyId: string;
+  readonly threadId: string;
+}): Promise<{ summary: string }> {
+  const { args, state, targetEmp, taskRunId, runtimeCtx, companyId, threadId } = input;
+  const resolved = resolveTargetModel(runtimeCtx, targetEmp);
+  const scopedTools =
+    runtimeCtx.llmToolCallsEnabled === false || !runtimeCtx.builtinTools
+      ? []
+      : [...runtimeCtx.builtinTools.values()]
+          .filter((tool) => tool.def.annotations?.readOnlyHint === true)
+          .map((tool) => tool.def);
+  const subTask = [
+    `You are ${targetEmp.name}. Continue this delegated task in an isolated sub-run.`,
+    `Reason: ${args.reason}`,
+    `Completed work from previous employee: ${args.completedWork}`,
+    `Remaining work: ${args.remainingWork}`,
+    'Return a concise typed summary for the parent run. Do not include private transcript details.',
+  ].join('\n\n');
+
+  runtimeCtx.eventBus.emit(
+    employeeStateChanged(companyId, targetEmp.employee_id, 'idle', 'executing', threadId, taskRunId),
+  );
+  runtimeCtx.eventBus.emit(taskStateChanged(companyId, taskRunId, 'queued', 'running', threadId));
+
+  try {
+    const result = await forkSubContext({
+      subTask,
+      scopedTools,
+      runChild: async (childMessages, tools) => {
+        const response = await recordedLlmCall(
+          runtimeCtx,
+          {
+            messages: childMessages,
+            model: resolved.model,
+            temperature: resolved.temperature,
+            maxTokens: resolved.maxTokens,
+            tools: tools.length > 0 ? tools : undefined,
+          },
+          {
+            nodeName: 'employee_sub_run',
+            provider: resolved.provider,
+            model: resolved.model,
+            taskRunId,
+            projectId: state.projectId,
+            employeeId: targetEmp.employee_id,
+          },
+        );
+        const summary =
+          response.content.trim() ||
+          `[SUB_RUN_NO_TEXT] Isolated handoff returned no text; requested ${response.toolCalls.length} tool call(s).`;
+        return {
+          summary,
+          transcript: [
+            ...childMessages,
+            {
+              role: 'assistant' as const,
+              content: response.content,
+              ...(response.toolCalls.length > 0 ? { toolCalls: response.toolCalls } : {}),
+            },
+          ],
+          childTokensUsed: response.usage.inputTokens + response.usage.outputTokens,
+        };
+      },
+    });
+    await runtimeCtx.repos.taskRuns.updateStatus(
+      taskRunId,
+      'completed',
+      JSON.stringify({ summary: result.summary, isolatedSubRun: true }),
+    );
+    runtimeCtx.eventBus.emit(taskStateChanged(companyId, taskRunId, 'running', 'completed', threadId));
+    runtimeCtx.eventBus.emit(
+      employeeStateChanged(
+        companyId,
+        targetEmp.employee_id,
+        'executing',
+        'idle',
+        threadId,
+        taskRunId,
+      ),
+    );
+    await runtimeCtx.hookRegistry.emit('task.completed', {
+      threadId,
+      companyId,
+      employeeId: targetEmp.employee_id,
+      taskRunId,
+      completionType: 'handoff',
+    });
+    return { summary: result.summary };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await runtimeCtx.repos.taskRuns.updateStatus(
+      taskRunId,
+      'failed',
+      JSON.stringify({ error: message, isolatedSubRun: true }),
+    );
+    runtimeCtx.eventBus.emit(taskStateChanged(companyId, taskRunId, 'running', 'failed', threadId));
+    runtimeCtx.eventBus.emit(
+      employeeStateChanged(
+        companyId,
+        targetEmp.employee_id,
+        'executing',
+        'idle',
+        threadId,
+        taskRunId,
+      ),
+    );
+    return { summary: `[SUB_RUN_FAILED] ${message}` };
+  }
+}
+
+function resolveTargetModel(runtimeCtx: RuntimeContext, employee: EmployeeRow) {
+  const roleResolved = runtimeCtx.modelResolver.resolve(null, employee.role_slug);
+  const config = parseEmployeeConfig(employee.config_json);
+  const modelPreference = config.modelPreference?.trim();
+  if (!modelPreference) return roleResolved;
+  const registryEntry = runtimeCtx.modelRegistry?.findById(modelPreference);
+  return {
+    provider: registryEntry?.provider ?? roleResolved.provider,
+    model: registryEntry?.model ?? modelPreference,
+    temperature: config.temperature ?? registryEntry?.temperature ?? roleResolved.temperature,
+    maxTokens: config.maxTokens ?? registryEntry?.maxTokens ?? roleResolved.maxTokens,
+    contextWindow: registryEntry?.contextWindow ?? roleResolved.contextWindow,
+  };
 }

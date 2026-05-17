@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { PROMPT_CACHE_VOLATILE_MARKER } from '../agents/employee-prompt-assembly.js';
 import { LlmError } from '../errors.js';
 import type {
   LlmGateway,
@@ -18,6 +19,8 @@ export interface AnthropicAdapterOptions {
   /** Extra headers for Anthropic-compatible proxying in browser dev mode */
   defaultHeaders?: Record<string, string>;
   retryConfig?: RetryConfig;
+  supportsPromptCaching?: boolean;
+  streamIdleTimeoutMs?: number;
   /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
   dangerouslyAllowBrowser?: boolean;
   /**
@@ -30,12 +33,24 @@ export interface AnthropicAdapterOptions {
 }
 
 /** Convert our ToolDef to Anthropic's tool format */
-function mapToolDefs(tools?: readonly ToolDef[]): Anthropic.Tool[] | undefined {
+type AnthropicCacheControl = { type: 'ephemeral' };
+
+function cacheControl(): AnthropicCacheControl {
+  return { type: 'ephemeral' };
+}
+
+function mapToolDefs(
+  tools?: readonly ToolDef[],
+  supportsPromptCaching = false,
+): Anthropic.Tool[] | undefined {
   if (!tools || tools.length === 0) return undefined;
-  return tools.map((t) => ({
+  return tools.map((t, index) => ({
     name: t.name,
     description: t.description,
     input_schema: t.parameters as Anthropic.Tool.InputSchema,
+    ...(supportsPromptCaching && index === tools.length - 1
+      ? { cache_control: cacheControl() }
+      : {}),
   }));
 }
 
@@ -49,11 +64,98 @@ function mapToolChoice(choice: LlmRequest['toolChoice']): Anthropic.ToolChoice |
  * Convert our LlmMessage[] to Anthropic's message format.
  * Handles assistant tool_use and tool result messages properly.
  */
-function mapMessages(messages: readonly LlmMessage[]): Anthropic.MessageParam[] {
-  const result: Anthropic.MessageParam[] = [];
+function cacheableMessageIndex(messages: readonly LlmMessage[]): number {
+  // Mirror ClaudeSource `addCacheBreakpoints`: place the rolling breakpoint on
+  // the last stable message (second-to-last, so the newest turn stays an
+  // uncached fresh suffix) WITHOUT skipping tool_use / tool_result messages.
+  // Those are stable history; skipping them collapses the cached prefix to an
+  // early message in tool loops, which is the dominant agent path — defeating
+  // the cache entirely.
+  for (let index = messages.length - 2; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || message.role === 'system') continue;
+    const hasToolCalls =
+      message.role === 'assistant' && !!message.toolCalls && message.toolCalls.length > 0;
+    const isToolResult = message.role === 'tool';
+    // Plain text blocks must be non-empty for Anthropic to accept cache_control.
+    if (!hasToolCalls && !isToolResult && message.content.trim().length === 0) continue;
+    return index;
+  }
+  return -1;
+}
 
-  for (const msg of messages) {
+function appendCacheControl(blocks: Anthropic.ContentBlockParam[]): void {
+  const last = blocks[blocks.length - 1];
+  if (!last) return;
+  (last as { cache_control?: AnthropicCacheControl }).cache_control = cacheControl();
+}
+
+/**
+ * Collect text from the full error surface: message + cause chain + parsed
+ * error body. Used so overloaded/capacity detection sees the real body even
+ * when the SDK wraps it in a generic `APIConnectionError`.
+ */
+function extractAnthropicErrorText(error: unknown, depth = 0): string {
+  if (error === null || error === undefined || depth > 4) return '';
+  if (typeof error === 'string') return error;
+  if (typeof error !== 'object') return String(error);
+  const record = error as Record<string, unknown>;
+  const parts: string[] = [];
+  if (typeof record.message === 'string') parts.push(record.message);
+  for (const key of ['error', 'body', 'response'] as const) {
+    const value = record[key];
+    if (typeof value === 'string') parts.push(value);
+    else if (value && typeof value === 'object') {
+      try {
+        parts.push(JSON.stringify(value));
+      } catch {
+        // ignore non-serializable
+      }
+    }
+  }
+  if (record.cause && record.cause !== error) {
+    parts.push(extractAnthropicErrorText(record.cause, depth + 1));
+  }
+  return parts.join(' ');
+}
+
+/**
+ * Honor the server `x-should-retry` directive. `'true'` → recoverable,
+ * `'false'` → explicitly non-retryable (overrides status/heuristic).
+ */
+function readShouldRetryHeader(error: unknown): boolean | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const headers = (error as { headers?: unknown }).headers;
+  if (!headers) return undefined;
+  let raw: string | null | undefined;
+  if (typeof (headers as { get?: unknown }).get === 'function') {
+    raw = (headers as { get(name: string): string | null }).get('x-should-retry');
+  } else if (typeof headers === 'object') {
+    const entry = Object.entries(headers as Record<string, unknown>).find(
+      ([key]) => key.toLowerCase() === 'x-should-retry',
+    );
+    raw = entry ? String(entry[1]) : undefined;
+  }
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return undefined;
+}
+
+function textContent(text: string, cached: boolean): Anthropic.ContentBlockParam[] | string {
+  if (!cached) return text;
+  return [{ type: 'text', text, cache_control: cacheControl() } as Anthropic.TextBlockParam];
+}
+
+function mapMessages(
+  messages: readonly LlmMessage[],
+  supportsPromptCaching = false,
+): Anthropic.MessageParam[] {
+  const result: Anthropic.MessageParam[] = [];
+  const cachedMessageIndex = supportsPromptCaching ? cacheableMessageIndex(messages) : -1;
+
+  for (const [index, msg] of messages.entries()) {
     if (msg.role === 'system') continue; // system handled separately
+    const cached = index === cachedMessageIndex;
 
     if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
       // Assistant message with tool calls → content blocks
@@ -69,23 +171,26 @@ function mapMessages(messages: readonly LlmMessage[]): Anthropic.MessageParam[] 
           input: tc.arguments,
         });
       }
+      if (cached) appendCacheControl(content);
       result.push({ role: 'assistant', content });
     } else if (msg.role === 'tool' && msg.toolCallId) {
       // Tool result message → Anthropic uses role: 'user' with tool_result block
+      const toolResultContent: Anthropic.ContentBlockParam[] = [
+        {
+          type: 'tool_result',
+          tool_use_id: msg.toolCallId,
+          content: msg.content,
+        },
+      ];
+      if (cached) appendCacheControl(toolResultContent);
       result.push({
         role: 'user',
-        content: [
-          {
-            type: 'tool_result',
-            tool_use_id: msg.toolCallId,
-            content: msg.content,
-          },
-        ],
+        content: toolResultContent,
       });
     } else {
       result.push({
         role: msg.role as 'user' | 'assistant',
-        content: msg.content,
+        content: textContent(msg.content, cached),
       });
     }
   }
@@ -146,6 +251,8 @@ function isThirdPartyAnthropicEndpoint(baseURL: string | undefined): boolean {
 export class AnthropicAdapter implements LlmGateway {
   private client: Anthropic;
   private retryConfig: RetryConfig;
+  private supportsPromptCaching: boolean;
+  private streamIdleTimeoutMs: number;
 
   constructor(apiKey: string, options?: AnthropicAdapterOptions) {
     const hasInjectedFetch = typeof options?.fetch === 'function';
@@ -178,6 +285,8 @@ export class AnthropicAdapter implements LlmGateway {
           : {}),
     });
     this.retryConfig = options?.retryConfig ?? DEFAULT_RETRY_CONFIG;
+    this.supportsPromptCaching = options?.supportsPromptCaching ?? !isThirdParty;
+    this.streamIdleTimeoutMs = options?.streamIdleTimeoutMs ?? 60_000;
   }
 
   async chat(request: LlmRequest): Promise<LlmResponse> {
@@ -190,8 +299,7 @@ export class AnthropicAdapter implements LlmGateway {
   }
 
   private async doChat(request: LlmRequest): Promise<LlmResponse> {
-    const systemMessages = request.messages.filter((m) => m.role === 'system');
-    const systemText = systemMessages.map((m) => m.content).join('\n');
+    const system = this.mapSystemPrompt(request.messages);
     const timeoutMs = request.timeoutMs ?? 60_000;
     const scoped = createScopedRequestSignal(request.signal, timeoutMs, 'anthropic');
 
@@ -201,9 +309,9 @@ export class AnthropicAdapter implements LlmGateway {
           model: request.model,
           max_tokens: request.maxTokens ?? 4096,
           temperature: request.temperature,
-          system: systemText || undefined,
-          messages: mapMessages(request.messages),
-          tools: mapToolDefs(request.tools),
+          system,
+          messages: mapMessages(request.messages, this.supportsPromptCaching),
+          tools: mapToolDefs(request.tools, this.supportsPromptCaching),
           ...(request.toolChoice ? { tool_choice: mapToolChoice(request.toolChoice) } : {}),
         },
         { signal: scoped.signal, timeout: timeoutMs },
@@ -227,8 +335,7 @@ export class AnthropicAdapter implements LlmGateway {
   }
 
   private async doChatStream(request: LlmRequest): Promise<AsyncGenerator<LlmStreamChunk>> {
-    const systemMessages = request.messages.filter((m) => m.role === 'system');
-    const systemText = systemMessages.map((m) => m.content).join('\n');
+    const system = this.mapSystemPrompt(request.messages);
     const timeoutMs = request.timeoutMs ?? 120_000;
     const scoped = createScopedRequestSignal(request.signal, timeoutMs, 'anthropic');
 
@@ -246,9 +353,9 @@ export class AnthropicAdapter implements LlmGateway {
           model: request.model,
           max_tokens: request.maxTokens ?? 4096,
           temperature: request.temperature,
-          system: systemText || undefined,
-          messages: mapMessages(request.messages),
-          tools: mapToolDefs(request.tools),
+          system,
+          messages: mapMessages(request.messages, this.supportsPromptCaching),
+          tools: mapToolDefs(request.tools, this.supportsPromptCaching),
           ...(request.toolChoice ? { tool_choice: mapToolChoice(request.toolChoice) } : {}),
           stream: true,
         },
@@ -256,19 +363,33 @@ export class AnthropicAdapter implements LlmGateway {
       );
 
       const mapErr = this.mapError.bind(this);
+      const idleTimeoutMs = this.streamIdleTimeoutMs;
       async function* generate(): AsyncGenerator<LlmStreamChunk> {
         try {
           const streamToolCalls: Map<number, { id: string; name: string; jsonChunks: string[] }> =
             new Map();
+          const iterator = stream[Symbol.asyncIterator]();
           let inputTokens = 0;
           let outputTokens = 0;
+          let cacheReadInputTokens = 0;
+          let cacheCreationInputTokens = 0;
+          let stopReason: LlmResponse['stopReason'];
 
-          for await (const event of stream) {
+          while (true) {
+            const next = await nextStreamEvent(iterator, idleTimeoutMs);
+            if (next.done) break;
+            const event = next.value;
             if (event.type === 'message_start') {
               inputTokens = event.message.usage.input_tokens;
               outputTokens = event.message.usage.output_tokens;
+              cacheReadInputTokens = event.message.usage.cache_read_input_tokens ?? 0;
+              cacheCreationInputTokens = event.message.usage.cache_creation_input_tokens ?? 0;
             } else if (event.type === 'message_delta') {
               outputTokens = event.usage.output_tokens;
+              cacheReadInputTokens = event.usage.cache_read_input_tokens ?? cacheReadInputTokens;
+              cacheCreationInputTokens =
+                event.usage.cache_creation_input_tokens ?? cacheCreationInputTokens;
+              stopReason = mapAnthropicStopReason(event.delta.stop_reason ?? null);
             } else if (
               event.type === 'content_block_delta' &&
               event.delta.type === 'thinking_delta'
@@ -311,7 +432,8 @@ export class AnthropicAdapter implements LlmGateway {
           yield {
             done: true,
             toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-            usage: { inputTokens, outputTokens },
+            usage: { inputTokens, outputTokens, cacheReadInputTokens, cacheCreationInputTokens },
+            stopReason,
           };
         } catch (error: unknown) {
           throw mapErr(error);
@@ -349,7 +471,10 @@ export class AnthropicAdapter implements LlmGateway {
       usage: {
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
+        cacheReadInputTokens: response.usage.cache_read_input_tokens ?? 0,
+        cacheCreationInputTokens: response.usage.cache_creation_input_tokens ?? 0,
       },
+      stopReason: mapAnthropicStopReason(response.stop_reason),
     };
   }
 
@@ -358,14 +483,98 @@ export class AnthropicAdapter implements LlmGateway {
   }
 
   private mapError(error: unknown): LlmError {
+    // Inspect the FULL error surface (message + cause chain + nested body),
+    // not just `error.message`. The SDK wraps mid-stream/transport failures as
+    // `APIConnectionError` with a generic message and the real overloaded body
+    // in `cause`/`error` — checking only message after the APIError branch made
+    // capacity detection dead code (capacity fallback never triggered).
+    const surfaceText = extractAnthropicErrorText(error);
+    const isOverloaded =
+      /overloaded_error|overloaded|capacity|server is busy|temporar(?:y|ily) unavailable|rate limit/i.test(
+        surfaceText,
+      );
+    const shouldRetry = readShouldRetryHeader(error);
+
     if (error instanceof Anthropic.APIError) {
-      return new LlmError(error.message, 'anthropic', error.status, { cause: error });
+      const status = error.status ?? (isOverloaded ? 529 : undefined);
+      return new LlmError(error.message || surfaceText || 'Anthropic API error', 'anthropic', status, {
+        cause: error,
+        ...(shouldRetry !== undefined ? { shouldRetry } : {}),
+      });
     }
-    return new LlmError(
-      error instanceof Error ? error.message : 'Unknown Anthropic error',
-      'anthropic',
-      undefined,
-      { cause: error },
-    );
+    const message = error instanceof Error ? error.message : 'Unknown Anthropic error';
+    if (isOverloaded) {
+      return new LlmError(message, 'anthropic', 529, { cause: error });
+    }
+    return new LlmError(message, 'anthropic', undefined, {
+      cause: error,
+      ...(shouldRetry !== undefined ? { shouldRetry } : {}),
+    });
+  }
+
+  private mapSystemPrompt(messages: readonly LlmMessage[]):
+    | string
+    | Anthropic.TextBlockParam[]
+    | undefined {
+    const systemText = messages
+      .filter((m) => m.role === 'system')
+      .map((m) => m.content)
+      .join('\n');
+    if (!systemText) return undefined;
+    const cleanSystemText = systemText.replaceAll(PROMPT_CACHE_VOLATILE_MARKER, '').trim();
+    if (!this.supportsPromptCaching) return cleanSystemText;
+    const [stablePrefix, ...volatileParts] = systemText.split(PROMPT_CACHE_VOLATILE_MARKER);
+    const blocks: Anthropic.TextBlockParam[] = [];
+    const stableText = (stablePrefix ?? '').trim();
+    const volatileText = volatileParts.join(PROMPT_CACHE_VOLATILE_MARKER).trim();
+    if (stableText) {
+      blocks.push({ type: 'text', text: stableText, cache_control: cacheControl() } as Anthropic.TextBlockParam);
+    }
+    if (volatileText) {
+      blocks.push({ type: 'text', text: volatileText } as Anthropic.TextBlockParam);
+    }
+    return blocks.length > 0 ? blocks : undefined;
+  }
+}
+
+function mapAnthropicStopReason(reason: Anthropic.Message['stop_reason']): LlmResponse['stopReason'] {
+  switch (reason) {
+    case 'end_turn':
+    case 'tool_use':
+    case 'max_tokens':
+    case 'stop_sequence':
+      return reason;
+    case 'refusal':
+      return 'refusal';
+    default:
+      return 'unknown';
+  }
+}
+
+async function nextStreamEvent<T>(
+  iterator: AsyncIterator<T>,
+  idleTimeoutMs: number,
+): Promise<IteratorResult<T>> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      iterator.next(),
+      new Promise<IteratorResult<T>>((_resolve, reject) => {
+        timeout = setTimeout(() => {
+          reject(
+            new LlmError(
+              `Anthropic stream idle timeout after ${idleTimeoutMs}ms.`,
+              'anthropic',
+              undefined,
+            ),
+          );
+        }, idleTimeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    await iterator.return?.();
+    throw error;
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }

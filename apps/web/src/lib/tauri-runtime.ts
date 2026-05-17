@@ -66,6 +66,7 @@ import {
   getInstallEnvironmentForExecutionMode,
   getTrustedHostProductStatus,
   resolveEffectiveRuntimePolicy,
+  resolveModelContextWindow,
   resolveProviderConfig,
   resolveProviderHostAvailability,
 } from '@offisim/ui-office/web';
@@ -587,6 +588,19 @@ function createTauriBuiltinFs(deps: WorkspaceRootResolverDeps): FsAdapter {
         return false;
       }
     },
+    async listDir(path, options) {
+      const binding = await defaultWorkspaceBinding(deps, 'builtin-sandbox', options?.threadId);
+      const cwd = (await isAbsolutePath(path)) ? undefined : binding.root;
+      const rows = await invokeProjectCommand<
+        ReadonlyArray<{
+          name: string;
+          path: string;
+          isFile: boolean;
+          isDirectory: boolean;
+        }>
+      >(deps, binding, 'project_list_dir', { path, cwd }, 'builtin-sandbox', options?.threadId);
+      return rows;
+    },
   };
 }
 
@@ -896,6 +910,7 @@ export async function createTauriRuntime(
       grants: interactionService,
     }),
     interactionService,
+    hookRegistry,
   );
   const systemCaller = new RecordedSystemLlmCaller({
     llmGateway: gateway,
@@ -930,7 +945,11 @@ export async function createTauriRuntime(
     listTaskRuns: (tid) => repos.taskRuns.findByThread(tid),
   });
   const middlewareChain = new LlmMiddlewareChain();
-  middlewareChain.register(new SummarizationMiddleware(new ConversationBudgetService()));
+  middlewareChain.register(
+    new SummarizationMiddleware(
+      new ConversationBudgetService({ contextWindowResolver: resolveModelContextWindow }),
+    ),
+  );
   middlewareChain.register(new NodeContextMiddleware(repos.nodeSummaries, {}, packService));
   middlewareChain.register(new UserPreferenceMiddleware(userPrefRepo));
   const toolTelemetryService = new ToolTelemetryService(eventBus);

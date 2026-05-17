@@ -6,6 +6,8 @@ export type HookEvent =
   | 'task.assigned'
   | 'task.completion.verifying'
   | 'task.completed'
+  | 'tool.before'
+  | 'tool.after'
   | 'interaction.created'
   | 'interaction.resolved';
 
@@ -22,6 +24,12 @@ export interface HookDefinition {
   name: string;
   handler: (payload: Record<string, unknown>) => Promise<void>;
   timeout?: number;
+}
+
+export interface ToolBeforeResult {
+  readonly blocked: boolean;
+  readonly reason?: string;
+  readonly input?: Record<string, unknown>;
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -46,6 +54,31 @@ export class HookRegistry {
         }),
       ),
     );
+  }
+
+  async runToolBefore(payload: {
+    toolName: string;
+    input: Record<string, unknown>;
+    threadId: string;
+    employeeId?: string;
+  }): Promise<ToolBeforeResult> {
+    let blockedReason: string | null = null;
+    let nextInput = payload.input;
+    await this.emit('tool.before', {
+      ...payload,
+      allow: () => {
+        blockedReason = null;
+      },
+      block: (reason: string) => {
+        blockedReason = reason || 'Blocked by tool.before hook.';
+      },
+      updateInput: (input: Record<string, unknown>) => {
+        nextInput = input;
+      },
+    });
+    return blockedReason
+      ? { blocked: true, reason: blockedReason }
+      : { blocked: false, input: nextInput };
   }
 
   private async runHook(hook: HookDefinition, payload: Record<string, unknown>): Promise<void> {

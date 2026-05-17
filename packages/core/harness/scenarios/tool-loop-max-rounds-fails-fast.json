@@ -96,11 +96,11 @@
   ],
   "runs": [{ "startAt": "employee" }],
   "assertions": [
-    { "kind": "taskRunStatusIs", "taskRunId": "task-max-rounds", "status": "failed" },
-    { "kind": "taskStateEvent", "taskRunId": "task-max-rounds", "next": "failed" },
+    { "kind": "taskRunStatusIs", "taskRunId": "task-max-rounds", "status": "completed" },
+    { "kind": "taskStateEvent", "taskRunId": "task-max-rounds", "next": "completed" },
     {
-      "kind": "agentEventPayloadContains",
-      "contains": "MAX_TOOL_ROUNDS_EXHAUSTED"
+      "kind": "finalOutputContains",
+      "contains": "MAX_TOOL_ROUNDS_PARTIAL"
     },
     {
       "kind": "conversationStateContains",

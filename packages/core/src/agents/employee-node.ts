@@ -141,8 +141,9 @@ export async function employeeNode(
       exposedToLlm: tool.exposedToLlm,
     })),
   });
+  const maxToolRounds = Math.max(1, runtimeCtx.runtimePolicy?.toolLoop?.maxRounds ?? MAX_TOOL_ROUNDS);
   runtimeCtx.conversationState.recordBudget({
-    maxToolRounds: MAX_TOOL_ROUNDS,
+    maxToolRounds,
     maxContextMessages: MAX_CONTEXT_MESSAGES,
   });
 
@@ -179,7 +180,7 @@ export async function employeeNode(
     // Multi-round tool calling loop (max 5 rounds to prevent infinite loops)
     let workingHistory = conversationHistory;
 
-    while (llmResponse.toolCalls.length > 0 && round < MAX_TOOL_ROUNDS) {
+    while (llmResponse.toolCalls.length > 0 && round < maxToolRounds) {
       round++;
       runtimeCtx.conversationState.recordBudget({ roundsUsed: round });
 
@@ -232,17 +233,16 @@ export async function employeeNode(
       runtimeCtx.conversationState.recordPendingToolCalls(llmResponse.toolCalls);
     }
 
-    if (round >= MAX_TOOL_ROUNDS && llmResponse.toolCalls.length > 0) {
+    if (round >= maxToolRounds && llmResponse.toolCalls.length > 0) {
       const pendingNames = llmResponse.toolCalls.map((toolCall) => toolCall.name).join(', ');
-      const errorMessage = `[MAX_TOOL_ROUNDS_EXHAUSTED] Tool loop stopped after ${MAX_TOOL_ROUNDS} rounds with pending tool calls: ${pendingNames}.`;
-      logger.warn(errorMessage, { employeeName: employee.name });
-      runtimeCtx.conversationState.recordRetry(errorMessage);
-      return await finalizeEmployeeFailure({
-        runtimeCtx,
-        state: { ...state, recentToolResults },
-        preflight: preflightOutcome.preflight,
-        errorMessage,
-      });
+      const partialMessage = `[MAX_TOOL_ROUNDS_PARTIAL] Stopped after ${maxToolRounds} tool rounds with partial work preserved. Pending tool calls: ${pendingNames}.`;
+      logger.warn(partialMessage, { employeeName: employee.name });
+      llmResponse = {
+        content: partialMessage,
+        toolCalls: [],
+        usage: { inputTokens: 0, outputTokens: 0 },
+        stopReason: 'unknown',
+      };
     }
 
     return await finalizeEmployeeSuccess({

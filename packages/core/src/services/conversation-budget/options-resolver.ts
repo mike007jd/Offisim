@@ -16,6 +16,17 @@ export interface ConversationBudgetServiceOptions {
   fullCompactTriggerMessages?: number;
   fullCompactFailureThreshold?: number;
   fullCompactRefreshMinMessages?: number;
+  resolvedContextWindowTokens?: number;
+  reservedOutputTokens?: number;
+  fullCompactTriggerRatio?: number;
+  /**
+   * Resolve the active model's real context window from a continuously-updated
+   * source (provider-source-registry catalog). Injected by the runtime so the
+   * budget trigger scales with the real model window instead of a fixed
+   * constant. Returns `undefined` when the source has no entry (caller falls
+   * back to the conservative default).
+   */
+  contextWindowResolver?: (model: string) => number | undefined;
 }
 
 export interface ResolvedConversationBudgetOptions {
@@ -52,12 +63,31 @@ export const DEFAULT_FULL_COMPACT_TRIGGER_TOKENS = 90_000;
 export const DEFAULT_FULL_COMPACT_TRIGGER_MESSAGES = 120;
 export const DEFAULT_FULL_COMPACT_FAILURE_THRESHOLD = 3;
 export const DEFAULT_FULL_COMPACT_REFRESH_MIN_MESSAGES = 24;
+export const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000;
+export const DEFAULT_RESERVED_OUTPUT_TOKENS = 20_000;
+export const DEFAULT_FULL_COMPACT_TRIGGER_RATIO = 0.8;
 
 export function resolveOptions(
   ctx: RuntimeContext,
   defaults: ConversationBudgetServiceOptions,
 ): ResolvedConversationBudgetOptions {
   const summarization = ctx.runtimePolicy?.summarization;
+  const contextWindow = Math.max(
+    1,
+    defaults.resolvedContextWindowTokens ?? DEFAULT_CONTEXT_WINDOW_TOKENS,
+  );
+  const reservedOutput = Math.max(
+    0,
+    defaults.reservedOutputTokens ?? DEFAULT_RESERVED_OUTPUT_TOKENS,
+  );
+  const triggerRatio = Math.min(
+    1,
+    Math.max(0.1, defaults.fullCompactTriggerRatio ?? DEFAULT_FULL_COMPACT_TRIGGER_RATIO),
+  );
+  const windowDerivedFullCompactTrigger = Math.max(
+    1,
+    Math.floor(Math.max(1, contextWindow - reservedOutput) * triggerRatio),
+  );
   const keepRecentMessages = Math.max(
     0,
     summarization?.keepRecentMessages ?? DEFAULT_TAIL_NON_SYSTEM_MESSAGES,
@@ -84,7 +114,7 @@ export function resolveOptions(
     postCompactKeepNodeSummaries:
       defaults.postCompactKeepNodeSummaries ?? DEFAULT_POST_COMPACT_KEEP_NODE_SUMMARIES,
     fullCompactTriggerTokens:
-      defaults.fullCompactTriggerTokens ?? DEFAULT_FULL_COMPACT_TRIGGER_TOKENS,
+      defaults.fullCompactTriggerTokens ?? windowDerivedFullCompactTrigger,
     fullCompactTriggerMessages:
       defaults.fullCompactTriggerMessages ?? DEFAULT_FULL_COMPACT_TRIGGER_MESSAGES,
     fullCompactFailureThreshold:

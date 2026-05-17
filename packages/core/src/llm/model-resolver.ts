@@ -14,6 +14,7 @@ const SYSTEM_FALLBACK: ResolvedModel = {
   model: 'default',
   temperature: 0.7,
   maxTokens: 4096,
+  contextWindow: 128_000,
 };
 
 const DEFAULT_TEMPERATURE = 0.7;
@@ -59,6 +60,7 @@ export class ModelResolver {
       model: profile.model,
       temperature: profile.temperature ?? DEFAULT_TEMPERATURE,
       maxTokens: profile.maxTokens ?? DEFAULT_MAX_TOKENS,
+      ...(profile.contextWindow !== undefined ? { contextWindow: profile.contextWindow } : {}),
     };
   }
 }

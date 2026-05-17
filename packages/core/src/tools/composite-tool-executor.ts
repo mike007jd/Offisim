@@ -2,6 +2,8 @@ import type { ToolDef } from '../llm/gateway.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { Logger } from '../services/logger.js';
 import type { BuiltinTool, BuiltinToolExecutionContext } from './builtin/types.js';
+import { capToolResultForModel } from './tool-result-size.js';
+import { validateToolInput } from './tool-schema-validator.js';
 import type { RuntimeToolType } from './tool-registry.js';
 
 const logger = new Logger('composite-tool');
@@ -21,13 +23,21 @@ export class CompositeToolExecutor implements ToolExecutor {
     const builtin = this.builtinTools.get(call.name);
     if (builtin) {
       try {
-        const result = await builtin.execute(call.arguments, {
+        const validation = validateToolInput(builtin.def, call.arguments);
+        if (!validation.success) {
+          return {
+            success: false,
+            result: null,
+            error: `[TOOL_INPUT_INVALID] ${validation.error}`,
+          };
+        }
+        const result = await builtin.execute(validation.data ?? call.arguments, {
           ...this.builtinContext,
           ...(call.threadId ? { threadId: call.threadId } : {}),
           ...(call.employeeId ? { employeeId: call.employeeId } : {}),
           ...(call.runScope !== undefined ? { runScope: call.runScope } : {}),
         });
-        return { success: true, result };
+        return { success: true, result: await capToolResultForModel(builtin.def, result) };
       } catch (err) {
         return {
           success: false,

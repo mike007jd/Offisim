@@ -534,6 +534,8 @@ export const llmCalls = sqliteTable(
     model: text('model').notNull(),
     input_tokens: integer('input_tokens').notNull(),
     output_tokens: integer('output_tokens').notNull(),
+    cache_read_input_tokens: integer('cache_read_input_tokens').notNull().default(0),
+    cache_creation_input_tokens: integer('cache_creation_input_tokens').notNull().default(0),
     usage_raw_json: text('usage_raw_json'),
     request_json: text('request_json'),
     response_json: text('response_json'),
@@ -988,6 +990,7 @@ export const deliverables = sqliteTable(
       .notNull()
       .references(() => companies.company_id, { onDelete: 'cascade' }),
     thread_id: text('thread_id'),
+    chat_thread_id: text('chat_thread_id'),
     title: text('title').notNull(),
     content: text('content').notNull(),
     kind: text('kind'),
@@ -999,6 +1002,7 @@ export const deliverables = sqliteTable(
   (table) => [
     index('idx_deliverables_company_time').on(table.company_id, table.created_at),
     index('idx_deliverables_thread_time').on(table.thread_id, table.created_at),
+    index('idx_deliverables_chat_thread_time').on(table.chat_thread_id, table.created_at),
   ],
 );
 

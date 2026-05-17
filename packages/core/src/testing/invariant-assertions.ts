@@ -1,7 +1,13 @@
-import type { KanbanOrigin, KanbanState, RuntimeEvent } from '@offisim/shared-types';
+import type {
+  DeliverableCreatedPayload,
+  KanbanOrigin,
+  KanbanState,
+  RuntimeEvent,
+} from '@offisim/shared-types';
 import type { OffisimGraphState } from '../graph/state.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
 import type { RunConversationStateSnapshot } from '../runtime/run-conversation-state.js';
+import { mapPayloadToRow } from '../services/deliverable-persistence-service.js';
 import type { ScenarioAssertionReport } from './trace-recorder.js';
 
 export type ScenarioAssertion =
@@ -121,6 +127,12 @@ export type ScenarioAssertion =
       readonly count?: number;
     }
   | {
+      readonly kind: 'deliverableRowMapped';
+      readonly payloadEquals?: Readonly<Record<string, unknown>>;
+      readonly rowEquals?: Readonly<Record<string, unknown>>;
+      readonly count?: number;
+    }
+  | {
       /** Inverse of `eventEmitted` — fails if any event of `eventType` exists. */
       readonly kind: 'eventNotEmitted';
       readonly eventType: string;
@@ -145,6 +157,10 @@ export type ScenarioAssertion =
       readonly activeTaskRunId?: string;
       readonly checkpointTaskRunId?: string;
       readonly discoveredTools?: readonly ConversationStateToolExpectation[];
+    }
+  | {
+      readonly kind: 'harnessGapCasePassed';
+      readonly caseId: string;
     };
 
 export interface ScenarioAssertionContext {
@@ -261,12 +277,29 @@ async function evaluateAssertion(
       return assertInterruptReasonIncludes(ctx.finalState, assertion.contains);
     case 'eventEmitted':
       return assertEventEmitted(ctx.events, assertion);
+    case 'deliverableRowMapped':
+      return assertDeliverableRowMapped(ctx.events, assertion);
     case 'eventNotEmitted':
       return assertEventNotEmitted(ctx.events, assertion.eventType);
     case 'taskToolIntentEquals':
       return assertTaskToolIntentEquals(ctx.finalState, assertion.value);
     case 'conversationStateContains':
       return assertConversationStateContains(ctx.conversationState, assertion);
+    case 'harnessGapCasePassed':
+      return assertHarnessGapCasePassed(ctx.events, assertion.caseId);
+  }
+}
+
+function assertHarnessGapCasePassed(events: readonly RuntimeEvent[], caseId: string): void {
+  const event = events.find((candidate) => {
+    if (candidate.type !== 'harness.gap.case') return false;
+    const payload = candidate.payload as { caseId?: unknown } | undefined;
+    return payload?.caseId === caseId;
+  });
+  if (!event) throw new Error(`Missing mainstream gap case event ${caseId}`);
+  const payload = event.payload as { passed?: unknown; error?: unknown };
+  if (payload.passed !== true) {
+    throw new Error(`Mainstream gap case ${caseId} failed: ${String(payload.error ?? 'unknown')}`);
   }
 }
 
@@ -393,6 +426,39 @@ function assertEventEmitted(
         assertion.payloadEquals ? ` with payload ${JSON.stringify(assertion.payloadEquals)}` : ''
       }, found none`,
     );
+  }
+}
+
+function assertDeliverableRowMapped(
+  events: readonly RuntimeEvent[],
+  assertion: Extract<ScenarioAssertion, { kind: 'deliverableRowMapped' }>,
+): void {
+  const matches = events.filter((event) => {
+    if (event.type !== 'deliverable.created') return false;
+    if (!assertion.payloadEquals) return true;
+    return payloadShallowMatches(event.payload, assertion.payloadEquals);
+  });
+  if (assertion.count !== undefined && matches.length !== assertion.count) {
+    throw new Error(
+      `Expected exactly ${assertion.count} mapped deliverable event(s), got ${matches.length}`,
+    );
+  }
+  if (assertion.count === undefined && matches.length === 0) {
+    throw new Error('Expected at least one mapped deliverable event, found none');
+  }
+  for (const event of matches) {
+    const deliverableId = (event.payload as { deliverableId?: unknown }).deliverableId;
+    if (typeof deliverableId !== 'string') {
+      throw new Error(`Deliverable event missing string deliverableId: ${JSON.stringify(event)}`);
+    }
+    const row = mapPayloadToRow(event as unknown as RuntimeEvent<DeliverableCreatedPayload>);
+    if (assertion.rowEquals && !payloadShallowMatches(row, assertion.rowEquals)) {
+      throw new Error(
+        `Mapped deliverable ${deliverableId} row did not match ${JSON.stringify(
+          assertion.rowEquals,
+        )}; got ${JSON.stringify(row)}`,
+      );
+    }
   }
 }
 

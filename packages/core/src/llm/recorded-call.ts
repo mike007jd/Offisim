@@ -1,3 +1,4 @@
+import { isCapacityError, isContextOverflowError } from '../errors.js';
 import {
   llmCallCompleted,
   llmCallStarted,
@@ -63,6 +64,59 @@ async function withExecutionContext(
   };
 }
 
+function withModelRegistryFallback(ctx: RuntimeContext, request: LlmRequest): LlmRequest {
+  const registry = ctx.modelRegistry as
+    | { resolveForRequest?: (modelId: string) => { model: string } | null }
+    | undefined;
+  const fallback = registry?.resolveForRequest?.(request.model);
+  if (!fallback || fallback.model === request.model) return request;
+  return { ...request, model: fallback.model };
+}
+
+type CapacityAwareRegistry = {
+  getGateway?: (modelId: string) => import('./gateway.js').LlmGateway | null;
+  recordCapacityError?: (modelId: string) => { id?: string; model: string } | null;
+  recordSuccess?: (modelId: string) => void;
+};
+
+async function callWithCapacityFallback<T>(
+  ctx: RuntimeContext,
+  request: LlmRequest,
+  execute: (effectiveRequest: LlmRequest) => Promise<T>,
+): Promise<{ request: LlmRequest; result: T }> {
+  const registry = ctx.modelRegistry as CapacityAwareRegistry | undefined;
+  try {
+    const result = await execute(request);
+    registry?.recordSuccess?.(request.model);
+    return { request, result };
+  } catch (error) {
+    if (!isCapacityError(error)) throw error;
+    const fallback = registry?.recordCapacityError?.(request.model);
+    if (!fallback || fallback.model === request.model) throw error;
+    const fallbackRequest = { ...request, model: fallback.model };
+    const result = await execute(fallbackRequest);
+    registry?.recordSuccess?.(request.model);
+    registry?.recordSuccess?.(fallback.id ?? fallback.model);
+    return { request: fallbackRequest, result };
+  }
+}
+
+function gatewayForRequest(ctx: RuntimeContext, request: LlmRequest) {
+  return ctx.modelRegistry?.getGateway(request.model) ?? ctx.llmGateway;
+}
+
+function actualCallIdentity(
+  ctx: RuntimeContext,
+  request: LlmRequest,
+  meta: LlmCallMeta,
+): { provider: string; model: string } {
+  const entry = ctx.modelRegistry?.findById(request.model);
+  return {
+    provider: entry?.provider ?? meta.provider,
+    model: request.model,
+  };
+}
+
 /**
  * Build an `onChunk` callback for `recordedLlmStream` that forwards reasoning and/or
  * content deltas onto the runtime eventBus as `llm.stream.chunk` events. Set
@@ -125,12 +179,38 @@ export async function recordedLlmCall(
     const preparedRequest = ctx.middlewareChain
       ? callCtx.request
       : { ...callCtx.request, messages: pruneLlmMessages(callCtx.request.messages) };
-    const effectiveRequest = await withExecutionContext(ctx, preparedRequest, meta);
+    let effectiveRequest = withModelRegistryFallback(
+      ctx,
+      await withExecutionContext(ctx, preparedRequest, meta),
+    );
 
-    // Resolve gateway: prefer modelRegistry if the meta.model has a dedicated gateway
-    const gateway = ctx.modelRegistry?.getGateway(meta.model) ?? ctx.llmGateway;
-    let response = await gateway.chat(effectiveRequest);
+    let response: LlmResponse;
+    try {
+      const attempt = await callWithCapacityFallback(ctx, effectiveRequest, (attemptRequest) =>
+        gatewayForRequest(ctx, attemptRequest).chat(attemptRequest),
+      );
+      effectiveRequest = attempt.request;
+      response = attempt.result;
+    } catch (error) {
+      if (!ctx.middlewareChain || !isContextOverflowError(error)) throw error;
+      callCtx = await ctx.middlewareChain.runBefore({
+        request: callCtx.request,
+        runtimeCtx: ctx,
+        meta,
+        extras: { ...callCtx.extras, forceFullCompact: true, contextOverflowRecovery: true },
+      });
+      effectiveRequest = withModelRegistryFallback(
+        ctx,
+        await withExecutionContext(ctx, callCtx.request, meta),
+      );
+      const attempt = await callWithCapacityFallback(ctx, effectiveRequest, (attemptRequest) =>
+        gatewayForRequest(ctx, attemptRequest).chat(attemptRequest),
+      );
+      effectiveRequest = attempt.request;
+      response = attempt.result;
+    }
     const latencyMs = ctx.determinism.nowMs() - startedAt;
+    const actual = actualCallIdentity(ctx, effectiveRequest, meta);
 
     // --- Middleware: after ---
     if (ctx.middlewareChain) {
@@ -144,10 +224,12 @@ export async function recordedLlmCall(
         thread_id: ctx.threadId,
         task_run_id: meta.taskRunId ?? null,
         node_name: meta.nodeName,
-        provider: meta.provider,
-        model: meta.model,
+        provider: actual.provider,
+        model: actual.model,
         input_tokens: response.usage.inputTokens,
         output_tokens: response.usage.outputTokens,
+        cache_read_input_tokens: response.usage.cacheReadInputTokens ?? 0,
+        cache_creation_input_tokens: response.usage.cacheCreationInputTokens ?? 0,
         usage_raw_json: JSON.stringify(response.usage),
         request_json: replayFields.requestJson,
         response_json: replayFields.responseJson,
@@ -172,6 +254,8 @@ export async function recordedLlmCall(
         latencyMs,
         response.usage.inputTokens,
         response.usage.outputTokens,
+        response.usage.cacheReadInputTokens ?? 0,
+        response.usage.cacheCreationInputTokens ?? 0,
       ),
     );
     ctx.eventBus.emit(
@@ -180,12 +264,14 @@ export async function recordedLlmCall(
         llmCallId,
         ctx.threadId,
         meta.taskRunId ?? null,
-        meta.provider,
-        meta.model,
+        actual.provider,
+        actual.model,
         meta.nodeName,
         response.usage.inputTokens,
         response.usage.outputTokens,
         latencyMs,
+        response.usage.cacheReadInputTokens ?? 0,
+        response.usage.cacheCreationInputTokens ?? 0,
       ),
     );
 
@@ -204,6 +290,8 @@ export async function recordedLlmCall(
         model: meta.model,
         input_tokens: 0,
         output_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
         ...EMPTY_REPLAY_FIELDS,
         recording_mode: recordingMode(ctx),
         latency_ms: latencyMs,
@@ -249,13 +337,38 @@ export async function recordedLlmStream(
     const preparedRequest = ctx.middlewareChain
       ? callCtx.request
       : { ...callCtx.request, messages: pruneLlmMessages(callCtx.request.messages) };
-    const effectiveRequest = await withExecutionContext(ctx, preparedRequest, meta);
+    let effectiveRequest = withModelRegistryFallback(
+      ctx,
+      await withExecutionContext(ctx, preparedRequest, meta),
+    );
 
-    // Resolve gateway: prefer modelRegistry if the meta.model has a dedicated gateway
-    const gateway = ctx.modelRegistry?.getGateway(meta.model) ?? ctx.llmGateway;
-    const stream = gateway.chatStream(effectiveRequest);
-    const result = await teeStream(stream, onChunk);
+    let result: TeeResult;
+    try {
+      const attempt = await callWithCapacityFallback(ctx, effectiveRequest, (attemptRequest) =>
+        teeStream(gatewayForRequest(ctx, attemptRequest).chatStream(attemptRequest), onChunk),
+      );
+      effectiveRequest = attempt.request;
+      result = attempt.result;
+    } catch (error) {
+      if (!ctx.middlewareChain || !isContextOverflowError(error)) throw error;
+      callCtx = await ctx.middlewareChain.runBefore({
+        request: callCtx.request,
+        runtimeCtx: ctx,
+        meta,
+        extras: { ...callCtx.extras, forceFullCompact: true, contextOverflowRecovery: true },
+      });
+      effectiveRequest = withModelRegistryFallback(
+        ctx,
+        await withExecutionContext(ctx, callCtx.request, meta),
+      );
+      const attempt = await callWithCapacityFallback(ctx, effectiveRequest, (attemptRequest) =>
+        teeStream(gatewayForRequest(ctx, attemptRequest).chatStream(attemptRequest), onChunk),
+      );
+      effectiveRequest = attempt.request;
+      result = attempt.result;
+    }
     const latencyMs = ctx.determinism.nowMs() - startedAt;
+    const actual = actualCallIdentity(ctx, effectiveRequest, meta);
 
     // --- Middleware: after (stream) ---
     // Run after hooks with the accumulated stream result so middleware can observe/log.
@@ -265,6 +378,7 @@ export async function recordedLlmStream(
       ...(result.fullReasoning ? { reasoningContent: result.fullReasoning } : {}),
       toolCalls: result.toolCalls,
       usage: result.usage,
+      ...(result.stopReason ? { stopReason: result.stopReason } : {}),
     };
     if (ctx.middlewareChain) {
       finalResponse = await ctx.middlewareChain.runAfter(callCtx, finalResponse);
@@ -275,6 +389,7 @@ export async function recordedLlmStream(
       fullReasoning: finalResponse.reasoningContent ?? result.fullReasoning,
       toolCalls: [...finalResponse.toolCalls],
       usage: finalResponse.usage,
+      stopReason: finalResponse.stopReason,
     };
     const replayFields = await buildReplayFields(ctx, effectiveRequest, finalResponse);
 
@@ -284,10 +399,12 @@ export async function recordedLlmStream(
         thread_id: ctx.threadId,
         task_run_id: meta.taskRunId ?? null,
         node_name: meta.nodeName,
-        provider: meta.provider,
-        model: meta.model,
+        provider: actual.provider,
+        model: actual.model,
         input_tokens: finalResult.usage.inputTokens,
         output_tokens: finalResult.usage.outputTokens,
+        cache_read_input_tokens: finalResult.usage.cacheReadInputTokens ?? 0,
+        cache_creation_input_tokens: finalResult.usage.cacheCreationInputTokens ?? 0,
         usage_raw_json: JSON.stringify(finalResult.usage),
         request_json: replayFields.requestJson,
         response_json: replayFields.responseJson,
@@ -312,6 +429,8 @@ export async function recordedLlmStream(
         latencyMs,
         finalResult.usage.inputTokens,
         finalResult.usage.outputTokens,
+        finalResult.usage.cacheReadInputTokens ?? 0,
+        finalResult.usage.cacheCreationInputTokens ?? 0,
       ),
     );
     ctx.eventBus.emit(
@@ -320,12 +439,14 @@ export async function recordedLlmStream(
         llmCallId,
         ctx.threadId,
         meta.taskRunId ?? null,
-        meta.provider,
-        meta.model,
+        actual.provider,
+        actual.model,
         meta.nodeName,
         finalResult.usage.inputTokens,
         finalResult.usage.outputTokens,
         latencyMs,
+        finalResult.usage.cacheReadInputTokens ?? 0,
+        finalResult.usage.cacheCreationInputTokens ?? 0,
       ),
     );
 
@@ -344,6 +465,8 @@ export async function recordedLlmStream(
         model: meta.model,
         input_tokens: 0,
         output_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
         ...EMPTY_REPLAY_FIELDS,
         recording_mode: recordingMode(ctx),
         latency_ms: latencyMs,
@@ -418,6 +541,7 @@ function redactLlmResponse(response: LlmResponse): LlmResponse {
     ...(response.reasoningContent ? { reasoningContent: response.reasoningContent } : {}),
     toolCalls: response.toolCalls,
     usage: response.usage,
+    ...(response.stopReason ? { stopReason: response.stopReason } : {}),
   };
 }
 

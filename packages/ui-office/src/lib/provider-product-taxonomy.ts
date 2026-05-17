@@ -81,6 +81,12 @@ export interface ProviderProductDefinition {
 
 interface CuratedCatalogModelEntry {
   readonly displayName?: string;
+  /**
+   * Real model context window, sourced from the provider-source-registry pipeline
+   * (litellm `model_prices_and_context_window.json` + openrouter live). Continuously
+   * refreshed by `scripts/provider-source-registry/refresh.mjs`; never hand-maintained.
+   */
+  readonly contextWindow?: number;
 }
 
 interface CuratedCatalogProviderEntry {
@@ -856,6 +862,41 @@ export function getSupportedExecutionLanesForProduct(
   const variant = getProviderVariant(providerVariantId ?? access?.defaultVariantId ?? null);
   const lanes = variant?.supportedExecutionLanes ?? access?.supportedExecutionLanes ?? [];
   return dedupeExecutionLanes(lanes.length > 0 ? lanes : [DEFAULT_EXECUTION_LANE]);
+}
+
+let modelContextWindowIndex: Map<string, number> | null = null;
+
+function buildModelContextWindowIndex(): Map<string, number> {
+  if (modelContextWindowIndex) return modelContextWindowIndex;
+  const index = new Map<string, number>();
+  const register = (rawKey: string | undefined, value: number | undefined): void => {
+    if (!rawKey || typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return;
+    const key = rawKey.trim().toLowerCase();
+    if (!key) return;
+    const existing = index.get(key);
+    if (existing === undefined || value > existing) index.set(key, value);
+  };
+  const providers = (curatedCatalog as CuratedCatalogShape).providers;
+  for (const provider of Object.values(providers)) {
+    for (const [modelId, model] of Object.entries(provider.models ?? {})) {
+      register(modelId, model.contextWindow);
+      register(model.displayName, model.contextWindow);
+    }
+  }
+  modelContextWindowIndex = index;
+  return index;
+}
+
+/**
+ * Resolve a model's real context window from the continuously-updated
+ * provider-source-registry catalog (litellm + openrouter, refreshed by the
+ * registry pipeline). Returns `undefined` when the catalog has no entry for the
+ * model so the caller can apply a conservative fallback. No hand-maintained
+ * per-model table — new models flow in on each catalog refresh.
+ */
+export function resolveModelContextWindow(model: string | null | undefined): number | undefined {
+  if (!model) return undefined;
+  return buildModelContextWindowIndex().get(model.trim().toLowerCase());
 }
 
 function buildCuratedProviderVariants(): Record<string, ProviderVariantDefinition> {

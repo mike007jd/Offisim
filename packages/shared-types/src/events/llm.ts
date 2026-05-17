@@ -12,6 +12,8 @@ export interface LlmCallCompletedPayload {
   readonly latencyMs: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
+  readonly cacheReadInputTokens?: number;
+  readonly cacheCreationInputTokens?: number;
 }
 
 export interface LlmUsageRecordedPayload {
@@ -23,6 +25,8 @@ export interface LlmUsageRecordedPayload {
   readonly nodeName: string;
   readonly inputTokens: number;
   readonly outputTokens: number;
+  readonly cacheReadInputTokens?: number;
+  readonly cacheCreationInputTokens?: number;
   readonly latencyMs: number;
 }
 

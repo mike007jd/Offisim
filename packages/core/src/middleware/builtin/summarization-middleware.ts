@@ -13,7 +13,9 @@ export class SummarizationMiddleware implements LlmMiddleware {
   constructor(private readonly budgetService: ConversationBudgetService) {}
 
   async before(ctx: LlmCallContext): Promise<LlmCallContext> {
-    const prunedRequest = await this.budgetService.prepareRequest(ctx.runtimeCtx, ctx.request);
+    const prunedRequest = await this.budgetService.prepareRequest(ctx.runtimeCtx, ctx.request, {
+      forceFullCompact: ctx.extras.forceFullCompact === true,
+    });
     return { ...ctx, request: prunedRequest };
   }
 }

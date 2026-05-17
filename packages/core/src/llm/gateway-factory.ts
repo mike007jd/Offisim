@@ -13,6 +13,8 @@ export interface GatewayConfig {
   defaultHeaders?: Record<string, string>;
   /** Override default retry behaviour (3 retries, 1-30 s exponential backoff) */
   retryConfig?: RetryConfig;
+  /** Whether the provider accepts Anthropic cache_control request fields */
+  supportsPromptCaching?: boolean;
   /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
   dangerouslyAllowBrowser?: boolean;
   /**
@@ -39,6 +41,7 @@ export function createGateway(config: GatewayConfig): LlmGateway {
         baseURL: config.baseURL,
         defaultHeaders: config.defaultHeaders,
         retryConfig: config.retryConfig,
+        supportsPromptCaching: config.supportsPromptCaching,
         dangerouslyAllowBrowser: config.dangerouslyAllowBrowser,
         fetch: config.fetch,
       });

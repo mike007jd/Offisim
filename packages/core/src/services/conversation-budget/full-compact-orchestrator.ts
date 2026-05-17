@@ -29,6 +29,21 @@ Do not include chain-of-thought.
 Do not invent facts.
 Output plain text only.`;
 
+export function toolPairSafeCutIndex(messages: readonly LlmMessage[], requestedCut: number): number {
+  let cut = Math.min(Math.max(0, requestedCut), messages.length);
+  while (cut > 0 && messages[cut]?.role === 'tool') {
+    cut -= 1;
+  }
+  return cut;
+}
+
+function sliceAfterCompactionBoundary(
+  messages: readonly LlmMessage[],
+  requestedCut: number,
+): LlmMessage[] {
+  return messages.slice(toolPairSafeCutIndex(messages, requestedCut));
+}
+
 export class FullCompactOrchestrator {
   private readonly fullCompactFailureStreaks = new Map<string, number>();
   private readonly fullCompactFailureMessageCounts = new Map<string, number>();
@@ -79,8 +94,9 @@ export class FullCompactOrchestrator {
       this.fullCompactFailureMessageCounts.delete(ctx.threadId);
       return {
         baseline,
-        nonSystemMessages: rawNonSystemMessages.slice(
-          Math.min(baseline.compactedNonSystemMessageCount, rawNonSystemMessages.length),
+        nonSystemMessages: sliceAfterCompactionBoundary(
+          rawNonSystemMessages,
+          baseline.compactedNonSystemMessageCount,
         ),
       };
     }
@@ -151,8 +167,9 @@ export class FullCompactOrchestrator {
       this.fullCompactFailureMessageCounts.delete(ctx.threadId);
       return {
         baseline,
-        nonSystemMessages: rawNonSystemMessages.slice(
-          Math.min(baseline.compactedNonSystemMessageCount, rawNonSystemMessages.length),
+        nonSystemMessages: sliceAfterCompactionBoundary(
+          rawNonSystemMessages,
+          baseline.compactedNonSystemMessageCount,
         ),
       };
     }
@@ -264,9 +281,13 @@ export class FullCompactOrchestrator {
       Math.max(0, keepTailNonSystemMessages),
       nonSystemMessages.length,
     );
-    const compactedNonSystemMessageCount = Math.max(
+    const targetCompactedNonSystemMessageCount = Math.max(
       priorCompactedNonSystemMessageCount,
       Math.max(0, nonSystemMessages.length - effectiveKeepTailNonSystemMessages),
+    );
+    const compactedNonSystemMessageCount = toolPairSafeCutIndex(
+      nonSystemMessages,
+      targetCompactedNonSystemMessageCount,
     );
     const compactVersion = Math.max(
       priorCompactVersion > 0 ? priorCompactVersion + 1 : 1,

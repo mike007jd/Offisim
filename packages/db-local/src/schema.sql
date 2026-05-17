@@ -204,6 +204,8 @@ CREATE TABLE IF NOT EXISTS llm_calls (
   model         TEXT NOT NULL,
   input_tokens  INTEGER NOT NULL,
   output_tokens INTEGER NOT NULL,
+  cache_read_input_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
   usage_raw_json TEXT,
   response_json  TEXT,
   latency_ms    INTEGER,
@@ -465,6 +467,7 @@ CREATE TABLE IF NOT EXISTS deliverables (
   deliverable_id     TEXT PRIMARY KEY,
   company_id         TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   thread_id          TEXT,
+  chat_thread_id     TEXT,
   title              TEXT NOT NULL,
   content            TEXT NOT NULL,
   kind               TEXT,
@@ -630,6 +633,8 @@ CREATE INDEX IF NOT EXISTS idx_deliverables_company_time
   ON deliverables(company_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_deliverables_thread_time
   ON deliverables(thread_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_deliverables_chat_thread_time
+  ON deliverables(chat_thread_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_employees_is_external ON employees(is_external);
 CREATE INDEX IF NOT EXISTS idx_node_summaries_thread_created
   ON node_summaries(thread_id, created_at);

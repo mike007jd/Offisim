@@ -81,6 +81,8 @@ export class RecordedSystemLlmCaller {
           model: request.model,
           input_tokens: response.usage.inputTokens,
           output_tokens: response.usage.outputTokens,
+          cache_read_input_tokens: response.usage.cacheReadInputTokens ?? 0,
+          cache_creation_input_tokens: response.usage.cacheCreationInputTokens ?? 0,
           usage_raw_json: JSON.stringify(response.usage),
           request_json: JSON.stringify({
             model: request.model,
@@ -109,6 +111,8 @@ export class RecordedSystemLlmCaller {
           latencyMs,
           response.usage.inputTokens,
           response.usage.outputTokens,
+          response.usage.cacheReadInputTokens ?? 0,
+          response.usage.cacheCreationInputTokens ?? 0,
         ),
       );
       this.eventBus.emit(
@@ -123,6 +127,8 @@ export class RecordedSystemLlmCaller {
           response.usage.inputTokens,
           response.usage.outputTokens,
           latencyMs,
+          response.usage.cacheReadInputTokens ?? 0,
+          response.usage.cacheCreationInputTokens ?? 0,
         ),
       );
 
@@ -141,6 +147,8 @@ export class RecordedSystemLlmCaller {
           model: request.model,
           input_tokens: 0,
           output_tokens: 0,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
           usage_raw_json: null,
           request_json: null,
           response_json: null,

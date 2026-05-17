@@ -83,12 +83,13 @@ export interface StepTaskOutput {
   brandKey: string | null;
   artifact?:
     | {
-        kind: 'file';
+        kind: 'document' | 'file';
         fileName: string | null;
         mimeType: string | null;
         content: string;
       }
     | undefined;
+  deliverableEventEmitted?: boolean;
   /** Library document citations used in this response (empty array if none). */
   citations?: CitationRef[];
 }

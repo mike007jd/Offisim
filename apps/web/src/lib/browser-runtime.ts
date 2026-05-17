@@ -63,6 +63,7 @@ import {
   DEFAULT_EXECUTION_LANE,
   getInstallEnvironmentForExecutionMode,
   resolveEffectiveRuntimePolicy,
+  resolveModelContextWindow,
   resolveProviderConfig,
   resolveProviderHostAvailability,
 } from '@offisim/ui-office/web';
@@ -375,6 +376,7 @@ export async function createBrowserRuntime(
       grants: interactionService,
     }),
     interactionService,
+    hookRegistry,
   );
   const systemCaller = new RecordedSystemLlmCaller({
     llmGateway: gateway,
@@ -409,7 +411,11 @@ export async function createBrowserRuntime(
     listTaskRuns: (tid) => repos.taskRuns.findByThread(tid),
   });
   const middlewareChain = new LlmMiddlewareChain();
-  middlewareChain.register(new SummarizationMiddleware(new ConversationBudgetService()));
+  middlewareChain.register(
+    new SummarizationMiddleware(
+      new ConversationBudgetService({ contextWindowResolver: resolveModelContextWindow }),
+    ),
+  );
   middlewareChain.register(new NodeContextMiddleware(repos.nodeSummaries, {}, packService));
   middlewareChain.register(new UserPreferenceMiddleware(userPrefRepo));
   const toolTelemetryService = new ToolTelemetryService(eventBus);
