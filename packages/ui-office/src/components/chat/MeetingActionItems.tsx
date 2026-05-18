@@ -23,14 +23,14 @@ export function MeetingActionItems({ actions, agents, onDelegate }: MeetingActio
       <div className="rounded-2xl border border-border-default bg-surface-elevated p-3">
         <div className="mb-2 flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+            <p className="text-caption font-semibold uppercase tracking-[0.18em] text-text-muted">
               Meeting Action Items
             </p>
             <p className="mt-1 text-xs text-text-secondary">
               Delegate the follow-up work directly from chat.
             </p>
           </div>
-          <span className="rounded-full border border-border-default bg-surface-muted px-2 py-1 text-[10px] text-text-secondary">
+          <span className="rounded-full border border-border-default bg-surface-muted px-2 py-1 text-caption text-text-secondary">
             {actions.length} {actions.length === 1 ? 'item' : 'items'}
           </span>
         </div>
@@ -53,7 +53,7 @@ export function MeetingActionItems({ actions, agents, onDelegate }: MeetingActio
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="text-xs text-text-secondary">{employeeName}</span>
                     <span
-                      className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${PRIORITY_STYLES[action.priority]}`}
+                      className={`rounded-full border px-2 py-0.5 text-caption font-semibold uppercase tracking-[0.16em] ${PRIORITY_STYLES[action.priority]}`}
                     >
                       {action.priority}
                     </span>

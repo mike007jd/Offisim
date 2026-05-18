@@ -31,7 +31,7 @@ export function ModelStep({ formData, updateField }: ModelStepProps) {
       </Button>
 
       <div>
-        <p className="text-xs text-shell mb-2 block">Model mode</p>
+        <p className="mb-2 block text-xs text-text-secondary">Model mode</p>
         <SegmentedControl
           size="sm"
           ariaLabel="Employee model mode"
@@ -42,7 +42,7 @@ export function ModelStep({ formData, updateField }: ModelStepProps) {
             { value: 'custom', label: '自定义模型' },
           ]}
         />
-        <p className="mt-2 text-xs text-shell">
+        <p className="mt-2 text-xs text-text-muted">
           {modelMode === 'inherit'
             ? 'This employee uses the company-wide provider setting.'
             : 'This employee uses the explicit model below.'}
@@ -51,7 +51,7 @@ export function ModelStep({ formData, updateField }: ModelStepProps) {
 
       {modelMode === 'custom' && (
         <div>
-          <label htmlFor="wizard-model" className="text-xs text-shell mb-1 block">
+          <label htmlFor="wizard-model" className="mb-1 block text-xs text-text-secondary">
             Override model
           </label>
           <Input
@@ -70,10 +70,10 @@ export function ModelStep({ formData, updateField }: ModelStepProps) {
       )}
 
       <div>
-        <label htmlFor="wizard-temp" className="text-xs text-shell mb-1 block">
+        <label htmlFor="wizard-temp" className="mb-1 block text-xs text-text-secondary">
           Temperature: {formData.temperature.toFixed(1)}
         </label>
-        <input
+        <Input
           id="wizard-temp"
           type="range"
           min={0}
@@ -81,16 +81,16 @@ export function ModelStep({ formData, updateField }: ModelStepProps) {
           step={0.1}
           value={formData.temperature}
           onChange={(e) => updateField('temperature', Number.parseFloat(e.target.value))}
-          className="w-full accent-lobster-red"
+          className="h-2 w-full accent-accent"
         />
-        <div className="flex justify-between text-xs text-shell mt-1">
+        <div className="mt-1 flex justify-between text-xs text-text-muted">
           <span>Precise (0)</span>
           <span>Creative (2)</span>
         </div>
       </div>
 
       <div>
-        <label htmlFor="wizard-tokens" className="text-xs text-shell mb-1 block">
+        <label htmlFor="wizard-tokens" className="mb-1 block text-xs text-text-secondary">
           Max Tokens
         </label>
         <Input
@@ -106,7 +106,7 @@ export function ModelStep({ formData, updateField }: ModelStepProps) {
           }}
         />
         {formData.maxTokens < 1024 && (
-          <p className="mt-1 text-[10px] text-warning">
+          <p className="mt-1 text-caption text-warning">
             Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.
           </p>
         )}

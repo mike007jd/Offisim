@@ -30,8 +30,8 @@ export function HRPrompt({ step }: HRPromptProps) {
       {/* Speech Bubble */}
       <div className="relative flex-1 border-2 border-border-default bg-surface-muted p-3">
         {/* Bubble arrow */}
-        <div className="absolute left-[-8px] top-3 h-0 w-0 border-b-[6px] border-r-[8px] border-t-[6px] border-b-transparent border-r-border-default border-t-transparent" />
-        <div className="absolute left-[-5px] top-3 h-0 w-0 border-b-[6px] border-r-[8px] border-t-[6px] border-b-transparent border-r-surface-muted border-t-transparent" />
+        <div className="hr-prompt-arrow-border border-b-transparent border-r-border-default border-t-transparent" />
+        <div className="hr-prompt-arrow-fill border-b-transparent border-r-surface-muted border-t-transparent" />
         <p className="text-sm leading-relaxed text-text-primary">{HR_QUESTIONS[step]}</p>
       </div>
     </div>

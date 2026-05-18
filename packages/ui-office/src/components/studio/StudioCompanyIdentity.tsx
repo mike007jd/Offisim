@@ -1,4 +1,5 @@
 import type { RuntimeRepositories } from '@offisim/core/browser';
+import { Input, Textarea } from '@offisim/ui-core';
 import { useEffect, useRef, useState } from 'react';
 import { parseCompanyDescription, updateCompanyIdentity } from '../../lib/company-identity.js';
 import {
@@ -139,7 +140,7 @@ export function StudioCompanyIdentity({
     <div style={CONTAINER_STYLE}>
       <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexShrink: 0 }}>
         <span style={FIELD_LABEL_STYLE}>Company</span>
-        <input
+        <Input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -187,7 +188,7 @@ export function StudioCompanyIdentity({
             Set after first save
           </span>
         ) : (
-          <textarea
+          <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onFocus={() => setDescFocused(true)}

@@ -1,4 +1,4 @@
-import { cn } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { ChevronDown } from 'lucide-react';
 import type { DashboardStep } from '../../hooks/useTaskDashboard';
 import { TaskItem } from './TaskItem';
@@ -12,11 +12,11 @@ function statusColor(status: 'pending' | 'active' | 'completed' | 'failed'): str
     case 'completed':
       return 'bg-success';
     case 'active':
-      return 'bg-koi';
+      return 'bg-info';
     case 'failed':
-      return 'bg-red-400';
+      return 'bg-error';
     default:
-      return 'bg-shell/40';
+      return 'bg-text-muted';
   }
 }
 
@@ -38,27 +38,28 @@ export function TaskStepCard({
   getTaskCost?: (taskRunId: string) => number;
 }) {
   return (
-    <div className="rounded border border-ocean-mid/20 bg-ocean-deep/50">
-      <button
+    <div className="rounded border border-border-subtle bg-surface-elevated">
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => onToggle(step.stepIndex)}
-        className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs"
+        className="h-auto w-full justify-start gap-2 rounded-none px-2 py-1.5 text-left text-xs"
       >
         {/* Status dot */}
-        <span className={cn('h-2 w-2 shrink-0 rounded-full', statusColor(step.status))} />
-        <span className="flex-1 truncate text-pearl">
+        <span className={cn('size-2 shrink-0 rounded-full', statusColor(step.status))} />
+        <span className="flex-1 truncate text-text-primary">
           Step {step.stepIndex + 1}: {step.description}
         </span>
         <ChevronDown
           className={cn(
-            'h-3 w-3 shrink-0 text-shell transition-transform',
+            'size-3 shrink-0 text-text-secondary transition-transform',
             step.expanded && 'rotate-180',
           )}
         />
-      </button>
+      </Button>
 
       {step.expanded && step.tasks.length > 0 && (
-        <ul className="border-t border-ocean-mid/10 px-2 py-1 space-y-1">
+        <ul className="space-y-1 border-t border-border-subtle px-2 py-1">
           {step.tasks.map((task) => (
             <TaskItem
               key={task.taskRunId}

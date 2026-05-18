@@ -1,7 +1,15 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import {
+  Button,
   EntityDropdown,
   type EntityDropdownItem,
+  Input,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   useFocusTrap,
   useRegisterModal,
   useTopmostEscape,
@@ -57,32 +65,38 @@ export function MarketFilterBar({
     <>
       {/* Kind filter — explore only */}
       {mode === 'explore' && (
-        <select
-          value={kind}
-          onChange={(e) => onKindChange(e.target.value as AssetKind | 'all')}
-          className="h-9 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary focus:border-border-focus focus:outline-none"
-        >
-          {KIND_FILTERS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
+        <Select value={kind} onValueChange={(value) => onKindChange(value as AssetKind | 'all')}>
+          <SelectTrigger className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {KIND_FILTERS.map((f) => (
+                <SelectItem key={f.value} value={f.value}>
+                  {f.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       )}
 
       {/* Sort — explore only */}
       {mode === 'explore' && (
-        <select
-          value={sort}
-          onChange={(e) => onSortChange(e.target.value as MarketSortOption)}
-          className="h-9 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary focus:border-border-focus focus:outline-none"
-        >
-          {SORT_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </option>
-          ))}
-        </select>
+        <Select value={sort} onValueChange={(value) => onSortChange(value as MarketSortOption)}>
+          <SelectTrigger className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {SORT_OPTIONS.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       )}
 
       {/* Mode toggle */}
@@ -90,13 +104,14 @@ export function MarketFilterBar({
 
       {/* Publish — explore only */}
       {mode === 'explore' && (
-        <button
+        <Button
           type="button"
           onClick={onPublishClick}
-          className="h-9 rounded-lg border border-border-default bg-surface px-4 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+          variant="outline"
+          className="h-9 px-4 text-sm font-medium text-text-secondary hover:text-text-primary"
         >
           Publish
-        </button>
+        </Button>
       )}
     </>
   );
@@ -106,25 +121,27 @@ export function MarketFilterBar({
       <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-          <input
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
+          <Input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search packages..."
-            className="h-9 w-full rounded-lg border border-border-default bg-surface pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+            className="h-9 w-full border-border-default bg-surface pl-9 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus"
           />
         </div>
 
         {narrow ? (
-          <button
+          <Button
             type="button"
             onClick={() => setSheetOpen(true)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-default bg-surface text-text-secondary"
+            variant="outline"
+            size="icon"
+            className="size-9 shrink-0 text-text-secondary"
             aria-label="Open market filters"
           >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
+            <SlidersHorizontal className="size-4" />
+          </Button>
         ) : (
           controls
         )}
@@ -138,14 +155,16 @@ export function MarketFilterBar({
           >
             <div className="mb-4 flex items-center justify-between">
               <div className="text-sm font-semibold text-text-primary">Market filters</div>
-              <button
+              <Button
                 type="button"
                 onClick={() => setSheetOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default text-text-secondary"
+                variant="outline"
+                size="icon"
+                className="size-8 text-text-secondary"
                 aria-label="Close market filters"
               >
-                <X className="h-4 w-4" />
-              </button>
+                <X className="size-4" />
+              </Button>
             </div>
             <div className="grid gap-3">{controls}</div>
           </div>
@@ -177,14 +196,15 @@ function ModeDropdown({
   return (
     <EntityDropdown
       trigger={
-        <button
+        <Button
           type="button"
-          className="flex h-9 items-center gap-2 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary transition-colors hover:bg-surface-hover"
+          variant="outline"
+          className="h-9 gap-2 px-3 text-sm text-text-primary"
           aria-label="Marketplace mode"
         >
           <span className="font-medium">{mode === 'explore' ? 'Explore' : 'Manage'}</span>
-          <ChevronDown className="h-3 w-3 shrink-0 text-text-muted" />
-        </button>
+          <ChevronDown className="size-3 shrink-0 text-text-muted" />
+        </Button>
       }
       items={items}
       activeId={mode}
@@ -211,15 +231,17 @@ function ManageTabDropdown({
   return (
     <EntityDropdown
       trigger={
-        <button
+        <Button
           type="button"
-          className="flex h-7 items-center gap-2 rounded-lg border border-border-default bg-surface px-2.5 text-xs text-text-primary transition-colors hover:bg-surface-hover"
+          variant="outline"
+          size="sm"
+          className="h-7 gap-2 px-2.5 text-xs text-text-primary"
           aria-label="Manage view"
         >
-          <Layers className="h-3 w-3 shrink-0 text-text-muted" />
+          <Layers className="size-3 shrink-0 text-text-muted" />
           <span className="font-medium">{current}</span>
-          <ChevronDown className="h-3 w-3 shrink-0 text-text-muted" />
-        </button>
+          <ChevronDown className="size-3 shrink-0 text-text-muted" />
+        </Button>
       }
       items={items}
       activeId={manageTab}

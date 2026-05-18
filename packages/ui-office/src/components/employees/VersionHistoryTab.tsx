@@ -96,23 +96,24 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
             const isCurrent = v.version_num === versions[0]?.version_num;
 
             return (
-              <button
+              <Button
                 type="button"
                 key={v.version_id}
-                className={`flex items-center gap-2 px-2 py-1.5 text-left text-sm rounded transition-colors ${
+                variant="ghost"
+                className={`h-auto justify-start gap-2 rounded px-2 py-1.5 text-left text-sm ${
                   isSelected
-                    ? 'bg-sea-blue/20 border border-sea-blue/40'
-                    : 'hover:bg-ocean-mid border border-transparent'
+                    ? 'border border-border-focus bg-accent-muted'
+                    : 'border border-transparent hover:bg-surface-hover'
                 }`}
                 onClick={() => selectVersion(isSelected ? null : v.version_num)}
               >
-                <span className="font-mono text-xs text-shell/60 w-8 shrink-0">
+                <span className="w-8 shrink-0 font-mono text-xs text-text-muted">
                   v{v.version_num}
                 </span>
                 <Badge variant={badge.variant} className="shrink-0">
                   {badge.label}
                 </Badge>
-                <span className="text-xs text-shell/50 truncate flex-1">
+                <span className="flex-1 truncate text-xs text-text-muted">
                   {v.change_summary ?? formatTimestamp(v.created_at)}
                 </span>
                 {isCurrent && (
@@ -120,7 +121,7 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
                     current
                   </Badge>
                 )}
-              </button>
+              </Button>
             );
           })}
         </div>

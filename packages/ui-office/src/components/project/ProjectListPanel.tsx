@@ -1,4 +1,5 @@
 import { type ProjectRow, formatWorkspaceRootHint } from '@offisim/shared-types';
+import { Button } from '@offisim/ui-core';
 import { ExternalLink, FolderOpen, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { isFolderPickerAvailable, revealWorkspaceFolder } from '../../lib/folder-picker.js';
@@ -48,15 +49,15 @@ export function ProjectSelectedSummary({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-[11px] text-text-secondary">
+    <div className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-caption text-text-secondary">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-text-secondary">Project</span>
+        <span className="text-caption uppercase tracking-wider text-text-secondary">Project</span>
         <span className="min-w-0 truncate text-right font-medium text-text-primary">
           {project.name}
         </span>
       </div>
       <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] uppercase tracking-wider text-text-secondary">
+        <span className="text-caption uppercase tracking-wider text-text-secondary">
           Workspace folder
         </span>
         <span
@@ -74,26 +75,30 @@ export function ProjectSelectedSummary({
       {(canOpenFolder || onRequestEdit) && (
         <div className="flex flex-wrap justify-end gap-1.5">
           {canOpenFolder && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={handleOpenFolder}
               disabled={openingFolder}
-              className="inline-flex items-center gap-1 rounded-md border border-border-default bg-surface px-2 py-0.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50"
+              className="h-7 gap-1 px-2 text-caption text-text-secondary hover:text-text-primary disabled:opacity-50"
             >
-              <FolderOpen className="h-3 w-3" />
+              <FolderOpen className="size-3" />
               Open
-              <ExternalLink className="h-2.5 w-2.5 opacity-60" />
-            </button>
+              <ExternalLink className="size-2.5 opacity-60" />
+            </Button>
           )}
           {onRequestEdit && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => onRequestEdit(project)}
-              className="inline-flex items-center gap-1 rounded-md border border-border-default bg-surface px-2 py-0.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+              className="h-7 gap-1 px-2 text-caption text-text-secondary hover:text-text-primary"
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="size-3" />
               Edit
-            </button>
+            </Button>
           )}
         </div>
       )}

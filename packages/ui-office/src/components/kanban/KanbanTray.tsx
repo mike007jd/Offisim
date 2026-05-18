@@ -1,4 +1,4 @@
-import { useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
+import { Button, useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
 import { ChevronDown, ChevronUp, Columns3 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
@@ -71,8 +71,8 @@ export function KanbanTray({
         aria-label="Project board tray"
         className={`${
           expanded
-            ? 'fixed z-[90] h-[min(470px,58vh)] min-h-[340px] overflow-visible rounded-b-2xl rounded-t-none border border-t-0 border-border-subtle backdrop-blur-xl'
-            : 'fixed left-1/2 top-[72px] z-[90] h-12 w-[190px] -translate-x-1/2 overflow-visible'
+            ? 'fixed z-modal kanban-tray-expanded-size overflow-visible rounded-b-2xl rounded-t-none border border-t-0 border-border-subtle bg-surface-elevated/98 shadow-overlay backdrop-blur-xl'
+            : 'fixed left-1/2 kanban-tray-collapsed-position z-modal h-12 -translate-x-1/2 overflow-visible'
         }`}
         style={
           expanded
@@ -80,18 +80,17 @@ export function KanbanTray({
                 top: '72px',
                 left: '56px',
                 right: '56px',
-                background: 'rgba(255, 255, 255, 0.985)',
-                boxShadow: '0 22px 54px rgba(15, 23, 42, 0.15)',
               }
             : undefined
         }
         data-expanded={expanded ? 'true' : 'false'}
       >
         {!expanded ? (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onToggle}
-            className="absolute inset-0 flex items-center justify-center gap-2 rounded-b-[30px] border border-t-0 border-border-subtle bg-surface-elevated/95 px-5 text-left shadow-[0_12px_26px_rgba(15,23,42,0.10)] backdrop-blur-xl transition hover:bg-surface-hover"
+            className="absolute inset-0 flex items-center justify-center gap-2 rounded-b-[30px] border border-t-0 border-border-subtle bg-surface-elevated/95 px-5 text-left shadow-popover backdrop-blur-xl transition hover:bg-surface-hover"
             style={{ animation: 'offisim-kanban-tab-in 180ms ease-out both' }}
             aria-expanded={expanded}
             data-kanban-toggle
@@ -100,30 +99,32 @@ export function KanbanTray({
             <span className="text-xs font-semibold text-text-primary">Kanban</span>
             <span className="sr-only">{cardCount} cards</span>
             <ChevronDown className="h-4 w-4 text-text-secondary" />
-          </button>
+          </Button>
         ) : null}
 
         {expanded ? (
           <div className="relative h-full overflow-visible rounded-b-2xl bg-surface-elevated/95">
-          <KanbanBoard
-            agents={agents}
-            requestText={requestText}
-            cards={cards}
-            onMove={onMove}
-            onCreate={onCreate}
-            onUpdate={onUpdate}
-          />
-          <button
-            type="button"
-            aria-label="Collapse Kanban"
-            className="absolute -bottom-3 left-1/2 flex h-6 w-20 -translate-x-1/2 items-center justify-center rounded-b-[22px] border border-t-0 border-border-subtle bg-surface-elevated/96 text-text-secondary shadow-[0_10px_18px_rgba(15,23,42,0.07)] transition hover:text-accent"
-            onClick={onToggle}
-            data-kanban-toggle
-          >
-            <ChevronUp className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
+            <KanbanBoard
+              agents={agents}
+              requestText={requestText}
+              cards={cards}
+              onMove={onMove}
+              onCreate={onCreate}
+              onUpdate={onUpdate}
+            />
+            <Button
+              type="button"
+              aria-label="Collapse Kanban"
+              variant="outline"
+              size="icon"
+              className="absolute -bottom-3 left-1/2 flex h-6 w-20 -translate-x-1/2 items-center justify-center rounded-b-[22px] border border-t-0 border-border-subtle bg-surface-elevated/96 text-text-secondary shadow-resting transition hover:text-accent"
+              onClick={onToggle}
+              data-kanban-toggle
+            >
+              <ChevronUp className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : null}
       </section>
     </>
   );

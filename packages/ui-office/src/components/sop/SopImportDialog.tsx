@@ -1,6 +1,6 @@
 import { SopSyncService } from '@offisim/core/browser';
 import type { SopDefinition } from '@offisim/shared-types';
-import { Button, DialogShell, ToastBanner, useToasts } from '@offisim/ui-core';
+import { Button, DialogShell, Input, ToastBanner, useToasts } from '@offisim/ui-core';
 import { Download, Link } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showDiscardConfirm } from '../../lib/discard-confirm-toast';
@@ -143,7 +143,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
         <div className="space-y-3 pt-2">
           <div className="flex items-center gap-2">
             <Link className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-            <input
+            <Input
               type="url"
               value={url}
               onChange={(e) => {
@@ -175,7 +175,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
           )}
 
           {error && (
-            <p className="rounded border border-error bg-error-muted px-2 py-1 text-[11px] text-error">
+            <p className="rounded border border-error bg-error-muted px-2 py-1 text-caption text-error">
               {error}
             </p>
           )}
@@ -184,9 +184,9 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
             <div className="space-y-1.5 rounded-lg border border-border-default bg-surface-muted p-3">
               <p className="text-sm font-medium text-text-primary">{preview.name}</p>
               {preview.description && (
-                <p className="text-[11px] text-text-secondary">{preview.description}</p>
+                <p className="text-caption text-text-secondary">{preview.description}</p>
               )}
-              <p className="text-[10px] text-text-muted">{preview.stepCount} steps</p>
+              <p className="text-caption text-text-muted">{preview.stepCount} steps</p>
             </div>
           )}
         </div>

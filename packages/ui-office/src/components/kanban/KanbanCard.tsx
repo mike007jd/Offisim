@@ -1,4 +1,4 @@
-import { cn } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import type { TaskInfo } from '../../hooks/useTaskDashboard';
 
 // ---------------------------------------------------------------------------
@@ -63,12 +63,13 @@ export interface KanbanCardProps {
 
 export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
   return (
-    <button
+    <Button
       type="button"
       data-task-run-id={task.taskRunId}
+      variant="ghost"
       className={cn(
-        'w-full text-left rounded-lg border transition-colors duration-150',
-        'px-2.5 py-2 space-y-1.5',
+        'h-auto w-full flex-col items-stretch rounded-lg border text-left transition-colors duration-150',
+        'space-y-1.5 px-2.5 py-2',
         'border-border-default bg-surface hover:border-border-strong hover:bg-surface-hover',
         task.status === 'active' || task.status === 'running'
           ? 'border-info shadow-glow-accent'
@@ -80,31 +81,33 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
     >
       {/* Top row: employee + status */}
       <div className="flex items-center gap-1.5">
-        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDot(task.status))} />
-        <span className="flex-1 truncate text-[11px] font-semibold text-text-primary">
+        <span className={cn('size-1.5 shrink-0 rounded-full', statusDot(task.status))} />
+        <span className="flex-1 truncate text-caption font-semibold text-text-primary">
           {task.employeeName ?? task.employeeId ?? 'Unassigned'}
         </span>
-        <span className="shrink-0 text-[10px] uppercase tracking-wide text-text-muted">
+        <span className="shrink-0 text-caption uppercase tracking-wide text-text-muted">
           {statusLabel(task.status)}
         </span>
       </div>
 
       {/* Description */}
-      <p className="line-clamp-2 text-[10px] leading-relaxed text-text-secondary">
+      <p className="line-clamp-2 text-caption leading-relaxed text-text-secondary">
         {task.description || task.taskType}
       </p>
 
       {/* Bottom row: role badge + cost */}
       <div className="flex items-center gap-1.5">
         {task.taskType && (
-          <span className={cn('text-[10px] px-1.5 py-0.5 rounded', roleBadgeColor(task.taskType))}>
+          <span className={cn('rounded px-1.5 py-0.5 text-caption', roleBadgeColor(task.taskType))}>
             {task.taskType}
           </span>
         )}
         {taskCost > 0 && (
-          <span className="ml-auto font-mono text-[10px] text-success">${taskCost.toFixed(4)}</span>
+          <span className="ml-auto font-mono text-caption text-success">
+            ${taskCost.toFixed(4)}
+          </span>
         )}
       </div>
-    </button>
+    </Button>
   );
 }

@@ -5,6 +5,7 @@ import {
   type InteractionMode,
 } from '@offisim/shared-types';
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -26,7 +27,7 @@ interface SessionModeBadgeProps {
 function SessionModeBadge({ mode }: SessionModeBadgeProps) {
   return (
     <span
-      className="inline-flex h-4 items-center rounded-full border px-1.5 text-[9px] font-black uppercase tracking-wider"
+      className="inline-flex h-4 items-center rounded-full border px-1.5 text-caption font-black uppercase tracking-wider"
       style={{
         borderColor: `color-mix(in srgb, ${MODE_COLOR[mode]} 55%, transparent)`,
         background: `color-mix(in srgb, ${MODE_COLOR[mode]} 14%, transparent)`,
@@ -47,15 +48,17 @@ export function SessionModeChip({ current, onChange }: SessionModeChipProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
-          className="inline-flex h-5 items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-1.5 text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+          variant="outline"
+          size="sm"
+          className="h-5 gap-1 rounded-full border-border-subtle bg-surface-muted px-1.5 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
           title="Switch session mode"
           aria-label="Switch session mode"
         >
           <SessionModeBadge mode={current} />
-          <ChevronDown className="h-3 w-3 text-text-muted" />
-        </button>
+          <ChevronDown className="size-3 text-text-muted" />
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" collisionPadding={8} className="w-72">
         {INTERACTION_MODES.map((mode) => (
@@ -71,7 +74,7 @@ export function SessionModeChip({ current, onChange }: SessionModeChipProps) {
               <span className="block text-xs font-semibold text-text-primary">
                 {INTERACTION_MODE_LABEL[mode]}
               </span>
-              <span className="block text-[11px] leading-snug text-text-secondary">
+              <span className="block text-caption leading-snug text-text-secondary">
                 {INTERACTION_MODE_DESCRIPTION[mode]}
               </span>
             </span>

@@ -1,4 +1,5 @@
 import type { ChatThread, ChatThreadUpdatedPayload, RuntimeEvent } from '@offisim/shared-types';
+import { Button, Input } from '@offisim/ui-core';
 import { Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
@@ -112,23 +113,24 @@ export function WorkspaceSearch({
       }}
     >
       <div className="flex items-center gap-1 rounded-md border border-border-subtle bg-surface-muted px-2 py-1">
-        <Search className="h-3 w-3 text-text-muted" />
-        <input
+        <Search className="size-3 text-text-muted" />
+        <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search threads, people…"
-          className="w-full bg-transparent text-[11px] text-text-primary outline-none placeholder:text-text-muted"
+          className="h-6 w-full border-0 bg-transparent p-0 text-caption text-text-primary shadow-none placeholder:text-text-muted focus-visible:ring-0"
         />
       </div>
       {showPanel ? (
         <div className="absolute left-0 right-0 top-full z-overlay mt-1 max-h-72 overflow-y-auto rounded-md border border-border-default bg-surface-elevated p-1 shadow-overlay">
           {results.length === 0 ? (
-            <div className="px-2 py-2 text-[11px] text-text-muted">No matches.</div>
+            <div className="px-2 py-2 text-caption text-text-muted">No matches.</div>
           ) : null}
           {results.map((r) => (
-            <button
+            <Button
               key={`${r.kind}:${r.kind === 'thread' ? r.threadId : r.employeeId}`}
               type="button"
+              variant="ghost"
               onMouseDown={(e) => {
                 e.preventDefault();
                 if (r.kind === 'thread') onSelectThread(r.threadId);
@@ -136,18 +138,18 @@ export function WorkspaceSearch({
                 setQuery('');
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-text-primary hover:bg-surface-hover"
+              className="flex h-auto w-full items-center justify-start gap-2 rounded px-2 py-1.5 text-left text-caption text-text-primary hover:bg-surface-hover"
             >
-              <span className="rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-text-muted">
+              <span className="rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-caption uppercase tracking-wider text-text-muted">
                 {r.kind === 'thread' ? 'thread' : 'person'}
               </span>
               <span className="min-w-0 flex-1 truncate">
                 {r.kind === 'thread' ? r.title : r.name}
               </span>
               {r.kind === 'employee' ? (
-                <span className="truncate text-[10px] text-text-muted">{r.role}</span>
+                <span className="truncate text-caption text-text-muted">{r.role}</span>
               ) : null}
-            </button>
+            </Button>
           ))}
         </div>
       ) : null}

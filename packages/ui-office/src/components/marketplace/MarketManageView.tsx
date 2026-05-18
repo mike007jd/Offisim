@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import { InstalledList } from './InstalledList.js';
 import { PublishedDraftsList } from './PublishedDraftsList.js';
 
@@ -17,23 +18,25 @@ export function MarketManageView({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {manageTab === 'updates' && (
-        <div className="px-3 pt-3 pb-1">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-text-muted">
+        <div className="px-3 pb-1 pt-3">
+          <p className="text-caption uppercase tracking-[0.2em] text-text-muted">
             Packages with available updates
           </p>
         </div>
       )}
       <InstalledList onStartInstall={onStartInstall} />
-      <div className="px-4 pb-4 flex justify-center">
-        <button
+      <div className="flex justify-center px-4 pb-4">
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={onGoToExplore}
-          className="rounded-lg border border-border-default bg-surface-muted px-3 py-1.5 text-xs text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+          className="bg-surface-muted text-xs text-text-secondary hover:bg-surface-hover hover:text-text-primary"
         >
           Browse Explore
-        </button>
+        </Button>
       </div>
     </div>
   );

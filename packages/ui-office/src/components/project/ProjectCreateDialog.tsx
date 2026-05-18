@@ -197,10 +197,10 @@ export function ProjectCreateDialog({
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <div className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary">
-                  <Folder className="h-4 w-4 flex-shrink-0 text-info" />
-                  <input
+                  <Folder className="size-4 flex-shrink-0 text-info" />
+                  <Input
                     aria-label="Workspace folder path"
-                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-text-muted disabled:opacity-60"
+                    className="h-7 min-w-0 flex-1 border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-text-muted focus-visible:ring-0 disabled:opacity-60"
                     value={workspaceRoot ?? ''}
                     onChange={(e) => setWorkspaceRoot(trimToNull(e.target.value))}
                     placeholder="Paste local workspace path"
@@ -215,7 +215,7 @@ export function ProjectCreateDialog({
                   onClick={handleChooseFolder}
                   disabled={picking || submitting}
                 >
-                  <FolderSearch className="h-3.5 w-3.5" />
+                  <FolderSearch className="size-3.5" />
                   {picking ? 'Choosing…' : 'Choose'}
                 </Button>
                 {workspaceRoot && (
@@ -227,7 +227,7 @@ export function ProjectCreateDialog({
                     disabled={submitting}
                     aria-label="Clear folder"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="size-3.5" />
                     Clear
                   </Button>
                 )}
@@ -240,7 +240,7 @@ export function ProjectCreateDialog({
             </div>
           ) : (
             <div className="flex items-center gap-2 rounded-lg border border-border-default bg-surface-muted px-3 py-2 text-xs text-text-muted">
-              <Folder className="h-4 w-4 flex-shrink-0 opacity-60" />
+              <Folder className="size-4 flex-shrink-0 opacity-60" />
               Folder binding is desktop-only.
             </div>
           )}
@@ -253,7 +253,7 @@ export function ProjectCreateDialog({
         )}
 
         {/* Hidden submit so Enter triggers the form. The footer button does the same. */}
-        <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+        <Button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
       </form>
     </DialogShell>
   );

@@ -1,4 +1,4 @@
-import { ErrorState } from '@offisim/ui-core';
+import { Button, ErrorState } from '@offisim/ui-core';
 import { McpConfigPanel } from './McpConfigPanel';
 import { SettingsExternalTab } from './SettingsExternalTab';
 import { SettingsProviderTab } from './SettingsProviderTab';
@@ -63,19 +63,16 @@ export function SettingsContentArea({
 
       {showSaveBar && (
         <div className="shrink-0 border-t border-border-default bg-surface-elevated px-6 py-3 shadow-overlay sm:px-8 sm:py-4">
-          <button
+          <Button
             type="button"
+            variant={buttonDisabled ? 'outline' : 'default'}
             onClick={() => void handleSave()}
             disabled={buttonDisabled}
             title={tooltip}
-            className={`h-11 w-full rounded-lg text-sm font-medium transition-colors ${
-              buttonDisabled
-                ? 'cursor-not-allowed border border-border-default bg-surface-muted text-text-muted'
-                : 'bg-accent text-text-inverse hover:bg-accent-hover'
-            }`}
+            className="h-11 w-full rounded-lg text-sm font-medium"
           >
             {buttonLabel}
-          </button>
+          </Button>
         </div>
       )}
     </div>

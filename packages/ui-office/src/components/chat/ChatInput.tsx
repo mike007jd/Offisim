@@ -1,5 +1,6 @@
 import type { EventBus } from '@offisim/core/browser';
 import type { ParsedAttachment, StagedAttachment } from '@offisim/shared-types';
+import { Button, Input, Textarea, cn } from '@offisim/ui-core';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import {
   type KeyboardEvent,
@@ -555,42 +556,45 @@ export function ChatInput({
       onDrop={onDrop}
     >
       <AttachmentDropOverlay visible={dragActive} message={dropMessage} />
-      <input ref={fileInputRef} type="file" multiple hidden onChange={onPickerChange} />
+      <Input ref={fileInputRef} type="file" multiple hidden onChange={onPickerChange} />
       {/* Slash command menu */}
       {showSlashMenu && filteredSlash.length > 0 && (
         <div
           ref={menuRef}
           className="absolute bottom-full left-3 right-3 z-50 mb-1 overflow-hidden rounded-lg border border-border-default bg-surface-elevated shadow-modal"
         >
-          <div className="max-h-[240px] overflow-y-auto py-1">
+          <div className="max-h-60 overflow-y-auto py-1">
             {filteredSlash.map((cmd, i) => (
-              <button
+              <Button
                 key={cmd.name}
                 ref={(el) => {
                   slashItemRefs.current[i] = el;
                 }}
                 type="button"
-                className={`flex h-8 w-full items-center gap-2.5 px-3 text-left transition-colors ${
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'h-8 w-full justify-start gap-2.5 rounded-none px-3 text-left',
                   i === slashIndex
                     ? 'bg-accent-muted text-accent-text'
-                    : 'text-text-secondary hover:bg-surface-hover'
-                }`}
+                    : 'text-text-secondary hover:bg-surface-hover',
+                )}
                 onMouseEnter={() => setSlashIndex(i)}
                 onClick={() => selectSlashCommand(cmd)}
               >
                 <span className="shrink-0 font-mono text-xs text-accent">/{cmd.name}</span>
                 <span
-                  className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-surface-muted text-text-muted'}`}
+                  className={`rounded px-1.5 py-0.5 text-caption font-semibold uppercase tracking-wider ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-surface-muted text-text-muted'}`}
                 >
                   {cmd.category}
                 </span>
                 <span className="truncate text-xs text-text-secondary">{cmd.description}</span>
                 {cmd.argumentHint && (
-                  <span className="ml-auto shrink-0 truncate text-[10px] text-text-muted">
+                  <span className="ml-auto shrink-0 truncate text-caption text-text-muted">
                     {cmd.argumentHint}
                   </span>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -602,30 +606,33 @@ export function ChatInput({
           ref={menuRef}
           className="absolute bottom-full left-3 right-3 z-50 mb-1 overflow-hidden rounded-lg border border-border-default bg-surface-elevated shadow-modal"
         >
-          <div className="max-h-[240px] overflow-y-auto py-1">
+          <div className="max-h-60 overflow-y-auto py-1">
             {filteredMentions.map((opt, i) => (
-              <button
+              <Button
                 key={opt.id}
                 ref={(el) => {
                   mentionItemRefs.current[i] = el;
                 }}
                 type="button"
-                className={`flex h-8 w-full items-center gap-2.5 px-3 text-left transition-colors ${
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'h-8 w-full justify-start gap-2.5 rounded-none px-3 text-left',
                   i === mentionIndex
                     ? 'bg-accent-muted text-accent-text'
-                    : 'text-text-secondary hover:bg-surface-hover'
-                }`}
+                    : 'text-text-secondary hover:bg-surface-hover',
+                )}
                 onMouseEnter={() => setMentionIndex(i)}
                 onClick={() => selectMention(opt)}
               >
                 <span
-                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-text-inverse ${roleColor(opt.role)}`}
+                  className={`flex size-4 shrink-0 items-center justify-center rounded-full text-caption font-bold text-text-inverse ${roleColor(opt.role)}`}
                 >
                   {opt.name[0]}
                 </span>
                 <span className="text-xs font-medium">{opt.name}</span>
                 <span className="truncate text-xs text-text-muted">{opt.role}</span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -633,11 +640,14 @@ export function ChatInput({
 
       {/* Staged attachment chips */}
       {staging.errors.length > 0 && (
-        <output className="mb-1 min-w-0 max-w-full space-y-1 overflow-hidden" aria-live="polite">
+        <output
+          className="mb-1 flex min-w-0 max-w-full flex-col gap-1 overflow-hidden"
+          aria-live="polite"
+        >
           {staging.errors.map((error) => (
             <div
               key={error.id}
-              className="min-w-0 max-w-full truncate rounded border border-warning/40 bg-warning-muted px-2 py-1 text-[11px] text-warning"
+              className="min-w-0 max-w-full truncate rounded border border-warning/40 bg-warning-muted px-2 py-1 text-caption text-warning"
             >
               {error.message}
             </div>
@@ -645,10 +655,7 @@ export function ChatInput({
         </output>
       )}
       {staging.staged.length > 0 && (
-        <div
-          className="mb-1 grid min-w-0 max-w-full gap-1 overflow-hidden"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))' }}
-        >
+        <div className="mb-1 grid min-w-0 max-w-full grid-cols-1 gap-1 overflow-hidden sm:grid-cols-2">
           {staging.staged.map((s) => (
             <StagedAttachmentChip
               key={s.attachmentId}
@@ -661,7 +668,7 @@ export function ChatInput({
 
       {/* Input row */}
       <div className="flex w-full min-w-0 max-w-full items-end gap-2">
-        <textarea
+        <Textarea
           ref={textareaRef}
           value={text}
           onChange={handleChange}
@@ -671,27 +678,30 @@ export function ChatInput({
           disabled={disabled}
           rows={1}
           maxLength={8000}
-          className="min-h-[32px] max-h-[72px] min-w-0 flex-1 resize-none rounded-lg border border-border-default bg-surface px-3 py-1.5 text-sm leading-snug text-text-primary transition-colors placeholder:text-text-muted focus:border-border-focus focus:outline-none disabled:bg-surface-muted disabled:text-text-muted"
+          className="max-h-20 min-h-8 min-w-0 flex-1 resize-none py-1.5 text-sm leading-snug"
         />
-        <button
+        <Button
           type="button"
+          size="icon"
           onClick={handleSend}
           disabled={!canSend}
           aria-label="Send message"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
+          className="size-7 shrink-0 rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
         >
-          <ArrowUp className="h-3.5 w-3.5" />
-        </button>
+          <ArrowUp className="size-3.5" aria-hidden="true" />
+        </Button>
       </div>
 
       {/* Hint line */}
       <div className="mt-1 flex w-full min-w-0 max-w-full flex-wrap items-center gap-3 overflow-hidden px-1">
         {disabled && disabledReason ? (
-          <span className="text-[10px] text-warning">{disabledReason}</span>
+          <span className="text-caption text-warning">{disabledReason}</span>
         ) : (
           <>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled || !staging.storageAvailable}
               aria-label="Attach file"
@@ -700,14 +710,14 @@ export function ChatInput({
                   ? 'Attach file'
                   : 'Storage unavailable — try a non-private window'
               }
-              className="rounded p-0.5 text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+              className="size-6 rounded p-0.5 text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <Paperclip className="h-3 w-3" />
-            </button>
-            <span className="text-[10px] text-text-muted">
+              <Paperclip className="size-3" aria-hidden="true" />
+            </Button>
+            <span className="text-caption text-text-muted">
               <kbd className="text-text-muted">/</kbd> commands
             </span>
-            <span className="text-[10px] text-text-muted">
+            <span className="text-caption text-text-muted">
               <kbd className="text-text-muted">@</kbd> mention
             </span>
           </>

@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import { Z_INDEX_SCALE } from '@offisim/ui-core/tokens';
 import { Copy, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
@@ -99,15 +100,17 @@ export function SopNodeContextMenu({
     <div
       ref={menuRef}
       style={style}
-      className="w-[140px] rounded-lg border border-border-default bg-surface-elevated py-1 shadow-xl backdrop-blur-sm"
+      className="w-sop-context-menu rounded-lg border border-border-default bg-surface-elevated py-1 shadow-xl backdrop-blur-sm"
       onPointerDown={(e) => e.stopPropagation()}
     >
       {items.map((item) => (
-        <button
+        <Button
           key={item.label}
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={item.action}
-          className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
+          className={`h-auto w-full justify-start gap-2 rounded-none px-3 py-1.5 text-sm ${
             item.danger
               ? 'text-error hover:bg-error-muted'
               : 'text-text-secondary hover:bg-surface-hover'
@@ -115,7 +118,7 @@ export function SopNodeContextMenu({
         >
           {item.icon}
           {item.label}
-        </button>
+        </Button>
       ))}
     </div>
   );

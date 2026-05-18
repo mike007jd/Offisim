@@ -1,3 +1,14 @@
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+} from '@offisim/ui-core';
 import { useMemo, useState } from 'react';
 import { useEmployeeMemories } from '../../hooks/useEmployeeMemories.js';
 
@@ -40,35 +51,40 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
 
   return (
     <div className="flex flex-col gap-4 pt-2">
-      <div className="grid grid-cols-[140px_1fr_120px_auto] gap-2">
-        <select
+      <div className="flex items-center gap-2">
+        <Select
           value={draftCategory}
-          onChange={(event) =>
-            setDraftCategory(event.target.value as (typeof MEMORY_CATEGORIES)[number])
-          }
-          className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
+          onValueChange={(value) => setDraftCategory(value as (typeof MEMORY_CATEGORIES)[number])}
         >
-          {MEMORY_CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-        <input
+          <SelectTrigger className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {MEMORY_CATEGORIES.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Input
           value={draftContent}
           onChange={(event) => setDraftContent(event.target.value)}
           placeholder="Seed a memory..."
-          className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
+          className="min-w-0 flex-1 border-border-default bg-surface text-sm text-text-primary"
         />
-        <input
+        <Input
           type="range"
           min={0}
           max={1}
           step={0.1}
           value={draftImportance}
           onChange={(event) => setDraftImportance(Number.parseFloat(event.target.value))}
+          className="w-28"
         />
-        <button
+        <Button
           type="button"
           disabled={!draftContent.trim()}
           onClick={async () => {
@@ -79,32 +95,39 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
             });
             setDraftContent('');
           }}
-          className="rounded-md border border-border-default px-3 py-2 text-sm text-text-secondary transition hover:bg-surface-hover disabled:cursor-not-allowed disabled:text-text-disabled"
+          variant="outline"
+          className="px-3 text-sm text-text-secondary disabled:cursor-not-allowed disabled:text-text-disabled"
         >
           Add
-        </button>
+        </Button>
       </div>
 
-      <div className="grid grid-cols-[140px_1fr] gap-2">
-        <select
+      <div className="flex items-center gap-2">
+        <Select
           value={filterCategory}
-          onChange={(event) =>
-            setFilterCategory(event.target.value as 'all' | (typeof MEMORY_CATEGORIES)[number])
+          onValueChange={(value) =>
+            setFilterCategory(value as 'all' | (typeof MEMORY_CATEGORIES)[number])
           }
-          className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
         >
-          <option value="all">All categories</option>
-          {MEMORY_CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-        <input
+          <SelectTrigger className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="all">All categories</SelectItem>
+              {MEMORY_CATEGORIES.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search memories..."
-          className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
+          className="min-w-0 flex-1 border-border-default bg-surface text-sm text-text-primary"
         />
       </div>
 
@@ -132,8 +155,8 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
                       key={memory.memory_id}
                       className="rounded-md border border-border-default bg-surface p-2"
                     >
-                      <textarea
-                        className="min-h-[72px] w-full rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
+                      <Textarea
+                        className="min-h-20 w-full border-border-default bg-surface text-sm text-text-primary"
                         defaultValue={memory.content}
                         onBlur={(event) => {
                           const next = event.target.value.trim();
@@ -143,9 +166,9 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
                         }}
                       />
                       <div className="mt-2 flex items-center gap-3 text-xs text-text-secondary">
-                        <label className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <span>Importance</span>
-                          <input
+                          <Input
                             type="range"
                             min={0}
                             max={1}
@@ -156,21 +179,24 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
                                 importance: Number.parseFloat(event.target.value),
                               })
                             }
+                            className="w-24"
                           />
-                        </label>
+                        </div>
                         <span>scope: {memory.scope}</span>
                         <span>reinforced: {memory.reinforcement_count}</span>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => {
                             if (window.confirm('Delete this memory?')) {
                               void deleteMemory(memory.memory_id);
                             }
                           }}
-                          className="ml-auto rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition hover:bg-surface-hover"
+                          variant="outline"
+                          size="sm"
+                          className="ml-auto h-7 px-2 text-xs text-text-secondary"
                         >
                           Delete
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ))}

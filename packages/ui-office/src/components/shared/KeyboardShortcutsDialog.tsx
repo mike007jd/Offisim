@@ -30,7 +30,7 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
             className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-sm"
           >
             <span className="text-text-secondary">{shortcut.description}</span>
-            <kbd className="rounded-md border border-border-default bg-surface px-2 py-1 text-[11px] text-text-muted">
+            <kbd className="rounded-md border border-border-default bg-surface px-2 py-1 text-caption text-text-muted">
               {shortcut.keys}
             </kbd>
           </div>

@@ -30,7 +30,7 @@ export interface MarketCardGridProps {
 
 function SkeletonCard() {
   return (
-    <div className="flex h-[220px] flex-col rounded-2xl border border-border-subtle bg-surface-elevated/50 p-5">
+    <div className="flex h-market-grid-card flex-col rounded-2xl border border-border-subtle bg-surface-elevated/50 p-5">
       <div className="flex items-center justify-between">
         <Skeleton className="h-6 w-20 rounded-full" />
         <Skeleton className="h-4 w-16" />
@@ -82,7 +82,7 @@ export function MarketCardGrid({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5 p-6">
+      <div className="grid grid-market-card-list gap-5 p-6">
         {SKELETON_CARD_KEYS.map((key) => (
           <SkeletonCard key={key} />
         ))}
@@ -91,7 +91,7 @@ export function MarketCardGrid({
   }
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5 p-6">
+    <div className="grid grid-market-card-list gap-5 p-6">
       {results.map((listing) => {
         const byListingId = installedListingIds?.has(listing.listing_id) ?? false;
         const byPackage =

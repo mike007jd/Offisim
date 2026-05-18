@@ -73,7 +73,7 @@ export function SopAddStepPopover({
       <PopoverContent
         side="bottom"
         align="start"
-        className="w-[280px] p-3"
+        className="w-sop-add-popover p-3"
         stackId={stackId}
         onOpenAutoFocus={(event) => {
           event.preventDefault();

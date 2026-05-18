@@ -176,14 +176,14 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
         {selectedProduct?.displayName ?? 'Manual product'}
       </span>
       {selectedAccess?.label ? (
-        <Badge className="text-[11px] uppercase tracking-wide">{selectedAccess.label}</Badge>
+        <Badge className="text-caption uppercase tracking-wide">{selectedAccess.label}</Badge>
       ) : null}
       <span className="text-xs text-text-muted">{routeSummary || 'Select a product'}</span>
     </div>
   );
 
   return (
-    <div className="grid min-h-0 gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <div className="grid min-h-0 gap-6 xl:grid-settings-provider">
       <div className="space-y-3">
         <SectionLabel htmlFor="settings-provider-product">Product</SectionLabel>
         <Select value={productId} onValueChange={handleProductChange}>
@@ -314,7 +314,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             >
               <div className="space-y-2 text-xs text-text-muted">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="text-[11px] uppercase tracking-wide">Agent scoped</Badge>
+                  <Badge className="text-caption uppercase tracking-wide">Agent scoped</Badge>
                   <span>
                     {providerListPull
                       ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
@@ -415,7 +415,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                 value={defaultHeaders}
                 onChange={(event) => setDefaultHeaders(event.target.value)}
                 placeholder='{"HTTP-Referer":"https://example.com"}'
-                className={surfaceInputProps('min-h-[120px] font-mono text-sm')}
+                className={surfaceInputProps('min-h-provider-headers font-mono text-sm')}
               />
               <p className="mt-2 text-xs text-text-muted">JSON merged into transport headers.</p>
             </div>

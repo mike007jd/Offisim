@@ -5,6 +5,7 @@
  * Positioned at the bottom of the studio viewport, overlaying the R3F Canvas.
  */
 
+import { Button } from '@offisim/ui-core';
 import { PLOT_SIZES, type PlotSize, useStudioStore } from './StudioState.js';
 import {
   FONT,
@@ -36,7 +37,7 @@ export function StudioPlotSelector() {
       {PLOT_SIZES.map((size: PlotSize) => {
         const active = plotSize.name === size.name;
         return (
-          <button
+          <Button
             key={size.name}
             type="button"
             onClick={() => setPlotSize(size)}
@@ -57,7 +58,7 @@ export function StudioPlotSelector() {
             >
               {size.width}×{size.depth}
             </span>
-          </button>
+          </Button>
         );
       })}
     </div>

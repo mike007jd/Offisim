@@ -10,6 +10,14 @@
 - 模型调用不是 SDK lane：默认 `offisim-core` harness 可以直接通过自己的 model transport / provider adapter 调模型；SDK 只允许作为底层 transport 实现细节，或作为完整 SDK-native employee runtime profile，不存在“普通 SDK lane”产品路线。
 - 当前已验证的本地文件 / shell / workspace 任务必须走默认 Offisim harness / gateway 工具路径；未来 tool-capable employee profile 或主 harness driver/replacement 必须先有独立 capability profile、审计、checkpoint/rollback 和 release `.app` 证据。external A2A 和未验证的 model transport 不能冒充本机工具执行者。
 
+# 当前架构决策（2026-05-18）
+- 开源前结构目标是生产级可维护拆分，执行源为 `openspec/changes/simplify-to-tauri-only-desktop-architecture/`。
+- Offisim 只保留 Tauri v2 桌面产品；不要新增独立 web、browser runtime 或 launcher 产品工作。
+- `apps/web` 是迁移期旧 React renderer 位置，不是产品入口；目标归属是 `apps/desktop/renderer`，迁移完成后删除 standalone web package。
+- `apps/launcher` 已废弃，随同 cleanup 删除；相关端口、脚本、docs、验证路径不得继续扩展。
+- Tauri 仍需要 WebView renderer，所以删除 web 产品不等于删除 React UI；正确方向是把 renderer 收到 desktop ownership 下。
+- 最终验收只认当前 worktree 的 release `.app` + Computer Use 真实交互；localhost、dev server、dev webview、browser screenshot 只能作为排查证据。
+
 # 验证 / 测试准则
 - 不在 `packages/core/src/**/*.test.mjs` 新增或保留 runtime / graph / product 行为测试。
 - 新的 graph、runtime、permission、planner、kanban、LLM replay 不变量必须走 deterministic harness：`packages/core/harness/scenarios/*.json` + `packages/core/src/testing/invariant-assertions.ts`，并按需加入 `manifest.json` / replay 或 soak 列表。
@@ -30,7 +38,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Offisim** (31530 symbols, 46413 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Offisim** (32014 symbols, 47337 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

@@ -1,4 +1,5 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
+import { Badge, Button } from '@offisim/ui-core';
 import { X } from 'lucide-react';
 import { formatFullTimestamp } from '../../lib/format-time';
 import { ActivityPayloadView } from './ActivityPayloadView';
@@ -27,14 +28,16 @@ export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
         <h2 className="text-sm font-medium text-text-primary">Event Detail</h2>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={onClose}
           aria-label="Close detail panel"
-          className="rounded p-1 transition-colors hover:bg-surface-hover"
+          className="size-7 text-text-secondary hover:text-text-primary"
         >
-          <X className="h-4 w-4 text-text-secondary" />
-        </button>
+          <X className="size-4" />
+        </Button>
       </div>
 
       <div className="flex flex-col gap-4 p-4">
@@ -45,11 +48,9 @@ export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps
 
         {/* Level */}
         <Section label="Level">
-          <span
-            className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium border ${LEVEL_BADGE[level]}`}
-          >
+          <Badge variant="outline" size="xs" className={LEVEL_BADGE[level]}>
             {level}
-          </span>
+          </Badge>
         </Section>
 
         {/* Timestamp */}
@@ -61,10 +62,10 @@ export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps
         <Section label="Entity">
           <p className="text-xs text-text-secondary">{entityLabel}</p>
           {event.entityType && (
-            <p className="mt-0.5 text-[11px] text-text-muted">Type: {event.entityType}</p>
+            <p className="mt-0.5 text-caption text-text-muted">Type: {event.entityType}</p>
           )}
           {event.entityId && (
-            <p className="mt-0.5 font-mono text-[11px] text-text-muted">ID: {event.entityId}</p>
+            <p className="mt-0.5 font-mono text-caption text-text-muted">ID: {event.entityId}</p>
           )}
         </Section>
 
@@ -86,7 +87,7 @@ function Section({
 }) {
   return (
     <div>
-      <p className="mb-1 text-[10px] uppercase tracking-wider text-text-muted">{label}</p>
+      <p className="mb-1 text-caption uppercase tracking-wider text-text-muted">{label}</p>
       {children}
     </div>
   );

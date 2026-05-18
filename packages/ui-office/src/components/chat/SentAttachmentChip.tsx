@@ -90,14 +90,14 @@ export function SentAttachmentChip({ attachment, attachmentStore }: SentAttachme
         <img
           src={status.objectUrl}
           alt={attachment.filename}
-          className="max-h-[180px] max-w-[min(240px,55%)] min-w-0 shrink rounded object-contain"
+          className="sent-attachment-image min-w-0 shrink rounded object-contain"
         />
       ) : (
         <Icon className="h-4 w-4 shrink-0 text-text-secondary" />
       )}
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{attachment.filename}</div>
-        <div className="truncate text-[10px] text-text-muted">
+        <div className="truncate text-caption text-text-muted">
           {formatAttachmentBytes(attachment.byteLength)}
           {summary ? ` · ${summary}` : ''}
         </div>

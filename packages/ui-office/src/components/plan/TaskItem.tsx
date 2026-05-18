@@ -1,4 +1,4 @@
-import { cn } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import type { TaskInfo } from '../../hooks/useTaskDashboard';
 import { TaskDetailPanel } from '../dashboard/TaskDetailPanel';
 
@@ -11,14 +11,14 @@ function statusBadgeColor(status: string): string {
     case 'completed':
       return 'bg-success/20 text-success';
     case 'active':
-      return 'bg-koi/20 text-koi';
+      return 'bg-info-muted text-info';
     case 'failed':
     case 'cancelled':
-      return 'bg-lobster-red/20 text-lobster-red';
+      return 'bg-error-muted text-error';
     case 'review_ready':
-      return 'bg-sand/20 text-sand';
+      return 'bg-warning-muted text-warning';
     default:
-      return 'bg-ocean-mid/30 text-shell';
+      return 'bg-surface-muted text-text-secondary';
   }
 }
 
@@ -41,14 +41,15 @@ export function TaskItem({
 
   return (
     <li className="flex flex-col">
-      <button
+      <Button
         type="button"
         data-task-run-id={task.taskRunId}
+        variant="ghost"
         className={cn(
-          'flex w-full items-center gap-2 text-left text-[10px] transition-colors duration-500',
-          'rounded px-1 py-0.5 hover:bg-ocean-mid/20',
-          task.status === 'running' && 'border-l-2 border-koi pl-1',
-          isExpanded && 'bg-ocean-mid/10',
+          'h-auto w-full justify-start gap-2 text-left text-caption transition-colors duration-500',
+          'rounded px-1 py-0.5 hover:bg-surface-hover',
+          task.status === 'running' && 'border-l-2 border-info pl-1',
+          isExpanded && 'bg-surface-hover',
           onTaskClick ? 'cursor-pointer' : 'cursor-default',
         )}
         onClick={() => onTaskClick?.(task.taskRunId)}
@@ -56,14 +57,14 @@ export function TaskItem({
         <span className={cn('shrink-0 rounded px-1 py-0.5', statusBadgeColor(task.status))}>
           {task.status}
         </span>
-        <span className="shrink-0 text-koi">
+        <span className="shrink-0 text-info">
           {task.assigneeName ?? task.employeeName ?? task.employeeId ?? 'Unassigned'}
         </span>
-        <span className="truncate text-shell">{task.description || task.taskType}</span>
+        <span className="truncate text-text-primary">{task.description || task.taskType}</span>
         {taskCost > 0 && (
-          <span className="shrink-0 font-mono text-emerald-400">${taskCost.toFixed(4)}</span>
+          <span className="shrink-0 font-mono text-success">${taskCost.toFixed(4)}</span>
         )}
-      </button>
+      </Button>
 
       {/* Inline detail panel with CSS transition */}
       <div

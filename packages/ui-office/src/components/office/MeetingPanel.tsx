@@ -1,4 +1,4 @@
-import { Badge, ScrollArea } from '@offisim/ui-core';
+import { Badge, ScrollArea, cn } from '@offisim/ui-core';
 import {
   AlertTriangle,
   CheckSquare,
@@ -31,9 +31,9 @@ const MEETING_TYPE_META: Record<MeetingType, { label: string; Icon: FC<LucidePro
 };
 
 const PRIORITY_COLORS: Record<MeetingActionItem['priority'], string> = {
-  high: 'text-red-400',
-  medium: 'text-yellow-400',
-  low: 'text-slate-400',
+  high: 'text-error',
+  medium: 'text-warning',
+  low: 'text-text-muted',
 };
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -58,16 +58,17 @@ function ParticipantDot({
   return (
     <div className="relative flex-shrink-0" title={name}>
       <div
-        className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
+        className={cn(
+          'flex size-5 items-center justify-center rounded-full text-caption font-semibold',
           isActive
-            ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-400/60'
-            : 'bg-slate-700 text-slate-400'
-        }`}
+            ? 'bg-accent-muted text-accent-text ring-1 ring-accent/60'
+            : 'bg-surface-muted text-text-muted',
+        )}
       >
         {initials}
       </div>
       {isActive && (
-        <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-green-400" />
+        <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-success" />
       )}
     </div>
   );
@@ -82,13 +83,16 @@ function ActionItemRow({
 
   return (
     <div className="flex items-start gap-1.5 py-0.5">
-      <CheckSquare className={`mt-0.5 h-3 w-3 flex-shrink-0 ${PRIORITY_COLORS[item.priority]}`} />
+      <CheckSquare className={cn('mt-0.5 size-3 flex-shrink-0', PRIORITY_COLORS[item.priority])} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-slate-300">{item.description}</p>
-        <p className="text-[10px] text-slate-500">→ {assigneeName}</p>
+        <p className="truncate text-xs text-text-secondary">{item.description}</p>
+        <p className="text-caption text-text-muted">→ {assigneeName}</p>
       </div>
       <span
-        className={`flex-shrink-0 text-[10px] uppercase tracking-wider font-semibold ${PRIORITY_COLORS[item.priority]}`}
+        className={cn(
+          'flex-shrink-0 text-caption font-semibold uppercase tracking-wider',
+          PRIORITY_COLORS[item.priority],
+        )}
       >
         {item.priority}
       </span>
@@ -143,19 +147,16 @@ export function MeetingPanel({
     status === 'running' ? 'success' : status === 'paused' ? 'warning' : 'default';
 
   return (
-    <div className="flex flex-col gap-2 border-t border-white/5 px-2 py-2">
+    <div className="flex flex-col gap-2 border-t border-border-subtle px-2 py-2">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <MetaIcon className="h-3 w-3 text-slate-400" />
-          <span className="text-xs font-medium text-slate-300">{meta.label}</span>
+          <MetaIcon className="size-3 text-text-muted" />
+          <span className="text-xs font-medium text-text-secondary">{meta.label}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {duration !== null && (
-            <span
-              className="font-mono text-[10px] text-slate-500"
-              style={{ fontVariantNumeric: 'tabular-nums' }}
-            >
+            <span className="font-mono text-caption text-text-muted tabular-nums">
               {formatDuration(duration)}
             </span>
           )}
@@ -166,11 +167,11 @@ export function MeetingPanel({
       {/* ── Participants ────────────────────────────────────────────── */}
       {participantIds.length > 0 && (
         <div className="flex flex-wrap items-center gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-slate-500">In room</span>
+          <span className="text-caption uppercase tracking-wider text-text-muted">In room</span>
           {participantIds.map((id) => (
             <ParticipantDot key={id} participantId={id} agents={agents} />
           ))}
-          <span className="text-[10px] text-slate-500">
+          <span className="text-caption text-text-muted">
             {participantIds.length} {participantIds.length === 1 ? 'person' : 'people'}
           </span>
         </div>
@@ -179,7 +180,7 @@ export function MeetingPanel({
       {/* ── Transcript ──────────────────────────────────────────────── */}
       {transcript.length > 0 && (
         <div>
-          <p className="mb-0.5 text-[10px] uppercase tracking-wider text-slate-500">Transcript</p>
+          <p className="mb-0.5 text-caption uppercase tracking-wider text-text-muted">Transcript</p>
           <ScrollArea className="max-h-20 pr-1">
             <div className="flex flex-col gap-0.5">
               {transcript.map((entry) => {
@@ -187,10 +188,12 @@ export function MeetingPanel({
                 const speakerName = speaker?.name ?? entry.participantId;
                 return (
                   <div key={entry.id} className="flex gap-1">
-                    <span className="flex-shrink-0 text-[10px] font-semibold text-blue-400/80">
+                    <span className="flex-shrink-0 text-caption font-semibold text-accent">
                       {speakerName}:
                     </span>
-                    <span className="text-xs text-slate-400 leading-tight">{entry.content}</span>
+                    <span className="text-xs leading-tight text-text-secondary">
+                      {entry.content}
+                    </span>
                   </div>
                 );
               })}
@@ -203,7 +206,7 @@ export function MeetingPanel({
       {/* ── Action items ─────────────────────────────────────────────── */}
       {actions.length > 0 && (
         <div>
-          <p className="mb-0.5 text-[10px] uppercase tracking-wider text-slate-500">
+          <p className="mb-0.5 text-caption uppercase tracking-wider text-text-muted">
             Actions ({actions.length})
           </p>
           <div className="flex flex-col gap-0.5">
@@ -216,8 +219,8 @@ export function MeetingPanel({
 
       {/* No transcript yet indicator */}
       {transcript.length === 0 && actions.length === 0 && (
-        <div className="flex items-center gap-1 text-[10px] text-slate-500">
-          <AlertTriangle className="h-3 w-3" />
+        <div className="flex items-center gap-1 text-caption text-text-muted">
+          <AlertTriangle className="size-3" />
           <span>Waiting for discussion...</span>
         </div>
       )}

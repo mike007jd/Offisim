@@ -1,4 +1,13 @@
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@offisim/ui-core';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  cn,
+} from '@offisim/ui-core';
 import {
   ClipboardCheck,
   Lightbulb,
@@ -107,10 +116,12 @@ export function MeetingControls({
   if (status === 'idle') return null;
 
   return (
-    <Card className="border-slate-400/20">
+    <Card className="border-border-subtle">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm uppercase tracking-wider text-slate-400">Meeting</CardTitle>
+          <CardTitle className="text-sm uppercase tracking-wider text-text-muted">
+            Meeting
+          </CardTitle>
           <Badge variant={STATUS_VARIANTS[status]}>{STATUS_LABELS[status]}</Badge>
         </div>
       </CardHeader>
@@ -119,19 +130,22 @@ export function MeetingControls({
           {/* Meeting type selector */}
           <div className="flex gap-1">
             {MEETING_TYPES.map(({ value, label, Icon }) => (
-              <button
+              <Button
                 key={value}
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => handleMeetingTypeChange(value)}
-                className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
+                className={cn(
+                  'h-7 gap-1 rounded px-2 text-xs',
                   meetingType === value
-                    ? 'border border-blue-400/50 bg-blue-500/20 text-blue-300'
-                    : 'border border-transparent text-slate-500 hover:text-slate-300'
-                }`}
+                    ? 'border border-border-focus bg-accent-muted text-accent-text'
+                    : 'border border-transparent text-text-muted hover:text-text-secondary',
+                )}
               >
-                <Icon className="h-3 w-3" />
+                <Icon className="size-3" />
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="flex gap-1.5">
@@ -144,7 +158,7 @@ export function MeetingControls({
                   title="Pause meeting"
                   className="gap-1"
                 >
-                  <Pause className="h-3 w-3" />
+                  <Pause className="size-3" />
                   Pause
                 </Button>
                 <Button
@@ -154,7 +168,7 @@ export function MeetingControls({
                   title="End meeting"
                   className="gap-1"
                 >
-                  <Square className="h-3 w-3" />
+                  <Square className="size-3" />
                   End
                 </Button>
                 <Button
@@ -164,7 +178,7 @@ export function MeetingControls({
                   title="Inject comment"
                   className="gap-1"
                 >
-                  <MessageSquarePlus className="h-3 w-3" />
+                  <MessageSquarePlus className="size-3" />
                   Comment
                 </Button>
               </>
@@ -178,7 +192,7 @@ export function MeetingControls({
                   title="Resume meeting"
                   className="gap-1"
                 >
-                  <Play className="h-3 w-3" />
+                  <Play className="size-3" />
                   Resume
                 </Button>
                 <Button
@@ -188,7 +202,7 @@ export function MeetingControls({
                   title="End meeting"
                   className="gap-1"
                 >
-                  <Square className="h-3 w-3" />
+                  <Square className="size-3" />
                   End
                 </Button>
               </>
@@ -196,9 +210,9 @@ export function MeetingControls({
           </div>
           {showInjectInput && status === 'running' && (
             <div className="flex gap-1.5">
-              <input
+              <Input
                 type="text"
-                className="flex-1 rounded border border-slate-400/20 bg-transparent px-2 py-1 text-xs text-slate-400 placeholder:text-slate-400/40 focus:outline-none focus:ring-1 focus:ring-slate-400/40"
+                className="h-8 flex-1 border-border-subtle bg-transparent px-2 py-1 text-xs text-text-secondary placeholder:text-text-muted focus:border-border-focus"
                 placeholder="Type your comment..."
                 value={injectText}
                 onChange={(e) => setInjectText(e.target.value)}

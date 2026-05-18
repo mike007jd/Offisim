@@ -44,7 +44,7 @@ export function SurfaceCard({
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+          <p className="text-caption font-semibold uppercase tracking-[0.22em] text-text-muted">
             {title}
           </p>
           {description ? <p className="mt-2 text-sm text-text-secondary">{description}</p> : null}
@@ -64,7 +64,7 @@ export function SectionLabel({ htmlFor, children }: { htmlFor: string; children:
   return (
     <label
       htmlFor={htmlFor}
-      className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-text-muted"
+      className="mb-2 block text-caption font-semibold uppercase tracking-[0.16em] text-text-muted"
     >
       {children}
     </label>

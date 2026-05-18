@@ -38,7 +38,7 @@ function TaskRow({ task }: { task: TaskRunRow }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border border-ocean-light bg-ocean-mid/10 px-2 py-1.5">
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <Badge variant={variant} className="text-[10px] shrink-0">
+        <Badge variant={variant} className="text-caption shrink-0">
           {task.task_type}
         </Badge>
         <span className="text-xs text-sand font-pixel-mono truncate">
@@ -46,10 +46,10 @@ function TaskRow({ task }: { task: TaskRunRow }) {
         </span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-[10px] text-shell/60 font-pixel-mono">
+        <span className="text-caption text-shell/60 font-pixel-mono">
           {formatDuration(task.started_at)}
         </span>
-        <Badge variant={variant} className="text-[10px]">
+        <Badge variant={variant} className="text-caption">
           {task.status}
         </Badge>
       </div>
@@ -79,13 +79,13 @@ export function TaskQueueCard({ queue }: TaskQueueCardProps) {
         ) : (
           <Tabs defaultValue="active">
             <TabsList className="w-full">
-              <TabsTrigger value="active" className="flex-1 text-[10px]">
+              <TabsTrigger value="active" className="flex-1 text-caption">
                 Active ({queue.activeTasks.length})
               </TabsTrigger>
-              <TabsTrigger value="pending" className="flex-1 text-[10px]">
+              <TabsTrigger value="pending" className="flex-1 text-caption">
                 Pending ({queue.pendingTasks.length})
               </TabsTrigger>
-              <TabsTrigger value="completed" className="flex-1 text-[10px]">
+              <TabsTrigger value="completed" className="flex-1 text-caption">
                 Done ({queue.recentCompleted.length})
               </TabsTrigger>
             </TabsList>

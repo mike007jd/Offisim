@@ -9,6 +9,7 @@
  *   - emits selection / deselect / drop-requested events
  *   - renders the <canvas> + a screen-reader accessible overlay
  */
+import { Button } from '@offisim/ui-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
 import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
@@ -178,7 +179,7 @@ export default function Office2DCanvasView({
       />
       <div aria-label="Office employees" className="sr-only">
         {employeeRenderData.map((emp) => (
-          <button
+          <Button
             key={emp.employeeId}
             type="button"
             aria-label={`${emp.name} employee node`}
@@ -186,11 +187,11 @@ export default function Office2DCanvasView({
             onClick={() => emitEmployeeSelected(emp.employeeId)}
           >
             {emp.name}
-          </button>
+          </Button>
         ))}
-        <button type="button" aria-label="Deselect office scene" onClick={emitSceneDeselected}>
+        <Button type="button" aria-label="Deselect office scene" onClick={emitSceneDeselected}>
           Deselect
-        </button>
+        </Button>
       </div>
     </div>
   );

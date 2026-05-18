@@ -2,16 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web-dev",
+      "name": "desktop-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@aics/web", "dev"],
+      "runtimeArgs": ["--filter", "@offisim/desktop", "dev"],
       "port": 5176
     },
     {
-      "name": "market-dev",
+      "name": "platform-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@aics/market", "dev"],
-      "port": 3000
+      "runtimeArgs": ["--filter", "@offisim/platform", "dev"],
+      "port": 4100
     }
   ]
 }

@@ -1,6 +1,17 @@
 import type { ZoneArchetype, ZonePreset } from '@offisim/shared-types';
 import { ZONE_PRESET_GROUPS, isRequiredArchetype } from '@offisim/shared-types';
-import { Lock, Plus } from 'lucide-react';
+import {
+  Badge,
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  cn,
+} from '@offisim/ui-core';
+import { ChevronDown, Lock, Plus } from 'lucide-react';
 
 export interface PresetPaletteProps {
   collapsed: Record<string, boolean>;
@@ -32,9 +43,9 @@ export function PresetPalette({
   onCreateCustom,
 }: PresetPaletteProps) {
   return (
-    <div className="flex w-60 shrink-0 flex-col overflow-hidden border-r border-white/[0.06] bg-surface">
-      <div className="px-3 py-2.5 border-b border-white/[0.06]">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+    <div className="flex w-60 shrink-0 flex-col overflow-hidden border-r border-border-subtle bg-surface">
+      <div className="border-b border-border-subtle px-3 py-2.5">
+        <p className="font-mono text-caption font-bold uppercase tracking-wider text-text-muted">
           ZONE_PRESETS
         </p>
       </div>
@@ -44,28 +55,28 @@ export function PresetPalette({
           const required = isRequiredArchetype(group.archetype);
           return (
             <div key={group.archetype}>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() =>
                   setCollapsed((p) => ({ ...p, [group.archetype]: !p[group.archetype] }))
                 }
-                className="flex w-full items-center gap-1.5 px-3 py-2 text-left font-mono text-[10px] font-semibold text-zinc-400 hover:bg-white/[0.03] transition-colors"
+                className="h-auto w-full justify-start rounded-none px-3 py-2 text-left font-mono text-caption font-semibold"
               >
-                <span
-                  className="text-[8px] transition-transform"
-                  style={{ transform: isCollapsed ? 'rotate(-90deg)' : '' }}
-                >
-                  ▼
-                </span>
+                <ChevronDown
+                  className={cn('size-3 transition-transform', isCollapsed && '-rotate-90')}
+                  aria-hidden="true"
+                />
                 <span>{group.icon}</span>
                 <span className="flex-1">{group.label}</span>
                 {required && (
-                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[7px] font-bold text-amber-400 tracking-wider">
+                  <Badge size="xs" variant="warning">
                     REQUIRED
-                  </span>
+                  </Badge>
                 )}
-                <span className="text-zinc-600">{group.presets.length}</span>
-              </button>
+                <span className="text-text-muted">{group.presets.length}</span>
+              </Button>
               {!isCollapsed &&
                 group.presets.map((preset) => (
                   <PresetCard
@@ -79,56 +90,63 @@ export function PresetPalette({
           );
         })}
 
-        <div className="border-t border-white/[0.06] mt-1 pt-1">
-          <button
+        <div className="mt-1 border-t border-border-subtle pt-1">
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setShowCustomForm((v) => !v);
               setPlacingPreset(null);
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left font-mono text-[10px] text-zinc-400 hover:bg-white/[0.03] hover:text-zinc-200 transition-colors"
+            className="h-auto w-full justify-start rounded-none px-3 py-2 text-left font-mono text-caption"
           >
-            <Plus className="h-3 w-3" />
+            <Plus className="size-3" aria-hidden="true" />
             <span>Create Custom Zone</span>
-          </button>
+          </Button>
           {showCustomForm && (
-            <div className="px-3 pb-2 space-y-2">
-              <input
+            <div className="flex flex-col gap-2 px-3 pb-2">
+              <Input
                 type="text"
                 value={customLabel}
                 onChange={(e) => setCustomLabel(e.target.value)}
                 placeholder="Zone name..."
-                className="w-full rounded border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-zinc-200 outline-none focus:border-blue-500/50"
+                className="h-8 font-mono text-caption"
               />
-              <select
+              <Select
                 value={customArchetype}
-                onChange={(e) => setCustomArchetype(e.target.value as ZoneArchetype)}
-                className="w-full rounded border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-zinc-200 outline-none focus:border-blue-500/50"
+                onValueChange={(value) => setCustomArchetype(value as ZoneArchetype)}
               >
-                <option value="workspace">Workspace</option>
-                <option value="meeting">Meeting</option>
-                <option value="library">Library</option>
-                <option value="rest">Rest Area</option>
-                <option value="server">Server</option>
-              </select>
-              <button
+                <SelectTrigger className="h-8 font-mono text-caption">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="workspace">Workspace</SelectItem>
+                  <SelectItem value="meeting">Meeting</SelectItem>
+                  <SelectItem value="library">Library</SelectItem>
+                  <SelectItem value="rest">Rest Area</SelectItem>
+                  <SelectItem value="server">Server</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
                 type="button"
+                size="sm"
                 onClick={onCreateCustom}
-                className="w-full rounded border border-blue-500/30 bg-blue-600/15 py-1.5 font-mono text-[10px] text-blue-300 hover:bg-blue-600/25 transition-colors"
+                className="w-full font-mono text-caption"
               >
                 Add to Canvas
-              </button>
+              </Button>
             </div>
           )}
         </div>
       </div>
 
       {placingPreset && (
-        <div className="border-t border-white/[0.06] px-3 py-2 bg-blue-500/5">
-          <p className="font-mono text-[10px] text-blue-400">
+        <div className="border-t border-border-subtle bg-accent-muted px-3 py-2">
+          <p className="font-mono text-caption text-accent-text">
             Placing: <strong>{placingPreset.label}</strong>
           </p>
-          <p className="font-mono text-[8px] text-zinc-600 mt-0.5">
+          <p className="mt-0.5 font-mono text-caption text-text-muted">
             Click on canvas to place · ESC to cancel
           </p>
         </div>
@@ -146,18 +164,20 @@ interface PresetCardProps {
 function PresetCard({ preset, isActive, onClick }: PresetCardProps) {
   const required = isRequiredArchetype(preset.archetype);
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 px-2 py-2 pl-6 text-left transition-all ${
+      className={cn(
+        'h-auto w-full justify-start rounded-none border-l-2 px-2 py-2 pl-6 text-left transition-all',
         isActive
-          ? 'bg-blue-500/15 text-blue-300 border-l-2 border-blue-500'
-          : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300 border-l-2 border-transparent'
-      }`}
+          ? 'border-accent bg-accent-muted text-accent-text'
+          : 'border-transparent text-text-muted hover:bg-surface-hover hover:text-text-primary',
+      )}
     >
       <div className="relative shrink-0">
         <div
-          className="h-8 w-8 rounded"
+          className="size-8 rounded"
           style={{
             backgroundColor: `${preset.accentColor}20`,
             border: `1.5px solid ${preset.accentColor}40`,
@@ -176,18 +196,18 @@ function PresetCard({ preset, isActive, onClick }: PresetCardProps) {
           />
         </div>
         {required && (
-          <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-amber-500/80 flex items-center justify-center">
-            <Lock className="h-1.5 w-1.5 text-amber-900" />
+          <div className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-full bg-warning">
+            <Lock className="size-1.5 text-text-inverse" aria-hidden="true" />
           </div>
         )}
       </div>
-      <div className="flex-1 min-w-0">
-        <span className="block truncate font-mono text-[10px] font-medium">{preset.label}</span>
-        <span className="block font-mono text-[8px] text-zinc-600">
+      <div className="min-w-0 flex-1">
+        <span className="block truncate font-mono text-caption font-medium">{preset.label}</span>
+        <span className="block font-mono text-caption text-text-muted">
           {preset.w}x{preset.d} · {preset.prefabs.length} items
           {preset.deskSlots > 0 && ` · ${preset.deskSlots} desks`}
         </span>
       </div>
-    </button>
+    </Button>
   );
 }

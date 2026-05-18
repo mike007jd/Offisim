@@ -1,5 +1,5 @@
 import type { ChatAttachmentRef } from '@offisim/shared-types';
-import { cn } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { ChevronRight } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useState } from 'react';
@@ -83,7 +83,7 @@ export function MessageBubble({
   if (role === 'system') {
     return (
       <div data-role="system" className="w-full min-w-0 max-w-full overflow-hidden px-1 py-1">
-        <div className="min-w-0 max-w-full overflow-hidden break-words whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-text-muted">
+        <div className="min-w-0 max-w-full overflow-hidden break-words whitespace-pre-wrap font-mono text-caption leading-relaxed text-text-muted">
           {content}
         </div>
       </div>
@@ -130,7 +130,7 @@ export function MessageBubble({
       {badgeLabel && (
         <span
           className={cn(
-            'inline-block mb-0.5 px-1.5 py-px rounded text-[10px] font-medium leading-tight',
+            'inline-block mb-0.5 px-1.5 py-px rounded text-caption font-medium leading-tight',
             badgeColor,
           )}
         >
@@ -140,16 +140,18 @@ export function MessageBubble({
       {/* Reasoning collapsible section */}
       {reasoning && (
         <div className="mb-1 w-full min-w-0 max-w-full overflow-hidden border-l-2 border-info/55 px-2 py-1 text-xs leading-snug text-text-primary">
-          <button
+          <Button
             type="button"
-            className="mb-1 flex cursor-pointer items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-info transition-colors hover:text-text-primary"
+            variant="ghost"
+            size="sm"
+            className="mb-1 h-auto gap-1 px-0 py-0 text-caption font-medium uppercase tracking-[0.12em] text-info hover:text-text-primary"
             onClick={() => setReasoningOpen((o) => !o)}
           >
             <ChevronRight
-              className={cn('h-3 w-3 transition-transform', reasoningOpen && 'rotate-90')}
+              className={cn('size-3 transition-transform', reasoningOpen && 'rotate-90')}
             />
             Reasoning
-          </button>
+          </Button>
           {reasoningOpen && (
             <MarkdownContent
               content={reasoning}
@@ -173,10 +175,10 @@ export function MessageBubble({
           <MarkdownContent content={displayContent} className="min-w-0 max-w-full" />
           {/* Status label */}
           {status === 'failed' && (
-            <div className="mt-1 text-[10px] font-medium text-error">Failed</div>
+            <div className="mt-1 text-caption font-medium text-error">Failed</div>
           )}
           {status === 'interrupted' && (
-            <div className="mt-1 text-[10px] font-medium text-warning">Interrupted</div>
+            <div className="mt-1 text-caption font-medium text-warning">Interrupted</div>
           )}
         </div>
       )}

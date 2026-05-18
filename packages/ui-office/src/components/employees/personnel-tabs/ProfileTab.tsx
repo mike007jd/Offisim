@@ -237,7 +237,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 </SelectContent>
               </Select>
               <p
-                className="mt-1 text-[10px] text-text-muted"
+                className="mt-1 text-caption text-text-muted"
                 title={
                   workstationLabel
                     ? 'MCP tools available via workstation rack.'
@@ -346,20 +346,21 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div className="rounded-lg border border-border-default bg-surface-muted">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setShowSystemPrompt((v) => !v)}
-                className="flex w-full items-center gap-1.5 px-3 py-2 text-xs text-text-secondary transition-colors hover:text-text-primary"
+                className="h-auto w-full justify-start gap-1.5 rounded-lg px-3 py-2 text-xs text-text-secondary hover:text-text-primary"
               >
                 {showSystemPrompt ? (
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  <ChevronDown className="size-3.5 shrink-0" />
                 ) : (
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  <ChevronRight className="size-3.5 shrink-0" />
                 )}
                 System Prompt Preview
-              </button>
+              </Button>
               {showSystemPrompt && (
-                <pre className="overflow-x-hidden whitespace-pre-wrap bg-surface px-3 pb-3 font-mono text-[11px] leading-relaxed text-text-secondary">
+                <pre className="overflow-x-hidden whitespace-pre-wrap bg-surface px-3 pb-3 font-mono text-caption leading-relaxed text-text-secondary">
                   {buildSystemPrompt(formData)}
                 </pre>
               )}
@@ -432,14 +433,16 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   {currentProviderModels.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {currentProviderModels.map((m) => (
-                        <button
+                        <Button
                           key={m}
                           type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={() => updateField('modelPreference', m)}
-                          className="rounded border border-border-default bg-surface-muted px-1.5 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-border-focus hover:text-accent-text"
+                          className="h-6 rounded px-1.5 py-0.5 text-caption text-text-secondary hover:border-border-focus hover:text-accent-text"
                         >
                           {m}
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   )}
@@ -480,7 +483,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 }}
               />
               {formData.maxTokens < 1024 && (
-                <p className="mt-1 text-[10px] text-warning">
+                <p className="mt-1 text-caption text-warning">
                   Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.
                 </p>
               )}

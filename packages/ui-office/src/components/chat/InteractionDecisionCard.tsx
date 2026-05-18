@@ -61,7 +61,7 @@ export function InteractionDecisionCard({
             value={note}
             onChange={(event) => setNote(event.target.value)}
             placeholder={request.placeholder ?? 'Tell Offisim what to do instead'}
-            className="min-h-[88px]"
+            className="min-h-interaction-note"
           />
         )}
         <div className="flex flex-wrap gap-2">

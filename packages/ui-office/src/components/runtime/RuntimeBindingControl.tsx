@@ -172,7 +172,7 @@ export function RuntimeBindingControl({
           return (
             <RadioGroupItem key={option.id} value={option.id} disabled={optionDisabled} asChild>
               <div
-                className={`flex h-auto min-h-[92px] w-auto flex-col items-start gap-1 rounded-lg border px-3 py-3 text-left transition ${
+                className={`flex h-auto min-h-runtime-binding-card w-auto flex-col items-start gap-1 rounded-lg border px-3 py-3 text-left transition ${
                   isSelected
                     ? 'border-border-focus bg-accent-muted text-accent-text'
                     : 'border-border-default bg-surface text-text-primary hover:border-border-strong hover:bg-surface-hover'
@@ -183,17 +183,15 @@ export function RuntimeBindingControl({
                 }`}
               >
                 <span className="text-sm font-medium">{option.label}</span>
-                <span className="text-[11px] leading-snug text-text-secondary">
-                  {description}
-                </span>
+                <span className="text-caption leading-snug text-text-secondary">{description}</span>
                 {selectedProfile ? (
-                  <span className="text-[10px] leading-snug text-text-muted">
+                  <span className="text-caption leading-snug text-text-muted">
                     {selectedProfile.profileId} · {selectedProfile.tier} ·{' '}
                     {selectedProfile.evidenceClass} · {selectedProfile.verification.status}
                   </span>
                 ) : null}
                 {engineProfiles?.fullAgent && !option.profileId ? (
-                  <span className="text-[10px] leading-snug text-warning">
+                  <span className="text-caption leading-snug text-warning">
                     {engineProfiles.fullAgent.availability === 'production'
                       ? `Full-agent promoted: ${engineProfiles.fullAgent.profileId}`
                       : `Full-agent target unavailable: ${engineProfiles.fullAgent.profileId} · missing ${engineProfiles.fullAgent.verification.blockers
@@ -203,8 +201,10 @@ export function RuntimeBindingControl({
                 ) : null}
                 {option.profileId && selectedProfile ? (
                   <span
-                    className={`text-[10px] leading-snug ${
-                      selectedProfile.availability === 'production' ? 'text-success' : 'text-warning'
+                    className={`text-caption leading-snug ${
+                      selectedProfile.availability === 'production'
+                        ? 'text-success'
+                        : 'text-warning'
                     }`}
                   >
                     {selectedProfile.availability === 'production'
@@ -215,7 +215,7 @@ export function RuntimeBindingControl({
                   </span>
                 ) : null}
                 {engineUnavailable && (
-                  <span className="mt-1 text-[10px] uppercase tracking-wider text-warning">
+                  <span className="mt-1 text-caption uppercase tracking-wider text-warning">
                     {ENGINE_UNAVAILABLE_HINT}
                   </span>
                 )}
@@ -235,7 +235,7 @@ export function RuntimeBindingControl({
       )}
 
       {showPreviewDisclosure && (
-        <p className="rounded-lg border border-warning/30 bg-warning-muted px-3 py-2 text-[11px] leading-snug text-warning">
+        <p className="rounded-lg border border-warning/30 bg-warning-muted px-3 py-2 text-caption leading-snug text-warning">
           Text-only preview · SDK transport is model access, not a full-agent route. Gateway-bridged
           tools and SDK-native full-agent profiles become selectable only after deterministic,
           benchmark, trusted-host, release app, denied-path, cancellation, rollback, sandbox, and

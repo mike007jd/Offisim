@@ -1,4 +1,5 @@
 import { type RuntimeEvent, TASK_ASSIGNMENT_REROUTED } from '@offisim/shared-types';
+import { Button } from '@offisim/ui-core';
 import { Activity } from 'lucide-react';
 import { formatTimestamp } from '../../lib/format-time';
 import { domainIcon, formatTaskAssignmentReroutedLabel, getDisplayLabel } from './EventItem';
@@ -50,22 +51,23 @@ export function ActivityEventRow({
   const levelBorder = LEVEL_LEFT_BORDER[level];
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={onClick}
-      className={`flex h-12 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-surface-hover ${selectedStyle} ${levelBorder}`}
+      className={`h-12 w-full justify-start gap-3 rounded-none px-4 text-left hover:bg-surface-hover ${selectedStyle} ${levelBorder}`}
     >
-      <Icon className={`h-5 w-5 shrink-0 ${iconColor}`} />
+      <Icon className={`size-5 shrink-0 ${iconColor}`} />
       <span className="flex-1 truncate text-sm text-text-primary">{label}</span>
       {collapsedCount && collapsedCount > 1 && (
-        <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-medium text-text-secondary">
+        <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-caption font-medium text-text-secondary">
           ×{collapsedCount}
         </span>
       )}
       <span className="w-20 shrink-0 text-right text-xs text-text-muted">
         {formatTimestamp(event.timestamp)}
       </span>
-      <span className={`shrink-0 w-1 h-6 rounded-full ${LEVEL_BAR_COLOR[level]}`} />
-    </button>
+      <span className={`h-6 w-1 shrink-0 rounded-full ${LEVEL_BAR_COLOR[level]}`} />
+    </Button>
   );
 }

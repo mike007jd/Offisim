@@ -248,7 +248,7 @@ export function EventLog() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-surface-elevated text-text-primary">
-      <h2 className="p-3 pb-1 text-[8px] uppercase tracking-wider text-text-secondary">
+      <h2 className="p-3 pb-1 text-caption uppercase tracking-wider text-text-secondary">
         Event Log
       </h2>
       <EventFilters onFilterChange={setFilters} />

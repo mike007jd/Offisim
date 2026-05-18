@@ -1,5 +1,4 @@
-import { Textarea } from '@offisim/ui-core';
-import { cn } from '@offisim/ui-core';
+import { Button, Textarea, cn } from '@offisim/ui-core';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 
 const STYLE_PRESETS = [
@@ -43,28 +42,34 @@ export function StyleStep({ formData, updateField }: StyleStepProps) {
         {STYLE_PRESETS.map((preset) => {
           const active = isPresetActive(preset.label);
           return (
-            <button
+            <Button
               key={preset.label}
               type="button"
+              variant="ghost"
               onClick={() => togglePreset(preset.label)}
               className={cn(
-                'flex flex-col items-start p-3 border-2 text-left transition-colors cursor-pointer',
+                'h-auto flex-col items-start border-2 p-3 text-left',
                 active
-                  ? 'border-lobster-red bg-lobster-red/10'
-                  : 'border-ocean-light bg-ocean-mid/50 hover:border-sea-blue',
+                  ? 'border-border-focus bg-accent-muted'
+                  : 'border-border-default bg-surface-muted hover:border-border-focus',
               )}
             >
-              <span className={cn('text-sm font-semibold', active ? 'text-pearl' : 'text-sand')}>
+              <span
+                className={cn(
+                  'text-sm font-semibold',
+                  active ? 'text-accent-text' : 'text-text-primary',
+                )}
+              >
                 {preset.label}
               </span>
-              <span className="text-xs text-shell">{preset.description}</span>
-            </button>
+              <span className="text-xs text-text-muted">{preset.description}</span>
+            </Button>
           );
         })}
       </div>
 
       <div>
-        <label htmlFor="style-custom" className="text-xs text-shell mb-1 block">
+        <label htmlFor="style-custom" className="mb-1 block text-xs text-text-secondary">
           Or describe a custom working style:
         </label>
         <Textarea

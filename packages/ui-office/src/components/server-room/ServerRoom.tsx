@@ -1,4 +1,4 @@
-import { Badge, ScrollArea } from '@offisim/ui-core';
+import { Badge, Button, Input, ScrollArea } from '@offisim/ui-core';
 import {
   Activity,
   AlertCircle,
@@ -32,9 +32,9 @@ const RACK_BADGE_VARIANT: Record<RackStatus, 'success' | 'secondary' | 'error' |
 };
 
 const SLOT_DOT: Record<SlotStatus, string> = {
-  available: 'bg-emerald-500',
-  occupied: 'bg-blue-500',
-  error: 'bg-red-500',
+  available: 'bg-success',
+  occupied: 'bg-accent',
+  error: 'bg-error',
 };
 
 function rackBadgeVariant(status: RackStatus) {
@@ -42,7 +42,7 @@ function rackBadgeVariant(status: RackStatus) {
 }
 
 function slotDotColor(status: SlotStatus) {
-  return SLOT_DOT[status] ?? 'bg-slate-500';
+  return SLOT_DOT[status] ?? 'bg-text-muted';
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
@@ -63,57 +63,61 @@ function SlotList({
   onRemoveSlot,
 }: SlotListProps) {
   return (
-    <div className="mt-2 flex flex-col gap-1 pl-1 border-l border-white/5">
+    <div className="mt-2 flex flex-col gap-1 border-l border-border-subtle pl-1">
       {rack.slots.length === 0 && (
-        <p className="text-[10px] text-slate-500 py-1 pl-1">No slots — add a capability below</p>
+        <p className="py-1 pl-1 text-caption text-text-muted">No slots — add a capability below</p>
       )}
 
       {rack.slots.map((slot) => (
         <div
           key={slot.slot_id}
-          className="flex items-center justify-between rounded bg-white/5 px-2 py-1 gap-1"
+          className="flex items-center justify-between gap-1 rounded bg-surface-muted px-2 py-1"
         >
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
             <Circle
-              className={`w-1.5 h-1.5 flex-shrink-0 rounded-full ${slotDotColor(slot.status)}`}
+              className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${slotDotColor(slot.status)}`}
               fill="currentColor"
               strokeWidth={0}
             />
-            <span className="text-[10px] text-slate-200 font-mono truncate">
+            <span className="truncate font-mono text-caption text-text-primary">
               {slot.capability_name}
             </span>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <span className="text-[10px] text-slate-500 font-mono">{slot.exposure_scope}</span>
-            <button
+          <div className="flex flex-shrink-0 items-center gap-1">
+            <span className="font-mono text-caption text-text-muted">{slot.exposure_scope}</span>
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => onRemoveSlot(slot.slot_id)}
-              className="text-slate-600 hover:text-red-400 transition-colors"
+              className="h-5 w-5 text-text-muted hover:text-error"
               title="Remove slot"
             >
-              <Trash2 className="w-2.5 h-2.5" />
-            </button>
+              <Trash2 className="h-2.5 w-2.5" />
+            </Button>
           </div>
         </div>
       ))}
 
       {/* Add slot inline input */}
-      <div className="flex items-center gap-1 mt-0.5">
-        <input
+      <div className="mt-0.5 flex items-center gap-1">
+        <Input
           type="text"
           value={newSlotInput}
           onChange={(e) => onSlotInputChange(e.target.value)}
           placeholder="Capability name"
-          className="flex-1 min-w-0 rounded border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40"
+          className="h-7 min-w-0 flex-1 border-border-subtle bg-surface px-2 py-0.5 text-caption"
           onKeyDown={(e) => e.key === 'Enter' && onAddSlot()}
         />
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={onAddSlot}
-          className="flex items-center gap-0.5 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-slate-200 hover:bg-white/10 transition-all flex-shrink-0"
+          className="h-7 flex-shrink-0 gap-0.5 px-1.5 text-caption"
         >
-          <Plus className="w-2.5 h-2.5" />
-        </button>
+          <Plus className="h-2.5 w-2.5" />
+        </Button>
       </div>
     </div>
   );
@@ -143,32 +147,33 @@ function RackCard({
   const isBound = rack.status === 'bound';
 
   return (
-    <div className="rounded-lg border border-white/10 bg-black/40 p-3 flex flex-col gap-2 overflow-hidden">
+    <div className="flex flex-col gap-2 overflow-hidden rounded-lg border border-border-subtle bg-surface-muted p-3">
       {/* Rack header */}
-      <div className="flex items-start justify-between gap-2 min-w-0">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <Server className="w-3 h-3 text-slate-400 flex-shrink-0" />
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Server className="h-3 w-3 flex-shrink-0 text-text-secondary" />
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold text-slate-200 truncate leading-tight">
+            <p className="truncate text-caption font-semibold leading-tight text-text-primary">
               {rack.label}
             </p>
-            <p className="text-[10px] text-slate-500 font-mono truncate">{rack.provider_type}</p>
+            <p className="truncate font-mono text-caption text-text-muted">{rack.provider_type}</p>
           </div>
         </div>
         <Badge
           variant={rackBadgeVariant(rack.status)}
-          className="text-[10px] px-1.5 py-0 flex-shrink-0"
+          size="xs"
+          className="flex-shrink-0 px-1.5 py-0"
         >
           {rack.status}
         </Badge>
       </div>
 
       {/* Slot count summary */}
-      <div className="flex items-center gap-3 text-[10px] text-slate-500">
+      <div className="flex items-center gap-3 text-caption text-text-muted">
         <span>
           {rack.slots.length} slot{rack.slots.length !== 1 ? 's' : ''}
         </span>
-        <span className="text-emerald-500/70">
+        <span className="text-success">
           {rack.slots.filter((s) => s.status === 'available').length} available
         </span>
       </div>
@@ -183,33 +188,39 @@ function RackCard({
       />
 
       {/* Rack actions */}
-      <div className="flex items-center gap-1 pt-1 border-t border-white/5">
+      <div className="flex items-center gap-1 border-t border-border-subtle pt-1">
         {isBound ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => onUnbind(rack.rack_id)}
-            className="flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 rounded px-1.5 py-0.5 transition-all"
+            className="h-6 gap-1 px-1.5 text-caption text-warning hover:text-warning"
           >
-            <Unplug className="w-2.5 h-2.5" />
+            <Unplug className="h-2.5 w-2.5" />
             Unbind
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => onBind(rack.rack_id)}
-            className="flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10 rounded px-1.5 py-0.5 transition-all"
+            className="h-6 gap-1 px-1.5 text-caption text-success hover:text-success"
           >
-            <Wifi className="w-2.5 h-2.5" />
+            <Wifi className="h-2.5 w-2.5" />
             Bind
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={() => onDelete(rack.rack_id)}
-          className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded px-1.5 py-0.5 transition-all ml-auto"
+          className="ml-auto h-6 w-6 text-text-muted hover:text-error"
         >
-          <Trash2 className="w-2.5 h-2.5" />
-        </button>
+          <Trash2 className="h-2.5 w-2.5" />
+        </Button>
       </div>
     </div>
   );
@@ -220,12 +231,12 @@ function RackCard({
 function EmptyRacks() {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-        <Server className="w-5 h-5 text-slate-500" />
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-subtle bg-surface-muted">
+        <Server className="h-5 w-5 text-text-muted" />
       </div>
       <div className="px-2">
-        <p className="text-[11px] font-semibold text-slate-400">No MCP Racks</p>
-        <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+        <p className="text-caption font-semibold text-text-secondary">No MCP Racks</p>
+        <p className="mt-1.5 text-caption leading-relaxed text-text-muted">
           Racks are groups of MCP server capabilities that your AI employees can access. Create a
           rack, add capability slots, then bind it to make tools available to agents.
         </p>
@@ -245,10 +256,10 @@ const STATUS_ICON: Record<
   ToolExecutionTelemetryPayload['status'],
   { Icon: typeof CheckCircle; color: string }
 > = {
-  started: { Icon: Clock, color: 'text-slate-400' },
-  completed: { Icon: CheckCircle, color: 'text-emerald-400' },
-  error: { Icon: AlertCircle, color: 'text-red-400' },
-  denied: { Icon: AlertCircle, color: 'text-amber-400' },
+  started: { Icon: Clock, color: 'text-text-secondary' },
+  completed: { Icon: CheckCircle, color: 'text-success' },
+  error: { Icon: AlertCircle, color: 'text-error' },
+  denied: { Icon: AlertCircle, color: 'text-warning' },
 };
 
 interface ServerRoomProps {
@@ -312,11 +323,11 @@ export function ServerRoom({ activeThreadId }: ServerRoomProps) {
   return (
     <div className="flex flex-col gap-3 overflow-hidden">
       {/* Section header */}
-      <h2 className="text-[8px] uppercase tracking-wider text-slate-400">Server Room</h2>
+      <h2 className="text-caption uppercase tracking-wider text-text-secondary">Server Room</h2>
 
       {/* Rack list */}
       {loading ? (
-        <div className="text-[10px] text-slate-500 py-2">Loading racks...</div>
+        <div className="py-2 text-caption text-text-muted">Loading racks...</div>
       ) : racks.length === 0 ? (
         <EmptyRacks />
       ) : (
@@ -338,29 +349,30 @@ export function ServerRoom({ activeThreadId }: ServerRoomProps) {
       )}
 
       {/* Add rack — below content */}
-      <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5">
-        <label htmlFor="server-room-new-rack" className="text-[10px] text-slate-500 font-medium">
+      <div className="flex flex-col gap-1.5 border-t border-border-subtle pt-2">
+        <label htmlFor="server-room-new-rack" className="text-caption font-medium text-text-muted">
           Add New Rack
         </label>
         <div className="flex items-center gap-1.5">
-          <input
+          <Input
             id="server-room-new-rack"
             type="text"
             value={newRackLabel}
             onChange={(e) => setNewRackLabel(e.target.value)}
             placeholder="Rack name"
-            className="flex-1 min-w-0 rounded border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40"
+            className="h-8 min-w-0 flex-1 border-border-subtle bg-surface px-2 py-1 text-caption"
             onKeyDown={(e) => e.key === 'Enter' && handleCreateRack()}
           />
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={handleCreateRack}
             disabled={!newRackLabel.trim()}
-            className="flex items-center gap-1 rounded border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+            className="h-8 flex-shrink-0 gap-1 px-2 text-caption"
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="h-3 w-3" />
             <span>Add</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -380,27 +392,28 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
   if (!activeThreadId) return null;
 
   return (
-    <div className="border-t border-white/5 pt-2 mt-3">
-      <button
+    <div className="mt-3 border-t border-border-subtle pt-2">
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-1.5 w-full text-left mb-1.5"
+        className="mb-1.5 h-auto w-full justify-start gap-1.5 p-0 text-left hover:bg-transparent"
       >
-        <Activity className="w-3 h-3 text-cyan-400" />
-        <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">
+        <Activity className="h-3 w-3 text-info" />
+        <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
           Tool Activity
         </span>
         {stats.total > 0 && (
-          <span className="text-[10px] text-slate-500 ml-auto">
+          <span className="ml-auto text-caption text-text-muted">
             {stats.total} calls &middot; {Math.round(stats.successRate * 100)}% ok &middot; avg{' '}
             {formatMs(stats.avgDurationMs)}
           </span>
         )}
-      </button>
+      </Button>
 
       {expanded &&
         (entries.length === 0 ? (
-          <p className="text-[10px] text-slate-500 italic px-1">No tool calls yet</p>
+          <p className="px-1 text-caption italic text-text-muted">No tool calls yet</p>
         ) : (
           <ScrollArea className="max-h-40">
             {entries.slice(-20).map((e) => {
@@ -408,12 +421,12 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
               return (
                 <div
                   key={`${e.toolCallId}-${e.startedAt}`}
-                  className="flex items-center gap-1.5 px-1 py-0.5 text-[10px] hover:bg-white/5 transition-colors"
+                  className="flex items-center gap-1.5 px-1 py-0.5 text-caption transition-colors hover:bg-surface-hover"
                 >
-                  <Icon className={`w-2.5 h-2.5 shrink-0 ${color}`} />
-                  <span className="flex-1 min-w-0 truncate text-slate-300">{e.toolName}</span>
+                  <Icon className={`h-2.5 w-2.5 shrink-0 ${color}`} />
+                  <span className="min-w-0 flex-1 truncate text-text-secondary">{e.toolName}</span>
                   {e.durationMs != null && (
-                    <span className="text-slate-500 shrink-0">{formatMs(e.durationMs)}</span>
+                    <span className="shrink-0 text-text-muted">{formatMs(e.durationMs)}</span>
                   )}
                 </div>
               );

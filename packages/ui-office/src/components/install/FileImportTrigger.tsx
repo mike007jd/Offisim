@@ -1,4 +1,4 @@
-import { Button } from '@offisim/ui-core';
+import { Button, Input } from '@offisim/ui-core';
 /**
  * FileImportTrigger — hidden file input + visible trigger button.
  * Supports .offisimpkg and .zip files with 50MB size limit.
@@ -85,7 +85,7 @@ export function FileImportTrigger({
   return (
     <>
       {/* Hidden file input */}
-      <input
+      <Input
         ref={inputRef}
         type="file"
         accept={ACCEPTED_EXTENSIONS}

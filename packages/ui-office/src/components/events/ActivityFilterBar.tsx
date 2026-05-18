@@ -1,4 +1,16 @@
-import { useFocusTrap, useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  useFocusTrap,
+  useRegisterModal,
+  useTopmostEscape,
+} from '@offisim/ui-core';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { ALL_EVENT_TYPES } from './EventFilters';
@@ -47,92 +59,99 @@ export function ActivityFilterBar({
   });
   useFocusTrap(sheetRef, narrowSheetOpen);
 
-  function handleTypeChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const selected = e.target.value;
+  function handleTypeChange(selected: string) {
     onEventTypesChange(selected === 'all' ? [] : [selected]);
   }
 
-  function handleActorChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const selected = e.target.value;
+  function handleActorChange(selected: string) {
     onActorFiltersChange(selected === 'all' ? [] : [selected]);
   }
 
   const eventTypeValue = eventTypes[0] ?? 'all';
   const actorValue = actorFilters[0] ?? 'all';
-  const controlClass =
-    'h-9 min-w-0 flex-1 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary focus:border-border-focus focus:outline-none';
+  const controlClass = 'h-9 min-w-0 flex-1';
 
   const controls = (
     <>
-      <select
-        value={datePreset}
-        onChange={(e) => onDatePresetChange(e.target.value as DatePreset)}
-        className={controlClass}
-      >
-        {DATE_PRESETS.map((p) => (
-          <option key={p.value} value={p.value}>
-            {p.label}
-          </option>
-        ))}
-      </select>
+      <Select value={datePreset} onValueChange={(value) => onDatePresetChange(value as DatePreset)}>
+        <SelectTrigger className={controlClass}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {DATE_PRESETS.map((p) => (
+              <SelectItem key={p.value} value={p.value}>
+                {p.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
 
-      <select
-        value={eventTypeValue}
-        onChange={handleTypeChange}
-        className={controlClass}
-        title="Event types"
-      >
-        <option value="all">All events</option>
-        {ALL_EVENT_TYPES.filter((t) => t !== 'All').map((type) => (
-          <option key={type} value={type}>
-            {type}
-          </option>
-        ))}
-      </select>
+      <Select value={eventTypeValue} onValueChange={handleTypeChange}>
+        <SelectTrigger className={controlClass} title="Event types">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value="all">All events</SelectItem>
+            {ALL_EVENT_TYPES.filter((t) => t !== 'All').map((type) => (
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
 
-      <select
-        value={actorValue}
-        onChange={handleActorChange}
-        className={controlClass}
-        title="Actors"
-      >
-        <option value="all">All actors</option>
-        {actorOptions.map((actor) => (
-          <option key={actor} value={actor}>
-            {actor}
-          </option>
-        ))}
-      </select>
+      <Select value={actorValue} onValueChange={handleActorChange}>
+        <SelectTrigger className={controlClass} title="Actors">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value="all">All actors</SelectItem>
+            {actorOptions.map((actor) => (
+              <SelectItem key={actor} value={actor}>
+                {actor}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </>
   );
 
   if (variant === 'narrow') {
     return (
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border-default bg-surface-elevated px-3">
-        <button
+        <Button
           type="button"
           aria-label="Open activity filters"
           onClick={() => setSheetOpen(true)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border-default bg-surface-muted text-text-secondary"
+          variant="secondary"
+          size="icon"
+          className="size-9 shrink-0 text-text-secondary"
         >
-          <SlidersHorizontal className="h-4 w-4" />
-        </button>
+          <SlidersHorizontal className="size-4" />
+        </Button>
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
-          <input
+          <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
+          <Input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search events..."
-            className="h-9 w-full rounded-lg border border-border-default bg-surface py-2 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+            className="h-9 w-full border-border-default bg-surface pl-8 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus"
           />
         </div>
         {sheetOpen && (
           <div className="fixed inset-0 z-modal">
-            <button
+            <Button
               type="button"
               aria-label="Close activity filters"
-              className="absolute inset-0 bg-surface/70"
+              variant="ghost"
+              className="absolute inset-0 h-auto rounded-none bg-surface/70"
               onClick={() => setSheetOpen(false)}
             />
             <div
@@ -141,14 +160,16 @@ export function ActivityFilterBar({
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-text-primary">Filters</h2>
-                <button
+                <Button
                   type="button"
                   aria-label="Close filters"
                   onClick={() => setSheetOpen(false)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface-muted text-text-secondary"
+                  variant="secondary"
+                  size="icon"
+                  className="size-8 text-text-secondary"
                 >
-                  <X className="h-4 w-4" />
-                </button>
+                  <X className="size-4" />
+                </Button>
               </div>
               <div className="mt-4 grid gap-3">{controls}</div>
             </div>
@@ -159,17 +180,17 @@ export function ActivityFilterBar({
   }
 
   return (
-    <div className="grid h-14 shrink-0 grid-cols-[repeat(3,minmax(0,1fr))_minmax(160px,2fr)] items-center gap-3 border-b border-border-default bg-surface-elevated px-6">
+    <div className="grid h-14 shrink-0 grid-activity-filter items-center gap-3 border-b border-border-default bg-surface-elevated px-6">
       {controls}
 
       <div className="relative min-w-0">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
-        <input
+        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
+        <Input
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search events..."
-          className="h-9 w-full rounded-lg border border-border-default bg-surface py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+          className="h-9 w-full border-border-default bg-surface pl-8 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus"
         />
       </div>
     </div>

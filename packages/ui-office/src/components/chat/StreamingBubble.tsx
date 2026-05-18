@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import { useEffect, useState } from 'react';
 import {
   DEFAULT_BADGE_COLOR,
@@ -36,14 +37,14 @@ export function StreamingBubble({
     <div className="flex w-full min-w-0 max-w-full flex-col items-start overflow-hidden">
       {label && (
         <span
-          className={`inline-block mb-0.5 px-1.5 py-px rounded text-[10px] font-medium leading-tight ${badgeColor}`}
+          className={`inline-block mb-0.5 px-1.5 py-px rounded text-caption font-medium leading-tight ${badgeColor}`}
         >
           {label}
         </span>
       )}
       {reasoning && <ReasoningRegion reasoning={reasoning} hasContent={!!content} />}
       {(content || showPlaceholder) && (
-        <div className="max-h-[60vh] w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain border-l-2 border-info px-2 py-1 text-sm leading-relaxed text-text-primary">
+        <div className="max-h-stream-content w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain border-l-2 border-info px-2 py-1 text-sm leading-relaxed text-text-primary">
           {content ? (
             <>
               <MarkdownContent content={content} className="min-w-0 max-w-full" />
@@ -70,15 +71,17 @@ function ReasoningRegion({ reasoning, hasContent }: ReasoningRegionProps) {
   const expanded = expandedByUser ?? !hasContent;
 
   return (
-    <div className="mb-1 max-h-[40vh] w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain border-l-2 border-info/55 px-2 py-1 text-xs leading-snug text-text-primary">
-      <button
+    <div className="mb-1 max-h-reasoning-content w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain border-l-2 border-info/55 px-2 py-1 text-xs leading-snug text-text-primary">
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => setExpandedByUser(!expanded)}
-        className="mb-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.12em] text-info transition-colors hover:text-text-primary"
+        className="mb-0.5 h-auto gap-1 px-0 py-0 text-caption font-medium uppercase tracking-[0.12em] text-info hover:text-text-primary"
       >
         <span>{expanded ? '▾' : '▸'}</span>
         <span>Reasoning</span>
-      </button>
+      </Button>
       {expanded && (
         <MarkdownContent
           content={reasoning}
@@ -110,7 +113,7 @@ function PlaceholderWithTimer({ text }: PlaceholderWithTimerProps) {
         <span className="pointer-events-none absolute inset-0 streaming-shimmer" aria-hidden />
       </span>
       {elapsedSec > 0 && (
-        <span className="text-[11px] tabular-nums text-text-muted">{elapsedSec}s</span>
+        <span className="text-caption tabular-nums text-text-muted">{elapsedSec}s</span>
       )}
       <span className="inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-info" />
     </span>

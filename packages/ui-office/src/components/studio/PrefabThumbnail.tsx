@@ -444,9 +444,9 @@ const THUMBNAILS: Record<string, SvgRenderer> = {
       <line x1="8" y1="11" x2="24" y2="11" stroke={c} strokeWidth="0.6" opacity="0.3" />
       <line x1="8" y1="15" x2="24" y2="15" stroke={c} strokeWidth="0.6" opacity="0.3" />
       {/* Status dots */}
-      <circle cx="22" cy="9" r="1" fill="#22c55e" opacity="0.7" />
-      <circle cx="22" cy="13" r="1" fill="#f59e0b" opacity="0.7" />
-      <circle cx="22" cy="17" r="1" fill="#ef4444" opacity="0.7" />
+      <circle cx="22" cy="9" r="1" fill="var(--color-success-val)" opacity="0.7" />
+      <circle cx="22" cy="13" r="1" fill="var(--color-warning-val)" opacity="0.7" />
+      <circle cx="22" cy="17" r="1" fill="var(--color-error-val)" opacity="0.7" />
       {/* Stand */}
       <line x1="16" y1="22" x2="16" y2="27" stroke={c} strokeWidth="1.2" />
       <line x1="11" y1="27" x2="21" y2="27" stroke={c} strokeWidth="1.2" />

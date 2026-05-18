@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle } from '@offisim/ui-core';
+import { Alert, AlertDescription, AlertTitle, Button } from '@offisim/ui-core';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 
 interface SceneErrorPanelProps {
@@ -16,13 +16,15 @@ export function SceneErrorPanel({ error, onRetry }: SceneErrorPanelProps) {
       <Alert variant="destructive" className="max-w-sm text-center">
         <AlertTitle>Scene Error</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
-        <button
+        <Button
           type="button"
-          className="mt-3 rounded bg-surface-muted px-3 py-1 text-xs text-text-primary transition-colors hover:bg-surface-hover"
+          variant="outline"
+          size="sm"
+          className="mt-3 bg-surface-muted text-xs text-text-primary hover:bg-surface-hover"
           onClick={onRetry}
         >
           Retry
-        </button>
+        </Button>
       </Alert>
     </div>
   );

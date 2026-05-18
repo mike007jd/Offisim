@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import { ChevronUp, MessageSquare, Minimize2 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
@@ -215,16 +216,17 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
       )}
 
       {/* Toggle bar */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={toggle}
-        className="flex h-10 w-full items-center justify-between text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+        className="h-10 w-full justify-between rounded-none text-text-secondary hover:bg-surface-hover hover:text-text-primary"
         style={{ paddingInline: 'var(--sp-lg)' }}
       >
         <div className="flex items-center" style={{ columnGap: 'var(--sp-sm)' }}>
-          <MessageSquare className="h-3.5 w-3.5 text-accent" />
+          <MessageSquare className="size-3.5 text-accent" />
           <span className="text-xs font-medium text-text-primary">Chat</span>
-          {compact && <Minimize2 className="h-3 w-3 text-text-muted" />}
+          {compact && <Minimize2 className="size-3 text-text-muted" />}
         </div>
         <div
           className="transition-transform duration-300"
@@ -232,7 +234,7 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
         >
           <ChevronUp className="w-3.5 h-3.5" />
         </div>
-      </button>
+      </Button>
 
       {/* Content area — always rendered to preserve state */}
       <div

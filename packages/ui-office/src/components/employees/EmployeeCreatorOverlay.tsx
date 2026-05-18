@@ -1,5 +1,6 @@
 import type { RoleSlug } from '@offisim/shared-types';
 import {
+  Button,
   Input,
   Select,
   SelectContent,
@@ -7,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
   ToastBanner,
+  cn,
   useRegisterModal,
   useToasts,
   useTopmostEscape,
@@ -122,14 +124,16 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       {/* ── Top Bar ────────────────────────────────────────────────── */}
       <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border-default px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={handleClose}
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+            className="gap-2 px-3 py-2.5 text-text-secondary"
             aria-label="Back"
           >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
           <div className="hidden h-5 w-px bg-border-default sm:block" />
           <h1 className="truncate text-sm font-semibold text-text-primary">Add employee</h1>
         </div>
@@ -137,24 +141,27 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
         {/* Step Indicator */}
         <div className="flex shrink-0 items-center gap-1">
           {STEPS.map((step, i) => (
-            <button
+            <Button
               key={step}
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setActiveStep(i)}
-              className="flex items-center gap-2"
+              className="h-auto gap-2 p-0"
             >
               <div
-                className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-2 py-1 text-caption font-semibold uppercase tracking-wider transition-colors',
                   activeStep === i
                     ? 'border border-border-focus bg-accent-muted text-accent-text'
-                    : 'text-text-muted hover:text-text-secondary'
-                }`}
+                    : 'text-text-muted hover:text-text-secondary',
+                )}
               >
                 <span className="tabular-nums">{String(i + 1).padStart(2, '0')}</span>
                 <span className="hidden sm:inline">{step}</span>
               </div>
               {i < STEPS.length - 1 && <div className="mx-1 h-px w-3 bg-border-default" />}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -162,7 +169,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       {/* ── Main Content ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* ── Left Panel: Character Preview (45%) ──────────────── */}
-        <div className="flex h-[120px] w-full shrink-0 flex-row items-center justify-between gap-3 bg-surface px-4 lg:h-auto lg:w-[45%] lg:flex-col lg:justify-center lg:px-0">
+        <div className="flex h-32 w-full shrink-0 flex-row items-center justify-between gap-3 bg-surface px-4 lg:h-auto lg:w-5/12 lg:flex-col lg:justify-center lg:px-0">
           <div className="flex min-w-0 flex-1 items-center gap-3 lg:flex-col lg:gap-6">
             {/* Avatar Preview */}
             <div className="relative shrink-0">
@@ -178,7 +185,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
 
             {/* Character Name */}
             <div className="min-w-0 flex-1 text-left lg:text-center">
-              <p className="min-h-0 truncate text-lg font-bold text-text-primary lg:min-h-[2rem] lg:text-2xl">
+              <p className="min-h-0 truncate text-lg font-bold text-text-primary lg:min-h-8 lg:text-2xl">
                 {name || <span className="italic text-text-disabled">Unnamed Employee</span>}
               </p>
               <div className="mt-2 inline-flex items-center rounded-md border border-border-focus bg-accent-muted px-3 py-1">
@@ -190,24 +197,25 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           </div>
 
           {/* Randomize Button */}
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={handleRandomize}
-            className="flex shrink-0 items-center gap-2 rounded-xl border border-border-default bg-surface-elevated px-3 py-2.5 text-sm text-text-secondary transition-all hover:border-border-strong hover:bg-surface-hover hover:text-text-primary lg:px-5"
+            className="shrink-0 gap-2 px-3 py-2.5 text-sm text-text-secondary lg:px-5"
           >
-            <Dices className="h-4 w-4" />
+            <Dices className="size-4" aria-hidden="true" />
             <span className="hidden font-mono text-xs uppercase tracking-wider sm:inline">
               Randomize
             </span>
-          </button>
+          </Button>
         </div>
 
         {/* ── Right Panel: Configuration (55%) ─────────────────── */}
-        <div className="flex w-full flex-col overflow-y-auto border-t border-border-default lg:w-[55%] lg:border-l lg:border-t-0">
+        <div className="flex w-full flex-col overflow-y-auto border-t border-border-default lg:w-7/12 lg:border-l lg:border-t-0">
           <div className="flex flex-1 flex-col gap-5 p-5 pb-10 sm:p-6 md:p-8 md:pb-12">
             {/* Section: Identity */}
             <SectionPanel title="IDENTITY" stepIndex={0} activeStep={activeStep}>
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <div>
                   <label
                     htmlFor="creator-name"
@@ -249,7 +257,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
 
             {/* Section: Visual Identity */}
             <SectionPanel title="VISUAL IDENTITY" stepIndex={1} activeStep={activeStep}>
-              <div className="space-y-4">
+              <div className="flex flex-col gap-4">
                 <div>
                   <label
                     htmlFor="creator-seed"
@@ -266,24 +274,26 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                   />
                 </div>
                 <div>
-                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                  <p className="mb-3 text-caption font-semibold uppercase tracking-wider text-text-muted">
                     Preset identities
                   </p>
                   <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
                     {PRESET_SEEDS.map((presetSeed) => (
-                      <button
+                      <Button
                         key={presetSeed}
                         type="button"
+                        variant="ghost"
                         onClick={() => handlePresetClick(presetSeed)}
-                        className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-all ${
+                        className={cn(
+                          'h-auto flex-col gap-1.5 rounded-xl border p-3 transition-all',
                           seed === presetSeed
                             ? 'border-border-focus bg-accent-muted shadow-glow-accent'
-                            : 'border-border-default bg-surface-muted hover:border-border-strong hover:bg-surface-hover'
-                        }`}
+                            : 'border-border-default bg-surface-muted hover:border-border-strong hover:bg-surface-hover',
+                        )}
                       >
                         <DicebearAvatar seed={presetSeed} size={44} />
-                        <span className="font-mono text-[10px] text-text-muted">{presetSeed}</span>
-                      </button>
+                        <span className="font-mono text-caption text-text-muted">{presetSeed}</span>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -291,7 +301,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
             </SectionPanel>
 
             <div className="rounded-xl border border-border-default bg-surface-muted p-5">
-              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+              <div className="font-mono text-caption uppercase tracking-wider text-text-muted">
                 Role Defaults
               </div>
               <p className="mt-2 text-sm leading-relaxed text-text-secondary">
@@ -304,30 +314,29 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       </div>
 
       {/* ── Bottom Bar ────────────────────────────────────────────── */}
-      <div
-        className="flex h-16 shrink-0 items-center justify-between gap-3 border-t border-border-default px-4 sm:px-6 md:px-8"
-        style={{ paddingBottom: 'max(0px, env(safe-area-inset-bottom))' }}
-      >
-        <button
+      <div className="pb-safe-0 flex h-16 shrink-0 items-center justify-between gap-3 border-t border-border-default px-4 sm:px-6 md:px-8">
+        <Button
           type="button"
+          variant="outline"
           onClick={handleClose}
-          className="rounded-lg border border-border-default px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary sm:px-5"
+          className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-text-secondary sm:px-5"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           disabled={!canDeploy}
           onClick={handleDeploy}
-          className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-200 sm:px-8 ${
+          className={cn(
+            'gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-200 sm:px-8',
             canDeploy
-              ? 'bg-accent text-text-inverse shadow-glow-accent hover:bg-accent-hover hover:shadow-glow-accent active:scale-[0.98]'
-              : 'cursor-not-allowed bg-surface-disabled text-text-disabled'
-          }`}
+              ? 'bg-accent text-text-inverse shadow-glow-accent hover:bg-accent-hover hover:shadow-glow-accent active:scale-95'
+              : 'cursor-not-allowed bg-surface-disabled text-text-disabled',
+          )}
         >
-          <Rocket className="h-4 w-4" />
+          <Rocket className="size-4" aria-hidden="true" />
           Add Employee
-        </button>
+        </Button>
       </div>
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
     </div>
@@ -347,22 +356,25 @@ function SectionPanel({ title, stepIndex, activeStep, children }: SectionPanelPr
   const isActive = activeStep === stepIndex;
   return (
     <div
-      className={`rounded-2xl border p-6 transition-colors ${
-        isActive ? 'border-border-focus bg-accent-muted' : 'border-border-default bg-surface-muted'
-      }`}
+      className={cn(
+        'rounded-2xl border p-6 transition-colors',
+        isActive ? 'border-border-focus bg-accent-muted' : 'border-border-default bg-surface-muted',
+      )}
     >
       <div className="mb-4 flex items-center gap-3">
         <span
-          className={`flex h-6 w-6 items-center justify-center rounded font-mono text-[10px] font-bold ${
-            isActive ? 'bg-accent-muted text-accent-text' : 'bg-surface-hover text-text-disabled'
-          }`}
+          className={cn(
+            'flex size-6 items-center justify-center rounded font-mono text-caption font-bold',
+            isActive ? 'bg-accent-muted text-accent-text' : 'bg-surface-hover text-text-disabled',
+          )}
         >
           {String(stepIndex + 1).padStart(2, '0')}
         </span>
         <h2
-          className={`font-mono text-xs font-semibold tracking-[0.15em] ${
-            isActive ? 'text-accent-text' : 'text-text-muted'
-          }`}
+          className={cn(
+            'font-mono text-xs font-semibold tracking-wider',
+            isActive ? 'text-accent-text' : 'text-text-muted',
+          )}
         >
           {title}
         </h2>

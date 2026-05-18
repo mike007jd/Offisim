@@ -206,7 +206,7 @@ export function ActivityLogPage({
         className={cn(
           'grid min-h-0 flex-1',
           sessionState.selectedEventId && focusedEvent
-            ? 'grid-cols-1 md:grid-cols-[1fr_minmax(320px,420px)]'
+            ? 'grid-cols-1 md:grid-activity-detail'
             : 'grid-cols-1',
         )}
       >

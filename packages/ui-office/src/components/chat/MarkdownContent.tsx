@@ -206,7 +206,7 @@ function renderInline(text: string): ReactNode[] {
       nodes.push(
         <sup
           key={key}
-          className="mx-0.5 inline-flex h-4 min-w-[1.1em] cursor-default items-center justify-center rounded bg-info-muted px-1 text-[10px] font-bold text-info"
+          className="mx-0.5 inline-flex h-4 min-w-markdown-citation cursor-default items-center justify-center rounded bg-info-muted px-1 text-caption font-bold text-info"
           title={`Citation ${citation[1]}`}
         >
           {citation[1]}
@@ -233,7 +233,7 @@ function renderInline(text: string): ReactNode[] {
       nodes.push(
         <code
           key={key}
-          className="rounded bg-surface-elevated px-1 py-0.5 font-mono text-[0.92em] text-text-primary"
+          className="rounded bg-surface-elevated px-1 py-0.5 font-mono text-markdown-code text-text-primary"
         >
           {token.slice(1, -1)}
         </code>,
@@ -272,10 +272,10 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
         if (block.type === 'heading') {
           const headingClass =
             block.level === 1
-              ? 'text-[15px] font-semibold'
+              ? 'text-body font-semibold'
               : block.level === 2
-                ? 'text-[14px] font-semibold'
-                : 'text-[13px] font-semibold';
+                ? 'text-body font-semibold'
+                : 'text-body font-semibold';
           const HeadingTag = `h${block.level}` as 'h1' | 'h2' | 'h3';
           return (
             <HeadingTag key={key} className={`${headingClass} mt-2 first:mt-0 text-text-primary`}>
@@ -324,11 +324,11 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
               className="mt-2 min-w-0 max-w-full overflow-hidden rounded-lg border border-border-subtle"
             >
               {block.lang && (
-                <div className="border-b border-border-subtle bg-surface-muted px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-text-muted">
+                <div className="border-b border-border-subtle bg-surface-muted px-2 py-1 font-mono text-caption uppercase tracking-[0.08em] text-text-muted">
                   {block.lang}
                 </div>
               )}
-              <pre className="max-h-80 max-w-full overflow-auto bg-surface-elevated px-2.5 py-2 text-[12px] leading-relaxed">
+              <pre className="max-h-80 max-w-full overflow-auto bg-surface-elevated px-2.5 py-2 text-body-sm leading-relaxed">
                 <code>{block.code}</code>
               </pre>
             </div>
@@ -336,7 +336,7 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
         }
         return (
           <div key={key} className="mt-2 max-w-full overflow-x-auto first:mt-0">
-            <table className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-lg border border-border-subtle text-left text-[12px]">
+            <table className="w-full table-fixed border-separate border-spacing-0 overflow-hidden rounded-lg border border-border-subtle text-left text-body-sm">
               <thead className="bg-surface-elevated text-text-primary">
                 <tr>
                   {keyedTexts(block.headers, `${key}-head`).map((header) => (

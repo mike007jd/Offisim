@@ -2,6 +2,7 @@
  * Legacy overlay kept for deep-link installs (offisim://install?listing_id=X).
  * Wraps MarketDetailView in a full-screen overlay.
  */
+import { Button } from '@offisim/ui-core';
 import { X } from 'lucide-react';
 import { useInstalledListings } from '../../hooks/useInstalledListings.js';
 import { useListingDetail } from '../../hooks/useListingDetail.js';
@@ -24,13 +25,15 @@ export function MarketplaceDetailOverlay({
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-surface-elevated text-text-primary backdrop-blur-sm">
       <div className="flex h-12 items-center justify-end px-4">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={onClose}
-          className="rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+          className="size-8 text-text-secondary hover:text-text-primary"
         >
-          <X className="h-5 w-5" />
-        </button>
+          <X className="size-5" />
+        </Button>
       </div>
       <div className="flex-1 overflow-hidden">
         <MarketDetailView

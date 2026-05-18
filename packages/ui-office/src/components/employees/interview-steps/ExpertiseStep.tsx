@@ -1,5 +1,4 @@
-import { Textarea } from '@offisim/ui-core';
-import { cn } from '@offisim/ui-core';
+import { Button, Textarea, cn } from '@offisim/ui-core';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
 
 /** Suggested expertise tags by role. */
@@ -94,25 +93,27 @@ export function ExpertiseStep({ formData, updateField }: ExpertiseStepProps) {
       />
 
       <div>
-        <p className="text-xs text-shell mb-2">Click to add suggested skills:</p>
+        <p className="mb-2 text-xs text-text-secondary">Click to add suggested skills:</p>
         <div className="flex flex-wrap gap-1.5">
           {suggestions.map((tag) => {
             const isActive = formData.expertise.toLowerCase().includes(tag.toLowerCase());
             return (
-              <button
+              <Button
                 key={tag}
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => addTag(tag)}
                 disabled={isActive}
                 className={cn(
-                  'px-2 py-0.5 text-xs border-2 transition-colors cursor-pointer',
+                  'h-7 border-2 px-2 py-0.5 text-xs',
                   isActive
-                    ? 'border-kelp-green bg-kelp-green/20 text-kelp-green'
-                    : 'border-ocean-light bg-ocean-mid text-shell hover:border-sea-blue hover:text-sea-blue',
+                    ? 'border-success bg-success-muted text-success'
+                    : 'border-border-default bg-surface-muted text-text-secondary hover:border-border-focus hover:text-accent-text',
                 )}
               >
                 {tag}
-              </button>
+              </Button>
             );
           })}
         </div>

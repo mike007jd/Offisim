@@ -1,4 +1,5 @@
 import type { SopStep } from '@offisim/shared-types';
+import { Button } from '@offisim/ui-core';
 import { memo } from 'react';
 import type { SopStepStatus } from './sop-dag-layout';
 
@@ -7,16 +8,16 @@ import type { SopStepStatus } from './sop-dag-layout';
 // ---------------------------------------------------------------------------
 
 const ROLE_COLORS: Record<string, string> = {
-  developer: '#3b82f6', // raw-hex-allowed
-  designer: '#a855f7', // raw-hex-allowed
-  pm: '#f59e0b', // raw-hex-allowed
-  qa: '#10b981', // raw-hex-allowed
-  devops: '#ef4444', // raw-hex-allowed
-  default: '#64748b', // raw-hex-allowed
+  developer: 'var(--color-info-val)',
+  designer: 'var(--color-status-searching-val)',
+  pm: 'var(--color-warning-val)',
+  qa: 'var(--color-success-val)',
+  devops: 'var(--color-error-val)',
+  default: 'var(--color-text-muted-val)',
 };
 
 function getRoleColor(roleSlug: string): string {
-  return ROLE_COLORS[roleSlug] ?? ROLE_COLORS.default ?? '#64748b'; // raw-hex-allowed
+  return ROLE_COLORS[roleSlug] ?? ROLE_COLORS.default ?? 'var(--color-text-muted-val)';
 }
 
 // ---------------------------------------------------------------------------
@@ -67,10 +68,11 @@ export const SopDagNode = memo(function SopDagNode({
     : 'border-border-default hover:border-border-strong hover:shadow-overlay';
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={() => onStepClick(step.step_id)}
-      className={`relative flex h-[140px] w-[280px] overflow-hidden rounded-lg border bg-surface-elevated text-left transition-all ${editMode ? 'cursor-move' : 'cursor-pointer'} ${borderClass}`}
+      className={`relative h-sop-dag-node w-sop-dag-node items-stretch overflow-hidden rounded-lg border bg-surface-elevated p-0 text-left transition-all ${editMode ? 'cursor-move' : 'cursor-pointer'} ${borderClass}`}
     >
       {/* Left color bar */}
       <div className="w-1 shrink-0" style={{ backgroundColor: roleColor }} />
@@ -84,22 +86,22 @@ export const SopDagNode = memo(function SopDagNode({
             {step.label}
           </span>
           {depsCount > 0 && (
-            <span className="shrink-0 rounded-full bg-surface-muted px-1.5 py-0.5 text-[10px] text-text-secondary">
+            <span className="shrink-0 rounded-full bg-surface-muted px-1.5 py-0.5 text-caption text-text-secondary">
               deps · {depsCount}
             </span>
           )}
           {status === 'failed' && (
-            <span className="shrink-0 rounded-full bg-error-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-error">
+            <span className="shrink-0 rounded-full bg-error-muted px-1.5 py-0.5 text-caption font-semibold uppercase tracking-wide text-error">
               failed
             </span>
           )}
           {roleMissing && (
-            <span className="shrink-0 rounded-full border border-warning/40 bg-warning-muted px-1.5 py-0.5 text-[10px] text-warning">
+            <span className="shrink-0 rounded-full border border-warning/40 bg-warning-muted px-1.5 py-0.5 text-caption text-warning">
               ⚠ no {step.role_slug}
             </span>
           )}
           <span
-            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] text-text-primary"
+            className="shrink-0 rounded-full px-1.5 py-0.5 text-caption text-text-primary"
             style={{ backgroundColor: `${roleColor}33` }}
           >
             {step.role_slug}
@@ -112,8 +114,8 @@ export const SopDagNode = memo(function SopDagNode({
         </p>
 
         {/* Output key */}
-        <p className="truncate font-mono text-[10px] text-text-muted">→ {step.output_key}</p>
+        <p className="truncate font-mono text-caption text-text-muted">→ {step.output_key}</p>
       </div>
-    </button>
+    </Button>
   );
 });

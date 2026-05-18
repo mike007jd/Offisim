@@ -1,4 +1,14 @@
 import type { ToolApprovalMode, ToolPermissionPolicy } from '@offisim/core/browser';
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@offisim/ui-core';
 
 interface ToolPermissionEditorProps {
   value: ToolPermissionPolicy | null;
@@ -51,31 +61,38 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border-default bg-surface-muted p-3">
       <div>
-        <label htmlFor={defaultModeId} className="mb-1 block text-xs text-text-muted">
+        <span id={defaultModeId} className="mb-1 block text-xs text-text-muted">
           Default approval mode
-        </label>
-        <select
-          id={defaultModeId}
-          className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
+        </span>
+        <Select
           value={policy.defaultMode}
-          onChange={(event) => updateDefaultMode(event.target.value as ToolApprovalMode)}
+          onValueChange={(mode) => updateDefaultMode(mode as ToolApprovalMode)}
         >
-          <option value="auto">Auto</option>
-          <option value="ask_first_time">Ask First Time</option>
-          <option value="always_ask">Always Ask</option>
-        </select>
+          <SelectTrigger aria-labelledby={defaultModeId} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="auto">Auto</SelectItem>
+              <SelectItem value="ask_first_time">Ask First Time</SelectItem>
+              <SelectItem value="always_ask">Always Ask</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <p className="text-xs text-text-muted">Tool-specific overrides</p>
-          <button
+          <Button
             type="button"
             onClick={addOverride}
-            className="rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition hover:bg-surface-hover"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-xs text-text-secondary"
           >
             Add override
-          </button>
+          </Button>
         </div>
 
         {policy.overrides.length === 0 && (
@@ -83,34 +100,37 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
         )}
 
         {policy.overrides.map((override, index) => (
-          <div
-            key={`${override.pattern}-${index}`}
-            className="grid grid-cols-[1fr_140px_auto] gap-2"
-          >
-            <input
+          <div key={`${override.pattern}-${index}`} className="grid grid-tool-overrides gap-2">
+            <Input
               value={override.pattern}
               onChange={(event) => updateOverride(index, { pattern: event.target.value })}
               placeholder="calendar.*"
-              className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
+              className="border-border-default bg-surface text-sm text-text-primary"
             />
-            <select
+            <Select
               value={override.mode}
-              onChange={(event) =>
-                updateOverride(index, { mode: event.target.value as ToolApprovalMode })
-              }
-              className="rounded-md border border-border-default bg-surface px-3 py-2 text-sm text-text-primary"
+              onValueChange={(mode) => updateOverride(index, { mode: mode as ToolApprovalMode })}
             >
-              <option value="auto">Auto</option>
-              <option value="ask_first_time">Ask First Time</option>
-              <option value="always_ask">Always Ask</option>
-            </select>
-            <button
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="auto">Auto</SelectItem>
+                  <SelectItem value="ask_first_time">Ask First Time</SelectItem>
+                  <SelectItem value="always_ask">Always Ask</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Button
               type="button"
               onClick={() => removeOverride(index)}
-              className="rounded-md border border-border-default px-2 py-1 text-xs text-text-secondary transition hover:bg-surface-hover"
+              variant="outline"
+              size="sm"
+              className="h-9 px-2 text-xs text-text-secondary"
             >
               Remove
-            </button>
+            </Button>
           </div>
         ))}
       </div>

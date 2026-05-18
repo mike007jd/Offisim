@@ -136,7 +136,7 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
                     'Creating...'
                   ) : (
                     <>
-                      <UserPlus className="mr-1 h-3.5 w-3.5" />
+                      <UserPlus className="mr-1 size-3.5" />
                       Create Employee
                     </>
                   )}
@@ -144,7 +144,7 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
               ) : (
                 <Button size="sm" onClick={next} disabled={!canProceed && !canSkip}>
                   Next
-                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  <ArrowRight className="ml-1 size-3.5" />
                 </Button>
               )}
             </div>
@@ -162,9 +162,11 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
 
           <div className="mt-3 flex items-center justify-center gap-1">
             {WIZARD_STEPS.map((stepName, idx) => (
-              <button
+              <Button
                 key={stepName}
                 type="button"
+                variant="ghost"
+                size="icon"
                 aria-label={`Step ${idx + 1}: ${STEP_LABELS[stepName]}`}
                 onClick={() => {
                   if (state.completedSteps.has(idx) && idx !== state.currentStep) {
@@ -172,7 +174,7 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
                   }
                 }}
                 className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold transition-colors',
+                  'size-6 rounded-full text-caption font-semibold',
                   idx === state.currentStep
                     ? 'bg-accent text-text-inverse'
                     : state.completedSteps.has(idx)
@@ -182,7 +184,7 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
                 title={STEP_LABELS[stepName]}
               >
                 {idx + 1}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -219,13 +221,15 @@ export function InterviewWizard({ isOpen, onClose, wizard }: InterviewWizardProp
         {error && (
           <Alert variant="destructive" className="mt-4 flex items-start justify-between gap-3">
             <AlertDescription className="flex-1 text-xs">{error}</AlertDescription>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={clearError}
-              className="font-mono text-[10px] uppercase tracking-wider text-error hover:text-error"
+              className="h-auto p-0 font-mono text-caption uppercase tracking-wider text-error hover:text-error"
             >
               Dismiss
-            </button>
+            </Button>
           </Alert>
         )}
       </DialogShell>

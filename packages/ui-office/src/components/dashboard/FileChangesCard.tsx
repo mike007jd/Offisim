@@ -4,9 +4,9 @@ import { FileText } from 'lucide-react';
 import { useFileHistory } from '../../hooks/useFileHistory';
 
 const CHANGE_STYLE: Record<FileHistoryChangeKind, { label: string; color: string }> = {
-  create: { label: 'A', color: 'text-emerald-400 bg-emerald-400/15' },
-  update: { label: 'M', color: 'text-blue-400 bg-blue-400/15' },
-  delete: { label: 'D', color: 'text-red-400 bg-red-400/15' },
+  create: { label: 'A', color: 'text-success bg-success-muted' },
+  update: { label: 'M', color: 'text-info bg-info-muted' },
+  delete: { label: 'D', color: 'text-error bg-error-muted' },
 };
 
 interface FileChangesCardProps {
@@ -29,23 +29,23 @@ export function FileChangesCard({ activeThreadId }: FileChangesCardProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
-          <FileText className="h-4 w-4 text-amber-400" />
+          <FileText className="size-4 text-warning" />
           File Changes
         </CardTitle>
       </CardHeader>
       <CardContent>
         {!activeThreadId ? (
-          <p className="text-xs text-slate-500 italic">Select a project to see file changes</p>
+          <p className="text-xs italic text-text-muted">Select a project to see file changes</p>
         ) : isLoading ? (
-          <p className="text-xs text-slate-500">Loading...</p>
+          <p className="text-xs text-text-muted">Loading...</p>
         ) : changes.length === 0 ? (
-          <p className="text-xs text-slate-500 italic">No file changes recorded</p>
+          <p className="text-xs italic text-text-muted">No file changes recorded</p>
         ) : (
           <ScrollArea className="max-h-64">
             {[...grouped.entries()].map(([stepIndex, items]) => (
               <div key={stepIndex ?? 'none'} className="mb-2 last:mb-0">
                 {stepIndex !== null && (
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 px-2 py-0.5">
+                  <p className="px-2 py-0.5 text-caption uppercase tracking-wider text-text-muted">
                     Step {stepIndex + 1}
                   </p>
                 )}
@@ -54,18 +54,18 @@ export function FileChangesCard({ activeThreadId }: FileChangesCardProps) {
                   return (
                     <div
                       key={c.history_id}
-                      className="flex items-center gap-2 px-2 py-1 text-xs hover:bg-white/5 transition-colors"
+                      className="flex items-center gap-2 px-2 py-1 text-xs transition-colors hover:bg-surface-hover"
                     >
                       <span
-                        className={`w-4 h-4 flex items-center justify-center rounded text-[10px] font-bold ${style.color}`}
+                        className={`flex size-4 items-center justify-center rounded text-caption font-bold ${style.color}`}
                       >
                         {style.label}
                       </span>
-                      <span className="flex-1 min-w-0 truncate text-slate-300 font-mono text-[11px]">
+                      <span className="min-w-0 flex-1 truncate font-mono text-caption text-text-secondary">
                         {c.file_path}
                       </span>
                       {c.tool_name && (
-                        <span className="text-[10px] text-slate-500 shrink-0">{c.tool_name}</span>
+                        <span className="shrink-0 text-caption text-text-muted">{c.tool_name}</span>
                       )}
                     </div>
                   );

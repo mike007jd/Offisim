@@ -1,4 +1,4 @@
-import { cn } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -28,17 +28,17 @@ export interface TaskDetailPanelProps {
 function statusColor(status: string): string {
   switch (status) {
     case 'completed':
-      return 'text-green-400';
+      return 'text-success';
     case 'active':
     case 'running':
-      return 'text-blue-400';
+      return 'text-info';
     case 'failed':
     case 'cancelled':
-      return 'text-red-400';
+      return 'text-error';
     case 'review_ready':
-      return 'text-sand';
+      return 'text-warning';
     default:
-      return 'text-shell';
+      return 'text-text-muted';
   }
 }
 
@@ -60,67 +60,71 @@ export function TaskDetailPanel({ task, taskCost = 0 }: TaskDetailPanelProps) {
     <div
       className={cn(
         'overflow-hidden transition-all duration-200 ease-in-out',
-        'border-t border-ocean-mid/20 bg-ocean-deep/70 px-3 py-2',
+        'border-t border-border-subtle bg-surface-muted/70 px-3 py-2',
       )}
     >
       <div className="flex flex-col gap-1.5">
         {/* Description */}
         <div>
-          <span className="text-[10px] font-medium text-shell uppercase tracking-wide">Task</span>
-          <p className="mt-0.5 text-xs text-pearl">{task.description}</p>
+          <span className="text-caption font-medium uppercase tracking-wide text-text-muted">
+            Task
+          </span>
+          <p className="mt-0.5 text-xs text-text-primary">{task.description}</p>
         </div>
 
         {/* Meta row */}
-        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[10px]">
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-caption">
           {task.employeeName && (
             <span>
-              <span className="text-shell">Owner: </span>
-              <span className="text-koi">{task.employeeName}</span>
+              <span className="text-text-muted">Owner: </span>
+              <span className="text-accent">{task.employeeName}</span>
             </span>
           )}
           {task.taskType && (
             <span>
-              <span className="text-shell">Type: </span>
-              <span className="text-pearl">{task.taskType}</span>
+              <span className="text-text-muted">Type: </span>
+              <span className="text-text-primary">{task.taskType}</span>
             </span>
           )}
           <span>
-            <span className="text-shell">Status: </span>
+            <span className="text-text-muted">Status: </span>
             <span className={statusColor(task.status)}>{task.status}</span>
           </span>
           {taskCost > 0 && (
             <span>
-              <span className="text-shell">Est. cost: </span>
-              <span className="font-mono text-emerald-400">${taskCost.toFixed(4)}</span>
+              <span className="text-text-muted">Est. cost: </span>
+              <span className="font-mono text-success">${taskCost.toFixed(4)}</span>
             </span>
           )}
         </div>
 
         {/* Dependencies */}
         {task.dependencies && task.dependencies.length > 0 && (
-          <div className="text-[10px]">
-            <span className="text-shell">Depends on: </span>
-            <span className="text-pearl">{task.dependencies.join(', ')}</span>
+          <div className="text-caption">
+            <span className="text-text-muted">Depends on: </span>
+            <span className="text-text-primary">{task.dependencies.join(', ')}</span>
           </div>
         )}
 
         {/* Output preview */}
         {hasOutput && (
           <div>
-            <span className="text-[10px] font-medium text-shell uppercase tracking-wide">
+            <span className="text-caption font-medium uppercase tracking-wide text-text-muted">
               Output
             </span>
-            <p className="mt-0.5 whitespace-pre-wrap break-words text-[10px] text-shell font-mono leading-relaxed">
+            <p className="mt-0.5 whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-text-muted">
               {outputText}
             </p>
             {output.length > OUTPUT_PREVIEW_LIMIT && (
-              <button
+              <Button
                 type="button"
-                className="mt-0.5 text-[10px] text-koi hover:underline"
+                variant="link"
+                size="sm"
+                className="mt-0.5 h-auto p-0 text-caption text-accent"
                 onClick={() => setShowFullOutput((v) => !v)}
               >
                 {showFullOutput ? 'Show less' : 'Show more'}
-              </button>
+              </Button>
             )}
           </div>
         )}

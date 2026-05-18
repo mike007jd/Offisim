@@ -1,5 +1,5 @@
 import type { NodeSummaryRow } from '@offisim/core/browser';
-import { Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@offisim/ui-core';
+import { Button, Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@offisim/ui-core';
 import { Brain, ChevronDown, ChevronRight, Clock, FileText, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { useNodeSummaries } from '../../hooks/useNodeSummaries';
@@ -23,52 +23,53 @@ function SummaryRow({ row }: { row: NodeSummaryRow }) {
   } catch {}
 
   return (
-    <div className="border-b border-white/5 last:border-0">
-      <button
+    <div className="border-b border-border-subtle last:border-0">
+      <Button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-start gap-2 px-3 py-2 hover:bg-white/5 transition-colors text-left"
+        variant="ghost"
+        className="h-auto w-full items-start justify-start gap-2 rounded-none px-3 py-2 text-left transition-colors hover:bg-surface-hover"
       >
         {expanded ? (
-          <ChevronDown className="h-3 w-3 mt-0.5 text-slate-500 shrink-0" />
+          <ChevronDown className="mt-0.5 size-3 shrink-0 text-text-muted" />
         ) : (
-          <ChevronRight className="h-3 w-3 mt-0.5 text-slate-500 shrink-0" />
+          <ChevronRight className="mt-0.5 size-3 shrink-0 text-text-muted" />
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-200">
+            <span className="text-xs font-medium text-text-primary">
               {humanizeNodeName(row.node_name)}
             </span>
             {row.step_index !== null && (
-              <span className="text-[10px] text-slate-500">Step {row.step_index + 1}</span>
+              <span className="text-caption text-text-muted">Step {row.step_index + 1}</span>
             )}
           </div>
-          <p className="text-[11px] text-slate-400 truncate">{row.summary_text}</p>
+          <p className="truncate text-caption text-text-secondary">{row.summary_text}</p>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-slate-500 shrink-0">
+        <div className="flex shrink-0 items-center gap-2 text-caption text-text-muted">
           <span className="flex items-center gap-0.5">
-            <Clock className="h-2.5 w-2.5" />
+            <Clock className="size-2.5" />
             {formatDuration(row.duration_ms)}
           </span>
           <span>{row.input_token_count + row.output_token_count} tok</span>
         </div>
-      </button>
+      </Button>
 
       {expanded && (
-        <div className="px-8 pb-2 space-y-1.5 text-[10px]">
+        <div className="flex flex-col gap-1.5 px-8 pb-2 text-caption">
           {files.length > 0 && (
-            <div className="flex items-start gap-1.5 text-slate-400">
-              <FileText className="h-3 w-3 mt-0.5 shrink-0 text-blue-400/60" />
+            <div className="flex items-start gap-1.5 text-text-secondary">
+              <FileText className="mt-0.5 size-3 shrink-0 text-info" />
               <span className="break-all">{files.join(', ')}</span>
             </div>
           )}
           {tools.length > 0 && (
-            <div className="flex items-start gap-1.5 text-slate-400">
-              <Wrench className="h-3 w-3 mt-0.5 shrink-0 text-emerald-400/60" />
+            <div className="flex items-start gap-1.5 text-text-secondary">
+              <Wrench className="mt-0.5 size-3 shrink-0 text-success" />
               <span>{tools.join(', ')}</span>
             </div>
           )}
-          <div className="text-slate-500">
+          <div className="text-text-muted">
             {row.input_token_count} in / {row.output_token_count} out &middot; {row.message_count}{' '}
             msg{row.message_count === 1 ? '' : 's'}
           </div>
@@ -89,17 +90,19 @@ export function ExecutionSummaryCard({ activeThreadId }: ExecutionSummaryCardPro
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
-          <Brain className="h-4 w-4 text-blue-400" />
+          <Brain className="size-4 text-info" />
           Execution Summary
         </CardTitle>
       </CardHeader>
       <CardContent>
         {!activeThreadId ? (
-          <p className="text-xs text-slate-500 italic">Select a project to see execution details</p>
+          <p className="text-xs italic text-text-muted">
+            Select a project to see execution details
+          </p>
         ) : isLoading ? (
-          <p className="text-xs text-slate-500">Loading...</p>
+          <p className="text-xs text-text-muted">Loading...</p>
         ) : summaries.length === 0 ? (
-          <p className="text-xs text-slate-500 italic">No execution data yet</p>
+          <p className="text-xs italic text-text-muted">No execution data yet</p>
         ) : (
           <ScrollArea className="max-h-64">
             {summaries.map((s) => (

@@ -1,3 +1,4 @@
+import { Button, Input } from '@offisim/ui-core';
 import { Send } from 'lucide-react';
 import { useCallback } from 'react';
 
@@ -46,23 +47,24 @@ export function SopNlCommandBar({
 
   return (
     <div className="flex h-16 shrink-0 items-center gap-2 border-t border-border-default bg-surface-elevated px-4">
-      <input
+      <Input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
-        className="h-10 flex-1 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        className="h-10 flex-1 border-border-default bg-surface text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus disabled:cursor-not-allowed disabled:opacity-60"
       />
-      <button
+      <Button
         type="button"
         onClick={handleSend}
         disabled={disabled || !value.trim()}
-        className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-text-inverse transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-surface-disabled disabled:text-text-disabled"
+        size="icon"
+        className="size-10 text-text-inverse disabled:cursor-not-allowed disabled:bg-surface-disabled disabled:text-text-disabled"
       >
-        <Send className="h-4 w-4" />
-      </button>
+        <Send className="size-4" />
+      </Button>
     </div>
   );
 }

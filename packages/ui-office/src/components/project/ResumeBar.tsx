@@ -1,3 +1,5 @@
+import { Button } from '@offisim/ui-core';
+
 interface ResumeBarProject {
   threadId: string;
   projectName: string;
@@ -33,27 +35,31 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-warning bg-warning-muted px-4 py-2 text-sm">
       <span className="shrink-0 text-warning">{label}</span>
-      <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 flex-wrap gap-1">
         {projects.map((p) => (
-          <button
+          <Button
             key={p.threadId}
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onResume(p.threadId)}
-            className="max-w-[200px] truncate rounded border border-warning bg-surface px-2.5 py-1.5 text-xs text-text-primary hover:bg-surface-hover"
+            className="max-w-48 truncate border-warning bg-surface px-2.5 text-xs text-text-primary hover:bg-surface-hover"
             title={p.projectName}
           >
             {p.status === 'blocked' ? 'Review' : 'Resume'} {p.projectName}
-          </button>
+          </Button>
         ))}
       </div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={onDismiss}
         className="ml-auto shrink-0 text-xs text-warning hover:text-text-primary"
         aria-label="Dismiss unfinished project notice"
       >
         Dismiss
-      </button>
+      </Button>
     </div>
   );
 }

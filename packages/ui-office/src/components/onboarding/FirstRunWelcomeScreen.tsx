@@ -31,7 +31,7 @@ export function FirstRunWelcomeScreen({
         </>
       }
     >
-      <div className="grid min-h-[360px] gap-6 md:grid-cols-[1fr_280px]">
+      <div className="grid min-h-first-run-welcome gap-6 md:grid-first-run-welcome">
         <div className="flex flex-col justify-center gap-4">
           <p className="max-w-2xl text-base leading-7 text-text-secondary">
             Offisim gives you an AI team, a workspace, and a live office surface in one place. Start
@@ -42,7 +42,7 @@ export function FirstRunWelcomeScreen({
             time.
           </p>
         </div>
-        <div className="flex min-h-[220px] flex-col justify-between rounded-xl border border-border-default bg-surface-muted p-4">
+        <div className="flex min-h-first-run-preview flex-col justify-between rounded-xl border border-border-default bg-surface-muted p-4">
           <div>
             <div className="h-10 w-10 rounded-lg bg-accent-muted" />
             <div className="mt-6 h-3 w-32 rounded bg-border-subtle" />

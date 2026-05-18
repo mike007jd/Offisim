@@ -110,7 +110,7 @@ export function EventItem({ event }: EventItemProps) {
           <span className="font-medium">{label}</span>
           {action && <span className="ml-1 text-text-secondary">{action}</span>}
         </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-text-muted">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-text-muted">
           <span className="font-mono">{topicLabel}</span>
           {event.entityId ? <span className="font-mono">ID {event.entityId}</span> : null}
         </div>

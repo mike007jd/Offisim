@@ -43,7 +43,7 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-6 py-6">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-appearance-tab">
         <div className="min-w-0">
           {isExternal ? (
             <p data-testid="external-avatar-disabled" className="text-xs text-text-muted">
@@ -92,8 +92,8 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
 
 function PreviewCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="relative flex aspect-[256/200] min-h-[200px] w-full max-w-[256px] items-center justify-center rounded-lg border border-border-subtle bg-surface-muted">
-      <span className="absolute left-2 top-1.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+    <div className="relative flex avatar-preview-card w-full items-center justify-center rounded-lg border border-border-subtle bg-surface-muted">
+      <span className="absolute left-2 top-1.5 text-caption font-medium uppercase tracking-wider text-text-muted">
         {label}
       </span>
       {children}

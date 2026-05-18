@@ -601,7 +601,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
         {saveStatus !== 'idle' && (
           <div className="pointer-events-none absolute right-4 top-14 z-10">
             <span
-              className={`rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider ${
+              className={`rounded px-2 py-1 font-mono text-caption uppercase tracking-wider ${
                 saveStatus === 'saving'
                   ? 'border border-border-default bg-surface-elevated text-text-secondary'
                   : saveStatus === 'saved'
@@ -690,7 +690,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
       )}
 
       {showInspectorOverlay && (
-        <div className="absolute inset-y-10 right-3 z-overlay w-[340px] overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-modal">
+        <div className="absolute inset-y-10 right-3 z-overlay w-sop-inspector-overlay overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-modal">
           <div className="flex h-9 items-center justify-end border-b border-border-subtle px-2">
             <Button
               type="button"
@@ -710,17 +710,18 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             stepIds={stepIds}
             onSelectStep={handleStepClick}
             missingRoleSet={missingRoleSet}
-            className="h-[calc(100%-2.25rem)] w-full border-l-0"
+            className="h-sop-inspector-overlay-panel w-full border-l-0"
           />
         </div>
       )}
 
       {sidebarDrawerOpen && tier === 'narrow' && (
         <div className="absolute inset-0 z-modal flex">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             aria-label="Close SOP list"
-            className="absolute inset-0 bg-surface/70"
+            className="absolute inset-0 h-auto w-auto rounded-none bg-surface/70 p-0 hover:bg-surface/70"
             onClick={() => setSidebarDrawerOpen(false)}
           />
           <div className="relative z-10 h-full shadow-modal">{sidebar}</div>
@@ -728,7 +729,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
       )}
 
       {showInspectorSheet && (
-        <div className="absolute inset-x-0 bottom-0 z-overlay max-h-[52vh] overflow-hidden rounded-t-2xl border-t border-border-subtle bg-surface-elevated shadow-modal">
+        <div className="absolute inset-x-0 bottom-0 z-overlay max-h-sop-inspector-sheet overflow-hidden rounded-t-2xl border-t border-border-subtle bg-surface-elevated shadow-modal">
           <div className="flex h-10 items-center justify-between border-b border-border-subtle px-3">
             <span className="text-xs font-semibold text-text-secondary">Step inspector</span>
             <Button
@@ -749,7 +750,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             stepIds={stepIds}
             onSelectStep={handleStepClick}
             missingRoleSet={missingRoleSet}
-            className="max-h-[calc(52vh-2.5rem)] w-full border-l-0"
+            className="max-h-sop-inspector-sheet-panel w-full border-l-0"
           />
         </div>
       )}

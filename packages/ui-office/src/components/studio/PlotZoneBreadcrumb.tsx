@@ -5,6 +5,7 @@
  */
 
 import { getBuiltinPrefab } from '@offisim/renderer';
+import { Button } from '@offisim/ui-core';
 import { useMemo } from 'react';
 import { STUDIO_IDENTITY_HEIGHT } from './StudioCompanyIdentity.js';
 import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
@@ -60,9 +61,15 @@ function Segment({ label, active, onClick }: SegmentProps) {
   }
 
   return (
-    <button type="button" onClick={onClick} style={baseStyle} aria-label={`Go to ${label}`}>
+    <Button
+      type="button"
+      variant="ghost"
+      onClick={onClick}
+      style={baseStyle}
+      aria-label={`Go to ${label}`}
+    >
       {label}
-    </button>
+    </Button>
   );
 }
 

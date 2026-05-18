@@ -1,4 +1,5 @@
 import type { ListingSummary } from '@offisim/registry-client';
+import { Button } from '@offisim/ui-core';
 import { Star } from 'lucide-react';
 import { getRarityColor } from './market-rarity.js';
 import { INSTALLABLE_KINDS, KIND_ICON, formatInstallCount } from './marketplace-meta.js';
@@ -20,10 +21,11 @@ export function MarketListingCard({ listing, onClick, installed }: MarketListing
       : null;
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={() => onClick(listing.listing_id)}
-      className={`group flex h-[260px] flex-col overflow-hidden rounded-2xl border bg-surface-elevated text-left text-text-primary shadow-sm transition-all hover:bg-surface-hover ${rarity.border} ${rarity.glow}`}
+      className={`group h-market-listing-card flex-col items-stretch overflow-hidden rounded-2xl border bg-surface-elevated p-0 text-left text-text-primary shadow-sm transition-all hover:bg-surface-hover ${rarity.border} ${rarity.glow}`}
     >
       <div className="relative h-24 w-full shrink-0 overflow-hidden bg-surface-muted">
         {cover ? (
@@ -41,13 +43,13 @@ export function MarketListingCard({ listing, onClick, installed }: MarketListing
           </div>
         )}
         <span
-          className={`absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${rarity.badge}`}
+          className={`absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-caption font-medium ${rarity.badge}`}
         >
           {Icon && <Icon className="h-3 w-3" />}
           {listing.kind}
         </span>
         {showInstalled && (
-          <span className="absolute right-3 top-3 inline-flex items-center rounded-full border border-success bg-success-muted px-2 py-0.5 text-[11px] font-medium text-success">
+          <span className="absolute right-3 top-3 inline-flex items-center rounded-full border border-success bg-success-muted px-2 py-0.5 text-caption font-medium text-success">
             Installed
           </span>
         )}
@@ -68,7 +70,7 @@ export function MarketListingCard({ listing, onClick, installed }: MarketListing
           {listing.summary}
         </p>
 
-        <div className="mt-auto flex items-center gap-3 pt-2 text-[11px] text-text-secondary">
+        <div className="mt-auto flex items-center gap-3 pt-2 text-caption text-text-secondary">
           <span className="inline-flex items-center gap-1">
             <Star className="h-3 w-3 fill-current text-warning" />
             {listing.rating.toFixed(1)}
@@ -76,6 +78,6 @@ export function MarketListingCard({ listing, onClick, installed }: MarketListing
           <span>{formatInstallCount(listing.install_count)} installs</span>
         </div>
       </div>
-    </button>
+    </Button>
   );
 }

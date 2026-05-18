@@ -307,7 +307,7 @@ export function ExternalEmployeeInstallDialog({
                 placeholder="https://your-agent.example.dev"
                 autoFocus
               />
-              <p className="text-[11px] text-text-muted">
+              <p className="text-caption text-text-muted">
                 Offisim will GET {'{url}'}/.well-known/agent-card.json with an optional bearer
                 token.
               </p>
@@ -382,7 +382,7 @@ export function ExternalEmployeeInstallDialog({
                   {card.skills.map((skill) => (
                     <li
                       key={skill.id}
-                      className="rounded-full border border-border-subtle bg-surface-elevated px-2 py-0.5 text-[11px] text-text-secondary"
+                      className="rounded-full border border-border-subtle bg-surface-elevated px-2 py-0.5 text-caption text-text-secondary"
                     >
                       {skill.name}
                     </li>
@@ -429,7 +429,7 @@ export function ExternalEmployeeInstallDialog({
                   </SelectContent>
                 </Select>
                 {brandKey === 'custom' && (
-                  <p className="text-[11px] text-text-muted">
+                  <p className="text-caption text-text-muted">
                     No canonical brand matched - using custom fallback avatar.
                   </p>
                 )}

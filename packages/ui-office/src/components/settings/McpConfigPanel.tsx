@@ -329,7 +329,7 @@ export function McpConfigPanel() {
   return (
     <div className="space-y-6">
       <SettingsSection title="Add MCP server">
-        <div className="grid gap-3 md:grid-cols-[140px,1fr,1fr,auto] md:items-start">
+        <div className="grid gap-3 md:mcp-config-row-grid md:items-start">
           <div>
             <Select value={transport} onValueChange={(v) => setTransport(v as McpTransport)}>
               <SelectTrigger className={surfaceInputProps('text-sm')}>
@@ -387,26 +387,26 @@ export function McpConfigPanel() {
           <div className="rounded-md border border-warning/40 bg-warning-muted px-3 py-3 text-xs text-text-secondary">
             <div className="mb-2 flex items-center justify-between gap-3">
               <span className="font-medium text-text-primary">Confirm stdio MCP server</span>
-              <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-[10px]">
+              <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-caption">
                 High risk
               </Badge>
             </div>
             <dl className="grid gap-1">
-              <div className="grid gap-1 sm:grid-cols-[96px,1fr]">
+              <div className="grid gap-1 sm:mcp-config-detail-grid">
                 <dt className="text-text-muted">Command</dt>
                 <dd className="break-all font-mono">{pendingStdio.command}</dd>
               </div>
-              <div className="grid gap-1 sm:grid-cols-[96px,1fr]">
+              <div className="grid gap-1 sm:mcp-config-detail-grid">
                 <dt className="text-text-muted">Args</dt>
                 <dd className="break-all font-mono">
                   {pendingStdio.args.length > 0 ? pendingStdio.args.join(' ') : '(none)'}
                 </dd>
               </div>
-              <div className="grid gap-1 sm:grid-cols-[96px,1fr]">
+              <div className="grid gap-1 sm:mcp-config-detail-grid">
                 <dt className="text-text-muted">Source</dt>
                 <dd>{pendingStdio.source}</dd>
               </div>
-              <div className="grid gap-1 sm:grid-cols-[96px,1fr]">
+              <div className="grid gap-1 sm:mcp-config-detail-grid">
                 <dt className="text-text-muted">Tools</dt>
                 <dd>
                   {pendingStdio.requestedTools.length > 0
@@ -447,7 +447,7 @@ export function McpConfigPanel() {
           <div className="space-y-4">
             {grouped.map(([groupTransport, groupServers]) => (
               <div key={groupTransport} className="space-y-1.5">
-                <header className="text-[11px] uppercase tracking-wide text-text-muted">
+                <header className="text-caption uppercase tracking-wide text-text-muted">
                   {groupTransport.toUpperCase()} · {groupServers.length}
                 </header>
                 <ul className="space-y-1">
@@ -463,7 +463,7 @@ export function McpConfigPanel() {
                           </span>
                           <Badge
                             variant={isConnected(server.name) ? 'success' : 'secondary'}
-                            className="shrink-0 px-1.5 py-0 text-[10px]"
+                            className="shrink-0 px-1.5 py-0 text-caption"
                           >
                             {connecting === server.name
                               ? 'Connecting…'
@@ -472,7 +472,7 @@ export function McpConfigPanel() {
                                 : 'Disconnected'}
                           </Badge>
                         </div>
-                        <p className="mt-0.5 truncate font-mono text-[11px] text-text-muted">
+                        <p className="mt-0.5 truncate font-mono text-caption text-text-muted">
                           {server.transport === 'stdio'
                             ? [server.command ?? '', ...(server.args ?? [])]
                                 .filter(Boolean)

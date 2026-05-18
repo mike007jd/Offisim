@@ -32,7 +32,7 @@ export function ActivityRail({
 
   if (!hasActivity) {
     return variant === 'compact' ? null : (
-      <div className="mb-2 rounded-2xl border border-border-subtle bg-surface-muted px-3 py-2 text-[11px] text-text-muted">
+      <div className="mb-2 rounded-2xl border border-border-subtle bg-surface-muted px-3 py-2 text-caption text-text-muted">
         Run a task to see live activity here.
       </div>
     );
@@ -50,7 +50,7 @@ export function ActivityRail({
     if (!latestEntry && activeTools.length === 0 && !costLabel) return null;
     return (
       <div className="mb-2 rounded-2xl border border-border-subtle bg-surface-muted px-3 py-2">
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-secondary">
+        <div className="flex flex-wrap items-center gap-2 text-caption text-text-secondary">
           <span className="inline-flex items-center gap-1 rounded-full border border-info/30 bg-info-muted px-2 py-0.5 text-info">
             <Activity className="h-3 w-3 animate-pulse" />
             <span className="font-medium">{headline ?? 'Runtime active'}</span>
@@ -68,7 +68,7 @@ export function ActivityRail({
           )}
         </div>
         {latestEntry && (
-          <p className="mt-2 truncate text-[11px] text-text-muted">{latestEntry.label}</p>
+          <p className="mt-2 truncate text-caption text-text-muted">{latestEntry.label}</p>
         )}
       </div>
     );
@@ -76,7 +76,7 @@ export function ActivityRail({
 
   return (
     <div className="mb-2 rounded-2xl border border-border-subtle bg-surface-muted px-3 py-2 shadow-overlay">
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-secondary">
+      <div className="flex flex-wrap items-center gap-2 text-caption text-text-secondary">
         <span className="inline-flex items-center gap-1 rounded-full border border-info/30 bg-info-muted px-2 py-0.5 text-info">
           <Activity className="h-3 w-3 animate-pulse" />
           <span className="font-medium">{headline ?? 'Runtime active'}</span>
@@ -99,11 +99,11 @@ export function ActivityRail({
           {activeTools.map((tool) => (
             <span
               key={tool.toolCallId}
-              className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-muted px-2 py-1 text-[11px] text-success"
+              className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-muted px-2 py-1 text-caption text-success"
             >
               <Wrench className="h-3 w-3" />
               <span className="font-medium">{tool.label}</span>
-              <span className="rounded-full bg-surface-elevated px-1.5 py-px font-mono text-[10px] text-success">
+              <span className="rounded-full bg-surface-elevated px-1.5 py-px font-mono text-caption text-success">
                 {tool.elapsedSeconds}s
               </span>
             </span>
@@ -116,12 +116,12 @@ export function ActivityRail({
           {visibleEntries.slice(0, 3).map((entry) => (
             <div
               key={entry.id}
-              className={`flex items-start gap-2 rounded-xl border px-2.5 py-1.5 text-[11px] ${ENTRY_STYLES[entry.tone]}`}
+              className={`flex items-start gap-2 rounded-xl border px-2.5 py-1.5 text-caption ${ENTRY_STYLES[entry.tone]}`}
             >
               <TerminalSquare className="mt-0.5 h-3 w-3 shrink-0 opacity-80" />
               <span className="min-w-0 break-words leading-relaxed">{entry.label}</span>
               {entry.burstCount && entry.burstCount > 1 ? (
-                <span className="ml-auto shrink-0 rounded-full bg-surface-elevated px-1.5 py-px font-mono text-[10px] opacity-85">
+                <span className="ml-auto shrink-0 rounded-full bg-surface-elevated px-1.5 py-px font-mono text-caption opacity-85">
                   x{entry.burstCount}
                 </span>
               ) : null}

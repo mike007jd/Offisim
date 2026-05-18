@@ -357,7 +357,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         onRequestClose={handleRequestClose}
         className="border-border-default bg-surface-elevated text-text-primary"
       >
-        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid gap-8 lg:grid-publish-dialog">
           <div className="space-y-6">
             <Field
               label={
@@ -531,7 +531,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                       <p className="font-medium text-text-primary">
                         {draft.title ?? draft.kind ?? 'Untitled draft'}
                       </p>
-                      <p className="text-[11px] text-text-muted">
+                      <p className="text-caption text-text-muted">
                         {draft.status} · {draft.validation_state}
                       </p>
                     </li>
@@ -564,7 +564,7 @@ function Field({
         {label}
       </label>
       {children}
-      {hint ? <p className="text-[11px] text-text-muted">{hint}</p> : null}
+      {hint ? <p className="text-caption text-text-muted">{hint}</p> : null}
     </div>
   );
 }

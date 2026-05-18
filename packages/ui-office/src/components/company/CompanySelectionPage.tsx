@@ -1,6 +1,7 @@
 import type { RuntimeRepositories } from '@offisim/core/browser';
 import type { CompanyRow as CompanyRecord } from '@offisim/core/browser';
 import type { PrefabInstanceRow, ZoneRow } from '@offisim/shared-types';
+import { Badge, Button, Input, cn } from '@offisim/ui-core';
 import { Archive, ArrowRight, Building2, FolderPlus, Layers3, Pencil, Users } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyPreview } from '../../hooks/useCompanyPreview.js';
@@ -286,25 +287,21 @@ export function CompanySelectionPage({
           onDismiss={() => setCreatingNew(false)}
         />
       )}
-      <aside className="flex shrink-0 flex-col border-border-default bg-surface-elevated p-5 lg:w-[320px] lg:border-r">
+      <aside className="flex shrink-0 flex-col border-border-default bg-surface-elevated p-5 lg:w-80 lg:border-r">
         <div className="mb-4 flex items-center justify-between lg:mb-5">
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-text-muted">Companies</div>
+            <div className="text-caption uppercase tracking-wider text-text-muted">Companies</div>
             <div className="mt-1 text-xl font-semibold text-text-primary lg:mt-2 lg:text-2xl">
               Portal
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setCreatingNew(true)}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-focus bg-accent-muted px-3 text-sm font-medium text-accent-text transition hover:bg-surface-hover"
-          >
-            <FolderPlus className="h-4 w-4" />
+          <Button type="button" size="sm" onClick={() => setCreatingNew(true)}>
+            <FolderPlus className="size-4" aria-hidden="true" />
             New
-          </button>
+          </Button>
         </div>
 
-        <div className="flex max-h-[32vh] flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none lg:space-y-3">
+        <div className="flex max-h-80 flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none lg:gap-3">
           {visibleCompanies.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border-default bg-surface-muted p-5 text-sm text-text-secondary">
               No companies yet. Create one to start building your workspace.
@@ -345,17 +342,17 @@ export function CompanySelectionPage({
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 lg:p-6">
-          <section className="min-w-0">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:flex-row lg:gap-6 lg:p-6">
+          <section className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <div className="text-[11px] uppercase tracking-wider text-text-muted">Preview</div>
+                <div className="text-caption uppercase tracking-wider text-text-muted">Preview</div>
                 <div className="mt-1 text-xl font-semibold text-text-primary lg:mt-2 lg:text-2xl">
                   {selectedCompany?.name ?? 'Company Showcase'}
                 </div>
               </div>
             </div>
-            <div className="h-[42vh] min-h-[280px] lg:h-[calc(100vh-96px)] lg:min-h-[540px]">
+            <div className="h-96 min-h-72 lg:min-h-0 lg:flex-1">
               <CompanyPortalPreview
                 company={selectedCompany}
                 zones={data?.zones ?? []}
@@ -365,15 +362,15 @@ export function CompanySelectionPage({
             </div>
           </section>
 
-          <aside className="rounded-2xl border border-border-default bg-surface-elevated p-5">
-            <div className="text-[11px] uppercase tracking-wider text-text-muted">
+          <aside className="rounded-2xl border border-border-default bg-surface-elevated p-5 lg:w-80 lg:shrink-0">
+            <div className="text-caption uppercase tracking-wider text-text-muted">
               Company Brief
             </div>
             {selectedCompany ? (
               <>
                 <div className="mt-4 flex items-start gap-3">
                   <div className="rounded-xl border border-border-default bg-surface-muted p-3">
-                    <Building2 className="h-5 w-5 text-accent" />
+                    <Building2 className="size-5 text-accent" aria-hidden="true" />
                   </div>
                   <div className="min-w-0">
                     <div className="truncate text-xl font-semibold text-text-primary">
@@ -392,31 +389,30 @@ export function CompanySelectionPage({
                   <InfoStat label="Assets" value={String(data?.prefabs.length ?? 0)} />
                 </div>
 
-                <p className="mt-4 text-[11px] text-text-muted">
+                <p className="mt-4 text-caption text-text-muted">
                   Updated {formatUpdatedAt(selectedCompany.updated_at)}
                 </p>
 
-                <div className="mt-6 space-y-3 pb-2">
-                  <button
+                <div className="mt-6 flex flex-col gap-3 pb-2">
+                  <Button
                     type="button"
+                    size="lg"
                     onClick={() => onEnterCompany(selectedCompany.company_id)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-text-inverse transition hover:bg-accent-hover"
+                    className="w-full"
                   >
                     Enter Company
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                  <button
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Button>
+                  <Button
                     type="button"
+                    variant={archiveArmed ? 'destructive' : 'secondary'}
+                    size="lg"
                     onClick={handleArchiveClick}
-                    className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                      archiveArmed
-                        ? 'border-error/40 bg-error-muted text-error hover:border-error'
-                        : 'border-border-default bg-surface-muted text-text-secondary hover:border-border-strong hover:bg-surface-hover'
-                    }`}
+                    className="w-full"
                   >
-                    <Archive className="h-4 w-4" />
+                    <Archive className="size-4" aria-hidden="true" />
                     {archiveArmed ? 'Confirm Archive' : 'Archive Company'}
-                  </button>
+                  </Button>
                   {archiveArmed && (
                     <p className="rounded-xl border border-error/30 bg-error-muted px-4 py-3 text-xs leading-relaxed text-error">
                       Archive {selectedCompany.name}? The company will be removed from the active
@@ -487,16 +483,18 @@ function CompanyRow({
           onPreview();
         }
       }}
-      className={`group w-full rounded-xl border p-3 text-left transition lg:p-4 ${
+      className={cn(
+        'group w-full rounded-xl border p-3 text-left transition lg:p-4',
         isPreview
           ? 'border-border-focus bg-accent-muted shadow-glow-accent'
-          : 'border-border-default bg-surface hover:border-border-strong hover:bg-surface-hover'
-      } ${isRenaming ? 'cursor-default' : 'cursor-pointer'}`}
+          : 'border-border-default bg-surface hover:border-border-strong hover:bg-surface-hover',
+        isRenaming ? 'cursor-default' : 'cursor-pointer',
+      )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           {isRenaming ? (
-            <input
+            <Input
               ref={inputRef}
               type="text"
               value={draftName}
@@ -513,7 +511,7 @@ function CompanyRow({
                 }
               }}
               onBlur={() => void onCommitRename(draftName)}
-              className="w-full rounded-md border border-border-focus bg-surface px-2 py-1 text-base font-semibold text-text-primary outline-none focus:border-accent"
+              className="h-9 text-base font-semibold"
               aria-label={`Rename ${company.name}`}
             />
           ) : (
@@ -525,33 +523,35 @@ function CompanyRow({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {!isRenaming && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               onClick={(e) => {
                 e.stopPropagation();
                 onStartRename();
               }}
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-border-subtle text-text-muted opacity-0 transition hover:bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus:opacity-100"
+              className="size-7 opacity-0 group-hover:opacity-100 focus:opacity-100"
               title="Rename company"
               aria-label={`Rename ${company.name}`}
             >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
+              <Pencil className="size-3.5" aria-hidden="true" />
+            </Button>
           )}
           {isActive && (
-            <span className="rounded-full border border-success/30 bg-success-muted px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-success">
+            <Badge variant="success" size="xs">
               Active
-            </span>
+            </Badge>
           )}
         </div>
       </div>
       <div className="mt-3 flex items-center gap-4 text-xs text-text-secondary lg:mt-4">
         <span className="inline-flex items-center gap-1.5">
-          <Users className="h-3.5 w-3.5" />
+          <Users className="size-3.5" aria-hidden="true" />
           {summary.employeeCount}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <Layers3 className="h-3.5 w-3.5" />
+          <Layers3 className="size-3.5" aria-hidden="true" />
           {summary.projectCount}
         </span>
       </div>
@@ -562,7 +562,7 @@ function CompanyRow({
 function InfoStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-muted p-4">
-      <div className="text-[11px] uppercase tracking-wider text-text-muted">{label}</div>
+      <div className="text-caption uppercase tracking-wider text-text-muted">{label}</div>
       <div className="mt-2 text-2xl font-semibold text-text-primary">{value}</div>
     </div>
   );
@@ -575,9 +575,10 @@ function PreviewState({
 }: { title: string; description: string; dashed?: boolean }) {
   return (
     <div
-      className={`flex h-full items-center justify-center rounded-2xl border bg-surface-muted ${
-        dashed ? 'border-dashed border-border-default' : 'border-border-default'
-      }`}
+      className={cn(
+        'flex h-full items-center justify-center rounded-2xl border bg-surface-muted',
+        dashed ? 'border-dashed border-border-default' : 'border-border-default',
+      )}
     >
       <div className="px-8 text-center">
         <div className="text-xl font-semibold text-text-primary">{title}</div>

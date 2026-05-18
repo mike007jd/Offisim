@@ -37,6 +37,317 @@
     z-index: var(--z-top);
   }
 
+  .pb-safe-0 {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+
+  .pb-safe-3 {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .grid-personnel-desktop-expanded {
+    grid-template-columns: 280px minmax(0, 1fr) minmax(0, 420px);
+  }
+
+  .grid-personnel-desktop-collapsed {
+    grid-template-columns: 64px minmax(0, 1fr) minmax(0, 420px);
+  }
+
+  .grid-personnel-tablet-expanded {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .grid-personnel-tablet-collapsed {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .studio-canvas-frame {
+    bottom: 2.5rem;
+    left: 15rem;
+    right: 15rem;
+    top: 8.25rem;
+  }
+
+  .w-sop-sidebar {
+    width: 17.5rem;
+  }
+
+  .w-office-left-expanded {
+    width: 18.75rem;
+  }
+
+  .w-office-right-expanded {
+    width: 22.5rem;
+  }
+
+  .w-office-rail-collapsed {
+    width: 2.75rem;
+  }
+
+  .max-w-employee-inspector {
+    max-width: min(22rem, calc(100vw - 2rem));
+  }
+
+  .h-market-listing-card {
+    height: 16.25rem;
+  }
+
+  .w-kanban-column {
+    width: 16.25rem;
+  }
+
+  .min-h-kanban-task-list {
+    min-height: 5rem;
+  }
+
+  .min-h-runtime-binding-card {
+    min-height: 5.75rem;
+  }
+
+  .w-deliverable-review-select {
+    width: 4rem;
+  }
+
+  .max-w-employee-quick-meta {
+    max-width: 7.5rem;
+  }
+
+  .mcp-config-row-grid {
+    grid-template-columns: 8.75rem minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+
+  .mcp-config-detail-grid {
+    grid-template-columns: 6rem minmax(0, 1fr);
+  }
+
+  .h-sop-dag-node {
+    height: 8.75rem;
+  }
+
+  .w-sop-dag-node {
+    width: 17.5rem;
+  }
+
+  .w-sop-inspector {
+    width: 20rem;
+  }
+
+  .max-w-skill-binding-description {
+    max-width: 16.25rem;
+  }
+
+  .grid-tool-overrides {
+    grid-template-columns: 1fr 8.75rem auto;
+  }
+
+  .max-w-step-tooltip {
+    max-width: 10rem;
+  }
+
+  .hr-prompt-arrow-border,
+  .hr-prompt-arrow-fill {
+    border-bottom-width: 0.375rem;
+    border-right-width: 0.5rem;
+    border-top-width: 0.375rem;
+    height: 0;
+    left: -0.5rem;
+    position: absolute;
+    top: 0.75rem;
+    width: 0;
+  }
+
+  .hr-prompt-arrow-fill {
+    left: -0.3125rem;
+  }
+
+  .max-w-cost-model-name {
+    max-width: 60%;
+  }
+
+  .grid-appearance-tab {
+    grid-template-columns: minmax(0, 1fr) 17.5rem;
+  }
+
+  .avatar-preview-card {
+    aspect-ratio: 256 / 200;
+    max-width: 16rem;
+    min-height: 12.5rem;
+  }
+
+  .grid-first-run-welcome {
+    grid-template-columns: 1fr 17.5rem;
+  }
+
+  .min-h-first-run-welcome {
+    min-height: 22.5rem;
+  }
+
+  .min-h-first-run-preview {
+    min-height: 13.75rem;
+  }
+
+  .h-market-grid-card {
+    height: 13.75rem;
+  }
+
+  .grid-market-card-list {
+    grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
+  }
+
+  .grid-market-detail-desktop {
+    grid-template-columns: minmax(0, 3fr) minmax(23.75rem, 2fr);
+  }
+
+  .grid-market-detail-tablet {
+    grid-template-columns: minmax(0, 3fr) minmax(21.25rem, 2fr);
+  }
+
+  .grid-activity-detail {
+    grid-template-columns: 1fr minmax(20rem, 26.25rem);
+  }
+
+  .grid-activity-filter {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(10rem, 2fr);
+  }
+
+  .min-w-notification-badge {
+    min-width: 0.875rem;
+  }
+
+  .top-notification-popover {
+    top: calc(100% + 0.5rem);
+  }
+
+  .grid-publish-dialog {
+    grid-template-columns: 1.2fr 0.8fr;
+  }
+
+  .grid-settings-provider {
+    grid-template-columns: 21.25rem minmax(0, 1fr);
+  }
+
+  .min-h-provider-headers {
+    min-height: 7.5rem;
+  }
+
+  .max-h-upgrade-diff {
+    max-height: 18.75rem;
+  }
+
+  .editor-zone-canvas-size {
+    max-height: calc(100vh - 7rem);
+    max-width: 75rem;
+  }
+
+  .w-sop-context-menu {
+    width: 8.75rem;
+  }
+
+  .w-sop-add-popover {
+    width: 17.5rem;
+  }
+
+  .w-sop-inspector-overlay {
+    width: 21.25rem;
+  }
+
+  .h-sop-inspector-overlay-panel {
+    height: calc(100% - 2.25rem);
+  }
+
+  .max-h-sop-inspector-sheet {
+    max-height: 52vh;
+  }
+
+  .max-h-sop-inspector-sheet-panel {
+    max-height: calc(52vh - 2.5rem);
+  }
+
+  .sent-attachment-image {
+    max-height: 11.25rem;
+    max-width: min(15rem, 55%);
+  }
+
+  .min-h-interaction-note {
+    min-height: 5.5rem;
+  }
+
+  .max-h-stream-content {
+    max-height: 60vh;
+  }
+
+  .max-h-reasoning-content {
+    max-height: 40vh;
+  }
+
+  .min-w-markdown-citation {
+    min-width: 1.1em;
+  }
+
+  .text-markdown-code {
+    font-size: 0.92em;
+  }
+
+  .kanban-tray-expanded-size {
+    height: min(29.375rem, 58vh);
+    min-height: 21.25rem;
+  }
+
+  .kanban-tray-collapsed-position {
+    top: 4.5rem;
+    width: 11.875rem;
+  }
+
+  .max-w-status-headline {
+    max-width: 18rem;
+  }
+
+  .max-h-project-select-content {
+    max-height: 28rem;
+  }
+
+  .chat-drawer-wide {
+    left: calc(var(--app-left-rail-width) + var(--sp-lg) + var(--sp-md));
+    right: calc(var(--app-right-rail-width) + var(--sp-lg) + var(--sp-md));
+  }
+
+  .writing-vertical-rl {
+    writing-mode: vertical-rl;
+  }
+
+  .company-wizard-grid-bg {
+    background-image: radial-gradient(circle, var(--surface-lighter) 0.5px, transparent 0.5px);
+    background-size: 24px 24px;
+  }
+
+  .animate-wiz-fade-in-fast {
+    animation: wiz-fade-in 0.3s ease-out;
+  }
+
+  .animate-wiz-fade-in {
+    animation: wiz-fade-in 0.4s ease-out;
+  }
+
+  .animate-wiz-fade-in-slow {
+    animation: wiz-fade-in 0.5s ease-out;
+  }
+
+  .animate-wiz-card-in {
+    animation: wiz-card-in 0.4s ease-out both;
+  }
+
+  .animate-wiz-slide-up {
+    animation: wiz-slide-up 0.25s ease-out;
+  }
+
+  .animate-wiz-building-pulse {
+    animation: wiz-building-pulse 2s ease-in-out infinite;
+  }
+
+  .animate-wiz-cta-pulse {
+    animation: wiz-cta-pulse 3s ease-in-out infinite;
+  }
+
   .light
     :where(
       .text-white,

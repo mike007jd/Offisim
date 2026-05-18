@@ -43,7 +43,7 @@ type RightSidebarTab = 'chat' | 'inspector' | 'tasks' | 'git';
 
 const PILL_TRIGGER_BASE =
   'h-auto min-w-fit shrink-0 rounded-full border border-transparent text-text-secondary data-[state=active]:border-border-focus data-[state=active]:bg-accent-muted data-[state=active]:text-accent-text hover:bg-surface-hover hover:text-text-primary';
-const MAIN_TAB_TRIGGER_CLASS = `${PILL_TRIGGER_BASE} gap-1.5 px-3 py-2 text-[11px]`;
+const MAIN_TAB_TRIGGER_CLASS = `${PILL_TRIGGER_BASE} gap-1.5 px-3 py-2 text-caption`;
 
 export function RightSidebar({
   chatPanel,
@@ -98,9 +98,9 @@ export function RightSidebar({
     <div className="box-border flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden bg-surface-elevated text-text-primary">
       <div className="box-border w-full min-w-0 max-w-full overflow-hidden border-b border-border-default px-3 py-2.5">
         <div className="flex min-w-0 items-center justify-between gap-3">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-text-secondary">Workspace</p>
+          <p className="text-caption uppercase tracking-[0.24em] text-text-secondary">Workspace</p>
           {workflowLabel && activeTab === 'tasks' && (
-            <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-text-muted">
+            <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-1 text-caption uppercase tracking-[0.2em] text-text-muted">
               {workflowLabel}
             </span>
           )}
@@ -115,8 +115,11 @@ export function RightSidebar({
           </div>
         ) : null}
         {projectSlot ? (
-          <div className="mt-2 flex min-w-0 max-w-full items-center gap-2 overflow-hidden" ref={projectSelectorRef}>
-            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+          <div
+            className="mt-2 flex min-w-0 max-w-full items-center gap-2 overflow-hidden"
+            ref={projectSelectorRef}
+          >
+            <span className="shrink-0 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
               Project
             </span>
             <div className="min-w-0 max-w-full flex-1 overflow-hidden">{projectSlot}</div>
@@ -179,7 +182,9 @@ export function RightSidebar({
             TABS_RETAIN_STATE_CLASS,
           )}
         >
-          <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">{chatPanel}</div>
+          <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
+            {chatPanel}
+          </div>
         </TabsContent>
 
         <TabsContent
@@ -193,7 +198,7 @@ export function RightSidebar({
           <div className="custom-scrollbar flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-y-auto overflow-x-hidden">
             {projectSummarySlot ? (
               <section className="border-b border-border-default px-3 py-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                <h3 className="mb-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
                   Project
                 </h3>
                 {projectSummarySlot}
@@ -203,7 +208,7 @@ export function RightSidebar({
             {activeProjectId && onSelectThread ? (
               <section className="border-b border-border-default">
                 <div className="px-3 py-3 pb-2">
-                  <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                  <h3 className="text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
                     Threads
                   </h3>
                 </div>
@@ -217,7 +222,7 @@ export function RightSidebar({
 
             {hasOutputs ? (
               <section className="border-b border-border-default px-3 py-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                <h3 className="mb-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
                   Outputs
                 </h3>
                 <PitchHall
@@ -245,7 +250,7 @@ export function RightSidebar({
         >
           <div className="custom-scrollbar flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <section className="border-b border-border-default px-3 py-3">
-              <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+              <h3 className="mb-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
                 Activity
               </h3>
               <ActivityRail variant="full" />
@@ -253,7 +258,7 @@ export function RightSidebar({
 
             {hasPlan ? (
               <section className="border-b border-border-default px-3 py-3">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                <h3 className="mb-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
                   Plan
                 </h3>
                 <TaskDashboard agents={agents} />
@@ -264,10 +269,10 @@ export function RightSidebar({
               <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+                    <h3 className="text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
                       Board
                     </h3>
-                    <p className="mt-1 text-[11px] text-text-muted">
+                    <p className="mt-1 text-caption text-text-muted">
                       {kanbanCardCount} cards in the project board
                     </p>
                   </div>
@@ -276,7 +281,7 @@ export function RightSidebar({
                       variant="ghost"
                       size="sm"
                       data-kanban-toggle
-                      className="h-7 shrink-0 gap-1 px-2 text-[11px]"
+                      className="h-7 shrink-0 gap-1 px-2 text-caption"
                       onClick={onToggleKanban}
                       aria-expanded={kanbanOpen}
                     >
@@ -299,7 +304,9 @@ export function RightSidebar({
           )}
         >
           {gitSlot ? (
-            <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">{gitSlot}</div>
+            <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
+              {gitSlot}
+            </div>
           ) : (
             <div className="px-3 py-6 text-xs text-text-muted">
               Select a project with a local workspace folder to inspect Git changes.

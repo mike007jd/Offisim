@@ -1,5 +1,5 @@
 import type { RoleSlug } from '@offisim/shared-types';
-import { cn } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { Code2, LayoutDashboard, Palette, Search, Server, TrendingUp, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { EmployeeFormData } from '../../../hooks/useEmployeeEditor';
@@ -68,21 +68,22 @@ export function RoleStep({ formData, updateField }: RoleStepProps) {
         const Icon = role.icon;
         const isSelected = formData.role_slug === role.value;
         return (
-          <button
+          <Button
             key={role.value}
             type="button"
+            variant="ghost"
             onClick={() => updateField('role_slug', role.value as RoleSlug)}
             className={cn(
-              'flex flex-col items-center gap-2 p-4 border-2 text-left transition-colors cursor-pointer',
+              'h-auto flex-col items-center gap-2 border-2 p-4 text-left',
               isSelected
-                ? 'border-lobster-red bg-lobster-red/10 text-pearl'
-                : 'border-ocean-light bg-ocean-mid/50 text-sand hover:border-sea-blue hover:bg-ocean-mid',
+                ? 'border-border-focus bg-accent-muted text-accent-text'
+                : 'border-border-default bg-surface-muted text-text-secondary hover:border-border-focus hover:bg-surface-hover',
             )}
           >
-            <Icon className={cn('h-6 w-6', isSelected ? 'text-lobster-red' : 'text-shell')} />
+            <Icon className={cn('size-6', isSelected ? 'text-accent' : 'text-text-secondary')} />
             <span className="text-sm font-semibold">{role.label}</span>
-            <span className="text-xs text-shell text-center">{role.description}</span>
-          </button>
+            <span className="text-center text-xs text-text-muted">{role.description}</span>
+          </Button>
         );
       })}
     </div>

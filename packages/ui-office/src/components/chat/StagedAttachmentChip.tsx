@@ -1,4 +1,5 @@
 import type { StagedAttachment } from '@offisim/shared-types';
+import { Button } from '@offisim/ui-core';
 import { Paperclip, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ATTACHMENT_KIND_ICONS, formatAttachmentBytes } from './attachment-chip-display.js';
@@ -51,18 +52,20 @@ export function StagedAttachmentChip({ attachment, onRemove }: StagedAttachmentC
       )}
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-text-primary">{attachment.filename}</div>
-        <div className="truncate text-[10px] text-text-muted">
+        <div className="truncate text-caption text-text-muted">
           {formatAttachmentBytes(attachment.byteLength)} · {summary}
         </div>
       </div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         onClick={() => onRemove(attachment.attachmentId)}
         aria-label={`Remove ${attachment.filename}`}
-        className="shrink-0 rounded p-0.5 text-text-muted hover:bg-surface-hover hover:text-text-primary"
+        className="size-5 shrink-0 text-text-muted hover:text-text-primary"
       >
-        <X className="h-3 w-3" />
-      </button>
+        <X className="size-3" />
+      </Button>
     </div>
   );
 }

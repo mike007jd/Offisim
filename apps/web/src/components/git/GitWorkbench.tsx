@@ -1,4 +1,5 @@
 import type { ProjectRow } from '@offisim/shared-types';
+import { Button, Checkbox, Textarea, cn } from '@offisim/ui-core';
 import { isTauri } from '@offisim/ui-office/web';
 import {
   AlertCircle,
@@ -146,7 +147,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
       };
       setSnapshot(nextSnapshot);
       setSelectedPath((current) =>
-        current && files.some((file) => file.path === current) ? current : files[0]?.path ?? null,
+        current && files.some((file) => file.path === current) ? current : (files[0]?.path ?? null),
       );
       setSelectedPaths(new Set());
     } catch (err) {
@@ -154,7 +155,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
     } finally {
       setLoading(false);
     }
-  }, [canUseGit, gitExec, workspaceRoot]);
+  }, [canUseGit, gitExec]);
 
   useEffect(() => {
     void refresh();
@@ -188,8 +189,14 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
             const suffix = preview.truncated
               ? `\n\n[preview truncated at 32 KB of ${preview.totalSize} bytes]`
               : '';
-            setDiff(preview.content ? `# Untracked file preview: ${selectedFile.path}\n\n${preview.content}${suffix}` : '');
-            setDiffMessage(preview.content ? null : 'Untracked file is empty or not text-readable.');
+            setDiff(
+              preview.content
+                ? `# Untracked file preview: ${selectedFile.path}\n\n${preview.content}${suffix}`
+                : '',
+            );
+            setDiffMessage(
+              preview.content ? null : 'Untracked file is empty or not text-readable.',
+            );
           }
           return;
         }
@@ -218,10 +225,11 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
     return () => {
       cancelled = true;
     };
-  }, [canUseGit, gitExec, projectId, selectedFile]);
+  }, [canUseGit, gitExec, projectId, selectedFile, workspaceRoot]);
 
   const selectedCount = selectedPaths.size;
-  const canCommit = canUseGit && selectedCount > 0 && commitMessage.trim().length > 0 && !committing;
+  const canCommit =
+    canUseGit && selectedCount > 0 && commitMessage.trim().length > 0 && !committing;
   const prStatus = useMemo(() => resolvePrStatus(snapshot), [snapshot]);
 
   const togglePath = useCallback((path: string) => {
@@ -292,7 +300,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
       <div className="border-b border-border-default px-3 py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-secondary">
+            <p className="text-caption font-semibold uppercase tracking-[0.2em] text-text-secondary">
               Git Workbench
             </p>
             <div className="mt-1 flex min-w-0 items-center gap-2">
@@ -302,26 +310,32 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
               </span>
             </div>
           </div>
-          <button
+          <Button
             type="button"
-            className="inline-flex h-8 items-center gap-1 rounded-lg border border-border-default bg-surface-muted px-2 text-[11px] font-medium text-text-secondary transition hover:border-border-focus hover:text-accent disabled:opacity-50"
+            variant="secondary"
+            size="sm"
+            className="h-8 gap-1 px-2 text-caption"
             onClick={() => void refresh()}
             disabled={loading}
           >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
             Refresh
-          </button>
+          </Button>
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+        <div className="mt-3 grid grid-cols-3 gap-2 text-caption">
           <GitMetric label="Files" value={String(snapshot.files.length)} />
           <GitMetric label="Ahead" value={String(snapshot.ahead)} />
           <GitMetric label="Behind" value={String(snapshot.behind)} />
         </div>
 
-        <div className="mt-2 rounded-lg border border-border-subtle bg-surface-muted px-2 py-2 text-[11px] text-text-muted">
-          <span className="font-semibold text-text-secondary">Local commit:</span> selected files only;
-          no push or remote state is created here.
+        <div className="mt-2 rounded-lg border border-border-subtle bg-surface-muted px-2 py-2 text-caption text-text-muted">
+          <span className="font-semibold text-text-secondary">Local commit:</span> selected files
+          only; no push or remote state is created here.
         </div>
       </div>
 
@@ -337,20 +351,17 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <section className="border-b border-border-default">
           <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <label className="inline-flex items-center gap-2 text-[11px] text-text-secondary">
-              <input
-                type="checkbox"
-                className="h-3.5 w-3.5 accent-current"
+            <div className="inline-flex items-center gap-2 text-caption text-text-secondary">
+              <Checkbox
                 checked={snapshot.files.length > 0 && selectedCount === snapshot.files.length}
-                onChange={(event) => setAllSelected(event.currentTarget.checked, snapshot.files)}
+                onCheckedChange={(checked) => setAllSelected(checked === true, snapshot.files)}
+                aria-label="Select all changed files"
               />
               {selectedCount} selected
-            </label>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
-              Status
-            </span>
+            </div>
+            <span className="text-caption uppercase tracking-[0.18em] text-text-muted">Status</span>
           </div>
-          <div className="custom-scrollbar max-h-[180px] overflow-y-auto px-2 pb-2">
+          <div className="custom-scrollbar max-h-44 overflow-y-auto px-2 pb-2">
             {snapshot.files.length > 0 ? (
               snapshot.files.map((file) => (
                 <GitFileRow
@@ -372,27 +383,27 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
 
         <section className="flex min-h-0 flex-1 flex-col border-b border-border-default">
           <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+            <span className="text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
               Diff preview
             </span>
             {selectedFile ? (
-              <span className="truncate font-mono text-[10px] text-text-muted">
+              <span className="truncate font-mono text-caption text-text-muted">
                 {selectedFile.path}
               </span>
             ) : null}
           </div>
-          <div className="custom-scrollbar min-h-0 flex-1 overflow-auto bg-[#0f172a] p-3">
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
             {diffLoading ? (
-              <div className="flex h-full items-center justify-center text-xs text-slate-300">
+              <div className="flex h-full items-center justify-center text-xs text-text-secondary">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Loading diff
               </div>
             ) : diff ? (
-              <pre className="whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed text-slate-100">
+              <pre className="whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-text-primary">
                 {diff}
               </pre>
             ) : (
-              <div className="flex h-full items-center justify-center text-center text-xs text-slate-300">
+              <div className="flex h-full items-center justify-center text-center text-xs text-text-secondary">
                 {diffMessage ?? 'No diff selected'}
               </div>
             )}
@@ -401,37 +412,42 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
 
         <section className="space-y-3 px-3 py-3">
           <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+            <div className="mb-2 flex items-center gap-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
               <GitCommit className="h-3.5 w-3.5" />
               Commit
             </div>
-            <textarea
+            <Textarea
               value={commitMessage}
               onChange={(event) => setCommitMessage(event.target.value)}
               rows={2}
               placeholder="Commit message"
-              className="w-full resize-none rounded-lg border border-border-subtle bg-surface px-2 py-2 text-xs text-text-primary outline-none placeholder:text-text-muted focus:border-border-focus"
+              className="resize-none border-border-subtle px-2 py-2 text-xs"
             />
-            <button
+            <Button
               type="button"
-              className="mt-2 inline-flex h-8 w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 text-xs font-semibold text-text-inverse transition hover:bg-accent-hover disabled:opacity-45"
+              className="mt-2 h-8 w-full gap-2 px-3 text-xs"
               disabled={!canCommit}
               onClick={() => void handleCommit()}
             >
-              {committing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitCommit className="h-3.5 w-3.5" />}
+              {committing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <GitCommit className="h-3.5 w-3.5" />
+              )}
               Commit selected files
-            </button>
+            </Button>
           </div>
 
           <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-            <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+            <div className="mb-1 flex items-center gap-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
               <GitPullRequest className="h-3.5 w-3.5" />
               PR-ready
             </div>
-            <p className="text-[11px] leading-relaxed text-text-muted">{prStatus.message}</p>
-            <button
+            <p className="text-caption leading-relaxed text-text-muted">{prStatus.message}</p>
+            <Button
               type="button"
-              className="mt-2 inline-flex h-8 w-full items-center justify-center gap-2 rounded-lg border border-border-default bg-surface px-3 text-xs font-semibold text-text-secondary transition hover:border-border-focus hover:text-accent disabled:opacity-45"
+              variant="outline"
+              className="mt-2 h-8 w-full gap-2 px-3 text-xs"
               disabled={!prStatus.url}
               onClick={() => {
                 if (prStatus.url) window.open(prStatus.url, '_blank', 'noopener,noreferrer');
@@ -439,15 +455,15 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
             >
               <GitPullRequest className="h-3.5 w-3.5" />
               Open compare
-            </button>
+            </Button>
           </div>
 
           <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-            <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-text-secondary">
+            <div className="mb-1 flex items-center gap-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
               <CheckCircle2 className="h-3.5 w-3.5" />
               Checks
             </div>
-            <p className="text-[11px] text-text-muted">
+            <p className="text-caption text-text-muted">
               Unavailable. No real checks source is connected to this local workspace.
             </p>
           </div>
@@ -472,7 +488,7 @@ function GitUnavailable({ title, message }: { title: string; message: string }) 
 function GitMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border-subtle bg-surface-muted px-2 py-2">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">{label}</div>
+      <div className="text-caption uppercase tracking-[0.18em] text-text-muted">{label}</div>
       <div className="mt-1 font-mono text-sm font-semibold text-text-primary">{value}</div>
     </div>
   );
@@ -493,28 +509,31 @@ function GitFileRow({
 }) {
   return (
     <div
-      className={`mb-1 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border px-2 py-2 text-left transition ${
+      className={cn(
+        'mb-1 flex items-center gap-2 rounded-lg border px-2 py-2 text-left transition',
         selected
           ? 'border-border-focus bg-accent-muted'
-          : 'border-border-subtle bg-surface-muted hover:border-border-default'
-      }`}
+          : 'border-border-subtle bg-surface-muted hover:border-border-default',
+      )}
     >
-      <input
-        type="checkbox"
-        className="h-3.5 w-3.5 accent-current"
-        checked={checked}
-        onChange={onToggle}
-      />
-      <button type="button" className="min-w-0 text-left" onClick={onSelect}>
-        <span className="flex min-w-0 items-center gap-1.5">
-          <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-          <span className="truncate font-mono text-[11px] text-text-primary">{file.path}</span>
+      <Checkbox checked={checked} onCheckedChange={onToggle} />
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-auto min-w-0 flex-1 justify-start p-0 text-left hover:bg-transparent"
+        onClick={onSelect}
+      >
+        <span className="flex min-w-0 flex-col items-start">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+            <span className="truncate font-mono text-caption text-text-primary">{file.path}</span>
+          </span>
+          <span className="mt-1 inline-flex rounded border border-border-subtle px-1.5 py-0.5 text-caption text-text-muted">
+            {file.label}
+          </span>
         </span>
-        <span className="mt-1 inline-flex rounded border border-border-subtle px-1.5 py-0.5 text-[10px] text-text-muted">
-          {file.label}
-        </span>
-      </button>
-      <div className="flex flex-col items-end gap-1 font-mono text-[10px]">
+      </Button>
+      <div className="flex flex-col items-end gap-1 font-mono text-caption">
         <span className="inline-flex items-center gap-1 text-success">
           <Plus className="h-3 w-3" />
           {formatStat(file.added)}
@@ -559,7 +578,9 @@ function parseStatusLine(
   if (line.length < 4) return null;
   const status = line.slice(0, 2);
   const rawPath = line.slice(3).trim();
-  const path = rawPath.includes(' -> ') ? rawPath.split(' -> ').at(-1)?.trim() ?? rawPath : rawPath;
+  const path = rawPath.includes(' -> ')
+    ? (rawPath.split(' -> ').at(-1)?.trim() ?? rawPath)
+    : rawPath;
   const stat = stats.get(path);
   return {
     path,
@@ -573,7 +594,9 @@ function parseStatusLine(
   };
 }
 
-function parseNumstat(output: string): Map<string, { added: number | null; deleted: number | null }> {
+function parseNumstat(
+  output: string,
+): Map<string, { added: number | null; deleted: number | null }> {
   const stats = new Map<string, { added: number | null; deleted: number | null }>();
   for (const line of output.split(/\r?\n/u)) {
     if (!line.trim()) continue;

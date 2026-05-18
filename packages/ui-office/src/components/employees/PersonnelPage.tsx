@@ -1,8 +1,16 @@
 import type { EmployeeRow } from '@offisim/core/browser';
 import type { RoleSlug } from '@offisim/shared-types';
 import {
+  Badge,
+  Button,
   EmptyState,
   ErrorState,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   TABS_RETAIN_STATE_CLASS,
   Tabs,
   TabsContent,
@@ -178,12 +186,12 @@ export function PersonnelPage({
   const layoutClass =
     tier === 'desktop'
       ? railCollapsed
-        ? 'grid-cols-[64px_minmax(0,1fr)_minmax(0,420px)]'
-        : 'grid-cols-[280px_minmax(0,1fr)_minmax(0,420px)]'
+        ? 'grid-personnel-desktop-collapsed'
+        : 'grid-personnel-desktop-expanded'
       : tier === 'tablet'
         ? railCollapsed
-          ? 'grid-cols-[64px_minmax(0,1fr)]'
-          : 'grid-cols-[220px_minmax(0,1fr)]'
+          ? 'grid-personnel-tablet-collapsed'
+          : 'grid-personnel-tablet-expanded'
         : 'grid-cols-1';
 
   const showInspectorInline = tier === 'desktop';
@@ -211,47 +219,53 @@ export function PersonnelPage({
               {!railCollapsed && (
                 <div className="relative min-w-0 flex-1">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
-                  <input
+                  <Input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search employees..."
-                    className="h-9 w-full rounded-md border border-border-default bg-surface py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+                    className="h-9 w-full py-1.5 pl-8 pr-3 text-sm"
                   />
                 </div>
               )}
               {tier !== 'narrow' && (
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="icon"
                   aria-label={railCollapsed ? 'Expand personnel list' : 'Collapse personnel list'}
                   onClick={() => setRailState(railCollapsed ? 'expanded' : 'collapsed')}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border-default bg-surface-muted text-text-secondary hover:bg-surface-hover"
+                  className="size-8 shrink-0 rounded-lg"
                 >
                   {railCollapsed ? (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="size-4" aria-hidden="true" />
                   ) : (
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="size-4" aria-hidden="true" />
                   )}
-                </button>
+                </Button>
               )}
             </div>
             {!railCollapsed && (
-              <label className="mt-3 block">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+              <label className="mt-3 block" htmlFor="personnel-role-filter">
+                <span className="mb-1 block text-caption font-semibold uppercase tracking-wide text-text-muted">
                   Role filter
                 </span>
-                <select
+                <Select
                   value={roleFilter}
-                  onChange={(event) => setRoleFilter(event.target.value as RoleSlug | 'all')}
-                  className="h-9 w-full rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary focus:border-border-focus focus:outline-none"
+                  onValueChange={(value) => setRoleFilter(value as RoleSlug | 'all')}
                 >
-                  <option value="all">All roles</option>
-                  {ROLE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="personnel-role-filter" className="h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All roles</SelectItem>
+                    {ROLE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
             )}
           </div>
@@ -298,37 +312,40 @@ export function PersonnelPage({
               const isExternal = row.is_external === 1;
               const brandLabel = isExternal ? lookupExternalBrand(row.brand_key).displayName : null;
               return (
-                <button
+                <Button
                   key={row.employee_id}
                   type="button"
+                  variant="ghost"
                   onClick={() => handleSelectEmployee(row.employee_id)}
                   title={railCollapsed ? row.name : undefined}
-                  className={`mb-2 flex min-h-[58px] w-full items-center rounded-lg border text-left transition-colors ${
+                  className={cn(
+                    'mb-2 min-h-14 w-full rounded-lg border text-left transition-colors',
                     isSelected
                       ? 'border-border-focus bg-accent-muted'
-                      : 'border-transparent hover:border-border-default hover:bg-surface-hover'
-                  } ${railCollapsed ? 'justify-center px-1 py-2' : 'gap-3 px-3 py-2'}`}
+                      : 'border-transparent hover:border-border-default hover:bg-surface-hover',
+                    railCollapsed ? 'justify-center px-1 py-2' : 'justify-start gap-3 px-3 py-2',
+                  )}
                 >
                   <EmployeeAvatar agent={row} size={32} className="shrink-0" />
                   <div className={cn('min-w-0 flex-1', railCollapsed && 'sr-only')}>
                     <div className="flex items-baseline gap-2">
                       <p className="truncate text-sm font-medium text-text-primary">{row.name}</p>
                       {row.enabled === 0 && (
-                        <span className="text-[10px] text-text-muted">disabled</span>
+                        <span className="text-caption text-text-muted">disabled</span>
                       )}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] text-text-secondary">
+                      <span className="text-caption text-text-secondary">
                         {ROLE_LABELS[row.role_slug] ?? row.role_slug}
                       </span>
                       {brandLabel && (
-                        <span className="rounded-full border border-border-subtle bg-surface-muted px-1.5 py-px text-[10px] text-text-secondary">
+                        <Badge size="xs" variant="outline">
                           {brandLabel}
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   </div>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -463,14 +480,16 @@ function DetailHeader({ employee, onBack }: { employee: EmployeeRow; onBack?: ()
   return (
     <div className="flex shrink-0 items-center gap-4 border-b border-border-default bg-surface px-6 py-4">
       {onBack ? (
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           onClick={onBack}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border-default bg-surface-muted px-2.5 py-1.5 text-xs text-text-secondary"
+          className="shrink-0 gap-1.5 px-2.5 py-1.5 text-xs text-text-secondary"
         >
-          <ChevronLeft className="h-3.5 w-3.5" />
+          <ChevronLeft className="size-3.5" aria-hidden="true" />
           Back
-        </button>
+        </Button>
       ) : null}
       <EmployeeAvatar agent={employee} size={64} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -480,19 +499,13 @@ function DetailHeader({ employee, onBack }: { employee: EmployeeRow; onBack?: ()
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-        <span
-          className={`rounded-full border px-2 py-0.5 text-[11px] ${
-            employee.enabled
-              ? 'border-success/40 bg-success-muted text-success'
-              : 'border-border-default bg-surface-muted text-text-muted'
-          }`}
-        >
+        <Badge variant={employee.enabled ? 'success' : 'secondary'} size="xs">
           {employee.enabled ? 'Enabled' : 'Disabled'}
-        </span>
+        </Badge>
         {brand && (
-          <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary">
+          <Badge variant="outline" size="xs">
             External · {brand.displayName}
-          </span>
+          </Badge>
         )}
       </div>
     </div>

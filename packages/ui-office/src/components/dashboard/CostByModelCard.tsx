@@ -3,14 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@offisim/ui-core';
 
 /** Provider → bar color mapping. */
 const PROVIDER_COLORS: Record<string, string> = {
-  openai: 'bg-emerald-500',
-  anthropic: 'bg-amber-500',
-  'openai-compat': 'bg-sky-500',
+  openai: 'bg-success',
+  anthropic: 'bg-warning',
+  'openai-compat': 'bg-info',
 };
 
 function getBarColor(groupKey: string): string {
   const provider = groupKey.split('/')[0] ?? '';
-  return PROVIDER_COLORS[provider] ?? 'bg-slate-400';
+  return PROVIDER_COLORS[provider] ?? 'bg-text-muted';
 }
 
 function formatCost(usd: number): string {
@@ -61,8 +61,8 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
               const pricingNote = formatPricingNote(agg);
               return (
                 <div key={agg.groupKey} className="flex flex-col gap-0.5">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-sand font-pixel-mono truncate max-w-[60%]">
+                  <div className="flex items-center justify-between text-caption">
+                    <span className="text-sand font-pixel-mono truncate max-w-cost-model-name">
                       {agg.groupKey}
                     </span>
                     <span className="text-shell/70 font-pixel-mono">
@@ -76,7 +76,7 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
                     />
                   </div>
                   {pricingNote ? (
-                    <div className="text-[10px] font-pixel-mono text-shell/55">{pricingNote}</div>
+                    <div className="text-caption font-pixel-mono text-shell/55">{pricingNote}</div>
                   ) : null}
                 </div>
               );

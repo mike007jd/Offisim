@@ -1,7 +1,7 @@
 import type { PrefabDefinition, SemanticCategory } from '@offisim/shared-types';
-import { useState } from 'react';
+import { Button, cn } from '@offisim/ui-core';
 import { PrefabThumbnail } from './PrefabThumbnail.js';
-import { FONT, LAYOUT, SP, STUDIO_COLORS, STUDIO_TRANSITION } from './studio-style-helpers.js';
+import { STUDIO_COLORS } from './studio-style-helpers.js';
 
 const CATEGORY_COLOR_MAP: Record<SemanticCategory, string> = {
   workspace: STUDIO_COLORS.catWorkspace,
@@ -21,37 +21,21 @@ export function StudioPalettePrefabCard({
   isActive: boolean;
   onSelect: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
   const color = CATEGORY_COLOR_MAP[definition.category] ?? STUDIO_COLORS.textSecondary;
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={onSelect}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       aria-label={`Place ${definition.name} (${definition.gridSize[0]}x${definition.gridSize[1]})`}
       title={`${definition.name} (${definition.gridSize[0]}x${definition.gridSize[1]})`}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        padding: `${SP.sm}px ${SP.xs}px ${SP.xs}px`,
-        borderRadius: LAYOUT.cardRadius,
-        background: isActive
-          ? STUDIO_COLORS.accentMuted
-          : hovered
-            ? STUDIO_COLORS.surface2
-            : STUDIO_COLORS.surface1,
-        border: isActive
-          ? `1px solid ${STUDIO_COLORS.borderActive}`
-          : `1px solid ${STUDIO_COLORS.borderSubtle}`,
-        cursor: 'pointer',
-        fontFamily: FONT.family,
-        transition: STUDIO_TRANSITION.allFast,
-      }}
+      className={cn(
+        'h-auto flex-col gap-0.5 rounded-md border px-1 py-2',
+        isActive
+          ? 'border-border-focus bg-accent-muted'
+          : 'border-border-subtle bg-surface-muted hover:bg-surface-hover',
+      )}
     >
       <PrefabThumbnail
         prefabId={definition.prefabId}
@@ -59,22 +43,13 @@ export function StudioPalettePrefabCard({
         color={isActive ? STUDIO_COLORS.accentText : color}
       />
       <span
-        style={{
-          fontSize: FONT.xs,
-          fontWeight: FONT.medium,
-          color: isActive ? STUDIO_COLORS.accentText : STUDIO_COLORS.textTertiary,
-          textAlign: 'center',
-          lineHeight: 1.15,
-          overflow: 'hidden',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical' as const,
-          wordBreak: 'break-word' as const,
-          width: '100%',
-        }}
+        className={cn(
+          'line-clamp-2 w-full break-words text-center text-caption font-medium leading-tight',
+          isActive ? 'text-accent-text' : 'text-text-muted',
+        )}
       >
         {definition.name}
       </span>
-    </button>
+    </Button>
   );
 }

@@ -5,10 +5,12 @@
  * Keyboard shortcuts: 1=Select, 2=Move, 3=Rotate, 4=Place, G=Grid snap.
  */
 
+import { Button, cn } from '@offisim/ui-core';
 import {
   ArrowLeft,
   BoxSelect,
   Grid3x3,
+  type LucideIcon,
   MousePointer2,
   Move,
   Plus,
@@ -18,14 +20,6 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { type StudioTool, useStudioStore } from './StudioState.js';
-import {
-  FONT,
-  SP,
-  STUDIO_COLORS,
-  kbdStyle,
-  panelStyle,
-  toolButtonStyle,
-} from './studio-style-helpers.js';
 
 // -- Types --------------------------------------------------------------------
 
@@ -42,7 +36,7 @@ interface ToolDef {
   id: StudioTool;
   label: string;
   shortcut: string;
-  Icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
+  Icon: LucideIcon;
 }
 
 const TOOLS: ToolDef[] = [
@@ -52,17 +46,15 @@ const TOOLS: ToolDef[] = [
   { id: 'place', label: 'Place', shortcut: 'P', Icon: Plus },
 ];
 
-// -- Styles -------------------------------------------------------------------
+// -- Presentation --------------------------------------------------------------
 
-const SEPARATOR: React.CSSProperties = {
-  width: 1,
-  height: SP.xxl,
-  background: STUDIO_COLORS.border,
-  margin: `0 ${SP.sm}px`,
-  flexShrink: 0,
-};
+const toolbarButtonClass =
+  'h-8 gap-1 rounded-md px-2 font-sans text-xs text-text-secondary data-[active=true]:border-accent data-[active=true]:bg-accent-muted data-[active=true]:text-accent-text';
 
-const SPACER: React.CSSProperties = { flex: 1 };
+const kbdClass =
+  'inline-flex h-5 min-w-5 items-center justify-center rounded border border-border-subtle bg-surface-muted px-1 font-mono text-caption leading-none text-text-muted';
+
+const separatorClass = 'mx-2 h-6 w-px shrink-0 bg-border-default';
 
 // -- Component ----------------------------------------------------------------
 
@@ -129,140 +121,120 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
   const canSave = dirty && !saving;
 
   return (
-    <div style={panelStyle('top')}>
+    <div className="absolute left-0 right-0 top-0 z-sticky flex h-11 items-center overflow-hidden border-b border-border-default bg-surface-elevated font-sans">
       {/* Back */}
-      <button
+      <Button
         type="button"
         onClick={onBack}
         aria-label="Back to company selection"
-        style={{
-          ...toolButtonStyle(false),
-          gap: SP.xs,
-        }}
+        variant="ghost"
+        size="sm"
+        className={toolbarButtonClass}
       >
-        <ArrowLeft size={14} />
+        <ArrowLeft className="h-3.5 w-3.5" />
         <span>Back</span>
-      </button>
+      </Button>
 
-      <div style={SEPARATOR} />
+      <div className={separatorClass} />
 
       {/* Tool buttons */}
       {TOOLS.map((t) => {
         const active = tool === t.id;
         return (
-          <button
+          <Button
             key={t.id}
             type="button"
             onClick={() => setTool(t.id)}
             aria-label={`${t.label} tool (${t.shortcut})`}
-            style={toolButtonStyle(active)}
+            variant="ghost"
+            size="sm"
+            data-active={active}
+            className={toolbarButtonClass}
           >
-            <t.Icon size={14} />
-            <kbd style={kbdStyle()}>{t.shortcut}</kbd>
-          </button>
+            <t.Icon className="h-3.5 w-3.5" />
+            <kbd className={kbdClass}>{t.shortcut}</kbd>
+          </Button>
         );
       })}
 
-      <div style={SEPARATOR} />
+      <div className={separatorClass} />
 
       {/* Grid snap toggle */}
-      <button
+      <Button
         type="button"
         onClick={toggleGridSnap}
         aria-label={`Toggle grid snap (G) — currently ${gridSnap ? 'on' : 'off'}`}
-        style={toolButtonStyle(gridSnap)}
+        variant="ghost"
+        size="sm"
+        data-active={gridSnap}
+        className={toolbarButtonClass}
       >
-        <Grid3x3 size={14} />
-        <kbd style={kbdStyle()}>G</kbd>
-      </button>
+        <Grid3x3 className="h-3.5 w-3.5" />
+        <kbd className={kbdClass}>G</kbd>
+      </Button>
 
-      <div style={SEPARATOR} />
+      <div className={separatorClass} />
 
       {/* Edit Zone controls */}
       {isEditingZone ? (
-        <button
+        <Button
           type="button"
           onClick={exitEditZone}
           aria-label="Exit zone editing (Esc)"
-          style={{
-            ...toolButtonStyle(true),
-            borderColor: STUDIO_COLORS.warning,
-            background: STUDIO_COLORS.warningMuted,
-            color: STUDIO_COLORS.warning,
-            gap: SP.xs,
-          }}
+          variant="outline"
+          size="sm"
+          className={cn(toolbarButtonClass, 'border-warning bg-warning-muted text-warning')}
         >
-          <X size={14} />
-          <span style={{ fontSize: FONT.sm, fontWeight: 600 }}>{editingZoneLabel}</span>
-          <kbd style={kbdStyle()}>Esc</kbd>
-        </button>
+          <X className="h-3.5 w-3.5" />
+          <span className="font-semibold">{editingZoneLabel}</span>
+          <kbd className={kbdClass}>Esc</kbd>
+        </Button>
       ) : selectedZoneId ? (
-        <button
+        <Button
           type="button"
           onClick={() => enterEditZone(selectedZoneId)}
           aria-label="Enter zone editing mode"
-          style={{
-            ...toolButtonStyle(false),
-            gap: SP.xs,
-          }}
+          variant="ghost"
+          size="sm"
+          className={toolbarButtonClass}
         >
-          <BoxSelect size={14} />
+          <BoxSelect className="h-3.5 w-3.5" />
           <span>Edit Zone</span>
-        </button>
+        </Button>
       ) : null}
 
-      <div style={SEPARATOR} />
+      <div className={separatorClass} />
 
       {/* Item count */}
-      <span
-        style={{
-          fontSize: FONT.base,
-          fontFamily: FONT.mono,
-          color: STUDIO_COLORS.textSecondary,
-        }}
-      >
+      <span className="font-mono text-xs text-text-secondary">
         {instanceCount} item{instanceCount !== 1 ? 's' : ''}
       </span>
 
-      <div style={SPACER} />
+      <div className="flex-1" />
 
       {/* Save — wrapped for dirty indicator dot */}
-      <div style={{ position: 'relative' }}>
-        <button
+      <div className="relative mr-2">
+        <Button
           type="button"
           onClick={onSave}
           disabled={!canSave}
           aria-label={saving ? 'Saving in progress' : 'Save layout (Ctrl+S)'}
-          style={{
-            ...toolButtonStyle(canSave),
-            cursor: canSave ? 'pointer' : 'not-allowed',
-            ...(saveFlash
-              ? {
-                  background: STUDIO_COLORS.successMuted,
-                  color: STUDIO_COLORS.success,
-                  borderColor: STUDIO_COLORS.success,
-                }
-              : {}),
-          }}
+          variant="ghost"
+          size="sm"
+          data-active={canSave}
+          className={cn(
+            toolbarButtonClass,
+            !canSave && 'cursor-not-allowed',
+            saveFlash && 'border-success bg-success-muted text-success',
+          )}
         >
-          <Save size={14} />
+          <Save className="h-3.5 w-3.5" />
           <span>{saving ? 'Saving\u2026' : saveFlash ? 'Saved!' : 'Save'}</span>
-          <kbd style={kbdStyle()}>{'\u2318'}S</kbd>
-        </button>
+          <kbd className={kbdClass}>{'\u2318'}S</kbd>
+        </Button>
         {/* Dirty amber dot — Skill §15 */}
         {dirty && !saveFlash && (
-          <div
-            style={{
-              position: 'absolute',
-              top: -2,
-              right: -2,
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              background: STUDIO_COLORS.warning,
-              pointerEvents: 'none',
-            }}
-          />
+          <div className="-right-0.5 -top-0.5 pointer-events-none absolute h-1.5 w-1.5 rounded-full bg-warning" />
         )}
       </div>
     </div>

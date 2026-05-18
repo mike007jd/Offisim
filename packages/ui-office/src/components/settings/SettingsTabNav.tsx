@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import type { LucideIcon } from 'lucide-react';
 import { Bot, Cpu, Plug, Users } from 'lucide-react';
 import type { SettingsTab } from './SettingsWorkspaceSurface';
@@ -33,11 +34,12 @@ export function SettingsTabNav({
       {SETTINGS_TABS.map(({ key, label, icon: Icon }) => {
         const isActive = activeTab === key;
         return (
-          <button
+          <Button
             key={key}
             type="button"
+            variant="ghost"
             onClick={() => onTabChange(key)}
-            className={`flex h-12 items-center gap-3 text-sm transition-colors ${
+            className={`h-12 justify-start gap-3 rounded-none text-sm ${
               horizontal ? 'min-w-max rounded-lg border px-3' : 'w-full border-l-[4px] px-5'
             } ${
               isActive
@@ -45,9 +47,9 @@ export function SettingsTabNav({
                 : 'border-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary'
             }`}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="size-4" />
             {label}
-          </button>
+          </Button>
         );
       })}
     </nav>

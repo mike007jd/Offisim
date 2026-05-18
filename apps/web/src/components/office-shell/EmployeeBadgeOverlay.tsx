@@ -29,12 +29,12 @@ export function EmployeeBadgeOverlay({ employeeId }: { employeeId: string }) {
       className="flex flex-col items-center gap-1"
     >
       {skillHighlight ? (
-        <span className="max-w-24 truncate rounded-full border border-success/40 bg-success-muted px-2 py-1 text-[10px] font-extrabold leading-none text-success shadow-glow-success">
+        <span className="max-w-24 truncate rounded-full border border-success/40 bg-success-muted px-2 py-1 text-caption font-extrabold leading-none text-success shadow-glow-success">
           {skillHighlight.label}
         </span>
       ) : null}
       {count > 0 ? (
-        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-success px-1.5 text-[10px] font-black text-text-inverse shadow-glow-success">
+        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-success px-1.5 text-caption font-black text-text-inverse shadow-glow-success">
           {count > 99 ? '99+' : count}
         </span>
       ) : null}

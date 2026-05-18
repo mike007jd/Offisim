@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import { Square } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import {
@@ -91,14 +92,14 @@ function StageNode({ step, state }: { step: PipelineStep; state: NodeState }) {
         {state === 'active' && (
           <span className={['w-2 h-2 rounded-full animate-pulse', meta.dotClass].join(' ')} />
         )}
-        {state === 'error' && <span className="text-[10px] font-bold leading-none">✗</span>}
+        {state === 'error' && <span className="text-caption font-bold leading-none">✗</span>}
         {state === 'pending' && <span className="h-1.5 w-1.5 rounded-full bg-border-default" />}
       </div>
 
       {/* Label */}
       <span
         className={[
-          'text-[10px] font-medium tracking-wide leading-none transition-colors duration-500',
+          'text-caption font-medium tracking-wide leading-none transition-colors duration-500',
           state === 'completed'
             ? 'text-success'
             : state === 'active'
@@ -182,20 +183,22 @@ export function PipelineProgress({ stage, routeLabel, isRunning, onAbort }: Pipe
           {/* Stop button — pinned to the right */}
           {isRunning && onAbort && (
             <div className="ml-2 flex items-center -mt-0.5">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={onAbort}
                 title="Stop execution"
-                className="flex items-center gap-1 rounded px-2 py-1 text-[10px] text-text-muted transition-colors hover:bg-error-muted hover:text-error"
+                className="h-auto gap-1 px-2 py-1 text-caption text-text-muted hover:bg-error-muted hover:text-error"
               >
-                <Square className="h-2.5 w-2.5 fill-current" />
+                <Square className="size-2.5 fill-current" />
                 <span>Stop</span>
-              </button>
+              </Button>
             </div>
           )}
         </div>
         {(routeLabel || activeCeremonyLabel) && (
-          <div className="mt-1 text-center text-[10px] tracking-wide text-text-muted">
+          <div className="mt-1 text-center text-caption tracking-wide text-text-muted">
             {activeCeremonyLabel ?? routeLabel}
           </div>
         )}

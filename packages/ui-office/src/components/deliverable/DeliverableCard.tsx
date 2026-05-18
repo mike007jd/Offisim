@@ -33,11 +33,11 @@ const EXPORT_FORMATS: { value: ExportFormat; label: string }[] = [
   { value: 'txt', label: 'TXT' },
 ];
 
-const ACTION_CLASS = 'h-6 px-2 text-[10px] text-text-secondary hover:text-text-primary';
+const ACTION_CLASS = 'h-6 px-2 text-caption text-text-secondary hover:text-text-primary';
 const SOP_DEFAULT_CLASS =
-  'h-6 px-2 text-[10px] text-text-secondary hover:text-success disabled:opacity-50';
+  'h-6 px-2 text-caption text-text-secondary hover:text-success disabled:opacity-50';
 const SOP_PROMOTED_CLASS =
-  'h-6 px-2 text-[10px] bg-success text-text-inverse hover:bg-success animate-pulse';
+  'h-6 px-2 text-caption bg-success text-text-inverse hover:bg-success animate-pulse';
 
 function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -123,7 +123,7 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
       {overflow.length > 0 && (
         <span
           title={overflowLabel}
-          className="flex min-w-5 items-center justify-center rounded-full bg-surface-muted px-1 text-[9px] text-text-secondary ring-1 ring-border-default"
+          className="flex min-w-5 items-center justify-center rounded-full bg-surface-muted px-1 text-caption text-text-secondary ring-1 ring-border-default"
           style={{ height: size, minHeight: size }}
         >
           +{overflow.length}
@@ -147,7 +147,7 @@ function DeliverableHeader({ item }: DeliverableHeaderProps) {
           <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-primary">
             {item.title}
           </span>
-          <span className="shrink-0 text-[10px] text-text-muted tabular-nums">
+          <span className="shrink-0 text-caption text-text-muted tabular-nums">
             {formatDeliverableBytes(item.contentSize)} · {formatTimeAgo(item.createdAt)}
           </span>
         </div>
@@ -199,7 +199,7 @@ function CompactCard({ item, employeeLabel }: CompactCardProps) {
   return (
     <div className="mt-2 box-border w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-success bg-success-muted px-3 py-2">
       <DeliverableHeader item={item} />
-      <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden text-[10px]">
+      <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden text-caption">
         <span className="inline-flex max-w-full items-center truncate rounded border border-success bg-surface px-1.5 py-px font-medium text-success">
           {artifactLabel}
         </span>
@@ -324,7 +324,7 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
         <DeliverableHeader item={item} />
       </CardHeader>
       <CardContent className="p-3 pt-1">
-        <p className="font-mono text-[11px] leading-relaxed text-text-secondary whitespace-pre-wrap break-words">
+        <p className="font-mono text-caption leading-relaxed text-text-secondary whitespace-pre-wrap break-words">
           {truncate(content, 200)}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-1">
@@ -334,12 +334,12 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
               value={selectedFormat}
               onValueChange={(v: string) => setSelectedFormat(v as ExportFormat)}
             >
-              <SelectTrigger className="h-6 w-[64px] border-border-subtle bg-surface text-[10px] text-text-secondary">
+              <SelectTrigger className="h-6 w-deliverable-review-select border-border-subtle bg-surface text-caption text-text-secondary">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {EXPORT_FORMATS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-[10px]">
+                  <SelectItem key={opt.value} value={opt.value} className="text-caption">
                     {opt.label}
                   </SelectItem>
                 ))}

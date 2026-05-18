@@ -1,3 +1,14 @@
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  cn,
+} from '@offisim/ui-core';
 import { useCallback, useState } from 'react';
 
 export interface EventFilterState {
@@ -90,7 +101,7 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
 
   const levelPillClass = (level: EventLevel, active: boolean) => {
     const base =
-      'px-2 py-1 rounded text-[10px] font-medium cursor-pointer select-none transition-colors';
+      'h-7 px-2 rounded text-caption font-medium cursor-pointer select-none transition-colors';
     if (!active)
       return `${base} bg-transparent text-text-muted border border-border-default opacity-60`;
     if (level === 'Error') return `${base} bg-error-muted text-error border border-error`;
@@ -102,39 +113,46 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
     <div className="flex flex-col gap-1.5 border-b border-border-subtle px-3 py-1.5">
       {/* Top row: type dropdown + level pills */}
       <div className="flex items-center gap-1.5 overflow-hidden">
-        <select
+        <Select
           value={selectedType}
-          onChange={(e) => handleTypeChange(e.target.value as EventFilterType)}
-          className="shrink-0 cursor-pointer rounded border border-border-default bg-surface px-1.5 py-0.5 text-[10px] text-text-secondary focus:border-border-focus focus:outline-none"
+          onValueChange={(value) => handleTypeChange(value as EventFilterType)}
         >
-          {ALL_EVENT_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-7 w-24 shrink-0 px-2 text-caption text-text-secondary">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {ALL_EVENT_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
 
         <div className="flex items-center gap-1">
           {ALL_LEVELS.map((level) => (
-            <button
+            <Button
               key={level}
               type="button"
-              className={levelPillClass(level, activeLevels.has(level))}
+              variant="ghost"
+              className={cn(levelPillClass(level, activeLevels.has(level)))}
               onClick={() => toggleLevel(level)}
             >
               {level}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
 
       {/* Search — own row to prevent overflow */}
-      <input
+      <Input
         type="text"
         value={search}
         onChange={(e) => handleSearch(e.target.value)}
         placeholder="Search events..."
-        className="w-full rounded border border-border-default bg-surface px-1.5 py-0.5 text-[10px] text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+        className="h-7 w-full rounded border-border-default bg-surface px-1.5 py-0.5 text-caption text-text-primary placeholder:text-text-muted focus:border-border-focus"
       />
     </div>
   );

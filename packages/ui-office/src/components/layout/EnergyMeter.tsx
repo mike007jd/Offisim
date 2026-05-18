@@ -24,7 +24,7 @@ export function EnergyMeter({ usedTokens, costUsd }: EnergyMeterProps) {
       )}
       {costUsd > 0 && <span className="font-mono text-success">${costUsd.toFixed(4)}</span>}
       <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block z-50">
-        <div className="whitespace-nowrap rounded-lg border border-border-default bg-surface-elevated px-3 py-2 text-[10px] text-text-secondary shadow-xl">
+        <div className="whitespace-nowrap rounded-lg border border-border-default bg-surface-elevated px-3 py-2 text-caption text-text-secondary shadow-xl">
           Energy is the user-friendly representation of model token usage.
           <br />
           Higher energy = deeper reasoning, longer context, more execution capacity.

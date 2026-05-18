@@ -1,5 +1,5 @@
 import type { SopDefinition } from '@offisim/shared-types';
-import { cn } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { Check, Copy } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type TaskInfo, usePlanStepStore } from '../../hooks/plan-step-store';
@@ -32,7 +32,9 @@ function pickLatestFailedTask(tasks: readonly TaskInfo[]): TaskInfo | null {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="font-mono text-[10px] uppercase tracking-wider text-text-muted">{children}</div>
+    <div className="font-mono text-caption uppercase tracking-wider text-text-muted">
+      {children}
+    </div>
   );
 }
 
@@ -95,7 +97,7 @@ export function SopInspectorPanel({
     return (
       <aside
         className={cn(
-          'flex w-[320px] shrink-0 items-center justify-center border-l border-border-default bg-surface-elevated',
+          'flex w-sop-inspector shrink-0 items-center justify-center border-l border-border-default bg-surface-elevated',
           className,
         )}
       >
@@ -107,7 +109,7 @@ export function SopInspectorPanel({
   return (
     <aside
       className={cn(
-        'w-[320px] shrink-0 overflow-y-auto border-l border-border-default bg-surface-elevated',
+        'w-sop-inspector shrink-0 overflow-y-auto border-l border-border-default bg-surface-elevated',
         className,
       )}
     >
@@ -123,7 +125,7 @@ export function SopInspectorPanel({
         </div>
 
         {roleMissing && (
-          <p className="rounded border border-warning/40 bg-warning-muted px-2 py-1.5 text-[11px] leading-snug text-warning">
+          <p className="rounded border border-warning/40 bg-warning-muted px-2 py-1.5 text-caption leading-snug text-warning">
             No employee with role <span className="font-semibold">{step.role_slug}</span> —
             dispatcher will fall back.
           </p>
@@ -132,7 +134,7 @@ export function SopInspectorPanel({
         {status === 'failed' && (
           <div className="flex flex-col gap-1.5">
             <SectionLabel>Last error</SectionLabel>
-            <div className="rounded border border-error/30 bg-error-muted px-2 py-1.5 text-[11px] leading-snug">
+            <div className="rounded border border-error/30 bg-error-muted px-2 py-1.5 text-caption leading-snug">
               {lastFailedTask?.taskType?.trim() && (
                 <div className="font-mono text-error">{lastFailedTask.taskType.trim()}</div>
               )}
@@ -158,13 +160,15 @@ export function SopInspectorPanel({
             <ul className="flex flex-col gap-1">
               {dependencyLabels.map((dep) => (
                 <li key={dep.stepId}>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => onSelectStep(dep.stepId)}
-                    className="w-full truncate rounded bg-surface-muted px-2 py-1 text-left text-xs text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+                    className="h-auto w-full justify-start truncate rounded bg-surface-muted px-2 py-1 text-left text-xs text-text-secondary hover:bg-surface-hover hover:text-text-primary"
                   >
                     {dep.label}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -174,27 +178,29 @@ export function SopInspectorPanel({
         <div className="flex flex-col gap-1.5">
           <SectionLabel>Output key</SectionLabel>
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded bg-surface-muted px-2 py-1 font-mono text-[11px] text-accent-text">
+            <code className="min-w-0 flex-1 truncate rounded bg-surface-muted px-2 py-1 font-mono text-caption text-accent-text">
               {step.output_key}
             </code>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={handleCopy}
               aria-label="Copy output key"
-              className="inline-flex shrink-0 items-center gap-1 rounded bg-surface-muted px-2 py-1 text-[10px] text-text-secondary transition hover:bg-surface-hover hover:text-text-primary"
+              className="h-auto shrink-0 gap-1 rounded bg-surface-muted px-2 py-1 text-caption text-text-secondary hover:bg-surface-hover hover:text-text-primary"
             >
               {copied ? (
                 <>
-                  <Check className="h-3 w-3" />
+                  <Check className="size-3" />
                   Copied
                 </>
               ) : (
                 <>
-                  <Copy className="h-3 w-3" />
+                  <Copy className="size-3" />
                   Copy
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

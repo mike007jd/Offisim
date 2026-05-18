@@ -1,6 +1,7 @@
 import { DEFAULT_INTERACTION_MODE } from '@offisim/shared-types';
 import type { ChatAttachmentRef } from '@offisim/shared-types';
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
+import { Button } from '@offisim/ui-core';
 import { ArrowLeft, BriefcaseBusiness, Paperclip } from 'lucide-react';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
@@ -173,7 +174,7 @@ function ChatContextStrip({
   if (!project && attachmentCount === 0) return null;
   return (
     <div className="border-t border-border-default px-3 py-1.5">
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] text-text-muted">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-caption text-text-muted">
         {project ? (
           <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 py-1">
             <BriefcaseBusiness className="h-3 w-3 shrink-0 text-text-secondary" />
@@ -337,7 +338,10 @@ export function ChatPanel({
     interactionTargetRef.current = null;
   }, [pendingInteraction, failedTargetEmployeeId, targetKey]);
 
-  const getScrollViewport = useCallback((): HTMLDivElement | null => messagesViewportRef.current, []);
+  const getScrollViewport = useCallback(
+    (): HTMLDivElement | null => messagesViewportRef.current,
+    [],
+  );
 
   useEffect(() => {
     const viewport = getScrollViewport();
@@ -675,15 +679,17 @@ export function ChatPanel({
       className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-surface-elevated text-text-primary"
     >
       {!isReady && (
-        <div className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-muted px-3 py-1.5 text-[11px] text-warning">
+        <div className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-muted px-3 py-1.5 text-caption text-warning">
           <span>Configure an API key to enable AI collaboration.</span>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onOpenSettings}
-            className="shrink-0 rounded-md border border-warning/30 bg-surface px-2 py-0.5 text-[10px] text-warning transition-colors hover:bg-surface-hover"
+            className="h-6 shrink-0 rounded-md border-warning/30 bg-surface px-2 py-0.5 text-caption text-warning hover:bg-surface-hover"
           >
             Settings
-          </button>
+          </Button>
         </div>
       )}
 
@@ -693,14 +699,16 @@ export function ChatPanel({
           className="flex h-8 items-center gap-2 border-b border-border-default"
           style={{ paddingInline: 'var(--sp-md)' }}
         >
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={onClearSelection}
-            className="flex items-center gap-1 text-text-muted transition-colors hover:text-text-primary"
+            className="h-auto gap-1 px-0 py-0 text-text-muted hover:text-text-primary"
           >
-            <ArrowLeft className="h-3 w-3" />
+            <ArrowLeft className="size-3" />
             <span className="text-xs">Team</span>
-          </button>
+          </Button>
           <span className="text-xs font-medium text-text-primary">
             {selectedEmployeeName ?? selectedEmployeeId}
           </span>
@@ -872,15 +880,17 @@ export function ChatPanel({
             data-testid="chat-starter-chip-row"
           >
             {onboardingStarterPrompts.slice(0, 3).map(({ label, text }) => (
-              <button
+              <Button
                 key={label}
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => handleSend(text)}
-                className="rounded-full border border-border-subtle bg-surface-muted px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-border-focus hover:bg-accent-muted hover:text-accent-text"
+                className="rounded-full border-border-subtle bg-surface-muted px-3 py-1.5 text-xs text-text-secondary hover:border-border-focus hover:bg-accent-muted hover:text-accent-text"
                 data-onboarding-starter-prompt={label}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
         )}

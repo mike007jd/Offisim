@@ -61,7 +61,7 @@ export function NotificationCenter({
           {unreadCount > 0 && (
             <span
               aria-hidden="true"
-              className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-error px-1 text-[9px] font-semibold leading-none text-text-inverse ring-2 ring-surface-elevated"
+              className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-notification-badge items-center justify-center rounded-full bg-error px-1 text-caption font-semibold leading-none text-text-inverse ring-2 ring-surface-elevated"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
@@ -70,7 +70,7 @@ export function NotificationCenter({
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-80 rounded-md border border-ocean-light bg-ocean-deep shadow-lg">
+        <div className="absolute right-0 top-notification-popover z-50 w-80 rounded-md border border-ocean-light bg-ocean-deep shadow-lg">
           <div className="flex items-center justify-between px-3 py-2 border-b border-ocean-light">
             <span className="text-xs font-pixel-body text-shell font-medium">Notifications</span>
             {notifications.length > 0 && (
@@ -108,7 +108,7 @@ export function NotificationCenter({
           </ScrollArea>
 
           <div className="flex items-center justify-between border-t border-ocean-light px-3 py-2">
-            <p className="text-[11px] text-shell/60">
+            <p className="text-caption text-shell/60">
               Recent items live here. Full history lives in Activity Log.
             </p>
             <Button
@@ -119,7 +119,7 @@ export function NotificationCenter({
                 onOpenActivityLog?.();
               }}
               aria-label="Open activity log"
-              className="h-7 text-[11px]"
+              className="h-7 text-caption"
             >
               Open Activity Log
             </Button>

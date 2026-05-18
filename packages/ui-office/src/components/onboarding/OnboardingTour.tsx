@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTourTargetElement } from './tour-context.js';
 import { TOUR_STEPS, type TourStep } from './tour-steps.js';
@@ -67,7 +68,7 @@ function useElementRect(element: HTMLElement | null): TargetRect | null {
   return rect;
 }
 
-function computeHintPosition(rect: TargetRect | null): React.CSSProperties {
+function computeHintPosition(rect: TargetRect | null) {
   const cardWidth = 320;
   if (!rect) return { left: '50%', bottom: 24, transform: 'translateX(-50%)', width: cardWidth };
   const gap = 12;
@@ -125,7 +126,7 @@ export function OnboardingTour({
   const targetAvailable = activeStep && activeStep.workspace === activeWorkspace && target;
   const rect = useElementRect(targetAvailable ? target : null);
   const position = useMemo(() => computeHintPosition(rect), [rect]);
-  const ringStyle = useMemo<React.CSSProperties | null>(
+  const ringStyle = useMemo(
     () =>
       rect
         ? {
@@ -142,7 +143,7 @@ export function OnboardingTour({
   const isLastStep = activeIndex === TOUR_STEPS.length - 1;
   const previousStep = activeIndex > 0 ? TOUR_STEPS[activeIndex - 1] : null;
   const needsWorkspaceSwitch = activeStep.workspace !== activeWorkspace || !target;
-  const centeredPosition: React.CSSProperties = {
+  const centeredPosition = {
     left: '50%',
     top: '50%',
     transform: 'translate(-50%, -50%)',
@@ -153,7 +154,7 @@ export function OnboardingTour({
     <>
       {ringStyle && !needsWorkspaceSwitch && (
         <div
-          className="pointer-events-none fixed z-top rounded-xl ring-2 ring-cyan-400/70 shadow-glow-accent transition-all duration-normal"
+          className="pointer-events-none fixed z-top rounded-xl ring-2 ring-accent/70 shadow-glow-accent transition-all duration-normal"
           style={ringStyle}
         />
       )}
@@ -162,7 +163,7 @@ export function OnboardingTour({
         style={needsWorkspaceSwitch ? centeredPosition : position}
         data-onboarding-step={activeStep.id}
       >
-        <p className="text-[10px] uppercase tracking-[0.22em] text-accent-text">
+        <p className="text-caption uppercase tracking-wider text-accent-text">
           Step {activeIndex + 1} of {TOUR_STEPS.length}
         </p>
         <h2 className="mt-2 text-sm font-semibold text-text-primary">{activeStep.title}</h2>
@@ -172,7 +173,7 @@ export function OnboardingTour({
             : activeStep.body}
         </p>
         <div className="mt-3 flex items-center justify-between gap-2">
-          <button
+          <Button
             type="button"
             disabled={!previousStep}
             onClick={() => {
@@ -180,19 +181,23 @@ export function OnboardingTour({
               onBackStep(previousStep.id);
               onSwitchWorkspace(previousStep.workspace);
             }}
-            className="rounded-md border border-border-subtle bg-surface-muted px-3 py-1 text-[11px] text-text-secondary disabled:cursor-not-allowed disabled:opacity-45"
+            variant="secondary"
+            size="sm"
+            className="h-7 px-3 text-caption disabled:cursor-not-allowed disabled:opacity-45"
           >
             Back
-          </button>
+          </Button>
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
               onClick={onDismiss}
-              className="rounded-md border border-border-subtle bg-surface-muted px-3 py-1 text-[11px] text-text-secondary"
+              variant="secondary"
+              size="sm"
+              className="h-7 px-3 text-caption"
             >
               {activeStep.secondaryActionLabel ?? 'Skip'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => {
                 if (needsWorkspaceSwitch) {
@@ -201,12 +206,13 @@ export function OnboardingTour({
                 }
                 onCompleteStep(activeStep.id);
               }}
-              className="rounded-md border border-border-focus bg-accent-muted px-3 py-1 text-[11px] text-accent-text"
+              size="sm"
+              className="h-7 px-3 text-caption"
             >
               {needsWorkspaceSwitch
                 ? `Switch to ${workspaceLabel(activeStep.workspace)}`
                 : (activeStep.primaryActionLabel ?? (isLastStep ? 'Done' : 'Next'))}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

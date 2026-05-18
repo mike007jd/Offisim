@@ -1,5 +1,12 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@offisim/ui-core';
-import { cn } from '@offisim/ui-core';
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  cn,
+} from '@offisim/ui-core';
 import type { AvatarAppearance } from '../../hooks/useEmployeeEditor';
 import { OUTFIT_COLORS_NUMERIC, OUTFIT_LABELS, numericToHex } from '../../lib/avatar-seed';
 
@@ -61,15 +68,17 @@ interface SwatchRowProps {
 function SwatchRow({ label, options, selected, onSelect }: SwatchRowProps) {
   return (
     <div>
-      <p className="mb-1.5 text-[10px] text-text-muted">{label}</p>
-      <div className="flex gap-1.5 flex-wrap">
+      <p className="mb-1.5 text-caption text-text-muted">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => (
-          <button
+          <Button
             key={opt.value}
             type="button"
             title={opt.label}
+            variant="ghost"
+            size="icon"
             onClick={() => onSelect(opt.value)}
-            className="w-6 h-6 rounded-full border-2 transition-all shrink-0"
+            className="size-6 shrink-0 rounded-full border-2 p-0 transition-all"
             style={{
               backgroundColor: numericToHex(opt.value),
               borderColor: selected === opt.value ? 'var(--color-text-primary-val)' : 'transparent',
@@ -89,7 +98,7 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border-default bg-surface-muted p-3">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-text-primary">
+      <p className="text-caption font-medium uppercase tracking-wider text-text-primary">
         Appearance
       </p>
 
@@ -121,34 +130,36 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
           selected={config.clothingAccent}
           onSelect={(v) => set('clothingAccent', v)}
         />
-        <p className="mt-1 text-[10px] text-text-muted">Renders as a visible vest panel.</p>
+        <p className="mt-1 text-caption text-text-muted">Renders as a visible vest panel.</p>
       </div>
 
       {/* Gender presentation toggle */}
       <div>
-        <p className="mb-1.5 text-[10px] text-text-muted">Gender presentation</p>
+        <p className="mb-1.5 text-caption text-text-muted">Gender presentation</p>
         <div className="flex gap-1">
           {GENDER_OPTIONS.map((opt) => (
-            <button
+            <Button
               key={opt.value}
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => set('gender', opt.value)}
               className={cn(
-                'flex-1 py-1 text-[11px] border transition-colors',
+                'h-7 flex-1 rounded-none border py-1 text-caption',
                 config.gender === opt.value
                   ? 'border-border-focus bg-accent-muted text-accent-text'
                   : 'border-border-default bg-surface text-text-secondary hover:border-border-strong',
               )}
             >
               {opt.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <p className="mb-1 text-[10px] text-text-muted">Hair style</p>
+          <p className="mb-1 text-caption text-text-muted">Hair style</p>
           <Select value={config.hairStyle} onValueChange={(v) => set('hairStyle', v)}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue />
@@ -164,7 +175,7 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] text-text-muted">Body type</p>
+          <p className="mb-1 text-caption text-text-muted">Body type</p>
           <Select value={config.bodyType} onValueChange={(v) => set('bodyType', v)}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue />

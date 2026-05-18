@@ -54,7 +54,7 @@ export function SkillInspectorPanel({ skill }: SkillInspectorPanelProps) {
     <div className="flex flex-col gap-2 rounded-lg border border-border-default bg-surface-muted p-3">
       <header className="flex items-center gap-2">
         <p className="text-sm font-medium text-text-primary">{skill.name}</p>
-        <span className="rounded-full border border-border-default bg-surface px-1.5 py-0.5 text-[10px] text-text-secondary">
+        <span className="rounded-full border border-border-default bg-surface px-1.5 py-0.5 text-caption text-text-secondary">
           {skill.scope === 'employee' ? 'personal' : 'global'}
         </span>
       </header>
@@ -64,7 +64,7 @@ export function SkillInspectorPanel({ skill }: SkillInspectorPanelProps) {
         <p className="text-xs italic text-text-muted">Loading SKILL.md…</p>
       )}
       {!error && body !== null && (
-        <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-border-default bg-surface p-3 text-[11px] text-text-secondary">
+        <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-border-default bg-surface p-3 text-caption text-text-secondary">
           {body}
         </pre>
       )}

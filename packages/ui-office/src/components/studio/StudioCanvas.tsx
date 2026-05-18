@@ -1,6 +1,7 @@
 // raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import type { Zone } from '@offisim/shared-types';
 import { computeOverlapMap } from '@offisim/shared-types';
+import { Button } from '@offisim/ui-core';
 import { Grid, Html, OrbitControls, TransformControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -429,7 +430,7 @@ function ZoneFloor({
         {/* Zone label pill — clickable to focus/unfocus */}
         <Html position={[0, 0.3, -zone.d / 2 + 0.5]} center distanceFactor={30}>
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
               className="studio-zone-label"
               onClick={(e) => {
@@ -463,9 +464,9 @@ function ZoneFloor({
               }}
             >
               {isFocused ? `✦ ${zone.label}` : zone.label}
-            </button>
+            </Button>
             {isSelected && !isEditingZone ? (
-              <button
+              <Button
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
@@ -477,10 +478,10 @@ function ZoneFloor({
                   background: STUDIO_COLORS.surface0,
                   color: STUDIO_COLORS.accentText,
                 }}
-                className="rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                className="rounded-full px-2 py-1 text-caption font-semibold uppercase tracking-[0.16em]"
               >
                 Edit
-              </button>
+              </Button>
             ) : null}
           </div>
         </Html>

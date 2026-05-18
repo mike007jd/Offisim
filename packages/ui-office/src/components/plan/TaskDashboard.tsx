@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
@@ -133,9 +134,9 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
       const stageLabel = stage ? STAGE_META[stage].chatLabel : 'Runtime active';
       return (
         <div className="p-3">
-          <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-5 text-center">
-            <p className="text-sm font-semibold text-cyan-100">{stageLabel}</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+          <div className="rounded-2xl border border-info/20 bg-info-muted/50 px-4 py-5 text-center">
+            <p className="text-sm font-semibold text-info">{stageLabel}</p>
+            <p className="mt-2 text-xs leading-relaxed text-text-muted">
               {routeLabel ??
                 'The boss is routing the request and the manager is building the first executable plan.'}
             </p>
@@ -155,8 +156,8 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-pearl">Plan Progress</h3>
         <div className="flex gap-2">
-          <span className="text-[10px] text-koi">{dashboard.stats.active} active</span>
-          <span className="text-[10px] text-shell">
+          <span className="text-caption text-koi">{dashboard.stats.active} active</span>
+          <span className="text-caption text-shell">
             {dashboard.stats.completed}/{dashboard.stats.total}
           </span>
         </div>
@@ -179,14 +180,16 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
       {/* Filter badge */}
       {stepFilter !== null && (
         <div className="flex items-center gap-1">
-          <span className="text-[10px] text-shell">Filtered: Step {stepFilter + 1}</span>
-          <button
+          <span className="text-caption text-text-secondary">Filtered: Step {stepFilter + 1}</span>
+          <Button
             type="button"
-            className="text-[10px] text-koi hover:underline"
+            variant="link"
+            size="sm"
+            className="h-auto p-0 text-caption text-info"
             onClick={() => setStepFilter(null)}
           >
             clear
-          </button>
+          </Button>
         </div>
       )}
 

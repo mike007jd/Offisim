@@ -51,23 +51,23 @@ export function ErrorBanner({
   const latestError = hasHistory ? errorHistory[errorHistory.length - 1] : null;
 
   return (
-    <div className="border-b-2 border-lobster-red/30 bg-lobster-red/10">
+    <div className="border-b-2 border-error/30 bg-error-muted">
       {/* Main error bar */}
-      <div className="flex items-center gap-2 px-4 py-2 text-sm text-lobster-red">
-        <AlertCircle className="h-4 w-4 shrink-0" />
+      <div className="flex items-center gap-2 px-4 py-2 text-sm text-error">
+        <AlertCircle className="size-4 shrink-0" />
         <span className="flex-1 truncate font-pixel-mono text-xs">{message}</span>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
           {onRetry && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-lobster-red hover:text-lobster-red hover:bg-lobster-red/10"
+              className="h-6 px-2 text-xs text-error hover:bg-error-muted hover:text-error"
               onClick={onRetry}
               title="Retry with same configuration"
             >
-              <RefreshCw className="h-3 w-3 mr-1" />
+              <RefreshCw className="mr-1 size-3" />
               Retry
             </Button>
           )}
@@ -76,11 +76,11 @@ export function ErrorBanner({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-lobster-red hover:text-lobster-red hover:bg-lobster-red/10"
+              className="h-6 px-2 text-xs text-error hover:bg-error-muted hover:text-error"
               onClick={() => setShowSwapPerson(!showSwapPerson)}
               title="Re-dispatch task to a different employee"
             >
-              <UserRoundCog className="h-3 w-3 mr-1" />
+              <UserRoundCog className="mr-1 size-3" />
               Swap Person
             </Button>
           )}
@@ -89,11 +89,11 @@ export function ErrorBanner({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-lobster-red hover:text-lobster-red hover:bg-lobster-red/10"
+              className="h-6 px-2 text-xs text-error hover:bg-error-muted hover:text-error"
               onClick={onSwapModel}
               title="Change LLM model in settings and retry"
             >
-              <Zap className="h-3 w-3 mr-1" />
+              <Zap className="mr-1 size-3" />
               Swap Model
             </Button>
           )}
@@ -101,27 +101,29 @@ export function ErrorBanner({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-lobster-red hover:text-lobster-red hover:bg-lobster-red/10"
+            className="h-6 px-2 text-xs text-error hover:bg-error-muted hover:text-error"
             onClick={() => setShowDetails(!showDetails)}
             title="View error details"
           >
-            <Code className="h-3 w-3 mr-1" />
+            <Code className="mr-1 size-3" />
             Details
             {showDetails ? (
-              <ChevronUp className="h-3 w-3 ml-0.5" />
+              <ChevronUp className="ml-0.5 size-3" />
             ) : (
-              <ChevronDown className="h-3 w-3 ml-0.5" />
+              <ChevronDown className="ml-0.5 size-3" />
             )}
           </Button>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={onDismiss}
-            className="shrink-0 hover:opacity-70 ml-1"
+            className="ml-1 size-6 shrink-0 text-error hover:bg-error-muted hover:text-error"
             aria-label="Dismiss error"
           >
-            <X className="h-4 w-4" />
-          </button>
+            <X className="size-4" />
+          </Button>
         </div>
       </div>
 
@@ -129,7 +131,7 @@ export function ErrorBanner({
       {showSwapPerson && onSwapPerson && employeeList.length > 0 && (
         <div className="px-4 pb-2">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-lobster-red font-pixel-mono shrink-0">
+            <span className="shrink-0 font-pixel-mono text-caption text-error">
               Re-dispatch to:
             </span>
             <Select
@@ -138,7 +140,7 @@ export function ErrorBanner({
                 setShowSwapPerson(false);
               }}
             >
-              <SelectTrigger className="h-7 text-xs max-w-[200px] border-lobster-red/30">
+              <SelectTrigger className="h-7 max-w-48 border-error/30 text-xs">
                 <SelectValue placeholder="Select employee..." />
               </SelectTrigger>
               <SelectContent>
@@ -155,36 +157,36 @@ export function ErrorBanner({
 
       {/* Error details panel */}
       {showDetails && (
-        <div className="px-4 pb-3 border-t border-lobster-red/20">
-          <div className="mt-2 rounded bg-ocean-deep/80 p-3 font-pixel-mono text-[10px] text-shell space-y-1.5 max-h-[200px] overflow-y-auto">
+        <div className="border-t border-error/20 px-4 pb-3">
+          <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded bg-surface-elevated p-3 font-pixel-mono text-caption text-text-primary">
             <div>
-              <span className="text-lobster-red">Error Message:</span>{' '}
+              <span className="text-error">Error Message:</span>{' '}
               <span className="break-all">{message}</span>
             </div>
             {latestError && (
               <>
                 <div>
-                  <span className="text-lobster-red">Error Code:</span> {latestError.errorCode}
+                  <span className="text-error">Error Code:</span> {latestError.errorCode}
                 </div>
                 <div>
-                  <span className="text-lobster-red">Node:</span> {latestError.nodeName}
+                  <span className="text-error">Node:</span> {latestError.nodeName}
                 </div>
                 {latestError.employeeId && (
                   <div>
-                    <span className="text-lobster-red">Employee:</span> {latestError.employeeId}
+                    <span className="text-error">Employee:</span> {latestError.employeeId}
                   </div>
                 )}
                 {latestError.taskRunId && (
                   <div>
-                    <span className="text-lobster-red">Task Run:</span> {latestError.taskRunId}
+                    <span className="text-error">Task Run:</span> {latestError.taskRunId}
                   </div>
                 )}
                 <div>
-                  <span className="text-lobster-red">Recoverable:</span>{' '}
+                  <span className="text-error">Recoverable:</span>{' '}
                   {latestError.recoverable ? 'Yes' : 'No'}
                 </div>
                 <div>
-                  <span className="text-lobster-red">Time:</span>{' '}
+                  <span className="text-error">Time:</span>{' '}
                   {new Date(latestError.timestamp).toLocaleTimeString()}
                 </div>
               </>

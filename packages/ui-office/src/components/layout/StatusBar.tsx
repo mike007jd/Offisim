@@ -31,7 +31,7 @@ const PROJECT_STATUS_STYLE: Record<ProjectStatus, { label: string; color: string
   archived: { label: 'Archived', color: 'text-text-muted' },
 };
 
-const SEGMENT_BASE_CLS = 'flex items-center gap-3 text-[10px] tracking-wider';
+const SEGMENT_BASE_CLS = 'flex items-center gap-3 text-caption tracking-wider';
 const DIVIDER_CLS = 'h-3 w-px bg-border-subtle';
 
 interface StatusBarProps {
@@ -58,7 +58,7 @@ export function StatusBar({
 
   return (
     <footer
-      className="relative flex items-center justify-between overflow-hidden border-t border-border-subtle bg-surface-elevated/90 text-[10px] tracking-wider text-text-secondary backdrop-blur-xl"
+      className="relative flex items-center justify-between overflow-hidden border-t border-border-subtle bg-surface-elevated/90 text-caption tracking-wider text-text-secondary backdrop-blur-xl"
       style={{ minHeight: '40px', paddingInline: 'var(--sp-lg)' }}
     >
       <RunStateSegment
@@ -195,7 +195,7 @@ function WorkSegment({
   return (
     <div className={`${SEGMENT_BASE_CLS} relative z-10 min-w-0 flex-1 justify-center`}>
       {headline && (
-        <div className="flex max-w-[18rem] items-center gap-1.5 min-w-0" title={headline}>
+        <div className="flex max-w-status-headline items-center gap-1.5 min-w-0" title={headline}>
           <Activity className="h-3 w-3 shrink-0 text-accent" />
           <span className="truncate font-mono text-accent-text">{headline}</span>
         </div>
@@ -304,7 +304,7 @@ function ResourcesSegment({
           type="button"
           size="sm"
           variant="ghost"
-          className="h-6 gap-1 px-2 text-[10px] text-text-secondary hover:bg-error-muted hover:text-error"
+          className="h-6 gap-1 px-2 text-caption text-text-secondary hover:bg-error-muted hover:text-error"
           onClick={onAbort}
           title="Stop execution"
         >

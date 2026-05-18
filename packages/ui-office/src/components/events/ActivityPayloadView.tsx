@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
@@ -100,9 +101,9 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline gap-3 min-h-[32px] py-1">
+    <div className="flex min-h-8 items-baseline gap-3 py-1">
       <span className="shrink-0 font-mono text-xs text-text-secondary">{label}</span>
-      <span className="text-xs break-all">{children}</span>
+      <span className="break-all text-xs">{children}</span>
     </div>
   );
 }
@@ -120,14 +121,16 @@ function CollapsibleSection({
 
   return (
     <div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1 py-1 font-mono text-xs text-text-secondary transition-colors hover:text-text-primary"
+        className="h-auto gap-1 px-0 py-1 font-mono text-xs text-text-secondary hover:text-text-primary"
       >
-        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
         {label}
-      </button>
+      </Button>
       {open && <div className="pl-4">{children}</div>}
     </div>
   );

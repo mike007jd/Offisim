@@ -1,4 +1,4 @@
-import { badgeVariants, cn } from '@offisim/ui-core';
+import { Button, badgeVariants, cn } from '@offisim/ui-core';
 
 interface SceneFallbackBadgeProps {
   onRetry: () => void;
@@ -6,8 +6,9 @@ interface SceneFallbackBadgeProps {
 
 export function SceneFallbackBadge({ onRetry }: SceneFallbackBadgeProps) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={onRetry}
       className={cn(
         badgeVariants({ variant: 'warning', size: 'sm' }),
@@ -17,6 +18,6 @@ export function SceneFallbackBadge({ onRetry }: SceneFallbackBadgeProps) {
       <span>3D unavailable</span>
       <span aria-hidden>·</span>
       <span className="font-semibold">Retry</span>
-    </button>
+    </Button>
   );
 }

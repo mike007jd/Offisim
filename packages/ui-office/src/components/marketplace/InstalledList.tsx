@@ -156,20 +156,20 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
                 <p className="truncate text-sm font-semibold text-text-primary">
                   {item.package_id}
                 </p>
-                <p className="text-[11px] text-text-secondary">
+                <p className="text-caption text-text-secondary">
                   v{item.version} · {new Date(item.installed_at).toLocaleDateString()}
                 </p>
               </div>
               {update?.hasUpdate && (
-                <span className="rounded-full border border-success bg-success-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-success">
+                <span className="rounded-full border border-success bg-success-muted px-2 py-0.5 text-caption font-medium uppercase tracking-wide text-success">
                   Update
                 </span>
               )}
             </div>
 
-            {update?.error && <p className="mt-2 text-[11px] text-error">{update.error}</p>}
+            {update?.error && <p className="mt-2 text-caption text-error">{update.error}</p>}
             {!update?.error && update && (
-              <p className="mt-2 text-[11px] text-text-secondary">
+              <p className="mt-2 text-caption text-text-secondary">
                 Latest registry version: {update.latestVersion}
               </p>
             )}

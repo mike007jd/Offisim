@@ -1,5 +1,7 @@
 # Scene V2 Phase 1: Dual-Center UX Integration + Scene Readability
 
+> Historical plan note (2026-05-18): this predates the Tauri-only decision. Any `apps/web` file paths below are legacy renderer paths; new renderer ownership targets `apps/desktop/renderer`, and this plan must not be used to justify standalone web work.
+
 ## Overview
 
 This plan addresses 6 known gaps to make the chat area ("linguistic truth") and scene area ("behavioral truth") truly collaborative. The work is organized into 4 milestones that can be verified independently, ordered by dependency and impact.

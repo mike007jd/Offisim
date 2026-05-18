@@ -50,13 +50,10 @@ const CATEGORY_COLORS: Record<MemoryEntryRow['category'], string> = {
 };
 
 const INSPECTOR_LABEL_CLASS =
-  'flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-text-muted';
+  'flex items-center gap-2 text-caption uppercase tracking-wider text-text-muted';
 
 const SECTION_ROW_CLASS = 'border-t border-border-subtle';
-const SECTION_PADDING_STYLE = {
-  paddingInline: 'var(--sp-lg)',
-  paddingBlock: 'var(--sp-md)',
-} as const;
+const SECTION_PADDING_CLASS = 'px-4 py-3';
 
 // ---------------------------------------------------------------------------
 // MemoriesSection — <details> disclosure, no inner card
@@ -89,17 +86,16 @@ function MemoriesSection({
 
   return (
     <details
-      className={SECTION_ROW_CLASS}
-      style={SECTION_PADDING_STYLE}
+      className={cn(SECTION_ROW_CLASS, SECTION_PADDING_CLASS)}
       open={isOpen}
       onToggle={(event) => setIsOpen((event.target as HTMLDetailsElement).open)}
     >
       <summary className="flex w-full cursor-pointer select-none items-center justify-between marker:hidden [&::-webkit-details-marker]:hidden">
         <div className={INSPECTOR_LABEL_CLASS}>
-          <Brain className="h-3 w-3" />
+          <Brain className="size-3" />
           {summaryLabel}
         </div>
-        <span className="text-[10px] text-text-muted">{isOpen ? '▾' : '▸'}</span>
+        <span className="text-caption text-text-muted">{isOpen ? '▾' : '▸'}</span>
       </summary>
       <div className="mt-2">
         {isLoading ? (
@@ -110,27 +106,29 @@ function MemoriesSection({
           <div className="flex flex-col gap-1.5">
             {sorted.map((m) => (
               <div key={m.memory_id} className="group flex items-start gap-1.5">
-                <span className="mt-0.5 text-[10px] text-text-muted">★</span>
+                <span className="mt-0.5 text-caption text-text-muted">★</span>
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-xs leading-relaxed text-text-primary">
                     {m.content}
                   </p>
                   <div className="mt-0.5 flex items-center gap-2">
-                    <span className={`text-[9px] ${CATEGORY_COLORS[m.category]}`}>
+                    <span className={cn('text-caption', CATEGORY_COLORS[m.category])}>
                       {m.category}
                     </span>
-                    <span className="text-[9px] text-text-muted">{m.importance.toFixed(2)}</span>
+                    <span className="text-caption text-text-muted">{m.importance.toFixed(2)}</span>
                   </div>
                 </div>
-                <button
+                <Button
                   type="button"
                   onClick={() => handleForget(m.memory_id)}
-                  className="p-0.5 text-text-muted opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
+                  variant="ghost"
+                  size="icon"
+                  className="size-5 p-0.5 text-text-muted opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
                   title="Forget this memory"
                   aria-label={`Forget memory: ${m.content.slice(0, 30)}`}
                 >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                  <Trash2 className="size-3" />
+                </Button>
               </div>
             ))}
           </div>
@@ -320,7 +318,7 @@ export function EmployeeInspector({
   return (
     <div
       ref={panelRef}
-      className="fixed top-16 z-50 w-80 max-w-[min(22rem,calc(100vw-2rem))]"
+      className="max-w-employee-inspector fixed top-16 z-50 w-80"
       style={{ left: `${leftOffset}px` }}
       data-testid="employee-inspector"
       // biome-ignore lint/a11y/useSemanticElements: floating inspector is a popover anchored to rail, not a modal dialog
@@ -330,37 +328,29 @@ export function EmployeeInspector({
       {/* Single elevated SurfaceCard — sections are dividers, never nested cards. */}
       <div className="rounded-xl border border-border-default bg-surface-elevated text-text-primary shadow-2xl backdrop-blur-md">
         {/* Header row */}
-        <div
-          className="flex items-center justify-between border-b border-border-subtle"
-          style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-md)' }}
-        >
+        <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
           <span
             className="text-xs font-semibold uppercase tracking-wider text-text-secondary"
             title="Anchored to the selected employee in the personnel rail"
           >
             Inspecting
           </span>
-          <button
+          <Button
             type="button"
             onClick={onClose}
-            className="text-text-muted transition-colors hover:text-text-primary"
+            variant="ghost"
+            size="icon"
+            className="size-7 text-text-muted transition-colors hover:text-text-primary"
             aria-label="Close inspector"
           >
-            <X className="h-3.5 w-3.5" />
-          </button>
+            <X className="size-3.5" />
+          </Button>
         </div>
 
         {/* Identity row — first content row, no border-t (header has border-b). */}
-        <div
-          className="flex items-center gap-3"
-          style={{
-            paddingInline: 'var(--sp-lg)',
-            paddingTop: 'var(--sp-lg)',
-            paddingBottom: 'var(--sp-md)',
-          }}
-        >
+        <div className="flex items-center gap-3 px-4 pb-3 pt-4">
           <div className="relative flex-shrink-0">
-            <div className="h-12 w-12 overflow-hidden rounded-full border border-border-subtle bg-surface-muted">
+            <div className="size-12 overflow-hidden rounded-full border border-border-subtle bg-surface-muted">
               <EmployeeAvatar
                 agent={employee ?? agent}
                 size={48}
@@ -368,7 +358,7 @@ export function EmployeeInspector({
               />
             </div>
             <div
-              className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-surface-elevated ${dotColor}`}
+              className={`absolute bottom-0 right-0 size-3 rounded-full border-2 border-surface-elevated ${dotColor}`}
             />
           </div>
           <div className="min-w-0 flex-1">
@@ -382,8 +372,8 @@ export function EmployeeInspector({
 
         {/* Dismissed banner — flat row with error tone, no nested card. */}
         {isDismissed ? (
-          <div className={SECTION_ROW_CLASS} style={SECTION_PADDING_STYLE}>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-error">Dismissed</div>
+          <div className={cn(SECTION_ROW_CLASS, SECTION_PADDING_CLASS)}>
+            <div className="text-caption uppercase tracking-wider text-error">Dismissed</div>
             <p className="mt-2 text-sm text-error">
               This employee is hidden from the office. Their memories are preserved.
             </p>
@@ -391,9 +381,9 @@ export function EmployeeInspector({
         ) : null}
 
         {/* Current focus row */}
-        <div className={SECTION_ROW_CLASS} style={SECTION_PADDING_STYLE}>
+        <div className={cn(SECTION_ROW_CLASS, SECTION_PADDING_CLASS)}>
           <div className={INSPECTOR_LABEL_CLASS}>
-            <BriefcaseBusiness className="h-3 w-3" />
+            <BriefcaseBusiness className="size-3" />
             Current Focus
           </div>
           {currentTaskLabel ? (
@@ -412,9 +402,9 @@ export function EmployeeInspector({
 
         {/* Subtasks row (only when present) */}
         {subTaskTotal > 0 ? (
-          <div className={SECTION_ROW_CLASS} style={SECTION_PADDING_STYLE}>
+          <div className={cn(SECTION_ROW_CLASS, SECTION_PADDING_CLASS)}>
             <div className={INSPECTOR_LABEL_CLASS}>
-              <ListChecks className="h-3 w-3" />
+              <ListChecks className="size-3" />
               Subtasks
             </div>
             <p className="mt-2 text-sm text-text-primary">
@@ -433,11 +423,11 @@ export function EmployeeInspector({
 
         {/* Metadata row (Task ID / Workstation) */}
         {hasMetadataRow ? (
-          <div className={`${SECTION_ROW_CLASS} flex flex-col gap-1`} style={SECTION_PADDING_STYLE}>
+          <div className={cn(SECTION_ROW_CLASS, SECTION_PADDING_CLASS, 'flex flex-col gap-1')}>
             {agent.taskRunId ? (
               <div className="flex items-center justify-between text-xs">
                 <span className="text-text-muted">Task ID</span>
-                <span className="max-w-[140px] truncate font-mono text-text-secondary">
+                <span className="max-w-sop-context-menu truncate font-mono text-text-secondary">
                   {agent.taskRunId.slice(0, 12)}...
                 </span>
               </div>
@@ -452,25 +442,22 @@ export function EmployeeInspector({
         ) : null}
 
         {/* Footer actions — flex-wrap, icon-only at tablet/narrow tiers. */}
-        <div
-          className="flex flex-wrap gap-2 border-t border-border-subtle"
-          style={{ paddingInline: 'var(--sp-lg)', paddingBlock: 'var(--sp-md)' }}
-        >
+        <div className="flex flex-wrap gap-2 border-t border-border-subtle px-4 py-3">
           <InspectorFooterButton
-            icon={<MessageSquare className="h-3 w-3" />}
+            icon={<MessageSquare className="size-3" />}
             label="Message"
             showLabel={showFooterLabels}
             onClick={() => onStartChat?.(resolvedEmployeeId)}
           />
           <InspectorFooterButton
-            icon={<Pencil className="h-3 w-3" />}
+            icon={<Pencil className="size-3" />}
             label="Edit Details"
             showLabel={showFooterLabels}
             onClick={() => onOpenEditor?.(resolvedEmployeeId)}
           />
           {isDismissed ? (
             <InspectorFooterButton
-              icon={<UserPlus className="h-3 w-3" />}
+              icon={<UserPlus className="size-3" />}
               label="Re-enable"
               showLabel={showFooterLabels}
               disabled={isUpdatingEnabled}
@@ -479,7 +466,7 @@ export function EmployeeInspector({
             />
           ) : (
             <InspectorFooterButton
-              icon={<UserMinus className="h-3 w-3" />}
+              icon={<UserMinus className="size-3" />}
               label="Dismiss"
               showLabel={showFooterLabels}
               disabled={isUpdatingEnabled}

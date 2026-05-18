@@ -1,3 +1,4 @@
+import { Button } from '@offisim/ui-core';
 import { useCallback, useEffect, useState } from 'react';
 import {
   DEV_LIGHTING_OVERRIDE_KEYS,
@@ -80,16 +81,18 @@ export function DevLightingPanel() {
       {overrides.env == null ? 'auto' : overrides.env ? 'on' : 'off'} · shadows=
       {overrides.shadows == null ? 'auto' : overrides.shadows ? 'on' : 'off'} · post=
       {overrides.post == null ? 'auto' : overrides.post ? 'on' : 'off'} ·{' '}
-      <button
+      <Button
         type="button"
-        className="underline decoration-amber-300/60 underline-offset-2"
+        variant="link"
+        size="sm"
+        className="h-auto p-0 text-warning underline-offset-2"
         onClick={() => {
           clearDevLightingOverrides();
           refresh();
         }}
       >
         Reset
-      </button>
+      </Button>
     </div>
   );
 }

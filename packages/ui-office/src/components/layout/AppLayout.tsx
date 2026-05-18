@@ -1,3 +1,4 @@
+import { Button, cn } from '@offisim/ui-core';
 import { ChevronLeft, ChevronRight, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
@@ -39,16 +40,17 @@ function PanelCollapseHandle({
 }: { side: 'left' | 'right'; onClick: () => void; label: string }) {
   const Chevron = side === 'left' ? ChevronLeft : ChevronRight;
   return (
-    <button
+    <Button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className={`absolute top-1/2 -translate-y-1/2 z-30 w-6 h-14 flex items-center justify-center bg-surface-elevated/95 border border-border-default hover:bg-accent-muted hover:border-border-focus transition-all shadow-lg backdrop-blur-sm group ${
+      variant="outline"
+      className={`absolute top-1/2 z-30 flex h-14 w-6 -translate-y-1/2 items-center justify-center border-border-default bg-surface-elevated/95 shadow-lg backdrop-blur-sm transition-all hover:border-border-focus hover:bg-accent-muted ${
         side === 'left' ? '-right-3 rounded-r-lg border-l-0' : '-left-3 rounded-l-lg border-r-0'
       }`}
     >
-      <Chevron className="w-3.5 h-3.5 text-text-secondary group-hover:text-accent transition-colors" />
-    </button>
+      <Chevron className="size-3.5 text-text-secondary transition-colors" />
+    </Button>
   );
 }
 
@@ -69,24 +71,24 @@ function CollapsedBar({
 }) {
   const Chevron = side === 'left' ? ChevronRight : ChevronLeft;
   return (
-    <button
+    <Button
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      className="flex-1 flex flex-col items-center justify-center gap-3 relative z-10 hover:bg-surface-hover transition-colors border-t-2 border-border-focus"
+      variant="ghost"
+      className="relative z-10 flex h-auto flex-1 flex-col items-center justify-center gap-3 rounded-none border-t-2 border-border-focus transition-colors hover:bg-surface-hover"
     >
-      <Icon className="w-4 h-4 text-accent" />
+      <Icon className="size-4 text-accent" />
       <span
-        className="text-[11px] font-semibold uppercase tracking-wide text-text-muted"
-        style={{
-          writingMode: 'vertical-rl',
-          ...(side === 'right' ? { transform: 'rotate(180deg)' } : {}),
-        }}
+        className={cn(
+          'writing-vertical-rl text-caption font-semibold uppercase tracking-wide text-text-muted',
+          side === 'right' && 'rotate-180',
+        )}
       >
         {label}
       </span>
-      <Chevron className="w-3.5 h-3.5 text-text-muted" />
-    </button>
+      <Chevron className="size-3.5 text-text-muted" />
+    </Button>
   );
 }
 
@@ -198,39 +200,32 @@ export function AppLayout({
     >
       <div className="absolute inset-0 z-0">{!centerContent && sceneCanvas}</div>
 
-      <div
-        className="relative z-50"
-        style={{ marginInline: 'var(--sp-lg)', marginTop: 'var(--sp-lg)' }}
-      >
+      <div className="relative z-50 mx-4 mt-4">
         {header}
         {taskTray ? (
-          <div
-            className="absolute left-0 right-0 top-full z-40 pointer-events-auto"
-            style={{ marginTop: 'var(--sp-sm)' }}
-          >
+          <div className="pointer-events-auto absolute left-0 right-0 top-full z-40 mt-2">
             {taskTray}
           </div>
         ) : null}
       </div>
 
-      <div
-        className="flex flex-1 overflow-hidden relative z-10 pointer-events-none"
-        style={{ paddingInline: 'var(--sp-lg)' }}
-      >
+      <div className="pointer-events-none relative z-10 flex flex-1 overflow-hidden px-4">
         {/* ══════ LEFT PANEL ══════ */}
         {agentPanel != null && (
           <div
-            className="relative shrink-0 pointer-events-auto transition-all duration-300 ease-out"
-            style={{
-              width: leftOpen ? `${LEFT_PANEL_WIDTH}px` : `${COLLAPSED_PANEL_WIDTH}px`,
-              marginBlock: 'var(--sp-lg)',
-            }}
+            className={cn(
+              'pointer-events-auto relative my-4 shrink-0 transition-all duration-300 ease-out',
+              leftOpen ? 'w-office-left-expanded' : 'w-office-rail-collapsed',
+            )}
           >
             <div
-              className={`h-full border border-border-default bg-surface-elevated/78 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${leftOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
+              className={cn(
+                'relative flex h-full flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-elevated/78 backdrop-blur-xl',
+                leftOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW,
+              )}
             >
               {leftOpen ? (
-                <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+                <div className="custom-scrollbar relative z-10 flex-1 overflow-y-auto">
                   {agentPanel}
                 </div>
               ) : (
@@ -253,29 +248,32 @@ export function AppLayout({
           </div>
         )}
 
-        <main className="flex-1 min-w-0 pointer-events-none">
+        <main className="pointer-events-none min-w-0 flex-1">
           {centerContent ? <div className="pointer-events-auto h-full">{centerContent}</div> : null}
         </main>
 
         {/* ══════ RIGHT PANEL ══════ */}
         {eventLog != null && (
           <div
-            className="relative shrink-0 pointer-events-auto transition-all duration-300 ease-out"
-            style={{
-              width: rightOpen ? `${RIGHT_PANEL_WIDTH}px` : `${COLLAPSED_PANEL_WIDTH}px`,
-              marginBlock: 'var(--sp-lg)',
-            }}
+            className={cn(
+              'pointer-events-auto relative my-4 shrink-0 transition-all duration-300 ease-out',
+              rightOpen ? 'w-office-right-expanded' : 'w-office-rail-collapsed',
+            )}
           >
             <div
-              className={`h-full border border-border-default bg-surface-elevated/78 backdrop-blur-xl rounded-2xl overflow-hidden flex flex-col relative ${rightOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW}`}
+              className={cn(
+                'relative flex h-full flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-elevated/78 backdrop-blur-xl',
+                rightOpen ? PANEL_SHADOW_GLOW : PANEL_SHADOW,
+              )}
             >
               <div
                 aria-hidden={!rightOpen}
-                className={`custom-scrollbar relative z-10 transition-opacity duration-200 ${
+                className={cn(
+                  'custom-scrollbar relative z-10 transition-opacity duration-200',
                   rightOpen
-                    ? 'flex-1 overflow-y-auto opacity-100 pointer-events-auto'
-                    : 'h-0 overflow-hidden opacity-0 pointer-events-none'
-                }`}
+                    ? 'pointer-events-auto flex-1 overflow-y-auto opacity-100'
+                    : 'pointer-events-none h-0 overflow-hidden opacity-0',
+                )}
               >
                 {eventLog}
               </div>
@@ -302,15 +300,10 @@ export function AppLayout({
 
       {chatDrawer && (chatDrawerMode === 'always' || isNarrow) ? (
         <div
-          className="pointer-events-auto absolute bottom-9 z-30 transition-all duration-300 ease-out"
-          style={{
-            left: isNarrow
-              ? '16px'
-              : 'calc(var(--app-left-rail-width) + var(--sp-lg) + var(--sp-md))',
-            right: isNarrow
-              ? '16px'
-              : 'calc(var(--app-right-rail-width) + var(--sp-lg) + var(--sp-md))',
-          }}
+          className={cn(
+            'pointer-events-auto absolute bottom-9 z-30 transition-all duration-300 ease-out',
+            isNarrow ? 'left-4 right-4' : 'chat-drawer-wide',
+          )}
         >
           {chatDrawer}
         </div>

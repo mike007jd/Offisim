@@ -3,7 +3,18 @@ import {
   type KanbanState as SharedKanbanState,
   isKanbanTransitionAllowed,
 } from '@offisim/shared-types';
-import { cn } from '@offisim/ui-core';
+import {
+  Badge,
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  cn,
+} from '@offisim/ui-core';
 import { Check, ChevronLeft, ChevronRight, ClipboardList, Pencil, X } from 'lucide-react';
 import {
   type DragEvent,
@@ -84,19 +95,27 @@ const KANBAN_LABELS: Record<KanbanState, string> = {
   done: 'Done',
 };
 
-const ORIGIN_COLOR: Record<KanbanOrigin, string> = {
-  'pm-planner': 'var(--color-sea-blue)',
-  employee: 'var(--color-kelp-green)',
-  manager: 'var(--color-coral-orange)',
-  human: 'var(--color-foam)',
+const ORIGIN_BADGE_CLASS: Record<KanbanOrigin, string> = {
+  'pm-planner': 'border-sea-blue bg-accent-muted text-sea-blue',
+  employee: 'border-kelp-green bg-success-muted text-kelp-green',
+  manager: 'border-coral-orange bg-warning-muted text-coral-orange',
+  human: 'border-foam bg-surface-muted text-foam',
 };
 
-const STATE_ACCENTS: Record<KanbanState, string> = {
-  todo: 'var(--color-sea-blue)',
-  doing: 'var(--color-coral-orange)',
-  blocked: 'var(--color-error)',
-  review: 'var(--color-accent)',
-  done: 'var(--color-success)',
+const STATE_BORDER_CLASS: Record<KanbanState, string> = {
+  todo: 'border-t-sea-blue',
+  doing: 'border-t-coral-orange',
+  blocked: 'border-t-error',
+  review: 'border-t-accent',
+  done: 'border-t-success',
+};
+
+const STATE_DOT_CLASS: Record<KanbanState, string> = {
+  todo: 'bg-sea-blue',
+  doing: 'bg-coral-orange',
+  blocked: 'bg-error',
+  review: 'bg-accent',
+  done: 'bg-success',
 };
 
 // ---------------------------------------------------------------------------
@@ -181,7 +200,7 @@ function PlanKanbanBoard({
         <h3 className="text-xs font-black uppercase tracking-wider text-text-secondary">Board</h3>
 
         {/* Progress bar */}
-        <div className="flex-1 max-w-[200px] h-1.5 rounded-full bg-surface-muted overflow-hidden">
+        <div className="h-1.5 max-w-48 flex-1 overflow-hidden rounded-full bg-surface-muted">
           <div
             className={cn(
               'h-full rounded-full transition-all duration-500',
@@ -191,38 +210,42 @@ function PlanKanbanBoard({
           />
         </div>
 
-        <span className="text-[10px] font-mono text-text-muted tabular-nums">
+        <span className="font-mono text-caption text-text-muted tabular-nums">
           {dashboard.stats.completed}/{dashboard.stats.total} tasks
         </span>
 
         {dashboard.stats.active > 0 && (
-          <span className="flex items-center gap-1 text-[10px] text-info">
+          <span className="flex items-center gap-1 text-caption text-info">
             <span className="h-1.5 w-1.5 rounded-full bg-info animate-pulse" />
             {dashboard.stats.active} active
           </span>
         )}
 
         {dashboard.stats.failed > 0 && (
-          <span className="text-[10px] text-error">{dashboard.stats.failed} failed</span>
+          <span className="text-caption text-error">{dashboard.stats.failed} failed</span>
         )}
 
         <div className="ml-auto flex gap-1">
-          <button
+          <Button
             type="button"
             aria-label="Scroll left"
-            className="rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-text-muted hover:text-text-primary"
             onClick={() => scrollBy(-280)}
           >
             <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             aria-label="Scroll right"
-            className="rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-text-muted hover:text-text-primary"
             onClick={() => scrollBy(280)}
           >
             <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -233,16 +256,16 @@ function PlanKanbanBoard({
           <KanbanColumn title="Requirements" stepIndex={null} status="requirements" tasks={[]}>
             <div className="space-y-1.5 rounded-lg border border-border-subtle bg-surface-elevated px-2.5 py-2">
               {requestText && (
-                <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-text-primary">
+                <p className="whitespace-pre-wrap text-caption leading-relaxed text-text-primary">
                   {requestText}
                 </p>
               )}
               {dashboard.summary ? (
-                <p className="text-[11px] leading-relaxed text-text-secondary">
+                <p className="text-caption leading-relaxed text-text-secondary">
                   {dashboard.summary}
                 </p>
               ) : requestText ? (
-                <p className="text-[11px] italic text-text-muted">Waiting for plan…</p>
+                <p className="text-caption italic text-text-muted">Waiting for plan…</p>
               ) : null}
             </div>
           </KanbanColumn>
@@ -292,7 +315,8 @@ function LiveKanbanBoard({
       const data = new FormData(form);
       const title = String(data.get('title') ?? '');
       const note = String(data.get('note') ?? '');
-      const assignedEmployeeId = String(data.get('assignedEmployeeId') ?? '').trim() || null;
+      const assigneeValue = String(data.get('assignedEmployeeId') ?? '').trim();
+      const assignedEmployeeId = assigneeValue && assigneeValue !== '__none' ? assigneeValue : null;
       const blockedReason = String(data.get('blockedReason') ?? '').trim() || null;
       const trimmed = title.trim();
       if (!trimmed || !onCreate) return;
@@ -342,7 +366,9 @@ function LiveKanbanBoard({
       setDraggedCardId(null);
       if (!card || card.state === state) return;
       if (!isKanbanTransitionAllowed(card.state, state)) {
-        setErrorMessage(`Invalid transition: ${KANBAN_LABELS[card.state]} -> ${KANBAN_LABELS[state]}`);
+        setErrorMessage(
+          `Invalid transition: ${KANBAN_LABELS[card.state]} -> ${KANBAN_LABELS[state]}`,
+        );
         return;
       }
       void handleMove(card, state);
@@ -377,20 +403,24 @@ function LiveKanbanBoard({
         </div>
       )}
 
-      <div className="custom-scrollbar grid min-h-0 flex-1 grid-cols-[repeat(5,minmax(88px,1fr))] gap-3 overflow-x-auto">
+      <div className="custom-scrollbar flex min-h-0 flex-1 gap-3 overflow-x-auto">
         {KANBAN_STATES.map((state) => (
           <section
             key={state}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => handleDrop(event, state)}
-            className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface/68 shadow-sm"
+            className="flex min-h-0 min-w-24 flex-1 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface/68 shadow-sm"
           >
             <header
-              className="flex items-center justify-between border-b border-border-subtle px-3 py-3"
-              style={{ borderTop: `3px solid ${STATE_ACCENTS[state]}` }}
+              className={cn(
+                'flex items-center justify-between border-b border-t-2 border-border-subtle px-3 py-3',
+                STATE_BORDER_CLASS[state],
+              )}
             >
-              <span className="truncate text-[12px] font-bold text-text-primary">{KANBAN_LABELS[state]}</span>
-              <span className="rounded-full bg-surface-muted px-1.5 font-mono text-[10px] text-text-muted">
+              <span className="truncate text-body-sm font-bold text-text-primary">
+                {KANBAN_LABELS[state]}
+              </span>
+              <span className="rounded-full bg-surface-muted px-1.5 font-mono text-caption text-text-muted">
                 {grouped[state].length}
               </span>
             </header>
@@ -407,7 +437,7 @@ function LiveKanbanBoard({
                 />
               ))}
               {grouped[state].length === 0 && (
-                <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-border-subtle bg-surface/35 text-[11px] text-text-muted">
+                <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-border-subtle bg-surface/35 text-caption text-text-muted">
                   Drop here
                 </div>
               )}
@@ -416,68 +446,75 @@ function LiveKanbanBoard({
                   className="mt-auto space-y-2 rounded-lg border border-border-subtle bg-surface-elevated p-2.5"
                   onSubmit={(event) => handleCreate(event, state)}
                 >
-                  <input
+                  <Input
                     name="title"
                     autoFocus
                     placeholder="Card title"
-                    className="h-8 w-full rounded-md border border-border-subtle bg-surface px-2 text-[11px] text-text-primary outline-none placeholder:text-text-muted focus:border-border-focus"
+                    className="h-8 border-border-subtle bg-surface px-2 text-caption"
                     disabled={!onCreate || busyId === `new:${state}`}
                   />
-                  <select
+                  <Select
                     name="assignedEmployeeId"
-                    className="h-8 w-full rounded-md border border-border-subtle bg-surface px-2 text-[11px] text-text-secondary outline-none focus:border-border-focus"
                     disabled={!onCreate || busyId === `new:${state}`}
-                    defaultValue=""
                   >
-                    <option value="">No assignee</option>
-                    {assignees.map(([id, agent]) => (
-                      <option key={id} value={id}>
-                        {agent.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-8 border-border-subtle bg-surface px-2 text-caption text-text-secondary">
+                      <SelectValue placeholder="No assignee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">No assignee</SelectItem>
+                      {assignees.map(([id, agent]) => (
+                        <SelectItem key={id} value={id}>
+                          {agent.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {state === 'blocked' ? (
-                    <input
+                    <Input
                       name="blockedReason"
                       placeholder="Blocked reason"
-                      className="h-8 w-full rounded-md border border-error/25 bg-error-muted/20 px-2 text-[11px] text-text-secondary outline-none placeholder:text-text-muted focus:border-error"
+                      className="h-8 border-error/25 bg-error-muted/20 px-2 text-caption text-text-secondary"
                       disabled={!onCreate || busyId === `new:${state}`}
                     />
                   ) : (
-                    <input
+                    <Input
                       name="note"
                       placeholder="Note"
-                      className="h-8 w-full rounded-md border border-border-subtle bg-surface px-2 text-[11px] text-text-secondary outline-none placeholder:text-text-muted focus:border-border-focus"
+                      className="h-8 border-border-subtle bg-surface px-2 text-caption text-text-secondary"
                       disabled={!onCreate || busyId === `new:${state}`}
                     />
                   )}
                   <div className="flex gap-1">
-                    <button
+                    <Button
                       type="submit"
-                      className="flex h-7 flex-1 items-center justify-center rounded-md bg-accent px-2 text-[10px] font-semibold text-text-inverse transition hover:bg-accent-hover disabled:opacity-40"
+                      size="sm"
+                      className="h-7 flex-1 px-2 text-caption"
                       disabled={!onCreate || busyId === `new:${state}`}
                     >
                       Add
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
-                      className="flex h-7 items-center justify-center rounded-md border border-border-default px-2 text-[10px] text-text-secondary hover:text-text-primary"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-caption"
                       disabled={busyId === `new:${state}`}
                       onClick={() => setCreatingState(null)}
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </form>
               ) : (
-                <button
+                <Button
                   type="button"
-                  className="mt-auto flex h-9 w-full items-center justify-center rounded-lg border border-transparent text-[12px] font-medium text-text-secondary transition hover:border-border-subtle hover:bg-surface-hover hover:text-accent disabled:opacity-40"
+                  variant="ghost"
+                  className="mt-auto h-9 w-full text-body-sm text-text-secondary hover:border-border-subtle hover:text-accent"
                   disabled={!onCreate}
                   onClick={() => setCreatingState(state)}
                 >
                   + Add Card
-                </button>
+                </Button>
               )}
             </div>
           </section>
@@ -542,90 +579,102 @@ function LiveKanbanCard({
     >
       <div className="flex items-start justify-between gap-2">
         {editing ? (
-          <input
+          <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="min-w-0 flex-1 rounded border border-border-subtle bg-surface px-2 py-1 text-xs font-semibold text-text-primary outline-none focus:border-border-focus"
+            className="min-w-0 flex-1 border-border-subtle bg-surface px-2 py-1 text-xs font-semibold"
           />
         ) : (
-          <h3 className="min-w-0 flex-1 pr-5 text-[12px] font-semibold leading-snug text-text-primary">{card.title}</h3>
+          <h3 className="min-w-0 flex-1 pr-5 text-body-sm font-semibold leading-snug text-text-primary">
+            {card.title}
+          </h3>
         )}
         {!editing ? (
-          <button
+          <Button
             type="button"
             aria-label="Edit card"
-            className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-subtle bg-surface/85 text-text-muted opacity-0 shadow-sm transition hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
+            variant="outline"
+            size="icon"
+            className="absolute right-2 top-2 h-6 w-6 bg-surface/85 text-text-muted opacity-0 shadow-sm hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
             disabled={busy}
             onClick={() => setEditing(true)}
           >
             <Pencil className="h-3 w-3" />
-          </button>
+          </Button>
         ) : (
-          <span
-            className="hidden shrink-0 rounded-full border px-1.5 text-[9px] font-bold uppercase min-[980px]:inline-flex"
-            style={{ color: ORIGIN_COLOR[card.origin], borderColor: ORIGIN_COLOR[card.origin] }}
+          <Badge
+            variant="outline"
+            size="xs"
+            className={cn(
+              'hidden shrink-0 px-1.5 font-bold uppercase lg:inline-flex',
+              ORIGIN_BADGE_CLASS[card.origin],
+            )}
           >
             {card.origin}
-          </span>
+          </Badge>
         )}
       </div>
       {editing ? (
         <div className="mt-2 space-y-1.5">
-          <textarea
+          <Textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
             rows={2}
             placeholder="Note"
-            className="w-full resize-none rounded border border-border-subtle bg-surface px-2 py-1 text-[11px] leading-relaxed text-text-secondary outline-none focus:border-border-focus"
+            className="resize-none border-border-subtle bg-surface px-2 py-1 text-caption leading-relaxed text-text-secondary"
           />
-          <select
-            value={assignee}
-            onChange={(event) => setAssignee(event.target.value)}
-            className="h-7 w-full rounded border border-border-subtle bg-surface px-2 text-[10px] text-text-secondary outline-none focus:border-border-focus"
+          <Select
+            value={assignee || '__none'}
+            onValueChange={(value) => setAssignee(value === '__none' ? '' : value)}
           >
-            <option value="">No assignee</option>
-            {assignees.map(([id, agent]) => (
-              <option key={id} value={id}>
-                {agent.name}
-              </option>
-            ))}
-          </select>
-          <input
+            <SelectTrigger className="h-7 border-border-subtle bg-surface px-2 text-caption text-text-secondary">
+              <SelectValue placeholder="No assignee" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none">No assignee</SelectItem>
+              {assignees.map(([id, agent]) => (
+                <SelectItem key={id} value={id}>
+                  {agent.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
             value={blockedReason}
             onChange={(event) => setBlockedReason(event.target.value)}
             placeholder="Blocked reason"
-            className="h-7 w-full rounded border border-border-subtle bg-surface px-2 text-[10px] text-text-secondary outline-none placeholder:text-text-muted focus:border-border-focus"
+            className="h-7 border-border-subtle bg-surface px-2 text-caption text-text-secondary"
           />
         </div>
       ) : (
         card.note && (
-          <p className="mt-1.5 line-clamp-2 text-[10px] leading-relaxed text-text-secondary">{card.note}</p>
+          <p className="mt-1.5 line-clamp-2 text-caption leading-relaxed text-text-secondary">
+            {card.note}
+          </p>
         )
       )}
       {!editing && (
         <div className="mt-3 flex items-end justify-between gap-2">
           <div className="min-w-0 space-y-1">
             <span
-              className="inline-flex max-w-full truncate rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
-              style={{
-                color: card.blockedReason ? 'var(--color-error)' : ORIGIN_COLOR[card.origin],
-                backgroundColor: card.blockedReason
-                  ? 'var(--color-error-muted, rgba(239, 68, 68, 0.12))'
-                  : 'var(--color-accent-muted, rgba(37, 99, 235, 0.12))',
-              }}
+              className={cn(
+                'inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-caption font-semibold',
+                card.blockedReason
+                  ? 'border-error bg-error-muted text-error'
+                  : ORIGIN_BADGE_CLASS[card.origin],
+              )}
             >
               {card.blockedReason || originLabel(card.origin)}
             </span>
             {assignedAgent ? (
-              <span className="flex min-w-0 items-center gap-1 text-[10px] font-medium text-text-secondary">
-                <EmployeeAvatar agent={assignedAgent} size={18} className="h-[18px] w-[18px] rounded-full" />
+              <span className="flex min-w-0 items-center gap-1 text-caption font-medium text-text-secondary">
+                <EmployeeAvatar agent={assignedAgent} size={16} className="h-4 w-4 rounded-full" />
                 <span className="truncate">{assignedAgent.name}</span>
               </span>
             ) : null}
           </div>
           <span
-            className="mb-1 h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: STATE_ACCENTS[card.state] }}
+            className={cn('mb-1 h-2 w-2 shrink-0 rounded-full', STATE_DOT_CLASS[card.state])}
             aria-label={`${KANBAN_LABELS[card.state]} status`}
           />
         </div>
@@ -633,18 +682,22 @@ function LiveKanbanCard({
       <div className="mt-3 flex flex-wrap gap-1">
         {editing ? (
           <>
-            <button
+            <Button
               type="button"
-              className="inline-flex items-center gap-1 rounded-lg border border-success/40 bg-success-muted px-2 py-1 text-[10px] font-semibold text-success disabled:opacity-40"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 border-success/40 bg-success-muted px-2 text-caption font-semibold text-success"
               disabled={busy || title.trim().length === 0}
               onClick={() => void save()}
             >
               <Check className="h-3 w-3" />
               Save
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="inline-flex items-center gap-1 rounded-lg border border-border-default px-2 py-1 text-[10px] text-text-secondary hover:text-text-primary"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 px-2 text-caption text-text-secondary hover:text-text-primary"
               disabled={busy}
               onClick={() => {
                 setTitle(card.title);
@@ -656,7 +709,7 @@ function LiveKanbanCard({
             >
               <X className="h-3 w-3" />
               Cancel
-            </button>
+            </Button>
           </>
         ) : null}
       </div>

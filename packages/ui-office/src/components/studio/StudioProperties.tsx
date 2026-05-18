@@ -8,6 +8,15 @@
 
 import { getAllBuiltinPrefabs, getBuiltinPrefab } from '@offisim/renderer';
 import type { PrefabDefinition } from '@offisim/shared-types';
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@offisim/ui-core';
 
 // Module-level constant — built-in prefabs never change at runtime
 const ALL_PREFABS_MAP: Map<string, PrefabDefinition> = new Map(
@@ -22,67 +31,17 @@ import {
 import { BoxSelect, Lock, MapPin, RotateCw, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
-import {
-  FONT,
-  LAYOUT,
-  SP,
-  STUDIO_COLORS,
-  STUDIO_TRANSITION,
-  kbdStyle,
-  labelStyle,
-  panelStyle,
-  sectionHeaderStyle,
-  valueStyle,
-} from './studio-style-helpers.js';
+import { STUDIO_COLORS } from './studio-style-helpers.js';
 
 // -- Styles -------------------------------------------------------------------
 
-const SECTION_STYLE: React.CSSProperties = {
-  padding: `${SP.md}px ${SP.lg}px`,
-  borderBottom: `1px solid ${STUDIO_COLORS.borderSubtle}`,
-};
-
-const ROW_STYLE: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: SP.sm,
-  marginBottom: SP.xs / 2,
-};
-
-const SMALL_BTN: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: SP.xs,
-  padding: `${SP.xs}px ${SP.sm}px`,
-  background: STUDIO_COLORS.surface2,
-  border: `1px solid ${STUDIO_COLORS.border}`,
-  borderRadius: LAYOUT.buttonRadius,
-  color: STUDIO_COLORS.textSecondary,
-  fontSize: FONT.sm,
-  fontWeight: FONT.semibold,
-  cursor: 'pointer',
-  fontFamily: FONT.family,
-  transition: STUDIO_TRANSITION.backgroundInstant,
-};
-
-const DELETE_BTN: React.CSSProperties = {
-  ...SMALL_BTN,
-  width: '100%',
-  justifyContent: 'center',
-  background: STUDIO_COLORS.errorMuted,
-  borderColor: STUDIO_COLORS.errorMuted,
-  color: STUDIO_COLORS.error,
-};
-
-const DELETE_BTN_DISABLED: React.CSSProperties = {
-  ...SMALL_BTN,
-  width: '100%',
-  justifyContent: 'center',
-  background: 'transparent',
-  borderColor: STUDIO_COLORS.border,
-  color: STUDIO_COLORS.textDisabled,
-  cursor: 'default',
-};
+const SECTION_CLASS = 'border-b border-border-subtle px-4 py-3';
+const LABEL_CLASS = 'mb-1 text-caption font-semibold uppercase tracking-normal text-text-muted';
+const VALUE_CLASS = 'font-mono text-body-sm text-text-primary';
+const ROW_CLASS = 'mb-1 flex items-center gap-2';
+const AXIS_CLASS = 'text-caption font-bold';
+const KBD_CLASS =
+  'ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-border-subtle bg-surface-muted px-1 font-mono text-caption leading-none text-text-muted';
 
 // -- Component ----------------------------------------------------------------
 
@@ -117,57 +76,18 @@ function StudioPropertiesEmptyState() {
   const hint = TOOL_HINTS[tool] ?? DEFAULT_TOOL_HINT;
 
   return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: SP.md,
-        padding: SP.xl,
-        textAlign: 'center',
-      }}
-    >
-      <BoxSelect size={32} style={{ color: STUDIO_COLORS.textDisabled }} />
-      <div
-        style={{
-          fontSize: FONT.base,
-          color: STUDIO_COLORS.textPrimary,
-          fontWeight: FONT.semibold,
-        }}
-      >
-        Nothing selected
-      </div>
-      <div
-        style={{
-          fontSize: FONT.sm,
-          color: STUDIO_COLORS.textTertiary,
-          lineHeight: 1.45,
-          maxWidth: 240,
-        }}
-      >
-        {hint.hint}
-      </div>
-      <div
-        style={{
-          fontSize: FONT.xs,
-          color: STUDIO_COLORS.textSecondary,
-          borderTop: `1px solid ${STUDIO_COLORS.borderSubtle}`,
-          paddingTop: SP.sm,
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-        }}
-      >
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-5 text-center">
+      <BoxSelect className="size-8 text-text-disabled" aria-hidden="true" />
+      <div className="text-caption font-semibold text-text-primary">Nothing selected</div>
+      <div className="max-w-60 text-caption leading-relaxed text-text-muted">{hint.hint}</div>
+      <div className="flex w-full flex-col gap-1 border-t border-border-subtle pt-2 text-caption text-text-secondary">
         <span>
-          Current tool: <strong style={{ color: STUDIO_COLORS.textPrimary }}>{hint.label}</strong>
+          Current tool: <strong className="text-text-primary">{hint.label}</strong>
         </span>
         {focusedZoneId && (
           <span>
             Focused zone:{' '}
-            <strong style={{ color: STUDIO_COLORS.textPrimary }}>
+            <strong className="text-text-primary">
               {focusedZoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : focusedZoneId}
             </strong>
           </span>
@@ -238,21 +158,13 @@ export function StudioProperties() {
   }
 
   return (
-    <div style={panelStyle('right')}>
-      <div style={sectionHeaderStyle()}>Properties</div>
+    <div className="absolute bottom-10 right-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-l border-border-default bg-surface-elevated font-sans">
+      <div className="shrink-0 border-b border-border-default px-3 py-2 text-caption font-black uppercase tracking-normal text-text-muted">
+        Properties
+      </div>
 
       {/* Hierarchy anchor row */}
-      <div
-        style={{
-          padding: `${SP.xs}px ${SP.md}px`,
-          fontSize: FONT.xs,
-          color: STUDIO_COLORS.textTertiary,
-          borderBottom: `1px solid ${STUDIO_COLORS.borderSubtle}`,
-          fontFamily: FONT.family,
-          letterSpacing: 0.3,
-          flexShrink: 0,
-        }}
-      >
+      <div className="shrink-0 border-b border-border-subtle px-3 py-1 text-caption tracking-normal text-text-muted">
         {anchorText}
       </div>
 
@@ -269,192 +181,143 @@ export function StudioProperties() {
           const presets = selectedZone.archetype
             ? getPresetsForArchetype(selectedZone.archetype)
             : [];
+          const selectedPreset = presets.find(
+            (preset) =>
+              preset.label === selectedZone.label &&
+              preset.w === selectedZone.w &&
+              preset.d === selectedZone.d,
+          );
           const required = isRequiredArchetype(selectedZone.archetype);
 
           return (
             <>
               {/* Zone name (editable) */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Name</div>
-                <input
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Name</div>
+                <Input
                   type="text"
                   value={selectedZone.label}
                   onChange={(e) => updateZoneLabel(selectedZone.zoneId, e.target.value)}
                   aria-label="Zone name"
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    background: STUDIO_COLORS.surface1,
-                    border: `1px solid ${STUDIO_COLORS.border}`,
-                    borderRadius: LAYOUT.buttonRadius,
-                    color: STUDIO_COLORS.textPrimary,
-                    fontSize: FONT.md,
-                    fontFamily: FONT.family,
-                    padding: `${SP.xs}px ${SP.sm}px`,
-                    outline: 'none',
-                  }}
+                  className="h-8 font-sans text-body-sm"
                 />
               </div>
 
               {/* Archetype */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Archetype</div>
-                <div style={ROW_STYLE}>
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Archetype</div>
+                <div className={ROW_CLASS}>
                   <span
-                    style={{
-                      display: 'inline-block',
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      background: selectedZone.accentColor,
-                      flexShrink: 0,
-                    }}
+                    className="inline-block size-2 shrink-0 rounded-full"
+                    style={{ background: selectedZone.accentColor }}
                   />
-                  <span
-                    style={{
-                      ...valueStyle(),
-                      textTransform: 'capitalize',
-                    }}
-                  >
+                  <span className={`${VALUE_CLASS} capitalize`}>
                     {selectedZone.archetype ?? 'Custom'}
                   </span>
                 </div>
               </div>
 
               {/* Size */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Size</div>
-                <div style={{ ...valueStyle() }}>
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Size</div>
+                <div className={VALUE_CLASS}>
                   {selectedZone.w} &times; {selectedZone.d}
                 </div>
               </div>
 
               {/* Position */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Position</div>
-                <div style={ROW_STYLE}>
-                  <span
-                    style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: STUDIO_COLORS.error }}
-                  >
-                    X
-                  </span>
-                  <span style={{ ...valueStyle() }}>{selectedZone.cx.toFixed(1)}</span>
-                  <span
-                    style={{
-                      fontSize: FONT.sm,
-                      fontWeight: FONT.bold,
-                      color: STUDIO_COLORS.catWorkspace,
-                      marginLeft: SP.md,
-                    }}
-                  >
-                    Z
-                  </span>
-                  <span style={{ ...valueStyle() }}>{selectedZone.cz.toFixed(1)}</span>
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Position</div>
+                <div className={ROW_CLASS}>
+                  <span className={`${AXIS_CLASS} text-error`}>X</span>
+                  <span className={VALUE_CLASS}>{selectedZone.cx.toFixed(1)}</span>
+                  <span className={`${AXIS_CLASS} ml-3 text-info`}>Z</span>
+                  <span className={VALUE_CLASS}>{selectedZone.cz.toFixed(1)}</span>
                 </div>
               </div>
 
               {/* Furniture count */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Furniture</div>
-                <div style={{ ...valueStyle() }}>{zoneFurnitureCount}</div>
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Furniture</div>
+                <div className={VALUE_CLASS}>{zoneFurnitureCount}</div>
               </div>
 
               {/* Desk slots (only if > 0) */}
               {selectedZone.deskSlots > 0 && (
-                <div style={SECTION_STYLE}>
-                  <div style={labelStyle()}>Desk Slots</div>
-                  <div style={{ ...valueStyle() }}>{selectedZone.deskSlots}</div>
+                <div className={SECTION_CLASS}>
+                  <div className={LABEL_CLASS}>Desk Slots</div>
+                  <div className={VALUE_CLASS}>{selectedZone.deskSlots}</div>
                 </div>
               )}
 
               {/* Variant selector (only if archetype has multiple presets) */}
               {presets.length > 1 && (
-                <div style={SECTION_STYLE}>
-                  <div style={labelStyle()}>Variant</div>
-                  <select
-                    aria-label="Zone variant"
-                    onChange={(e) => {
-                      const preset = presets.find((p) => p.id === e.target.value) as
-                        | ZonePreset
-                        | undefined;
+                <div className={SECTION_CLASS}>
+                  <div className={LABEL_CLASS}>Variant</div>
+                  <Select
+                    value={selectedPreset?.id}
+                    onValueChange={(value) => {
+                      const preset = presets.find((p) => p.id === value) as ZonePreset | undefined;
                       if (preset) swapZoneVariant(selectedZone.zoneId, preset, allPrefabsMap);
                     }}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      background: STUDIO_COLORS.surface1,
-                      border: `1px solid ${STUDIO_COLORS.border}`,
-                      borderRadius: LAYOUT.buttonRadius,
-                      color: STUDIO_COLORS.textPrimary,
-                      fontSize: FONT.md,
-                      fontFamily: FONT.family,
-                      padding: `${SP.xs}px ${SP.sm}px`,
-                      outline: 'none',
-                      cursor: 'pointer',
-                    }}
                   >
-                    {presets.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger aria-label="Zone variant" className="h-8 text-body-sm">
+                      <SelectValue placeholder="Choose variant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {presets.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
               {/* Rotate zone */}
-              <div style={{ padding: `0 ${SP.lg}px` }}>
-                <button
+              <div className="px-4">
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => rotateZone(selectedZone.zoneId)}
                   aria-label="Rotate zone 90° clockwise (R)"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: SP.xs,
-                    padding: `${SP.sm}px ${SP.md}px`,
-                    background: STUDIO_COLORS.surface2,
-                    border: `1px solid ${STUDIO_COLORS.border}`,
-                    borderRadius: 6,
-                    color: STUDIO_COLORS.textSecondary,
-                    cursor: 'pointer',
-                    fontSize: FONT.sm,
-                    fontFamily: FONT.family,
-                    width: '100%',
-                    justifyContent: 'center',
-                  }}
+                  className="w-full justify-center"
                 >
-                  <RotateCw size={12} />
+                  <RotateCw className="size-3" aria-hidden="true" />
                   <span>Rotate +90°</span>
-                  <kbd style={{ ...kbdStyle(), marginLeft: 'auto' }}>R</kbd>
-                </button>
+                  <kbd className={KBD_CLASS}>R</kbd>
+                </Button>
               </div>
 
               {/* Spacer */}
-              <div style={{ flex: 1 }} />
+              <div className="flex-1" />
 
               {/* Delete zone */}
-              <div style={{ padding: `${SP.md}px ${SP.lg}px` }}>
+              <div className="px-4 py-3">
                 {required ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     disabled
                     aria-label="Cannot delete required zone"
-                    style={DELETE_BTN_DISABLED}
+                    className="w-full justify-center"
                   >
-                    <Lock size={12} />
+                    <Lock className="size-3" aria-hidden="true" />
                     <span>Required — Cannot Delete</span>
-                  </button>
+                  </Button>
                 ) : (
-                  <button
+                  <Button
                     type="button"
+                    variant="destructive"
                     onClick={() => deleteZone(selectedZone.zoneId)}
                     aria-label="Delete zone"
-                    style={DELETE_BTN}
+                    className="w-full justify-center"
                   >
-                    <Trash2 size={12} />
+                    <Trash2 className="size-3" aria-hidden="true" />
                     <span>Delete Zone</span>
-                  </button>
+                  </Button>
                 )}
               </div>
             </>
@@ -472,102 +335,71 @@ export function StudioProperties() {
           return (
             <>
               {/* Name + category */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Prefab</div>
-                <div style={valueStyle()}>{definition.name}</div>
-                <div
-                  style={{
-                    fontSize: FONT.sm,
-                    color: STUDIO_COLORS.textTertiary,
-                    marginTop: SP.xs / 2,
-                    textTransform: 'capitalize',
-                  }}
-                >
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Prefab</div>
+                <div className={VALUE_CLASS}>{definition.name}</div>
+                <div className="mt-1 text-caption capitalize text-text-muted">
                   {definition.category}
                 </div>
               </div>
 
               {/* Position */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Position</div>
-                <div style={ROW_STYLE}>
-                  <span
-                    style={{ fontSize: FONT.sm, fontWeight: FONT.bold, color: STUDIO_COLORS.error }}
-                  >
-                    X
-                  </span>
-                  <span style={{ ...valueStyle() }}>{x.toFixed(1)}</span>
-                  <span
-                    style={{
-                      fontSize: FONT.sm,
-                      fontWeight: FONT.bold,
-                      color: STUDIO_COLORS.catWorkspace,
-                      marginLeft: SP.md,
-                    }}
-                  >
-                    Z
-                  </span>
-                  <span style={{ ...valueStyle() }}>{z.toFixed(1)}</span>
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Position</div>
+                <div className={ROW_CLASS}>
+                  <span className={`${AXIS_CLASS} text-error`}>X</span>
+                  <span className={VALUE_CLASS}>{x.toFixed(1)}</span>
+                  <span className={`${AXIS_CLASS} ml-3 text-info`}>Z</span>
+                  <span className={VALUE_CLASS}>{z.toFixed(1)}</span>
                 </div>
               </div>
 
               {/* Rotation */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Rotation</div>
-                <div style={ROW_STYLE}>
-                  <span style={{ ...valueStyle() }}>{instance.rotation}&deg;</span>
-                  <button
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Rotation</div>
+                <div className={ROW_CLASS}>
+                  <span className={VALUE_CLASS}>{instance.rotation}&deg;</span>
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={rotateSelected}
                     aria-label="Rotate 90 degrees clockwise"
                     title="Rotate +90\u00B0"
-                    style={SMALL_BTN}
+                    className="h-7 gap-1 px-2 text-caption"
                   >
-                    <RotateCw size={12} />
+                    <RotateCw className="size-3" aria-hidden="true" />
                     <span>+90\u00B0</span>
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               {/* Grid size */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Grid Size</div>
-                <div style={valueStyle()}>{gridLabel}</div>
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Grid Size</div>
+                <div className={VALUE_CLASS}>{gridLabel}</div>
               </div>
 
               {/* Zone */}
-              <div style={SECTION_STYLE}>
-                <div style={labelStyle()}>Zone</div>
-                <div style={ROW_STYLE}>
+              <div className={SECTION_CLASS}>
+                <div className={LABEL_CLASS}>Zone</div>
+                <div className={ROW_CLASS}>
                   <MapPin
-                    size={12}
+                    className="size-3 shrink-0"
                     style={{
                       color: instanceZone?.accentColor ?? STUDIO_COLORS.textTertiary,
-                      flexShrink: 0,
                     }}
                   />
                   {instanceZone ? (
                     <>
                       <span
-                        style={{
-                          display: 'inline-block',
-                          width: 8,
-                          height: 8,
-                          borderRadius: 2,
-                          background: instanceZone.accentColor,
-                          flexShrink: 0,
-                        }}
+                        className="inline-block size-2 shrink-0 rounded-sm"
+                        style={{ background: instanceZone.accentColor }}
                       />
-                      <span style={{ ...valueStyle() }}>{instanceZone.label}</span>
+                      <span className={VALUE_CLASS}>{instanceZone.label}</span>
                     </>
                   ) : (
-                    <span
-                      style={{
-                        fontSize: FONT.sm,
-                        color: STUDIO_COLORS.textTertiary,
-                        fontStyle: 'italic',
-                      }}
-                    >
+                    <span className="text-caption italic text-text-muted">
                       {instance.zoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : instance.zoneId}
                     </span>
                   )}
@@ -575,19 +407,20 @@ export function StudioProperties() {
               </div>
 
               {/* Spacer */}
-              <div style={{ flex: 1 }} />
+              <div className="flex-1" />
 
               {/* Delete */}
-              <div style={{ padding: `${SP.md}px ${SP.lg}px` }}>
-                <button
+              <div className="px-4 py-3">
+                <Button
                   type="button"
+                  variant="destructive"
                   onClick={deleteSelected}
                   aria-label="Delete selected instance"
-                  style={DELETE_BTN}
+                  className="w-full justify-center"
                 >
-                  <Trash2 size={12} />
+                  <Trash2 className="size-3" aria-hidden="true" />
                   <span>Delete Instance</span>
-                </button>
+                </Button>
               </div>
             </>
           );

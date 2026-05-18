@@ -64,7 +64,7 @@ export function KanbanColumn({
   return (
     <div
       className={cn(
-        'flex flex-col shrink-0 w-[260px] rounded-lg',
+        'flex w-kanban-column shrink-0 flex-col rounded-lg',
         'border border-border-default border-t-2 bg-surface-elevated',
         columnAccent(status),
       )}
@@ -72,11 +72,13 @@ export function KanbanColumn({
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
         {stepIndex !== null && (
-          <span className="shrink-0 font-mono text-[10px] text-text-muted">#{stepIndex + 1}</span>
+          <span className="shrink-0 font-mono text-caption text-text-muted">#{stepIndex + 1}</span>
         )}
-        <span className="flex-1 truncate text-[11px] font-semibold text-text-primary">{title}</span>
+        <span className="flex-1 truncate text-caption font-semibold text-text-primary">
+          {title}
+        </span>
         {progress && (
-          <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-muted">
+          <span className="shrink-0 font-mono text-caption tabular-nums text-text-muted">
             {progress}
           </span>
         )}
@@ -87,7 +89,7 @@ export function KanbanColumn({
             ).length;
             if (active === 0) return null;
             return (
-              <span className="flex items-center gap-1 text-[10px] text-info">
+              <span className="flex items-center gap-1 text-caption text-info">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-info" />
                 {active}
               </span>
@@ -96,7 +98,7 @@ export function KanbanColumn({
       </div>
 
       {/* Card list */}
-      <div className="custom-scrollbar min-h-[80px] flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
+      <div className="custom-scrollbar min-h-kanban-task-list flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
         {children}
         {tasks.map((task) => (
           <KanbanCard
@@ -107,7 +109,7 @@ export function KanbanColumn({
           />
         ))}
         {!children && tasks.length === 0 && (
-          <div className="flex items-center justify-center py-6 text-[10px] text-text-muted">
+          <div className="flex items-center justify-center py-6 text-caption text-text-muted">
             No tasks yet
           </div>
         )}

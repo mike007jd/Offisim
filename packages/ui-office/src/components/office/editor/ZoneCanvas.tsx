@@ -52,7 +52,7 @@ export function ZoneCanvas({
       <svg
         ref={svgRef}
         viewBox={viewBox}
-        className="h-full max-h-[calc(100vh-7rem)] w-full max-w-[1200px]"
+        className="h-full editor-zone-canvas-size w-full"
         onPointerDown={onCanvasPointerDown}
         onMouseMove={onCanvasMouseMove}
         onPointerUp={onCanvasPointerUp}

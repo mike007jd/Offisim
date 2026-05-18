@@ -3,7 +3,7 @@ import type {
   SkillInstallConfirmInteractionContext,
   SkillMutationAction,
 } from '@offisim/shared-types';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@offisim/ui-core';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, cn } from '@offisim/ui-core';
 import { useMemo, useState } from 'react';
 
 interface SkillInstallConfirmBubbleProps {
@@ -14,6 +14,10 @@ interface SkillInstallConfirmBubbleProps {
 }
 
 const WIDE_SCOPE_RE = /^(bash|network|fs|exec)(:|\*)/iu;
+const SECTION_LABEL_CLASS = 'text-caption font-semibold uppercase tracking-wide text-text-muted';
+const MUTED_CAPTION_CLASS = 'text-caption text-text-muted';
+const PREVIEW_PANEL_CLASS =
+  'mt-1 whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-2 text-caption text-text-secondary';
 
 function isWideScope(tool: string): boolean {
   return WIDE_SCOPE_RE.test(tool);
@@ -146,34 +150,30 @@ export function SkillInstallConfirmBubble({
           </p>
         )}
       </CardHeader>
-      <CardContent className="max-h-[460px] space-y-3 overflow-y-auto pt-3">
+      <CardContent className="max-h-96 space-y-3 overflow-y-auto pt-3">
         {action === 'fork' && context.parent && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-              Fork
-            </div>
+            <div className={SECTION_LABEL_CLASS}>Fork</div>
             <p className="text-xs text-text-primary">
               {`"${context.parent.name}@${context.parent.version}" → ${resolveEmployeeLabel(context)}`}
             </p>
-            <p className="text-[11px] text-text-muted">Parent: {context.parent.slug}</p>
+            <p className={MUTED_CAPTION_CLASS}>Parent: {context.parent.slug}</p>
           </section>
         )}
 
         {action === 'edit' && context.bodyDiff && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-              Body diff
-            </div>
+            <div className={SECTION_LABEL_CLASS}>Body diff</div>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               <div>
-                <div className="text-[11px] text-text-muted">Old</div>
-                <div className="mt-1 whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-2 text-[11px] text-text-secondary">
+                <div className={MUTED_CAPTION_CLASS}>Old</div>
+                <div className={PREVIEW_PANEL_CLASS}>
                   {context.bodyDiff.oldPreview || <span className="text-text-muted">(empty)</span>}
                 </div>
               </div>
               <div>
-                <div className="text-[11px] text-text-muted">New</div>
-                <div className="mt-1 whitespace-pre-wrap break-words rounded-md border border-success/40 bg-success-muted p-2 text-[11px] text-success">
+                <div className={MUTED_CAPTION_CLASS}>New</div>
+                <div className="mt-1 whitespace-pre-wrap break-words rounded-md border border-success/40 bg-success-muted p-2 text-caption text-success">
                   {context.bodyDiff.newPreview || <span className="text-text-muted">(empty)</span>}
                 </div>
               </div>
@@ -183,9 +183,7 @@ export function SkillInstallConfirmBubble({
 
         {(action === 'install' || action === 'create') && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-              Permissions
-            </div>
+            <div className={SECTION_LABEL_CLASS}>Permissions</div>
             {context.allowedTools.length === 0 ? (
               <p className="text-xs text-text-muted">No tools declared.</p>
             ) : (
@@ -197,8 +195,8 @@ export function SkillInstallConfirmBubble({
                       key={tool}
                       className={
                         wideScope
-                          ? 'rounded-md border border-error/50 bg-error-muted px-2 py-0.5 text-[11px] font-medium text-error'
-                          : 'rounded-md border border-border-subtle bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary'
+                          ? 'rounded-md border border-error/50 bg-error-muted px-2 py-0.5 text-caption font-medium text-error'
+                          : 'rounded-md border border-border-subtle bg-surface-muted px-2 py-0.5 text-caption text-text-secondary'
                       }
                       data-wide-scope={wideScope ? 'true' : 'false'}
                     >
@@ -213,9 +211,7 @@ export function SkillInstallConfirmBubble({
 
         {action === 'install' && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-              Source
-            </div>
+            <div className={SECTION_LABEL_CLASS}>Source</div>
             <p className="break-all text-xs text-text-primary">
               {describeSource(context.sourceKind, context.sourceRef)}
             </p>
@@ -224,21 +220,17 @@ export function SkillInstallConfirmBubble({
 
         {action === 'create' && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-              Attribution
-            </div>
+            <div className={SECTION_LABEL_CLASS}>Attribution</div>
             <p className="break-all text-xs text-text-primary">
               Authored by {context.modelKey ?? context.sourceRef}
             </p>
-            {context.slug && <p className="text-[11px] text-text-muted">Slug: {context.slug}</p>}
+            {context.slug && <p className={MUTED_CAPTION_CLASS}>Slug: {context.slug}</p>}
           </section>
         )}
 
         {action !== 'edit' && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-              Scope
-            </div>
+            <div className={SECTION_LABEL_CLASS}>Scope</div>
             <p className="text-xs text-text-primary">{scopeLabel}</p>
           </section>
         )}
@@ -248,9 +240,7 @@ export function SkillInstallConfirmBubble({
             partitioned.references.length > 0 ||
             partitioned.assets.length > 0) && (
             <section className="space-y-1.5">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                Assets
-              </div>
+              <div className={SECTION_LABEL_CLASS}>Assets</div>
               <AssetGroup label="scripts/" paths={partitioned.scripts} />
               <AssetGroup label="references/" paths={partitioned.references} />
               <AssetGroup label="assets/" paths={partitioned.assets} />
@@ -259,12 +249,12 @@ export function SkillInstallConfirmBubble({
 
         {hasFrontmatterError && context.frontmatterError && (
           <section className="space-y-1.5 rounded-md border border-error/40 bg-error-muted p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-error">
+            <div className="text-caption font-semibold uppercase tracking-wide text-error">
               Frontmatter error
             </div>
             <p className="text-xs text-error">{context.frontmatterError.detail}</p>
             {context.frontmatterError.field && (
-              <p className="font-mono text-[11px] text-error">
+              <p className="font-mono text-caption text-error">
                 {context.frontmatterError.reason}: {context.frontmatterError.field}
               </p>
             )}
@@ -273,15 +263,14 @@ export function SkillInstallConfirmBubble({
 
         {(action === 'install' || action === 'create') && body.length > 0 && (
           <section className="space-y-1.5">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-              SKILL.md preview
-            </div>
+            <div className={SECTION_LABEL_CLASS}>SKILL.md preview</div>
             <div
-              className={
+              className={cn(
+                'whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-3 text-xs',
                 showFullBody
-                  ? 'max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-3 text-xs text-text-primary'
-                  : 'relative max-h-[84px] overflow-hidden whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-3 text-xs text-text-secondary'
-              }
+                  ? 'max-h-64 overflow-y-auto text-text-primary'
+                  : 'relative max-h-20 overflow-hidden text-text-secondary',
+              )}
             >
               {body}
               {!showFullBody && shouldClampBody && (
@@ -289,13 +278,15 @@ export function SkillInstallConfirmBubble({
               )}
             </div>
             {shouldClampBody && (
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => setShowFullBody((s) => !s)}
-                className="text-[11px] font-medium text-accent hover:text-accent-text"
+                className="h-auto p-0 text-caption font-medium"
               >
                 {showFullBody ? 'Show less' : 'Show details'}
-              </button>
+              </Button>
             )}
           </section>
         )}
@@ -323,10 +314,10 @@ function AssetGroup({ label, paths }: { label: string; paths: string[] }) {
   if (paths.length === 0) return null;
   return (
     <div>
-      <div className="text-[11px] text-text-muted">{label}</div>
+      <div className={MUTED_CAPTION_CLASS}>{label}</div>
       <ul className="ml-2 mt-0.5 space-y-0.5 text-xs text-text-secondary">
         {paths.map((p) => (
-          <li key={p} className="font-mono text-[11px] text-text-secondary">
+          <li key={p} className="font-mono text-caption text-text-secondary">
             {p}
           </li>
         ))}

@@ -1,3 +1,4 @@
+import { Button, cn } from '@offisim/ui-core';
 import { ChevronLeft, FileText, Folder, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { toErrorMessage } from '../../lib/error-message.js';
@@ -154,9 +155,9 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
 
   if (!workspaceRoot) {
     return (
-      <div className="border-t border-border-subtle pt-2 text-[11px] text-text-secondary">
+      <div className="border-t border-border-subtle pt-2 text-caption text-text-secondary">
         <div className="flex items-center gap-1.5">
-          <Folder className="h-3 w-3" />
+          <Folder className="size-3" aria-hidden="true" />
           <span>No workspace folder</span>
         </div>
       </div>
@@ -165,9 +166,9 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
 
   if (!desktopMode) {
     return (
-      <div className="border-t border-border-subtle pt-2 text-[11px] text-text-secondary">
+      <div className="border-t border-border-subtle pt-2 text-caption text-text-secondary">
         <div className="flex items-center gap-1.5">
-          <Folder className="h-3 w-3" />
+          <Folder className="size-3" aria-hidden="true" />
           <span>Desktop files only</span>
         </div>
       </div>
@@ -178,46 +179,53 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
 
   return (
     <div className="border-t border-border-subtle pt-2">
-      <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-text-muted">
+      <div className="mb-1.5 flex items-center gap-2 text-caption uppercase tracking-wider text-text-muted">
         <span className="min-w-0 flex-1 truncate" title={displayPath}>
           Workspace files {displayPath}
         </span>
-        <button
+        <Button
           type="button"
-          className="rounded p-0.5 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+          variant="ghost"
+          size="icon"
+          className="size-6 text-text-muted"
           onClick={() => setReloadVersion((version) => version + 1)}
           disabled={directoryLoading}
           aria-label="Refresh workspace files"
           title="Refresh"
         >
-          <RefreshCw className={`h-3 w-3 ${directoryLoading ? 'animate-spin' : ''}`} />
-        </button>
+          <RefreshCw className={cn('size-3', directoryLoading && 'animate-spin')} />
+        </Button>
       </div>
 
       {currentPath && (
-        <button
+        <Button
           type="button"
-          className="mb-1 flex items-center gap-1 text-[11px] text-text-secondary transition-colors hover:text-text-primary"
+          variant="ghost"
+          size="sm"
+          className="mb-1 h-auto justify-start gap-1 px-0 py-1 text-caption"
           onClick={() => {
             dispatchSelection({ type: 'clear' });
             setCurrentPath(parentWorkspacePath(currentPath));
           }}
         >
-          <ChevronLeft className="h-3 w-3" />
+          <ChevronLeft className="size-3" aria-hidden="true" />
           Up
-        </button>
+        </Button>
       )}
 
       <div className="max-h-36 overflow-y-auto pr-1">
         {entries.map((entry) => (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             key={entry.path || entry.name}
-            className={`flex w-full min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-surface-hover ${
+            className={cn(
+              'h-auto w-full min-w-0 justify-start gap-1.5 rounded px-1.5 py-1 text-left text-caption',
               selectedFilePath === entry.path
                 ? 'bg-accent-muted text-accent-text'
-                : 'text-text-secondary'
-            }`}
+                : 'text-text-secondary',
+            )}
             onClick={() => {
               if (entry.isDirectory) {
                 setCurrentPath(entry.path);
@@ -229,36 +237,36 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
             title={entry.path}
           >
             {entry.isDirectory ? (
-              <Folder className="h-3 w-3 flex-shrink-0 text-info" />
+              <Folder className="size-3 flex-shrink-0 text-info" aria-hidden="true" />
             ) : (
-              <FileText className="h-3 w-3 flex-shrink-0 text-text-muted" />
+              <FileText className="size-3 flex-shrink-0 text-text-muted" aria-hidden="true" />
             )}
             <span className="min-w-0 flex-1 truncate">{entry.name}</span>
             {!entry.isDirectory && (
-              <span className="flex-shrink-0 text-[10px] text-text-muted">
+              <span className="flex-shrink-0 text-caption text-text-muted">
                 {formatWorkspaceFileSize(entry.size)}
               </span>
             )}
-          </button>
+          </Button>
         ))}
         {!directoryLoading && entries.length === 0 && (
-          <div className="px-1.5 py-2 text-[11px] text-text-muted">Empty folder</div>
+          <div className="px-1.5 py-2 text-caption text-text-muted">Empty folder</div>
         )}
       </div>
 
       {selection?.kind === 'loading' && (
-        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-surface px-2 py-1.5 text-[10px] leading-relaxed text-text-secondary">
+        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-surface px-2 py-1.5 text-caption leading-relaxed text-text-secondary">
           Loading...
         </pre>
       )}
 
       {selection?.kind === 'ready' && (
-        <div className="mt-2 space-y-1">
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-surface px-2 py-1.5 text-[10px] leading-relaxed text-text-secondary">
+        <div className="mt-2 flex flex-col gap-1">
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-surface px-2 py-1.5 text-caption leading-relaxed text-text-secondary">
             {selection.preview}
           </pre>
           {selection.truncated && (
-            <p className="text-[10px] text-text-muted">
+            <p className="text-caption text-text-muted">
               preview truncated · {formatWorkspaceFileSize(selection.totalSize)} total
             </p>
           )}
@@ -266,13 +274,13 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
       )}
 
       {selection?.kind === 'error' && (
-        <div className="mt-2 rounded border border-error bg-error-muted px-2 py-1 text-[10px] text-error">
+        <div className="mt-2 rounded border border-error bg-error-muted px-2 py-1 text-caption text-error">
           {selection.message}
         </div>
       )}
 
       {directoryError && (
-        <div className="mt-2 rounded border border-error bg-error-muted px-2 py-1 text-[10px] text-error">
+        <div className="mt-2 rounded border border-error bg-error-muted px-2 py-1 text-caption text-error">
           {directoryError}
         </div>
       )}

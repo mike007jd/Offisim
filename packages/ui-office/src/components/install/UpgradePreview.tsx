@@ -47,19 +47,19 @@ const SEVERITY_CONFIG: Record<
   info: {
     label: 'Info',
     icon: Info,
-    textClass: 'text-emerald-400',
+    textClass: 'text-success',
     badgeVariant: 'success',
   },
   warning: {
     label: 'Warning',
     icon: AlertTriangle,
-    textClass: 'text-amber-400',
+    textClass: 'text-warning',
     badgeVariant: 'warning',
   },
   breaking: {
     label: 'Breaking',
     icon: OctagonAlert,
-    textClass: 'text-red-400',
+    textClass: 'text-error',
     badgeVariant: 'error',
   },
 };
@@ -91,7 +91,7 @@ function DiffEntryRow({ entry }: { entry: DiffEntry }) {
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-shell/70">
             {entry.oldValue && (
               <span className="inline-flex items-center gap-0.5">
-                <Minus className="h-2.5 w-2.5 text-red-400/70" />
+                <Minus className="h-2.5 w-2.5 text-error/70" />
                 <span className="line-through">{entry.oldValue}</span>
               </span>
             )}
@@ -100,7 +100,7 @@ function DiffEntryRow({ entry }: { entry: DiffEntry }) {
             )}
             {entry.newValue && (
               <span className="inline-flex items-center gap-0.5">
-                <Plus className="h-2.5 w-2.5 text-emerald-400/70" />
+                <Plus className="h-2.5 w-2.5 text-success/70" />
                 <span>{entry.newValue}</span>
               </span>
             )}
@@ -123,23 +123,24 @@ function CategorySection({
   const ChevronIcon = expanded ? ChevronDown : ChevronRight;
 
   return (
-    <div className="border border-ocean-light/50 mb-2">
-      <button
+    <div className="mb-2 border border-border-subtle">
+      <Button
         type="button"
-        className="flex items-center gap-2 w-full px-2 py-1.5 text-left hover:bg-ocean-light/10 transition-colors"
+        variant="ghost"
+        className="h-auto w-full justify-start gap-2 rounded-none px-2 py-1.5 text-left hover:bg-surface-hover"
         onClick={() => setExpanded((v) => !v)}
       >
-        <ChevronIcon className="h-3.5 w-3.5 text-shell/70" />
-        <span className="text-xs font-medium text-ocean-light uppercase tracking-wide font-pixel-body">
+        <ChevronIcon className="size-3.5 text-text-muted" />
+        <span className="font-pixel-body text-xs font-medium uppercase tracking-wide text-text-secondary">
           {CATEGORY_LABELS[category]}
         </span>
-        <span className="text-xs text-shell/50">({entries.length})</span>
+        <span className="text-xs text-text-muted">({entries.length})</span>
         {hasBreaking && (
-          <Badge variant="error" className="ml-auto text-[10px] px-1 py-0">
+          <Badge variant="error" className="ml-auto px-1 py-0 text-caption">
             Breaking
           </Badge>
         )}
-      </button>
+      </Button>
       {expanded && (
         <div className="px-1">
           {entries.map((entry, i) => (
@@ -187,19 +188,19 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
       {diff.entries.length > 0 && (
         <div className="flex gap-3 text-xs">
           {diff.counts.breaking > 0 && (
-            <span className="text-red-400 flex items-center gap-1">
+            <span className="text-error flex items-center gap-1">
               <OctagonAlert className="h-3 w-3" />
               {diff.counts.breaking} breaking
             </span>
           )}
           {diff.counts.warning > 0 && (
-            <span className="text-amber-400 flex items-center gap-1">
+            <span className="text-warning flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
               {diff.counts.warning} warnings
             </span>
           )}
           {diff.counts.info > 0 && (
-            <span className="text-emerald-400 flex items-center gap-1">
+            <span className="text-success flex items-center gap-1">
               <Info className="h-3 w-3" />
               {diff.counts.info} info
             </span>
@@ -231,7 +232,7 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
 
       {/* Diff entries grouped by category */}
       {diff.entries.length > 0 ? (
-        <ScrollArea className="max-h-[300px]">
+        <ScrollArea className="max-h-upgrade-diff">
           <div className="pr-3">
             {Array.from(groupedEntries.entries()).map(([category, entries]) => (
               <CategorySection key={category} category={category} entries={entries} />

@@ -25,14 +25,14 @@ export function SystemMessageFeed() {
       {entries.map((entry) => (
         <div
           key={entry.id}
-          className={`flex items-start gap-3 rounded-2xl border px-3 py-2.5 text-[11px] shadow-resting ${ENTRY_STYLES[entry.tone]}`}
+          className={`flex items-start gap-3 rounded-2xl border px-3 py-2.5 text-caption shadow-resting ${ENTRY_STYLES[entry.tone]}`}
         >
           {(() => {
             const Icon = ICON_MAP[entry.icon ?? 'default'];
             return <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" />;
           })()}
           <div className="min-w-0 space-y-1">
-            <p className="font-semibold uppercase tracking-[0.18em] text-[10px]">{entry.title}</p>
+            <p className="font-semibold uppercase tracking-[0.18em] text-caption">{entry.title}</p>
             <p className="leading-relaxed text-text-secondary">{entry.detail}</p>
           </div>
         </div>

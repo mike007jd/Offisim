@@ -209,9 +209,7 @@ export function MarketPage({
         {showDetail && tier !== 'narrow' && (
           <div
             className={`grid h-full min-h-0 ${
-              tier === 'desktop'
-                ? 'grid-cols-[minmax(0,3fr)_minmax(380px,2fr)]'
-                : 'grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]'
+              tier === 'desktop' ? 'grid-market-detail-desktop' : 'grid-market-detail-tablet'
             }`}
           >
             <div className="min-h-0 overflow-y-auto border-r border-border-default">

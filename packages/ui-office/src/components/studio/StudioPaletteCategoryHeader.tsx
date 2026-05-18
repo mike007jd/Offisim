@@ -1,6 +1,6 @@
+import { Badge, Button, cn } from '@offisim/ui-core';
 import { ChevronDown } from 'lucide-react';
-import type { CSSProperties, ReactNode } from 'react';
-import { FONT, SP, STUDIO_COLORS, STUDIO_TRANSITION } from './studio-style-helpers.js';
+import type { ReactNode } from 'react';
 
 interface CategoryHeaderProps {
   collapsed: boolean;
@@ -15,39 +15,6 @@ interface CategoryHeaderProps {
   ariaLabel?: string;
 }
 
-const HEADER_BUTTON_STYLE: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: SP.sm,
-  width: '100%',
-  padding: `${SP.sm}px ${SP.md}px`,
-  background: 'transparent',
-  border: 'none',
-  cursor: 'pointer',
-  textAlign: 'left',
-  fontSize: FONT.base,
-  fontWeight: FONT.bold,
-  color: STUDIO_COLORS.textSecondary,
-  fontFamily: FONT.family,
-};
-
-const REQUIRED_CHIP_STYLE: CSSProperties = {
-  fontSize: FONT.xs,
-  fontWeight: FONT.semibold,
-  color: STUDIO_COLORS.warning,
-  background: STUDIO_COLORS.warningMuted,
-  borderRadius: 10,
-  padding: `1px ${SP.xs}px`,
-  letterSpacing: 0,
-};
-
-const COUNT_STYLE: CSSProperties = {
-  marginLeft: 'auto',
-  fontSize: FONT.xs,
-  color: STUDIO_COLORS.textTertiary,
-  fontWeight: FONT.medium,
-};
-
 export function StudioPaletteCategoryHeader({
   collapsed,
   onClick,
@@ -58,25 +25,29 @@ export function StudioPaletteCategoryHeader({
   ariaLabel,
 }: CategoryHeaderProps) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={onClick}
       aria-label={ariaLabel ?? `${collapsed ? 'Expand' : 'Collapse'} ${label} (${count} items)`}
-      style={HEADER_BUTTON_STYLE}
+      className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-left text-caption font-bold text-text-secondary"
     >
       <ChevronDown
-        size={12}
-        style={{
-          color: STUDIO_COLORS.textTertiary,
-          transition: STUDIO_TRANSITION.transformFast,
-          transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-          flexShrink: 0,
-        }}
+        className={cn(
+          'size-3 shrink-0 text-text-muted transition-transform',
+          collapsed && '-rotate-90',
+        )}
+        aria-hidden="true"
       />
       {icon}
       <span>{label}</span>
-      {required && <span style={REQUIRED_CHIP_STYLE}>REQUIRED</span>}
-      <span style={COUNT_STYLE}>{count}</span>
-    </button>
+      {required && (
+        <Badge size="xs" variant="warning">
+          REQUIRED
+        </Badge>
+      )}
+      <span className="ml-auto text-caption font-medium text-text-muted">{count}</span>
+    </Button>
   );
 }

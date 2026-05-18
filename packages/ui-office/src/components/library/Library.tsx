@@ -1,6 +1,7 @@
 import { Book, FileText, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+import { Button, Input } from '@offisim/ui-core';
 import { useLibrary } from '../../hooks/useLibrary.js';
 
 export function Library() {
@@ -24,49 +25,50 @@ export function Library() {
   };
 
   return (
-    <div className="flex flex-col gap-3 p-3 overflow-hidden">
-      <h2 className="text-[10px] uppercase tracking-wider text-slate-400">Library</h2>
+    <div className="flex flex-col gap-3 overflow-hidden p-3">
+      <h2 className="text-caption uppercase tracking-wider text-text-muted">Library</h2>
 
       {/* Search + Upload */}
       <div className="flex items-center gap-1.5">
-        <input
+        <Input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search documents..."
-          className="flex-1 min-w-0 rounded border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40"
+          className="h-7 min-w-0 flex-1 px-2 py-1 text-caption"
         />
-        <input
+        <Input
           ref={fileInputRef}
           type="file"
           accept=".txt,.md,.csv,.json"
           onChange={handleFileUpload}
           className="hidden"
         />
-        <button
+        <Button
           type="button"
+          size="sm"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="flex items-center gap-1 rounded border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[10px] text-blue-400 hover:bg-blue-500/20 transition-all disabled:opacity-30 flex-shrink-0"
+          className="h-7 flex-shrink-0 gap-1 px-2 text-caption"
         >
-          <Upload className="w-3 h-3" />
+          <Upload className="size-3" aria-hidden="true" />
           <span>{uploading ? '...' : 'Upload'}</span>
-        </button>
+        </Button>
       </div>
 
       {/* Document list */}
       {loading ? (
-        <p className="text-[10px] text-slate-500 py-2">Loading...</p>
+        <p className="py-2 text-caption text-text-muted">Loading...</p>
       ) : documents.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-          <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-            <Book className="w-5 h-5 text-slate-500" />
+          <div className="flex size-10 items-center justify-center rounded-xl border border-border-subtle bg-surface-muted">
+            <Book className="size-5 text-text-muted" aria-hidden="true" />
           </div>
           <div className="px-2">
-            <p className="text-[11px] font-semibold text-slate-400">
+            <p className="text-caption font-semibold text-text-secondary">
               {searchQuery ? 'No matches' : 'No Documents'}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+            <p className="mt-1.5 text-caption leading-relaxed text-text-muted">
               {searchQuery
                 ? 'No documents match your search. Try different keywords.'
                 : 'Upload text, markdown, CSV or JSON files to make them available as reference material for your AI employees.'}
@@ -78,45 +80,52 @@ export function Library() {
           {documents.map((doc) => (
             <div
               key={doc.doc_id}
-              className="flex items-center gap-2 rounded-lg border border-white/5 bg-black/40 px-2 py-1.5 overflow-hidden"
+              className="flex items-center gap-2 overflow-hidden rounded-lg border border-border-subtle bg-surface-muted px-2 py-1.5"
             >
-              <FileText className="w-3 h-3 text-slate-500 flex-shrink-0" />
+              <FileText className="size-3 flex-shrink-0 text-text-muted" aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[11px] text-slate-200">{doc.title}</div>
-                <div className="text-[10px] text-slate-500 truncate">
+                <div className="truncate text-caption text-text-primary">{doc.title}</div>
+                <div className="truncate text-caption text-text-muted">
                   {doc.source_type} · {doc.content_text.length.toLocaleString()} chars
                   {doc.file_size ? ` · ${(doc.file_size / 1024).toFixed(1)}KB` : ''}
                 </div>
               </div>
               {confirmDeleteId === doc.doc_id ? (
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
+                <div className="flex flex-shrink-0 items-center gap-1">
+                  <Button
                     type="button"
+                    variant="destructive"
+                    size="sm"
                     onClick={() => {
                       deleteDocument(doc.doc_id);
                       setConfirmDeleteId(null);
                     }}
-                    className="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                    className="h-6 px-1.5 py-0.5 text-caption"
                   >
                     Delete
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setConfirmDeleteId(null)}
-                    className="text-[10px] text-slate-400 hover:text-slate-300 px-1 py-0.5 transition-colors"
+                    className="h-6 px-1 py-0.5 text-caption"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               ) : (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setConfirmDeleteId(doc.doc_id)}
-                  className="flex-shrink-0 text-slate-600 hover:text-red-400 transition-colors p-0.5"
+                  className="size-6 flex-shrink-0 p-0.5 text-text-muted hover:text-error"
                   title="Delete document"
+                  aria-label={`Delete ${doc.title}`}
                 >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+                  <Trash2 className="size-3" aria-hidden="true" />
+                </Button>
               )}
             </div>
           ))}

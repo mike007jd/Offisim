@@ -208,14 +208,14 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <p className="truncate text-sm font-semibold text-text-primary">{row.name}</p>
-                    <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary">
+                    <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-0.5 text-caption text-text-secondary">
                       {brand.displayName}
                     </span>
-                    <span className="text-[11px] text-text-muted">role: {row.role_slug}</span>
+                    <span className="text-caption text-text-muted">role: {row.role_slug}</span>
                   </div>
                   <p className="mt-1 truncate text-xs text-text-secondary">{row.a2a_url ?? '—'}</p>
                   {card?.name && card.name !== row.name && (
-                    <p className="mt-0.5 truncate text-[11px] text-text-muted">
+                    <p className="mt-0.5 truncate text-caption text-text-muted">
                       agent card: {card.name}
                       {card.version ? ` · v${card.version}` : ''}
                     </p>
@@ -269,7 +269,7 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
                 <div className="mt-3 flex items-end gap-2 rounded-lg border border-border-default bg-surface-muted p-3">
                   <div className="flex-1">
                     <label
-                      className="text-[11px] uppercase tracking-wide text-text-muted"
+                      className="text-caption uppercase tracking-wide text-text-muted"
                       htmlFor={`token-${row.employee_id}`}
                     >
                       Bearer token

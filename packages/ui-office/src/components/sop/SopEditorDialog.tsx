@@ -1,6 +1,19 @@
 import { SopService, generateId } from '@offisim/core/browser';
 import type { RoleSlug, SopDefinition, SopStep } from '@offisim/shared-types';
-import { Button, DialogShell, ToastBanner, useToasts } from '@offisim/ui-core';
+import {
+  Button,
+  DialogShell,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  ToastBanner,
+  cn,
+  useToasts,
+} from '@offisim/ui-core';
 import { Plus, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { showDiscardConfirm } from '../../lib/discard-confirm-toast';
@@ -191,93 +204,104 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
           </>
         }
       >
-        <div className="space-y-3 py-2">
+        <div className="flex flex-col gap-3 py-2">
           {/* Name & Description */}
-          <div className="space-y-1.5">
-            <input
+          <div className="flex flex-col gap-1.5">
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="SOP name..."
-              className="w-full rounded-lg border border-border-default bg-surface px-2 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+              className="h-8 text-sm"
             />
-            <input
+            <Input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optional)"
-              className="w-full rounded-lg border border-border-default bg-surface px-2 py-1 text-xs text-text-secondary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+              className="h-8 text-caption text-text-secondary"
             />
           </div>
 
           {/* Steps */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+              <span className="text-caption font-semibold uppercase tracking-wider text-text-muted">
                 Steps ({steps.length})
               </span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={addStep}
-                className="flex items-center gap-0.5 text-[10px] text-accent-text hover:text-accent"
+                className="h-7 gap-0.5 px-2 text-caption text-accent-text hover:text-accent"
               >
-                <Plus className="w-3 h-3" /> Add Step
-              </button>
+                <Plus className="size-3" aria-hidden="true" /> Add Step
+              </Button>
             </div>
 
             {steps.map((step, i) => (
               <div
                 key={step.step_id}
-                className="space-y-1.5 rounded-lg border border-border-default bg-surface-muted p-2"
+                className="flex flex-col gap-1.5 rounded-lg border border-border-default bg-surface-muted p-2"
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="w-12 shrink-0 font-mono text-[10px] text-text-muted">
+                  <span className="w-12 shrink-0 font-mono text-caption text-text-muted">
                     #{i + 1}
                   </span>
-                  <input
+                  <Input
                     type="text"
                     value={step.label}
                     onChange={(e) => updateStep(i, { label: e.target.value })}
                     placeholder="Step label"
-                    className="flex-1 rounded border border-border-default bg-surface px-1.5 py-0.5 text-xs text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+                    className="h-7 flex-1 px-1.5 py-0.5 text-caption"
                   />
-                  <select
+                  <Select
                     value={step.role_slug}
-                    onChange={(e) => updateStep(i, { role_slug: e.target.value as RoleSlug })}
-                    className="rounded border border-border-default bg-surface px-1 py-0.5 text-[10px] text-text-secondary focus:border-border-focus focus:outline-none"
+                    onValueChange={(value) => updateStep(i, { role_slug: value as RoleSlug })}
                   >
-                    {HIREABLE_ROLES.map((r) => (
-                      <option key={r.slug} value={r.slug}>
-                        {r.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-7 w-32 px-2 py-0.5 text-caption text-text-secondary">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {HIREABLE_ROLES.map((r) => (
+                        <SelectItem key={r.slug} value={r.slug}>
+                          {r.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {steps.length > 1 && (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => removeStep(i)}
-                      className="text-text-muted transition-colors hover:text-error"
+                      className="size-7 text-text-muted hover:text-error"
+                      aria-label={`Remove step ${i + 1}`}
                     >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                      <Trash2 className="size-3" aria-hidden="true" />
+                    </Button>
                   )}
                 </div>
-                <textarea
+                <Textarea
                   value={step.instruction}
                   onChange={(e) => updateStep(i, { instruction: e.target.value })}
                   placeholder="Instruction for this step..."
                   rows={2}
-                  className="w-full resize-none rounded border border-border-default bg-surface px-1.5 py-1 text-[11px] text-text-secondary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+                  className="min-h-14 resize-none px-1.5 py-1 text-caption text-text-secondary"
                 />
                 {i > 0 && (
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <span className="text-[10px] text-text-muted">After:</span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-caption text-text-muted">After:</span>
                     {steps.slice(0, i).map((prev) => {
                       const selected = step.dependencies.includes(prev.step_id);
                       return (
-                        <button
+                        <Button
                           key={prev.step_id}
                           type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
                             updateStep(i, {
                               dependencies: selected
@@ -285,14 +309,15 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                                 : [...step.dependencies, prev.step_id],
                             });
                           }}
-                          className={`px-1.5 py-0.5 rounded text-[10px] transition-colors ${
+                          className={cn(
+                            'h-6 rounded px-1.5 py-0.5 text-caption',
                             selected
-                              ? 'border border-border-focus bg-accent-muted text-accent-text'
-                              : 'border border-border-default bg-surface-muted text-text-muted hover:border-border-strong'
-                          }`}
+                              ? 'border-border-focus bg-accent-muted text-accent-text'
+                              : 'bg-surface-muted text-text-muted hover:border-border-strong',
+                          )}
                         >
                           #{steps.indexOf(prev) + 1}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
@@ -303,9 +328,9 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
 
           {/* Validation errors */}
           {errors.length > 0 && (
-            <div className="space-y-0.5 rounded border border-error bg-error-muted p-2">
+            <div className="flex flex-col gap-0.5 rounded border border-error bg-error-muted p-2">
               {errors.map((err) => (
-                <p key={err} className="text-[10px] text-error">
+                <p key={err} className="text-caption text-error">
                   {err}
                 </p>
               ))}

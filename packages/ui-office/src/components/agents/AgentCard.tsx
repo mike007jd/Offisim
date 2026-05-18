@@ -1,4 +1,4 @@
-import { Badge } from '@offisim/ui-core';
+import { Badge, Button } from '@offisim/ui-core';
 import { ChevronDown, ChevronUp, Wrench } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { truncate } from '../../lib/format-time';
@@ -90,7 +90,7 @@ export function AgentCard({ id, agent, isSelected, skillHighlight, onClick }: Ag
             <div className="flex shrink-0 items-center gap-1.5">
               <Badge
                 variant={variant}
-                className="min-w-12 justify-center text-[10px] transition-colors duration-300"
+                className="min-w-12 justify-center text-caption transition-colors duration-300"
               >
                 {agent.state}
               </Badge>
@@ -101,19 +101,19 @@ export function AgentCard({ id, agent, isSelected, skillHighlight, onClick }: Ag
             <Wrench className="inline h-2.5 w-2.5 flex-shrink-0 text-text-muted" />
           </p>
           <div className="mt-1.5 flex min-w-0 flex-wrap gap-1">
-            <span className="rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[10px] leading-none text-text-muted">
+            <span className="rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-caption leading-none text-text-muted">
               {agent.isExternal ? 'External' : 'Internal'}
             </span>
             {skillHighlight ? (
               <span
-                className="max-w-36 animate-pulse truncate rounded-full border border-success/30 bg-success-muted px-1.5 py-0.5 text-[10px] leading-none text-success"
+                className="max-w-36 animate-pulse truncate rounded-full border border-success/30 bg-success-muted px-1.5 py-0.5 text-caption leading-none text-success"
                 title={skillHighlight.detail}
               >
                 {skillHighlight.label}
               </span>
             ) : null}
             {hasTask && (
-              <span className="max-w-32 truncate rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-[10px] leading-none text-text-secondary">
+              <span className="max-w-32 truncate rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-caption leading-none text-text-secondary">
                 {task.stepIndex + 1}/{task.totalSteps} {truncate(task.stepLabel, 18)}
               </span>
             )}
@@ -153,9 +153,11 @@ function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
 
   return (
     <div className="mt-1.5">
-      <button
+      <Button
         type="button"
-        className="flex w-full items-center justify-between text-[10px] font-mono text-text-muted transition-colors hover:text-text-secondary"
+        variant="ghost"
+        size="sm"
+        className="h-auto w-full justify-between px-0 py-0 text-caption font-mono text-text-muted hover:text-text-secondary"
         onClick={(e) => {
           e.stopPropagation();
           setExpanded((prev) => !prev);
@@ -164,12 +166,12 @@ function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
         <span>
           {completedCount}/{totalCount} tasks
         </span>
-        {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-      </button>
+        {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+      </Button>
 
       <div className="mt-1 space-y-0.5">
         {visibleTasks.map((st) => (
-          <div key={st.stepIndex} className="flex items-center gap-1 text-[10px] font-mono">
+          <div key={st.stepIndex} className="flex items-center gap-1 text-caption font-mono">
             <span className="flex-shrink-0">{STATUS_ICON[st.status]}</span>
             <span
               className={[
@@ -192,7 +194,7 @@ function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
           </div>
         ))}
         {hiddenCount > 0 && !expanded && (
-          <div className="pl-4 text-[10px] font-mono text-text-muted">+{hiddenCount} more</div>
+          <div className="pl-4 text-caption font-mono text-text-muted">+{hiddenCount} more</div>
         )}
       </div>
     </div>

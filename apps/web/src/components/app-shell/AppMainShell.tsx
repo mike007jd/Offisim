@@ -1,4 +1,4 @@
-import type { ToastVariant } from '@offisim/ui-core';
+import { Button, type ToastVariant } from '@offisim/ui-core';
 import {
   AgentPanel,
   AppLayout,
@@ -209,9 +209,7 @@ export function AppMainShell(props: AppMainShellProps) {
             cards={kanban.cards}
             onMove={kanban.move as (id: string, next: KanbanState) => Promise<void>}
             onCreate={kanban.create as (input: CreateKanbanCardInput) => Promise<void>}
-            onUpdate={
-              kanban.update as (id: string, input: UpdateKanbanCardInput) => Promise<void>
-            }
+            onUpdate={kanban.update as (id: string, input: UpdateKanbanCardInput) => Promise<void>}
             onToggle={onToggleKanban}
           />
         ) : null
@@ -228,7 +226,7 @@ export function AppMainShell(props: AppMainShellProps) {
       }
       sceneCanvas={
         isOffice ? (
-          <Suspense fallback={<div className="h-full w-full animate-pulse bg-ocean-deep" />}>
+          <Suspense fallback={<div className="h-full w-full animate-pulse bg-surface-muted" />}>
             <OfficeSceneSurface
               leftPanelWidth={officeState.leftPanelWidth}
               onSceneFallbackTo2D={onSceneFallbackTo2D}
@@ -302,10 +300,12 @@ export function AppMainShell(props: AppMainShellProps) {
           activeProjectStatus={activeProjectStatus}
           dashboardSlot={
             isOffice ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={onToggleDashboard}
-                className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[10px] font-semibold uppercase tracking-wider transition ${
+                className={`h-6 gap-1 rounded-full px-2 text-caption font-semibold uppercase tracking-wider ${
                   officeState.dashboardOpen
                     ? 'border-border-focus bg-accent-muted text-accent-text'
                     : 'border-border-subtle bg-surface-muted text-text-secondary hover:bg-surface-hover hover:text-text-primary'
@@ -315,7 +315,7 @@ export function AppMainShell(props: AppMainShellProps) {
                 title="Toggle dashboard (⌘D)"
               >
                 Dashboard
-              </button>
+              </Button>
             ) : null
           }
           notificationSlot={
@@ -329,7 +329,7 @@ export function AppMainShell(props: AppMainShellProps) {
           gitBranchSlot={
             isOffice && gitBranch ? (
               <span
-                className="inline-flex h-6 items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 text-[10px] uppercase tracking-wider text-text-secondary"
+                className="inline-flex h-6 items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 text-caption uppercase tracking-wider text-text-secondary"
                 title={`Workspace ${activeProject?.workspace_root ?? ''} · branch ${gitBranch}`}
               >
                 <span className="font-mono lowercase tracking-normal text-text-muted">⎇</span>

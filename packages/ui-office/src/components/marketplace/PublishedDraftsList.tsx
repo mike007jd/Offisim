@@ -114,7 +114,7 @@ export function PublishedDraftsList() {
               {draft.summary && (
                 <div className="mt-0.5 truncate text-xs text-text-secondary">{draft.summary}</div>
               )}
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-caption text-text-muted">
                 {draft.kind && (
                   <span className="rounded-full bg-surface-muted px-2 py-0.5">{draft.kind}</span>
                 )}
@@ -122,7 +122,7 @@ export function PublishedDraftsList() {
               </div>
             </div>
             <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[draft.status]}`}
+              className={`shrink-0 rounded-full px-2 py-0.5 text-caption font-medium ${STATUS_TONE[draft.status]}`}
             >
               {STATUS_LABEL[draft.status]}
             </span>

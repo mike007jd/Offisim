@@ -25,7 +25,7 @@ function parseConfig(raw: string | null): { modelPreference: string; temperature
 
 /** Map employee enabled value (0|1) + agent state to a display label + colour. */
 function statusBadge(enabled: number, agentState?: string): { label: string; cls: string } {
-  if (!enabled) return { label: 'disabled', cls: 'bg-gray-200 text-gray-500' };
+  if (!enabled) return { label: 'disabled', cls: 'bg-surface-muted text-text-muted' };
   switch (agentState) {
     case 'working':
       return { label: 'working', cls: 'bg-kelp-green/20 text-kelp-green' };
@@ -157,7 +157,7 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
           />
         </div>
         <span
-          className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusCls}`}
+          className={`shrink-0 text-caption font-medium px-1.5 py-0.5 rounded-full ${statusCls}`}
         >
           {statusLabel}
         </span>
@@ -165,14 +165,14 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
 
       {/* Role badge */}
       <div>
-        <span className="inline-block text-[10px] font-mono bg-ocean-light/40 text-shell rounded px-1.5 py-0.5">
+        <span className="inline-block text-caption font-mono bg-ocean-light/40 text-shell rounded px-1.5 py-0.5">
           {employee.role_slug}
         </span>
       </div>
 
       {/* Expertise */}
       <div>
-        <p className="text-[10px] text-shell/60 uppercase tracking-wider mb-0.5">Expertise</p>
+        <p className="text-caption text-shell/60 uppercase tracking-wider mb-0.5">Expertise</p>
         <InlineEdit
           value={persona.expertise}
           placeholder="e.g. React, Node.js"
@@ -184,7 +184,7 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
 
       {/* Style */}
       <div>
-        <p className="text-[10px] text-shell/60 uppercase tracking-wider mb-0.5">Style</p>
+        <p className="text-caption text-shell/60 uppercase tracking-wider mb-0.5">Style</p>
         <InlineEdit
           value={persona.style}
           placeholder="e.g. detail-oriented"
@@ -196,12 +196,12 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
       {/* Model + temperature footer */}
       <div className="mt-auto pt-2 border-t border-ocean-light/60 flex items-center justify-between gap-2">
         <span
-          className="text-[10px] text-shell/70 truncate max-w-[120px]"
+          className="max-w-employee-quick-meta truncate text-caption text-shell/70"
           title={config.modelPreference || '跟随统一设置'}
         >
           {config.modelPreference || <em>跟随统一设置</em>}
         </span>
-        <span className="text-[10px] font-mono text-shell/70 shrink-0">
+        <span className="text-caption font-mono text-shell/70 shrink-0">
           T {config.temperature.toFixed(1)}
         </span>
       </div>

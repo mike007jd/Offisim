@@ -1,5 +1,6 @@
 import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
 import {
+  Button,
   EntityDropdown,
   type EntityDropdownItem,
   type EntityDropdownSection,
@@ -54,7 +55,7 @@ function projectItem(project: ProjectRow): EntityDropdownItem {
     label: project.name,
     icon: <span className={`mt-1 h-1.5 w-1.5 rounded-full ${STATUS_DOT[project.status]}`} />,
     badge: (
-      <span className={`rounded px-1.5 py-0.5 text-[10px] ${STATUS_CHIP[project.status]}`}>
+      <span className={`rounded px-1.5 py-0.5 text-caption ${STATUS_CHIP[project.status]}`}>
         {STATUS_LABEL[project.status]}
       </span>
     ),
@@ -105,17 +106,19 @@ export function ProjectSelector({
   };
 
   const trigger = (
-    <button
+    <Button
       type="button"
-      className="flex h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-full border border-border-default bg-surface-muted px-2.5 text-xs text-text-secondary transition-colors hover:border-border-strong hover:bg-surface-hover hover:text-text-primary"
+      variant="outline"
+      size="sm"
+      className="h-7 w-full min-w-0 justify-between gap-1.5 rounded-full border-border-default bg-surface-muted px-2.5 text-xs text-text-secondary hover:border-border-strong hover:bg-surface-hover hover:text-text-primary"
       title="Select project context"
     >
       <span className="flex min-w-0 items-center gap-1.5">
-        <BriefcaseBusiness className="h-3.5 w-3.5 flex-shrink-0 text-info" />
+        <BriefcaseBusiness className="size-3.5 flex-shrink-0 text-info" />
         {activeProject ? (
           <>
             <span
-              className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[activeProject.status]}`}
+              className={`size-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[activeProject.status]}`}
             />
             <span className="min-w-0 truncate">{activeProject.name}</span>
           </>
@@ -124,9 +127,9 @@ export function ProjectSelector({
         )}
       </span>
       <ChevronDown
-        className={`h-3 w-3 flex-shrink-0 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`}
+        className={`size-3 flex-shrink-0 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`}
       />
-    </button>
+    </Button>
   );
 
   return (
@@ -136,7 +139,7 @@ export function ProjectSelector({
       trigger={trigger}
       align="start"
       collisionPadding={8}
-      contentClassName="w-72 max-h-[28rem] overflow-y-auto"
+      contentClassName="w-72 max-h-project-select-content overflow-y-auto"
       title={projects.length > 0 ? `Projects · ${projects.length}` : 'Projects'}
       sections={sections}
       activeId={activeProjectId ?? ALL_OPTION_ID}

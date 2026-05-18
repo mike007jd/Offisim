@@ -1,5 +1,5 @@
 import type { ListingDetail } from '@offisim/registry-client';
-import { Skeleton, cn } from '@offisim/ui-core';
+import { Button, Skeleton, cn } from '@offisim/ui-core';
 import { ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
@@ -27,7 +27,7 @@ export interface MarketDetailViewProps {
 function DetailSkeleton({ compact }: { compact: boolean }) {
   return (
     <div className={cn('flex h-full', compact && 'flex-col overflow-y-auto')}>
-      <div className={cn('space-y-4 p-8', compact ? 'w-full' : 'w-3/5')}>
+      <div className={cn('flex flex-col gap-4 p-8', compact ? 'w-full' : 'w-3/5')}>
         <Skeleton className="h-7 w-24 rounded-full" />
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-5 w-full" />
@@ -36,7 +36,7 @@ function DetailSkeleton({ compact }: { compact: boolean }) {
       </div>
       <div
         className={cn(
-          'space-y-4 p-8',
+          'flex flex-col gap-4 p-8',
           compact ? 'w-full border-t border-border-subtle' : 'w-2/5 border-l border-border-subtle',
         )}
       >
@@ -62,14 +62,16 @@ export function MarketDetailView({
   if (loading) {
     return (
       <div className="relative h-full">
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           onClick={onBack}
-          className="absolute left-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-muted px-3 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+          className="absolute left-4 top-4 z-10 gap-1.5"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="size-4" aria-hidden="true" />
           Back
-        </button>
+        </Button>
         <DetailSkeleton compact={compact} />
       </div>
     );
@@ -82,14 +84,10 @@ export function MarketDetailView({
         <p className="text-sm text-text-secondary">
           This package may have been removed or is no longer accessible.
         </p>
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface-muted px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
-        >
-          <ArrowLeft className="h-4 w-4" />
+        <Button type="button" variant="secondary" onClick={onBack} className="gap-1.5">
+          <ArrowLeft className="size-4" aria-hidden="true" />
           Back
-        </button>
+        </Button>
       </div>
     );
   }
@@ -114,18 +112,14 @@ export function MarketDetailView({
       )}
     >
       <header className="flex shrink-0 items-center gap-3 border-b border-border-subtle px-6 py-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
-        >
-          <ArrowLeft className="h-4 w-4" />
+        <Button type="button" variant="ghost" size="sm" onClick={onBack} className="gap-1.5 px-2">
+          <ArrowLeft className="size-4" aria-hidden="true" />
           Back
-        </button>
+        </Button>
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${rarity.badge}`}
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-caption font-medium ${rarity.badge}`}
         >
-          {Icon && <Icon className="h-3.5 w-3.5" />}
+          {Icon && <Icon className="size-3.5" aria-hidden="true" />}
           {detail.kind}
         </span>
       </header>
@@ -143,7 +137,7 @@ export function MarketDetailView({
               {detail.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-surface-muted px-2.5 py-0.5 text-[11px] text-text-secondary"
+                  className="rounded-full bg-surface-muted px-2.5 py-0.5 text-caption text-text-secondary"
                 >
                   {tag}
                 </span>
@@ -181,16 +175,16 @@ export function MarketDetailView({
               : 'w-2/5 border-l border-border-subtle',
           )}
         >
-          <dl className="space-y-3 text-sm">
+          <dl className="flex flex-col gap-3 text-sm">
             <MetaRow label="Version" value={version} />
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-text-muted">Creator</dt>
+              <dt className="text-caption uppercase tracking-wide text-text-muted">Creator</dt>
               <dd className="mt-0.5 flex items-center gap-1.5 text-text-primary">
                 <span>{detail.creator.display_name}</span>
                 <span className="text-text-muted">@{detail.creator.handle}</span>
                 {detail.creator.verification_state !== 'unverified' && (
                   <span
-                    className="inline-block h-1.5 w-1.5 rounded-full bg-info"
+                    className="inline-block size-1.5 rounded-full bg-info"
                     title={
                       detail.creator.verification_state === 'trusted'
                         ? 'Trusted creator'
@@ -201,9 +195,9 @@ export function MarketDetailView({
               </dd>
             </div>
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-text-muted">Rating</dt>
+              <dt className="text-caption uppercase tracking-wide text-text-muted">Rating</dt>
               <dd className="mt-0.5 inline-flex items-center gap-1 text-text-primary">
-                <Star className="h-3.5 w-3.5 fill-current text-warning" />
+                <Star className="size-3.5 fill-current text-warning" aria-hidden="true" />
                 {detail.rating.toFixed(1)}
               </dd>
             </div>
@@ -218,15 +212,16 @@ export function MarketDetailView({
 
           {isInstallable ? (
             isInstalled ? (
-              <button
+              <Button
                 type="button"
                 disabled
-                className="mt-5 w-full cursor-not-allowed rounded-lg bg-surface-muted px-4 py-2.5 text-sm font-semibold text-text-muted"
+                variant="secondary"
+                className="mt-5 w-full cursor-not-allowed"
               >
                 Installed
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
                 onClick={() =>
                   onInstall(
@@ -237,10 +232,10 @@ export function MarketDetailView({
                 className={`mt-5 w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${rarity.accent}`}
               >
                 Install
-              </button>
+              </Button>
             )
           ) : (
-            <p className="mt-5 text-center text-xs text-text-muted">
+            <p className="mt-5 text-center text-caption text-text-muted">
               Install not supported for {detail.kind}.
             </p>
           )}
@@ -250,7 +245,7 @@ export function MarketDetailView({
           </div>
 
           {typeof detail.version !== 'string' && detail.version.runtime_range && (
-            <div className="mt-5 text-xs">
+            <div className="mt-5 text-caption">
               <span className="text-text-muted">Runtime · </span>
               <span className="text-text-secondary">{detail.version.runtime_range}</span>
             </div>
@@ -264,7 +259,7 @@ export function MarketDetailView({
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] uppercase tracking-wide text-text-muted">{label}</dt>
+      <dt className="text-caption uppercase tracking-wide text-text-muted">{label}</dt>
       <dd className="mt-0.5 text-text-primary">{value}</dd>
     </div>
   );
@@ -273,7 +268,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="mt-5 border-t border-border-subtle pt-5">
-      <h2 className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+      <h2 className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
         {title}
       </h2>
       <div className="mt-2">{children}</div>
@@ -306,30 +301,35 @@ function ScreenshotCarousel({
         />
         {images.length > 1 && (
           <>
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="icon"
               onClick={goPrev}
               aria-label="Previous screenshot"
-              className="absolute left-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-surface-elevated/80 text-text-primary backdrop-blur transition hover:bg-surface-elevated"
+              className="absolute left-2 top-1/2 size-8 -translate-y-1/2 rounded-full bg-surface-elevated/80 text-text-primary backdrop-blur"
             >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
+              <ChevronLeft className="size-4" aria-hidden="true" />
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
+              size="icon"
               onClick={goNext}
               aria-label="Next screenshot"
-              className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-surface-elevated/80 text-text-primary backdrop-blur transition hover:bg-surface-elevated"
+              className="absolute right-2 top-1/2 size-8 -translate-y-1/2 rounded-full bg-surface-elevated/80 text-text-primary backdrop-blur"
             >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+              <ChevronRight className="size-4" aria-hidden="true" />
+            </Button>
             <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
               {images.map((preview, i) => (
-                <button
+                <Button
                   key={preview.url}
                   type="button"
+                  variant="ghost"
                   onClick={() => setIndex(i)}
                   aria-label={`Show screenshot ${i + 1}`}
-                  className={`h-1.5 w-1.5 rounded-full transition ${
+                  className={`h-1.5 w-1.5 rounded-full border-0 p-0 transition ${
                     i === index ? 'bg-text-primary' : 'bg-text-muted/40'
                   }`}
                 />
@@ -353,17 +353,17 @@ function RequirementsSection({
   if (caps.length === 0 && mcps.length === 0 && models.length === 0) return null;
   return (
     <Section title="Requirements">
-      <div className="space-y-2 text-sm">
+      <div className="flex flex-col gap-2 text-sm">
         {caps.length > 0 && (
           <div className="flex flex-wrap items-baseline gap-2">
-            <span className="text-[11px] uppercase tracking-wide text-text-muted">
+            <span className="text-caption uppercase tracking-wide text-text-muted">
               Capabilities
             </span>
             <div className="flex flex-wrap gap-1">
               {caps.map((c) => (
                 <span
                   key={c}
-                  className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary"
+                  className="rounded-full bg-surface-muted px-2 py-0.5 text-caption text-text-secondary"
                 >
                   {c}
                 </span>
@@ -373,12 +373,12 @@ function RequirementsSection({
         )}
         {mcps.length > 0 && (
           <div className="flex flex-wrap items-baseline gap-2">
-            <span className="text-[11px] uppercase tracking-wide text-text-muted">MCPs</span>
+            <span className="text-caption uppercase tracking-wide text-text-muted">MCPs</span>
             <div className="flex flex-wrap gap-1">
               {mcps.map((m) => (
                 <span
                   key={m}
-                  className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary"
+                  className="rounded-full bg-surface-muted px-2 py-0.5 text-caption text-text-secondary"
                 >
                   {m}
                 </span>
@@ -388,12 +388,12 @@ function RequirementsSection({
         )}
         {models.length > 0 && (
           <div className="flex flex-wrap items-baseline gap-2">
-            <span className="text-[11px] uppercase tracking-wide text-text-muted">Models</span>
+            <span className="text-caption uppercase tracking-wide text-text-muted">Models</span>
             <div className="flex flex-wrap gap-1">
               {models.map((m) => (
                 <span
                   key={m.profile}
-                  className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] text-text-secondary"
+                  className="rounded-full bg-surface-muted px-2 py-0.5 text-caption text-text-secondary"
                   title={m.reason ?? undefined}
                 >
                   {m.profile}
@@ -419,7 +419,7 @@ function LineageSection({ lineage }: { lineage: ListingDetail['lineage'] }) {
   }
   return (
     <Section title="Lineage">
-      <div className="space-y-1 text-sm text-text-secondary">
+      <div className="flex flex-col gap-1 text-sm text-text-secondary">
         {origin_package_id && (
           <div>
             <span className="text-text-muted">Origin: </span>

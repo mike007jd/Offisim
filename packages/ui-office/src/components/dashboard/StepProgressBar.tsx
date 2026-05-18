@@ -1,4 +1,4 @@
-import { cn } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -26,13 +26,13 @@ function segmentColor(status: StepProgressSegment['status'], isHighlighted: bool
   const dimmed = !isHighlighted ? 'opacity-50' : '';
   switch (status) {
     case 'completed':
-      return cn('bg-green-400', dimmed);
+      return cn('bg-success', dimmed);
     case 'active':
-      return cn('bg-blue-400', dimmed);
+      return cn('bg-info', dimmed);
     case 'failed':
-      return cn('bg-red-400', dimmed);
+      return cn('bg-error', dimmed);
     default:
-      return cn('bg-gray-200', dimmed);
+      return cn('bg-text-muted', dimmed);
   }
 }
 
@@ -48,22 +48,23 @@ export function StepProgressBar({ steps, activeFilter, onSegmentClick }: StepPro
   const totalTasks = steps.reduce((sum, s) => sum + Math.max(s.taskCount, 1), 0);
 
   return (
-    <div className="relative w-full" style={{ height: 32 }}>
-      <div className="flex h-full w-full overflow-hidden rounded gap-px">
+    <div className="relative h-8 w-full">
+      <div className="flex h-full w-full gap-px overflow-hidden rounded">
         {steps.map((step) => {
           const widthPct = (Math.max(step.taskCount, 1) / totalTasks) * 100;
           const isHighlighted = activeFilter === null || activeFilter === step.index;
 
           return (
-            <button
+            <Button
               key={step.index}
               type="button"
+              variant="ghost"
               title={`Step ${step.index + 1}: ${step.description} (${step.taskCount} tasks)`}
               style={{ width: `${widthPct}%` }}
               className={cn(
-                'relative h-full cursor-pointer transition-opacity duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-koi',
+                'relative h-full rounded-none p-0 transition-opacity duration-150 focus-visible:ring-2 focus-visible:ring-info',
                 segmentColor(step.status, isHighlighted),
-                activeFilter === step.index && 'ring-2 ring-inset ring-white/40',
+                activeFilter === step.index && 'ring-2 ring-inset ring-border-focus',
               )}
               onClick={() => onSegmentClick(activeFilter === step.index ? null : step.index)}
               onMouseEnter={() => setHoveredIndex(step.index)}
@@ -84,7 +85,7 @@ export function StepProgressBar({ steps, activeFilter, onSegmentClick }: StepPro
           const leftPct = (totalSoFar / totalTasks) * 100;
           return (
             <div
-              className="pointer-events-none absolute top-full z-50 mt-1 max-w-[160px] rounded bg-ocean-deep px-2 py-1 text-[10px] text-pearl shadow-lg"
+              className="pointer-events-none absolute top-full z-50 mt-1 max-w-step-tooltip rounded bg-ocean-deep px-2 py-1 text-caption text-pearl shadow-lg"
               style={{ left: `${leftPct}%` }}
             >
               <div className="font-medium">Step {hovered.index + 1}</div>

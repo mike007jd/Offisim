@@ -15,6 +15,8 @@ import {
   templateToZone,
 } from '@offisim/shared-types';
 import {
+  Button,
+  Input,
   ToastBanner,
   getTopmostModalId,
   useRegisterModal,
@@ -27,7 +29,7 @@ import { saveZonesToDb } from '../../lib/zone-persistence.js';
 import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
 import { PlotZoneBreadcrumb } from './PlotZoneBreadcrumb.js';
 import { StudioCanvas } from './StudioCanvas.js';
-import { STUDIO_IDENTITY_HEIGHT, StudioCompanyIdentity } from './StudioCompanyIdentity.js';
+import { StudioCompanyIdentity } from './StudioCompanyIdentity.js';
 import { StudioGhost } from './StudioGhost.js';
 import { StudioPalette } from './StudioPalette.js';
 import { StudioPlacedPrefabs } from './StudioPlacedPrefabs.js';
@@ -37,10 +39,6 @@ import { useStudioStore } from './StudioState.js';
 import { StudioToolbar } from './StudioToolbar.js';
 import { StudioZoneGhost } from './StudioZoneGhost.js';
 import { CREATE_PLOT_KEY, readStoredPlotSize } from './studio-plot-size-storage.js';
-import { FONT, LAYOUT, SP, STUDIO_COLORS, STUDIO_Z_INDEX } from './studio-style-helpers.js';
-
-const BREADCRUMB_HEIGHT = 32;
-const TOP_CHROME_HEIGHT = LAYOUT.toolbarHeight + STUDIO_IDENTITY_HEIGHT + BREADCRUMB_HEIGHT;
 
 // -- Props --------------------------------------------------------------------
 
@@ -59,24 +57,6 @@ export type StudioPageProps =
       onBack: () => void;
       onCompanyCreated?: (companyId: string) => void;
     };
-
-// -- Styles -------------------------------------------------------------------
-
-const ROOT_STYLE: React.CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: STUDIO_COLORS.canvasBg,
-  fontFamily: FONT.family,
-  zIndex: STUDIO_Z_INDEX.dropdown,
-};
-
-const CANVAS_CONTAINER: React.CSSProperties = {
-  position: 'absolute',
-  top: TOP_CHROME_HEIGHT,
-  left: LAYOUT.paletteWidth,
-  right: LAYOUT.propertiesWidth,
-  bottom: LAYOUT.bottomBarHeight,
-};
 
 // -- Inline modal for company name --------------------------------------------
 
@@ -103,15 +83,7 @@ function CompanyNameModal({
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: STUDIO_COLORS.surface0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: STUDIO_Z_INDEX.modal,
-      }}
+      className="fixed inset-0 z-modal flex items-center justify-center bg-surface-elevated"
       role="presentation"
       onClick={onCancel}
       tabIndex={-1}
@@ -123,30 +95,15 @@ function CompanyNameModal({
         open
         aria-labelledby="company-name-modal-title"
         onPointerDown={(e) => e.stopPropagation()}
-        style={{
-          background: STUDIO_COLORS.surface0,
-          border: `1px solid ${STUDIO_COLORS.border}`,
-          borderRadius: LAYOUT.cardRadius,
-          padding: SP.xxl,
-          width: 340,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: SP.lg,
-          margin: 0,
-        }}
+        className="m-0 flex w-full max-w-sm flex-col gap-4 rounded-lg border border-border-default bg-surface-elevated p-6"
       >
         <h2
           id="company-name-modal-title"
-          style={{
-            fontSize: FONT.xl,
-            fontWeight: FONT.semibold,
-            color: STUDIO_COLORS.textPrimary,
-            fontFamily: FONT.family,
-          }}
+          className="font-sans text-body font-semibold text-text-primary"
         >
           Company Name
         </h2>
-        <input
+        <Input
           ref={inputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -155,55 +112,15 @@ function CompanyNameModal({
             if (e.key === 'Escape') onCancel();
           }}
           aria-label="Company name"
-          style={{
-            width: '100%',
-            padding: `${SP.sm}px ${SP.md}px`,
-            background: STUDIO_COLORS.surface1,
-            border: `1px solid ${STUDIO_COLORS.borderActive}`,
-            borderRadius: LAYOUT.buttonRadius,
-            color: STUDIO_COLORS.textPrimary,
-            fontSize: FONT.md,
-            fontFamily: FONT.family,
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
+          className="w-full border-border-focus bg-surface-muted text-text-primary"
         />
-        <div style={{ display: 'flex', gap: SP.sm, justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label="Cancel"
-            style={{
-              padding: `${SP.sm}px ${SP.lg}px`,
-              background: STUDIO_COLORS.surface2,
-              border: `1px solid ${STUDIO_COLORS.border}`,
-              borderRadius: LAYOUT.buttonRadius,
-              color: STUDIO_COLORS.textSecondary,
-              fontSize: FONT.base,
-              fontFamily: FONT.family,
-              cursor: 'pointer',
-            }}
-          >
+        <div className="flex justify-end gap-2">
+          <Button type="button" onClick={onCancel} aria-label="Cancel" variant="secondary">
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            aria-label="Create company"
-            style={{
-              padding: `${SP.sm}px ${SP.lg}px`,
-              background: STUDIO_COLORS.accentMuted,
-              border: `1px solid ${STUDIO_COLORS.borderActive}`,
-              borderRadius: LAYOUT.buttonRadius,
-              color: STUDIO_COLORS.accentText,
-              fontSize: FONT.base,
-              fontWeight: FONT.semibold,
-              fontFamily: FONT.family,
-              cursor: 'pointer',
-            }}
-          >
+          </Button>
+          <Button type="button" onClick={handleSubmit} aria-label="Create company">
             Create
-          </button>
+          </Button>
         </div>
       </dialog>
     </div>
@@ -487,7 +404,7 @@ export function StudioPage(props: StudioPageProps) {
   // -- Render -----------------------------------------------------------------
 
   return (
-    <div style={ROOT_STYLE}>
+    <div className="fixed inset-0 z-dropdown bg-surface font-sans">
       {/* Top toolbar: tools, grid toggle, save, back */}
       <StudioToolbar onSave={handleSave} onBack={onBack} saving={saving} saveFlash={saveFlash} />
 
@@ -510,25 +427,10 @@ export function StudioPage(props: StudioPageProps) {
       <StudioProperties />
 
       {/* 3D canvas area */}
-      <div style={CANVAS_CONTAINER}>
+      <div className="studio-canvas-frame absolute">
         {loading ? (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: STUDIO_COLORS.canvasBg,
-            }}
-          >
-            <Loader2
-              size={32}
-              style={{
-                color: STUDIO_COLORS.textTertiary,
-                animation: 'spin 1s linear infinite',
-              }}
-            />
+          <div className="flex h-full w-full items-center justify-center bg-surface">
+            <Loader2 className="h-8 w-8 animate-spin text-text-muted" />
           </div>
         ) : (
           <StudioCanvas focusRef={focusRef}>
@@ -555,9 +457,6 @@ export function StudioPage(props: StudioPageProps) {
           }}
         />
       )}
-
-      {/* CSS keyframes for loader spinner */}
-      <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
     </div>
   );
 }

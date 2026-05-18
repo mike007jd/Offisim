@@ -1,4 +1,4 @@
-import { Button } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { AlertCircle, CheckCircle, Info, X, XCircle } from 'lucide-react';
 import type { Notification } from '../../hooks/useNotifications';
 
@@ -10,10 +10,10 @@ interface NotificationCardProps {
 }
 
 const LEVEL_STYLES: Record<Notification['level'], { icon: typeof Info; color: string }> = {
-  info: { icon: Info, color: 'text-blue-400' },
-  success: { icon: CheckCircle, color: 'text-green-400' },
-  warning: { icon: AlertCircle, color: 'text-yellow-400' },
-  error: { icon: XCircle, color: 'text-red-400' },
+  info: { icon: Info, color: 'text-info' },
+  success: { icon: CheckCircle, color: 'text-success' },
+  warning: { icon: AlertCircle, color: 'text-warning' },
+  error: { icon: XCircle, color: 'text-error' },
 };
 
 function formatTimestamp(ts: number): string {
@@ -46,40 +46,42 @@ export function NotificationCard({
 
   return (
     <div
-      className={`flex items-start gap-2 p-2 border-b border-ocean-light/50 transition-colors hover:bg-ocean-deep/50 ${
-        notification.read ? 'opacity-60' : ''
-      }`}
+      className={cn(
+        'flex items-start gap-2 border-b border-border-subtle p-2 transition-colors hover:bg-surface-hover',
+        notification.read ? 'opacity-60' : '',
+      )}
     >
-      <button
+      <Button
         type="button"
-        className="flex flex-1 items-start gap-2 border-0 bg-transparent p-0 text-left appearance-none cursor-pointer"
+        variant="ghost"
+        className="h-auto flex-1 items-start justify-start gap-2 rounded-none p-0 text-left"
         onClick={handleClick}
       >
-        <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${color}`} />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-pixel-body text-shell leading-tight truncate">
+        <Icon className={cn('mt-0.5 size-4 shrink-0', color)} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium leading-tight text-text-primary">
             {notification.title}
           </p>
-          <p className="text-[10px] text-shell/60 leading-tight mt-0.5 line-clamp-2">
+          <p className="mt-0.5 line-clamp-2 text-caption leading-tight text-text-muted">
             {notification.message}
           </p>
-          <span className="text-[10px] text-shell/40 mt-0.5 block">
+          <span className="mt-0.5 block text-caption text-text-muted">
             {formatTimestamp(notification.timestamp)}
           </span>
         </div>
-      </button>
+      </Button>
       {notification.dismissable && (
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-4 w-4 shrink-0"
+          className="size-4 shrink-0"
           onClick={(e) => {
             e.stopPropagation();
             onDismiss(notification.notificationId);
           }}
         >
-          <X className="h-3 w-3" />
+          <X className="size-3" />
         </Button>
       )}
     </div>

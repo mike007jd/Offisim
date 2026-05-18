@@ -144,7 +144,7 @@
       display: flex;
       align-items: center;
       gap: var(--sp-6);
-      padding: 0 var(--sp-7);
+      padding: 0 var(--sp-5);
       background: linear-gradient(#fcfdfe, #eef2f7);
       border-bottom: 1px solid var(--line);
     }
@@ -170,7 +170,7 @@
       display: flex;
       align-items: center;
       gap: var(--sp-5);
-      padding: 0 var(--sp-6);
+      padding: 0 var(--sp-5);
       background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--line);
@@ -289,7 +289,7 @@
     .ws-tabs {
       height: 44px;
       display: flex; align-items: center; gap: 2px;
-      padding: 0 var(--sp-3);
+      padding: 0 var(--sp-5);
       border-bottom: 1px solid var(--line);
     }
     .ws-tab {
@@ -324,7 +324,7 @@
     .ws-pane.active { display: grid; }
 
     .ws-search {
-      padding: var(--sp-4) var(--sp-4) var(--sp-2);
+      padding: var(--sp-4) var(--sp-5) var(--sp-2);
       display: grid; grid-template-columns: 1fr 30px;
       gap: var(--sp-2);
     }
@@ -348,7 +348,7 @@
     /* ── File tree ─────────────────────────────────────── */
     .file-tree {
       min-height: 0; overflow-y: auto;
-      padding: var(--sp-1) var(--sp-3) var(--sp-3);
+      padding: var(--sp-1) var(--sp-5) var(--sp-3);
       display: flex; flex-direction: column;
     }
     .file-row {
@@ -428,7 +428,7 @@
     /* ── Tasks / SOP list shared scroller ─────────────── */
     .pane-scroll {
       min-height: 0; overflow-y: auto;
-      padding: var(--sp-2) var(--sp-4) var(--sp-3);
+      padding: var(--sp-2) var(--sp-5) var(--sp-3);
     }
 
     /* ── SOP cards ─────────────────────────────────────── */
@@ -526,7 +526,7 @@
     .sop-recent-time { color: var(--ink-4); font-size: var(--fs-micro); }
 
     /* ── Git Workbench (faithful to GitWorkbench.tsx) ───── */
-    .git-pane { min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-4) var(--sp-5); }
+    .git-pane { min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--sp-5) var(--sp-5); }
     .gw-caps { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; }
     .gw-head { border-bottom: 1px solid var(--line); padding-bottom: var(--sp-5); }
     .gw-head-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
@@ -855,23 +855,10 @@
       transition: border-color 0.14s ease, background 0.14s ease;
     }
     .rail-search .field:hover { border-color: var(--line-strong); background: var(--surface-2); }
-    .rail-proj { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
-    .rail-proj-label {
-      flex: none; font-size: var(--fs-micro); font-weight: 680;
-      letter-spacing: 0.16em; color: var(--ink-3); text-transform: uppercase;
-    }
-    .rail-proj-sel {
-      flex: 1; min-width: 0; height: 30px; padding: 0 10px;
-      border: 1px solid var(--line); border-radius: var(--r-sm);
-      background: var(--surface-2); color: var(--ink-1);
-      display: flex; align-items: center; gap: 7px;
-      font-size: var(--fs-sm); font-weight: 600;
-      transition: border-color 0.14s ease, background 0.14s ease;
-    }
-    .rail-proj-sel:hover { border-color: var(--line-strong); background: var(--surface-1); }
-    .rail-proj-sel .s-icn { color: var(--ink-3); display: grid; place-items: center; flex: none; }
-    .rail-proj-sel .s-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-    .rail-proj-sel .s-caret { color: var(--ink-4); display: grid; place-items: center; flex: none; }
+    /* Project selector is owned solely by the top scope-bar (Company ▸ Project).
+       The rail no longer re-hosts a second ProjectSelector slot — project
+       context is echoed read-only via the composer ChatContextStrip and
+       managed in Inspect ▸ Project. */
 
     .rail-tabs {
       display: flex; align-items: center; gap: 2px;
@@ -1343,6 +1330,90 @@
     .pill.mode-yolo { background: var(--danger-surface); color: #b8352e; border-color: rgba(214, 69, 61, 0.4); }
     .pill.mode-yolo .mode-dot { background: var(--danger); }
     .mode-caret { color: currentColor; opacity: 0.6; display: grid; place-items: center; }
+    .composer-tools .pill.model-chip {
+      cursor: pointer; font-weight: 620; color: var(--ink-2);
+      background: var(--surface-1); border-color: var(--line);
+    }
+    .composer-tools .pill.model-chip:hover { background: var(--surface-sunken); border-color: var(--line-strong); }
+    .composer-tools .pill.model-chip .ico { color: var(--accent); }
+
+    /* ── Model switcher cascading menu (specimen 5) ───────── */
+    .mmenu {
+      width: 286px;
+      background: var(--surface-1);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-lg);
+      box-shadow: var(--elev-3);
+      padding: var(--sp-3);
+      position: relative;
+    }
+    .mmenu-sec {
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 700; color: var(--ink-3); text-transform: uppercase;
+      padding: var(--sp-3) var(--sp-3) var(--sp-2);
+    }
+    .mmenu-row {
+      display: grid; grid-template-columns: 16px 1fr auto;
+      align-items: center; gap: var(--sp-3);
+      height: 32px; padding: 0 var(--sp-3);
+      border-radius: var(--r-sm);
+      font-size: var(--fs-sm); color: var(--ink-1); font-weight: 540;
+      cursor: pointer; transition: background 0.12s ease;
+    }
+    .mmenu-row:hover { background: var(--surface-sunken); }
+    .mmenu-row.active { background: var(--accent-surface); color: var(--accent); font-weight: 620; }
+    .mmenu-row.disabled { color: var(--ink-4); cursor: not-allowed; }
+    .mmenu-row.disabled:hover { background: transparent; }
+    .mmenu-radio {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 1.5px solid var(--line-strong); justify-self: center;
+    }
+    .mmenu-row.active .mmenu-radio { border-color: var(--accent); background: radial-gradient(var(--accent) 45%, transparent 47%); }
+    .mmenu-flag {
+      font-size: 9px; font-weight: 680; letter-spacing: 0.04em;
+      color: var(--ink-4); background: var(--surface-sunken);
+      border-radius: var(--r-pill); padding: 1px 7px; text-transform: uppercase;
+    }
+    .mmenu-sub-caret { color: var(--ink-4); display: grid; place-items: center; }
+    .mmenu-div { height: 1px; background: var(--line-soft); margin: var(--sp-3) var(--sp-2); }
+    .mmenu-seg {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 3px; padding: 0 var(--sp-3) var(--sp-2);
+    }
+    .mmenu-seg button {
+      height: 26px; border: 1px solid var(--line); border-radius: var(--r-xs);
+      background: var(--surface-2); color: var(--ink-3);
+      font-size: var(--fs-meta); font-weight: 600;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .mmenu-seg button:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    .mmenu-seg button.on {
+      background: var(--accent-surface); color: var(--accent);
+      border-color: var(--accent-ring); font-weight: 680;
+    }
+    .mmenu-foot {
+      display: flex; align-items: center; gap: 7px;
+      height: 32px; margin-top: var(--sp-2); padding: 0 var(--sp-3);
+      border-radius: var(--r-sm);
+      font-size: var(--fs-sm); font-weight: 580; color: var(--ink-2);
+      cursor: pointer; transition: background 0.12s ease;
+    }
+    .mmenu-foot:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    .mmenu-foot .ico { color: var(--ink-3); }
+    .mmenu-foot .go { margin-left: auto; color: var(--ink-4); font-size: var(--fs-meta); }
+    .mmenu-cascade {
+      position: absolute; left: calc(100% + 8px); top: 44px;
+      width: 222px;
+      background: var(--surface-1);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-lg);
+      box-shadow: var(--elev-3);
+      padding: var(--sp-3);
+    }
+    .mmenu-cascade::before {
+      content: ""; position: absolute; left: -8px; top: 18px;
+      border: 6px solid transparent; border-right-color: var(--line-strong);
+    }
     .grow { flex: 1; }
     .send {
       height: 30px; padding: 0 14px;
@@ -1368,14 +1439,21 @@
       font-size: var(--fs-meta);
       color: var(--ink-3);
     }
-    .sb-model {
-      display: inline-flex; align-items: center; gap: 6px;
+    .sb-run {
+      display: inline-flex; align-items: center; gap: 7px;
       font-weight: 600; color: var(--ink-2);
     }
-    .sb-model .ico { color: var(--accent); }
+    .sb-rdot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--ok); box-shadow: 0 0 0 2px rgba(26, 164, 106, 0.16);
+    }
     .sb-div { width: 1px; height: 14px; background: var(--line); }
-    .sb-proj { color: var(--ink-3); font-weight: 520; }
-    .sb-proj b { color: var(--ink-2); font-weight: 640; }
+    .sb-tele {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: var(--ink-3); font-weight: 560;
+      font-variant-numeric: tabular-nums;
+    }
+    .sb-tele .ico { color: var(--accent); }
     .sb-grow { flex: 1; }
     .sb-chip {
       height: 22px; padding: 0 9px;
@@ -1866,12 +1944,11 @@
         <button>Market</button>
         <button>Personnel</button>
       </div>
-      <div class="iconbar reveal d1" title="Activity / Settings are peer workspaces; Studio / Dashboard are Office-only tools (Header officeTools). Notifications live in the status bar.">
+      <div class="iconbar reveal d1" title="Activity / Settings are peer workspaces; Studio is the only Office-only tool here. Boss Dashboard (⌘D) lives in the status bar; Notifications live in the status bar.">
         <button class="iconbtn" title="Activity Log workspace"><svg class="ico sm"><use href="#i-activity"/></svg></button>
         <button class="iconbtn" title="Settings workspace"><svg class="ico sm"><use href="#i-settings"/></svg></button>
         <span class="iconbar-div"></span>
         <button class="iconbtn" title="Studio — edit company office layout (Office tool)"><svg class="ico sm"><use href="#i-pen"/></svg></button>
-        <button class="iconbtn" title="Boss Dashboard ⌘D (Office tool)"><svg class="ico sm"><use href="#i-grid"/></svg></button>
       </div>
     </nav>
 
@@ -2371,14 +2448,6 @@
           <div class="rail-search">
             <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search threads, employees…</div>
           </div>
-          <div class="rail-proj">
-            <span class="rail-proj-label">Project</span>
-            <button class="rail-proj-sel" title="ProjectSelector slot (summaryMode=none)">
-              <span class="s-icn"><svg class="ico sm"><use href="#i-folder"/></svg></span>
-              <span class="s-name">Offisim</span>
-              <span class="s-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
-            </button>
-          </div>
         </div>
 
         <!-- Tab strip -->
@@ -2473,10 +2542,11 @@
                 <svg class="ico xs"><use href="#i-paperclip"/></svg>20 attachments available
               </div>
               <div class="composer-tools">
-                <button class="ibtn" title="Attach"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
-                <button class="ibtn" title="Slash command"><svg class="ico sm"><use href="#i-slash"/></svg></button>
-                <button class="ibtn" title="Mention"><svg class="ico sm"><use href="#i-at"/></svg></button>
+                <button class="ibtn" title="Attach file — / and @ are typed inline (slash registry / mention), no button needed"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
                 <span class="divider"></span>
+                <button class="pill model-chip" title="Model — provider ▸ model cascade + think level. The only in-conversation model switch; reads configured ProviderConfig, full key/endpoint setup lives in Settings">
+                  <svg class="ico xs"><use href="#i-sparkle"/></svg>MiniMax · M2.7 · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+                </button>
                 <button class="pill mode-chip mode-sop" title="SessionModeChip — the only mode entry (SOP / Human-in-loop / Direct / YOLO)">
                   <span class="mode-dot"></span>SOP<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
                 </button>
@@ -2670,12 +2740,13 @@
 
     <!-- ── Status bar ── -->
     <footer class="statusbar reveal d4">
-      <span class="sb-model" title="Active provider model (StatusBar modelName)">
-        <svg class="ico xs"><use href="#i-sparkle"/></svg>MiniMax-M2.7
+      <span class="sb-run" title="Run-state segment — idle = Ready; running = pulsing pipeline stage + Stop button (see states prototype). Model name & project identity intentionally removed (model → composer chip; project → scope-bar + Inspect, was a 3rd duplicate)">
+        <span class="sb-rdot"></span>Ready
       </span>
-      <span class="sb-div"></span>
-      <span class="sb-proj" title="StatusBar activeProjectStatus">Project <b>Offisim</b> · 4 tasks · 2 outputs</span>
       <span class="sb-grow"></span>
+      <span class="sb-tele" title="Live runtime telemetry — cumulative tokens · estimated cost · last latency. Real values (the 过程即价值 readout); this is why the bar stays, not a static restatement">
+        <svg class="ico xs"><use href="#i-sparkle"/></svg>142K tok<span class="sb-div"></span>$1.84<span class="sb-div"></span>1.2s
+      </span>
       <button class="sb-chip active" title="Toggle dashboard (⌘D) — StatusBar dashboardSlot, Office-only">Dashboard</button>
       <button class="sb-bell" title="Notifications — StatusBar notificationSlot (NotificationCenter)">
         <svg class="ico sm"><use href="#i-bell"/></svg>
@@ -3071,6 +3142,69 @@ Run the verify script against the deliverable set…</div>
         <span class="d"><b style="color:#cdd6e6">Office-editor</b> is a separate overlay ('office-editor', <code style="color:#aab6cc">OfficeEditorOverlay</code>) entered from Header officeTools / chat <code style="color:#aab6cc">onOpenEditor</code> — edits the company office layout independently of Studio. Save errors surface via toast (useToasts), never an inline banner.</span>
       </div>
     </div>
+
+    <!-- 5 · Model switcher — cascading menu -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">5</span><span class="t">Model switcher — cascading menu</span>
+        <span class="d">Composer chip ↑ (next to SessionModeChip) · Provider ▸ Model is a true cascade · Think level is a persistent segment (not a 3rd level) · footer routes to Settings — reads configured ProviderConfig, never forks key/endpoint setup</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:34px 28px;display:flex;justify-content:center">
+        <div class="mmenu">
+          <div class="mmenu-sec">Provider</div>
+          <div class="mmenu-row active">
+            <span class="mmenu-radio"></span>
+            <span>MiniMax Global</span>
+            <span class="mmenu-sub-caret"><svg class="ico xs"><use href="#i-chev-right"/></svg></span>
+          </div>
+          <div class="mmenu-row disabled">
+            <span class="mmenu-radio"></span><span>OpenAI</span><span class="mmenu-flag">needs key</span>
+          </div>
+          <div class="mmenu-row disabled">
+            <span class="mmenu-radio"></span><span>OpenRouter</span><span class="mmenu-flag">needs key</span>
+          </div>
+          <div class="mmenu-row disabled">
+            <span class="mmenu-radio"></span><span>Kimi</span><span class="mmenu-flag">needs key</span>
+          </div>
+          <div class="mmenu-row disabled">
+            <span class="mmenu-radio"></span><span>Gemini</span><span class="mmenu-flag">needs key</span>
+          </div>
+
+          <div class="mmenu-div"></div>
+          <div class="mmenu-sec" style="padding-top:0">Think level</div>
+          <div class="mmenu-seg">
+            <button>Off</button>
+            <button>Low</button>
+            <button class="on">Med</button>
+            <button>High</button>
+          </div>
+
+          <div class="mmenu-div"></div>
+          <div class="mmenu-foot">
+            <svg class="ico sm"><use href="#i-settings"/></svg>Manage providers &amp; keys
+            <span class="go">Settings ›</span>
+          </div>
+
+          <!-- cascaded submenu: models for the hovered/selected provider -->
+          <div class="mmenu-cascade">
+            <div class="mmenu-sec" style="padding-top:var(--sp-2)">MiniMax models</div>
+            <div class="mmenu-row active">
+              <span class="mmenu-radio"></span><span>MiniMax-M2.7</span><span></span>
+            </div>
+            <div class="mmenu-row">
+              <span class="mmenu-radio"></span><span>MiniMax-M2</span><span></span>
+            </div>
+            <div class="mmenu-row">
+              <span class="mmenu-radio"></span><span>MiniMax-Text-01</span><span></span>
+            </div>
+            <div class="gw-annot" style="margin-top:6px;padding:0 var(--sp-3)">Model list is provider-driven (provider-source-registry catalog), not hardcoded. Empty / fetch-error → "No models — check provider in Settings."</div>
+          </div>
+        </div>
+      </div>
+      <div class="spec-cap" style="border-top:1px solid rgba(255,255,255,0.06);border-bottom:0">
+        <span class="d">Chip label = <code style="color:#aab6cc">provider · model · think</code> compact form. Closed-state click in the resting frame above cycles think level (lightweight demo). Selecting a disabled provider is blocked inline; "Manage providers &amp; keys" navigates to the Settings workspace (same altitude relationship as SessionModeChip ↔ SOP management — quick switch here, full config there).</span>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -3127,6 +3261,22 @@ Run the verify script against the deliverable set…</div>
           sendBtn.classList.toggle('yolo', next === 'mode-yolo');
           sendBtn.firstChild.textContent = next === 'mode-yolo' ? 'YOLO Send' : 'Send';
         }
+      });
+    }
+
+    // Model chip — lightweight think-level cycle (full cascade is specimen 5)
+    const thinkOrder = ['Off', 'Low', 'Med', 'High'];
+    const modelChip = document.querySelector('.model-chip');
+    if (modelChip) {
+      modelChip.addEventListener('click', () => {
+        const label = [...modelChip.childNodes].find(
+          (n) => n.nodeType === 3 && n.textContent.includes('·'),
+        );
+        if (!label) return;
+        const m = label.textContent.match(/^(.*·\s*)(Off|Low|Med|High)\s*$/);
+        if (!m) return;
+        const next = thinkOrder[(thinkOrder.indexOf(m[2]) + 1) % thinkOrder.length];
+        label.textContent = m[1] + next;
       });
     }
   </script>
