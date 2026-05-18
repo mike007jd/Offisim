@@ -1,442 +1,852 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Offisim · Activity</title>
-<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
-<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="_offisim-shell.css">
-<style>
-/* ── Activity workspace body — NON-Office, full width, no right rail ──
-   Author owns ONLY .app-body. Light tokens from _offisim-shell.css only. */
-.activity { height: 100%; display: flex; flex-direction: column; background: var(--surface-1); }
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Offisim · Activity Log</title>
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link
+    href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #eef1f6;
+      --surface-1: #ffffff;
+      --surface-2: #fbfcfe;
+      --surface-sunken: #f1f4f9;
+      --surface-hover: #f3f6fb;
 
-/* ── Compact filter chip row (NOT 4 full-width selects) ── */
-.flt {
-  flex: none; display: flex; align-items: center; gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-7); border-bottom: 1px solid var(--line);
-  background: var(--surface-2); flex-wrap: wrap;
-}
-.flt-chip {
-  display: inline-flex; align-items: center; gap: 7px; height: 30px;
-  padding: 0 var(--sp-4); background: var(--surface-1);
-  border: 1px solid var(--line); border-radius: var(--r-pill);
-  font-size: var(--fs-sm); font-weight: 580; color: var(--ink-2);
-}
-.flt-chip:hover { border-color: var(--line-strong); color: var(--ink-1); }
-.flt-chip .ky { color: var(--ink-4); font-weight: 600; }
-.flt-chip .vl { color: var(--ink-1); font-weight: 640; }
-.flt-chip.on { background: var(--accent-surface); border-color: var(--accent-ring); color: var(--accent); }
-.flt-chip.on .ky, .flt-chip.on .vl { color: var(--accent); }
-.flt-chip .ico { color: var(--ink-4); }
-.flt-chip.on .ico { color: var(--accent); }
-.flt-seg { display: inline-flex; padding: 3px; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-pill); gap: 2px; }
-.flt-seg button { border: 0; background: transparent; padding: 4px 11px; border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 580; color: var(--ink-3); }
-.flt-seg button.active { background: var(--accent-surface); color: var(--accent); font-weight: 640; }
-.flt-search {
-  display: flex; align-items: center; gap: 8px; height: 30px; flex: 1;
-  min-width: 180px; max-width: 320px; margin-left: auto;
-  padding: 0 var(--sp-4); background: var(--surface-1);
-  border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--ink-4);
-}
-.flt-search:focus-within { border-color: var(--accent-ring); background: var(--surface-1); }
-.flt-search input { border: 0; background: transparent; flex: 1; outline: none; font-size: var(--fs-sm); color: var(--ink-1); }
-.flt-search input::placeholder { color: var(--ink-4); }
-.flt-clear { border: 0; background: transparent; color: var(--ink-3); font-size: var(--fs-sm); font-weight: 600; padding: 4px 8px; border-radius: var(--r-sm); }
-.flt-clear:hover { background: var(--surface-sunken); color: var(--ink-1); }
+      --ink-1: #131a27;
+      --ink-2: #3c4a60;
+      --ink-3: #647186;
+      --ink-4: #93a0b2;
 
-/* ── Content grid — full width when nothing selected, splits only on select ── */
-.act-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
-.act-grid.split { grid-template-columns: 1fr minmax(360px, 440px); }
+      --line: #dde3ec;
+      --line-soft: #e9edf4;
+      --line-strong: #c8d1de;
 
-/* ── Timeline ── */
-.tl { min-width: 0; overflow-y: auto; }
-.tl-grp {
-  display: flex; align-items: center; gap: 8px;
-  padding: var(--sp-3) var(--sp-7); background: var(--surface-sunken);
-  position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--line-soft);
-}
-.tl-grp .gl { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-1); }
-.tl-grp .gc { font-size: 9.5px; font-weight: 700; color: var(--ink-3); background: var(--surface-1); border: 1px solid var(--line-soft); padding: 1px 7px; border-radius: var(--r-pill); }
+      --accent: #2f6bff;
+      --accent-press: #1f54d8;
+      --accent-fg: #ffffff;
+      --accent-surface: #ecf2ff;
+      --accent-ring: rgba(47, 107, 255, 0.36);
+      --accent-text: #1f54d8;
+      --accent-muted: #e3ecff;
 
-.ev {
-  width: 100%; min-height: 46px; display: flex; align-items: center; gap: var(--sp-5);
-  padding: var(--sp-3) var(--sp-7); border: 0; border-left: 3px solid transparent;
-  background: transparent; text-align: left; color: var(--ink-1);
-  border-bottom: 1px solid var(--line-soft); transition: background 0.12s ease;
-}
-.ev:hover { background: var(--surface-sunken); }
-.ev.sel { background: var(--accent-surface); border-left-color: var(--accent); }
-.ev.err { border-left-color: var(--danger); }
-.ev.warn { border-left-color: var(--warn); }
-.ev .ev-ic { width: 28px; height: 28px; border-radius: var(--r-sm); display: grid; place-items: center; flex: none; background: var(--surface-sunken); }
-.ev .ev-ic svg { width: 16px; height: 16px; }
-.ev-ic.c-default { color: var(--ink-3); }
-.ev-ic.c-hr { color: var(--danger); background: var(--danger-surface); }
-.ev-ic.c-mcp { color: var(--accent); background: var(--accent-surface); }
-.ev-ic.c-knowledge { color: var(--ok); background: var(--ok-surface); }
-.ev-ic.c-memory { color: var(--warn); background: var(--warn-surface); }
-.ev-ic.c-skill { color: var(--ok); background: var(--ok-surface); }
-.ev-ic.c-handoff { color: var(--accent); background: var(--accent-surface); }
-.ev-ic.c-meeting { color: var(--accent); background: var(--accent-surface); }
-.ev .ev-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.ev .ev-lbl { font-size: var(--fs-base); font-weight: 540; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ev .ev-sub { font-size: var(--fs-meta); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ev .ev-x { flex: none; padding: 1px 8px; border-radius: var(--r-pill); background: var(--surface-sunken); color: var(--ink-2); font-size: 9.5px; font-weight: 700; }
-.ev.warn .ev-x { background: var(--warn-surface); color: var(--warn); }
-.ev .ev-rr { flex: none; font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-4); background: var(--surface-sunken); padding: 2px 7px; border-radius: var(--r-pill); }
-.ev .ev-ts { width: 72px; flex: none; text-align: right; font-size: var(--fs-meta); color: var(--ink-4); }
+      --ok: #1aa46a;        --ok-surface: #e4f5ec;
+      --warn: #c98410;      --warn-surface: #fdf2dd;
+      --danger: #d6453d;    --danger-surface: #fdeae9;
+      --info: #2f6bff;      --info-surface: #ecf2ff;
+      --violet: #7c4ddb;    --violet-surface: #f1ebfd;
 
-/* ── Event detail panel — rendered ONLY when an event is selected ── */
-.detail { min-width: 0; border-left: 1px solid var(--line); background: var(--surface-2); display: flex; flex-direction: column; overflow-y: auto; }
-.detail-hd { flex: none; display: flex; align-items: center; justify-content: space-between; padding: var(--sp-5) var(--sp-7); border-bottom: 1px solid var(--line-soft); position: sticky; top: 0; background: var(--surface-2); z-index: 1; }
-.detail-hd .t { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; }
-.detail-bd { padding: var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-7); }
-.dsec > .dl { margin: 0 0 5px; font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-4); font-weight: 700; }
-.dsec .dtype { margin: 0; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-1); font-weight: 600; }
-.dsec .dts { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
-.dsec .dent { margin: 0; font-size: var(--fs-sm); color: var(--ink-1); font-weight: 580; }
-.dsec .dent.sub { color: var(--ink-3); font-weight: 500; margin-top: 3px; }
-.dsec .dent.sub.mono { font-family: var(--mono); font-size: var(--fs-meta); }
-.dlvl { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: var(--r-pill); font-size: var(--fs-meta); font-weight: 700; }
-.dlvl.info { background: var(--accent-surface); color: var(--accent); }
-.dlvl.warn { background: var(--warn-surface); color: var(--warn); }
-.dlvl.err { background: var(--danger-surface); color: var(--danger); }
+      --r-xs: 5px; --r-sm: 7px; --r-md: 9px; --r-lg: 13px; --r-xl: 18px; --r-pill: 999px;
 
-/* payload tree */
-.pv { display: flex; flex-direction: column; font-family: var(--mono); }
-.pv-r { display: flex; align-items: baseline; gap: 12px; min-height: 26px; padding: 2px 0; }
-.pv-k { flex: none; font-size: var(--fs-sm); color: var(--ink-3); }
-.pv-v { font-size: var(--fs-sm); color: var(--ink-1); word-break: break-all; }
-.pv-v.null { font-style: italic; color: var(--ink-4); }
-.pv-c { display: flex; align-items: center; gap: 5px; padding: 3px 0; border: 0; background: transparent; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
-.pv-c:hover { color: var(--ink-1); }
-.pv-c .ico { color: inherit; }
-.pv-ch { padding-left: 16px; border-left: 1px solid var(--line-soft); margin-left: 5px; }
-.pv-empty { margin: 0; font-size: var(--fs-sm); font-style: italic; color: var(--ink-4); font-family: var(--font); }
+      --elev-1: 0 1px 2px rgba(20, 32, 56, 0.06), 0 1px 1px rgba(20, 32, 56, 0.04);
+      --elev-2: 0 4px 14px rgba(20, 32, 56, 0.10), 0 1px 3px rgba(20, 32, 56, 0.06);
+      --elev-3: 0 18px 44px rgba(18, 28, 50, 0.20), 0 4px 12px rgba(18, 28, 50, 0.10);
 
-/* ── Empty / no-results states — ONE labeled Back-to-Office ── */
-.act-state { flex: 1; display: grid; place-items: center; padding: var(--sp-8); }
-.act-state .empty .ic svg { width: 20px; height: 20px; }
-.act-state .acts { display: flex; gap: var(--sp-3); margin-top: var(--sp-2); }
-</style>
-</head><body>
-<svg class="sprite" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-  <symbol id="i-office" viewBox="0 0 24 24"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h.01M13 7h.01M9 11h.01M13 11h.01M9 21v-4h4v4"/></symbol>
-  <symbol id="i-sop" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6H14a3 3 0 0 1 3 3v6.6M6 8.4v3.1a3 3 0 0 0 3 3h6.6"/></symbol>
-  <symbol id="i-market" viewBox="0 0 24 24"><path d="M3 9h18l-1.4 9.2a2 2 0 0 1-2 1.8H6.4a2 2 0 0 1-2-1.8L3 9zM3 9l2-5h14l2 5M9 13v3M15 13v3"/></symbol>
-  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 6.2a3 3 0 0 1 0 5.6M18.5 20a5 5 0 0 0-3-4.6"/></symbol>
-  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h3.5l2.5-7 4 14 2.5-7H21"/></symbol>
-  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.6a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 6.9 4.2l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></symbol>
-  <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
-  <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
-  <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
-  <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
-  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
-  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
-  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
-  <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
-  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
-  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/></symbol>
-  <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></symbol>
-  <symbol id="i-inspect" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 9h18M8 13h5M8 16h8"/></symbol>
-  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m5 8 4 4-4 4M12 16h7"/><rect x="2.5" y="3.5" width="19" height="17" rx="2"/></symbol>
-  <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="9" r="2.4"/><path d="M6 8.4v7.2M17.4 10.4A6 6 0 0 1 12 16H8.4"/></symbol>
-  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.4"/></symbol>
-  <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></symbol>
-  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10.3 21a2 2 0 0 0 3.4 0"/></symbol>
-  <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></symbol>
-  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></symbol>
-  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
-  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
-  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
-  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
-  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M4 19h16"/></symbol>
-  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 21V9M7 13l5-5 5 5M4 5h16"/></symbol>
-  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16M3 12a9 9 0 0 1 15.5-6.3L21 8M3 4v4h4M21 20v-4h-4"/></symbol>
-  <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 5 5l-9 9a1.8 1.8 0 0 1-2.5-2.5l8-8"/></symbol>
-  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5 19 12 7 19.5z"/></symbol>
-  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.7 7 9 4-1.3 7-4.6 7-9V6z"/></symbol>
-  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18 9.5l-4.2 1.8L12 16l-1.8-4.7L6 9.5l4.2-1.8zM18.5 15.5l.8 2 .7-2"/></symbol>
-  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
-  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
-  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20zM12 9v5M12 17h.01"/></symbol>
-  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
-  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6L11 6M14 11a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6L13 18"/></symbol>
-  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
-  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 2 5 3 3 0 0 0 6 0V5a3 3 0 0 0-3-1zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-2 5"/></symbol>
-  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2"/></symbol>
-  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 9 9 0 0 0-9-8z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16.5" cy="11" r="1.2"/></symbol>
-  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10"/></symbol>
-  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
-  <symbol id="i-link-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></symbol>
-  <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M10 4a2 2 0 0 1 4 0v2h3a1 1 0 0 1 1 1v3h2a2 2 0 0 1 0 4h-2v4a1 1 0 0 1-1 1h-4v-2a2 2 0 0 0-4 0v2H6a1 1 0 0 1-1-1v-4H4a2 2 0 0 1 0-4h1V7a1 1 0 0 1 1-1h4z"/></symbol>
-  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v6M15 3v6M7 9h10v3a5 5 0 0 1-10 0z"/><path d="M12 17v4"/></symbol>
-  <symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 6C10 4.5 7 4 4 4.5v13C7 17 10 17.5 12 19M12 6c2-1.5 5-2 8-1.5v13c-3-.5-6 0-8 1.5M12 6v13"/></symbol>
-  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5c-.7.7-1 1.5-1 2.5H9c0-1-.3-1.8-1-2.5A6 6 0 0 1 12 3z"/></symbol>
-  <symbol id="i-user-check" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 12l2 2 4-4"/></symbol>
-  <symbol id="i-arrow-lr" viewBox="0 0 24 24"><path d="M7 8l-4 4 4 4M3 12h12M17 8l4 4-4 4M21 12h-2"/></symbol>
-</svg>
+      --sp-1: 4px; --sp-2: 6px; --sp-3: 8px; --sp-4: 10px;
+      --sp-5: 12px; --sp-6: 14px; --sp-7: 16px; --sp-8: 20px; --sp-9: 28px;
 
-<div class="app">
-  <header class="titlebar">
-    <div class="tb-dots"><i></i><i></i><i></i></div>
-    <span class="tb-brand">Offisim</span><span class="tb-ver">v0.8.0</span>
-    <span class="tb-spacer"></span>
-    <button class="tb-act" title="Keyboard shortcuts (⌘ /)"><svg class="ico sm"><use href="#i-kbd"/></svg></button>
-  </header>
-  <nav class="topbar">
-    <div class="tp-left">
-      <button class="company-sel"><span class="avatar">E</span>Empty Verify Co.<span class="ct">2</span><svg class="ico sm"><use href="#i-chev-down"/></svg></button>
-    </div>
-    <div class="peernav">
-      <a href="#"><svg class="ico sm"><use href="#i-office"/></svg>Office</a>
-      <a href="#"><svg class="ico sm"><use href="#i-sop"/></svg>SOPs</a>
-      <a href="#"><svg class="ico sm"><use href="#i-market"/></svg>Market</a>
-      <a href="#"><svg class="ico sm"><use href="#i-people"/></svg>Personnel</a>
-      <a href="#" class="active"><svg class="ico sm"><use href="#i-activity"/></svg>Activity</a>
-      <a href="#"><svg class="ico sm"><use href="#i-settings"/></svg>Settings</a>
-    </div>
-    <div class="tp-right">
-      <button class="tp-btn"><svg class="ico sm"><use href="#i-arrow-left"/></svg>Back to Office</button>
-    </div>
-  </nav>
+      --fs-micro: 10px; --fs-meta: 11px; --fs-sm: 12px;
+      --fs-base: 13px; --fs-md: 14px; --fs-lg: 15px; --fs-xl: 19px; --fs-2xl: 24px;
+      --ls-caps: 0.14em;
 
-  <main class="app-body body-full">
-    <div class="activity">
-      <!-- Compact filter chip row — date preset · type · actors · search.
-           NOT 4 full-width selects. -->
-      <div class="flt">
-        <div class="flt-seg" role="group" aria-label="Date range">
-          <button>Today</button>
-          <button class="active">7 days</button>
-          <button>30 days</button>
-          <button>All time</button>
-        </div>
-        <button class="flt-chip on"><svg class="ico sm"><use href="#i-bolt"/></svg><span class="ky">Type</span><span class="vl">Deliverable</span><svg class="ico sm"><use href="#i-chev-down"/></svg></button>
-        <button class="flt-chip"><svg class="ico sm"><use href="#i-user"/></svg><span class="ky">Actors</span><span class="vl">All</span><svg class="ico sm"><use href="#i-chev-down"/></svg></button>
-        <button class="flt-clear">Clear</button>
-        <div class="flt-search">
+      --title: 40px;
+      --toolbar: 54px;
+
+      --font: "General Sans", ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", monospace;
+
+      font-family: var(--font);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    *:focus { outline: none; }
+    *:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: var(--r-xs); }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; gap: 30px;
+      padding: 28px;
+      background: radial-gradient(1200px 700px at 50% -10%, #1f2738 0%, #0f1420 60%, #0b0f17 100%);
+      color: var(--ink-1);
+      font-size: var(--fs-base);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .app {
+      width: min(1600px, 100%);
+      height: min(1000px, calc(100vh - 56px));
+      background: var(--bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: var(--title) var(--toolbar) 1fr;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 40px 100px rgba(0, 0, 0, 0.55);
+    }
+
+    button { font: inherit; cursor: pointer; }
+    input, select, textarea { font: inherit; }
+
+    .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .ico {
+      width: 16px; height: 16px;
+      stroke: currentColor; stroke-width: 1.7;
+      stroke-linecap: round; stroke-linejoin: round;
+      fill: none; flex: none; display: block;
+    }
+    .ico.sm { width: 14px; height: 14px; }
+    .ico.xs { width: 12px; height: 12px; }
+    .ico.lg { width: 18px; height: 18px; }
+    .ico.xl { width: 20px; height: 20px; }
+    .ico.fill { fill: currentColor; stroke: none; }
+
+    /* Title bar */
+    .titlebar {
+      height: var(--title);
+      display: flex; align-items: center; gap: var(--sp-6);
+      padding: 0 var(--sp-7);
+      background: linear-gradient(#fcfdfe, #eef2f7);
+      border-bottom: 1px solid var(--line);
+    }
+    .traffic { display: flex; gap: 8px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+    .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
+    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
+    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); }
+
+    /* Top bar (shared chrome) */
+    .topbar {
+      height: var(--toolbar);
+      position: relative;
+      display: flex; align-items: center; gap: var(--sp-5);
+      padding: 0 var(--sp-6);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar .nav { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+    .topbar .iconbar { margin-left: auto; }
+    .nav, .iconbar {
+      height: 34px; border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--surface-2); display: flex; align-items: center; box-shadow: var(--elev-1);
+    }
+    .nav { padding: 3px; gap: 2px; }
+    .nav button {
+      height: 28px; padding: 0 14px; border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-2);
+      font-size: var(--fs-base); font-weight: 560;
+      display: flex; align-items: center; gap: 6px;
+      transition: background 0.14s ease, color 0.14s ease;
+    }
+    .nav button:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
+    .nav button.active { background: var(--accent-surface); color: var(--accent); font-weight: 640; box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .iconbar { padding: 3px; gap: 2px; }
+    .iconbtn {
+      width: 28px; height: 28px; border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-3);
+      display: grid; place-items: center;
+      transition: background 0.14s ease, color 0.14s ease;
+      position: relative;
+    }
+    .iconbtn:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
+    .iconbtn.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .iconbtn .nb { position: absolute; top: 1px; right: 1px; min-width: 13px; height: 13px; padding: 0 3px; border-radius: var(--r-pill); background: var(--danger); color: #fff; font-size: 8px; font-weight: 760; display: grid; place-items: center; }
+
+    .scope-bar {
+      position: relative; display: flex; align-items: center;
+      height: 36px; padding: 3px;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--surface-1); box-shadow: var(--elev-1); max-width: 440px;
+    }
+    .scope-seg {
+      display: flex; align-items: center; gap: 7px;
+      height: 30px; padding: 0 9px; border: 0; border-radius: var(--r-sm);
+      background: transparent; min-width: 0;
+      transition: background 0.14s ease;
+    }
+    .scope-seg:hover { background: var(--surface-sunken); }
+    .scope-seg .s-icn { display: grid; place-items: center; flex: none; }
+    .scope-seg.company .s-icn { width: 22px; height: 22px; border-radius: var(--r-xs); background: var(--accent-surface); color: var(--accent); }
+    .scope-seg.project .s-icn { color: var(--ink-3); }
+    .scope-seg .s-name { font-size: var(--fs-base); font-weight: 640; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .scope-seg .s-caret { color: var(--ink-4); display: grid; place-items: center; flex: none; }
+    .scope-div { color: var(--ink-4); display: grid; place-items: center; flex: none; }
+
+    /* ══════════ Activity Log workspace shell ══════════
+       Non-Office workspace: AppLayout side panel = null, center = WorkspaceRouter
+       (lazy ActivityLogPage). Full-width, no right rail. Reached via the topbar
+       iconbar Activity button — first-class workspace, not a popover. Internal
+       layout = ActivityFilterBar (top) + content grid. Only useLayoutTier()
+       'narrow' changes the filter-bar variant + detail-panel behaviour;
+       desktop/tablet are identical. SSOT = ActivityLogSessionState
+       { selectedEventId, search, eventTypes[], actorFilters[], datePreset }
+       (default datePreset='today'). */
+    .act { min-height: 0; display: flex; flex-direction: column;
+      background: var(--surface-1); overflow: hidden; }
+
+    /* ── Filter bar (default variant) ──
+       Real: h-14 grid repeat(3,minmax(0,1fr)) minmax(160px,2fr) — 3 single
+       selects (date / event-type / actor) + search input. */
+    .act-filter { flex: none; height: 56px; display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr)) minmax(160px,2fr);
+      align-items: center; gap: 12px; padding: 0 24px;
+      border-bottom: 1px solid var(--line); background: var(--surface-2); }
+    .afsel { height: 36px; min-width: 0; padding: 0 30px 0 12px;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+      color: var(--ink-1); font-size: var(--fs-sm); display: flex; align-items: center;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .afsearch { position: relative; min-width: 0; }
+    .afsearch .ico { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-4); }
+    .afsearch input { width: 100%; height: 36px; padding: 0 11px 0 30px;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-sm); }
+    .afsearch input::placeholder { color: var(--ink-4); }
+    .afsearch input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+
+    /* ── Filter bar (narrow variant) ── sliders btn + inline search */
+    .act-filter.narrow { display: flex; gap: 8px; padding: 0 12px; height: 56px; }
+    .afslide { width: 36px; height: 36px; flex: none; border: 1px solid var(--line);
+      border-radius: var(--r-md); background: var(--surface-sunken); color: var(--ink-2);
+      display: grid; place-items: center; }
+
+    /* ── Content grid ── cols-1 OR split 1fr | minmax(320,420) when event focused */
+    .act-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
+    .act-body.split { grid-template-columns: 1fr minmax(320px, 420px); }
+
+    /* ── Timeline ── */
+    .act-tl { min-width: 0; overflow-y: auto; }
+    .tl-grp-head { display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; background: var(--surface-sunken);
+      position: sticky; top: 0; z-index: 1; }
+    .tl-grp-head .gl { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-1); }
+    .tl-cnt { padding: 1px 7px; border-radius: var(--r-pill);
+      background: var(--surface-1); color: var(--ink-4); font-size: 9.5px;
+      border: 1px solid var(--line-soft); }
+
+    .ev-row { width: 100%; height: 48px; display: flex; align-items: center; gap: 12px;
+      padding: 0 16px; border: 0; border-left: 4px solid transparent;
+      background: transparent; text-align: left; transition: background 0.12s ease; }
+    .ev-row:hover { background: var(--surface-hover); }
+    .ev-row.sel { background: var(--accent-muted); }
+    .ev-row.lvl-err { border-left-color: var(--danger); }
+    .ev-row.lvl-warn { border-left-color: var(--warn); }
+    .ev-ico { width: 20px; height: 20px; flex: none; }
+    .ev-ico.c-default { color: var(--ink-3); }
+    .ev-ico.c-hr { color: var(--danger); }
+    .ev-ico.c-mcp { color: var(--info); }
+    .ev-ico.c-knowledge { color: var(--ok); }
+    .ev-ico.c-memory { color: var(--warn); }
+    .ev-ico.c-skill { color: var(--ok); }
+    .ev-ico.c-handoff { color: var(--accent); }
+    .ev-ico.c-meeting { color: var(--accent); }
+    .ev-label { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--ink-1);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ev-x { flex: none; padding: 1px 8px; border-radius: var(--r-pill);
+      background: var(--surface-sunken); color: var(--ink-2);
+      font-size: 9.5px; font-weight: 600; }
+    .ev-ts { width: 80px; flex: none; text-align: right;
+      font-size: var(--fs-meta); color: var(--ink-4); }
+    .ev-bar { width: 4px; height: 24px; border-radius: var(--r-pill); flex: none; background: transparent; }
+    .ev-bar.b-err { background: var(--danger); }
+    .ev-bar.b-warn { background: var(--warn); }
+
+    /* ── Event detail panel ── bg-surface-elevated, border-l */
+    .act-detail { min-width: 0; border-left: 1px solid var(--line);
+      background: var(--surface-2); display: flex; flex-direction: column;
+      overflow-y: auto; }
+    .ad-head { flex: none; display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 16px; border-bottom: 1px solid var(--line-soft); }
+    .ad-head h2 { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink-1); }
+    .ad-x { width: 26px; height: 26px; border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-3); display: grid; place-items: center; }
+    .ad-x:hover { background: var(--surface-hover); color: var(--ink-1); }
+    .ad-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .ad-sec > .l { margin: 0 0 4px; font-size: 9.5px; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--ink-4); }
+    .ad-mono { margin: 0; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-1); }
+    .ad-ts { margin: 0; font-size: var(--fs-meta); color: var(--ink-2); }
+    .ad-ent { margin: 0; font-size: var(--fs-meta); color: var(--ink-2); }
+    .ad-ent + .ad-ent { margin-top: 2px; }
+    .ad-ent.muted { color: var(--ink-4); }
+    .ad-ent.mono { font-family: var(--mono); }
+    .ad-lvl { display: inline-flex; align-items: center; padding: 2px 9px;
+      border-radius: var(--r-xs); font-size: var(--fs-meta); font-weight: 600; border: 1px solid; }
+    .ad-lvl.info { background: var(--info-surface); color: var(--info); border-color: rgba(47,107,255,0.4); }
+    .ad-lvl.warn { background: var(--warn-surface); color: #8a5a0c; border-color: rgba(201,132,16,0.4); }
+    .ad-lvl.err { background: var(--danger-surface); color: #b8352e; border-color: rgba(214,69,61,0.4); }
+
+    /* ActivityPayloadView — recursive key/value tree */
+    .pv { display: flex; flex-direction: column; }
+    .pv-row { display: flex; align-items: baseline; gap: 12px; min-height: 30px; padding: 3px 0; }
+    .pv-key { flex: none; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
+    .pv-val { font-size: var(--fs-sm); color: var(--ink-1); word-break: break-all; }
+    .pv-val.null { font-style: italic; color: var(--ink-4); }
+    .pv-coll { display: flex; align-items: center; gap: 5px; padding: 4px 0; border: 0;
+      background: transparent; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
+    .pv-coll:hover { color: var(--ink-1); }
+    .pv-coll .ico { color: inherit; }
+    .pv-children { padding-left: 16px; }
+    .pv-empty { margin: 0; font-size: var(--fs-sm); font-style: italic; color: var(--ink-4); }
+
+    /* shared bits */
+    .badge { height: 19px; padding: 0 9px; border-radius: var(--r-pill); font-size: 9.5px;
+      font-weight: 660; display: inline-flex; align-items: center; }
+    .badge.ok { background: var(--ok-surface); color: #15824f; }
+    .badge.info { background: var(--info-surface); color: var(--info); }
+    .badge.warn { background: var(--warn-surface); color: #8a5a0c; }
+    .badge.sec { background: var(--surface-sunken); color: var(--ink-3); }
+    .btn { height: 32px; padding: 0 14px; border-radius: var(--r-md); font-size: var(--fs-sm);
+      font-weight: 620; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line);
+      background: var(--surface-1); color: var(--ink-2); }
+    .btn:hover { background: var(--surface-sunken); }
+    .btn.sm { height: 28px; padding: 0 11px; font-size: var(--fs-meta); }
+    .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+    .btn.primary:hover { background: var(--accent-press); }
+    .btn.outline { background: var(--surface-1); }
+
+    .hero { max-width: 460px; margin: 0 auto; text-align: center; display: flex;
+      flex-direction: column; align-items: center; gap: 12px; padding: 48px 0; }
+    .hero .hi { width: 50px; height: 50px; border-radius: var(--r-xl); background: var(--surface-1);
+      border: 1px solid var(--line); box-shadow: var(--elev-1); display: grid; place-items: center; color: var(--ink-3); }
+    .hero .ht { font-size: var(--fs-md); font-weight: 700; color: var(--ink-1); }
+    .hero .hd { font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.6; }
+    .hero .ha { display: flex; gap: 9px; margin-top: 3px; }
+    .empty-wrap { flex: 1; display: grid; place-items: center; padding: 24px; }
+
+    .sk-shimmer { background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line-soft) 37%, var(--surface-sunken) 63%);
+      background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: var(--r-xs); }
+    @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+    .skel-row { height: 48px; border-radius: var(--r-sm); margin: 0 16px 8px; }
+    .skel-bar { height: 28px; border-radius: var(--r-sm); }
+
+    /* toast */
+    .toast { display: inline-flex; align-items: center; gap: 8px; padding: 9px 13px;
+      border-radius: var(--r-md); background: var(--surface-1); border: 1px solid var(--line);
+      box-shadow: var(--elev-2); font-size: var(--fs-sm); color: var(--ink-2); }
+    .toast .dotc { width: 7px; height: 7px; border-radius: 50%; background: var(--info); flex: none; }
+
+    /* narrow filter sheet */
+    .afsheet-wrap { position: relative; }
+    .afscrim { position: absolute; inset: 0; background: rgba(15,20,32,0.45); border-radius: var(--r-md); }
+    .afsheet { position: absolute; inset-inline: 0; bottom: 0; border-radius: 16px 16px var(--r-md) var(--r-md);
+      border: 1px solid var(--line); background: var(--surface-2); padding: 16px;
+      box-shadow: var(--elev-3); display: flex; flex-direction: column; gap: 12px; }
+    .afsheet-head { display: flex; align-items: center; justify-content: space-between; }
+    .afsheet-head h3 { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink-1); }
+
+    /* ══════════ State specimens ══════════ */
+    .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
+    .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
+    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    .spec-suite-head b { color: #aebfff; font-weight: 640; }
+    .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
+    .spec-state { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.45); background: var(--bg); }
+    .spec-cap { display: flex; align-items: center; gap: var(--sp-3); padding: 9px 14px;
+      background: linear-gradient(#11161f, #0c0f16); color: #d6deec; font-size: var(--fs-sm);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06); flex-wrap: wrap; }
+    .spec-cap .n { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-xs);
+      background: rgba(47, 107, 255, 0.22); color: #9db8ff; font-size: var(--fs-micro); font-weight: 760; flex: none; }
+    .spec-cap .t { font-weight: 640; color: #fff; }
+    .spec-cap .d { color: #8b97ad; }
+    .spec-cap code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
+    .spec-frame { position: relative; background: var(--bg); padding: 22px; }
+    .spec-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .spec-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-pane { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1);
+      overflow: hidden; box-shadow: var(--elev-1); }
+    .mini-cap { padding: 7px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--ink-4); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
+    .annot-dark { font-size: 10px; font-style: italic; color: #8b97ad; padding: 6px 4px 0; }
+    .annot-dark code { font-family: var(--mono); color: #aab6cc; }
+    .annot-dark b { color: #aebfff; font-style: normal; font-weight: 640; }
+    .rev-flag { display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: var(--r-pill);
+      background: rgba(201,132,16,0.18); color: #e0b15a; font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em; font-style: normal; }
+    .legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 18px; padding: 14px 16px;
+      background: var(--surface-1); }
+    .legend .li { display: flex; align-items: center; gap: 10px; font-size: var(--fs-meta); color: var(--ink-2); }
+    .legend .li code { font-family: var(--mono); color: var(--ink-4); margin-left: auto; }
+
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill);
+      border: 2px solid transparent; background-clip: content-box; }
+
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .reveal { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+    .reveal.d1 { animation-delay: 0.05s; }
+    @media (prefers-reduced-motion: reduce) { .reveal, .sk-shimmer { animation: none; } * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M15 9h3a2 2 0 0 1 2 2v10"/><path d="M3 21h18M8 7h3M8 11h3M8 15h3"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 0-2 2z"/><path d="M5 4v16"/><path d="M9 8h6M9 12h6"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1-5h14l1 5M4 9h16M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M9 20v-6h6v6"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.5a4.5 4.5 0 0 1 4.5 4.5"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M18 18h2"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></symbol>
+    <symbol id="i-user-check" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 12l2 2 4-4"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v6M15 3v6M7 9h10v3a5 5 0 0 1-10 0z"/><path d="M12 17v4"/></symbol>
+    <symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 6C10 4.5 7 4 4 4.5v13C7 17 10 17.5 12 19M12 6c2-1.5 5-2 8-1.5v13c-3-.5-6 0-8 1.5M12 6v13"/></symbol>
+    <symbol id="i-lightbulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5c-.7.7-1 1.5-1 2.5H9c0-1-.3-1.8-1-2.5A6 6 0 0 1 12 3z"/></symbol>
+    <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M10 4a2 2 0 0 1 4 0v2h3a1 1 0 0 1 1 1v3h2a2 2 0 0 1 0 4h-2v4a1 1 0 0 1-1 1h-4v-2a2 2 0 0 0-4 0v2H6a1 1 0 0 1-1-1v-4H4a2 2 0 0 1 0-4h1V7a1 1 0 0 1 1-1h4z"/></symbol>
+    <symbol id="i-arrow-lr" viewBox="0 0 24 24"><path d="M7 8l-4 4 4 4M3 12h12M17 8l4 4-4 4M21 12h-2"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  </svg>
+
+  <div class="app">
+    <header class="titlebar">
+      <div class="traffic"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+      <div class="brand">Offisim <span class="ver">v0.8.0</span></div>
+    </header>
+
+    <nav class="topbar">
+      <div class="scope-bar reveal">
+        <button class="scope-seg company" title="Acme Studio · switch company">
+          <span class="s-icn"><svg class="ico xs"><use href="#i-building"/></svg></span>
+          <span class="s-name">Acme Studio</span>
+          <span class="s-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+        </button>
+        <span class="scope-div"><svg class="ico xs"><use href="#i-chev-right"/></svg></span>
+        <button class="scope-seg project" title="Offisim · switch project">
+          <span class="s-icn"><svg class="ico sm"><use href="#i-folder"/></svg></span>
+          <span class="s-name">Offisim</span>
+          <span class="s-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+        </button>
+      </div>
+      <div class="nav reveal d1">
+        <button><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
+        <button><svg class="ico sm"><use href="#i-book"/></svg>SOPs</button>
+        <button><svg class="ico sm"><use href="#i-store"/></svg>Market</button>
+        <button><svg class="ico sm"><use href="#i-users"/></svg>Personnel</button>
+      </div>
+      <div class="iconbar reveal d1">
+        <button class="iconbtn active" title="Activity log"><svg class="ico sm"><use href="#i-activity"/></svg></button>
+        <button class="iconbtn" title="Notifications"><svg class="ico sm"><use href="#i-bell"/></svg><span class="nb">3</span></button>
+        <button class="iconbtn" title="Settings"><svg class="ico sm"><use href="#i-settings"/></svg></button>
+      </div>
+    </nav>
+
+    <!-- Resting window = desktop tier · events present · no selection (grid-cols-1) -->
+    <div class="act reveal">
+      <div class="act-filter">
+        <select class="afsel">
+          <option>Today</option><option>Last 7 days</option>
+          <option>Last 30 days</option><option>All time</option>
+        </select>
+        <select class="afsel">
+          <option>All events</option><option>Node</option><option>Plan</option><option>Task</option>
+          <option>Deliverable</option><option>Employee</option><option>Install</option><option>Skill</option>
+          <option>LLM</option><option>Interaction</option><option>Error</option><option>MCP</option>
+          <option>Knowledge</option><option>Meeting</option><option>HR</option><option>Memory</option>
+          <option>Infrastructure</option><option>Git</option><option>Attachment</option>
+        </select>
+        <select class="afsel">
+          <option>All actors</option><option>Maya Chen</option><option>Diego Santos</option>
+          <option>Aria Kim</option><option>Boss</option><option>employee:emp_4f1a</option>
+        </select>
+        <div class="afsearch">
           <svg class="ico sm"><use href="#i-search"/></svg>
-          <input value="" placeholder="Search events">
+          <input value="" placeholder="Search events..." />
         </div>
       </div>
 
-      <!-- Full width: NO event selected → timeline owns the whole region.
-           (No permanently reserved empty detail column.) -->
-      <div class="act-grid">
-        <div class="tl">
-          <div class="tl-grp"><span class="gl">Today</span><span class="gc">9</span></div>
+      <div class="act-body">
+        <div class="act-tl">
+          <div class="tl-grp-head"><span class="gl">Today</span><span class="tl-cnt">9</span></div>
 
-          <button class="ev">
-            <span class="ev-ic c-meeting"><svg class="ico"><use href="#i-people"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Plan the Q3 launch microsite</span>
-              <span class="ev-sub">Boss · Maya Chen · Aria Kim · Diego Santos</span>
-            </span>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-meeting"><use href="#i-users"/></svg>
+            <span class="ev-label">Plan the Q3 launch microsite</span>
             <span class="ev-ts">just now</span>
+            <span class="ev-bar"></span>
           </button>
-          <button class="ev">
-            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">plan / step: drafting → review</span>
-              <span class="ev-sub">PM planner</span>
-            </span>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg>
+            <span class="ev-label">plan / step: drafting → review</span>
             <span class="ev-ts">1m ago</span>
+            <span class="ev-bar"></span>
           </button>
-          <button class="ev">
-            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Maya Chen — building hero section</span>
-              <span class="ev-sub">employee:emp_4f1a</span>
-            </span>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg>
+            <span class="ev-label">Maya Chen — building hero section</span>
             <span class="ev-ts">2m ago</span>
+            <span class="ev-bar"></span>
           </button>
-          <button class="ev warn">
-            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Task assignment rerouted — requires local tools</span>
-              <span class="ev-sub">manager → internal lane</span>
-            </span>
+          <button class="ev-row lvl-warn">
+            <svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg>
+            <span class="ev-label">task assignment rerouted → requires-local-tools</span>
             <span class="ev-x">×4</span>
-            <span class="ev-rr">rerouted</span>
             <span class="ev-ts">5m ago</span>
+            <span class="ev-bar b-warn"></span>
           </button>
-          <button class="ev">
-            <span class="ev-ic c-skill"><svg class="ico"><use href="#i-puzzle"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Skill installed — Competitive Teardown</span>
-              <span class="ev-sub">Market · skill</span>
-            </span>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-skill"><use href="#i-puzzle"/></svg>
+            <span class="ev-label">Skill installed — Competitive Teardown</span>
             <span class="ev-ts">11m ago</span>
+            <span class="ev-bar"></span>
           </button>
-          <button class="ev">
-            <span class="ev-ic c-mcp"><svg class="ico"><use href="#i-plug"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">MCP server connected — filesystem</span>
-              <span class="ev-sub">stdio transport</span>
-            </span>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-mcp"><use href="#i-plug"/></svg>
+            <span class="ev-label">MCP server connected — filesystem</span>
             <span class="ev-ts">14m ago</span>
+            <span class="ev-bar"></span>
           </button>
-          <button class="ev err">
-            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Deliverable export failed — pdf encoder timeout</span>
-              <span class="ev-sub">launch-brief.md</span>
-            </span>
+          <button class="ev-row lvl-err">
+            <svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg>
+            <span class="ev-label">deliverable export failed — pdf encoder timeout</span>
             <span class="ev-ts">22m ago</span>
+            <span class="ev-bar b-err"></span>
           </button>
-          <button class="ev">
-            <span class="ev-ic c-knowledge"><svg class="ico"><use href="#i-book-open"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Knowledge pack indexed — brand guidelines</span>
-              <span class="ev-sub">42 chunks</span>
-            </span>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-knowledge"><use href="#i-book-open"/></svg>
+            <span class="ev-label">Knowledge pack indexed — brand guidelines</span>
             <span class="ev-ts">31m ago</span>
+            <span class="ev-bar"></span>
           </button>
-          <button class="ev">
-            <span class="ev-ic c-handoff"><svg class="ico"><use href="#i-arrow-lr"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Handoff: Maya Chen → Aria Kim (design review)</span>
-              <span class="ev-sub">task: hero-section</span>
-            </span>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-handoff"><use href="#i-arrow-lr"/></svg>
+            <span class="ev-label">handoff: Maya Chen → Aria Kim (design review)</span>
             <span class="ev-ts">44m ago</span>
+            <span class="ev-bar"></span>
           </button>
 
-          <div class="tl-grp"><span class="gl">Yesterday</span><span class="gc">3</span></div>
-          <button class="ev">
-            <span class="ev-ic c-hr"><svg class="ico"><use href="#i-user-check"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">HR — Noah Patel hired (QA)</span>
-              <span class="ev-sub">role: qa</span>
-            </span>
+          <div class="tl-grp-head"><span class="gl">Yesterday</span><span class="tl-cnt">3</span></div>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-hr"><use href="#i-user-check"/></svg>
+            <span class="ev-label">HR — Noah Patel hired (QA)</span>
             <span class="ev-ts">1d ago</span>
+            <span class="ev-bar"></span>
           </button>
-          <button class="ev">
-            <span class="ev-ic c-memory"><svg class="ico"><use href="#i-bulb"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Memory reinforced — prefers terse PR descriptions</span>
-              <span class="ev-sub">Maya Chen</span>
-            </span>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-memory"><use href="#i-lightbulb"/></svg>
+            <span class="ev-label">Memory reinforced — prefers terse PR descriptions</span>
             <span class="ev-ts">1d ago</span>
+            <span class="ev-bar"></span>
           </button>
-          <button class="ev">
-            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Cost recorded — MiniMax-M2.7 · $0.0142</span>
-              <span class="ev-sub">infrastructure</span>
-            </span>
+          <button class="ev-row">
+            <svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg>
+            <span class="ev-label">cost recorded — MiniMax-M2.7 · $0.0142</span>
             <span class="ev-ts">1d ago</span>
-          </button>
-
-          <div class="tl-grp"><span class="gl">This Week</span><span class="gc">28</span></div>
-          <button class="ev">
-            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">Install completed — Hermes A2A peer</span>
-              <span class="ev-sub">external employee</span>
-            </span>
-            <span class="ev-ts">3d ago</span>
-          </button>
-          <button class="ev">
-            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
-            <span class="ev-main">
-              <span class="ev-lbl">git / branch: feature/q3-microsite</span>
-              <span class="ev-sub">3 commits ahead</span>
-            </span>
-            <span class="ev-ts">4d ago</span>
+            <span class="ev-bar"></span>
           </button>
         </div>
       </div>
     </div>
-  </main>
+  </div>
 
-  <footer class="statusbar">
-    <span class="sb-run idle"><span class="pip"></span>Idle</span>
-    <span class="sb-mid"><span class="truncate">Activity Log · 12 events today</span></span>
-    <span class="sb-right">
-      <span class="sb-chip"><b>MiniMax-M2.7</b></span>
-      <span class="sb-chip">0 tok · $0.00 · 0 ms</span>
-      <button class="sb-btn" aria-pressed="false">Dashboard</button>
-      <button class="sb-btn sb-bell"><svg class="ico xs"><use href="#i-bell"/></svg><span class="n">3</span></button>
-      <span class="sb-chip"><svg class="ico xs"><use href="#i-git"/></svg>main</span>
-    </span>
-  </footer>
-
-  <button class="spec-fab" onclick="document.getElementById('specDrawer').classList.toggle('open')">⌘ SPEC NOTES</button>
-  <aside class="spec-drawer" id="specDrawer">
-    <div class="hd"><span class="t">Implementation spec — not shown to users</span>
-      <button class="x" onclick="document.getElementById('specDrawer').classList.remove('open')">×</button></div>
-    <div class="bd">
-
-      <div class="grp">
-        <div class="gh">Do-not-drop checklist (§6 Activity — every item reachable)</div>
-        <ul>
-          <li><b>Timeline, time-grouped</b> — 5 buckets <code>Today / Yesterday / This Week / This Month / Older</code>, sticky group header + count pill, each sorted desc by timestamp, empty buckets dropped. Reachable: the timeline column (4 buckets shown; <code>groupEventsByTime</code> contract below).</li>
-          <li><b>Select an event</b> — row → <code>bg-accent-surface</code> + accent left border; grid splits to <code>1fr | minmax(360px,440px)</code>; re-click same row toggles the detail closed. Reachable: every <code>.ev</code> button; split layout below.</li>
-          <li><b>Level left border</b> — Error (<code>--danger</code>) / Warning (<code>--warn</code>) / Info (none). Reachable: <code>.ev.err</code> "Deliverable export failed", <code>.ev.warn</code> "Task assignment rerouted".</li>
-          <li><b>Domain icon per prefix</b> — colour-coded square per topic prefix. Reachable: meeting / default / skill / mcp / knowledge / handoff / hr / memory rows; full prefix→icon map below.</li>
-          <li><b>×N consecutive-reroute collapse badge</b> — Reachable: the <code>×4</code> badge on the rerouted row.</li>
-          <li><b>Rerouted-event label</b> — dedicated formatter; "rerouted" tag. Reachable: the rerouted row's <code>.ev-rr</code> tag + humanised label.</li>
-          <li><b>Employee-name resolution</b> — topic IDs resolved to display names. Reachable: "Maya Chen", "Noah Patel", "Maya Chen → Aria Kim" labels; raw id shown as <code>.ev-sub</code> only where unresolved (<code>employee:emp_4f1a</code>).</li>
-          <li><b>Event detail</b> — type (slash-formatted), level badge, full timestamp, entity (label/Type/ID), structured payload. Reachable: the detail panel renders on select (specimen below shows the populated state byte-for-byte; live build mounts it in the split column).</li>
-          <li><b>ActivityPayloadView</b> — recursive: primitives <code>key&nbsp;&nbsp;value</code>, null/undefined italic, array ≤5 inline, array &gt;5 collapsible default-closed, object collapsible (<code>defaultOpen = depth&lt;2</code>), <code>{}</code> → italic "Empty payload". Reachable: payload tree in the detail specimen.</li>
-          <li><b>Filters</b> — date preset, event type, actor, search. Reachable: the compact chip row (<code>flt-seg</code> date · Type chip · Actors chip · search · Clear).</li>
-          <li><b>Empty / no-results states</b> — Reachable: state specimens below; rendered in <code>.act-state</code> when applicable.</li>
-          <li><b>Back-to-Office</b> — ONE labeled affordance. Reachable: single <code>tp-btn</code> "Back to Office" in topbar-right (the empty / no-results specimens reuse the same label, not a 2nd inconsistent one).</li>
-        </ul>
-      </div>
-
-      <div class="grp">
-        <div class="gh">Component map (visible block → real component)</div>
-        <ul>
-          <li>Whole workspace → <code>ActivityLogPage</code> (lazy via <code>WorkspaceRouter</code>; non-Office → AppLayout side panel = null, full-width, no right rail).</li>
-          <li>SSOT → <code>ActivityLogSessionState { selectedEventId, search, eventTypes[], actorFilters[], datePreset }</code>, default <code>datePreset='today'</code>.</li>
-          <li>Filter chip row → <code>ActivityFilterBar</code> (the prototype consolidates its 3 single-selects + search into chips/segmented; the live default variant is <code>h-14 grid repeat(3,minmax(0,1fr)) minmax(160px,2fr)</code> — see State &amp; conditional rules for the narrow variant + bottom sheet).</li>
-          <li>Timeline → <code>ActivityTimeline</code> over <code>filterEvents</code> → <code>groupEventsByTime</code> → <code>collapseConsecutiveReroutes</code>.</li>
-          <li>Row → <code>ActivityEventRow</code> (h-48 in live; level border + domain icon + label + optional ×N).</li>
-          <li>Detail panel → <code>ActivityEventDetail</code> (<code>bg-surface-elevated</code>, own scroll, 5 fixed sections).</li>
-          <li>Payload tree → <code>ActivityPayloadView</code> (recursive key/value).</li>
-          <li>Empty / no-results → <code>ActivityEmptyState</code> (<code>variant="no-events" | "no-results"</code>).</li>
-          <li>Event store → runtime <code>EventBus</code> hydrated from <code>bootstrapState.eventHistory</code> (last <code>MAX_EVENTS=200</code>, 26 <code>EVENT_PREFIXES</code>, batched via <code>requestAnimationFrame</code>).</li>
-          <li>Label → <code>getDisplayLabel</code> (payload <code>message</code> → <code>nodeName</code> → <code>employeeName</code> → <code>name</code> → topic-derived); <code>task.assignment.rerouted</code> → <code>formatTaskAssignmentReroutedLabel</code>; <code>skill.install.outcome</code> → <code>skillInstallOutcomeLabel</code> (resolves employee via <code>getEmployeeName</code>).</li>
-          <li>Dedup → <code>getEventId = ts-type-entityId</code> (folds paired <code>llm.call</code>/<code>llm.usage</code>).</li>
-        </ul>
-      </div>
-
-      <div class="grp">
-        <div class="gh">State &amp; conditional rules</div>
-        <ul>
-          <li><b>getEventLevel</b> (topic only): contains <code>failed</code>/<code>error</code>/<code>rolled_back</code> → Error · <code>blocked</code>/<code>warning</code>/<code>rejected</code>/<code>aborted</code> → Warning · else Info. Info = no border; Warning = <code>border-warning</code> + warn bar; Error = <code>border-error</code> + err bar.</li>
-          <li><b>collapseConsecutiveReroutes</b>: folds 3+ <em>consecutive</em> <code>task.assignment.rerouted</code> sharing <code>source|reason|taskRunId</code> into one row with <code>×N</code>; runs &lt;3 stay expanded.</li>
-          <li><b>domainIcon(type)</b> prefix → icon · colour: <code>default</code> Activity·secondary · <code>hr.</code> UserCheck·error · <code>mcp.</code> Plug·info · <code>knowledge.</code> BookOpen·success · <code>memory.</code> Lightbulb·warning · <code>skill.</code> Puzzle·success · <code>handoff.</code> ArrowRightLeft·accent · <code>meeting.</code>/<code>direct.chat.</code> Users·accent.</li>
-          <li><b>Filters</b>: single-select backed by string arrays — <code>onEventTypesChange(value==='all' ? [] : [value])</code>, same for actors; <code>eventTypes[0] ?? 'all'</code>. Date preset <code>Today / Last 7 days / Last 30 days / All time → today / 7d / 30d / custom</code> (custom = no cutoff). 18 type options = <code>ALL_EVENT_TYPES</code> minus <code>All</code>: Node·Plan·Task·Deliverable·Employee·Install·Skill·LLM·Interaction·Error·MCP·Knowledge·Meeting·HR·Memory·Infrastructure·Git·Attachment. Type label → topic prefixes via <code>TYPE_PREFIX_MAP</code> (Meeting → <code>meeting.</code>+<code>direct.chat.</code>; Infrastructure → <code>rack./slot./binding./cost.</code>). Actors = <code>getAvailableActorFilters(events)</code> (distinct <code>employeeName / name / entityType:entityId</code>, sorted). Search matches <code>type + displayLabel + entityType</code> (lowercased).</li>
-          <li><b>groupEventsByTime</b>: bucket edges = today 00:00 / yesterday 00:00 / Monday 00:00 / month-1st 00:00. Buckets desc; empty dropped; <code>collapseConsecutiveReroutes</code> applied per group.</li>
-          <li><b>ActivityEventDetail</b> sections: Event Type (<code>type.replaceAll('.',' / ')</code>, mono) · Level badge · Timestamp (<code>formatFullTimestamp</code>, absolute) · Entity (label + optional <code>Type:</code>/<code>ID:</code> mono) · Payload (ActivityPayloadView). Selecting the same row again toggles the panel closed (<code>selectedEventId → null</code>); panel only occupies space while <code>selectedEventId</code> is set — no reserved empty column.</li>
-          <li><b>Responsive</b>: desktop &amp; tablet identical (default filter bar; split when focused). <code>useLayoutTier()==='narrow'</code> → narrow filter bar (sliders btn + inline search; the 3 controls move into a bottom <em>filter sheet</em> = scrim + bottom panel, focus-trapped, Esc/scrim/X closes via <code>useRegisterModal</code>+<code>useTopmostEscape</code>+<code>useFocusTrap</code>, modal id <code>activity-filter-sheet</code>); on narrow with an event focused the timeline gets <code>hidden</code> so the detail takes the full column. (Per project IA: narrow tier verification target is the web SPA in browser, not the desktop shell.)</li>
-          <li><b>Hydrating</b>: <code>!bootstrapState &amp;&amp; events.length===0</code> → <code>WorkspacePageSkeleton</code>. <b>no-events</b>: <code>events.length===0</code> → ActivityEmptyState <code>variant="no-events"</code>, Activity icon, primary "Back to Office" (only when <code>onBackToOffice</code>). <b>no-results</b>: filtered to 0 → <code>variant="no-results"</code>, Search icon, primary "Reset filters", secondary "Back to Office". <b>Stale selection</b>: <code>selectedEventId</code> set but no matching event (rolled past 200 / filtered out) → info toast "The selected event is no longer available." + reset <code>selectedEventId → null</code>.</li>
-        </ul>
-      </div>
-
-      <div class="grp">
-        <div class="gh">Reverse-risk register</div>
-        <ul>
-          <li class="risk"><b>Reset-filters inconsistency.</b> The no-results "Reset filters" action clears search/types/actors but sets <code>datePreset='30d'</code> — <em>not</em> the default <code>'today'</code> the workspace boots with. This is a product decision, not a prototype concern: do <b>not</b> invent a new control or change the reset target in the design. Flagged so an implementer either ratifies "reset = 30d" intentionally or aligns it to boot default — owned by product, not this redesign.</li>
-          <li class="risk"><b>Single-select masquerading as multi.</b> <code>eventTypes</code>/<code>actorFilters</code> are arrays but the live UI is single-select (<code>['x']</code> or <code>[]</code>). The chip row preserves that semantic (one Type, one Actors value); do not build true multi-select chips without a product decision to widen the model.</li>
-          <li class="risk"><b>Bounded store.</b> Only the last 200 events exist client-side; deep history / "Older" bucket is necessarily partial. A selected event can vanish mid-session (stale-selection toast path). Not a bug to "fix" in the prototype.</li>
-          <li class="risk"><b>Prior IA defects discarded (do not reintroduce):</b> the timeline redrawn ~6× as a spec appendix; 4 oversized 1/5-width filter selects; raw <code>topic.code.name</code> captions as primary row text; the <code>.rev-flag</code> reset annotation rendered in chrome; a permanently reserved ~420px empty detail column. The redesign humanises labels, uses a compact chip row, and only allocates the detail column on selection.</li>
-        </ul>
-      </div>
-
-      <div class="grp">
-        <div class="gh">Detail-panel populated reference (rendered on select; spec-only here)</div>
-        <ul>
-          <li>Example for <code>deliverable.persisted</code> → Event Type <code>deliverable / persisted</code> · Level <em>Info</em> · Timestamp <code>May 16, 2026, 02:41:08 PM</code> · Entity <code>launch-brief.md</code> / Type: deliverable / ID: <code>dlv_9c2f71</code>.</li>
-          <li>Payload: <code>name=launch-brief.md</code> · <code>bytes=8244</code> · <code>employeeName=Maya Chen</code> · <code>draftKey=null</code> (italic) · <code>contributors [7 items]</code> (array &gt;5 → collapsed) · <code>artifact {…}</code> (object, depth&lt;2 → open: <code>mimeType=text/markdown</code>, <code>roles=[pm, designer, developer]</code> inline ≤5) · <code>diagnostics {…}</code> (depth≥2 → collapsed).</li>
-          <li>Domain-icon legend &amp; level-system specimen (the live <code>ActivityEventRow</code> proof) is fully captured by the State &amp; conditional rules above; no separate redrawn timeline appendix is shipped.</li>
-        </ul>
-      </div>
-
+  <!-- ════════════════ STATE SPECIMENS ════════════════ -->
+  <div class="spec-suite">
+    <div class="spec-suite-head">
+      <h2>Activity Log — state specimens</h2>
+      The window above is the resting <b>desktop tier</b>: <b>ActivityFilterBar</b> (default variant —
+      3 single-select dropdowns + search) over a full-width <b>ActivityTimeline</b> (<code>grid-cols-1</code>,
+      no event focused). Events come from a runtime <code>EventBus</code> store hydrated from
+      <code>bootstrapState.eventHistory</code> (last 200, 26 topic prefixes), <code>filterEvents</code> →
+      <code>groupEventsByTime</code> → <code>collapseConsecutiveReroutes</code>. Desktop &amp; tablet
+      tiers render identically; only <code>useLayoutTier()==='narrow'</code> swaps the filter-bar variant
+      and the focused-detail behaviour. Every other state an implementing agent must build, 1:1 with
+      <code>ActivityLogPage</code> + <code>events/*</code>, is below.
     </div>
-  </aside>
-</div>
-</body></html>
+
+    <!-- 1 · Event detail panel (split layout) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">1</span><span class="t">Event focused — split layout + ActivityEventDetail</span>
+        <span class="d">selecting a row → body <code>grid-cols-1 md:grid-cols-[1fr_minmax(320px,420px)]</code>, row <code>bg-accent-muted</code>; clicking the same row again toggles it closed</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane" style="height:520px">
+          <div class="act" style="height:100%">
+            <div class="act-filter">
+              <select class="afsel"><option>Last 30 days</option></select>
+              <select class="afsel"><option>Deliverable</option></select>
+              <select class="afsel"><option>All actors</option></select>
+              <div class="afsearch"><svg class="ico sm"><use href="#i-search"/></svg><input value="" placeholder="Search events..."/></div>
+            </div>
+            <div class="act-body split">
+              <div class="act-tl">
+                <div class="tl-grp-head"><span class="gl">Today</span><span class="tl-cnt">3</span></div>
+                <button class="ev-row"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">deliverable.created — launch-brief.md</span><span class="ev-ts">3m ago</span><span class="ev-bar"></span></button>
+                <button class="ev-row sel"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">deliverable.persisted — launch-brief.md</span><span class="ev-ts">3m ago</span><span class="ev-bar"></span></button>
+                <button class="ev-row lvl-err"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">deliverable.export.failed — pdf encoder timeout</span><span class="ev-ts">22m ago</span><span class="ev-bar b-err"></span></button>
+              </div>
+              <div class="act-detail">
+                <div class="ad-head"><h2>Event Detail</h2><button class="ad-x"><svg class="ico sm"><use href="#i-x"/></svg></button></div>
+                <div class="ad-body">
+                  <div class="ad-sec"><p class="l">Event Type</p><p class="ad-mono">deliverable / persisted</p></div>
+                  <div class="ad-sec"><p class="l">Level</p><span class="ad-lvl info">Info</span></div>
+                  <div class="ad-sec"><p class="l">Timestamp</p><p class="ad-ts">May 16, 2026, 02:41:08 PM</p></div>
+                  <div class="ad-sec"><p class="l">Entity</p>
+                    <p class="ad-ent">launch-brief.md</p>
+                    <p class="ad-ent muted">Type: deliverable</p>
+                    <p class="ad-ent muted mono">ID: dlv_9c2f71</p>
+                  </div>
+                  <div class="ad-sec"><p class="l">Payload</p>
+                    <div class="pv">
+                      <div class="pv-row"><span class="pv-key">name</span><span class="pv-val">launch-brief.md</span></div>
+                      <div class="pv-row"><span class="pv-key">bytes</span><span class="pv-val">8244</span></div>
+                      <div class="pv-row"><span class="pv-key">employeeName</span><span class="pv-val">Maya Chen</span></div>
+                      <div class="pv-row"><span class="pv-key">draftKey</span><span class="pv-val null">null</span></div>
+                      <button class="pv-coll"><svg class="ico xs"><use href="#i-chev-down"/></svg>contributors [7 items]</button>
+                      <button class="pv-coll"><svg class="ico xs"><use href="#i-chev-down"/></svg>artifact</button>
+                      <div class="pv-children">
+                        <div class="pv-row"><span class="pv-key">mimeType</span><span class="pv-val">text/markdown</span></div>
+                        <div class="pv-row"><span class="pv-key">roles</span><span class="pv-val">[pm, designer, developer]</span></div>
+                      </div>
+                      <button class="pv-coll"><svg class="ico xs"><use href="#i-chev-right"/></svg>diagnostics</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark"><b>ActivityEventDetail</b> (<code>bg-surface-elevated</code>, own scroll): 5 fixed sections — Event Type (mono, <code>type.replaceAll('.',' / ')</code>) · Level badge · Timestamp (<code>formatFullTimestamp</code>, absolute) · Entity (label + optional <code>Type:</code> / <code>ID:</code> mono) · Payload via recursive <b>ActivityPayloadView</b>: primitives = <code>key&nbsp;&nbsp;value</code> rows · <code>null</code>/undefined italic · array ≤5 inline <code>[a, b, c]</code> · array &gt;5 collapsible default-closed · object collapsible (<code>defaultOpen = depth&lt;2</code>) · <code>{}</code> → italic "Empty payload". <code>getEventId = ts-type-entityId</code> dedupes paired llm.call/llm.usage.</p>
+      </div>
+    </div>
+
+    <!-- 2 · Event row anatomy + level + domain icons -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">2</span><span class="t">ActivityEventRow — level system · ×N collapse · domain icon legend</span>
+        <span class="d"><code>getEventLevel</code> from topic only (failed/error/rolled_back→Error · blocked/warning/rejected/aborted→Warning · else Info); 4px left border + right pill bar; <code>domainIcon</code> picks icon+colour by prefix</span></div>
+      <div class="spec-frame spec-grid-2">
+        <div>
+          <div class="mini-pane">
+            <div class="mini-cap">Level rows (h-48) + selected + collapsed ×N</div>
+            <div style="background:var(--surface-1)">
+              <button class="ev-row"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">graph.node.entered — boss</span><span class="ev-ts">just now</span><span class="ev-bar"></span></button>
+              <button class="ev-row sel"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">selected row — bg-accent-muted</span><span class="ev-ts">1m ago</span><span class="ev-bar"></span></button>
+              <button class="ev-row lvl-warn"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">plan.review.blocked — needs approval</span><span class="ev-ts">3m ago</span><span class="ev-bar b-warn"></span></button>
+              <button class="ev-row lvl-err"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">employee.run.failed — adapter unavailable</span><span class="ev-ts">8m ago</span><span class="ev-bar b-err"></span></button>
+              <button class="ev-row lvl-warn"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">task.assignment.rerouted — requires-local-tools</span><span class="ev-x">×6</span><span class="ev-ts">9m ago</span><span class="ev-bar b-warn"></span></button>
+            </div>
+          </div>
+          <p class="annot-dark">Info = no border, transparent bar · Warning = <code>border-warning</code> + warn bar · Error = <code>border-error</code> + err bar · selected = <code>bg-accent-muted</code>. <code>×N</code> badge only when <b>collapseConsecutiveReroutes</b> folds 3+ consecutive <code>task.assignment.rerouted</code> sharing <code>source|reason|taskRunId</code> (runs &lt;3 stay expanded).</p>
+        </div>
+        <div>
+          <div class="mini-pane">
+            <div class="mini-cap">domainIcon(type) — prefix → icon + colour</div>
+            <div class="legend">
+              <div class="li"><svg class="ico ev-ico c-default" style="width:18px;height:18px"><use href="#i-activity"/></svg> default<code>Activity · text-secondary</code></div>
+              <div class="li"><svg class="ico ev-ico c-hr" style="width:18px;height:18px"><use href="#i-user-check"/></svg> hr.<code>UserCheck · error</code></div>
+              <div class="li"><svg class="ico ev-ico c-mcp" style="width:18px;height:18px"><use href="#i-plug"/></svg> mcp.<code>Plug · info</code></div>
+              <div class="li"><svg class="ico ev-ico c-knowledge" style="width:18px;height:18px"><use href="#i-book-open"/></svg> knowledge.<code>BookOpen · success</code></div>
+              <div class="li"><svg class="ico ev-ico c-memory" style="width:18px;height:18px"><use href="#i-lightbulb"/></svg> memory.<code>Lightbulb · warning</code></div>
+              <div class="li"><svg class="ico ev-ico c-skill" style="width:18px;height:18px"><use href="#i-puzzle"/></svg> skill.<code>Puzzle · success</code></div>
+              <div class="li"><svg class="ico ev-ico c-handoff" style="width:18px;height:18px"><use href="#i-arrow-lr"/></svg> handoff.<code>ArrowRightLeft · accent</code></div>
+              <div class="li"><svg class="ico ev-ico c-meeting" style="width:18px;height:18px"><use href="#i-users"/></svg> meeting. / direct.chat.<code>Users · accent</code></div>
+            </div>
+          </div>
+          <p class="annot-dark">Label = <code>getDisplayLabel</code> (payload <code>message</code> → <code>nodeName</code> → <code>employeeName</code> → <code>name</code> → topic-derived); <code>task.assignment.rerouted</code> &amp; <code>skill.install.outcome</code> use dedicated formatters (<code>formatTaskAssignmentReroutedLabel</code> / <code>skillInstallOutcomeLabel</code>) — the latter resolves the employee name via <code>getEmployeeName</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 · Filter bar (default) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">3</span><span class="t">ActivityFilterBar — default variant (desktop / tablet)</span>
+        <span class="d">h-14 grid <code>repeat(3,minmax(0,1fr)) minmax(160px,2fr)</code> · 3 single-select dropdowns + search · pipeline = date → type → actor → search</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="act-filter" style="background:var(--surface-2)">
+            <select class="afsel"><option>Last 30 days</option></select>
+            <select class="afsel"><option>All events</option></select>
+            <select class="afsel"><option>All actors</option></select>
+            <div class="afsearch"><svg class="ico sm"><use href="#i-search"/></svg><input value="" placeholder="Search events..."/></div>
+          </div>
+          <div class="legend" style="grid-template-columns:1fr">
+            <div class="li"><b style="color:var(--ink-1);font-weight:640">Date preset</b><code>Today · Last 7 days · Last 30 days · All time → today / 7d / 30d / custom (custom = no cutoff)</code></div>
+            <div class="li"><b style="color:var(--ink-1);font-weight:640">Event types</b><code>All events + Node·Plan·Task·Deliverable·Employee·Install·Skill·LLM·Interaction·Error·MCP·Knowledge·Meeting·HR·Memory·Infrastructure·Git·Attachment</code></div>
+            <div class="li"><b style="color:var(--ink-1);font-weight:640">Actors</b><code>All actors + getAvailableActorFilters(events) — distinct employeeName / name / entityType:entityId, sorted</code></div>
+          </div>
+        </div>
+        <p class="annot-dark">Selects are <b>single-select</b> backed by string arrays: <code>onEventTypesChange(value==='all' ? [] : [value])</code>, same for actors → <code>eventTypes[0] ?? 'all'</code>. Type filter maps the label to topic prefixes via <code>TYPE_PREFIX_MAP</code> (e.g. Meeting → <code>meeting.</code> + <code>direct.chat.</code>, Infrastructure → <code>rack./slot./binding./cost.</code>). Search matches <code>type + displayLabel + entityType</code> (lowercased). The 18 type options are <code>ALL_EVENT_TYPES</code> minus <code>All</code>.</p>
+      </div>
+    </div>
+
+    <!-- 4 · Filter bar (narrow) + bottom sheet -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">4</span><span class="t">ActivityFilterBar — narrow variant + filter bottom sheet</span>
+        <span class="d"><code>tier==='narrow'</code> → sliders btn + inline search; sheet = scrim + bottom panel, focus-trapped, Esc / scrim / X closes (<code>useRegisterModal</code> + <code>useTopmostEscape</code> + <code>useFocusTrap</code>)</span></div>
+      <div class="spec-frame spec-grid-2">
+        <div>
+          <div class="mini-pane">
+            <div class="mini-cap">Collapsed — sliders + search</div>
+            <div class="act-filter narrow" style="background:var(--surface-2)">
+              <button class="afslide"><svg class="ico sm"><use href="#i-sliders"/></svg></button>
+              <div class="afsearch" style="flex:1"><svg class="ico sm"><use href="#i-search"/></svg><input value="" placeholder="Search events..."/></div>
+            </div>
+            <div style="height:120px;background:var(--surface-1);display:grid;place-items:center;font-size:var(--fs-meta);color:var(--ink-4)">timeline below…</div>
+          </div>
+          <p class="annot-dark">Search stays inline on narrow; the 3 dropdowns move into the sheet.</p>
+        </div>
+        <div>
+          <div class="mini-pane afsheet-wrap" style="height:280px;position:relative;overflow:hidden">
+            <div class="act-filter narrow" style="background:var(--surface-2)">
+              <button class="afslide"><svg class="ico sm"><use href="#i-sliders"/></svg></button>
+              <div class="afsearch" style="flex:1"><svg class="ico sm"><use href="#i-search"/></svg><input value="" placeholder="Search events..." disabled/></div>
+            </div>
+            <div class="afscrim"></div>
+            <div class="afsheet">
+              <div class="afsheet-head"><h3>Filters</h3><button class="ad-x"><svg class="ico sm"><use href="#i-x"/></svg></button></div>
+              <select class="afsel"><option>Last 30 days</option></select>
+              <select class="afsel"><option>All events</option></select>
+              <select class="afsel"><option>All actors</option></select>
+            </div>
+          </div>
+          <p class="annot-dark">Sheet title = "Filters", same 3 controls stacked (<code>grid gap-3</code>). Backdrop button + X both call <code>setSheetOpen(false)</code>; modal registered as <code>activity-filter-sheet</code> overlay.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 · Time grouping + collapse -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">5</span><span class="t">groupEventsByTime — 5 buckets · count pill · sticky header</span>
+        <span class="d">Today / Yesterday / This Week / This Month / Older, each sorted desc by timestamp; empty buckets dropped; <code>collapseConsecutiveReroutes</code> applied per group</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane" style="height:360px;overflow:hidden">
+          <div class="act-tl" style="height:100%">
+            <div class="tl-grp-head"><span class="gl">Today</span><span class="tl-cnt">12</span></div>
+            <button class="ev-row"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">graph.node.exited — manager</span><span class="ev-ts">4m ago</span><span class="ev-bar"></span></button>
+            <button class="ev-row lvl-warn"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">task.assignment.rerouted — employee-disabled</span><span class="ev-x">×3</span><span class="ev-ts">6m ago</span><span class="ev-bar b-warn"></span></button>
+            <div class="tl-grp-head"><span class="gl">Yesterday</span><span class="tl-cnt">5</span></div>
+            <button class="ev-row"><svg class="ico xl ev-ico c-skill"><use href="#i-puzzle"/></svg><span class="ev-label">skill.install.outcome — forked by Maya Chen</span><span class="ev-ts">1d ago</span><span class="ev-bar"></span></button>
+            <div class="tl-grp-head"><span class="gl">This Week</span><span class="tl-cnt">28</span></div>
+            <button class="ev-row"><svg class="ico xl ev-ico c-mcp"><use href="#i-plug"/></svg><span class="ev-label">mcp.tool.invoked — read_file</span><span class="ev-ts">3d ago</span><span class="ev-bar"></span></button>
+            <div class="tl-grp-head"><span class="gl">This Month</span><span class="tl-cnt">61</span></div>
+            <button class="ev-row"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">install.completed — Hermes A2A peer</span><span class="ev-ts">12d ago</span><span class="ev-bar"></span></button>
+            <div class="tl-grp-head"><span class="gl">Older</span><span class="tl-cnt">140</span></div>
+            <button class="ev-row"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">company.created — Acme Studio</span><span class="ev-ts">40d ago</span><span class="ev-bar"></span></button>
+          </div>
+        </div>
+        <p class="annot-dark">Group header = <code>bg-surface-muted</code> sticky row · bold label + count pill (<code>rounded-full bg-surface-elevated text-[10px]</code>). Bucket edges = today 00:00 / yesterday 00:00 / Monday 00:00 / month 1st 00:00. Store keeps last <code>MAX_EVENTS=200</code>, batched via <code>requestAnimationFrame</code> over 26 <code>EVENT_PREFIXES</code>.</p>
+      </div>
+    </div>
+
+    <!-- 6 · Empty / loading / toast -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">6</span><span class="t">Hydrating · no-events · no-results · stale-selection toast</span>
+        <span class="d"><code>!bootstrapState &amp;&amp; events.length===0</code> → WorkspacePageSkeleton · <code>events.length===0</code> → no-events · filtered to 0 → no-results · selected event gone → info toast + reset</span></div>
+      <div class="spec-frame spec-grid-2">
+        <div>
+          <div class="mini-pane" style="height:230px;overflow:hidden">
+            <div class="skel-bar sk-shimmer" style="margin:10px 16px"></div>
+            <div class="skel-row sk-shimmer"></div><div class="skel-row sk-shimmer"></div>
+            <div class="skel-row sk-shimmer"></div><div class="skel-row sk-shimmer"></div>
+          </div>
+          <p class="annot-dark">Hydrating — <b>WorkspacePageSkeleton</b> (no bootstrap state yet, store empty).</p>
+        </div>
+        <div>
+          <div class="mini-pane" style="height:230px;display:grid;place-items:center;background:var(--surface-1)">
+            <div class="hero" style="padding:8px">
+              <div class="hi"><svg class="ico lg"><use href="#i-activity"/></svg></div>
+              <div class="ht">No activity yet</div>
+              <div class="hd">Activity Log surfaces workspace and runtime events as your company operates — chat / task dispatch, employee plans and tool calls, deliverables, installs, errors. Start a task in Office and events will appear here.</div>
+              <div class="ha"><button class="btn primary sm">Back to Office</button></div>
+            </div>
+          </div>
+          <p class="annot-dark">no-events — <b>ActivityEmptyState</b> <code>variant="no-events"</code>, Activity icon, primary "Back to Office" (only when <code>onBackToOffice</code>).</p>
+        </div>
+        <div>
+          <div class="mini-pane" style="height:230px;display:grid;place-items:center;background:var(--surface-1)">
+            <div class="hero" style="padding:8px">
+              <div class="hi"><svg class="ico lg"><use href="#i-search"/></svg></div>
+              <div class="ht">No events match your filters</div>
+              <div class="hd">Try widening the time range, removing event types, or clearing actor filters.</div>
+              <div class="ha"><button class="btn primary sm">Reset filters</button><button class="btn sm">Back to Office</button></div>
+            </div>
+          </div>
+          <p class="annot-dark">no-results — Search icon, primary "Reset filters", secondary "Back to Office". <span class="rev-flag">behaviour</span> Reset clears search/types/actors but sets <code>datePreset='30d'</code> — <b>not</b> the default <code>'today'</code> the workspace boots with.</p>
+        </div>
+        <div>
+          <div class="mini-pane" style="height:230px;display:flex;flex-direction:column;background:var(--surface-1)">
+            <div style="padding:12px 16px;border-bottom:1px solid var(--line-soft)">
+              <div class="toast"><span class="dotc"></span>The selected event is no longer available.</div>
+            </div>
+            <div style="flex:1;display:grid;place-items:center;font-size:var(--fs-meta);color:var(--ink-4)">timeline re-renders without the detail panel</div>
+          </div>
+          <p class="annot-dark">Stale selection — <code>selectedEventId</code> set but no matching event in store (rolled past 200, or filtered store changed): fires an <b>info</b> toast and resets <code>selectedEventId → null</code> (panel closes).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7 · Responsive -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">7</span><span class="t">Responsive — tablet (= desktop) · narrow (timeline XOR detail)</span>
+        <span class="d">desktop &amp; tablet identical (default filter bar, split when focused) · narrow uses the narrow filter bar &amp; <b>hides the timeline</b> when an event is focused so the detail takes the full column</span></div>
+      <div class="spec-frame spec-grid-3">
+        <div>
+          <div class="mini-pane" style="height:300px;overflow:hidden">
+            <div class="act" style="height:100%">
+              <div class="act-filter" style="background:var(--surface-2);grid-template-columns:repeat(3,1fr) 1.4fr;padding:0 14px;gap:8px">
+                <select class="afsel"><option>Today</option></select><select class="afsel"><option>All events</option></select><select class="afsel"><option>All actors</option></select>
+                <div class="afsearch"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search…" disabled/></div>
+              </div>
+              <div class="act-body"><div class="act-tl">
+                <div class="tl-grp-head"><span class="gl">Today</span><span class="tl-cnt">5</span></div>
+                <button class="ev-row"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">plan.created — Q3 microsite</span><span class="ev-ts">2m</span><span class="ev-bar"></span></button>
+                <button class="ev-row lvl-err"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">employee.run.failed</span><span class="ev-ts">9m</span><span class="ev-bar b-err"></span></button>
+              </div></div>
+            </div>
+          </div>
+          <p class="annot-dark">Tablet — same default filter bar + grid as desktop; nothing structurally changes (only <code>variant</code> flips on narrow).</p>
+        </div>
+        <div>
+          <div class="mini-pane" style="height:300px;max-width:230px;margin:0 auto;overflow:hidden">
+            <div class="act" style="height:100%">
+              <div class="act-filter narrow" style="background:var(--surface-2)">
+                <button class="afslide"><svg class="ico sm"><use href="#i-sliders"/></svg></button>
+                <div class="afsearch" style="flex:1"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search events..." disabled/></div>
+              </div>
+              <div class="act-body"><div class="act-tl">
+                <div class="tl-grp-head"><span class="gl">Today</span><span class="tl-cnt">5</span></div>
+                <button class="ev-row"><svg class="ico xl ev-ico c-skill"><use href="#i-puzzle"/></svg><span class="ev-label">Skill installed</span><span class="ev-ts">3m</span><span class="ev-bar"></span></button>
+                <button class="ev-row lvl-warn"><svg class="ico xl ev-ico c-default"><use href="#i-activity"/></svg><span class="ev-label">plan.review.blocked</span><span class="ev-ts">6m</span><span class="ev-bar b-warn"></span></button>
+              </div></div>
+            </div>
+          </div>
+          <p class="annot-dark">Narrow · no selection → narrow filter bar + timeline (<code>grid-cols-1</code>).</p>
+        </div>
+        <div>
+          <div class="mini-pane" style="height:300px;max-width:230px;margin:0 auto;overflow:hidden">
+            <div class="act" style="height:100%">
+              <div class="act-filter narrow" style="background:var(--surface-2)">
+                <button class="afslide"><svg class="ico sm"><use href="#i-sliders"/></svg></button>
+                <div class="afsearch" style="flex:1"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search events..." disabled/></div>
+              </div>
+              <div class="act-body"><div class="act-detail" style="border-left:0">
+                <div class="ad-head"><h2>Event Detail</h2><button class="ad-x"><svg class="ico sm"><use href="#i-x"/></svg></button></div>
+                <div class="ad-body">
+                  <div class="ad-sec"><p class="l">Event Type</p><p class="ad-mono">employee / run / failed</p></div>
+                  <div class="ad-sec"><p class="l">Level</p><span class="ad-lvl err">Error</span></div>
+                  <div class="ad-sec"><p class="l">Timestamp</p><p class="ad-ts">May 16, 2026, 02:31:55 PM</p></div>
+                </div>
+              </div></div>
+            </div>
+          </div>
+          <p class="annot-dark">Narrow · event focused → timeline gets <code>hidden</code>, <b>ActivityEventDetail</b> takes the whole column (X / back returns to the list).</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
