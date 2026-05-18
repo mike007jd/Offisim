@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   type DeliverableArtifact,
   getDeliverableDisplayTitle,
+  isDisplayableDeliverable,
   resolveDeliverableArtifact,
 } from '../lib/deliverable-artifacts';
 import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
@@ -21,6 +22,7 @@ export interface Deliverable {
   title: string;
   content: string;
   contentSize: number;
+  declaredKind: DeliverableArtifact['kind'] | null;
   artifact: DeliverableArtifact;
   contributingEmployees: ReadonlyArray<{
     employeeId: string;
@@ -73,6 +75,7 @@ export function useDeliverables(filterChatThreadId?: string | null): Deliverable
       const { deliverableId, threadId, chatThreadId, title, contributingEmployees, createdAt } =
         e.payload;
       const artifact = resolveDeliverableArtifact(e.payload);
+      if (!isDisplayableDeliverable(e.payload, artifact)) return;
       const row: Deliverable = {
         id: deliverableId,
         threadId,
@@ -80,6 +83,7 @@ export function useDeliverables(filterChatThreadId?: string | null): Deliverable
         title: getDeliverableDisplayTitle(title, artifact),
         content: artifact.content,
         contentSize: artifact.content.length,
+        declaredKind: e.payload.kind ?? null,
         artifact,
         contributingEmployees,
         createdAt,
@@ -93,6 +97,18 @@ export function useDeliverables(filterChatThreadId?: string | null): Deliverable
         setDeliverables((prev) => {
           const map = new Map(prev.map((d) => [d.id, d] as const));
           for (const row of history) {
+            if (
+              !isDisplayableDeliverable(
+                {
+                  kind: row.declaredKind ?? undefined,
+                  fileName: row.artifact.fileName,
+                  mimeType: row.artifact.mimeType,
+                },
+                row.artifact,
+              )
+            ) {
+              continue;
+            }
             if (!map.has(row.id)) map.set(row.id, row);
           }
           return [...map.values()].sort((a, b) => b.createdAt - a.createdAt);
@@ -108,6 +124,8 @@ export function useDeliverables(filterChatThreadId?: string | null): Deliverable
 
   return useMemo(() => {
     if (filterChatThreadId == null) return deliverables;
-    return deliverables.filter((d) => d.chatThreadId === filterChatThreadId);
+    return deliverables.filter(
+      (d) => d.chatThreadId === filterChatThreadId || d.threadId === filterChatThreadId,
+    );
   }, [deliverables, filterChatThreadId]);
 }

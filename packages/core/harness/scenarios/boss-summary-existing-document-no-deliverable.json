@@ -1,0 +1,65 @@
+{
+  "id": "boss-summary-existing-document-no-deliverable",
+  "category": "graph",
+  "entryMode": "boss_chat",
+  "seed": {
+    "company": { "companyId": "company-existing-document-summary", "name": "Existing Document Co" },
+    "thread": { "threadId": "thread-existing-document-summary", "status": "running" },
+    "employees": [{ "id": "emp-document-analyst", "name": "Document Analyst", "role": "analyst" }]
+  },
+  "initialState": {
+    "messages": [
+      { "role": "user", "content": "Summarize docs/plan.md and explain the risk." }
+    ],
+    "taskPlan": {
+      "planId": "plan-existing-document-summary",
+      "threadId": "thread-existing-document-summary",
+      "companyId": "company-existing-document-summary",
+      "summary": "Existing document summary",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Summarize an existing project document",
+          "tasks": [
+            {
+              "taskType": "analysis",
+              "employeeId": "emp-document-analyst",
+              "description": "Summarize docs/plan.md and explain the risk.",
+              "dependsOnStepOutput": false,
+              "taskRunId": "tr-existing-document-summary"
+            }
+          ]
+        }
+      ]
+    },
+    "dispatchedStepIndices": [0],
+    "completedStepIndices": [0],
+    "blockedStepIndices": [],
+    "currentStepOutputs": [
+      {
+        "employeeId": "emp-document-analyst",
+        "employeeName": "Document Analyst",
+        "sourceKind": "employee",
+        "roleSlug": "analyst",
+        "content": "The existing plan is coherent; the main risk is release evidence drift.",
+        "taskRunId": "tr-existing-document-summary",
+        "stepIndex": 0,
+        "isExternal": false,
+        "brandKey": null
+      }
+    ]
+  },
+  "llmTurns": [
+    {
+      "id": "boss-summary-existing-document",
+      "match": { "contains": "Summarize the team results above." },
+      "content": "The plan is coherent, but release evidence can drift."
+    }
+  ],
+  "runs": [{ "startAt": "boss_summary" }],
+  "assertions": [
+    { "kind": "threadStatusIs", "status": "completed" },
+    { "kind": "eventNotEmitted", "eventType": "deliverable.created" },
+    { "kind": "finalOutputContains", "contains": "release evidence" }
+  ]
+}

@@ -43,6 +43,7 @@ function materializeEngineArtifact(
 ): MaterializedEmployeeDeliverable | null {
   if (!artifact) return null;
   return {
+    kind: 'file',
     fileName: artifact.fileName ?? null,
     mimeType: artifact.mimeType ?? null,
     artifactContent: artifact.content,

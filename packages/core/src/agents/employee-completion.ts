@@ -703,7 +703,7 @@ export async function finalizeEmployeeSuccess(
           },
         ],
         {
-          kind: 'file',
+          kind: materializedDeliverable.kind,
           fileName: materializedDeliverable.fileName,
           mimeType: materializedDeliverable.mimeType,
           chatThreadId: state.chatThreadId ?? null,
@@ -722,14 +722,16 @@ export async function finalizeEmployeeSuccess(
     taskRunId: taskRunId ?? '',
     stepIndex: preflight.stepIndex,
     ...employeeBrandFields(employee),
-    artifact: materializedDeliverable
-      ? {
-          kind: 'file' as const,
-          fileName: materializedDeliverable.fileName,
-          mimeType: materializedDeliverable.mimeType,
-          content: materializedDeliverable.artifactContent,
-        }
-      : undefined,
+    artifact:
+      materializedDeliverable
+        ? {
+            kind: materializedDeliverable.kind,
+            fileName: materializedDeliverable.fileName,
+            mimeType: materializedDeliverable.mimeType,
+            content: materializedDeliverable.artifactContent,
+          }
+        : undefined,
+    deliverableEventEmitted: materializedDeliverable ? true : undefined,
     ...(source === 'normal' && usedCitations.length > 0 ? { citations: usedCitations } : {}),
   };
 

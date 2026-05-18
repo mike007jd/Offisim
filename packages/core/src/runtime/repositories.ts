@@ -220,6 +220,8 @@ export interface LlmCallRow {
   model: string;
   input_tokens: number;
   output_tokens: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
   usage_raw_json: string | null;
   request_json: string | null;
   response_json: string | null;
@@ -1068,6 +1070,7 @@ export interface DeliverableRow {
   deliverable_id: string;
   company_id: string;
   thread_id: string | null;
+  chat_thread_id: string | null;
   title: string;
   content: string;
   kind: DeliverableKind | null;

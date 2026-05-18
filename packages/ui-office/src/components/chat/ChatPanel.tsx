@@ -1,7 +1,6 @@
 import { DEFAULT_INTERACTION_MODE } from '@offisim/shared-types';
 import type { ChatAttachmentRef } from '@offisim/shared-types';
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
-import { ScrollArea } from '@offisim/ui-core';
 import { ArrowLeft, BriefcaseBusiness, Paperclip } from 'lucide-react';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
@@ -247,7 +246,7 @@ export function ChatPanel({
   const getMessages = useChatSessionStore((state) => state.getMessages);
   const conversations = useChatSessionStore((state) => state.conversations);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesViewportRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
   const SCROLL_THRESHOLD = 80;
 
@@ -338,10 +337,7 @@ export function ChatPanel({
     interactionTargetRef.current = null;
   }, [pendingInteraction, failedTargetEmployeeId, targetKey]);
 
-  const getScrollViewport = useCallback((): HTMLDivElement | null => {
-    const viewport = scrollRef.current?.parentElement;
-    return viewport instanceof HTMLDivElement ? viewport : null;
-  }, []);
+  const getScrollViewport = useCallback((): HTMLDivElement | null => messagesViewportRef.current, []);
 
   useEffect(() => {
     const viewport = getScrollViewport();
@@ -747,21 +743,23 @@ export function ChatPanel({
           {/* Message area */}
           {showEmpty ? (
             isRunning ? (
-              <ScrollArea className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden">
+              <div
+                ref={messagesViewportRef}
+                className="custom-scrollbar min-h-0 w-full min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden"
+              >
                 <div
-                  ref={scrollRef}
                   className="box-border flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
                   style={{
                     paddingBottom: 'var(--sp-sm)',
                     paddingLeft: 'var(--sp-sm)',
-                    paddingRight: 'calc(var(--sp-xl) + 8px)',
+                    paddingRight: 'var(--sp-md)',
                     paddingTop: 'var(--sp-sm)',
                   }}
                 >
                   {activityRail}
                   <SystemMessageFeed />
                 </div>
-              </ScrollArea>
+              </div>
             ) : isDirectChat ? (
               <div className="flex flex-1 items-center justify-center">
                 <p className="text-xs text-text-muted">
@@ -772,14 +770,16 @@ export function ChatPanel({
               <div className="flex-1 min-h-0" aria-hidden="true" />
             )
           ) : (
-            <ScrollArea className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden">
+            <div
+              ref={messagesViewportRef}
+              className="custom-scrollbar min-h-0 w-full min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden"
+            >
               <div
-                ref={scrollRef}
                 className="box-border flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
                 style={{
                   paddingBottom: 'var(--sp-sm)',
                   paddingLeft: 'var(--sp-sm)',
-                  paddingRight: 'calc(var(--sp-xl) + 8px)',
+                  paddingRight: 'var(--sp-md)',
                   paddingTop: 'var(--sp-sm)',
                 }}
               >
@@ -814,7 +814,7 @@ export function ChatPanel({
                   nodeName={streamNodeName}
                 />
               </div>
-            </ScrollArea>
+            </div>
           )}
         </>
       )}

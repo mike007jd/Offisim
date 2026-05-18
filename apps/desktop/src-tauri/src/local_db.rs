@@ -107,6 +107,8 @@ async fn apply_schema(pool: &SqlitePool) -> Result<(), String> {
 
 async fn apply_schema_compatibility(pool: &SqlitePool) -> Result<(), String> {
     ensure_task_runs_status_constraint(pool).await?;
+    ensure_deliverables_chat_thread_id(pool).await?;
+    ensure_llm_call_cache_token_columns(pool).await?;
 
     let rows = sqlx::query("PRAGMA table_info(install_transactions)")
         .fetch_all(pool)
@@ -127,6 +129,69 @@ async fn apply_schema_compatibility(pool: &SqlitePool) -> Result<(), String> {
             .await
             .map_err(|err| format!("add install_transactions.idempotency_key: {err}"))?;
     }
+
+    Ok(())
+}
+
+async fn ensure_llm_call_cache_token_columns(pool: &SqlitePool) -> Result<(), String> {
+    let rows = sqlx::query("PRAGMA table_info(llm_calls)")
+        .fetch_all(pool)
+        .await
+        .map_err(|err| format!("inspect llm_calls schema: {err}"))?;
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let has_column = |name: &str| {
+        rows.iter().any(|row| {
+            row.try_get::<String, _>("name")
+                .map(|column| column == name)
+                .unwrap_or(false)
+        })
+    };
+    if !has_column("cache_read_input_tokens") {
+        raw_sql("ALTER TABLE llm_calls ADD COLUMN cache_read_input_tokens INTEGER NOT NULL DEFAULT 0")
+            .execute(pool)
+            .await
+            .map_err(|err| format!("add llm_calls.cache_read_input_tokens: {err}"))?;
+    }
+    if !has_column("cache_creation_input_tokens") {
+        raw_sql(
+            "ALTER TABLE llm_calls ADD COLUMN cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0",
+        )
+        .execute(pool)
+        .await
+        .map_err(|err| format!("add llm_calls.cache_creation_input_tokens: {err}"))?;
+    }
+    Ok(())
+}
+
+async fn ensure_deliverables_chat_thread_id(pool: &SqlitePool) -> Result<(), String> {
+    let rows = sqlx::query("PRAGMA table_info(deliverables)")
+        .fetch_all(pool)
+        .await
+        .map_err(|err| format!("inspect deliverables schema: {err}"))?;
+    if rows.is_empty() {
+        return Ok(());
+    }
+
+    let has_chat_thread_id = rows.iter().any(|row| {
+        row.try_get::<String, _>("name")
+            .map(|name| name == "chat_thread_id")
+            .unwrap_or(false)
+    });
+    if !has_chat_thread_id {
+        raw_sql("ALTER TABLE deliverables ADD COLUMN chat_thread_id TEXT")
+            .execute(pool)
+            .await
+            .map_err(|err| format!("add deliverables.chat_thread_id: {err}"))?;
+    }
+    raw_sql(
+        "CREATE INDEX IF NOT EXISTS idx_deliverables_chat_thread_time
+          ON deliverables(chat_thread_id, created_at DESC)",
+    )
+    .execute(pool)
+    .await
+    .map_err(|err| format!("create deliverables.chat_thread_id index: {err}"))?;
 
     Ok(())
 }
@@ -274,6 +339,54 @@ mod tests {
                 .unwrap_or(false)
         });
         assert!(has_idempotency_key);
+    }
+
+    #[tokio::test]
+    async fn apply_schema_upgrades_existing_deliverables_chat_thread_scope() {
+        let pool = SqlitePoolOptions::new()
+            .min_connections(1)
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("open in-memory sqlite");
+        raw_sql(
+            "CREATE TABLE deliverables (
+              deliverable_id TEXT PRIMARY KEY,
+              company_id TEXT NOT NULL,
+              thread_id TEXT,
+              title TEXT NOT NULL,
+              content TEXT NOT NULL,
+              kind TEXT,
+              file_name TEXT,
+              mime_type TEXT,
+              contributors_json TEXT NOT NULL,
+              created_at TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .expect("create legacy deliverables table");
+
+        apply_schema(&pool).await.expect("apply schema");
+
+        let rows = sqlx::query("PRAGMA table_info(deliverables)")
+            .fetch_all(&pool)
+            .await
+            .expect("inspect schema");
+        let has_chat_thread_id = rows.iter().any(|row| {
+            row.try_get::<String, _>("name")
+                .map(|name| name == "chat_thread_id")
+                .unwrap_or(false)
+        });
+        assert!(has_chat_thread_id);
+
+        let index = sqlx::query(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_deliverables_chat_thread_time'",
+        )
+        .fetch_optional(&pool)
+        .await
+        .expect("inspect deliverables chat thread index");
+        assert!(index.is_some());
     }
 
     #[tokio::test]

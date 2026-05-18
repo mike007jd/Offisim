@@ -548,7 +548,7 @@ export function ChatInput({
   return (
     <div
       ref={setChatInputTargetRef}
-      className="relative box-border w-full min-w-0 max-w-full overflow-hidden border-t border-border-default py-2 pl-3 pr-7"
+      className="relative box-border w-full min-w-0 max-w-full overflow-hidden border-t border-border-default px-3 py-2"
       onDragEnter={onDragEnter}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -660,7 +660,7 @@ export function ChatInput({
       )}
 
       {/* Input row */}
-      <div className="flex min-w-0 max-w-full items-end gap-2">
+      <div className="flex w-full min-w-0 max-w-full items-end gap-2">
         <textarea
           ref={textareaRef}
           value={text}
@@ -685,7 +685,7 @@ export function ChatInput({
       </div>
 
       {/* Hint line */}
-      <div className="mt-1 flex min-w-0 max-w-full flex-wrap items-center gap-3 overflow-hidden px-1">
+      <div className="mt-1 flex w-full min-w-0 max-w-full flex-wrap items-center gap-3 overflow-hidden px-1">
         {disabled && disabledReason ? (
           <span className="text-[10px] text-warning">{disabledReason}</span>
         ) : (

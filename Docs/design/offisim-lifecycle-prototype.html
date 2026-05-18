@@ -1,0 +1,1036 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offisim · Lifecycle</title>
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_offisim-shell.css">
+<style>
+/* ── lifecycle specimen-page body only. No :root / token / shell overrides. ── */
+.flow { padding-bottom: 60px; }
+.app-body.body-full { padding: 0; }
+
+.spec-intro { padding: var(--sp-8) var(--sp-8) var(--sp-6); border-bottom: 1px solid var(--line); background: var(--surface-1); }
+.spec-intro h1 { margin: 0 0 6px; font-size: 21px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink-1); }
+.spec-intro p { margin: 0; max-width: 72ch; font-size: var(--fs-base); line-height: 1.65; color: var(--ink-3); }
+.spec-intro .chain { margin-top: var(--sp-5); display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.spec-intro .chain .st { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: var(--r-pill); background: var(--surface-sunken); color: var(--ink-2); font-size: var(--fs-meta); font-weight: 620; }
+.spec-intro .chain .sep { color: var(--ink-4); }
+
+.lc-stack { display: flex; flex-direction: column; }
+.lc-sec { padding: var(--sp-8); border-bottom: 1px solid var(--line); }
+.lc-sec:last-child { border-bottom: 0; }
+.lc-head { display: flex; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-6); }
+.lc-head .ix { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: var(--r-xs); background: var(--accent-surface); color: var(--accent); font-size: var(--fs-meta); font-weight: 760; }
+.lc-head .ttl { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); }
+.lc-head .cap { font-size: var(--fs-sm); color: var(--ink-3); }
+.lc-grid { display: grid; gap: var(--sp-7); }
+.lc-grid.g2 { grid-template-columns: 1fr 1fr; }
+.lc-grid.g3 { grid-template-columns: repeat(3, 1fr); }
+.lc-spec { display: flex; flex-direction: column; gap: var(--sp-3); }
+.lc-spec .lbl { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; font-weight: 700; color: var(--ink-4); }
+.lc-frame { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-sunken); overflow: hidden; }
+.lc-frame.plain { background: var(--surface-1); }
+.lc-pad { padding: var(--sp-7); }
+
+/* DialogShell skin (light tokens) */
+.dlg { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--elev-3); display: flex; flex-direction: column; overflow: hidden; }
+.dlg-scrim { display: grid; place-items: center; padding: var(--sp-8); background: rgba(15,20,32,0.42); }
+.dlg-head { padding: var(--sp-7) var(--sp-8) var(--sp-5); border-bottom: 1px solid var(--line-soft); }
+.dlg-head h2 { margin: 0; font-size: var(--fs-xl, 19px); font-weight: 700; color: var(--ink-1); letter-spacing: -0.01em; }
+.dlg-head p { margin: 5px 0 0; font-size: var(--fs-sm); color: var(--ink-3); }
+.dlg-body { padding: var(--sp-8); }
+.dlg-foot { padding: var(--sp-6) var(--sp-8); border-top: 1px solid var(--line-soft); background: var(--surface-2); display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-4); }
+.dlg-foot.split { justify-content: space-between; }
+
+.fl { display: block; font-size: var(--fs-sm); font-weight: 580; color: var(--ink-2); margin-bottom: var(--sp-2); }
+.fl .opt { color: var(--ink-4); font-weight: 500; }
+.fl .req { color: var(--danger); font-weight: 600; }
+.inp { width: 100%; height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-sm); }
+.inp::placeholder { color: var(--ink-4); }
+.inp:focus-visible { border-color: var(--accent); }
+textarea.inp { height: auto; padding: 9px 11px; resize: none; line-height: 1.5; }
+.inp-fake { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-4); font-size: var(--fs-sm); }
+.inp-fake.bound { color: var(--ink-1); }
+.errbox { border: 1px solid var(--danger); background: var(--danger-surface); color: var(--danger); font-size: var(--fs-meta); padding: 8px 11px; border-radius: var(--r-sm); }
+.note { font-size: var(--fs-meta); color: var(--ink-4); line-height: 1.5; }
+.note.warn { color: var(--warn); }
+.field { display: flex; flex-direction: column; }
+.spin { animation: spin 0.9s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+
+/* First-run welcome body */
+.fr { display: grid; grid-template-columns: 1fr 248px; gap: var(--sp-8); align-items: stretch; }
+.fr .copy { display: flex; flex-direction: column; justify-content: center; gap: var(--sp-5); }
+.fr .copy .p1 { margin: 0; font-size: var(--fs-md); line-height: 1.7; color: var(--ink-2); }
+.fr .copy .p2 { margin: 0; font-size: var(--fs-sm); line-height: 1.6; color: var(--ink-4); }
+.fr .skel { border: 1px solid var(--line); background: var(--surface-sunken); border-radius: var(--r-md); padding: var(--sp-6); display: flex; flex-direction: column; justify-content: space-between; min-height: 200px; }
+.fr .skel .blk { width: 38px; height: 38px; border-radius: var(--r-sm); background: var(--accent-surface); }
+.fr .skel .b1 { margin-top: 16px; height: 9px; width: 70%; border-radius: 4px; background: var(--line-strong); }
+.fr .skel .b2 { margin-top: 8px; height: 7px; width: 90%; border-radius: 4px; background: var(--line); }
+.fr .skel .rows { display: flex; flex-direction: column; gap: 7px; }
+.fr .skel .rows i { display: block; height: 26px; border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--surface-1); }
+
+/* Company selection portal */
+.csp { display: grid; grid-template-columns: 312px 1fr; height: 540px; background: var(--bg); }
+.csp-aside { border-right: 1px solid var(--line); background: var(--surface-1); padding: var(--sp-7); display: flex; flex-direction: column; min-height: 0; }
+.csp-aside-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: var(--sp-6); }
+.csp-aside-h .ttl { font-size: 20px; font-weight: 700; color: var(--ink-1); }
+.csp-aside-h .ey { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-4); font-weight: 700; }
+.csp-list { display: flex; flex-direction: column; gap: var(--sp-4); overflow: auto; min-height: 0; padding-right: 2px; }
+.csp-row { text-align: left; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); padding: var(--sp-6); cursor: pointer; }
+.csp-row:hover { border-color: var(--line-strong); background: var(--surface-0); }
+.csp-row.sel { border-color: var(--accent-ring); background: var(--accent-surface); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+.csp-row .rt { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); }
+.csp-row .nm { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); }
+.csp-row .tp { margin-top: 3px; font-size: var(--fs-micro); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-4); font-weight: 600; }
+.csp-row .st { margin-top: var(--sp-5); display: flex; gap: 16px; font-size: var(--fs-sm); color: var(--ink-3); }
+.csp-row .st span { display: inline-flex; align-items: center; gap: 6px; }
+.csp-rename { width: 100%; height: 30px; padding: 0 8px; border: 1px solid var(--accent-ring); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-1); font-weight: 660; font-size: var(--fs-md); }
+.csp-main { display: grid; grid-template-columns: 1fr 320px; gap: var(--sp-8); padding: var(--sp-8); overflow: auto; }
+.csp-prev-h .ey { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-4); font-weight: 700; }
+.csp-prev-h .ttl { margin-top: 4px; font-size: 20px; font-weight: 700; color: var(--ink-1); }
+.csp-prev { margin-top: var(--sp-5); height: 420px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); overflow: hidden; }
+.csp-prev.dashed { border-style: dashed; display: grid; place-items: center; text-align: center; color: var(--ink-3); }
+.csp-svg { width: 100%; height: 100%; display: block; }
+.csp-brief { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-1); padding: var(--sp-7); align-self: start; }
+.csp-brief .ey { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-4); font-weight: 700; }
+.csp-brief .id { margin-top: var(--sp-5); display: flex; align-items: center; gap: var(--sp-4); }
+.csp-brief .id .ic { width: 42px; height: 42px; flex: none; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken); display: grid; place-items: center; color: var(--accent); }
+.csp-brief .id .nm { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); }
+.csp-brief .id .tp { margin-top: 2px; font-size: var(--fs-sm); color: var(--ink-3); }
+.csp-stats { margin-top: var(--sp-7); display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.csp-stat { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-sunken); padding: var(--sp-5); }
+.csp-stat .l { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-4); font-weight: 700; }
+.csp-stat .v { margin-top: 6px; font-size: 22px; font-weight: 700; color: var(--ink-1); }
+.csp-upd { margin-top: var(--sp-5); font-size: var(--fs-micro); color: var(--ink-4); }
+.csp-acts { margin-top: var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-4); }
+.csp-arch-warn { border: 1px solid var(--danger); background: var(--danger-surface); color: var(--danger); font-size: var(--fs-meta); line-height: 1.55; padding: 10px 12px; border-radius: var(--r-sm); }
+.btn.block { width: 100%; height: 42px; justify-content: center; }
+
+/* Company creation wizard — SHARED LIGHT TOKENS (redesign fix; source is hard-dark) */
+.wiz { display: grid; grid-template-rows: 1fr auto; height: 560px; background: var(--bg); }
+.wiz-body { display: grid; grid-template-columns: 320px 1fr; min-height: 0; }
+.wiz-info { border-right: 1px solid var(--line); background: var(--surface-1); display: flex; flex-direction: column; min-height: 0; }
+.wiz-info-h { padding: var(--sp-6); border-bottom: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: var(--sp-5); }
+.wiz-carousel { border: 1px solid var(--line); background: var(--surface-0); border-radius: var(--r-md); padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); align-items: center; }
+.wiz-carousel .cr { display: flex; align-items: center; width: 100%; }
+.wiz-carousel .na { width: 32px; height: 32px; flex: none; border: 0; background: transparent; color: var(--ink-4); border-radius: var(--r-sm); display: grid; place-items: center; }
+.wiz-carousel .na:hover { background: var(--surface-sunken); color: var(--ink-1); }
+.wiz-carousel .cn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 9px; font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); }
+.wiz-dots { display: flex; align-items: center; gap: 6px; }
+.wiz-dots i { height: 6px; width: 6px; border-radius: var(--r-pill); background: var(--line-strong); display: block; }
+.wiz-dots i.on { width: 16px; background: var(--accent); }
+.wiz-zone { border: 1px solid var(--line); background: var(--surface-0); border-radius: var(--r-sm); padding: 9px 12px; }
+.wiz-zone .l { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-4); font-weight: 700; }
+.wiz-zone .v { margin-top: 5px; font-size: var(--fs-sm); color: var(--ink-2); }
+.wiz-tabs { display: flex; gap: var(--sp-6); border-bottom: 1px solid var(--line-soft); padding-top: 2px; }
+.wiz-tab { padding: 0 0 9px; border: 0; background: transparent; font-size: var(--fs-sm); font-weight: 660; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-4); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.wiz-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+.wiz-info-b { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
+.wiz-emp { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); overflow: hidden; }
+.wiz-emp .top { width: 100%; display: flex; align-items: center; gap: var(--sp-4); padding: 9px 11px; border: 0; background: transparent; text-align: left; }
+.wiz-emp .top:hover { background: var(--surface-sunken); }
+.wiz-emp .av { width: 38px; height: 38px; border-radius: 50%; flex: none; position: relative; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: var(--fs-sm); }
+.wiz-emp .av .d { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--surface-1); }
+.wiz-emp .meta { min-width: 0; flex: 1; }
+.wiz-emp .meta .n { font-size: var(--fs-md); font-weight: 580; color: var(--ink-1); }
+.wiz-emp .meta .r { margin-top: 1px; font-size: var(--fs-sm); font-weight: 600; }
+.wiz-emp .meta .b { margin-top: 2px; font-size: var(--fs-meta); font-style: italic; color: var(--ink-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wiz-emp .exp { border-top: 1px solid var(--line-soft); padding: 9px 11px; }
+.wiz-emp .exp .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+.wiz-emp .exp .hw { font-size: var(--fs-sm); line-height: 1.55; color: var(--ink-3); }
+.wiz-stage { display: grid; place-items: center; padding: var(--sp-8); }
+.wiz-2d { width: 100%; max-width: 460px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); }
+.wiz-cyo { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-5); text-align: center; color: var(--ink-3); }
+.wiz-cyo .ic { width: 52px; height: 52px; border-radius: var(--r-lg); display: grid; place-items: center; background: var(--violet-surface); color: var(--violet); }
+.wiz-cyo .caps { display: flex; flex-direction: column; gap: 8px; width: 240px; }
+.wiz-cyo .caps .c { display: flex; align-items: center; gap: 9px; border: 1px solid var(--line); background: var(--surface-1); border-radius: var(--r-sm); padding: 9px 12px; font-size: var(--fs-sm); color: var(--ink-2); }
+.wiz-cyo .caps .c i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); flex: none; }
+.wiz-foot { border-top: 1px solid var(--line); background: var(--surface-1); padding: var(--sp-6) var(--sp-8); display: flex; align-items: flex-end; gap: var(--sp-6); }
+.wiz-foot .nmf { flex: 1; }
+
+/* Onboarding tour */
+.tour-stage { position: relative; height: 280px; background: var(--surface-2); overflow: hidden; }
+.tour-ghost { position: absolute; inset: 0; padding: var(--sp-6); }
+.tour-anchor { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); }
+.tour-ring { position: absolute; border: 2px solid var(--accent); border-radius: var(--r-sm); box-shadow: 0 0 0 4px var(--accent-ring); pointer-events: none; }
+.tour-card { width: 300px; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--elev-3); padding: var(--sp-6); }
+.tour-card.abs { position: absolute; }
+.tour-card.mid { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.tour-card .ey { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.tour-card h3 { margin: 6px 0 5px; font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); }
+.tour-card p { margin: 0; font-size: var(--fs-sm); line-height: 1.55; color: var(--ink-3); }
+.tour-acts { margin-top: var(--sp-6); display: flex; align-items: center; justify-content: space-between; }
+.tour-acts .r { display: flex; gap: 7px; }
+.tour-led { display: flex; flex-direction: column; }
+.tour-lr { display: flex; align-items: flex-start; gap: var(--sp-4); padding: var(--sp-5); border-bottom: 1px solid var(--line-soft); }
+.tour-lr:last-child { border-bottom: 0; }
+.tour-lr .nm { width: 22px; height: 22px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-meta); font-weight: 760; background: var(--surface-sunken); color: var(--ink-3); }
+.tour-lr.done .nm { background: var(--ok-surface); color: var(--ok); }
+.tour-lr.active .nm { background: var(--accent); color: var(--accent-fg); }
+.tour-lr .lt { font-size: var(--fs-base); font-weight: 620; color: var(--ink-1); }
+.tour-lr .ld { margin-top: 3px; font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.5; }
+
+/* Project consolidated locus */
+.proj-locus { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-1); overflow: hidden; max-width: 420px; }
+.proj-trigger { display: flex; align-items: center; gap: 8px; width: 100%; height: 40px; padding: 0 var(--sp-5); border: 0; border-bottom: 1px solid var(--line-soft); background: var(--surface-0); font-weight: 660; font-size: var(--fs-md); color: var(--ink-1); }
+.proj-trigger .ico.lead { color: var(--accent); }
+.proj-trigger .ico.caret { margin-left: auto; color: var(--ink-4); }
+.proj-pop { border-bottom: 1px solid var(--line-soft); padding: var(--sp-3); }
+.proj-pop .ph { padding: 6px 8px; font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-4); font-weight: 700; }
+.proj-opt { display: flex; align-items: center; gap: var(--sp-3); width: 100%; padding: 7px 8px; border: 0; background: transparent; border-radius: var(--r-sm); text-align: left; }
+.proj-opt:hover { background: var(--surface-sunken); }
+.proj-opt.on { background: var(--accent-surface); }
+.proj-opt .ol { font-size: var(--fs-base); font-weight: 580; color: var(--ink-1); }
+.proj-opt .oh { font-size: var(--fs-micro); color: var(--ink-3); }
+.proj-opt .dt { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.proj-foot { padding: var(--sp-3); }
+.proj-foot button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 8px; border: 0; background: transparent; border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: 600; color: var(--accent); }
+.proj-foot button:hover { background: var(--accent-surface); }
+.proj-sum { padding: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-4); }
+.proj-sum .kv { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-sm); }
+.proj-sum .kv .k { color: var(--ink-4); }
+.proj-sum .kv .v { color: var(--ink-1); font-weight: 600; }
+.proj-sum .acts { display: flex; gap: 7px; }
+.proj-files { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-sunken); overflow: hidden; }
+.proj-files .fh { display: flex; align-items: center; justify-content: space-between; padding: 8px 11px; border-bottom: 1px solid var(--line-soft); font-size: var(--fs-micro); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-4); font-weight: 700; }
+.proj-frow { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 11px; border: 0; background: transparent; text-align: left; font-size: var(--fs-sm); color: var(--ink-2); }
+.proj-frow:hover { background: var(--surface-1); }
+.proj-frow.sel { background: var(--accent-surface); color: var(--accent); }
+.proj-frow .nm { flex: 1; }
+.proj-frow .sz { font-size: var(--fs-micro); color: var(--ink-4); }
+.proj-prev { margin: 8px 11px 11px; padding: 10px; border: 1px solid var(--line-soft); border-radius: var(--r-xs); background: var(--surface-1); font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-2); white-space: pre-wrap; line-height: 1.5; }
+
+/* Deliverable cards */
+.dlv-empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); padding: var(--sp-8) var(--sp-6); text-align: center; }
+.dlv-empty .ic { width: 40px; height: 40px; border-radius: var(--r-lg); display: grid; place-items: center; background: var(--surface-sunken); color: var(--ink-4); }
+.dlv-empty .t { font-weight: 620; font-size: var(--fs-md); color: var(--ink-2); }
+.dlv-empty .d { font-size: var(--fs-sm); color: var(--ink-3); max-width: 240px; line-height: 1.5; }
+.dlv-listh { display: flex; align-items: center; justify-content: space-between; padding: 0 0 var(--sp-5); }
+.dlv-listh .l { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-3); font-weight: 700; }
+.dlv-listh .c { font-size: 9px; font-weight: 760; color: var(--ink-3); background: var(--surface-sunken); padding: 1px 7px; border-radius: var(--r-pill); }
+.dlv { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); overflow: hidden; }
+.dlv + .dlv { margin-top: var(--sp-4); }
+.dlv.is-new { border-color: var(--ok); box-shadow: 0 0 0 3px var(--ok-surface); }
+.dlv.compact { background: var(--ok-surface); border-color: rgba(26,164,106,0.3); }
+.dlv-hd { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.dlv-hd .fi { width: 28px; height: 28px; flex: none; border-radius: var(--r-sm); display: grid; place-items: center; background: var(--surface-sunken); color: var(--ink-3); }
+.dlv-hd .mid { flex: 1; min-width: 0; }
+.dlv-hd .tt { font-size: var(--fs-base); font-weight: 660; color: var(--ink-1); }
+.dlv-hd .mt { margin-top: 1px; font-size: var(--fs-micro); color: var(--ink-4); }
+.dlv-stack { display: flex; align-items: center; }
+.dlv-stack .a { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--surface-1); display: grid; place-items: center; color: #fff; font-size: 9px; font-weight: 800; margin-left: -6px; }
+.dlv-stack .a:first-child { margin-left: 0; }
+.dlv-stack .ov { margin-left: -6px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--surface-1); background: var(--surface-sunken); color: var(--ink-3); display: grid; place-items: center; font-size: 9px; font-weight: 800; }
+.dlv-bd { border-top: 1px solid var(--line-soft); }
+.dlv-bd pre { margin: 0; padding: 11px 12px; font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-2); white-space: pre-wrap; line-height: 1.5; max-height: 90px; overflow: hidden; }
+.dlv-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 9px 12px; border-top: 1px solid var(--line-soft); }
+.dlv-acts .a { height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); font-size: var(--fs-micro); font-weight: 620; color: var(--ink-2); }
+.dlv-acts .a:hover { border-color: var(--line-strong); }
+.dlv-acts select.a { padding: 0 22px 0 8px; appearance: none; background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 7px center; }
+.dlv-acts .sop { margin-left: auto; height: 26px; padding: 0 10px; border: 1px solid var(--ok); border-radius: var(--r-sm); background: transparent; color: var(--ok); font-size: var(--fs-micro); font-weight: 700; }
+.dlv-acts .sop.promoted { background: var(--ok); color: #fff; border-color: transparent; }
+.dlv-chips { padding: 9px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dlv-chips .nc { font-family: var(--mono); font-size: var(--fs-micro); padding: 2px 7px; border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-2); border: 1px solid var(--line); }
+.dlv-chips .mc { font-size: var(--fs-micro); color: var(--ink-3); }
+
+/* Employee creator overlay — SHARED LIGHT TOKENS (redesign fix; source is hard-dark) */
+.ec { display: grid; grid-template-rows: auto 1fr auto; height: 520px; background: var(--bg); }
+.ec-top { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-5) var(--sp-7); background: var(--surface-1); border-bottom: 1px solid var(--line); }
+.ec-top .lf { display: flex; align-items: center; gap: var(--sp-4); }
+.ec-top .lf h1 { margin: 0; font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); }
+.ec-back { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-3); display: grid; place-items: center; }
+.ec-back:hover { color: var(--ink-1); border-color: var(--line-strong); }
+.ec-steps { display: flex; align-items: center; gap: var(--sp-3); }
+.ec-step { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface-1); font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.06em; color: var(--ink-4); }
+.ec-step .sn { font-family: var(--mono); }
+.ec-step.on { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
+.ec-sep { width: 18px; height: 1px; background: var(--line-strong); }
+.ec-main { display: grid; grid-template-columns: 44% 1fr; min-height: 0; }
+.ec-prev { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-6); border-right: 1px solid var(--line); background: var(--surface-1); }
+.ec-ava { width: 168px; height: 168px; border-radius: 50%; background: conic-gradient(from 40deg, #6d8bd6, #b27fd6, #6dd6b2, #6d8bd6); box-shadow: 0 0 0 6px var(--accent-surface); }
+.ec-prev .nm { font-size: var(--fs-xl, 19px); font-weight: 680; color: var(--ink-1); text-align: center; }
+.ec-prev .rl { display: inline-flex; height: 22px; padding: 0 11px; border-radius: var(--r-pill); background: var(--accent-surface); color: var(--accent); font-size: var(--fs-micro); font-weight: 700; align-items: center; }
+.ec-rand { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 13px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); font-size: var(--fs-sm); font-weight: 620; color: var(--ink-2); }
+.ec-rand:hover { border-color: var(--line-strong); }
+.ec-cfg { overflow: auto; padding: var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-7); }
+.ec-cfg .sec { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); padding: var(--sp-6); }
+.ec-cfg .sec.on { border-color: var(--accent-ring); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+.ec-cfg .sh { display: flex; align-items: center; gap: 8px; margin-bottom: var(--sp-5); font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-3); font-weight: 700; }
+.ec-cfg .sh .sn { font-family: var(--mono); color: var(--ink-4); }
+.ec-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ec-pre { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 9px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); cursor: pointer; }
+.ec-pre.on { border-color: var(--accent-ring); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+.ec-pre .av { width: 38px; height: 38px; border-radius: 50%; }
+.ec-pre .sd { font-size: var(--fs-micro); font-weight: 600; color: var(--ink-3); }
+.ec-info { border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--surface-sunken); padding: var(--sp-5); }
+.ec-info .l { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-2); }
+.ec-info p { margin: 5px 0 0; font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.55; }
+.ec-bot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-4); padding: var(--sp-6) var(--sp-8); background: var(--surface-1); border-top: 1px solid var(--line); }
+
+/* A2A card */
+.a2a-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-0); padding: var(--sp-6); }
+.a2a-card .row { display: flex; gap: var(--sp-4); }
+.a2a-card .av { width: 44px; height: 44px; flex: none; border-radius: var(--r-md); display: grid; place-items: center; background: var(--violet-surface); color: var(--violet); }
+.a2a-card .nm { font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); }
+.a2a-card .org { font-size: var(--fs-sm); color: var(--ink-3); }
+.a2a-card .vr { font-size: var(--fs-micro); color: var(--ink-4); margin-top: 1px; }
+.a2a-card .desc { margin-top: var(--sp-4); font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.5; }
+.a2a-card .sk { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--sp-4); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5); }
+</style>
+</head><body>
+<svg class="sprite" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-office" viewBox="0 0 24 24"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h.01M13 7h.01M9 11h.01M13 11h.01M9 21v-4h4v4"/></symbol>
+  <symbol id="i-sop" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6H14a3 3 0 0 1 3 3v6.6M6 8.4v3.1a3 3 0 0 0 3 3h6.6"/></symbol>
+  <symbol id="i-market" viewBox="0 0 24 24"><path d="M3 9h18l-1.4 9.2a2 2 0 0 1-2 1.8H6.4a2 2 0 0 1-2-1.8L3 9zM3 9l2-5h14l2 5M9 13v3M15 13v3"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 6.2a3 3 0 0 1 0 5.6M18.5 20a5 5 0 0 0-3-4.6"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h3.5l2.5-7 4 14 2.5-7H21"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.6a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 6.9 4.2l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></symbol>
+  <symbol id="i-inspect" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 9h18M8 13h5M8 16h8"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m5 8 4 4-4 4M12 16h7"/><rect x="2.5" y="3.5" width="19" height="17" rx="2"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="9" r="2.4"/><path d="M6 8.4v7.2M17.4 10.4A6 6 0 0 1 12 16H8.4"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.4"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10.3 21a2 2 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M4 19h16"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 21V9M7 13l5-5 5 5M4 5h16"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16M3 12a9 9 0 0 1 15.5-6.3L21 8M3 4v4h4M21 20v-4h-4"/></symbol>
+  <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 5 5l-9 9a1.8 1.8 0 0 1-2.5-2.5l8-8"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5 19 12 7 19.5z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.7 7 9 4-1.3 7-4.6 7-9V6z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18 9.5l-4.2 1.8L12 16l-1.8-4.7L6 9.5l4.2-1.8zM18.5 15.5l.8 2 .7-2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20zM12 9v5M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6L11 6M14 11a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6L13 18"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 2 5 3 3 0 0 0 6 0V5a3 3 0 0 0-3-1zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-2 5"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 9 9 0 0 0-9-8z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16.5" cy="11" r="1.2"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-link-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M19 5l-8 8M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/></symbol>
+  <!-- Lifecycle-only symbols (kept in shared sprite style; only ones a lifecycle surface genuinely needs) -->
+  <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M5 15c-1.5 1-2 5-2 5s4-.5 5-2a2.8 2.8 0 0 0-3-3zM9 14l-3-3c1-5 5-9 11-9 0 6-4 10-9 11zM14.5 9.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/></symbol>
+  <symbol id="i-dices" viewBox="0 0 24 24"><rect x="3" y="11" width="10" height="10" rx="2"/><path d="M8 16h.01M15 3l6 6-6 6M18 6h.01M15 9h.01"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.5 5.5a4 4 0 0 1 4.9 5L9 21a2.8 2.8 0 0 1-4-4L15.5 6.6a4 4 0 0 1-1-1.1z"/></symbol>
+  <symbol id="i-loader" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M5.6 5.6l2.9 2.9M15.5 15.5l2.9 2.9M3 12h4M17 12h4M5.6 18.4l2.9-2.9M15.5 8.5l2.9-2.9"/></symbol>
+</svg>
+<div class="app flow">
+  <header class="titlebar">
+    <div class="tb-dots"><i></i><i></i><i></i></div>
+    <span class="tb-brand">Offisim</span><span class="tb-ver">v0.8.0</span>
+    <span class="tb-spacer"></span>
+    <button class="tb-act" title="Keyboard shortcuts (⌘ /)"><svg class="ico sm"><use href="#i-kbd"/></svg></button>
+  </header>
+  <nav class="topbar">
+    <div class="tp-left">
+      <button class="company-sel"><span class="avatar">A</span>Acme Studio<span class="ct">6</span><svg class="ico sm"><use href="#i-chev-down"/></svg></button>
+    </div>
+    <div class="peernav">
+      <a href="#" class="active"><svg class="ico sm"><use href="#i-office"/></svg>Office</a>
+      <a href="#"><svg class="ico sm"><use href="#i-sop"/></svg>SOPs</a>
+      <a href="#"><svg class="ico sm"><use href="#i-market"/></svg>Market</a>
+      <a href="#"><svg class="ico sm"><use href="#i-people"/></svg>Personnel</a>
+      <a href="#"><svg class="ico sm"><use href="#i-activity"/></svg>Activity</a>
+      <a href="#"><svg class="ico sm"><use href="#i-settings"/></svg>Settings</a>
+    </div>
+    <div class="tp-right"></div>
+  </nav>
+  <main class="app-body body-full">
+    <div class="spec-intro">
+      <h1>Global lifecycle</h1>
+      <p>The lifecycle is the cross-cutting layer that wraps every workspace — the surfaces a person passes through from the very first launch to running an everyday office. Each card below is one designed lifecycle state in plain product terms; the calm shell above is the frame these surfaces appear inside.</p>
+      <div class="chain">
+        <span class="st">Welcome</span><span class="sep">→</span>
+        <span class="st">Choose / create a company</span><span class="sep">→</span>
+        <span class="st">Guided tour</span><span class="sep">→</span>
+        <span class="st">Project &amp; folder</span><span class="sep">→</span>
+        <span class="st">Outputs</span><span class="sep">→</span>
+        <span class="st">Add people</span>
+      </div>
+    </div>
+
+    <div class="lc-stack">
+
+      <!-- ── 1 · First-run welcome ── -->
+      <section class="lc-sec">
+        <div class="lc-head"><span class="ix">1</span><span class="ttl">First-run welcome</span>
+          <span class="cap">The very first thing a brand-new user sees, over a calm empty office.</span></div>
+        <div class="lc-frame">
+          <div class="dlg-scrim">
+            <div class="dlg" style="width:680px">
+              <div class="dlg-head"><h2>Welcome to Offisim</h2><p>Your AI office</p></div>
+              <div class="dlg-body">
+                <div class="fr">
+                  <div class="copy">
+                    <p class="p1">Offisim gives you an AI team, a workspace, and a live office surface in one place. Start by connecting a provider, then create a project and send the team its first task.</p>
+                    <p class="p2">The guide will highlight the exact controls you need; you can skip it and explore at any time.</p>
+                  </div>
+                  <div class="skel">
+                    <div><div class="blk"></div><div class="b1"></div><div class="b2"></div></div>
+                    <div class="rows"><i></i><i></i><i></i></div>
+                  </div>
+                </div>
+              </div>
+              <div class="dlg-foot">
+                <button class="btn ghost">Skip and explore</button>
+                <button class="btn pri">Get started</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="lc-grid g2" style="margin-top:var(--sp-7)">
+          <div class="lc-spec">
+            <span class="lbl">Two exits — different outcomes</span>
+            <div class="lc-frame plain lc-pad" style="display:flex;gap:10px;justify-content:flex-end;align-items:center">
+              <button class="btn ghost">Skip and explore</button>
+              <button class="btn pri">Get started</button>
+            </div>
+            <p class="note">“Get started” dismisses only the welcome and leaves the guided tour armed. “Skip and explore” (and Escape) dismisses both welcome and tour. The dialog cannot be closed by clicking the backdrop.</p>
+          </div>
+          <div class="lc-spec">
+            <span class="lbl">Right panel is decorative</span>
+            <div class="lc-frame plain lc-pad">
+              <div class="fr" style="grid-template-columns:1fr 180px">
+                <div class="copy"><p class="p2" style="font-size:var(--fs-sm)">Fixed copy — not generated, not template-derived. The same words every first run.</p></div>
+                <div class="skel" style="min-height:120px"><div><div class="blk"></div><div class="b1"></div></div><div class="rows"><i></i><i></i></div></div>
+              </div>
+            </div>
+            <p class="note">A static skeleton illustration only — no live data binding, no preview.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 2 · Company selection ── -->
+      <section class="lc-sec">
+        <div class="lc-head"><span class="ix">2</span><span class="ttl">Choose a company</span>
+          <span class="cap">A full-screen portal: the company list, a live office preview, and a brief with the actions.</span></div>
+        <div class="lc-frame">
+          <div class="csp">
+            <aside class="csp-aside">
+              <div class="csp-aside-h">
+                <div><div class="ey">Companies</div><div class="ttl">Portal</div></div>
+                <button class="btn sm"><svg class="ico sm"><use href="#i-plus"/></svg>New</button>
+              </div>
+              <div class="csp-list">
+                <button class="csp-row sel">
+                  <div class="rt">
+                    <div style="min-width:0"><div class="nm">Acme Studio</div><div class="tp">Content Studio</div></div>
+                    <span class="pill ok">Active</span>
+                  </div>
+                  <div class="st"><span><svg class="ico sm"><use href="#i-people"/></svg>6</span><span><svg class="ico sm"><use href="#i-cube"/></svg>3</span></div>
+                </button>
+                <button class="csp-row">
+                  <div class="rt"><div style="min-width:0"><input class="csp-rename" value="Northwind Labs" aria-label="Rename company"><div class="tp" style="margin-top:6px">R&amp;D Company</div></div></div>
+                  <div class="st"><span><svg class="ico sm"><use href="#i-people"/></svg>9</span><span><svg class="ico sm"><use href="#i-cube"/></svg>1</span></div>
+                </button>
+                <button class="csp-row">
+                  <div class="rt"><div style="min-width:0"><div class="nm">Solo Sandbox</div><div class="tp">Custom Layout</div></div></div>
+                  <div class="st"><span><svg class="ico sm"><use href="#i-people"/></svg>2</span><span><svg class="ico sm"><use href="#i-cube"/></svg>0</span></div>
+                </button>
+              </div>
+            </aside>
+            <main class="csp-main">
+              <section style="min-width:0">
+                <div class="csp-prev-h"><div class="ey">Preview</div><div class="ttl">Acme Studio</div></div>
+                <div class="csp-prev">
+                  <svg class="csp-svg" viewBox="0 0 720 480" preserveAspectRatio="xMidYMid meet">
+                    <title>Acme Studio office preview</title>
+                    <defs><pattern id="cg" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M 24 0 L 0 0 0 24" fill="none" stroke="#dde3ec" stroke-opacity="0.6" stroke-width="1"/></pattern></defs>
+                    <rect width="720" height="480" fill="#f1f4f9"/>
+                    <rect width="720" height="480" fill="url(#cg)"/>
+                    <g><rect x="40" y="40" width="300" height="180" rx="14" fill="#2f6bff" fill-opacity="0.12" stroke="#2f6bff" stroke-opacity="0.45"/><text x="54" y="64" fill="#2f6bff" font-size="11" font-weight="700" font-family="General Sans">DEV BAY</text><text x="326" y="64" fill="#93a0b2" font-size="10" text-anchor="end" font-family="General Sans">14 assets</text></g>
+                    <g><rect x="360" y="40" width="320" height="180" rx="14" fill="#7c4ddb" fill-opacity="0.12" stroke="#7c4ddb" stroke-opacity="0.45"/><text x="374" y="64" fill="#7c4ddb" font-size="11" font-weight="700" font-family="General Sans">PRODUCT</text><text x="666" y="64" fill="#93a0b2" font-size="10" text-anchor="end" font-family="General Sans">8 assets</text></g>
+                    <g><rect x="40" y="240" width="640" height="200" rx="14" fill="#1aa46a" fill-opacity="0.12" stroke="#1aa46a" stroke-opacity="0.45"/><text x="54" y="264" fill="#1aa46a" font-size="11" font-weight="700" font-family="General Sans">LIBRARY</text><text x="666" y="264" fill="#93a0b2" font-size="10" text-anchor="end" font-family="General Sans">11 assets</text></g>
+                    <circle cx="120" cy="140" r="5" fill="#ffffff" stroke="#c8d1de"/><circle cx="190" cy="170" r="5" fill="#ffffff" stroke="#c8d1de"/><circle cx="470" cy="130" r="5" fill="#ffffff" stroke="#c8d1de"/><circle cx="300" cy="350" r="5" fill="#ffffff" stroke="#c8d1de"/><circle cx="430" cy="370" r="5" fill="#ffffff" stroke="#c8d1de"/>
+                  </svg>
+                </div>
+              </section>
+              <aside class="csp-brief">
+                <div class="ey">Company brief</div>
+                <div class="id">
+                  <div class="ic"><svg class="ico lg"><use href="#i-office"/></svg></div>
+                  <div style="min-width:0"><div class="nm">Acme Studio</div><div class="tp">Content Studio</div></div>
+                </div>
+                <div class="csp-stats">
+                  <div class="csp-stat"><div class="l">Employees</div><div class="v">6</div></div>
+                  <div class="csp-stat"><div class="l">Projects</div><div class="v">3</div></div>
+                  <div class="csp-stat"><div class="l">Zones</div><div class="v">5</div></div>
+                  <div class="csp-stat"><div class="l">Assets</div><div class="v">33</div></div>
+                </div>
+                <div class="csp-upd">Updated May 16, 2:41 PM</div>
+                <div class="csp-acts">
+                  <button class="btn pri block">Enter company <svg class="ico sm"><use href="#i-chev-right"/></svg></button>
+                  <button class="btn block"><svg class="ico sm"><use href="#i-archive"/></svg>Archive company</button>
+                </div>
+              </aside>
+            </main>
+          </div>
+        </div>
+        <div class="lc-grid g2" style="margin-top:var(--sp-7)">
+          <div class="lc-spec">
+            <span class="lbl">Archive is a two-step confirm</span>
+            <div class="lc-frame plain lc-pad">
+              <div class="csp-acts" style="margin-top:0">
+                <button class="btn pri block">Enter company <svg class="ico sm"><use href="#i-chev-right"/></svg></button>
+                <button class="btn danger block"><svg class="ico sm"><use href="#i-archive"/></svg>Confirm archive</button>
+                <div class="csp-arch-warn">Archive Acme Studio? The company will be removed from the active list. It is hidden, never destroyed.</div>
+              </div>
+            </div>
+            <p class="note">First click arms the button; a second click on the same company confirms. Archive is soft — the company simply leaves the active list.</p>
+          </div>
+          <div class="lc-spec">
+            <span class="lbl">Preview &amp; selection edge states</span>
+            <div class="lc-frame plain lc-pad" style="display:flex;flex-direction:column;gap:10px">
+              <div class="csp-prev dashed" style="height:120px;margin-top:0"><div><div style="font-weight:660;color:var(--ink-2)">No companies yet</div><div style="margin-top:4px;font-size:var(--fs-sm)">Create one to start building your workspace.</div></div></div>
+              <div class="csp-prev dashed" style="height:90px;margin-top:0"><div style="font-size:var(--fs-sm)">Pick a company to inspect its layout, or create a new one.</div></div>
+            </div>
+            <p class="note">A company row doubles as select-and-preview; the pencil opens an inline rename. The preview also has loading and “layout not customized yet” states. “New” opens the creation wizard below.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 3 · Company creation wizard (REDESIGN FIX: shared light tokens) ── -->
+      <section class="lc-sec">
+        <div class="lc-head"><span class="ix">3</span><span class="ttl">Create a company</span>
+          <span class="cap">Pick a template (or build your own), preview the office, name it, and start.</span></div>
+        <div class="lc-frame">
+          <div class="wiz">
+            <div class="wiz-body">
+              <div class="wiz-info">
+                <div class="wiz-info-h">
+                  <div class="wiz-carousel">
+                    <div class="cr">
+                      <button class="na"><svg class="ico lg"><use href="#i-chev-left"/></svg></button>
+                      <div class="cn"><svg class="ico" style="color:var(--accent)"><use href="#i-cube"/></svg>R&amp;D Company</div>
+                      <button class="na"><svg class="ico lg"><use href="#i-chev-right"/></svg></button>
+                    </div>
+                    <div class="wiz-dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+                  </div>
+                  <div class="wiz-zone"><div class="l">Zones · 5</div><div class="v">Dev Bay • Server Room • Library • Meeting • Rest</div></div>
+                  <div class="wiz-tabs">
+                    <button class="wiz-tab on">Team · 6</button>
+                    <button class="wiz-tab">Workflows · 2</button>
+                  </div>
+                </div>
+                <div class="wiz-info-b">
+                  <div class="wiz-emp">
+                    <button class="top">
+                      <span class="av" style="background:#2f6bff">A<span class="d" style="background:#2f6bff"></span></span>
+                      <span class="meta"><span class="n">Alex Chen</span><span class="r" style="color:#2f6bff">Lead Developer</span><span class="b">Architectural thinker who loves clean code</span></span>
+                      <svg class="ico xs" style="color:var(--ink-4)"><use href="#i-chev-down"/></svg>
+                    </button>
+                  </div>
+                  <div class="wiz-emp">
+                    <button class="top">
+                      <span class="av" style="background:#c98410">M<span class="d" style="background:#c98410"></span></span>
+                      <span class="meta"><span class="n">Maya Lin</span><span class="r" style="color:#c98410">UI/UX Designer</span><span class="b">Pixel-perfect UI with a passion for animation</span></span>
+                      <svg class="ico xs" style="color:var(--ink-4)"><use href="#i-chev-up"/></svg>
+                    </button>
+                    <div class="exp">
+                      <div class="tags"><span class="pill muted">React</span><span class="pill muted">CSS</span><span class="pill muted">Animation</span><span class="pill accent">Creative</span></div>
+                      <p class="hw">Beautiful user interfaces, smooth interactions, and accessible component design.</p>
+                    </div>
+                  </div>
+                  <div class="wiz-emp">
+                    <button class="top">
+                      <span class="av" style="background:#1aa46a">M<span class="d" style="background:#1aa46a"></span></span>
+                      <span class="meta"><span class="n">Marcus Johnson</span><span class="r" style="color:#1aa46a">Data Analyst</span><span class="b">Database whisperer and API craftsman</span></span>
+                      <svg class="ico xs" style="color:var(--ink-4)"><use href="#i-chev-down"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="wiz-stage">
+                <svg class="wiz-2d" viewBox="0 0 460 320" preserveAspectRatio="xMidYMid meet">
+                  <rect width="460" height="320" rx="12" fill="#fbfcfe"/>
+                  <rect x="24" y="24" width="200" height="130" rx="10" fill="#2f6bff" fill-opacity="0.14" stroke="#2f6bff" stroke-opacity="0.5"/><text x="38" y="46" fill="#2f6bff" font-size="10" font-weight="700" font-family="General Sans">DEV BAY</text>
+                  <rect x="238" y="24" width="198" height="130" rx="10" fill="#f1f4f9" stroke="#c8d1de"/><text x="252" y="46" fill="#647186" font-size="10" font-weight="700" font-family="General Sans">SERVER ROOM</text>
+                  <rect x="24" y="168" width="412" height="128" rx="10" fill="#1aa46a" fill-opacity="0.12" stroke="#1aa46a" stroke-opacity="0.45"/><text x="38" y="190" fill="#1aa46a" font-size="10" font-weight="700" font-family="General Sans">LIBRARY</text>
+                  <circle cx="86" cy="100" r="6" fill="#2f6bff"/><circle cx="150" cy="112" r="6" fill="#2f6bff"/><circle cx="130" cy="240" r="6" fill="#647186"/>
+                </svg>
+              </div>
+            </div>
+            <div class="wiz-foot">
+              <button class="btn ghost"><svg class="ico sm"><use href="#i-chev-left"/></svg>Back</button>
+              <div class="nmf field">
+                <label class="fl" for="wn">Company name</label>
+                <input class="inp" id="wn" value="My AI Company" placeholder="My AI Company">
+              </div>
+              <button class="btn pri">Start company</button>
+            </div>
+          </div>
+        </div>
+        <div class="lc-grid g2" style="margin-top:var(--sp-7)">
+          <div class="lc-spec">
+            <span class="lbl">Start button across runtime states</span>
+            <div class="lc-frame plain lc-pad" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+              <button class="btn pri">Start company</button>
+              <button class="btn pri" disabled><svg class="ico sm spin"><use href="#i-loader"/></svg>Initializing…</button>
+              <button class="btn">Retry runtime</button>
+              <button class="btn pri">Open Studio editor</button>
+              <button class="btn pri" disabled><svg class="ico sm spin"><use href="#i-loader"/></svg>Opening Studio…</button>
+            </div>
+            <p class="note">The primary action adapts: ready, waiting on the runtime, retry after a runtime error, or — for “Create your own” — opening the Studio editor instead of starting from a template.</p>
+          </div>
+          <div class="lc-spec">
+            <span class="lbl">Create your own · building · loading</span>
+            <div class="lc-frame plain lc-pad" style="display:flex;flex-direction:column;gap:14px">
+              <div class="wiz-cyo" style="padding:6px 0">
+                <div class="ic"><svg class="ico lg"><use href="#i-wrench"/></svg></div>
+                <p class="note" style="margin:0;font-size:var(--fs-sm);color:var(--ink-2)">Design your office from scratch</p>
+                <div class="caps">
+                  <div class="c"><i></i>3D Studio editor</div>
+                  <div class="c"><i></i>Custom plot size</div>
+                  <div class="c"><i></i>Free placement</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line-soft);padding-top:12px">
+                <div style="display:flex;align-items:center;gap:9px;font-size:var(--fs-sm);font-weight:620;color:var(--ink-1)"><svg class="ico sm spin" style="color:var(--accent)"><use href="#i-loader"/></svg>Building your office…</div>
+                <div class="note">Setting up employees, workflows, and office layout</div>
+                <div style="display:flex;align-items:center;gap:9px;font-size:var(--fs-sm);color:var(--ink-3)"><svg class="ico sm spin" style="color:var(--accent)"><use href="#i-loader"/></svg>Loading templates…</div>
+              </div>
+            </div>
+            <p class="note">“Create your own” lists its capabilities and opens the Studio editor. While creating, the footer becomes a build progress line; before templates load, the wizard shows a centered loading state.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 4 · Onboarding tour ── -->
+      <section class="lc-sec">
+        <div class="lc-head"><span class="ix">4</span><span class="ttl">Guided tour</span>
+          <span class="cap">A spotlight coach-mark that walks a new user through the six first-task steps.</span></div>
+        <div class="lc-grid g2">
+          <div class="lc-spec">
+            <span class="lbl">On target — spotlight ring + anchored card</span>
+            <div class="lc-frame plain">
+              <div class="tour-stage">
+                <div class="tour-ghost"><div style="display:flex;justify-content:flex-end"><span class="tour-anchor"><svg class="ico sm" style="color:var(--accent)"><use href="#i-briefcase"/></svg>Pick a project</span></div></div>
+                <div class="tour-ring" style="top:14px;right:14px;width:138px;height:36px"></div>
+                <div class="tour-card abs" style="top:66px;right:14px">
+                  <div class="ey">Step 2 of 6</div>
+                  <h3>Pick or create a project</h3>
+                  <p>Projects scope conversations and bind a workspace folder. Pick one or create a new one to focus the team.</p>
+                  <div class="tour-acts"><button class="btn ghost sm">Back</button><div class="r"><button class="btn ghost sm">Skip</button><button class="btn pri sm">Next</button></div></div>
+                </div>
+              </div>
+            </div>
+            <p class="note">The spotlight ring frames the real control; the card auto-places above or below it and stays inside the window.</p>
+          </div>
+          <div class="lc-spec">
+            <span class="lbl">Wrong workspace — centered, no ring</span>
+            <div class="lc-frame plain">
+              <div class="tour-stage">
+                <div class="tour-card mid">
+                  <div class="ey">Step 5 of 6</div>
+                  <h3>Browse Personnel</h3>
+                  <p>Switch to Personnel to continue.</p>
+                  <div class="tour-acts"><button class="btn ghost sm">Back</button><div class="r"><button class="btn ghost sm">Skip</button><button class="btn pri sm">Switch to Personnel</button></div></div>
+                </div>
+              </div>
+            </div>
+            <p class="note">If the step’s workspace isn’t the active one (or the target isn’t mounted), the card centers with no ring and the primary action switches workspaces first.</p>
+          </div>
+        </div>
+        <div class="lc-spec" style="margin-top:var(--sp-7)">
+          <span class="lbl">The six tour steps</span>
+          <div class="lc-frame plain">
+            <div class="tour-led">
+              <div class="tour-lr done"><div class="nm"><svg class="ico xs"><use href="#i-check"/></svg></div><div><div class="lt">Connect your AI provider</div><div class="ld">Open Settings and add an API key so the team can start working. We default to MiniMax — you can swap providers later.</div></div></div>
+              <div class="tour-lr active"><div class="nm">2</div><div><div class="lt">Pick or create a project</div><div class="ld">Projects scope conversations and bind a workspace folder. Pick one or create a new one to focus the team.</div></div></div>
+              <div class="tour-lr"><div class="nm">3</div><div><div class="lt">Send your first message</div><div class="ld">Describe the outcome you want. Team chat is the fastest way to kick work off — the boss will route it.</div></div></div>
+              <div class="tour-lr"><div class="nm">4</div><div><div class="lt">Open Tasks to watch progress</div><div class="ld">Tasks shows live activity, plan progress, and finished deliverables as the team works.</div></div></div>
+              <div class="tour-lr"><div class="nm">5</div><div><div class="lt">Browse Personnel</div><div class="ld">Personnel is the roster: configure skills, runtime engines, and memory for each employee.</div></div></div>
+              <div class="tour-lr"><div class="nm">6</div><div><div class="lt">Try the Marketplace</div><div class="ld">Market has shareable employees, skills, and templates. Install one to extend your team.</div></div></div>
+            </div>
+          </div>
+          <p class="note">Steps complete on their own when the matching action happens (provider connected, first message sent, first deliverable seen) — the tour stays in sync even without clicking Next.</p>
+        </div>
+      </section>
+
+      <!-- ── 5 · Project & folder (consolidated single locus) ── -->
+      <section class="lc-sec">
+        <div class="lc-head"><span class="ix">5</span><span class="ttl">Project &amp; folder</span>
+          <span class="cap">One place: switch the project, see its folder and threads, browse its files.</span></div>
+        <div class="lc-frame plain lc-pad">
+          <div class="proj-locus">
+            <button class="proj-trigger"><svg class="ico sm lead"><use href="#i-briefcase"/></svg>Q3 Launch Microsite<svg class="ico sm caret"><use href="#i-chev-down"/></svg></button>
+            <div class="proj-pop">
+              <div class="ph">Projects · 4</div>
+              <button class="proj-opt"><svg class="ico sm" style="color:var(--ink-4)"><use href="#i-archive"/></svg><div class="ol">All (no project scope)</div></button>
+              <div class="ph">Active</div>
+              <button class="proj-opt on"><span class="dt" style="background:var(--ok)"></span><div style="flex:1"><div class="ol">Q3 Launch Microsite</div><div class="oh">Landing + pricing refresh</div></div><span class="pill ok">Active</span></button>
+              <button class="proj-opt"><span class="dt" style="background:var(--accent)"></span><div style="flex:1"><div class="ol">Brand System v2</div><div class="oh">Token + component audit</div></div><span class="pill accent">Planning</span></button>
+              <button class="proj-opt"><span class="dt" style="background:var(--warn)"></span><div style="flex:1"><div class="ol">Docs portal</div></div><span class="pill warn">Paused</span></button>
+              <div class="ph">Completed</div>
+              <button class="proj-opt"><span class="dt" style="background:var(--ink-4)"></span><div style="flex:1"><div class="ol">Q2 Retro deck</div></div><span class="pill muted">Completed</span></button>
+              <div class="proj-foot"><button><svg class="ico sm"><use href="#i-plus"/></svg>New project</button></div>
+            </div>
+            <div class="proj-sum">
+              <div class="kv"><span class="k">Folder</span><span class="v">~/work/acme/microsite</span></div>
+              <div class="kv"><span class="k">Threads</span><span class="v">5</span></div>
+              <div class="acts">
+                <button class="btn sm"><svg class="ico xs"><use href="#i-folder"/></svg>Open<svg class="ico xs" style="opacity:0.55"><use href="#i-link-ext"/></svg></button>
+                <button class="btn sm"><svg class="ico xs"><use href="#i-edit"/></svg>Edit</button>
+              </div>
+              <div class="proj-files">
+                <div class="fh"><span>Files · /src</span><button class="iconbtn" style="width:24px;height:24px"><svg class="ico xs"><use href="#i-refresh"/></svg></button></div>
+                <button class="proj-frow"><svg class="ico xs"><use href="#i-chev-left"/></svg><span class="nm">Up</span></button>
+                <button class="proj-frow"><svg class="ico xs" style="color:var(--accent)"><use href="#i-folder"/></svg><span class="nm">content</span></button>
+                <button class="proj-frow sel"><svg class="ico xs"><use href="#i-file"/></svg><span class="nm">hero.md</span><span class="sz">4.2 KB</span></button>
+                <button class="proj-frow"><svg class="ico xs"><use href="#i-file"/></svg><span class="nm">layout.css</span><span class="sz">1.1 KB</span></button>
+                <div class="proj-prev"># Hero section
+
+Headline, subhead, primary CTA — pricing refresh copy…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:var(--sp-5);max-width:72ch">This is the consolidated project surface — switcher, summary and file browser are one locus, not four scattered places. The file browser is desktop-only; on web it shows a “desktop files only” notice, and projects with no bound folder show “No workspace folder”. Project status reads: Planning, Active, Paused, Completed, Archived.</p>
+      </section>
+
+      <!-- ── 6 · Project create / edit ── -->
+      <section class="lc-sec">
+        <div class="lc-head"><span class="ix">6</span><span class="ttl">Create or edit a project</span>
+          <span class="cap">One dialog covers both. On desktop, a workspace folder is required to create.</span></div>
+        <div class="lc-grid g3">
+          <div class="lc-spec">
+            <span class="lbl">Create (desktop) — folder required</span>
+            <div class="lc-frame plain lc-pad">
+              <div class="dlg" style="box-shadow:none;border:0">
+                <div class="dlg-head" style="padding:0 0 14px"><h2 style="font-size:var(--fs-lg)">New project</h2></div>
+                <div style="display:flex;flex-direction:column;gap:14px;padding:14px 0">
+                  <div class="field"><label class="fl">Name</label><input class="inp" placeholder="e.g. Acme onboarding"></div>
+                  <div class="field"><label class="fl">Description <span class="opt">(optional)</span></label><textarea class="inp" rows="3" placeholder="What is this project about?"></textarea></div>
+                  <div class="field"><label class="fl">Workspace folder <span class="req">(required)</span></label>
+                    <div style="display:flex;gap:7px"><div class="inp-fake"><svg class="ico sm" style="color:var(--accent)"><use href="#i-folder"/></svg>Paste local workspace path</div><button class="btn sm">Choose</button></div>
+                    <p class="note warn" style="margin-top:6px">Choose a workspace folder before creating this project.</p>
+                  </div>
+                </div>
+                <div class="dlg-foot" style="padding:14px 0 0;background:transparent;border-top:1px solid var(--line-soft)"><button class="btn ghost">Cancel</button><button class="btn pri" disabled>Create project</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="lc-spec">
+            <span class="lbl">Edit — pre-filled, folder bound</span>
+            <div class="lc-frame plain lc-pad">
+              <div class="dlg" style="box-shadow:none;border:0">
+                <div class="dlg-head" style="padding:0 0 14px"><h2 style="font-size:var(--fs-lg)">Edit project</h2></div>
+                <div style="display:flex;flex-direction:column;gap:14px;padding:14px 0">
+                  <div class="field"><label class="fl">Name</label><input class="inp" value="Q3 Launch Microsite"></div>
+                  <div class="field"><label class="fl">Description <span class="opt">(optional)</span></label><textarea class="inp" rows="3">Landing + pricing refresh for Q3</textarea></div>
+                  <div class="field"><label class="fl">Workspace folder</label>
+                    <div style="display:flex;gap:7px"><div class="inp-fake bound"><svg class="ico sm" style="color:var(--accent)"><use href="#i-folder"/></svg>~/work/acme/microsite</div><button class="btn sm">Choose</button><button class="btn ghost sm">Clear</button></div>
+                  </div>
+                </div>
+                <div class="dlg-foot" style="padding:14px 0 0;background:transparent;border-top:1px solid var(--line-soft)"><button class="btn ghost">Cancel</button><button class="btn pri">Save changes</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="lc-spec">
+            <span class="lbl">Web — folder disabled · busy · error</span>
+            <div class="lc-frame plain lc-pad" style="display:flex;flex-direction:column;gap:14px">
+              <div class="field"><label class="fl">Workspace folder</label><div class="inp-fake"><svg class="ico sm" style="opacity:0.6"><use href="#i-folder"/></svg>Folder binding is desktop-only.</div></div>
+              <div class="errbox">Project name must not be empty</div>
+              <div class="dlg-foot" style="padding:14px 0 0;background:transparent;border-top:1px solid var(--line-soft)"><button class="btn ghost" disabled>Cancel</button><button class="btn pri" disabled><svg class="ico xs spin"><use href="#i-loader"/></svg>Creating…</button></div>
+            </div>
+            <p class="note">Create can only submit with a name (and a folder on desktop). Errors keep the dialog open; Cancel is disabled while saving.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 7 · Deliverables ── -->
+      <section class="lc-sec">
+        <div class="lc-head"><span class="ix">7</span><span class="ttl">Deliverables</span>
+          <span class="cap">Finished work lands in Outputs — empty until the team produces something, then full or compact.</span></div>
+        <div class="lc-grid g3">
+          <div class="lc-spec">
+            <span class="lbl">Outputs — empty</span>
+            <div class="lc-frame plain lc-pad">
+              <div class="dlv-empty">
+                <div class="ic"><svg class="ico lg"><use href="#i-file"/></svg></div>
+                <div class="t">No outputs yet</div>
+                <div class="d">Deliverables appear here as your AI employees complete tasks. You can copy, export, or save them as SOPs.</div>
+              </div>
+            </div>
+          </div>
+          <div class="lc-spec">
+            <span class="lbl">Outputs — populated (full card)</span>
+            <div class="lc-frame plain lc-pad">
+              <div class="dlv-listh"><span class="l">Outputs</span><span class="c">2</span></div>
+              <div class="dlv is-new">
+                <div class="dlv-hd">
+                  <span class="fi"><svg class="ico sm"><use href="#i-file"/></svg></span>
+                  <div class="mid"><div class="tt">launch-brief.md</div><div class="mt">8.0 KB · 3m ago</div></div>
+                  <div class="dlv-stack"><span class="a" style="background:#2f6bff">M</span><span class="a" style="background:#7c4ddb">A</span><span class="a" style="background:#1aa46a">D</span><span class="ov">+2</span></div>
+                </div>
+                <div class="dlv-bd"><pre># Q3 Launch Brief
+
+Audience: solo developers shipping AI agents…</pre></div>
+                <div class="dlv-acts">
+                  <button class="a">Copy</button>
+                  <select class="a"><option>DOCX</option><option>PDF</option><option>PPTX</option><option>CSV</option><option>HTML</option><option>TXT</option></select>
+                  <button class="a">Preview</button>
+                  <button class="a">Export</button>
+                  <button class="sop promoted">Save as SOP</button>
+                </div>
+              </div>
+              <div class="dlv">
+                <div class="dlv-hd">
+                  <span class="fi"><svg class="ico sm"><use href="#i-file"/></svg></span>
+                  <div class="mid"><div class="tt">competitor-table.csv</div><div class="mt">2.3 KB · 18m ago</div></div>
+                  <div class="dlv-stack"><span class="a" style="background:#1aa46a">R</span></div>
+                </div>
+                <div class="dlv-bd"><pre>name,pricing,notes
+Acme,usage,…</pre></div>
+                <div class="dlv-acts">
+                  <button class="a">Copy</button>
+                  <button class="a">Download</button>
+                  <button class="a">Save locally</button>
+                  <button class="a">Open folder</button>
+                  <button class="sop">Save as SOP</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="lc-spec">
+            <span class="lbl">Compact card (inside a chat message)</span>
+            <div class="lc-frame plain lc-pad">
+              <div class="dlv compact">
+                <div class="dlv-hd">
+                  <span class="fi" style="color:var(--ok);background:var(--ok-surface)"><svg class="ico sm"><use href="#i-file"/></svg></span>
+                  <div class="mid"><div class="tt">launch-brief.md</div><div class="mt">8.0 KB · 3m ago</div></div>
+                  <div class="dlv-stack"><span class="a" style="background:#2f6bff">M</span><span class="a" style="background:#7c4ddb">A</span></div>
+                </div>
+                <div class="dlv-chips">
+                  <span class="nc">launch-brief.md</span><span class="mc">text/markdown</span><span class="mc">· Maya Chen</span>
+                </div>
+                <div class="dlv-acts" style="border-top:0;padding-top:0">
+                  <button class="a">Copy</button><button class="a">Open</button><button class="a">Download</button>
+                </div>
+              </div>
+            </div>
+            <p class="note">A new deliverable glows briefly and scrolls into view. The format picker only appears for non-file outputs; a card with two or more contributors offers a promoted “Save as SOP”. The compact card is the success-tinted version shown inline in chat.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 8 · Add an employee (REDESIGN FIX: shared light tokens) ── -->
+      <section class="lc-sec">
+        <div class="lc-head"><span class="ix">8</span><span class="ttl">Add an employee</span>
+          <span class="cap">A two-step add: identity, then visual. Live avatar preview the whole time.</span></div>
+        <div class="lc-frame">
+          <div class="ec">
+            <div class="ec-top">
+              <div class="lf">
+                <button class="ec-back"><svg class="ico sm"><use href="#i-arrow-left"/></svg></button>
+                <span style="width:1px;height:18px;background:var(--line-strong)"></span>
+                <h1>Add employee</h1>
+              </div>
+              <div class="ec-steps">
+                <button class="ec-step on"><span class="sn">01</span>Identity</button>
+                <span class="ec-sep"></span>
+                <button class="ec-step"><span class="sn">02</span>Visual</button>
+              </div>
+            </div>
+            <div class="ec-main">
+              <div class="ec-prev">
+                <div class="ec-ava"></div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+                  <div class="nm">Nova Reyes</div>
+                  <span class="rl">Lead Developer</span>
+                </div>
+                <button class="ec-rand"><svg class="ico sm"><use href="#i-dices"/></svg>Randomize</button>
+              </div>
+              <div class="ec-cfg">
+                <div class="sec on">
+                  <div class="sh"><span class="sn">01</span>Identity</div>
+                  <div style="display:flex;flex-direction:column;gap:16px">
+                    <div class="field"><label class="fl">Employee name</label><input class="inp" value="Nova Reyes" placeholder="Enter employee name…"></div>
+                    <div class="field"><label class="fl">Role assignment</label>
+                      <select class="inp"><option>Developer</option><option>Designer</option><option>Product Manager</option><option>QA Engineer</option><option>DevOps</option></select>
+                    </div>
+                  </div>
+                </div>
+                <div class="sec">
+                  <div class="sh"><span class="sn">02</span>Visual identity</div>
+                  <div style="display:flex;flex-direction:column;gap:16px">
+                    <div class="field"><label class="fl">Avatar seed</label><input class="inp" value="nova-reyes" placeholder="Auto-generated from name…"></div>
+                    <div>
+                      <label class="fl">Preset identities</label>
+                      <div class="ec-presets">
+                        <div class="ec-pre on"><div class="av" style="background:conic-gradient(from 40deg,#6d8bd6,#b27fd6,#6dd6b2,#6d8bd6)"></div><span class="sd">atlas</span></div>
+                        <div class="ec-pre"><div class="av" style="background:conic-gradient(from 120deg,#d6a06d,#6d8bd6,#6dd6b2)"></div><span class="sd">nova</span></div>
+                        <div class="ec-pre"><div class="av" style="background:conic-gradient(from 200deg,#6dd6b2,#d66d8b,#6d8bd6)"></div><span class="sd">cipher</span></div>
+                        <div class="ec-pre"><div class="av" style="background:conic-gradient(from 280deg,#b27fd6,#6dd6b2,#d6a06d)"></div><span class="sd">echo</span></div>
+                        <div class="ec-pre"><div class="av" style="background:conic-gradient(from 10deg,#6d8bd6,#6dd6b2,#b27fd6)"></div><span class="sd">pulse</span></div>
+                        <div class="ec-pre"><div class="av" style="background:conic-gradient(from 160deg,#d66d8b,#6d8bd6,#6dd6b2)"></div><span class="sd">drift</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="ec-info">
+                  <div class="l">Role defaults</div>
+                  <p>Traits inherit from the selected role in this build. Create the employee first, then tune persona and memory from the profile editor.</p>
+                </div>
+              </div>
+            </div>
+            <div class="ec-bot">
+              <button class="btn ghost">Cancel</button>
+              <button class="btn pri"><svg class="ico sm"><use href="#i-rocket"/></svg>Add employee</button>
+            </div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:var(--sp-5);max-width:72ch">Back asks to confirm if the name or seed was changed. The avatar seed auto-derives from the name until manually edited; six preset identities and Randomize offer quick looks. “Add employee” stays disabled until a name is entered.</p>
+      </section>
+
+      <!-- ── 9 · Connect an external (A2A) employee ── -->
+      <section class="lc-sec">
+        <div class="lc-head"><span class="ix">9</span><span class="ttl">Connect an external employee</span>
+          <span class="cap">Point Offisim at a running A2A endpoint; review the agent card before anything is saved.</span></div>
+        <div class="lc-grid g2">
+          <div class="lc-spec">
+            <span class="lbl">Step 1 — endpoint</span>
+            <div class="lc-frame plain lc-pad">
+              <div class="dlg" style="box-shadow:none;border:0">
+                <div class="dlg-head" style="padding:0 0 12px"><h2 style="font-size:var(--fs-lg)">Connect external agent</h2><p>Point Offisim at a running A2A endpoint. We fetch its agent card before anything is persisted.</p></div>
+                <div style="display:flex;flex-direction:column;gap:14px;padding:14px 0">
+                  <div class="field"><label class="fl">Agent base URL</label><input class="inp" value="https://hermes.example.dev"><p class="note" style="margin-top:5px">Offisim requests the agent card from this endpoint, with an optional bearer token.</p></div>
+                  <div class="field"><label class="fl">Bearer token <span class="opt">(optional)</span></label><input class="inp" type="password" value="••••••••••"></div>
+                  <div class="field"><label class="fl">Agent ID <span class="opt">(optional)</span></label><input class="inp" placeholder="primary"></div>
+                </div>
+                <div class="dlg-foot" style="padding:14px 0 0;background:transparent;border-top:1px solid var(--line-soft)"><button class="btn ghost">Cancel</button><button class="btn pri">Discover</button></div>
+              </div>
+            </div>
+            <p class="note">The URL must be a valid http/https address to enable Discover. Discovery is cancelable; errors surface in an inline alert.</p>
+          </div>
+          <div class="lc-spec">
+            <span class="lbl">Step 2 — review the agent card</span>
+            <div class="lc-frame plain lc-pad">
+              <div class="dlg" style="box-shadow:none;border:0">
+                <div class="dlg-head" style="padding:0 0 12px"><h2 style="font-size:var(--fs-lg)">Review agent card</h2><p>Confirm how this agent appears in your office before we create the employee.</p></div>
+                <div style="display:flex;flex-direction:column;gap:14px;padding:14px 0">
+                  <div class="a2a-card">
+                    <div class="row">
+                      <div class="av"><svg class="ico lg"><use href="#i-sparkle"/></svg></div>
+                      <div style="min-width:0"><div class="nm">Hermes Research Agent</div><div class="org">Hermes Labs</div><div class="vr">version 1.4.0</div></div>
+                    </div>
+                    <div class="desc">Autonomous research + synthesis agent with web + retrieval tools.</div>
+                    <div class="sk"><span class="pill muted">deep-research</span><span class="pill muted">summarize</span><span class="pill muted">cite</span></div>
+                  </div>
+                  <div class="field"><label class="fl">Display name</label><input class="inp" value="Hermes Research Agent"></div>
+                  <div class="grid2">
+                    <div class="field"><label class="fl">Brand</label><select class="inp"><option>Hermes</option><option>OpenClaw</option><option>Codex</option><option>Custom</option></select></div>
+                    <div class="field"><label class="fl">Role</label><select class="inp"><option>Research Scientist</option><option>Developer</option></select></div>
+                  </div>
+                </div>
+                <div class="dlg-foot split" style="padding:14px 0 0;background:transparent;border-top:1px solid var(--line-soft)"><button class="btn ghost">Back</button><div style="display:flex;gap:8px"><button class="btn ghost">Cancel</button><button class="btn pri">Confirm</button></div></div>
+              </div>
+            </div>
+            <p class="note">The brand is auto-inferred from the card (an unrecognized one uses a custom fallback avatar); confirming creates a brand-avatar external employee. This is the only external-agent install path (A2A).</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+  <footer class="statusbar">
+    <span class="sb-run idle"><span class="pip"></span>Idle</span>
+    <span class="sb-mid"><span class="truncate">Ready</span></span>
+    <span class="sb-right">
+      <span class="sb-chip"><b>MiniMax-M2.7</b></span>
+      <span class="sb-chip">0 tok · $0.00 · 0 ms</span>
+      <button class="sb-btn" aria-pressed="false">Dashboard</button>
+      <button class="sb-btn sb-bell"><svg class="ico xs"><use href="#i-bell"/></svg><span class="n">3</span></button>
+      <span class="sb-chip"><svg class="ico xs"><use href="#i-git"/></svg>main</span>
+    </span>
+  </footer>
+
+  <button class="spec-fab" onclick="document.getElementById('specDrawer').classList.toggle('open')">⌘ SPEC NOTES</button>
+  <aside class="spec-drawer" id="specDrawer">
+    <div class="hd"><span class="t">Implementation spec — not shown to users</span>
+      <button class="x" onclick="document.getElementById('specDrawer').classList.remove('open')">×</button></div>
+    <div class="bd">
+
+      <div class="grp">
+        <div class="gh">Do-not-drop checklist (§6 Lifecycle)</div>
+        <ul>
+          <li><b>FirstRunWelcomeScreen</b> — gated; Get-started / Skip; no backdrop close → <i>Card 1</i></li>
+          <li><b>OnboardingTour</b> — spotlight steps; target-not-mounted hint → <i>Card 4</i></li>
+          <li><b>CompanySelectionPage</b> — list · preview · brief → <i>Card 2</i></li>
+          <li><b>CompanyCreationWizard</b> — template list + Create-Your-Own, Team/Workflow tabs, 2D preview, name, submit, archive-armed → <i>Card 3 (+ archive in Card 2)</i></li>
+          <li><b>ProjectCreateDialog</b> — create + edit, folder picker desktop-only → <i>Card 6</i></li>
+          <li><b>Project selector / summary / files single-locus</b> → <i>Card 5 (one consolidated locus)</i></li>
+          <li><b>Deliverable card</b> — empty / full / compact, once each → <i>Card 7</i></li>
+          <li><b>EmployeeCreatorOverlay</b> — 2-step, role, seed presets, randomize, discard-confirm → <i>Card 8</i></li>
+          <li><b>A2A external employee install</b> → <i>Card 9</i></li>
+          <li><b>InterviewWizard</b> — latent drawer note only, NOT rendered → <i>see Reverse-risk register</i></li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">Component map (visible block → real component)</div>
+        <ul>
+          <li>Card 1 → <code>FirstRunWelcomeScreen</code> in <code>DialogShell size="xl" closeOnBackdrop=false</code>; gated by <code>App.tsx</code>.</li>
+          <li>Card 2 → <code>CompanySelectionPage</code> (overlay <code>activeOverlay==='company-select'</code>), <code>CompanyPortalPreview</code> (SVG office), Company Brief; rename via <code>updateCompanyIdentity</code>; counts from <code>useCompanySummaries</code>.</li>
+          <li>Card 3 → <code>CompanyCreationWizard</code> (<code>fixed inset-0 z-50</code>), modes <code>create-new</code> / <code>populate-existing</code>; <code>Office2DPreview</code>; <code>getTemplateZoneSummary</code>; <code>EMPLOYEE_BIOS</code> / <code>ROLE_LABELS</code> / <code>ROLE_DOT</code>; lifecycle by <code>useCompanyLifecycle</code>.</li>
+          <li>Card 4 → <code>OnboardingTour</code> + tour-context <code>useTourTarget(slot)</code>; <code>computeHintPosition</code>; <code>TOUR_STEPS</code>; store key <code>localStorage["offisim.onboarding.v2"]</code>.</li>
+          <li>Card 5 → <code>ProjectSelector</code> (EntityDropdown) + <code>ProjectSelectedSummary</code> + <code>ProjectWorkspaceFiles</code> (<code>project_list_dir</code>, bounded preview via <code>project_read_file_preview</code>). Single locus = Office collab-rail context header per §2; not in topbar / status bar.</li>
+          <li>Card 6 → <code>ProjectCreateDialog</code> (<code>DialogShell size="md"</code>, mode <code>'create' | 'edit'</code>); wired by <code>App.tsx</code> <code>projectDialog</code>; <code>pickWorkspaceFolder</code>.</li>
+          <li>Card 7 → PitchHall + <code>DeliverableCard</code>; <code>useDeliverables(activeThreadId)</code>; <code>handleSaveAsSop</code> → <code>sopTemplates.create</code> + <code>sop.template.created</code>.</li>
+          <li>Card 8 → <code>EmployeeCreatorOverlay</code> (<code>activeOverlay==='employee-creator'</code> / <code>onOpenEmployeeCreator</code>); deploy via <code>handleCreatorDeploy</code> → <code>onDeploy({name,role,seed})</code>.</li>
+          <li>Card 9 → <code>ExternalEmployeeInstallDialog</code> (<code>DialogShell size="lg"</code>); <code>discoverAgentCard</code> (abortable), <code>inferBrandKey</code>, <code>defaultRoleForBrand</code>; <code>employees.create({is_external:true,a2a_url,a2a_token?,a2a_agent_id?,brand_key,agent_card_json})</code> + <code>employeeCreated</code>.</li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">State &amp; conditional rules</div>
+        <ul>
+          <li><b>First-run gating (App.tsx):</b> welcome shows iff <code>welcome_seen===false &amp;&amp; providerConfiguredForWelcome===false &amp;&amp; companies.length===0 &amp;&amp; tour_dismissed===false</code>. <code>Get started</code> → <code>markWelcomeSeen()</code> only (tour stays armed). <code>Skip and explore</code> / Escape → <code>markWelcomeSeen() + dismissTour()</code>. <code>closeOnBackdrop=false</code> — no backdrop dismiss.</li>
+          <li><b>Onboarding store</b> <code>localStorage["offisim.onboarding.v2"]</code>: account flags (<code>provider_configured</code>, <code>welcome_seen</code>, <code>tour_completed[]</code>, <code>tour_dismissed</code>, <code>first_employee_clicked</code>) + per-company (<code>first_task_sent</code>, <code>first_deliverable_seen</code>). Business flags auto-complete steps via <code>ACCOUNT_FLAG_TO_STEP</code> / <code>COMPANY_FLAG_TO_STEP</code>; <code>v1→v2</code> migration folds legacy flags once (<code>tour_migrated_v1</code>).</li>
+          <li><b>Tour step</b> = derived, not stored: <code>activeIndex</code> = first id not in <code>tour_completed[]</code>. Wrong-workspace / no-target → centered card, primary calls <code>onSwitchWorkspace</code> (does not complete step). Last step also <code>dismissTour()</code>. Suppressed when any overlay open or office+directChat.</li>
+          <li><b>CompanySelectionPage:</b> aside filters <code>status !== 'archived'</code>; selection precedence <code>previewCompanyId ?? activeCompanyId ?? companies[0]</code>. Archive is soft (<code>companies.update(id,{status:'archived'})</code>) — 2-step <code>confirmArchiveCompanyId</code>; if archived was active → <code>onCompanySwitch(null)</code>. Empty list / no zones / loading preview states all exist.</li>
+          <li><b>Company wizard CTA:</b> <code>primaryDisabled = !selectedTemplateId || (!isCreateYourOwn &amp;&amp; !runtimeReady) || !companyName.trim()</code>. <code>step</code> = checking | first-run | creating | ready. <code>openingStudio</code> → "Opening Studio…"; <code>isCreateYourOwn</code> → "Open Studio Editor" (→ <code>createCustomCompany()</code> + <code>sessionStorage[PENDING_VIEW_KEY]='studio-edit'</code>); <code>shouldRetryRuntime</code> → "Retry Runtime"; <code>!runtimeReady</code> → "Initializing…"; <code>'creating'</code> → BuildingAnimation; <code>'ready'</code> → renders <code>null</code> (unmounts, <code>onComplete(companyId)</code>).</li>
+          <li><b>ProjectCreateDialog:</b> <code>canSubmit = name.trim &amp;&amp; !submitting &amp;&amp; (!workspaceRequired || !!workspaceRoot)</code>; <code>workspaceRequired = desktopMode &amp;&amp; mode==='create'</code>. Web → "Folder binding is desktop-only"; submit failure keeps dialog open; Cancel disabled while submitting.</li>
+          <li><b>Project status SSOT:</b> planning <code>info</code> · active <code>success</code> · paused <code>warning</code> · completed <code>text-muted</code> · archived <code>text-disabled</code>. ProjectWorkspaceFiles Selection machine: <code>null | loading | ready | error</code>; preview 8 KB request, Rust hardcap 64 KB; no root → "No workspace folder"; web → "Desktop files only".</li>
+          <li><b>DeliverableCard:</b> body <code>truncate(content,200)</code>; format Select only when NOT a file artifact; <code>Save as SOP</code> promoted variant when <code>contributingEmployees.length &gt;= 2</code>; <code>isNew</code> → success glow 3s + auto-scroll; compact card = success-tinted in chat bubble. PitchHall hydrate via <code>listRecentDeliverables({limit:100})</code> + live <code>deliverable.created</code>, id-first dedupe.</li>
+          <li><b>EmployeeCreatorOverlay:</b> Back discard-confirm if dirty (name non-empty OR seed manually edited); seed auto-derives from name unless manually edited; deploy disabled until <code>name.trim()</code>; deploy → <code>persona_json.avatarSeed</code>, toast, overlay closes.</li>
+          <li><b>ExternalEmployeeInstallDialog:</b> Discover enabled when <code>isValidUrl</code>; <code>discoverAgentCard</code> abortable; <code>canConfirm</code> = card &amp; company &amp; repos &amp; eventBus &amp; displayName.trim &amp; roleSlug &amp; !submitting; dirty-close → discard-confirm; Back excluded from dirty.</li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">Reverse-risk register</div>
+        <ul>
+          <li class="risk"><b>Hard-dark source bug (this prototype's key redesign fix).</b> In source, <code>CompanyCreationWizard</code> and <code>EmployeeCreatorOverlay</code> are intentionally hard-dark — they hardcode <code>text-white / text-slate-* / bg-blue-600 / border-white/[0.06]</code> + a radial dot-grid background, ignoring the light token theme. <b>Cards 3 &amp; 8 are deliberately redrawn in the shared light token system</b> as the corrected target. An implementing agent must migrate these surfaces to tokens deliberately (not keep them off-theme); the divergence is a known decision to resolve, not a faithful spec.</li>
+          <li class="risk"><b>InterviewWizard is latent — do not build.</b> An 8-step <code>InterviewWizard</code> (role / name / expertise / style / appearance / instructions / model / preview, hook <code>useInterviewWizard</code>) is exported from <code>@offisim/ui-office</code> but is <b>not mounted anywhere</b>. The live "Add employee" path is the 2-step <code>EmployeeCreatorOverlay</code> (Card 8). Treat InterviewWizard as latent until it is wired; it is intentionally NOT rendered as a specimen here.</li>
+          <li class="risk"><b>First-run gating has no user control.</b> Gating is fully derived from onboarding-store flags + company count — there is no "don't show again" checkbox. Do not invent one.</li>
+          <li class="risk"><b>Tour steps are derived, not a stored cursor.</b> <code>activeIndex</code> = first incomplete id; business events auto-complete steps independent of the Next button. Do not add a stored "current step" pointer.</li>
+        </ul>
+      </div>
+
+    </div>
+  </aside>
+</div></body></html>

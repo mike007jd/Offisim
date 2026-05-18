@@ -13,6 +13,7 @@ import { type EmployeeRow, employeeBrandFields } from '../runtime/repositories.j
 import type { RuntimeContext } from '../runtime/runtime-context.js';
 import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
+import { isUserRequestedDeliverableIntent } from './deliverable-intent.js';
 import type { PreflightResult } from './employee-preflight.js';
 import { inferDeliverableFile } from './infer-deliverable-file.js';
 
@@ -39,6 +40,7 @@ interface A2AOutput {
   readonly content: string;
   readonly fileName: string | null;
   readonly mimeType: string | null;
+  readonly artifactBacked: boolean;
 }
 
 function extractOutput(task: A2ATask): A2AOutput {
@@ -49,6 +51,7 @@ function extractOutput(task: A2ATask): A2AOutput {
         content: decodeBase64Text(part.raw),
         fileName: part.filename ?? null,
         mimeType: part.mediaType ?? null,
+        artifactBacked: true,
       };
     }
     if (part.text?.trim()) {
@@ -56,6 +59,7 @@ function extractOutput(task: A2ATask): A2AOutput {
         content: part.text,
         fileName: part.filename ?? null,
         mimeType: part.mediaType ?? 'text/plain',
+        artifactBacked: true,
       };
     }
   }
@@ -68,6 +72,7 @@ function extractOutput(task: A2ATask): A2AOutput {
     content: messageText || 'External employee completed the task with no textual output.',
     fileName: null,
     mimeType: messageText ? 'text/plain' : null,
+    artifactBacked: false,
   };
 }
 
@@ -211,14 +216,15 @@ export async function runEmployeeA2A(
   }
 
   const output = extractOutput(task);
-  const inferredFile =
-    output.fileName || output.mimeType
-      ? {
-          kind: 'file' as const,
-          fileName: output.fileName,
-          mimeType: output.mimeType,
-        }
-      : inferDeliverableFile(taskDescription, output.content);
+  const inferredFile = output.artifactBacked
+    ? {
+        kind: 'file' as const,
+        fileName: output.fileName,
+        mimeType: output.mimeType,
+      }
+    : isUserRequestedDeliverableIntent(taskDescription)
+      ? inferDeliverableFile(taskDescription, output.content)
+      : null;
   const normalizedArtifact = inferredFile
     ? {
         kind: 'file' as const,
@@ -326,6 +332,7 @@ export async function runEmployeeA2A(
               content: output.content,
             }
           : undefined,
+        deliverableEventEmitted: normalizedArtifact ? true : undefined,
       },
     ],
   };

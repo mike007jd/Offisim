@@ -6,7 +6,7 @@ import type {
 } from '@offisim/core/browser';
 import { coerceDeliverableKind } from '@offisim/core/browser';
 import * as schema from '@offisim/db-local';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
 import type { TauriDrizzleDb } from '../tauri-drizzle';
 
 const DEFAULT_LIST_LIMIT = 100;
@@ -19,6 +19,7 @@ function rowToFull(row: {
   deliverable_id: string;
   company_id: string;
   thread_id: string | null;
+  chat_thread_id?: string | null;
   title: string;
   content: string;
   kind: string | null;
@@ -31,6 +32,7 @@ function rowToFull(row: {
     deliverable_id: row.deliverable_id,
     company_id: row.company_id,
     thread_id: row.thread_id,
+    chat_thread_id: row.chat_thread_id ?? null,
     title: row.title,
     content: row.content,
     kind: coerceDeliverableKind(row.kind),
@@ -45,6 +47,7 @@ function rowToSummary(row: {
   deliverable_id: string;
   company_id: string;
   thread_id: string | null;
+  chat_thread_id?: string | null;
   title: string;
   kind: string | null;
   file_name: string | null;
@@ -57,6 +60,7 @@ function rowToSummary(row: {
     deliverable_id: row.deliverable_id,
     company_id: row.company_id,
     thread_id: row.thread_id,
+    chat_thread_id: row.chat_thread_id ?? null,
     title: row.title,
     kind: coerceDeliverableKind(row.kind),
     file_name: row.file_name,
@@ -87,10 +91,16 @@ export function createDeliverablesTauriRepos(db: TauriDrizzleDb): DeliverablesTa
     },
     async listByCompany(companyId, opts) {
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
-      const whereClause = opts?.threadId
+      const threadClause = opts?.threadId
+        ? or(
+            eq(schema.deliverables.thread_id, opts.threadId),
+            eq(schema.deliverables.chat_thread_id, opts.threadId),
+          )
+        : undefined;
+      const whereClause = threadClause
         ? and(
             eq(schema.deliverables.company_id, companyId),
-            eq(schema.deliverables.thread_id, opts.threadId),
+            threadClause,
           )
         : eq(schema.deliverables.company_id, companyId);
       const rows = (await db
@@ -98,6 +108,7 @@ export function createDeliverablesTauriRepos(db: TauriDrizzleDb): DeliverablesTa
           deliverable_id: schema.deliverables.deliverable_id,
           company_id: schema.deliverables.company_id,
           thread_id: schema.deliverables.thread_id,
+          chat_thread_id: schema.deliverables.chat_thread_id,
           title: schema.deliverables.title,
           kind: schema.deliverables.kind,
           file_name: schema.deliverables.file_name,
@@ -114,10 +125,16 @@ export function createDeliverablesTauriRepos(db: TauriDrizzleDb): DeliverablesTa
     },
     async listByCompanyWithContent(companyId, opts) {
       const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
-      const whereClause = opts?.threadId
+      const threadClause = opts?.threadId
+        ? or(
+            eq(schema.deliverables.thread_id, opts.threadId),
+            eq(schema.deliverables.chat_thread_id, opts.threadId),
+          )
+        : undefined;
+      const whereClause = threadClause
         ? and(
             eq(schema.deliverables.company_id, companyId),
-            eq(schema.deliverables.thread_id, opts.threadId),
+            threadClause,
           )
         : eq(schema.deliverables.company_id, companyId);
       const rows = (await db

@@ -140,11 +140,13 @@ interface DeliverableHeaderProps {
 function DeliverableHeader({ item }: DeliverableHeaderProps) {
   const Icon = mimeTypeToIcon(item.artifact.mimeType);
   return (
-    <div className="flex items-start gap-2 min-w-0">
+    <div className="flex w-full min-w-0 max-w-full items-start gap-2 overflow-hidden">
       <Icon className="h-4 w-4 shrink-0 text-text-muted mt-px" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-xs font-medium text-text-primary">{item.title}</span>
+        <div className="flex min-w-0 max-w-full items-baseline justify-between gap-2">
+          <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-primary">
+            {item.title}
+          </span>
           <span className="shrink-0 text-[10px] text-text-muted tabular-nums">
             {formatDeliverableBytes(item.contentSize)} · {formatTimeAgo(item.createdAt)}
           </span>
@@ -190,15 +192,16 @@ interface CompactCardProps {
 
 function CompactCard({ item, employeeLabel }: CompactCardProps) {
   const canPreview = canPreviewDeliverable(item.artifact);
-  const fileName = item.artifact.fileName ?? 'deliverable.txt';
+  const fileName = item.artifact.fileName;
+  const artifactLabel = fileName ?? item.title;
   const { content, mimeType } = item.artifact;
 
   return (
-    <div className="mt-2 max-w-[94%] rounded-xl border border-success bg-success-muted px-3 py-2">
+    <div className="mt-2 box-border w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-success bg-success-muted px-3 py-2">
       <DeliverableHeader item={item} />
-      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px]">
-        <span className="inline-flex items-center rounded border border-success bg-surface px-1.5 py-px font-medium text-success">
-          {fileName}
+      <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden text-[10px]">
+        <span className="inline-flex max-w-full items-center truncate rounded border border-success bg-surface px-1.5 py-px font-medium text-success">
+          {artifactLabel}
         </span>
         {mimeType && <span className="text-text-secondary">{mimeType}</span>}
         {employeeLabel && <span className="text-text-muted">· {employeeLabel}</span>}
@@ -215,14 +218,16 @@ function CompactCard({ item, employeeLabel }: CompactCardProps) {
             Open
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={ACTION_CLASS}
-          onClick={() => downloadArtifactContent(content, fileName, mimeType)}
-        >
-          Download
-        </Button>
+        {fileName && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={ACTION_CLASS}
+            onClick={() => downloadArtifactContent(content, fileName, mimeType)}
+          >
+            Download
+          </Button>
+        )}
       </div>
     </div>
   );

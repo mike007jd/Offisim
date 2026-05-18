@@ -201,7 +201,7 @@ export function MessageBubble({
         </div>
       )}
       {hasDeliverables && deliverables && (
-        <div className="flex w-full flex-col">
+        <div className="flex w-full min-w-0 max-w-full flex-col overflow-hidden">
           {deliverables.map((d) => (
             <DeliverableCard key={d.id} item={d} variant="compact" />
           ))}

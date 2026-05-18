@@ -1,0 +1,979 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offisim · SOPs</title>
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_offisim-shell.css">
+<style>
+  /* ── SOPs workspace body only. No :root / token / shell overrides. ── */
+
+  /* Non-Office full-width: SOP list rail | full-bleed DAG canvas. NO right rail. */
+  .sops { height: 100%; display: grid; grid-template-columns: var(--sop-list, 248px) 1fr; min-height: 0; background: var(--bg); }
+  .sops.list-collapsed { --sop-list: 52px; }
+
+  /* ════ SOP list sidebar (single create + import locus, in header) ════ */
+  .sl { border-right: 1px solid var(--line); background: var(--surface-1); display: flex; flex-direction: column; min-height: 0; }
+  .sl-hd { flex: none; padding: var(--sp-5) var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); border-bottom: 1px solid var(--line-soft); }
+  .sl-top { display: flex; align-items: center; justify-content: space-between; }
+  .sl-acts { display: flex; align-items: center; gap: 2px; }
+  .sl-search { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 var(--sp-3); background: var(--surface-sunken); border: 1px solid transparent; border-radius: var(--r-sm); color: var(--ink-3); }
+  .sl-search:focus-within { background: var(--surface-1); border-color: var(--accent-ring); }
+  .sl-search input { border: 0; background: transparent; flex: 1; min-width: 0; outline: none; font-size: var(--fs-sm); color: var(--ink-1); }
+  .sl-body { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-3) var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: 2px; }
+  .sl-row { display: flex; flex-direction: column; gap: 4px; text-align: left; border: 1px solid transparent; border-radius: var(--r-sm); padding: 9px var(--sp-4); background: transparent; color: var(--ink-2); }
+  .sl-row:hover { background: var(--surface-sunken); }
+  .sl-row.active { background: var(--accent-surface); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+  .sl-row .nm { font-size: var(--fs-base); font-weight: 600; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sl-row.active .nm { color: var(--accent); }
+  .sl-row .mt { display: flex; align-items: center; gap: 7px; font-size: var(--fs-micro); color: var(--ink-3); }
+  .sl-row .synced { display: inline-flex; align-items: center; gap: 3px; color: var(--ok); font-weight: 640; }
+  .sl-row .synced .ico { width: 10px; height: 10px; }
+  .sl-foot { flex: none; padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--line-soft); display: flex; align-items: center; gap: 7px; }
+  .sl-collapse { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 0; background: transparent; border-radius: var(--r-xs); color: var(--ink-3); font-size: var(--fs-micro); font-weight: 640; }
+  .sl-collapse:hover { background: var(--surface-sunken); color: var(--ink-1); }
+  .sl-skel { height: 48px; border-radius: var(--r-sm); background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line-soft) 37%, var(--surface-sunken) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+  @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+  /* collapsed first-letter rail */
+  .sl-rail { display: none; flex-direction: column; align-items: center; gap: 8px; padding: var(--sp-5) 0; }
+  .sops.list-collapsed .sl-hd, .sops.list-collapsed .sl-body, .sops.list-collapsed .sl-foot { display: none; }
+  .sops.list-collapsed .sl-rail { display: flex; }
+  .sl-rb { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-4); display: grid; place-items: center; font-size: var(--fs-meta); font-weight: 760; }
+  .sl-rb.active { border-color: var(--accent-ring); background: var(--accent-surface); color: var(--accent); }
+  .sl-rdiv { width: 22px; height: 1px; background: var(--line); }
+
+  /* ════ Center: full-bleed canvas, integrated toolbar, NL command bar ════ */
+  .sc { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); position: relative; }
+
+  /* ONE integrated canvas toolbar: Edit toggle · Auto-layout · Fit · Run */
+  .ct-bar { flex: none; height: 46px; display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-5); border-bottom: 1px solid var(--line); background: var(--surface-1); }
+  .ct-title { display: flex; flex-direction: column; min-width: 0; }
+  .ct-title .nm { font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ct-title .sub { font-size: var(--fs-micro); color: var(--ink-3); }
+  .ct-sp { flex: 1; }
+  .ct-grp { display: inline-flex; align-items: center; gap: 2px; padding: 3px; background: var(--surface-0); border: 1px solid var(--line); border-radius: var(--r-sm); }
+  .ct-btn { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px; border: 0; background: transparent; border-radius: var(--r-xs); color: var(--ink-2); font-size: var(--fs-sm); font-weight: 600; }
+  .ct-btn:hover { background: var(--surface-sunken); color: var(--ink-1); }
+  .ct-btn .ico { color: var(--ink-4); }
+  .ct-btn.on { background: var(--warn-surface); color: var(--warn); }
+  .ct-btn.on .ico { color: var(--warn); }
+  .ct-icon { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; background: transparent; border-radius: var(--r-xs); color: var(--ink-3); }
+  .ct-icon:hover { background: var(--surface-sunken); color: var(--ink-1); }
+  .ct-run { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 15px; border: 1px solid transparent; background: var(--accent); color: var(--accent-fg); border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: 660; }
+  .ct-run:hover { background: var(--accent-press); }
+  .ct-run[disabled] { background: var(--surface-sunken); color: var(--ink-4); pointer-events: none; }
+  .ct-run .ico { color: var(--accent-fg); }
+
+  /* run progress strip — mounts above canvas only while a run is live (+3s) */
+  .rps { flex: none; height: 32px; display: flex; align-items: center; gap: 9px; padding: 0 var(--sp-5); border-bottom: 1px solid; font-size: var(--fs-meta); font-weight: 620; }
+  .rps.run { border-color: var(--accent-ring); background: var(--accent-surface); color: var(--accent); }
+  .rps.done { border-color: rgba(26,164,106,0.4); background: var(--ok-surface); color: var(--ok); }
+  .rps.fail { border-color: rgba(214,69,61,0.4); background: var(--danger-surface); color: var(--danger); }
+  .rps .sd { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .rps.run .sd { background: var(--accent); animation: pulse 1.3s ease infinite; }
+  .rps.done .sd { background: var(--ok); }
+  .rps.fail .sd { background: var(--danger); }
+  .rps .rps-sp { flex: 1; }
+  .rps-stop { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 0; background: var(--danger-surface); color: var(--danger); border-radius: var(--r-pill); font-size: var(--fs-micro); font-weight: 700; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* DAG canvas */
+  .canvas { flex: 1; min-height: 0; position: relative; overflow: hidden;
+    background: radial-gradient(circle, color-mix(in srgb, var(--line) 62%, transparent) 1.1px, transparent 1.1px);
+    background-size: 22px 22px; background-position: -1px -1px; }
+  .stage { position: absolute; inset: 0; }
+  .edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .node { position: absolute; width: 244px; min-height: 120px; display: flex; overflow: hidden;
+    border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); box-shadow: var(--elev-1); }
+  .node:hover { border-color: var(--line-strong); box-shadow: var(--elev-2); }
+  .node.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring), var(--elev-2); }
+  .node .bar { width: 4px; flex: none; }
+  .node .nb { flex: 1; min-width: 0; padding: 12px 13px; display: flex; flex-direction: column; gap: 6px; }
+  .nrow { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .nst { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .nst.pending { background: var(--ink-4); }
+  .nst.active { background: var(--accent); animation: pulse 1.3s ease infinite; }
+  .nst.completed { background: var(--ok); }
+  .nst.failed { background: var(--danger); }
+  .nlabel { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nchip { flex: none; height: 17px; padding: 0 7px; border-radius: var(--r-pill); font-size: 9px; font-weight: 680; display: inline-flex; align-items: center; }
+  .nchip.deps { background: var(--surface-sunken); color: var(--ink-3); }
+  .nchip.failed { background: var(--danger-surface); color: var(--danger); text-transform: uppercase; letter-spacing: 0.04em; }
+  .nchip.norole { background: var(--warn-surface); color: var(--warn); }
+  .nchip.role { color: var(--ink-1); }
+  .ninstr { flex: 1; font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nout { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ports — opacity-40 + inert outside edit mode; activate in edit mode */
+  .port { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--surface-1); border: 2.5px solid; transform: translate(-50%, -50%); }
+  .port.in { border-color: var(--accent); }
+  .port.out { border-color: var(--warn); }
+  .port.idle { opacity: 0.38; }
+  .port.accept { border-color: var(--ok); border-width: 3.5px; width: 17px; height: 17px; }
+  .port.reject { border-color: var(--danger); border-width: 3.5px; width: 17px; height: 17px; }
+  .port.hot { border-width: 3.5px; width: 17px; height: 17px; }
+  .edge-x { cursor: pointer; }
+
+  .canvas-hint { position: absolute; left: 14px; bottom: 14px; font-size: 9.5px; font-weight: 580; color: var(--ink-4);
+    background: color-mix(in srgb, var(--surface-1) 86%, transparent); padding: 5px 10px; border-radius: var(--r-pill);
+    border: 1px solid var(--line-soft); z-index: 4; }
+  .zoom-ind { position: absolute; right: 14px; bottom: 14px; display: inline-flex; align-items: center; gap: 6px;
+    height: 26px; padding: 0 10px; background: color-mix(in srgb, var(--surface-1) 90%, transparent);
+    border: 1px solid var(--line-soft); border-radius: var(--r-pill); font-size: var(--fs-micro);
+    font-weight: 680; color: var(--ink-3); z-index: 4; }
+
+  /* NL command bar — docked at canvas bottom */
+  .cmd { flex: none; height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 var(--sp-6);
+    border-top: 1px solid var(--line); background: var(--surface-1); }
+  .cmd .pf { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-micro); font-weight: 700;
+    color: var(--ink-3); text-transform: uppercase; letter-spacing: var(--ls-caps); }
+  .cmd-in { flex: 1; height: 36px; display: flex; align-items: center; padding: 0 13px; border: 1px solid var(--line);
+    border-radius: var(--r-md); background: var(--surface-sunken); color: var(--ink-3); font-size: var(--fs-base); }
+  .cmd-in.ready { background: var(--surface-1); }
+  .cmd-in.ready.focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+  .cmd-send { width: 36px; height: 36px; border: 0; border-radius: var(--r-md); background: var(--accent);
+    color: var(--accent-fg); display: grid; place-items: center; }
+  .cmd-send[disabled] { background: var(--surface-sunken); color: var(--ink-4); pointer-events: none; }
+
+  /* ════ On-demand node detail panel — slides over canvas right edge ════
+     Occupies space ONLY when a node is selected; reclaims it otherwise. */
+  .ndp { position: absolute; top: 0; right: 0; bottom: 0; width: 320px; background: var(--surface-1);
+    border-left: 1px solid var(--line); box-shadow: -14px 0 36px rgba(18,28,50,0.10); z-index: 5;
+    display: flex; flex-direction: column; }
+  .ndp-hd { flex: none; padding: var(--sp-6) var(--sp-6) var(--sp-5); border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: flex-start; gap: var(--sp-3); }
+  .ndp-hd .tt { flex: 1; min-width: 0; }
+  .ndp-hd .nm { font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); }
+  .ndp-hd .sub { display: flex; align-items: center; gap: 7px; font-size: var(--fs-sm); color: var(--ink-3); margin-top: 5px; }
+  .ndp-hd .sub .id { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .ndp-x { display: inline-grid; place-items: center; width: 26px; height: 26px; border: 0; background: transparent;
+    border-radius: var(--r-sm); color: var(--ink-4); flex: none; }
+  .ndp-x:hover { background: var(--surface-sunken); color: var(--ink-1); }
+  .ndp-bd { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-6); }
+  .ndp-grp .gl { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase;
+    font-weight: 700; color: var(--ink-4); margin-bottom: 7px; }
+  .ndp-instr { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.6; white-space: pre-wrap; }
+  .ndp-instr.empty { font-style: italic; color: var(--ink-4); }
+  .ndp-warn { font-size: var(--fs-meta); line-height: 1.5; padding: 9px 11px; border-radius: var(--r-sm);
+    border: 1px solid rgba(201,132,16,0.36); background: var(--warn-surface); color: var(--warn); }
+  .ndp-warn b { font-weight: 760; }
+  .ndp-err { border: 1px solid rgba(214,69,61,0.3); background: var(--danger-surface); border-radius: var(--r-sm);
+    padding: 9px 11px; font-size: var(--fs-meta); line-height: 1.5; color: var(--danger); }
+  .ndp-err .et { font-family: var(--mono); font-weight: 700; }
+  .ndp-dep { width: 100%; text-align: left; border: 0; border-radius: var(--r-xs); background: var(--surface-sunken);
+    color: var(--ink-2); font-size: var(--fs-sm); padding: 8px 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ndp-dep:hover { background: var(--accent-surface); color: var(--accent); }
+  .ndp-dep + .ndp-dep { margin-top: 5px; }
+  .ndp-none { font-size: var(--fs-sm); font-style: italic; color: var(--ink-4); }
+  .ndp-key { display: flex; align-items: center; gap: 8px; }
+  .ndp-key code { flex: 1; min-width: 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--accent);
+    background: var(--surface-sunken); border-radius: var(--r-xs); padding: 8px 10px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .ndp-copy { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 660;
+    color: var(--ink-3); background: var(--surface-sunken); border: 0; border-radius: var(--r-xs); padding: 8px 10px; }
+  .ndp-copy:hover { background: var(--accent-surface); color: var(--accent); }
+  .ndp-edit { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 32px;
+    border: 1px solid var(--line); background: var(--surface-1); border-radius: var(--r-sm); color: var(--ink-1);
+    font-size: var(--fs-sm); font-weight: 620; }
+  .ndp-edit:hover { border-color: var(--line-strong); background: var(--surface-0); }
+
+  /* ════ Designed-state specimens (clean visuals + plain captions) ════ */
+  .specs { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 20px; flex: none; }
+  .specs-intro { color: #c4cedd; font-size: var(--fs-sm); line-height: 1.65; padding: 0 4px; }
+  .specs-intro h2 { margin: 0 0 5px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+  .specs-intro b { color: #aebfff; font-weight: 640; }
+  .spc { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 24px 60px rgba(0,0,0,0.42); background: var(--bg); }
+  .spc-cap { display: flex; align-items: baseline; gap: var(--sp-4); padding: 11px 16px;
+    background: linear-gradient(#11161f, #0c0f16); color: #d6deec; font-size: var(--fs-sm);
+    border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .spc-cap .n { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-xs);
+    background: rgba(47,107,255,0.22); color: #9db8ff; font-size: var(--fs-micro); font-weight: 760; flex: none; }
+  .spc-cap .t { font-weight: 660; color: #fff; }
+  .spc-cap .d { color: #8b97ad; }
+  .spc-frame { background: var(--bg); padding: 24px; }
+  .spc-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .stage-bg { background: radial-gradient(circle, color-mix(in srgb, var(--line) 62%, transparent) 1.1px, transparent 1.1px);
+    background-size: 22px 22px; }
+  .pane { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); overflow: hidden; box-shadow: var(--elev-1); }
+  .pane-cap { padding: 8px 13px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-4); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
+  .pane-bd { padding: 16px; }
+
+  /* dialog / popover primitives for specimens */
+  .dlg { width: 100%; max-width: 540px; margin: 0 auto; background: var(--surface-1); border: 1px solid var(--line);
+    border-radius: var(--r-lg); box-shadow: var(--elev-3); overflow: hidden; }
+  .dlg.sm { max-width: 420px; }
+  .dlg-h { padding: var(--sp-7) var(--sp-7) var(--sp-5); border-bottom: 1px solid var(--line-soft); }
+  .dlg-h .dt { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); display: flex; align-items: center; gap: 8px; }
+  .dlg-h .dd { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 5px; }
+  .dlg-b { padding: var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-5); max-height: 380px; overflow: auto; }
+  .dlg-f { padding: var(--sp-5) var(--sp-7); border-top: 1px solid var(--line-soft); display: flex;
+    justify-content: flex-end; gap: 8px; background: var(--surface-2); }
+  .fld { display: flex; flex-direction: column; gap: 6px; }
+  .fld-l { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-2); }
+  .inp { height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: var(--r-sm);
+    background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-sm); display: flex; align-items: center; gap: 7px; }
+  .inp.area { height: auto; min-height: 56px; align-items: flex-start; padding: 9px 11px; }
+  .inp .ph { color: var(--ink-4); }
+  .inp .ico { color: var(--ink-4); flex: none; }
+  .inp input { border: 0; background: transparent; outline: none; width: 100%; color: var(--ink-1); font: inherit; }
+  .step-card { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-sunken);
+    padding: 11px; display: flex; flex-direction: column; gap: 8px; }
+  .step-card .r1 { display: flex; align-items: center; gap: 8px; }
+  .step-card .ix { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); width: 24px; flex: none; }
+  .step-card .r1 .inp { flex: 1; height: 28px; }
+  .sel { height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--r-xs);
+    background: var(--surface-1); color: var(--ink-2); font-size: var(--fs-meta); display: inline-flex;
+    align-items: center; gap: 6px; }
+  .step-card .tr { color: var(--ink-4); background: transparent; border: 0; padding: 4px; }
+  .step-card .tr:hover { color: var(--danger); }
+  .step-card .after { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .step-card .after .lbl { font-size: 9.5px; color: var(--ink-4); }
+  .dep-chip { height: 19px; padding: 0 8px; border-radius: var(--r-xs); font-size: 9.5px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--surface-1); color: var(--ink-4); }
+  .dep-chip.on { border-color: var(--accent-ring); background: var(--accent-surface); color: var(--accent); }
+  .err-box { border: 1px solid rgba(214,69,61,0.4); background: var(--danger-surface); border-radius: var(--r-xs);
+    padding: 9px 11px; display: flex; flex-direction: column; gap: 3px; }
+  .err-box p { margin: 0; font-size: 9.5px; color: var(--danger); }
+  .prev-card { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-sunken); padding: 12px; }
+  .prev-card .pn { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); }
+  .prev-card .pd { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; line-height: 1.5; }
+  .prev-card .ps { font-size: 9.5px; color: var(--ink-4); margin-top: 6px; }
+  .popover { width: 288px; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-md);
+    box-shadow: var(--elev-3); padding: 13px; display: flex; flex-direction: column; gap: 9px; }
+  .ctx { width: 152px; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-md);
+    box-shadow: var(--elev-3); padding: 5px; }
+  .ctx button { width: 100%; display: flex; align-items: center; gap: 9px; padding: 7px 10px; border: 0;
+    border-radius: var(--r-xs); background: transparent; color: var(--ink-2); font-size: var(--fs-sm); }
+  .ctx button:hover { background: var(--surface-sunken); color: var(--ink-1); }
+  .ctx button.danger { color: var(--danger); }
+  .ctx button.danger:hover { background: var(--danger-surface); }
+  .ctx .div { height: 1px; background: var(--line-soft); margin: 4px 2px; }
+  .spec-lbl { font-size: 9.5px; font-weight: 660; color: #8b97ad; margin-bottom: 9px; }
+  .save-pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 9px; border-radius: var(--r-xs);
+    border: 1px solid var(--line); background: var(--surface-1); color: var(--ink-3); }
+  .save-pill.ok { border-color: rgba(26,164,106,0.36); background: var(--ok-surface); color: var(--ok); }
+  .save-pill.err { border-color: rgba(214,69,61,0.36); background: var(--danger-surface); color: var(--danger); }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .reveal { animation: rise 0.4s cubic-bezier(0.22,1,0.36,1) backwards; }
+  .reveal.d1 { animation-delay: 0.05s; }
+  @media (prefers-reduced-motion: reduce) { .reveal, .sl-skel, .nst.active, .rps .sd { animation: none; } * { transition: none !important; } }
+</style>
+</head><body>
+<svg class="sprite" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-office" viewBox="0 0 24 24"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h.01M13 7h.01M9 11h.01M13 11h.01M9 21v-4h4v4"/></symbol>
+  <symbol id="i-sop" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6H14a3 3 0 0 1 3 3v6.6M6 8.4v3.1a3 3 0 0 0 3 3h6.6"/></symbol>
+  <symbol id="i-market" viewBox="0 0 24 24"><path d="M3 9h18l-1.4 9.2a2 2 0 0 1-2 1.8H6.4a2 2 0 0 1-2-1.8L3 9zM3 9l2-5h14l2 5M9 13v3M15 13v3"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 6.2a3 3 0 0 1 0 5.6M18.5 20a5 5 0 0 0-3-4.6"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h3.5l2.5-7 4 14 2.5-7H21"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.6a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 6.9 4.2l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></symbol>
+  <symbol id="i-inspect" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 9h18M8 13h5M8 16h8"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m5 8 4 4-4 4M12 16h7"/><rect x="2.5" y="3.5" width="19" height="17" rx="2"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="9" r="2.4"/><path d="M6 8.4v7.2M17.4 10.4A6 6 0 0 1 12 16H8.4"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.4"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10.3 21a2 2 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M4 19h16"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 21V9M7 13l5-5 5 5M4 5h16"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16M3 12a9 9 0 0 1 15.5-6.3L21 8M3 4v4h4M21 20v-4h-4"/></symbol>
+  <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 5 5l-9 9a1.8 1.8 0 0 1-2.5-2.5l8-8"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5 19 12 7 19.5z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.7 7 9 4-1.3 7-4.6 7-9V6z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18 9.5l-4.2 1.8L12 16l-1.8-4.7L6 9.5l4.2-1.8zM18.5 15.5l.8 2 .7-2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20zM12 9v5M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6L11 6M14 11a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6L13 18"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 2 5 3 3 0 0 0 6 0V5a3 3 0 0 0-3-1zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-2 5"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 9 9 0 0 0-9-8z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16.5" cy="11" r="1.2"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-link-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></symbol>
+</svg>
+
+<!-- ═══════════ RESTING SOP BUILDER (Feature Delivery Pipeline, node selected) ═══════════ -->
+<div class="app">
+  <header class="titlebar">
+    <div class="tb-dots"><i></i><i></i><i></i></div>
+    <span class="tb-brand">Offisim</span><span class="tb-ver">v0.8.0</span>
+    <span class="tb-spacer"></span>
+    <button class="tb-act" title="Keyboard shortcuts (⌘ /)"><svg class="ico sm"><use href="#i-kbd"/></svg></button>
+  </header>
+  <nav class="topbar">
+    <div class="tp-left">
+      <button class="company-sel"><span class="avatar">E</span>Empty Verify Co.<span class="ct">2</span><svg class="ico sm"><use href="#i-chev-down"/></svg></button>
+    </div>
+    <div class="peernav">
+      <a href="#"><svg class="ico sm"><use href="#i-office"/></svg>Office</a>
+      <a href="#" class="active"><svg class="ico sm"><use href="#i-sop"/></svg>SOPs</a>
+      <a href="#"><svg class="ico sm"><use href="#i-market"/></svg>Market</a>
+      <a href="#"><svg class="ico sm"><use href="#i-people"/></svg>Personnel</a>
+      <a href="#"><svg class="ico sm"><use href="#i-activity"/></svg>Activity</a>
+      <a href="#"><svg class="ico sm"><use href="#i-settings"/></svg>Settings</a>
+    </div>
+    <div class="tp-right"></div>
+  </nav>
+  <main class="app-body body-full">
+    <div class="sops">
+
+      <!-- ── SOP list sidebar ── -->
+      <aside class="sl reveal">
+        <div class="sl-hd">
+          <div class="sl-top">
+            <span class="caps">SOPs</span>
+            <div class="sl-acts">
+              <button class="iconbtn" title="Import SOP" aria-label="Import SOP" style="width:26px;height:26px"><svg class="ico sm"><use href="#i-download"/></svg></button>
+              <button class="iconbtn" title="Create SOP" aria-label="Create SOP" style="width:26px;height:26px"><svg class="ico sm"><use href="#i-plus"/></svg></button>
+            </div>
+          </div>
+          <div class="sl-search">
+            <svg class="ico sm"><use href="#i-search"/></svg>
+            <input value="" placeholder="Search SOPs">
+          </div>
+        </div>
+        <div class="sl-body">
+          <button class="sl-row active">
+            <span class="nm">Feature Delivery Pipeline</span>
+            <span class="mt">5 steps</span>
+          </button>
+          <button class="sl-row">
+            <span class="nm">Bug Triage &amp; Hotfix</span>
+            <span class="mt">4 steps<span aria-hidden>·</span><span class="synced"><svg class="ico"><use href="#i-check"/></svg>synced</span></span>
+          </button>
+          <button class="sl-row">
+            <span class="nm">Marketing Launch Checklist</span>
+            <span class="mt">7 steps</span>
+          </button>
+          <button class="sl-row">
+            <span class="nm">Weekly Content Cycle</span>
+            <span class="mt">6 steps<span aria-hidden>·</span><span class="synced"><svg class="ico"><use href="#i-check"/></svg>synced</span></span>
+          </button>
+          <button class="sl-row">
+            <span class="nm">Incident Postmortem</span>
+            <span class="mt">3 steps</span>
+          </button>
+        </div>
+        <div class="sl-foot">
+          <button class="sl-collapse"><svg class="ico sm"><use href="#i-chev-left"/></svg>Collapse</button>
+        </div>
+        <div class="sl-rail">
+          <button class="sl-rb" title="Expand list"><svg class="ico sm"><use href="#i-chev-right"/></svg></button>
+          <span class="sl-rdiv"></span>
+          <button class="sl-rb active" title="Feature Delivery Pipeline">F</button>
+          <button class="sl-rb" title="Bug Triage &amp; Hotfix">B</button>
+          <button class="sl-rb" title="Marketing Launch Checklist">M</button>
+          <button class="sl-rb" title="Weekly Content Cycle">W</button>
+          <button class="sl-rb" title="Incident Postmortem">I</button>
+        </div>
+      </aside>
+
+      <!-- ── Center: toolbar + canvas + command bar ── -->
+      <div class="sc">
+        <div class="ct-bar reveal d1">
+          <div class="ct-title">
+            <span class="nm">Feature Delivery Pipeline</span>
+            <span class="sub">5 steps · last run completed 2h ago</span>
+          </div>
+          <span class="ct-sp"></span>
+          <div class="ct-grp">
+            <button class="ct-btn"><svg class="ico sm"><use href="#i-edit"/></svg>Edit</button>
+            <button class="ct-btn"><svg class="ico sm"><use href="#i-grid"/></svg>Auto-layout</button>
+            <button class="ct-btn" title="Fit to view"><svg class="ico sm"><use href="#i-bolt"/></svg>Fit</button>
+          </div>
+          <button class="ct-run"><svg class="ico sm"><use href="#i-play"/></svg>Run</button>
+        </div>
+
+        <div class="canvas reveal d1">
+          <div class="stage" style="transform:translate(34px,150px) scale(0.74);transform-origin:0 0">
+            <svg class="edges">
+              <!-- s1 → s2 (completed) -->
+              <path d="M274,116 C300,116 314,116 340,116" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round"/>
+              <!-- s1 → s3 (completed) -->
+              <path d="M274,116 C300,116 314,259 340,259" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round"/>
+              <!-- s2 → s4 (active, traveling dot) -->
+              <path d="M584,116 C636,116 660,116 712,116" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+              <circle r="3.5" fill="var(--accent)"><animateMotion dur="1.5s" repeatCount="indefinite" path="M584,116 C636,116 660,116 712,116"/></circle>
+              <!-- s3 → s4 (pending) -->
+              <path d="M584,259 C636,259 660,116 712,116" fill="none" stroke="var(--line-strong)" stroke-width="2" stroke-linecap="round"/>
+              <!-- s4 → s5 (pending) -->
+              <path d="M956,116 C988,116 1004,116 1036,116" fill="none" stroke="var(--line-strong)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+
+            <div class="node" style="left:30px;top:57px">
+              <span class="bar" style="background:var(--role-pm,#f59e0b)"></span>
+              <div class="nb">
+                <div class="nrow">
+                  <span class="nst completed"></span>
+                  <span class="nlabel">Draft requirements</span>
+                  <span class="nchip role" style="background:color-mix(in srgb,#f59e0b 22%,transparent)">pm</span>
+                </div>
+                <div class="ninstr">Capture the user-facing goal and acceptance criteria.</div>
+                <div class="nout">→ requirements_doc</div>
+              </div>
+              <span class="port in idle" style="left:30px;top:116px"></span>
+              <span class="port out idle" style="left:274px;top:116px"></span>
+            </div>
+
+            <div class="node" style="left:340px;top:57px">
+              <span class="bar" style="background:var(--role-designer,#a855f7)"></span>
+              <div class="nb">
+                <div class="nrow">
+                  <span class="nst completed"></span>
+                  <span class="nlabel">Design mockups</span>
+                  <span class="nchip deps">deps · 1</span>
+                  <span class="nchip role" style="background:color-mix(in srgb,#a855f7 22%,transparent)">designer</span>
+                </div>
+                <div class="ninstr">Produce hi-fi screens from the approved requirements.</div>
+                <div class="nout">→ design_files</div>
+              </div>
+              <span class="port in idle" style="left:340px;top:116px"></span>
+              <span class="port out idle" style="left:584px;top:116px"></span>
+            </div>
+
+            <div class="node" style="left:340px;top:200px">
+              <span class="bar" style="background:var(--role-developer,#3b82f6)"></span>
+              <div class="nb">
+                <div class="nrow">
+                  <span class="nst pending"></span>
+                  <span class="nlabel">Scaffold API</span>
+                  <span class="nchip deps">deps · 1</span>
+                  <span class="nchip role" style="background:color-mix(in srgb,#3b82f6 22%,transparent)">developer</span>
+                </div>
+                <div class="ninstr">Stand up endpoints + schema against the requirements.</div>
+                <div class="nout">→ api_scaffold</div>
+              </div>
+              <span class="port in idle" style="left:340px;top:259px"></span>
+              <span class="port out idle" style="left:584px;top:259px"></span>
+            </div>
+
+            <div class="node sel" style="left:712px;top:57px">
+              <span class="bar" style="background:var(--role-developer,#3b82f6)"></span>
+              <div class="nb">
+                <div class="nrow">
+                  <span class="nst active"></span>
+                  <span class="nlabel">Implement feature</span>
+                  <span class="nchip deps">deps · 2</span>
+                  <span class="nchip role" style="background:color-mix(in srgb,#3b82f6 22%,transparent)">developer</span>
+                </div>
+                <div class="ninstr">Wire UI to API; cover the golden path + edge cases.</div>
+                <div class="nout">→ feature_branch</div>
+              </div>
+              <span class="port in idle" style="left:712px;top:116px"></span>
+              <span class="port out idle" style="left:956px;top:116px"></span>
+            </div>
+
+            <div class="node" style="left:1036px;top:57px">
+              <span class="bar" style="background:var(--role-qa,#10b981)"></span>
+              <div class="nb">
+                <div class="nrow">
+                  <span class="nst pending"></span>
+                  <span class="nlabel">QA sign-off</span>
+                  <span class="nchip deps">deps · 1</span>
+                  <span class="nchip role" style="background:color-mix(in srgb,#10b981 22%,transparent)">qa</span>
+                </div>
+                <div class="ninstr">Regression pass + verify acceptance criteria.</div>
+                <div class="nout">→ qa_report</div>
+              </div>
+              <span class="port in idle" style="left:1036px;top:116px"></span>
+              <span class="port out idle" style="left:1280px;top:116px"></span>
+            </div>
+          </div>
+
+          <span class="canvas-hint">Drag blank to pan · scroll to zoom · double-click a node to edit · ⎋ cancels a connection</span>
+          <span class="zoom-ind"><svg class="ico xs"><use href="#i-search"/></svg>74%</span>
+
+          <!-- on-demand node detail panel: present because a node is selected -->
+          <aside class="ndp reveal d1">
+            <div class="ndp-hd">
+              <div class="tt">
+                <div class="nm">Implement feature</div>
+                <div class="sub"><span class="id" style="background:var(--accent)"></span>Active<span aria-hidden>·</span>developer</div>
+              </div>
+              <button class="ndp-x" title="Close detail" aria-label="Close detail"><svg class="ico sm"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="ndp-bd">
+              <div class="ndp-grp">
+                <div class="gl">Instruction</div>
+                <p class="ndp-instr">Wire the new UI to the scaffolded API. Cover the golden path plus the empty / error / loading states. Keep the diff scoped to this feature.</p>
+              </div>
+              <div class="ndp-grp">
+                <div class="gl">Dependencies</div>
+                <button class="ndp-dep">Design mockups</button>
+                <button class="ndp-dep">Scaffold API</button>
+              </div>
+              <div class="ndp-grp">
+                <div class="gl">Output key</div>
+                <div class="ndp-key">
+                  <code>feature_branch</code>
+                  <button class="ndp-copy"><svg class="ico xs"><use href="#i-link"/></svg>Copy</button>
+                </div>
+              </div>
+              <button class="ndp-edit"><svg class="ico sm"><use href="#i-edit"/></svg>Edit step</button>
+            </div>
+          </aside>
+        </div>
+
+        <div class="cmd reveal d1">
+          <span class="pf"><svg class="ico sm"><use href="#i-sparkle"/></svg>Command</span>
+          <div class="cmd-in ready">Describe a change to “Feature Delivery Pipeline” — e.g. add a security review step after QA sign-off…</div>
+          <button class="cmd-send" disabled aria-label="Send command"><svg class="ico sm"><use href="#i-arrow-up"/></svg></button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+  <footer class="statusbar">
+    <span class="sb-run idle"><span class="pip"></span>Idle</span>
+    <span class="sb-mid"><span class="truncate">Feature Delivery Pipeline · ready to run</span></span>
+    <span class="sb-right">
+      <span class="sb-chip"><b>MiniMax-M2.7</b></span>
+      <span class="sb-chip">0 tok · $0.00 · 0 ms</span>
+      <button class="sb-btn" aria-pressed="false">Dashboard</button>
+      <button class="sb-btn sb-bell"><svg class="ico xs"><use href="#i-bell"/></svg><span class="n">3</span></button>
+      <span class="sb-chip"><svg class="ico xs"><use href="#i-git"/></svg>main</span>
+    </span>
+  </footer>
+
+  <button class="spec-fab" onclick="document.getElementById('specDrawer').classList.toggle('open')">⌘ SPEC NOTES</button>
+  <aside class="spec-drawer" id="specDrawer">
+    <div class="hd"><span class="t">Implementation spec — not shown to users</span>
+      <button class="x" onclick="document.getElementById('specDrawer').classList.remove('open')">×</button></div>
+    <div class="bd">
+
+      <div class="grp">
+        <div class="gh">Do-not-drop checklist (SOPs surface)</div>
+        <ul>
+          <li><b>SOP list</b> — name, step count, synced indicator, search, create, import, collapse, loading + empty states. Reachable: sidebar; header carries the ONE Create + ONE Import; rows show name + step count + green "synced"; search field; footer Collapse → first-letter rail; loading skeleton (specimen 4) + "No SOPs yet" / "No matches" (specimen 4) + company-has-none hero (specimen 3).</li>
+          <li><b>DAG canvas</b> — pan, zoom 0.25–2, node drag w/ threshold, port drag-to-connect w/ cycle/self validate + accept/reject color, remove edge, node click select, node dblclick edit, dblclick-canvas add-step, context menu, add-step token, runtime status overlay, missing-role chip, topo batch layout, bezier edges. Reachable: full-bleed canvas with bezier edges + status-colored strokes + traveling active dot; node status dots (pending/active/completed/failed); role color bar + role chip + deps chip + missing-role chip (specimen 2); ports inert at rest, activated with accept/reject color in Edit mode (specimen 1); zoom indicator + pan/zoom hint; Auto-layout = topo batch; edge disconnect × (specimen 1).</li>
+          <li><b>NL command bar</b> — reachable: docked at canvas bottom, scoped to the active SOP, send disabled until non-empty.</li>
+          <li><b>Editor dialog</b> — reachable: specimen 6 (Create/Edit SOP, step list, role select, deps, validation, discard-confirm).</li>
+          <li><b>Add-step popover</b> — reachable: specimen 8 (label / role / instruction; Add vs Save).</li>
+          <li><b>Import dialog</b> — reachable: specimen 7 (URL → Preview → preview card → Import; error line).</li>
+          <li><b>Run progress strip</b> — reachable: specimen 5 (running / completed / failed; Stop while live).</li>
+          <li><b>Node detail (on-demand)</b> — reachable: resting window right-edge panel; present only while a node is selected, reclaims canvas width when closed (no permanent column). Failed-step + missing-role + last-error variant in specimen 9.</li>
+          <li><b>Role-missing run guard</b> — reachable: missing-role chip on node + warning in node detail (specimen 9); Run still enabled, dispatcher falls back (documented under State &amp; conditional rules).</li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">Component map (visible block → real component)</div>
+        <ul>
+          <li>SOP list sidebar → <code>SopSidebar.tsx</code> (search, create, import, collapse, rows).</li>
+          <li>Canvas + nodes + edges + ports → <code>SopDagCanvas.tsx</code>; node card → <code>SopDagNode</code>; edge → <code>SopDagEdge</code>; layout → <code>sop-dag-layout.ts</code> (topo-sort batch layout, port positions).</li>
+          <li>Integrated toolbar (Edit / Auto-layout / Fit / Run) → <code>SopViewSurface</code> toolbar region (consolidates the prior 4 stacked toolbar buttons + separate fit control).</li>
+          <li>NL command bar → <code>SopNlCommandBar</code>.</li>
+          <li>On-demand node detail panel → <code>SopInspectorPanel</code> (read-only by contract; here it is overlay + dismissible, not a permanent column).</li>
+          <li>Run progress strip → <code>SopRunProgressStrip</code> (h-8); mounts when the live plan matches this SOP.</li>
+          <li>Editor dialog → <code>SopEditorDialog</code> via <code>DialogShell</code> (md); steps array w/ <code>useSopEditorState</code>-style dirty tracking.</li>
+          <li>Add/Edit step popover → <code>SopAddStepPopover</code>; node context menu → <code>SopNodeContextMenu</code>.</li>
+          <li>Import dialog → <code>SopImportDialog</code> via <code>DialogShell</code> (sm).</li>
+          <li>Empty center → <code>SopEmptyState</code>; sidebar list states → <code>SopSidebar</code> loading/empty/no-match branches.</li>
+          <li>Role colors → <code>SopDagNode</code> ROLE_COLORS: developer #3b82f6 · designer #a855f7 · pm #f59e0b · qa #10b981 · devops #ef4444 · default #64748b (rendered via local <code>--role-*</code> fallbacks; no new tokens invented — these are the product's existing DAG role hues).</li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">State &amp; conditional rules</div>
+        <ul>
+          <li><b>Single step-edit entry.</b> The ONE primary path is <code>node double-click → editor / add-step popover</code> (submit reads "Save"). The right-click context menu's "Edit" and the on-demand panel's "Edit step" button <em>mirror the same flow</em> — they are not parallel primary affordances. <code>double-click blank canvas</code> opens the same popover in Add mode at the click point. Documented here per IA §5; only the one primary entry is shown as primary in chrome.</li>
+          <li><b>Node detail occupancy.</b> Panel is mounted only when <code>selectedStepId != null</code>; it overlays the canvas right edge and the canvas keeps full width underneath. Closing (×, Esc, or deselect) removes it and reclaims the space. It is never a reserved/blank column.</li>
+          <li><b>Ports.</b> Render every frame. Outside Edit mode: <code>opacity ~0.38 + pointer-events:none</code>. In Edit mode: input port = accent, output port = warning; valid hover target → success accept ring; cycle/self-loop drop → danger reject ring + silent abort. ⎋ cancels an in-progress connection. Edge mid-point × hit area ≈ 14px (specimen 1).</li>
+          <li><b>Edge stroke by upstream status.</b> pending = line-strong 2px · active = accent 2.5px + traveling dot · completed = ok 2px · failed = danger 2px (short-circuits downstream). (specimen 5)</li>
+          <li><b>Run progress strip.</b> Mounts when the live plan matches this SOP and a run is active, and persists ~3s after finish. Stop is the same single abort surface as the status-bar Stop (one logical control, surfaced where the run is visible — not a third control).</li>
+          <li><b>Save status.</b> Mutations float a save pill at the canvas top-right: "Saving…" / "All changes saved" / "Save failed" (specimen 5).</li>
+          <li><b>Role-missing run guard.</b> A step whose role has no enabled employee shows the ⚠ missing-role chip + a warning in the node detail. Run is NOT blocked — the dispatcher falls back; the guard is informational, matching product behavior.</li>
+          <li><b>Auto-layout.</b> Topo-sort batch layout assigns columns by dependency depth; port positions recompute. "Fit" is the single fit-to-view affordance (was a separate floating control in the old surface).</li>
+          <li><b>Responsive.</b> narrow tier: sidebar becomes a drawer, node detail becomes a bottom sheet, Edit mode is disabled (touch). tablet: sidebar collapses to the first-letter rail (shown in the resting window's collapsed structure). Per IA, narrow verification target is the web SPA in browser, not the desktop shell.</li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">Reverse-risk register</div>
+        <ul>
+          <li class="risk">The live <code>SopInspectorPanel</code> is read-only and previously earned a permanent third column even when nothing was selected. This rewrite makes it on-demand overlay only — implementer must NOT restore a persistent inspector column; the canvas owns that width.</li>
+          <li class="risk">The old surface exposed step editing through 4 parallel affordances shown as primary (toolbar Add Step, dblclick blank, dblclick node, right-click menu). Keep all paths in code but present only the node double-click as the primary; the rest mirror it. Do not re-promote them to competing primaries.</li>
+          <li class="risk">Old file had 3 Create-SOP entries (sidebar +, empty hero, none-selected hero) and 2 Import entries (sidebar download, empty hero). Consolidate creation/import to the ONE sidebar-header locus; the empty-state hero buttons reuse that same flow, they are not independent loci.</li>
+          <li class="risk">Old "SopRunProgressStrip" + status-bar Stop could read as two abort controls. They are one logical action; do not add a third Stop anywhere.</li>
+          <li class="risk">Old appendix shipped a dark "STATE SPECIMENS 1:1 with SopViewSurface" block with code-name captions exposed to users. Specimens here are clean designed visuals with plain captions; all code refs live in this drawer only.</li>
+          <li class="risk">SOP "synced" indicator reflects registry/marketplace sync state, not local save. Do not conflate it with the save pill.</li>
+        </ul>
+      </div>
+
+    </div>
+  </aside>
+</div>
+
+<!-- ═══════════════ DESIGNED STATE SPECIMENS ═══════════════ -->
+<div class="specs">
+  <div class="specs-intro">
+    <h2>SOPs — designed states</h2>
+    The window above is the resting SOP builder at desktop tier: <b>SOP list</b> · full-bleed <b>DAG canvas</b> with the integrated toolbar &amp; NL command bar · the <b>on-demand node detail</b> shown because a node is selected. Below, every remaining state an implementer must build — each a clean designed visual; conditions and code references live in the spec drawer.
+  </div>
+
+  <!-- 1 · Edit mode -->
+  <div class="spc">
+    <div class="spc-cap"><span class="n">1</span><span class="t">Canvas — Edit mode</span><span class="d">Edit toggle warning-tinted · ports activate (input accent / output warning) · live drag-to-connect · valid accept ring · cycle reject ring · edge disconnect ×</span></div>
+    <div class="spc-frame">
+      <div class="pane">
+        <div class="ct-bar" style="border-radius:0">
+          <div class="ct-title"><span class="nm">Feature Delivery Pipeline</span><span class="sub">Edit mode · drag ports to connect</span></div>
+          <span class="ct-sp"></span>
+          <div class="ct-grp">
+            <button class="ct-btn on"><svg class="ico sm"><use href="#i-edit"/></svg>Editing</button>
+            <button class="ct-btn"><svg class="ico sm"><use href="#i-grid"/></svg>Auto-layout</button>
+            <button class="ct-btn"><svg class="ico sm"><use href="#i-bolt"/></svg>Fit</button>
+          </div>
+          <button class="ct-run"><svg class="ico sm"><use href="#i-play"/></svg>Run</button>
+        </div>
+        <div class="canvas stage-bg" style="height:340px">
+          <div class="stage">
+            <svg class="edges">
+              <path d="M284,90 C334,90 338,90 388,90" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round"/>
+              <path d="M628,90 C680,90 682,210 734,210" fill="none" stroke="var(--danger)" stroke-width="3" stroke-linecap="round"/>
+              <circle class="edge-x" cx="682" cy="150" r="9" fill="var(--danger-surface)" stroke="var(--danger)" stroke-width="1"/>
+              <text x="682" y="150" text-anchor="middle" dominant-baseline="central" fill="var(--danger)" font-size="13" font-weight="700">×</text>
+              <path d="M628,90 C694,90 704,40 764,40" fill="none" stroke="var(--warn)" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round"/>
+            </svg>
+            <div class="node" style="left:44px;top:31px">
+              <span class="bar" style="background:#f59e0b"></span>
+              <div class="nb">
+                <div class="nrow"><span class="nst completed"></span><span class="nlabel">Draft requirements</span><span class="nchip role" style="background:color-mix(in srgb,#f59e0b 22%,transparent)">pm</span></div>
+                <div class="ninstr">Capture goal + acceptance criteria.</div>
+                <div class="nout">→ requirements_doc</div>
+              </div>
+              <span class="port in" style="left:44px;top:88px"></span>
+              <span class="port out hot" style="left:284px;top:88px"></span>
+            </div>
+            <div class="node" style="left:388px;top:31px">
+              <span class="bar" style="background:#3b82f6"></span>
+              <div class="nb">
+                <div class="nrow"><span class="nst pending"></span><span class="nlabel">Scaffold API</span><span class="nchip deps">deps · 1</span><span class="nchip role" style="background:color-mix(in srgb,#3b82f6 22%,transparent)">developer</span></div>
+                <div class="ninstr">Stand up endpoints + schema.</div>
+                <div class="nout">→ api_scaffold</div>
+              </div>
+              <span class="port in accept" style="left:388px;top:88px"></span>
+              <span class="port out" style="left:628px;top:88px"></span>
+            </div>
+            <div class="node" style="left:734px;top:165px">
+              <span class="bar" style="background:#10b981"></span>
+              <div class="nb">
+                <div class="nrow"><span class="nst pending"></span><span class="nlabel">QA sign-off</span><span class="nchip deps">deps · 1</span><span class="nchip role" style="background:color-mix(in srgb,#10b981 22%,transparent)">qa</span></div>
+                <div class="ninstr">Regression pass.</div>
+                <div class="nout">→ qa_report</div>
+              </div>
+              <span class="port in reject" style="left:734px;top:222px"></span>
+              <span class="port out" style="left:978px;top:222px"></span>
+            </div>
+          </div>
+          <span class="canvas-hint">Input port glows on a valid hover · a cycle-creating drop shows the red reject ring then silently aborts · the hovered edge shows a × at its midpoint to disconnect.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 · Node + edge status palette -->
+  <div class="spc">
+    <div class="spc-cap"><span class="n">2</span><span class="t">Node &amp; edge status palette</span><span class="d">node status dots · failed + missing-role chips · edge stroke by upstream status</span></div>
+    <div class="spc-frame spc-2">
+      <div class="pane">
+        <div class="pane-cap">Node states</div>
+        <div class="pane-bd" style="display:flex;flex-direction:column;gap:12px">
+          <div class="node" style="position:relative;left:0;top:0">
+            <span class="bar" style="background:#3b82f6"></span>
+            <div class="nb">
+              <div class="nrow"><span class="nst active"></span><span class="nlabel">Active step</span><span class="nchip deps">deps · 2</span><span class="nchip role" style="background:color-mix(in srgb,#3b82f6 22%,transparent)">developer</span></div>
+              <div class="ninstr">Status dot pulses while the step is running.</div>
+              <div class="nout">→ active_out</div>
+            </div>
+          </div>
+          <div class="node" style="position:relative;left:0;top:0">
+            <span class="bar" style="background:#ef4444"></span>
+            <div class="nb">
+              <div class="nrow"><span class="nst failed"></span><span class="nlabel">Failed step</span><span class="nchip failed">failed</span><span class="nchip norole">⚠ no devops</span><span class="nchip role" style="background:color-mix(in srgb,#ef4444 22%,transparent)">devops</span></div>
+              <div class="ninstr">Failed chip + missing-role chip both shown.</div>
+              <div class="nout">→ deploy_out</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pane">
+        <div class="pane-cap">Edge stroke by upstream status</div>
+        <div class="pane-bd">
+          <svg width="100%" height="172" style="overflow:visible">
+            <path d="M20,28 C90,28 110,28 180,28" fill="none" stroke="var(--line-strong)" stroke-width="2" stroke-linecap="round"/>
+            <text x="200" y="32" font-size="12" fill="var(--ink-3)">pending — line, 2px</text>
+            <path d="M20,68 C90,68 110,68 180,68" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+            <circle r="3.5" fill="var(--accent)"><animateMotion dur="1.5s" repeatCount="indefinite" path="M20,68 C90,68 110,68 180,68"/></circle>
+            <text x="200" y="72" font-size="12" fill="var(--ink-3)">active — accent, 2.5px, traveling dot</text>
+            <path d="M20,108 C90,108 110,108 180,108" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round"/>
+            <text x="200" y="112" font-size="12" fill="var(--ink-3)">completed — success, 2px</text>
+            <path d="M20,148 C90,148 110,148 180,148" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round"/>
+            <text x="200" y="152" font-size="12" fill="var(--ink-3)">failed — error, 2px (short-circuits)</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 · Run progress strip + save status -->
+  <div class="spc">
+    <div class="spc-cap"><span class="n">3</span><span class="t">Run progress strip + save status</span><span class="d">running (with Stop) / completed / failed · save pill states</span></div>
+    <div class="spc-frame" style="display:flex;flex-direction:column;gap:14px">
+      <div class="rps run"><span class="sd"></span><span>Running step 4 of 5 · Implement feature · 6 / 9 tasks</span><span class="rps-sp"></span><button class="rps-stop"><svg class="ico xs"><use href="#i-stop"/></svg>Stop</button></div>
+      <div class="rps done"><span class="sd"></span><span>Run completed · 5 of 5 steps</span></div>
+      <div class="rps fail"><span class="sd"></span><span>Run failed · 1 of 5 steps failed</span></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:4px">
+        <span class="spec-lbl" style="margin:0">Save pill (floats canvas top-right during mutations):</span>
+        <span class="save-pill">Saving…</span>
+        <span class="save-pill ok"><svg class="ico xs"><use href="#i-check"/></svg>All changes saved</span>
+        <span class="save-pill err"><svg class="ico xs"><use href="#i-warn"/></svg>Save failed</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 · Sidebar list states -->
+  <div class="spc">
+    <div class="spc-cap"><span class="n">4</span><span class="t">SOP list — loading / empty / no-match / collapsed</span><span class="d">skeleton on first load · "No SOPs yet" · search miss · collapsed first-letter rail</span></div>
+    <div class="spc-frame" style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+      <div class="pane" style="width:248px">
+        <div class="pane-cap">loading</div>
+        <div class="pane-bd" style="display:flex;flex-direction:column;gap:8px">
+          <div class="sl-skel"></div><div class="sl-skel"></div><div class="sl-skel"></div><div class="sl-skel"></div><div class="sl-skel"></div>
+        </div>
+      </div>
+      <div class="pane" style="width:248px">
+        <div class="pane-cap">no SOPs yet</div>
+        <div class="pane-bd">
+          <div class="empty">
+            <span class="ic"><svg class="ico lg"><use href="#i-sop"/></svg></span>
+            <span class="ttl">No SOPs yet</span>
+            <span class="ds">Create one or import a definition to get started.</span>
+          </div>
+        </div>
+      </div>
+      <div class="pane" style="width:248px">
+        <div class="pane-cap">search miss</div>
+        <div class="pane-bd">
+          <div class="sl-search" style="margin-bottom:12px"><svg class="ico sm"><use href="#i-search"/></svg><input value="payroll"></div>
+          <div class="empty">
+            <span class="ic"><svg class="ico lg"><use href="#i-search"/></svg></span>
+            <span class="ttl">No matches</span>
+            <span class="ds">No SOP matches “payroll”.</span>
+          </div>
+        </div>
+      </div>
+      <div class="pane" style="width:120px">
+        <div class="pane-cap">collapsed</div>
+        <div class="pane-bd" style="padding:0">
+          <div class="sl-rail" style="display:flex;height:236px">
+            <button class="sl-rb" title="Expand list"><svg class="ico sm"><use href="#i-chev-right"/></svg></button>
+            <span class="sl-rdiv"></span>
+            <button class="sl-rb active" title="Feature Delivery Pipeline">F</button>
+            <button class="sl-rb" title="Bug Triage &amp; Hotfix">B</button>
+            <button class="sl-rb" title="Marketing Launch Checklist">M</button>
+            <button class="sl-rb" title="Weekly Content Cycle">W</button>
+            <button class="sl-rb" title="Incident Postmortem">I</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 · Empty center -->
+  <div class="spc">
+    <div class="spc-cap"><span class="n">5</span><span class="t">Center empty states</span><span class="d">replaces canvas + command bar when the company has no SOPs, or when SOPs exist but none is selected · no node detail mounts</span></div>
+    <div class="spc-frame spc-2">
+      <div class="pane">
+        <div class="pane-cap">company has no SOPs</div>
+        <div class="pane-bd stage-bg" style="display:grid;place-items:center;min-height:280px">
+          <div class="empty" style="max-width:360px">
+            <span class="ic"><svg class="ico lg"><use href="#i-file"/></svg></span>
+            <span class="ttl">Start your first SOP</span>
+            <span class="ds">A Standard Operating Procedure captures a repeatable workflow as a graph of steps. Build one from scratch or import a definition.</span>
+            <div style="display:flex;gap:9px">
+              <button class="btn pri"><svg class="ico sm"><use href="#i-plus"/></svg>Create SOP</button>
+              <button class="btn">Import SOP</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pane">
+        <div class="pane-cap">SOPs exist — none selected</div>
+        <div class="pane-bd stage-bg" style="display:grid;place-items:center;min-height:280px">
+          <div class="empty" style="max-width:360px">
+            <span class="ic"><svg class="ico lg"><use href="#i-sop"/></svg></span>
+            <span class="ttl">Select an SOP</span>
+            <span class="ds">Pick an SOP from the list to view its graph, edit steps, or run it against a new task. Run becomes available once a SOP has a complete graph.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 · Editor dialog -->
+  <div class="spc">
+    <div class="spc-cap"><span class="n">6</span><span class="t">Editor dialog — Create / Edit SOP</span><span class="d">name + description · Steps(N) list (label / role / trash when &gt;1 / instruction / "After:" prior-step deps) · inline validation · dirty → discard-confirm</span></div>
+    <div class="spc-frame" style="background:radial-gradient(900px 500px at 50% 0,#1c2331,#0f1420)">
+      <div class="dlg">
+        <div class="dlg-h"><div class="dt">Create SOP</div><div class="dd">Define a reusable Standard Operating Procedure.</div></div>
+        <div class="dlg-b">
+          <div class="fld"><span class="fld-l">Name</span><div class="inp"><input value="Feature Delivery Pipeline" placeholder="SOP name"></div></div>
+          <div class="fld"><span class="fld-l">Description <span style="color:var(--ink-4);font-weight:520">(optional)</span></span><div class="inp"><span class="ph">What this workflow accomplishes</span></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span class="caps">Steps (2)</span>
+            <button class="btn ghost sm"><svg class="ico sm"><use href="#i-plus"/></svg>Add step</button>
+          </div>
+          <div class="step-card">
+            <div class="r1">
+              <span class="ix">#1</span>
+              <div class="inp"><input value="Draft requirements"></div>
+              <span class="sel">PM <svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+            </div>
+            <div class="inp area" style="color:var(--ink-2)">Capture the user-facing goal and acceptance criteria.</div>
+          </div>
+          <div class="step-card">
+            <div class="r1">
+              <span class="ix">#2</span>
+              <div class="inp"><input value="Design mockups"></div>
+              <span class="sel">Designer <svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+              <button class="tr" title="Remove step"><svg class="ico sm"><use href="#i-trash"/></svg></button>
+            </div>
+            <div class="inp area" style="color:var(--ink-2)">Produce hi-fi screens from the approved requirements.</div>
+            <div class="after"><span class="lbl">After:</span><button class="dep-chip on">#1 Draft requirements</button></div>
+          </div>
+          <div class="err-box">
+            <p>SOP name is required</p>
+            <p>Step 2 depends on a step that does not exist</p>
+          </div>
+        </div>
+        <div class="dlg-f">
+          <button class="btn">Cancel</button>
+          <button class="btn pri">Create SOP</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 · Import dialog -->
+  <div class="spc">
+    <div class="spc-cap"><span class="n">7</span><span class="t">Import dialog — Import from URL</span><span class="d">url input + Preview (debounced) · error line · preview card (name / description / step count) · Import enabled only after a successful preview</span></div>
+    <div class="spc-frame spc-2" style="background:radial-gradient(900px 500px at 50% 0,#1c2331,#0f1420)">
+      <div class="dlg sm">
+        <div class="dlg-h"><div class="dt"><svg class="ico sm" style="color:var(--accent)"><use href="#i-download"/></svg>Import SOP from URL</div><div class="dd">Paste a URL to a JSON SOP definition (e.g. a GitHub raw file).</div></div>
+        <div class="dlg-b">
+          <div class="inp"><svg class="ico sm"><use href="#i-link"/></svg><span class="ph">https://raw.githubusercontent.com/…</span></div>
+          <button class="btn" style="width:100%;justify-content:center">Preview</button>
+          <div class="err-box"><p>Failed to fetch SOP: 404 Not Found</p></div>
+        </div>
+        <div class="dlg-f"></div>
+      </div>
+      <div class="dlg sm">
+        <div class="dlg-h"><div class="dt"><svg class="ico sm" style="color:var(--accent)"><use href="#i-download"/></svg>Import SOP from URL</div><div class="dd">Preview succeeded — review before importing.</div></div>
+        <div class="dlg-b">
+          <div class="inp"><svg class="ico sm"><use href="#i-link"/></svg><span class="mono" style="color:var(--ink-1);font-size:var(--fs-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">…/acme/sops/main/release.json</span></div>
+          <div class="prev-card">
+            <div class="pn">Release Train</div>
+            <div class="pd">Cut, validate, and ship a versioned release.</div>
+            <div class="ps">8 steps</div>
+          </div>
+        </div>
+        <div class="dlg-f"><button class="btn">Cancel</button><button class="btn pri">Import SOP</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 · Add/Edit step popover + node context menu -->
+  <div class="spc">
+    <div class="spc-cap"><span class="n">8</span><span class="t">Add / Edit step popover &amp; node context menu</span><span class="d">popover anchored at the click point (blank dbl-click = Add · node dbl-click / context "Edit" = Save) · right-click node = Edit / Duplicate / Delete</span></div>
+    <div class="spc-frame" style="display:flex;gap:40px;align-items:flex-start;justify-content:center;flex-wrap:wrap;background:radial-gradient(900px 500px at 50% 0,#1c2331,#0f1420)">
+      <div>
+        <div class="spec-lbl">Add / Edit step popover</div>
+        <div class="popover">
+          <div class="inp"><input value="" placeholder="Step label"></div>
+          <span class="sel" style="height:36px;justify-content:space-between">Developer <svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+          <div class="inp area" style="min-height:48px"><span class="ph">Instruction (optional)</span></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:2px">
+            <button class="btn ghost sm">Cancel</button>
+            <button class="btn pri sm" disabled>Add</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="spec-lbl">Node context menu (mirrors the dbl-click edit path)</div>
+        <div class="ctx">
+          <button><svg class="ico sm"><use href="#i-edit"/></svg>Edit</button>
+          <button><svg class="ico sm"><use href="#i-link"/></svg>Duplicate</button>
+          <div class="div"></div>
+          <button class="danger"><svg class="ico sm"><use href="#i-trash"/></svg>Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9 · Node detail variants -->
+  <div class="spc">
+    <div class="spc-cap"><span class="n">9</span><span class="t">On-demand node detail — variants</span><span class="d">nothing selected = no panel, canvas reclaims full width · failed step = last-error box + missing-role warning</span></div>
+    <div class="spc-frame spc-2">
+      <div class="pane">
+        <div class="pane-cap">no node selected — canvas full width, no panel</div>
+        <div class="pane-bd stage-bg" style="display:grid;place-items:center;min-height:300px;padding:0">
+          <span class="caps" style="color:var(--ink-4)">Detail panel not mounted</span>
+        </div>
+      </div>
+      <div class="pane">
+        <div class="pane-cap">failed step + missing role</div>
+        <div class="pane-bd" style="padding:0">
+          <div class="ndp" style="position:relative;width:100%;box-shadow:none;border-left:0;height:auto">
+            <div class="ndp-hd">
+              <div class="tt">
+                <div class="nm">Deploy to staging</div>
+                <div class="sub"><span class="id" style="background:var(--danger)"></span>Failed<span aria-hidden>·</span>devops</div>
+              </div>
+              <button class="ndp-x" aria-label="Close detail"><svg class="ico sm"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="ndp-bd">
+              <div class="ndp-warn">No employee with role <b>devops</b> — the dispatcher will fall back when this step runs.</div>
+              <div class="ndp-grp">
+                <div class="gl">Last error</div>
+                <div class="ndp-err"><div class="et">deploy.timeout</div><div style="margin-top:4px;white-space:pre-wrap">Staging deploy exceeded the 120s budget; rollback initiated.</div></div>
+              </div>
+              <div class="ndp-grp"><div class="gl">Instruction</div><p class="ndp-instr empty">No instruction</p></div>
+              <div class="ndp-grp"><div class="gl">Dependencies</div><p class="ndp-none">None</p></div>
+              <div class="ndp-grp">
+                <div class="gl">Output key</div>
+                <div class="ndp-key"><code>staging_deploy</code><button class="ndp-copy"><svg class="ico xs"><use href="#i-check"/></svg>Copied</button></div>
+              </div>
+              <button class="ndp-edit"><svg class="ico sm"><use href="#i-edit"/></svg>Edit step</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body></html>

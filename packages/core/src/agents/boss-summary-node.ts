@@ -15,6 +15,7 @@ import { appendAgentEvent } from '../utils/append-agent-event.js';
 import { generateId } from '../utils/generate-id.js';
 import { getRunScope, getRuntime } from '../utils/get-runtime.js';
 import { autoTitleThread } from './auto-title-thread.js';
+import { isNewDeliverableRequest } from './deliverable-intent.js';
 import { inferDeliverableFile } from './infer-deliverable-file.js';
 
 const BOSS_SUMMARY_PROMPT = `You are the Boss AI summarizing your team's work for the user.
@@ -62,6 +63,27 @@ function getLatestAiText(state: OffisimGraphState): string | null {
     return message.content;
   }
   return null;
+}
+
+function getLatestHumanText(state: OffisimGraphState): string {
+  for (let index = state.messages.length - 1; index >= 0; index -= 1) {
+    const message = state.messages[index];
+    if (!message || message._getType() !== 'human' || typeof message.content !== 'string') {
+      continue;
+    }
+    return message.content;
+  }
+  return '';
+}
+
+function deliverableIntentText(state: OffisimGraphState): string {
+  const taskText =
+    state.taskPlan?.steps
+      .flatMap((step) => [step.description, ...step.tasks.map((task) => task.description)])
+      .join('\n') ?? '';
+  return [getLatestHumanText(state), state.taskPlan?.summary ?? '', taskText]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function emitDirectChatCompletedIfNeeded(
@@ -348,8 +370,21 @@ export async function bossSummaryNode(
     };
   }
 
-  // Helper: emit deliverable event when there are actual employee outputs
-  const emitDeliverable = (finalContent: string) => {
+  const requestedDeliverableText = deliverableIntentText(state);
+  const userRequestedDeliverable = isNewDeliverableRequest(requestedDeliverableText);
+  const userRequestedDocumentDeliverable =
+    userRequestedDeliverable &&
+    (/\b(document|doc)\b/i.test(requestedDeliverableText) ||
+      /文档|产物/.test(requestedDeliverableText));
+
+  // Helper: emit deliverable event only for explicit or runtime-backed artifacts.
+  const emitDeliverable = (
+    finalContent: string,
+    options?: {
+      title?: string;
+      artifact?: NonNullable<OffisimGraphState['currentStepOutputs'][number]['artifact']>;
+    },
+  ) => {
     if (!runtimeCtx || summaryStepOutputs.length === 0) return;
     const contributingEmployees = summaryStepOutputs.map((o) => ({
       employeeId: o.employeeId,
@@ -359,17 +394,34 @@ export async function bossSummaryNode(
       isExternal: o.isExternal,
       brandKey: o.brandKey,
     }));
-    const title = state.taskPlan?.summary ?? stripLegacySpeakerPrefix(finalContent).slice(0, 80);
-    const inferredFile = inferDeliverableFile(title, finalContent);
+    const title =
+      options?.title ??
+      state.taskPlan?.summary ??
+      stripLegacySpeakerPrefix(finalContent).slice(0, 80);
+    const providedArtifact = options?.artifact
+      ? {
+          kind: options.artifact.kind,
+          fileName: options.artifact.fileName,
+          mimeType: options.artifact.mimeType,
+        }
+      : userRequestedDeliverable
+        ? inferDeliverableFile(title, finalContent)
+        : null;
+    const artifactShape =
+      providedArtifact ??
+      (userRequestedDocumentDeliverable
+        ? { kind: 'document' as const, fileName: null, mimeType: null }
+        : null);
+    if (!artifactShape) return;
     runtimeCtx.eventBus.emit(
       deliverableCreated(
         runtimeCtx.companyId,
         generateId('del'),
         state.threadId,
         title,
-        finalContent,
+        options?.artifact?.content ?? finalContent,
         contributingEmployees,
-        { ...(inferredFile ?? {}), chatThreadId: state.chatThreadId ?? null },
+        { ...artifactShape, chatThreadId: state.chatThreadId ?? null },
       ),
     );
   };
@@ -382,9 +434,18 @@ export async function bossSummaryNode(
     const firstEmployeeResult =
       employeeFinalOutputs[0]?.trim() || emptySingleEmployeeSummaryText(summaryStepOutputs[0]);
     const content = firstEmployeeResult + actionItemsSuffix;
-    const existingArtifact = summaryStepOutputs[0]?.artifact;
-    const inferredFile = inferDeliverableFile(state.taskPlan?.summary ?? '', content);
-    if (!existingArtifact && !inferredFile) {
+    const singleOutput = summaryStepOutputs[0];
+    const existingArtifact = singleOutput?.artifact;
+    const shouldBackfillArtifactDeliverable =
+      !!existingArtifact &&
+      (singleOutput?.content.trim().length ?? 0) === 0 &&
+      singleOutput?.deliverableEventEmitted !== true;
+    if (shouldBackfillArtifactDeliverable) {
+      emitDeliverable(content, {
+        title: existingArtifact.fileName ?? state.taskPlan?.summary ?? 'Artifact',
+        artifact: existingArtifact,
+      });
+    } else if (!existingArtifact) {
       emitDeliverable(content);
     }
     if (runtimeCtx) {

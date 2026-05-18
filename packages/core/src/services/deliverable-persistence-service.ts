@@ -26,6 +26,7 @@ export function mapPayloadToRow(event: RuntimeEvent<DeliverableCreatedPayload>):
     deliverable_id: payload.deliverableId,
     company_id: event.companyId,
     thread_id: payload.threadId ?? null,
+    chat_thread_id: payload.chatThreadId ?? null,
     title: payload.title,
     content,
     kind: payload.kind ?? null,

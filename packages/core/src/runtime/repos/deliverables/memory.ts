@@ -103,7 +103,13 @@ export class MemoryDeliverableRepository implements DeliverableRepository {
     const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
     const filtered = [...this.summaryStore.values()].filter((row) => {
       if (row.company_id !== companyId) return false;
-      if (opts?.threadId !== undefined && row.thread_id !== opts.threadId) return false;
+      if (
+        opts?.threadId !== undefined &&
+        row.thread_id !== opts.threadId &&
+        row.chat_thread_id !== opts.threadId
+      ) {
+        return false;
+      }
       return true;
     });
     filtered.sort((a, b) => b.created_at.localeCompare(a.created_at));

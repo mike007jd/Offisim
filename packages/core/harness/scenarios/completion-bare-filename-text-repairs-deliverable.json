@@ -1,0 +1,59 @@
+{
+  "id": "completion-bare-filename-text-repairs-deliverable",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": { "companyId": "company-bare-filename-file", "name": "Bare Filename Co" },
+    "thread": { "threadId": "thread-bare-filename-file", "status": "running" },
+    "employees": [{ "id": "emp-bare-filename-writer", "name": "Notes Writer", "role": "writer" }],
+    "taskRuns": [
+      {
+        "id": "task-bare-filename-file",
+        "employeeId": "emp-bare-filename-writer",
+        "taskType": "writing",
+        "input": { "description": "Generate notes.txt with release notes." }
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "writing",
+        "employeeId": "emp-bare-filename-writer",
+        "assigneeKind": "employee",
+        "assigneeName": "Notes Writer",
+        "taskRunId": "task-bare-filename-file",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Generate notes.txt with release notes.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-bare-filename-plain-text",
+      "match": { "contains": "Generate notes.txt with release notes." },
+      "content": "Release Notes\n\n- Bare filename requests still create deliverables."
+    },
+    {
+      "id": "repair-bare-filename-artifact",
+      "match": { "contains": "Draft response from Notes Writer:" },
+      "content": "Filename: notes.txt\n```text\nRelease Notes\n\n- Bare filename requests still create deliverables.\n```"
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    {
+      "kind": "eventEmitted",
+      "eventType": "deliverable.created",
+      "payloadEquals": { "fileName": "notes.txt", "kind": "file", "mimeType": "text/plain" },
+      "count": 1
+    },
+    { "kind": "finalOutputContains", "contains": "Bare filename requests still create deliverables." }
+  ]
+}

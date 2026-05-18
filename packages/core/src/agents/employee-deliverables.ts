@@ -1,12 +1,9 @@
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
+import { isNewDeliverableRequest } from './deliverable-intent.js';
 import { inferDeliverableFile } from './infer-deliverable-file.js';
 
-const FILE_DELIVERABLE_REQUEST_RE =
-  /\b(single[- ]file|file|html|css|javascript|typescript|json|markdown|csv|yaml|yml|xml|download|artifact|open it directly|full file contents|code block)\b/i;
-const LOCAL_PATH_DELIVERABLE_RE =
-  /(?:^|[\s("'`])(?:\/[^\s"'`]+|(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)+[A-Za-z0-9._-]+(?:\.[A-Za-z0-9._-]+)?)(?=$|[\s)"'`,.;:，。；：、])/u;
 const ARTIFACT_REPAIR_PROMPT = `You are converting a draft response into a real user-takeaway file artifact.
 
 Rules:
@@ -29,6 +26,7 @@ interface DeliverableResponse {
 }
 
 export interface MaterializedEmployeeDeliverable {
+  kind: 'document' | 'file';
   fileName: string | null;
   mimeType: string | null;
   artifactContent: string;
@@ -42,6 +40,7 @@ function buildInferredArtifact(
   if (!inferred) return null;
 
   return {
+    kind: 'file',
     fileName: inferred.fileName ?? null,
     mimeType: inferred.mimeType ?? null,
     artifactContent: content,
@@ -58,14 +57,6 @@ export function buildEmployeeDeliverableTitle(
   return trimmed.replace(/\s+/g, ' ').slice(0, 80);
 }
 
-function taskNeedsFileDeliverable(taskDescription: string): boolean {
-  return FILE_DELIVERABLE_REQUEST_RE.test(taskDescription);
-}
-
-function taskTargetsLocalPath(taskDescription: string): boolean {
-  return LOCAL_PATH_DELIVERABLE_RE.test(taskDescription) && !taskDescription.includes('://');
-}
-
 export async function materializeFileDeliverableIfNeeded(
   runtimeCtx: RuntimeContext,
   taskDescription: string,
@@ -75,10 +66,17 @@ export async function materializeFileDeliverableIfNeeded(
   taskRunId?: string,
   projectId?: string | null,
 ): Promise<MaterializedEmployeeDeliverable | null> {
-  if (taskTargetsLocalPath(taskDescription)) return null;
+  if (!isNewDeliverableRequest(taskDescription)) return null;
   const primaryArtifact = buildInferredArtifact(taskDescription, response.content);
   if (primaryArtifact) return primaryArtifact;
-  if (!taskNeedsFileDeliverable(taskDescription)) return null;
+  if (/\b(document|doc)\b/i.test(taskDescription) || /(文档|产物)/.test(taskDescription)) {
+    return {
+      kind: 'document',
+      fileName: null,
+      mimeType: null,
+      artifactContent: response.content,
+    };
+  }
 
   const repaired = await recordedLlmCall(
     runtimeCtx,

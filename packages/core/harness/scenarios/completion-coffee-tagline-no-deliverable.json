@@ -1,0 +1,50 @@
+{
+  "id": "completion-coffee-tagline-no-deliverable",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": { "companyId": "company-coffee-tagline", "name": "Coffee Tagline Co" },
+    "thread": { "threadId": "thread-coffee-tagline", "status": "running" },
+    "employees": [{ "id": "emp-copywriter", "name": "Copywriter", "role": "writer" }],
+    "taskRuns": [
+      {
+        "id": "task-coffee-tagline",
+        "employeeId": "emp-copywriter",
+        "taskType": "writing",
+        "input": { "description": "Write one short tagline for a coffee shop." }
+      }
+    ]
+  },
+  "initialState": {
+    "pendingAssignments": [
+      {
+        "taskType": "writing",
+        "employeeId": "emp-copywriter",
+        "assigneeKind": "employee",
+        "assigneeName": "Copywriter",
+        "taskRunId": "task-coffee-tagline",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Write one short tagline for a coffee shop.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-coffee-tagline",
+      "match": { "contains": "Write one short tagline for a coffee shop." },
+      "content": "Fresh mornings, one cup closer."
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    { "kind": "taskRunStatusIs", "taskRunId": "task-coffee-tagline", "status": "completed" },
+    { "kind": "eventNotEmitted", "eventType": "deliverable.created" },
+    { "kind": "finalOutputContains", "contains": "Fresh mornings" }
+  ]
+}

@@ -219,17 +219,32 @@ export function resolveDeliverableArtifact(
 ): DeliverableArtifact {
   const cleanedTitle = stripLegacySpeakerPrefix(payload.title);
   const cleanedContent = stripLegacySpeakerPrefix(payload.content);
-  if (payload.kind === 'file' && payload.fileName) {
-    const embeddedHtml = extractEmbeddedHtml(cleanedContent);
-    const fenced = parseCodeFence(cleanedContent);
+  if (payload.kind === 'document') {
+    return {
+      kind: 'document',
+      fileName: null,
+      mimeType: payload.mimeType ?? null,
+      content: cleanedContent.trim(),
+    };
+  }
+  if (payload.kind === 'file') {
+    const inferred = inferFallbackArtifact(cleanedTitle, cleanedContent);
     return {
       kind: 'file',
-      fileName: payload.fileName,
-      mimeType: payload.mimeType ?? 'text/plain',
-      content: embeddedHtml ?? fenced?.body ?? cleanedContent,
+      fileName: payload.fileName ?? (inferred.kind === 'file' ? inferred.fileName : null),
+      mimeType: payload.mimeType ?? (inferred.kind === 'file' ? inferred.mimeType : 'text/plain'),
+      content: inferred.kind === 'file' ? inferred.content : cleanedContent,
     };
   }
   return inferFallbackArtifact(cleanedTitle, cleanedContent);
+}
+
+export function isDisplayableDeliverable(
+  payload: Pick<DeliverableCreatedPayload, 'kind' | 'fileName' | 'mimeType'>,
+  artifact: DeliverableArtifact,
+): boolean {
+  if (artifact.kind === 'file') return !!artifact.fileName || payload.kind === 'file';
+  return payload.kind === 'document';
 }
 
 export function getDeliverableDisplayTitle(title: string, artifact: DeliverableArtifact): string {
@@ -283,6 +298,7 @@ function summaryRowToPayload(
   return {
     deliverableId: row.deliverable_id,
     threadId: row.thread_id ?? '',
+    chatThreadId: row.chat_thread_id ?? null,
     title: row.title,
     content,
     kind: row.kind ?? undefined,
@@ -298,16 +314,14 @@ export interface DeliverableHookRow {
   id: string;
   threadId: string;
   /**
-   * Persistent layer (`deliverables` table) does not store the product-layer
-   * chat_threads.thread_id today, so historical hydrate rows always surface
-   * `null` here. Live `deliverable.created` events carry the real value via
-   * `DeliverableCreatedPayload.chatThreadId`. Right-rail consumers that
-   * filter strictly will see history rows under the cross-thread bucket.
+   * Product-layer `chat_threads.thread_id`. Legacy rows from older snapshots
+   * may still hydrate as `null`.
    */
   chatThreadId: string | null;
   title: string;
   content: string;
   contentSize: number;
+  declaredKind: DeliverableKind | null;
   artifact: DeliverableArtifact;
   contributingEmployees: ReadonlyArray<DeliverableContributor>;
   createdAt: number;
@@ -319,10 +333,11 @@ export function mapDeliverableSummaryToHookRow(row: DeliverableSummaryRow): Deli
   return {
     id: row.deliverable_id,
     threadId: row.thread_id ?? '',
-    chatThreadId: null,
+    chatThreadId: row.chat_thread_id ?? null,
     title: getDeliverableDisplayTitle(payload.title, artifact),
     content: '',
     contentSize: row.content_size ?? 0,
+    declaredKind: row.kind ?? null,
     artifact,
     contributingEmployees: payload.contributingEmployees,
     createdAt: payload.createdAt,
@@ -333,6 +348,7 @@ export function mapDeliverableFullRowToHookRow(row: DeliverableRow): Deliverable
   const payload: DeliverableCreatedPayload = {
     deliverableId: row.deliverable_id,
     threadId: row.thread_id ?? '',
+    chatThreadId: row.chat_thread_id ?? null,
     title: row.title,
     content: row.content,
     kind: row.kind ?? undefined,
@@ -345,10 +361,11 @@ export function mapDeliverableFullRowToHookRow(row: DeliverableRow): Deliverable
   return {
     id: row.deliverable_id,
     threadId: payload.threadId,
-    chatThreadId: null,
+    chatThreadId: row.chat_thread_id ?? null,
     title: getDeliverableDisplayTitle(payload.title, artifact),
     content: artifact.content,
     contentSize: artifact.content.length,
+    declaredKind: row.kind ?? null,
     artifact,
     contributingEmployees: payload.contributingEmployees,
     createdAt: payload.createdAt,

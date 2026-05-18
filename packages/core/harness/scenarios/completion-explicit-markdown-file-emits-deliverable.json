@@ -1,0 +1,78 @@
+{
+  "id": "completion-explicit-markdown-file-emits-deliverable",
+  "category": "long-running-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": { "companyId": "company-explicit-markdown-file", "name": "Markdown File Co" },
+    "thread": { "threadId": "thread-explicit-markdown-file", "status": "running" },
+    "employees": [{ "id": "emp-markdown-writer", "name": "Markdown Writer", "role": "writer" }],
+    "taskRuns": [
+      {
+        "id": "task-explicit-markdown-file",
+        "employeeId": "emp-markdown-writer",
+        "taskType": "writing",
+        "input": { "description": "Generate a markdown file named tmp/x.md with release notes." }
+      }
+    ]
+  },
+  "initialState": {
+    "chatThreadId": "chat-thread-explicit-markdown-file",
+    "pendingAssignments": [
+      {
+        "taskType": "writing",
+        "employeeId": "emp-markdown-writer",
+        "assigneeKind": "employee",
+        "assigneeName": "Markdown Writer",
+        "taskRunId": "task-explicit-markdown-file",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Generate a markdown file named tmp/x.md with release notes.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-markdown-file",
+      "match": { "contains": "Generate a markdown file named tmp/x.md" },
+      "content": "Filename: tmp/x.md\n```markdown\n# Release Notes\n\n- Deliverable semantics now require explicit artifacts.\n```"
+    }
+  ],
+  "runs": [
+    {
+      "startAt": "employee",
+      "runScope": {
+        "conversationKey": "project-explicit-markdown-file::chat-thread-explicit-markdown-file::emp-markdown-writer",
+        "threadId": "chat-thread-explicit-markdown-file"
+      }
+    }
+  ],
+  "assertions": [
+    {
+      "kind": "eventEmitted",
+      "eventType": "deliverable.created",
+      "payloadEquals": {
+        "fileName": "tmp/x.md",
+        "kind": "file",
+        "mimeType": "text/markdown",
+        "chatThreadId": "chat-thread-explicit-markdown-file"
+      },
+      "count": 1
+    },
+    {
+      "kind": "deliverableRowMapped",
+      "payloadEquals": { "fileName": "tmp/x.md" },
+      "rowEquals": {
+        "thread_id": "thread-explicit-markdown-file",
+        "chat_thread_id": "chat-thread-explicit-markdown-file",
+        "file_name": "tmp/x.md"
+      },
+      "count": 1
+    },
+    { "kind": "finalOutputContains", "contains": "Release Notes" }
+  ]
+}

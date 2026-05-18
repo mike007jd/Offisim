@@ -1,0 +1,442 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offisim · Activity</title>
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="_offisim-shell.css">
+<style>
+/* ── Activity workspace body — NON-Office, full width, no right rail ──
+   Author owns ONLY .app-body. Light tokens from _offisim-shell.css only. */
+.activity { height: 100%; display: flex; flex-direction: column; background: var(--surface-1); }
+
+/* ── Compact filter chip row (NOT 4 full-width selects) ── */
+.flt {
+  flex: none; display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-7); border-bottom: 1px solid var(--line);
+  background: var(--surface-2); flex-wrap: wrap;
+}
+.flt-chip {
+  display: inline-flex; align-items: center; gap: 7px; height: 30px;
+  padding: 0 var(--sp-4); background: var(--surface-1);
+  border: 1px solid var(--line); border-radius: var(--r-pill);
+  font-size: var(--fs-sm); font-weight: 580; color: var(--ink-2);
+}
+.flt-chip:hover { border-color: var(--line-strong); color: var(--ink-1); }
+.flt-chip .ky { color: var(--ink-4); font-weight: 600; }
+.flt-chip .vl { color: var(--ink-1); font-weight: 640; }
+.flt-chip.on { background: var(--accent-surface); border-color: var(--accent-ring); color: var(--accent); }
+.flt-chip.on .ky, .flt-chip.on .vl { color: var(--accent); }
+.flt-chip .ico { color: var(--ink-4); }
+.flt-chip.on .ico { color: var(--accent); }
+.flt-seg { display: inline-flex; padding: 3px; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-pill); gap: 2px; }
+.flt-seg button { border: 0; background: transparent; padding: 4px 11px; border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 580; color: var(--ink-3); }
+.flt-seg button.active { background: var(--accent-surface); color: var(--accent); font-weight: 640; }
+.flt-search {
+  display: flex; align-items: center; gap: 8px; height: 30px; flex: 1;
+  min-width: 180px; max-width: 320px; margin-left: auto;
+  padding: 0 var(--sp-4); background: var(--surface-1);
+  border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--ink-4);
+}
+.flt-search:focus-within { border-color: var(--accent-ring); background: var(--surface-1); }
+.flt-search input { border: 0; background: transparent; flex: 1; outline: none; font-size: var(--fs-sm); color: var(--ink-1); }
+.flt-search input::placeholder { color: var(--ink-4); }
+.flt-clear { border: 0; background: transparent; color: var(--ink-3); font-size: var(--fs-sm); font-weight: 600; padding: 4px 8px; border-radius: var(--r-sm); }
+.flt-clear:hover { background: var(--surface-sunken); color: var(--ink-1); }
+
+/* ── Content grid — full width when nothing selected, splits only on select ── */
+.act-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
+.act-grid.split { grid-template-columns: 1fr minmax(360px, 440px); }
+
+/* ── Timeline ── */
+.tl { min-width: 0; overflow-y: auto; }
+.tl-grp {
+  display: flex; align-items: center; gap: 8px;
+  padding: var(--sp-3) var(--sp-7); background: var(--surface-sunken);
+  position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--line-soft);
+}
+.tl-grp .gl { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-1); }
+.tl-grp .gc { font-size: 9.5px; font-weight: 700; color: var(--ink-3); background: var(--surface-1); border: 1px solid var(--line-soft); padding: 1px 7px; border-radius: var(--r-pill); }
+
+.ev {
+  width: 100%; min-height: 46px; display: flex; align-items: center; gap: var(--sp-5);
+  padding: var(--sp-3) var(--sp-7); border: 0; border-left: 3px solid transparent;
+  background: transparent; text-align: left; color: var(--ink-1);
+  border-bottom: 1px solid var(--line-soft); transition: background 0.12s ease;
+}
+.ev:hover { background: var(--surface-sunken); }
+.ev.sel { background: var(--accent-surface); border-left-color: var(--accent); }
+.ev.err { border-left-color: var(--danger); }
+.ev.warn { border-left-color: var(--warn); }
+.ev .ev-ic { width: 28px; height: 28px; border-radius: var(--r-sm); display: grid; place-items: center; flex: none; background: var(--surface-sunken); }
+.ev .ev-ic svg { width: 16px; height: 16px; }
+.ev-ic.c-default { color: var(--ink-3); }
+.ev-ic.c-hr { color: var(--danger); background: var(--danger-surface); }
+.ev-ic.c-mcp { color: var(--accent); background: var(--accent-surface); }
+.ev-ic.c-knowledge { color: var(--ok); background: var(--ok-surface); }
+.ev-ic.c-memory { color: var(--warn); background: var(--warn-surface); }
+.ev-ic.c-skill { color: var(--ok); background: var(--ok-surface); }
+.ev-ic.c-handoff { color: var(--accent); background: var(--accent-surface); }
+.ev-ic.c-meeting { color: var(--accent); background: var(--accent-surface); }
+.ev .ev-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ev .ev-lbl { font-size: var(--fs-base); font-weight: 540; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev .ev-sub { font-size: var(--fs-meta); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev .ev-x { flex: none; padding: 1px 8px; border-radius: var(--r-pill); background: var(--surface-sunken); color: var(--ink-2); font-size: 9.5px; font-weight: 700; }
+.ev.warn .ev-x { background: var(--warn-surface); color: var(--warn); }
+.ev .ev-rr { flex: none; font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-4); background: var(--surface-sunken); padding: 2px 7px; border-radius: var(--r-pill); }
+.ev .ev-ts { width: 72px; flex: none; text-align: right; font-size: var(--fs-meta); color: var(--ink-4); }
+
+/* ── Event detail panel — rendered ONLY when an event is selected ── */
+.detail { min-width: 0; border-left: 1px solid var(--line); background: var(--surface-2); display: flex; flex-direction: column; overflow-y: auto; }
+.detail-hd { flex: none; display: flex; align-items: center; justify-content: space-between; padding: var(--sp-5) var(--sp-7); border-bottom: 1px solid var(--line-soft); position: sticky; top: 0; background: var(--surface-2); z-index: 1; }
+.detail-hd .t { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; }
+.detail-bd { padding: var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-7); }
+.dsec > .dl { margin: 0 0 5px; font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-4); font-weight: 700; }
+.dsec .dtype { margin: 0; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-1); font-weight: 600; }
+.dsec .dts { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
+.dsec .dent { margin: 0; font-size: var(--fs-sm); color: var(--ink-1); font-weight: 580; }
+.dsec .dent.sub { color: var(--ink-3); font-weight: 500; margin-top: 3px; }
+.dsec .dent.sub.mono { font-family: var(--mono); font-size: var(--fs-meta); }
+.dlvl { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: var(--r-pill); font-size: var(--fs-meta); font-weight: 700; }
+.dlvl.info { background: var(--accent-surface); color: var(--accent); }
+.dlvl.warn { background: var(--warn-surface); color: var(--warn); }
+.dlvl.err { background: var(--danger-surface); color: var(--danger); }
+
+/* payload tree */
+.pv { display: flex; flex-direction: column; font-family: var(--mono); }
+.pv-r { display: flex; align-items: baseline; gap: 12px; min-height: 26px; padding: 2px 0; }
+.pv-k { flex: none; font-size: var(--fs-sm); color: var(--ink-3); }
+.pv-v { font-size: var(--fs-sm); color: var(--ink-1); word-break: break-all; }
+.pv-v.null { font-style: italic; color: var(--ink-4); }
+.pv-c { display: flex; align-items: center; gap: 5px; padding: 3px 0; border: 0; background: transparent; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
+.pv-c:hover { color: var(--ink-1); }
+.pv-c .ico { color: inherit; }
+.pv-ch { padding-left: 16px; border-left: 1px solid var(--line-soft); margin-left: 5px; }
+.pv-empty { margin: 0; font-size: var(--fs-sm); font-style: italic; color: var(--ink-4); font-family: var(--font); }
+
+/* ── Empty / no-results states — ONE labeled Back-to-Office ── */
+.act-state { flex: 1; display: grid; place-items: center; padding: var(--sp-8); }
+.act-state .empty .ic svg { width: 20px; height: 20px; }
+.act-state .acts { display: flex; gap: var(--sp-3); margin-top: var(--sp-2); }
+</style>
+</head><body>
+<svg class="sprite" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-office" viewBox="0 0 24 24"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h.01M13 7h.01M9 11h.01M13 11h.01M9 21v-4h4v4"/></symbol>
+  <symbol id="i-sop" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6H14a3 3 0 0 1 3 3v6.6M6 8.4v3.1a3 3 0 0 0 3 3h6.6"/></symbol>
+  <symbol id="i-market" viewBox="0 0 24 24"><path d="M3 9h18l-1.4 9.2a2 2 0 0 1-2 1.8H6.4a2 2 0 0 1-2-1.8L3 9zM3 9l2-5h14l2 5M9 13v3M15 13v3"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 6.2a3 3 0 0 1 0 5.6M18.5 20a5 5 0 0 0-3-4.6"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h3.5l2.5-7 4 14 2.5-7H21"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.6a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 6.9 4.2l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></symbol>
+  <symbol id="i-inspect" viewBox="0 0 24 24"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 9h18M8 13h5M8 16h8"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m5 8 4 4-4 4M12 16h7"/><rect x="2.5" y="3.5" width="19" height="17" rx="2"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="9" r="2.4"/><path d="M6 8.4v7.2M17.4 10.4A6 6 0 0 1 12 16H8.4"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.4"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.4"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.4"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10.3 21a2 2 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M4 19h16"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 21V9M7 13l5-5 5 5M4 5h16"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16M3 12a9 9 0 0 1 15.5-6.3L21 8M3 4v4h4M21 20v-4h-4"/></symbol>
+  <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 5 5l-9 9a1.8 1.8 0 0 1-2.5-2.5l8-8"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5 19 12 7 19.5z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.7 7 9 4-1.3 7-4.6 7-9V6z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18 9.5l-4.2 1.8L12 16l-1.8-4.7L6 9.5l4.2-1.8zM18.5 15.5l.8 2 .7-2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20zM12 9v5M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6L11 6M14 11a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6L13 18"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 2 5 3 3 0 0 0 6 0V5a3 3 0 0 0-3-1zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-2 5"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 9 9 0 0 0-9-8z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16.5" cy="11" r="1.2"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+  <symbol id="i-link-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></symbol>
+  <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M10 4a2 2 0 0 1 4 0v2h3a1 1 0 0 1 1 1v3h2a2 2 0 0 1 0 4h-2v4a1 1 0 0 1-1 1h-4v-2a2 2 0 0 0-4 0v2H6a1 1 0 0 1-1-1v-4H4a2 2 0 0 1 0-4h1V7a1 1 0 0 1 1-1h4z"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v6M15 3v6M7 9h10v3a5 5 0 0 1-10 0z"/><path d="M12 17v4"/></symbol>
+  <symbol id="i-book-open" viewBox="0 0 24 24"><path d="M12 6C10 4.5 7 4 4 4.5v13C7 17 10 17.5 12 19M12 6c2-1.5 5-2 8-1.5v13c-3-.5-6 0-8 1.5M12 6v13"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5c-.7.7-1 1.5-1 2.5H9c0-1-.3-1.8-1-2.5A6 6 0 0 1 12 3z"/></symbol>
+  <symbol id="i-user-check" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 12l2 2 4-4"/></symbol>
+  <symbol id="i-arrow-lr" viewBox="0 0 24 24"><path d="M7 8l-4 4 4 4M3 12h12M17 8l4 4-4 4M21 12h-2"/></symbol>
+</svg>
+
+<div class="app">
+  <header class="titlebar">
+    <div class="tb-dots"><i></i><i></i><i></i></div>
+    <span class="tb-brand">Offisim</span><span class="tb-ver">v0.8.0</span>
+    <span class="tb-spacer"></span>
+    <button class="tb-act" title="Keyboard shortcuts (⌘ /)"><svg class="ico sm"><use href="#i-kbd"/></svg></button>
+  </header>
+  <nav class="topbar">
+    <div class="tp-left">
+      <button class="company-sel"><span class="avatar">E</span>Empty Verify Co.<span class="ct">2</span><svg class="ico sm"><use href="#i-chev-down"/></svg></button>
+    </div>
+    <div class="peernav">
+      <a href="#"><svg class="ico sm"><use href="#i-office"/></svg>Office</a>
+      <a href="#"><svg class="ico sm"><use href="#i-sop"/></svg>SOPs</a>
+      <a href="#"><svg class="ico sm"><use href="#i-market"/></svg>Market</a>
+      <a href="#"><svg class="ico sm"><use href="#i-people"/></svg>Personnel</a>
+      <a href="#" class="active"><svg class="ico sm"><use href="#i-activity"/></svg>Activity</a>
+      <a href="#"><svg class="ico sm"><use href="#i-settings"/></svg>Settings</a>
+    </div>
+    <div class="tp-right">
+      <button class="tp-btn"><svg class="ico sm"><use href="#i-arrow-left"/></svg>Back to Office</button>
+    </div>
+  </nav>
+
+  <main class="app-body body-full">
+    <div class="activity">
+      <!-- Compact filter chip row — date preset · type · actors · search.
+           NOT 4 full-width selects. -->
+      <div class="flt">
+        <div class="flt-seg" role="group" aria-label="Date range">
+          <button>Today</button>
+          <button class="active">7 days</button>
+          <button>30 days</button>
+          <button>All time</button>
+        </div>
+        <button class="flt-chip on"><svg class="ico sm"><use href="#i-bolt"/></svg><span class="ky">Type</span><span class="vl">Deliverable</span><svg class="ico sm"><use href="#i-chev-down"/></svg></button>
+        <button class="flt-chip"><svg class="ico sm"><use href="#i-user"/></svg><span class="ky">Actors</span><span class="vl">All</span><svg class="ico sm"><use href="#i-chev-down"/></svg></button>
+        <button class="flt-clear">Clear</button>
+        <div class="flt-search">
+          <svg class="ico sm"><use href="#i-search"/></svg>
+          <input value="" placeholder="Search events">
+        </div>
+      </div>
+
+      <!-- Full width: NO event selected → timeline owns the whole region.
+           (No permanently reserved empty detail column.) -->
+      <div class="act-grid">
+        <div class="tl">
+          <div class="tl-grp"><span class="gl">Today</span><span class="gc">9</span></div>
+
+          <button class="ev">
+            <span class="ev-ic c-meeting"><svg class="ico"><use href="#i-people"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Plan the Q3 launch microsite</span>
+              <span class="ev-sub">Boss · Maya Chen · Aria Kim · Diego Santos</span>
+            </span>
+            <span class="ev-ts">just now</span>
+          </button>
+          <button class="ev">
+            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">plan / step: drafting → review</span>
+              <span class="ev-sub">PM planner</span>
+            </span>
+            <span class="ev-ts">1m ago</span>
+          </button>
+          <button class="ev">
+            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Maya Chen — building hero section</span>
+              <span class="ev-sub">employee:emp_4f1a</span>
+            </span>
+            <span class="ev-ts">2m ago</span>
+          </button>
+          <button class="ev warn">
+            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Task assignment rerouted — requires local tools</span>
+              <span class="ev-sub">manager → internal lane</span>
+            </span>
+            <span class="ev-x">×4</span>
+            <span class="ev-rr">rerouted</span>
+            <span class="ev-ts">5m ago</span>
+          </button>
+          <button class="ev">
+            <span class="ev-ic c-skill"><svg class="ico"><use href="#i-puzzle"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Skill installed — Competitive Teardown</span>
+              <span class="ev-sub">Market · skill</span>
+            </span>
+            <span class="ev-ts">11m ago</span>
+          </button>
+          <button class="ev">
+            <span class="ev-ic c-mcp"><svg class="ico"><use href="#i-plug"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">MCP server connected — filesystem</span>
+              <span class="ev-sub">stdio transport</span>
+            </span>
+            <span class="ev-ts">14m ago</span>
+          </button>
+          <button class="ev err">
+            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Deliverable export failed — pdf encoder timeout</span>
+              <span class="ev-sub">launch-brief.md</span>
+            </span>
+            <span class="ev-ts">22m ago</span>
+          </button>
+          <button class="ev">
+            <span class="ev-ic c-knowledge"><svg class="ico"><use href="#i-book-open"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Knowledge pack indexed — brand guidelines</span>
+              <span class="ev-sub">42 chunks</span>
+            </span>
+            <span class="ev-ts">31m ago</span>
+          </button>
+          <button class="ev">
+            <span class="ev-ic c-handoff"><svg class="ico"><use href="#i-arrow-lr"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Handoff: Maya Chen → Aria Kim (design review)</span>
+              <span class="ev-sub">task: hero-section</span>
+            </span>
+            <span class="ev-ts">44m ago</span>
+          </button>
+
+          <div class="tl-grp"><span class="gl">Yesterday</span><span class="gc">3</span></div>
+          <button class="ev">
+            <span class="ev-ic c-hr"><svg class="ico"><use href="#i-user-check"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">HR — Noah Patel hired (QA)</span>
+              <span class="ev-sub">role: qa</span>
+            </span>
+            <span class="ev-ts">1d ago</span>
+          </button>
+          <button class="ev">
+            <span class="ev-ic c-memory"><svg class="ico"><use href="#i-bulb"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Memory reinforced — prefers terse PR descriptions</span>
+              <span class="ev-sub">Maya Chen</span>
+            </span>
+            <span class="ev-ts">1d ago</span>
+          </button>
+          <button class="ev">
+            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Cost recorded — MiniMax-M2.7 · $0.0142</span>
+              <span class="ev-sub">infrastructure</span>
+            </span>
+            <span class="ev-ts">1d ago</span>
+          </button>
+
+          <div class="tl-grp"><span class="gl">This Week</span><span class="gc">28</span></div>
+          <button class="ev">
+            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">Install completed — Hermes A2A peer</span>
+              <span class="ev-sub">external employee</span>
+            </span>
+            <span class="ev-ts">3d ago</span>
+          </button>
+          <button class="ev">
+            <span class="ev-ic c-default"><svg class="ico"><use href="#i-activity"/></svg></span>
+            <span class="ev-main">
+              <span class="ev-lbl">git / branch: feature/q3-microsite</span>
+              <span class="ev-sub">3 commits ahead</span>
+            </span>
+            <span class="ev-ts">4d ago</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="statusbar">
+    <span class="sb-run idle"><span class="pip"></span>Idle</span>
+    <span class="sb-mid"><span class="truncate">Activity Log · 12 events today</span></span>
+    <span class="sb-right">
+      <span class="sb-chip"><b>MiniMax-M2.7</b></span>
+      <span class="sb-chip">0 tok · $0.00 · 0 ms</span>
+      <button class="sb-btn" aria-pressed="false">Dashboard</button>
+      <button class="sb-btn sb-bell"><svg class="ico xs"><use href="#i-bell"/></svg><span class="n">3</span></button>
+      <span class="sb-chip"><svg class="ico xs"><use href="#i-git"/></svg>main</span>
+    </span>
+  </footer>
+
+  <button class="spec-fab" onclick="document.getElementById('specDrawer').classList.toggle('open')">⌘ SPEC NOTES</button>
+  <aside class="spec-drawer" id="specDrawer">
+    <div class="hd"><span class="t">Implementation spec — not shown to users</span>
+      <button class="x" onclick="document.getElementById('specDrawer').classList.remove('open')">×</button></div>
+    <div class="bd">
+
+      <div class="grp">
+        <div class="gh">Do-not-drop checklist (§6 Activity — every item reachable)</div>
+        <ul>
+          <li><b>Timeline, time-grouped</b> — 5 buckets <code>Today / Yesterday / This Week / This Month / Older</code>, sticky group header + count pill, each sorted desc by timestamp, empty buckets dropped. Reachable: the timeline column (4 buckets shown; <code>groupEventsByTime</code> contract below).</li>
+          <li><b>Select an event</b> — row → <code>bg-accent-surface</code> + accent left border; grid splits to <code>1fr | minmax(360px,440px)</code>; re-click same row toggles the detail closed. Reachable: every <code>.ev</code> button; split layout below.</li>
+          <li><b>Level left border</b> — Error (<code>--danger</code>) / Warning (<code>--warn</code>) / Info (none). Reachable: <code>.ev.err</code> "Deliverable export failed", <code>.ev.warn</code> "Task assignment rerouted".</li>
+          <li><b>Domain icon per prefix</b> — colour-coded square per topic prefix. Reachable: meeting / default / skill / mcp / knowledge / handoff / hr / memory rows; full prefix→icon map below.</li>
+          <li><b>×N consecutive-reroute collapse badge</b> — Reachable: the <code>×4</code> badge on the rerouted row.</li>
+          <li><b>Rerouted-event label</b> — dedicated formatter; "rerouted" tag. Reachable: the rerouted row's <code>.ev-rr</code> tag + humanised label.</li>
+          <li><b>Employee-name resolution</b> — topic IDs resolved to display names. Reachable: "Maya Chen", "Noah Patel", "Maya Chen → Aria Kim" labels; raw id shown as <code>.ev-sub</code> only where unresolved (<code>employee:emp_4f1a</code>).</li>
+          <li><b>Event detail</b> — type (slash-formatted), level badge, full timestamp, entity (label/Type/ID), structured payload. Reachable: the detail panel renders on select (specimen below shows the populated state byte-for-byte; live build mounts it in the split column).</li>
+          <li><b>ActivityPayloadView</b> — recursive: primitives <code>key&nbsp;&nbsp;value</code>, null/undefined italic, array ≤5 inline, array &gt;5 collapsible default-closed, object collapsible (<code>defaultOpen = depth&lt;2</code>), <code>{}</code> → italic "Empty payload". Reachable: payload tree in the detail specimen.</li>
+          <li><b>Filters</b> — date preset, event type, actor, search. Reachable: the compact chip row (<code>flt-seg</code> date · Type chip · Actors chip · search · Clear).</li>
+          <li><b>Empty / no-results states</b> — Reachable: state specimens below; rendered in <code>.act-state</code> when applicable.</li>
+          <li><b>Back-to-Office</b> — ONE labeled affordance. Reachable: single <code>tp-btn</code> "Back to Office" in topbar-right (the empty / no-results specimens reuse the same label, not a 2nd inconsistent one).</li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">Component map (visible block → real component)</div>
+        <ul>
+          <li>Whole workspace → <code>ActivityLogPage</code> (lazy via <code>WorkspaceRouter</code>; non-Office → AppLayout side panel = null, full-width, no right rail).</li>
+          <li>SSOT → <code>ActivityLogSessionState { selectedEventId, search, eventTypes[], actorFilters[], datePreset }</code>, default <code>datePreset='today'</code>.</li>
+          <li>Filter chip row → <code>ActivityFilterBar</code> (the prototype consolidates its 3 single-selects + search into chips/segmented; the live default variant is <code>h-14 grid repeat(3,minmax(0,1fr)) minmax(160px,2fr)</code> — see State &amp; conditional rules for the narrow variant + bottom sheet).</li>
+          <li>Timeline → <code>ActivityTimeline</code> over <code>filterEvents</code> → <code>groupEventsByTime</code> → <code>collapseConsecutiveReroutes</code>.</li>
+          <li>Row → <code>ActivityEventRow</code> (h-48 in live; level border + domain icon + label + optional ×N).</li>
+          <li>Detail panel → <code>ActivityEventDetail</code> (<code>bg-surface-elevated</code>, own scroll, 5 fixed sections).</li>
+          <li>Payload tree → <code>ActivityPayloadView</code> (recursive key/value).</li>
+          <li>Empty / no-results → <code>ActivityEmptyState</code> (<code>variant="no-events" | "no-results"</code>).</li>
+          <li>Event store → runtime <code>EventBus</code> hydrated from <code>bootstrapState.eventHistory</code> (last <code>MAX_EVENTS=200</code>, 26 <code>EVENT_PREFIXES</code>, batched via <code>requestAnimationFrame</code>).</li>
+          <li>Label → <code>getDisplayLabel</code> (payload <code>message</code> → <code>nodeName</code> → <code>employeeName</code> → <code>name</code> → topic-derived); <code>task.assignment.rerouted</code> → <code>formatTaskAssignmentReroutedLabel</code>; <code>skill.install.outcome</code> → <code>skillInstallOutcomeLabel</code> (resolves employee via <code>getEmployeeName</code>).</li>
+          <li>Dedup → <code>getEventId = ts-type-entityId</code> (folds paired <code>llm.call</code>/<code>llm.usage</code>).</li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">State &amp; conditional rules</div>
+        <ul>
+          <li><b>getEventLevel</b> (topic only): contains <code>failed</code>/<code>error</code>/<code>rolled_back</code> → Error · <code>blocked</code>/<code>warning</code>/<code>rejected</code>/<code>aborted</code> → Warning · else Info. Info = no border; Warning = <code>border-warning</code> + warn bar; Error = <code>border-error</code> + err bar.</li>
+          <li><b>collapseConsecutiveReroutes</b>: folds 3+ <em>consecutive</em> <code>task.assignment.rerouted</code> sharing <code>source|reason|taskRunId</code> into one row with <code>×N</code>; runs &lt;3 stay expanded.</li>
+          <li><b>domainIcon(type)</b> prefix → icon · colour: <code>default</code> Activity·secondary · <code>hr.</code> UserCheck·error · <code>mcp.</code> Plug·info · <code>knowledge.</code> BookOpen·success · <code>memory.</code> Lightbulb·warning · <code>skill.</code> Puzzle·success · <code>handoff.</code> ArrowRightLeft·accent · <code>meeting.</code>/<code>direct.chat.</code> Users·accent.</li>
+          <li><b>Filters</b>: single-select backed by string arrays — <code>onEventTypesChange(value==='all' ? [] : [value])</code>, same for actors; <code>eventTypes[0] ?? 'all'</code>. Date preset <code>Today / Last 7 days / Last 30 days / All time → today / 7d / 30d / custom</code> (custom = no cutoff). 18 type options = <code>ALL_EVENT_TYPES</code> minus <code>All</code>: Node·Plan·Task·Deliverable·Employee·Install·Skill·LLM·Interaction·Error·MCP·Knowledge·Meeting·HR·Memory·Infrastructure·Git·Attachment. Type label → topic prefixes via <code>TYPE_PREFIX_MAP</code> (Meeting → <code>meeting.</code>+<code>direct.chat.</code>; Infrastructure → <code>rack./slot./binding./cost.</code>). Actors = <code>getAvailableActorFilters(events)</code> (distinct <code>employeeName / name / entityType:entityId</code>, sorted). Search matches <code>type + displayLabel + entityType</code> (lowercased).</li>
+          <li><b>groupEventsByTime</b>: bucket edges = today 00:00 / yesterday 00:00 / Monday 00:00 / month-1st 00:00. Buckets desc; empty dropped; <code>collapseConsecutiveReroutes</code> applied per group.</li>
+          <li><b>ActivityEventDetail</b> sections: Event Type (<code>type.replaceAll('.',' / ')</code>, mono) · Level badge · Timestamp (<code>formatFullTimestamp</code>, absolute) · Entity (label + optional <code>Type:</code>/<code>ID:</code> mono) · Payload (ActivityPayloadView). Selecting the same row again toggles the panel closed (<code>selectedEventId → null</code>); panel only occupies space while <code>selectedEventId</code> is set — no reserved empty column.</li>
+          <li><b>Responsive</b>: desktop &amp; tablet identical (default filter bar; split when focused). <code>useLayoutTier()==='narrow'</code> → narrow filter bar (sliders btn + inline search; the 3 controls move into a bottom <em>filter sheet</em> = scrim + bottom panel, focus-trapped, Esc/scrim/X closes via <code>useRegisterModal</code>+<code>useTopmostEscape</code>+<code>useFocusTrap</code>, modal id <code>activity-filter-sheet</code>); on narrow with an event focused the timeline gets <code>hidden</code> so the detail takes the full column. (Per project IA: narrow tier verification target is the web SPA in browser, not the desktop shell.)</li>
+          <li><b>Hydrating</b>: <code>!bootstrapState &amp;&amp; events.length===0</code> → <code>WorkspacePageSkeleton</code>. <b>no-events</b>: <code>events.length===0</code> → ActivityEmptyState <code>variant="no-events"</code>, Activity icon, primary "Back to Office" (only when <code>onBackToOffice</code>). <b>no-results</b>: filtered to 0 → <code>variant="no-results"</code>, Search icon, primary "Reset filters", secondary "Back to Office". <b>Stale selection</b>: <code>selectedEventId</code> set but no matching event (rolled past 200 / filtered out) → info toast "The selected event is no longer available." + reset <code>selectedEventId → null</code>.</li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">Reverse-risk register</div>
+        <ul>
+          <li class="risk"><b>Reset-filters inconsistency.</b> The no-results "Reset filters" action clears search/types/actors but sets <code>datePreset='30d'</code> — <em>not</em> the default <code>'today'</code> the workspace boots with. This is a product decision, not a prototype concern: do <b>not</b> invent a new control or change the reset target in the design. Flagged so an implementer either ratifies "reset = 30d" intentionally or aligns it to boot default — owned by product, not this redesign.</li>
+          <li class="risk"><b>Single-select masquerading as multi.</b> <code>eventTypes</code>/<code>actorFilters</code> are arrays but the live UI is single-select (<code>['x']</code> or <code>[]</code>). The chip row preserves that semantic (one Type, one Actors value); do not build true multi-select chips without a product decision to widen the model.</li>
+          <li class="risk"><b>Bounded store.</b> Only the last 200 events exist client-side; deep history / "Older" bucket is necessarily partial. A selected event can vanish mid-session (stale-selection toast path). Not a bug to "fix" in the prototype.</li>
+          <li class="risk"><b>Prior IA defects discarded (do not reintroduce):</b> the timeline redrawn ~6× as a spec appendix; 4 oversized 1/5-width filter selects; raw <code>topic.code.name</code> captions as primary row text; the <code>.rev-flag</code> reset annotation rendered in chrome; a permanently reserved ~420px empty detail column. The redesign humanises labels, uses a compact chip row, and only allocates the detail column on selection.</li>
+        </ul>
+      </div>
+
+      <div class="grp">
+        <div class="gh">Detail-panel populated reference (rendered on select; spec-only here)</div>
+        <ul>
+          <li>Example for <code>deliverable.persisted</code> → Event Type <code>deliverable / persisted</code> · Level <em>Info</em> · Timestamp <code>May 16, 2026, 02:41:08 PM</code> · Entity <code>launch-brief.md</code> / Type: deliverable / ID: <code>dlv_9c2f71</code>.</li>
+          <li>Payload: <code>name=launch-brief.md</code> · <code>bytes=8244</code> · <code>employeeName=Maya Chen</code> · <code>draftKey=null</code> (italic) · <code>contributors [7 items]</code> (array &gt;5 → collapsed) · <code>artifact {…}</code> (object, depth&lt;2 → open: <code>mimeType=text/markdown</code>, <code>roles=[pm, designer, developer]</code> inline ≤5) · <code>diagnostics {…}</code> (depth≥2 → collapsed).</li>
+          <li>Domain-icon legend &amp; level-system specimen (the live <code>ActivityEventRow</code> proof) is fully captured by the State &amp; conditional rules above; no separate redrawn timeline appendix is shipped.</li>
+        </ul>
+      </div>
+
+    </div>
+  </aside>
+</div>
+</body></html>

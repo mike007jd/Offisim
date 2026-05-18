@@ -60,6 +60,16 @@
     { "kind": "threadStatusIs", "status": "completed" },
     { "kind": "finalOutputContains", "contains": "Provider: MiniMax-M2.7" },
     {
+      "kind": "eventEmitted",
+      "eventType": "deliverable.created",
+      "payloadEquals": {
+        "fileName": "final-release-retest.md",
+        "kind": "file",
+        "mimeType": "text/markdown"
+      },
+      "count": 1
+    },
+    {
       "kind": "finalOutputNotContains",
       "contains": "Expected a single employee result for boss summary fast path"
     }
