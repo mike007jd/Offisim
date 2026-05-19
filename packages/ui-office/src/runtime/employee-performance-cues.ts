@@ -1,8 +1,8 @@
 import type { InteractionKind, ToolExecutionTelemetryPayload } from '@offisim/shared-types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { truncate } from '../lib/format-time.js';
-import { categorizeTool, type ToolCategory } from '../lib/tool-category.js';
-import { useOffisimRuntime } from './offisim-runtime-context.js';
+import { type ToolCategory, categorizeTool } from '../lib/tool-category.js';
+import { useOffisimRuntimeServices } from './offisim-runtime-context.js';
 
 export type EmployeePerformanceCueCategory =
   | 'blocked'
@@ -100,7 +100,10 @@ const SECRET_PATTERNS: RegExp[] = [
 ];
 
 export function sanitizeCueText(input: string, max = EMPLOYEE_CUE_TEXT_MAX): string {
-  let out = input.replace(/```[\s\S]*?```/g, '[code redacted]').replace(/\s+/g, ' ').trim();
+  let out = input
+    .replace(/```[\s\S]*?```/g, '[code redacted]')
+    .replace(/\s+/g, ' ')
+    .trim();
   for (const pattern of SECRET_PATTERNS) {
     out = out.replace(pattern, '[redacted]');
   }
@@ -159,7 +162,9 @@ export function buildTaskDispatchCue(input: {
     employeeId: input.employeeId,
     kind: 'dispatch',
     category: 'dispatch',
-    text: sanitizeCueText(`Taking step ${input.stepIndex + 1}/${input.totalSteps}: ${input.stepLabel}`),
+    text: sanitizeCueText(
+      `Taking step ${input.stepIndex + 1}/${input.totalSteps}: ${input.stepLabel}`,
+    ),
     priority: PRIORITY.dispatch,
     ttlMs: TTL.dispatch,
     sourceType: 'task.assignment.dispatched',
@@ -188,7 +193,8 @@ export function buildToolCue(
       cueId: cueId(['tool', payload.toolCallId, payload.employeeId, 'started']),
       text: toolStartedText(category),
       ttlMs: TTL.tool,
-      icon: category === 'shell' ? '$' : category === 'edit' ? 'E' : category === 'read' ? 'R' : 'S',
+      icon:
+        category === 'shell' ? '$' : category === 'edit' ? 'E' : category === 'read' ? 'R' : 'S',
     };
   }
   if (payload.status === 'completed') {
@@ -207,7 +213,8 @@ export function buildToolCue(
     return {
       ...base,
       cueId: cueId(['tool', payload.toolCallId, payload.employeeId, 'denied']),
-      text: payload.errorType === 'TOOL_PERMISSION_REQUIRED' ? 'Waiting for approval' : 'Tool blocked',
+      text:
+        payload.errorType === 'TOOL_PERMISSION_REQUIRED' ? 'Waiting for approval' : 'Tool blocked',
       ttlMs: TTL.waiting,
       priority: PRIORITY.waiting,
       category: 'waiting',
@@ -410,7 +417,11 @@ function selectPrimaryCue(
   let best: EmployeePerformanceCue | null = null;
   for (const cue of cues) {
     if (cue.expiresAt <= now) continue;
-    if (!best || cue.priority > best.priority || (cue.priority === best.priority && cue.createdAt > best.createdAt)) {
+    if (
+      !best ||
+      cue.priority > best.priority ||
+      (cue.priority === best.priority && cue.createdAt > best.createdAt)
+    ) {
       best = cue;
     }
   }
@@ -418,10 +429,13 @@ function selectPrimaryCue(
 }
 
 export function useEmployeePerformanceCues(companyId: string | null): EmployeePerformanceCueMap {
-  const { sceneIntentBus } = useOffisimRuntime();
-  const [store, setStore] = useState<Map<string, Map<string, EmployeePerformanceCue>>>(() => new Map());
+  const { sceneIntentBus } = useOffisimRuntimeServices();
+  const [store, setStore] = useState<Map<string, Map<string, EmployeePerformanceCue>>>(
+    () => new Map(),
+  );
   const nowRef = useRef(Date.now());
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cue state must reset when the active company changes.
   useEffect(() => {
     setStore(new Map());
   }, [companyId]);
@@ -454,7 +468,9 @@ export function useEmployeePerformanceCues(companyId: string | null): EmployeePe
           for (const [id, cue] of byEmployee) {
             if (
               (payload.cueId && id === payload.cueId) ||
-              (payload.sourceType && cue.sourceType === payload.sourceType && (!payload.sourceId || cue.sourceId === payload.sourceId)) ||
+              (payload.sourceType &&
+                cue.sourceType === payload.sourceType &&
+                (!payload.sourceId || cue.sourceId === payload.sourceId)) ||
               (payload.category && cue.category === payload.category)
             ) {
               byEmployee.delete(id);
@@ -470,7 +486,9 @@ export function useEmployeePerformanceCues(companyId: string | null): EmployeePe
           const byEmployee = new Map(cues);
           for (const [id, cue] of byEmployee) {
             if (
-              (payload.sourceType && cue.sourceType === payload.sourceType && (!payload.sourceId || cue.sourceId === payload.sourceId)) ||
+              (payload.sourceType &&
+                cue.sourceType === payload.sourceType &&
+                (!payload.sourceId || cue.sourceId === payload.sourceId)) ||
               (payload.category && cue.category === payload.category)
             ) {
               byEmployee.delete(id);

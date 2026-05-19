@@ -1,4 +1,4 @@
-import { aiStartupTemplate } from '@offisim/core/dist/templates/ai-startup.js';
+import { aiStartupTemplate } from '@offisim/core/templates';
 import type { OfficialSeedPayload } from '../types.js';
 
 const SLUG = 'offisim/sample-marketing-strategist';

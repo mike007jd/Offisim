@@ -11,7 +11,7 @@ import { emitTailwindThemeCss } from '../packages/ui-core/dist/tokens/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
-const outFile = resolve(rootDir, 'apps/web/src/generated/tailwind-theme.css');
+const outFile = resolve(rootDir, 'apps/desktop/renderer/src/generated/tailwind-theme.css');
 
 function readGitSha() {
   try {

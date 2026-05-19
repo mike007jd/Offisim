@@ -29,7 +29,10 @@ Do not include chain-of-thought.
 Do not invent facts.
 Output plain text only.`;
 
-export function toolPairSafeCutIndex(messages: readonly LlmMessage[], requestedCut: number): number {
+export function toolPairSafeCutIndex(
+  messages: readonly LlmMessage[],
+  requestedCut: number,
+): number {
   let cut = Math.min(Math.max(0, requestedCut), messages.length);
   while (cut > 0 && messages[cut]?.role === 'tool') {
     cut -= 1;

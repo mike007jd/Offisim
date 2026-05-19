@@ -10,7 +10,7 @@ import type { PrefabDefinition, PrefabInstanceRow } from '@offisim/shared-types'
 import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { ensureSystemPrefabLayoutVersion } from '../lib/system-prefab-layout-repair.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 /** A prefab instance paired with its definition from the catalog. */
 export interface PrefabInstanceWithDef {
@@ -29,7 +29,7 @@ export interface UsePrefabInstancesReturn {
  * Returns empty array when no instances exist for the company.
  */
 export function usePrefabInstances(): UsePrefabInstancesReturn {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [instances, setInstances] = useState<PrefabInstanceWithDef[]>([]);
   const [loading, setLoading] = useState(true);

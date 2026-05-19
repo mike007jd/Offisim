@@ -21,7 +21,8 @@ export function createWebFetchTool(): BuiltinTool {
       }
       const response = await fetch(url, { redirect: 'follow' });
       const text = await response.text();
-      if (!response.ok) throw new Error(`[WEB_FETCH_FAILED] ${response.status} ${text.slice(0, 500)}`);
+      if (!response.ok)
+        throw new Error(`[WEB_FETCH_FAILED] ${response.status} ${text.slice(0, 500)}`);
       return text;
     },
   };

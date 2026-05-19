@@ -18,7 +18,10 @@ function retryAfterMs(error: unknown): number | null {
   const headers =
     error && typeof error === 'object' && 'headers' in error
       ? (error as { headers?: unknown }).headers
-      : error instanceof Error && error.cause && typeof error.cause === 'object' && 'headers' in error.cause
+      : error instanceof Error &&
+          error.cause &&
+          typeof error.cause === 'object' &&
+          'headers' in error.cause
         ? (error.cause as { headers?: unknown }).headers
         : undefined;
   const value =

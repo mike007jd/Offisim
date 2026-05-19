@@ -21,7 +21,7 @@ export interface AnthropicAdapterOptions {
   retryConfig?: RetryConfig;
   supportsPromptCaching?: boolean;
   streamIdleTimeoutMs?: number;
-  /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
+  /** Allow browser-side API calls (required for the Tauri WebView) */
   dangerouslyAllowBrowser?: boolean;
   /**
    * Custom fetch implementation. When set, the SDK is constructed with this
@@ -497,10 +497,15 @@ export class AnthropicAdapter implements LlmGateway {
 
     if (error instanceof Anthropic.APIError) {
       const status = error.status ?? (isOverloaded ? 529 : undefined);
-      return new LlmError(error.message || surfaceText || 'Anthropic API error', 'anthropic', status, {
-        cause: error,
-        ...(shouldRetry !== undefined ? { shouldRetry } : {}),
-      });
+      return new LlmError(
+        error.message || surfaceText || 'Anthropic API error',
+        'anthropic',
+        status,
+        {
+          cause: error,
+          ...(shouldRetry !== undefined ? { shouldRetry } : {}),
+        },
+      );
     }
     const message = error instanceof Error ? error.message : 'Unknown Anthropic error';
     if (isOverloaded) {
@@ -512,10 +517,9 @@ export class AnthropicAdapter implements LlmGateway {
     });
   }
 
-  private mapSystemPrompt(messages: readonly LlmMessage[]):
-    | string
-    | Anthropic.TextBlockParam[]
-    | undefined {
+  private mapSystemPrompt(
+    messages: readonly LlmMessage[],
+  ): string | Anthropic.TextBlockParam[] | undefined {
     const systemText = messages
       .filter((m) => m.role === 'system')
       .map((m) => m.content)
@@ -528,7 +532,11 @@ export class AnthropicAdapter implements LlmGateway {
     const stableText = (stablePrefix ?? '').trim();
     const volatileText = volatileParts.join(PROMPT_CACHE_VOLATILE_MARKER).trim();
     if (stableText) {
-      blocks.push({ type: 'text', text: stableText, cache_control: cacheControl() } as Anthropic.TextBlockParam);
+      blocks.push({
+        type: 'text',
+        text: stableText,
+        cache_control: cacheControl(),
+      } as Anthropic.TextBlockParam);
     }
     if (volatileText) {
       blocks.push({ type: 'text', text: volatileText } as Anthropic.TextBlockParam);
@@ -537,7 +545,9 @@ export class AnthropicAdapter implements LlmGateway {
   }
 }
 
-function mapAnthropicStopReason(reason: Anthropic.Message['stop_reason']): LlmResponse['stopReason'] {
+function mapAnthropicStopReason(
+  reason: Anthropic.Message['stop_reason'],
+): LlmResponse['stopReason'] {
   switch (reason) {
     case 'end_turn':
     case 'tool_use':

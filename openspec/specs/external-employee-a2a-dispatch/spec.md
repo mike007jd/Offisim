@@ -61,7 +61,7 @@ The following symbols and files SHALL NOT exist after this change (zero grep mat
 
 The union members `assigneeKind: 'department'` (on `PendingAssignment` / `PlanTaskStep` / task events) and `sourceKind: 'department'` (on deliverables / step outputs) SHALL be removed from `packages/shared-types` and all consumers; the unions collapse to `'employee'` literal or the field is dropped where only one value remains.
 
-The files `packages/core/src/a2a/external-departments.ts`, `packages/core/src/agents/department-dispatcher-node.ts`, and `apps/web/src/lib/external-departments.ts` SHALL be deleted.
+The files `packages/core/src/a2a/external-departments.ts`, `packages/core/src/agents/department-dispatcher-node.ts`, and `apps/desktop/renderer/src/lib/external-departments.ts` SHALL be deleted.
 
 The manager-node system prompt SHALL NOT contain the `"Available external departments"` section; external employees (if any) appear in the "Available employees" list with a trailing `[external:<brandKey>]` annotation.
 
@@ -75,7 +75,7 @@ The manager-node system prompt SHALL NOT contain the `"Available external depart
 
 #### Scenario: Deleted files do not exist
 - **WHEN** checking filesystem after this change
-- **THEN** `packages/core/src/a2a/external-departments.ts`, `packages/core/src/agents/department-dispatcher-node.ts`, `apps/web/src/lib/external-departments.ts` all return ENOENT
+- **THEN** `packages/core/src/a2a/external-departments.ts`, `packages/core/src/agents/department-dispatcher-node.ts`, `apps/desktop/renderer/src/lib/external-departments.ts` all return ENOENT
 
 ### Requirement: A2A protocol layer is rewritten to v1.0
 
@@ -134,7 +134,7 @@ Exports from `packages/core/src/a2a/index.ts`, `packages/core/src/index.ts`, and
 
 ### Requirement: External A2A peers must be CORS-compatible with browser origins
 
-Any A2A peer whose `a2a_url` is reachable from the web SPA (`http://localhost:5176` in dev; the deployed SPA origin in prod) MUST respond to CORS preflight requests. Specifically, it MUST:
+Any A2A peer whose `a2a_url` is reachable from the desktop renderer (`http://localhost:5176` in dev; the deployed SPA origin in prod) MUST respond to CORS preflight requests. Specifically, it MUST:
 1. Respond to `OPTIONS` on every endpoint path with a 2xx status.
 2. Include `Access-Control-Allow-Origin` matching the SPA origin (or `*` for public peers) on every response, including preflight.
 3. Include `Access-Control-Allow-Methods: GET, POST, OPTIONS` on preflight responses.
@@ -145,9 +145,9 @@ Peers that omit CORS headers will cause `A2AClient.getAgentCard()` to fail with 
 The reference peer stub in `/tmp/offisim-a2a-peer.py` (skill-local, not checked in) demonstrates a compliant implementation. When Phase 3 ships the install UI, the official distributed peer / desktop-hosted peer MUST satisfy this requirement, or document explicit server-binding that bypasses CORS (e.g. desktop-local Tauri IPC).
 
 #### Scenario: Peer returns CORS headers on preflight
-- **WHEN** the web SPA browser sends `OPTIONS /.well-known/agent-card.json` with `Origin: http://localhost:5176` and `Access-Control-Request-Headers: authorization`
+- **WHEN** the desktop renderer browser sends `OPTIONS /.well-known/agent-card.json` with `Origin: http://localhost:5176` and `Access-Control-Request-Headers: authorization`
 - **THEN** the peer responds with status 2xx and headers `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods` (including `GET`), `Access-Control-Allow-Headers` (including `authorization`)
 
 #### Scenario: Peer returns CORS headers on actual responses
-- **WHEN** the web SPA browser sends `GET /.well-known/agent-card.json` or `POST /a2a/<path> { method: 'SendMessage', ... }` with `Origin: http://localhost:5176`
+- **WHEN** the desktop renderer browser sends `GET /.well-known/agent-card.json` or `POST /a2a/<path> { method: 'SendMessage', ... }` with `Origin: http://localhost:5176`
 - **THEN** every response (200 success, JSON-RPC error, 4xx/5xx) carries `Access-Control-Allow-Origin` matching the request origin

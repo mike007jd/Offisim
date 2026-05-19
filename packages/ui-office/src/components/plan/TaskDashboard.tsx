@@ -3,7 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
-import { useOffisimRuntime, useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
+import {
+  useOffisimRuntimeServices,
+  useOffisimRuntimeStatus,
+} from '../../runtime/offisim-runtime-context';
 import { StepProgressBar } from '../dashboard/StepProgressBar';
 import type { StepProgressSegment } from '../dashboard/StepProgressBar';
 import { TaskStepCard } from './TaskStepCard';
@@ -11,7 +14,7 @@ import { TaskStepCard } from './TaskStepCard';
 export function TaskDashboard({ agents }: { agents?: Map<string, { name: string }> }) {
   const dashboard = useTaskDashboard(agents);
   const { getTaskCost } = useDashboardMetrics();
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const { isRunning } = useOffisimRuntimeStatus();
   const { stage, routeLabel } = usePipelineStage();
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);

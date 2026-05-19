@@ -3,7 +3,7 @@ import type { Zone } from '@offisim/shared-types';
 import { SYSTEM_ZONE_TEMPLATES, templateToZone } from '@offisim/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 /**
  * Load zones for the active company from the database.
@@ -15,7 +15,7 @@ export function useCompanyZones(): {
   isFallback: boolean;
   refresh: () => void;
 } {
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);

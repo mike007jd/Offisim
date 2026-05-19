@@ -8,10 +8,10 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
-const webPort = 5176;
+const rendererPort = 5176;
 const platformPort = 4100;
 const appPath = path.join(root, 'apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app');
-const webLogPath = path.join(root, 'output/run-action-web-dev.log');
+const rendererLogPath = path.join(root, 'output/run-action-renderer-dev.log');
 const platformLogPath = path.join(root, 'output/run-action-platform-dev.log');
 
 function run(command, args, options = {}) {
@@ -101,10 +101,7 @@ function cleanBuildArtifacts() {
     '.turbo',
     'apps/desktop/.turbo',
     'apps/desktop/src-tauri/target',
-    'apps/launcher/.turbo',
-    'apps/launcher/dist',
-    'apps/launcher/src-tauri/target',
-    'apps/web/dist',
+    'apps/desktop/renderer/dist',
     'apps/platform/dist',
   ]) {
     removePath(artifact);
@@ -135,7 +132,7 @@ async function waitForPort(port, timeoutMs) {
     if ((await isPortOpen('127.0.0.1', port)) || (await isPortOpen('::1', port))) return;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error(`web dev server did not open port ${port} within ${timeoutMs}ms`);
+  throw new Error(`renderer dev server did not open port ${port} within ${timeoutMs}ms`);
 }
 
 async function waitForHttpOk(url, timeoutMs) {
@@ -165,10 +162,10 @@ async function startPlatformDev() {
   await waitForHttpOk(`http://localhost:${platformPort}/health`, 45_000);
 }
 
-async function startWebDev() {
-  mkdirSync(path.dirname(webLogPath), { recursive: true });
-  const logFd = openSync(webLogPath, 'a');
-  const child = spawn('pnpm', ['--filter', '@offisim/web', 'dev'], {
+async function startRendererDev() {
+  mkdirSync(path.dirname(rendererLogPath), { recursive: true });
+  const logFd = openSync(rendererLogPath, 'a');
+  const child = spawn('pnpm', ['--filter', '@offisim/desktop-renderer', 'dev'], {
     cwd: root,
     detached: true,
     stdio: ['ignore', logFd, logFd],
@@ -178,15 +175,17 @@ async function startWebDev() {
     },
   });
   child.unref();
-  await waitForPort(webPort, 45_000);
+  await waitForPort(rendererPort, 45_000);
 }
 
 async function main() {
-  console.log('[run-clean-release] stopping existing desktop app, platform, and web dev ports');
+  console.log(
+    '[run-clean-release] stopping existing desktop app, platform, and renderer dev ports',
+  );
   killOffisimDesktop();
   killOffisimPlatform();
   killPort(platformPort);
-  killPort(webPort);
+  killPort(rendererPort);
 
   console.log('[run-clean-release] cleaning build artifacts');
   cleanBuildArtifacts();
@@ -197,15 +196,14 @@ async function main() {
   console.log('[run-clean-release] starting platform API on http://localhost:4100');
   await startPlatformDev();
 
-  console.log('[run-clean-release] starting web dev server on http://localhost:5176');
-  await startWebDev();
-  spawnSync('open', [`http://localhost:${webPort}`], { cwd: root, stdio: 'ignore' });
+  console.log('[run-clean-release] starting renderer dev server on http://localhost:5176');
+  await startRendererDev();
 
   console.log('[run-clean-release] opening release Offisim.app');
   run('open', ['-n', appPath], { stdio: 'inherit' });
 
   console.log(
-    `[run-clean-release] done. Platform log: ${platformLogPath}. Web dev log: ${webLogPath}`,
+    `[run-clean-release] done. Platform log: ${platformLogPath}. Renderer dev log: ${rendererLogPath}`,
   );
 }
 

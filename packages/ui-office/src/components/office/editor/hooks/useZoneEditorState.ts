@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyZones } from '../../../../hooks/useCompanyZones.js';
 import { usePrefabInstances } from '../../../../hooks/usePrefabInstances.js';
 import { saveZonesToDb } from '../../../../lib/zone-persistence.js';
-import { useOffisimRuntime } from '../../../../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../../../../runtime/offisim-runtime-context.js';
 import { useCompany } from '../../../company/CompanyContext.js';
 import { useStudioStore } from '../../../studio/StudioState.js';
 import type { EditorZone, PlacedItem } from '../types.js';
@@ -53,7 +53,7 @@ export function useZoneEditorState({
   open,
   onClose,
 }: UseZoneEditorStateParams): UseZoneEditorStateReturn {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const { zones: dbZones, refresh: refreshZones } = useCompanyZones();
   const { instances: dbInstances, refresh: refreshPrefabs } = usePrefabInstances();

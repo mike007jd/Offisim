@@ -10,7 +10,6 @@ const children = new Map();
 let shuttingDown = false;
 
 ensurePortFree(4100);
-ensurePortFree(4200);
 ensurePortFree(5176);
 
 function prefixStream(name, stream, target) {

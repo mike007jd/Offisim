@@ -6,7 +6,7 @@ Defines the design-token foundation for shared UI, 3D scene colors, semantic col
 ## Requirements
 ### Requirement: `packages/ui-core/src/tokens/` SHALL be the single source of truth for all design tokens
 
-Every design token consumed by Tailwind utility classes, CSS variables, JS / TSX inline `style={...}` props, or 3D scene materials in the Offisim codebase SHALL be authored in `packages/ui-core/src/tokens/` and consumed via either (a) the `@offisim/ui-core/tokens` subpath import or (b) the generated Tailwind theme CSS at `apps/web/src/generated/tailwind-theme.css` that is itself emitted from those tokens.
+Every design token consumed by Tailwind utility classes, CSS variables, JS / TSX inline `style={...}` props, or 3D scene materials in the Offisim codebase SHALL be authored in `packages/ui-core/src/tokens/` and consumed via either (a) the `@offisim/ui-core/tokens` subpath import or (b) the generated Tailwind theme CSS at `apps/desktop/renderer/src/generated/tailwind-theme.css` that is itself emitted from those tokens.
 
 The directory SHALL contain exactly the following files, each with the named exports:
 
@@ -22,7 +22,7 @@ The directory SHALL contain exactly the following files, each with the named exp
 - `border.ts` — `BORDER_WIDTH` record (3 widths in px), `BorderRole` union (`'subtle' | 'default' | 'strong'`)
 - `tailwind-theme.ts` — `emitTailwindThemeCss(): string` pure function
 
-The directory SHALL NOT contain any other files. Each file SHALL be self-contained and SHALL NOT import from `packages/ui-office`, `packages/renderer`, or `apps/web`. The `colors-3d.ts` numeric `0x…` exports MAY mirror `colors-semantic.ts` status colors — they are the only allowed cross-file dependency within `tokens/`.
+The directory SHALL NOT contain any other files. Each file SHALL be self-contained and SHALL NOT import from `packages/ui-office`, `packages/renderer`, or `apps/desktop/renderer`. The `colors-3d.ts` numeric `0x…` exports MAY mirror `colors-semantic.ts` status colors — they are the only allowed cross-file dependency within `tokens/`.
 
 #### Scenario: SSOT directory exists with the contracted files
 
@@ -173,7 +173,7 @@ The dark values SHALL match `design.md` Decision 9 dark table. The light values 
 
 The dark `modal` shadow SHALL be `0 20px 60px rgba(2,6,23,0.28)` — the canonical replacement for the existing `shadow-[0_20px_60px_rgba(0,0,0,0.28)]` arbitrary value in `settings-primitives.tsx`.
 
-The 4 glow shadows SHALL be the canonical replacements for the existing `.glow-accent`, `.glow-success`, `.glow-warning`, `.glow-error` CSS classes in `apps/web/src/index.css`. Those CSS classes SHALL be deleted as part of this change.
+The 4 glow shadows SHALL be the canonical replacements for the existing `.glow-accent`, `.glow-success`, `.glow-warning`, `.glow-error` CSS classes in `apps/desktop/renderer/src/index.css`. Those CSS classes SHALL be deleted as part of this change.
 
 #### Scenario: Both themes are complete
 
@@ -189,7 +189,7 @@ The 4 glow shadows SHALL be the canonical replacements for the existing `.glow-a
 
 `Z_INDEX_SCALE` SHALL be a `Record<'base' | 'elevated' | 'sticky' | 'dropdown' | 'modal' | 'top', number>` with values `{ base: 0, elevated: 10, sticky: 20, dropdown: 50, modal: 100, top: 200 }`.
 
-After this change, no source file under `apps/web/src/`, `packages/{ui-office,ui-core,renderer}/src/` SHALL contain a literal arbitrary z-index — neither `z-[<digits>]` Tailwind class nor inline `zIndex: <digits>` style prop nor CSS `z-index: <digits>` rule (with `<digits> >= 1000` definitely forbidden, `<digits>` matching one of the named layer values is the only acceptable form and is preferred via the named token import).
+After this change, no source file under `apps/desktop/renderer/src/`, `packages/{ui-office,ui-core,renderer}/src/` SHALL contain a literal arbitrary z-index — neither `z-[<digits>]` Tailwind class nor inline `zIndex: <digits>` style prop nor CSS `z-index: <digits>` rule (with `<digits> >= 1000` definitely forbidden, `<digits>` matching one of the named layer values is the only acceptable form and is preferred via the named token import).
 
 #### Scenario: Scale covers all today's arbitrary values
 
@@ -250,32 +250,32 @@ The function SHALL NOT read environment variables, files, or git state directly.
 
 ### Requirement: Tailwind theme generation pipeline SHALL produce committed reproducible CSS
 
-The repository SHALL ship `apps/web/src/generated/tailwind-theme.css` as a committed file. It SHALL be the only `.css` file under `apps/web/src/generated/`.
+The repository SHALL ship `apps/desktop/renderer/src/generated/tailwind-theme.css` as a committed file. It SHALL be the only `.css` file under `apps/desktop/renderer/src/generated/`.
 
-`apps/web/src/index.css` SHALL `@import` the generated file immediately after `@import "tailwindcss";` and before any `@source` directive.
+`apps/desktop/renderer/src/index.css` SHALL `@import` the generated file immediately after `@import "tailwindcss";` and before any `@source` directive.
 
-The script `scripts/emit-tailwind-theme.mjs` SHALL regenerate `apps/web/src/generated/tailwind-theme.css` from the built `@offisim/ui-core/tokens`. The script `scripts/check-tailwind-theme.mjs` SHALL verify the committed file matches the regenerated output (ignoring the `commit:` SHA line) and exit non-zero on mismatch.
+The script `scripts/emit-tailwind-theme.mjs` SHALL regenerate `apps/desktop/renderer/src/generated/tailwind-theme.css` from the built `@offisim/ui-core/tokens`. The script `scripts/check-tailwind-theme.mjs` SHALL verify the committed file matches the regenerated output (ignoring the `commit:` SHA line) and exit non-zero on mismatch.
 
 The root `package.json` SHALL define `tokens:emit` and `tokens:check` scripts wired to these `.mjs` files.
 
 #### Scenario: Generated CSS is committed
 
-- **WHEN** listing `apps/web/src/generated/`
+- **WHEN** listing `apps/desktop/renderer/src/generated/`
 - **THEN** the directory contains `tailwind-theme.css` and is tracked by git
 
 #### Scenario: index.css imports the generated file
 
-- **WHEN** reading the first 5 non-blank lines of `apps/web/src/index.css`
+- **WHEN** reading the first 5 non-blank lines of `apps/desktop/renderer/src/index.css`
 - **THEN** the lines include `@import "tailwindcss";` followed by `@import "./generated/tailwind-theme.css";`
 
 #### Scenario: tokens:check fails on stale generated file
 
-- **WHEN** the committed `apps/web/src/generated/tailwind-theme.css` does not match `emitTailwindThemeCss(currentGitSha)`
+- **WHEN** the committed `apps/desktop/renderer/src/generated/tailwind-theme.css` does not match `emitTailwindThemeCss(currentGitSha)`
 - **THEN** `pnpm tokens:check` exits non-zero with a diff in stdout
 
 ### Requirement: No raw color / shadow / z-index / motion literals SHALL exist outside the SSOT
 
-Source files under `apps/web/src/`, `packages/ui-office/src/`, `packages/ui-core/src/components/`, `packages/ui-core/src/lib/`, `packages/ui-core/src/hooks/`, and `packages/renderer/src/` SHALL NOT contain:
+Source files under `apps/desktop/renderer/src/`, `packages/ui-office/src/`, `packages/ui-core/src/components/`, `packages/ui-core/src/lib/`, `packages/ui-core/src/hooks/`, and `packages/renderer/src/` SHALL NOT contain:
 
 - A 3-, 4-, 6-, or 8-digit hex literal (`#[0-9a-fA-F]{3,8}\b`) except inside `// raw-hex-allowed`-tagged lines
 - A Tailwind arbitrary z-index (`z-\[\d+\]`)
@@ -283,7 +283,7 @@ Source files under `apps/web/src/`, `packages/ui-office/src/`, `packages/ui-core
 - An inline `zIndex: <digits>` style prop with a value not corresponding to a `Z_INDEX_SCALE` named layer
 - A `transition: '...[\d.]+s'` or `animation: '...[\d.]+(s|ms)'` literal whose duration is not derived from `MOTION_DURATION`
 
-Exempt locations: `packages/ui-core/src/tokens/**`, `apps/web/src/generated/**`, `catalog/provider-source-registry/**`, and any line tagged with the trailing comment `// raw-hex-allowed`.
+Exempt locations: `packages/ui-core/src/tokens/**`, `apps/desktop/renderer/src/generated/**`, `catalog/provider-source-registry/**`, and any line tagged with the trailing comment `// raw-hex-allowed`.
 
 The file-level escape hatch `// raw-hex-allowed-file: ...` SHALL be limited to files outside the 2D office canvas pipeline (per `scene-2d-theme-tokens` capability) AND outside the scene shell. Specifically, the 11 files listed in the `scene-2d-theme-tokens` capability AND `packages/ui-office/src/components/scene/SceneCanvas.tsx` SHALL NOT carry that header. The error-panel and fallback-badge surfaces of the scene shell are governed by the `scene-3d-performance-fallback` capability and consume `useSceneColors()` plus `@theme inline`-resolved Tailwind utilities.
 

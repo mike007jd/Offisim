@@ -204,7 +204,7 @@ employee row (is_external + brand_key)
 
 All three deliverable emit sites (`boss-summary-node.emitDeliverable`, `employee-completion.ts`, `employee-a2a-executor.ts`) SHALL pass both fields through verbatim into `DeliverableCreatedPayload.contributingEmployees[]`. No layer is permitted to drop these fields silently. Direct emits that do not flow through `currentStepOutputs` SHALL read the fields directly from the producing employee's row.
 
-Persisted state restored from a LangGraph checkpoint (`apps/web/src/lib/tauri-checkpoint.ts`) MAY contain pre-change `currentStepOutputs[]` entries lacking the new fields. The hydrate path SHALL backfill missing fields with `isExternal: false` / `brandKey: null` (legacy = internal) so the strict TypeScript shape is satisfied without runtime error. Harness scenario fixtures (`packages/core/harness/scenarios/*.json`) SHALL be updated in lockstep so that strict scenario validation does not require ad-hoc type coercion.
+Persisted state restored from a LangGraph checkpoint (`apps/desktop/renderer/src/lib/tauri-checkpoint.ts`) MAY contain pre-change `currentStepOutputs[]` entries lacking the new fields. The hydrate path SHALL backfill missing fields with `isExternal: false` / `brandKey: null` (legacy = internal) so the strict TypeScript shape is satisfied without runtime error. Harness scenario fixtures (`packages/core/harness/scenarios/*.json`) SHALL be updated in lockstep so that strict scenario validation does not require ad-hoc type coercion.
 
 #### Scenario: Internal employee output carries internal flags
 

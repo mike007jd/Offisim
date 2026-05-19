@@ -3,7 +3,7 @@ import type { ChatThread, ChatThreadUpdatedPayload, RuntimeEvent } from '@offisi
 import { Button, Input, cn } from '@offisim/ui-core';
 import { Check, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 
 interface ThreadListProps {
   projectId: string | null;
@@ -17,7 +17,7 @@ const ROW_ACTIVE = 'border-border-focus bg-accent-muted text-accent-text';
 const ROW_IDLE = 'text-text-secondary hover:bg-surface-hover hover:text-text-primary';
 
 export function ThreadList({ projectId, selectedThreadId, onSelectThread }: ThreadListProps) {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
 

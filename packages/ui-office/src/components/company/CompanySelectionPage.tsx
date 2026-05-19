@@ -6,7 +6,7 @@ import { Archive, ArrowRight, Building2, FolderPlus, Layers3, Pencil, Users } fr
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyPreview } from '../../hooks/useCompanyPreview.js';
 import { updateCompanyIdentity } from '../../lib/company-identity.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context.js';
 import { CompanyCreationWizard } from '../onboarding/CompanyCreationWizard.js';
 import { useCompany } from './CompanyContext.js';
 
@@ -244,7 +244,7 @@ export function CompanySelectionPage({
   onArchiveCompany,
 }: CompanySelectionPageProps) {
   const { companies, activeCompanyId, refreshCompanies } = useCompany();
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const [renamingCompanyId, setRenamingCompanyId] = useState<string | null>(null);
   const [creatingNew, setCreatingNew] = useState(false);
   const visibleCompanies = useMemo(

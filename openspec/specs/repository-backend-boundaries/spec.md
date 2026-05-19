@@ -2,11 +2,11 @@
 
 ## Purpose
 
-`RuntimeRepositories` 三后端实现（better-sqlite3 drizzle / Map-based memory / Tauri SQL plugin drizzle）按 repo 家族拆分的边界规范。每个家族落在独立子目录 `packages/core/src/runtime/repos/<family>/{drizzle,memory}.ts` + `apps/web/src/lib/tauri-repos/<family>.ts`，三 barrel 文件（`runtime/drizzle-repositories.ts` / `runtime/memory-repositories.ts` / `apps/web/src/lib/tauri-repos.ts`）保留原路径作为聚合点。首批迁移的 `orchestration/` 家族（`companies` / `threads` / `taskRuns` / `checkpoints` / `events`）证实模式可行：drizzle 薄 factory、memory class-based（D8 path-1 消除 inline repo），tauri 镜像 drizzle 带 `await`。contract 文件 `repositories.ts` / 三个 public factory 签名 / 19 个 pre-existing Memory class export / 所有外部 consumer import 路径全部 byte-identical。剩余 10 家族迁移 + barrel ≤200 NBNC 最终化由 successor change 承接。
+`RuntimeRepositories` 三后端实现（better-sqlite3 drizzle / Map-based memory / Tauri SQL plugin drizzle）按 repo 家族拆分的边界规范。每个家族落在独立子目录 `packages/core/src/runtime/repos/<family>/{drizzle,memory}.ts` + `apps/desktop/renderer/src/lib/tauri-repos/<family>.ts`，三 barrel 文件（`runtime/drizzle-repositories.ts` / `runtime/memory-repositories.ts` / `apps/desktop/renderer/src/lib/tauri-repos.ts`）保留原路径作为聚合点。首批迁移的 `orchestration/` 家族（`companies` / `threads` / `taskRuns` / `checkpoints` / `events`）证实模式可行：drizzle 薄 factory、memory class-based（D8 path-1 消除 inline repo），tauri 镜像 drizzle 带 `await`。contract 文件 `repositories.ts` / 三个 public factory 签名 / 19 个 pre-existing Memory class export / 所有外部 consumer import 路径全部 byte-identical。剩余 10 家族迁移 + barrel ≤200 NBNC 最终化由 successor change 承接。
 ## Requirements
 ### Requirement: Per-family sub-directory pattern is established
 
-All **12** repo families SHALL be migrated to the family sub-directory pattern defined by `repository-backend-boundaries`. Each family SHALL have its drizzle + memory implementations under `packages/core/src/runtime/repos/<family>/{drizzle,memory}.ts` and its tauri implementation under `apps/web/src/lib/tauri-repos/<family>.ts`. Each family file SHALL export exactly one factory per backend returning a typed slice of `RuntimeRepositories`.
+All **12** repo families SHALL be migrated to the family sub-directory pattern defined by `repository-backend-boundaries`. Each family SHALL have its drizzle + memory implementations under `packages/core/src/runtime/repos/<family>/{drizzle,memory}.ts` and its tauri implementation under `apps/desktop/renderer/src/lib/tauri-repos/<family>.ts`. Each family file SHALL export exactly one factory per backend returning a typed slice of `RuntimeRepositories`.
 
 The 12 families and their repo keys:
 
@@ -30,7 +30,7 @@ Each family file SHALL contain at most 320 NBNC lines (D5 decision retained from
 **Note** — replaces the previous "Orchestration family is migrated first" requirement now that all migrated families follow the uniform rule; orchestration remains the first-in-pattern historical precedent. The `deliverables` family is added in `persist-deliverable-history` and follows the same contract as the existing 11.
 
 #### Scenario: All 12 family sub-directories exist
-- **WHEN** inspecting `packages/core/src/runtime/repos/` and `apps/web/src/lib/tauri-repos/`
+- **WHEN** inspecting `packages/core/src/runtime/repos/` and `apps/desktop/renderer/src/lib/tauri-repos/`
 - **THEN** both directories contain all 12 family children (11 subdirectories + `memory-types.ts` in core; 12 `<family>.ts` files in tauri-repos)
 
 #### Scenario: Each family's drizzle factory returns its repo slice
@@ -46,7 +46,7 @@ Each family file SHALL contain at most 320 NBNC lines (D5 decision retained from
 - **THEN** the returned object's keys match exactly the repo keys listed for that family in the table above (note: `memory-system` tauri factory excludes `userPreferences` — runtime asymmetry preserved)
 
 #### Scenario: Family file size gate
-- **WHEN** running NBNC count on every file under `packages/core/src/runtime/repos/**/*.ts` and `apps/web/src/lib/tauri-repos/*.ts`
+- **WHEN** running NBNC count on every file under `packages/core/src/runtime/repos/**/*.ts` and `apps/desktop/renderer/src/lib/tauri-repos/*.ts`
 - **THEN** no file exceeds 320 NBNC
 
 ### Requirement: Orchestration family is migrated first
@@ -55,7 +55,7 @@ The `orchestration/` family SHALL be the first family extracted under the new pa
 
 - `packages/core/src/runtime/repos/orchestration/drizzle.ts` exports `createOrchestrationDrizzleRepos(db: Db): OrchestrationDrizzleRepos`
 - `packages/core/src/runtime/repos/orchestration/memory.ts` exports 5 new `Memory*Repository` classes and `createOrchestrationMemoryRepos(snapshot?): OrchestrationMemoryRepos`
-- `apps/web/src/lib/tauri-repos/orchestration.ts` exports `createOrchestrationTauriRepos(db: TauriDrizzleDb): OrchestrationTauriRepos`
+- `apps/desktop/renderer/src/lib/tauri-repos/orchestration.ts` exports `createOrchestrationTauriRepos(db: TauriDrizzleDb): OrchestrationTauriRepos`
 
 Each file SHALL contain at most 320 NBNC lines (D5 decision — raised from initial proposal of 250 after measuring memory class boilerplate + SQL surface overhead).
 
@@ -68,7 +68,7 @@ Each file SHALL contain at most 320 NBNC lines (D5 decision — raised from init
 - **THEN** the count is at most 320
 
 #### Scenario: Orchestration tauri file exists and is ≤320 NBNC
-- **WHEN** counting NBNC lines of `apps/web/src/lib/tauri-repos/orchestration.ts`
+- **WHEN** counting NBNC lines of `apps/desktop/renderer/src/lib/tauri-repos/orchestration.ts`
 - **THEN** the count is at most 320
 
 ### Requirement: Memory inline repos in migrated families become classes (D8)
@@ -175,7 +175,7 @@ External consumers SHALL continue to import from the pre-refactor paths with zer
 
 - `packages/core/src/drizzle.ts` imports `createDrizzleRepositories` from `./runtime/drizzle-repositories.js`
 - `packages/core/src/{index,browser}.ts` imports `createMemoryRepositories` + all Memory class symbols + `MemoryRepositoriesSnapshot` type from `./runtime/memory-repositories.js`
-- `apps/web/src/lib/tauri-runtime.ts` and `tauri-runtime-lite.ts` import `createTauriRepositories` from `./tauri-repos`
+- `apps/desktop/renderer/src/lib/tauri-runtime.ts` and `tauri-runtime-lite.ts` import `createTauriRepositories` from `./tauri-repos`
 
 #### Scenario: External consumer imports survive
 - **WHEN** running `pnpm typecheck` across all 16 workspace packages post-refactor without editing any consumer's `import` statements
@@ -191,7 +191,7 @@ The three barrel files SHALL be reduced to thin aggregators that contain only im
 
 - `packages/core/src/runtime/drizzle-repositories.ts` SHALL be ≤200 NBNC
 - `packages/core/src/runtime/memory-repositories.ts` SHALL be ≤200 NBNC
-- `apps/web/src/lib/tauri-repos.ts` SHALL be ≤200 NBNC
+- `apps/desktop/renderer/src/lib/tauri-repos.ts` SHALL be ≤200 NBNC
 
 If the memory barrel exceeds 200 NBNC due to the 29 class re-exports + 11 family factory imports + snapshot aggregation, the gate MAY be relaxed to ≤230 NBNC with an explicit note in `live-verification-report.md` documenting the measured count and the reason. Above 230 NBNC is a hard failure requiring scope reassessment.
 
@@ -200,7 +200,7 @@ If the memory barrel exceeds 200 NBNC due to the 29 class re-exports + 11 family
 - **THEN** the output is ≤200
 
 #### Scenario: Tauri barrel size
-- **WHEN** running the same awk NBNC command against `apps/web/src/lib/tauri-repos.ts`
+- **WHEN** running the same awk NBNC command against `apps/desktop/renderer/src/lib/tauri-repos.ts`
 - **THEN** the output is ≤200
 
 #### Scenario: Memory barrel size
@@ -218,7 +218,7 @@ After all 11 families are migrated and the barrels are finalized, the three runt
 Observations SHALL be recorded in `live-verification-report.md` at the change directory root, including:
 
 - The runtime (drizzle / memory / tauri)
-- The trigger action taken (e.g. "web SPA: created company 'ACME', sent chat message, observed boss → manager → employee → boss_summary")
+- The trigger action taken (e.g. "desktop renderer: created company 'ACME', sent chat message, observed boss → manager → employee → boss_summary")
 - The captured `Object.keys(repos).sort().join(',')` string
 - The result (pass / fail)
 
@@ -227,7 +227,7 @@ Observations SHALL be recorded in `live-verification-report.md` at the change di
 - **THEN** the sorted key list equals the baseline (36 entries: 35 repo keys + `transact`) and the write succeeds without thrown `TypeError`
 
 #### Scenario: Memory live smoke passes
-- **WHEN** starting the web SPA (`apps/web` dev) and executing a full `boss → manager → employee → boss_summary` conversation flow in the browser
+- **WHEN** starting the desktop renderer (`apps/desktop/renderer` dev) and executing a full `boss → manager → employee → boss_summary` conversation flow in the browser
 - **THEN** the flow completes with no console error referencing undefined repo methods, and the captured `Object.keys(createMemoryRepositories()).sort()` matches baseline (37 entries: 35 repo keys + `userPreferences` + `snapshot` + `seed`)
 
 #### Scenario: Tauri live smoke passes
@@ -252,7 +252,7 @@ The 10 family migration phases + Phase M barrel finalization + Phase N live veri
 
 ### Requirement: Employees family repo carries external A2A fields across three db-local backends
 
-The `employees` family repo files (`packages/core/src/runtime/repos/employees/drizzle.ts`, `packages/core/src/runtime/repos/employees/memory.ts`, `apps/web/src/lib/tauri-repos/employees.ts`) SHALL map six new columns — `is_external` (integer 0/1), `a2a_url` (text nullable), `a2a_token` (text nullable), `a2a_agent_id` (text nullable), `brand_key` (text nullable), `agent_card_json` (text nullable) — in both directions (`create` / `update` write, `findById` / `findByCompany` / `findByRole` read).
+The `employees` family repo files (`packages/core/src/runtime/repos/employees/drizzle.ts`, `packages/core/src/runtime/repos/employees/memory.ts`, `apps/desktop/renderer/src/lib/tauri-repos/employees.ts`) SHALL map six new columns — `is_external` (integer 0/1), `a2a_url` (text nullable), `a2a_token` (text nullable), `a2a_agent_id` (text nullable), `brand_key` (text nullable), `agent_card_json` (text nullable) — in both directions (`create` / `update` write, `findById` / `findByCompany` / `findByRole` read).
 
 The `NewEmployee` type in `packages/install-core/src/types.ts` and the `EmployeeRow` / `EmployeeUpdate` types in `packages/core/src/runtime/repositories.ts` SHALL accept these fields; `NewEmployee.is_external` is typed `boolean` (optional) and the five optional text fields default to `null` when omitted. `EmployeeRow.is_external` is typed `number` (0 or 1) to match SQLite storage.
 
@@ -295,7 +295,7 @@ For every `sqliteTable('<name>', ...)` declaration in `packages/db-local/src/sch
 #### Scenario: LangGraph-internal tables are excluded from parity
 
 - **WHEN** auditing parity
-- **THEN** `checkpoints` / `writes` / `graph_checkpoints` tables that are owned by `langgraph-checkpoint-sqlite` (or the self-maintained `apps/web/src/lib/tauri-checkpoint.ts` fork) SHALL NOT be required in `schema.ts` — they are LangGraph-internal persistence, not Offisim application schema
+- **THEN** `checkpoints` / `writes` / `graph_checkpoints` tables that are owned by `langgraph-checkpoint-sqlite` (or the self-maintained `apps/desktop/renderer/src/lib/tauri-checkpoint.ts` fork) SHALL NOT be required in `schema.ts` — they are LangGraph-internal persistence, not Offisim application schema
 - **AND** they SHALL remain present in `packages/db-local/src/schema.sql` because the desktop runtime initializes them
 
 ### Requirement: `node_summaries` and `compact_summaries` exist on desktop

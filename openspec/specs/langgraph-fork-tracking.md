@@ -4,7 +4,7 @@ Last updated: 2026-05-07
 
 ## Local Fork
 
-Offisim owns a local checkpoint saver fork at `apps/web/src/lib/tauri-checkpoint.ts`.
+Offisim owns a local checkpoint saver fork at `apps/desktop/renderer/src/lib/tauri-checkpoint.ts`.
 
 Baseline package family:
 
@@ -38,8 +38,8 @@ Upgrade rule:
 
 ## Quarterly Comparison Checklist
 
-1. Check package versions in `packages/core/package.json`, `apps/web/package.json`, `pnpm-lock.yaml`, and `pnpm-workspace.yaml`.
-2. Compare upstream SqliteSaver / checkpoint saver APIs against `apps/web/src/lib/tauri-checkpoint.ts`.
+1. Check package versions in `packages/core/package.json`, `apps/desktop/renderer/package.json`, `pnpm-lock.yaml`, and `pnpm-workspace.yaml`.
+2. Compare upstream SqliteSaver / checkpoint saver APIs against `apps/desktop/renderer/src/lib/tauri-checkpoint.ts`.
 3. Verify the local serializer/string conversion is still needed for tauri-plugin-sql IPC.
 4. Verify `put`, `putWrites`, `deleteThread`, `getTuple`, `list`, and `loadLatest` still match LangGraph's expected method contracts.
 5. Inspect `patches/@langchain__langgraph@1.3.0.patch`; refresh or remove it only if upstream no longer writes metadata unsafely.

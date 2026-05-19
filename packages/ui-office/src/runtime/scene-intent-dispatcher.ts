@@ -63,7 +63,8 @@ export class SceneIntentDispatcher {
                 stepLabel: event.payload.stepLabel,
                 stepIndex: event.payload.stepIndex,
                 totalSteps: event.payload.totalSteps,
-                sourceId: event.entityId || `${event.payload.employeeId}:${event.payload.stepIndex}`,
+                sourceId:
+                  event.entityId || `${event.payload.employeeId}:${event.payload.stepIndex}`,
               }),
             ),
           );

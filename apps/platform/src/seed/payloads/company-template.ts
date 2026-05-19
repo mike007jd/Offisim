@@ -1,4 +1,4 @@
-import { agencyLiteTemplate } from '@offisim/core/dist/templates/agency-lite.js';
+import { agencyLiteTemplate } from '@offisim/core/templates';
 import type { OfficialSeedPayload } from '../types.js';
 
 const SLUG = 'offisim/agency-lite';

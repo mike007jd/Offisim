@@ -2,11 +2,11 @@ import type { MemoryEntryRow } from '@offisim/core/browser';
 import { Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@offisim/ui-core';
 import { Lightbulb } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 
 export function InsightsCard() {
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [memories, setMemories] = useState<MemoryEntryRow[]>([]);
 

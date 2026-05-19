@@ -7,11 +7,11 @@ Defines legacy execution-binding fields as model transport bindings so Offisim c
 
 Offisim provider configuration SHALL carry an explicit model transport binding for every active provider binding. Legacy field names MAY still use `executionLane` for migration compatibility. Supported transport bindings include `gateway`, `codex-agent-sdk`, `claude-agent-sdk`, and `openai-agents-sdk`.
 
-The selected transport binding SHALL be evaluated together with runtime execution mode. `browser-limited` runtimes MUST reject any non-`gateway` transport. `desktop-trusted` and backend harness runtimes MAY allow SDK-backed transports only when the selected preset explicitly advertises support.
+The selected transport binding SHALL be evaluated together with runtime execution mode. `desktop-trusted` runtimes MUST reject any non-`gateway` transport. `desktop-trusted` and backend harness runtimes MAY allow SDK-backed transports only when the selected preset explicitly advertises support.
 
 #### Scenario: Browser-limited rejects unverified SDK transport
 
-- **WHEN** a saved provider config selects `executionLane = "claude-agent-sdk"` and runtime execution mode resolves to `browser-limited`
+- **WHEN** a saved provider config selects `executionLane = "claude-agent-sdk"` and runtime execution mode resolves to `desktop-trusted`
 - **THEN** runtime init rejects the config before chat execution starts
 - **AND** the user is guided to the default Offisim harness / gateway path, or to a trusted runtime with a verified tool-capable employee profile
 

@@ -171,7 +171,14 @@ async function runIsolatedHandoffSubRun(input: {
   ].join('\n\n');
 
   runtimeCtx.eventBus.emit(
-    employeeStateChanged(companyId, targetEmp.employee_id, 'idle', 'executing', threadId, taskRunId),
+    employeeStateChanged(
+      companyId,
+      targetEmp.employee_id,
+      'idle',
+      'executing',
+      threadId,
+      taskRunId,
+    ),
   );
   runtimeCtx.eventBus.emit(taskStateChanged(companyId, taskRunId, 'queued', 'running', threadId));
 
@@ -220,7 +227,9 @@ async function runIsolatedHandoffSubRun(input: {
       'completed',
       JSON.stringify({ summary: result.summary, isolatedSubRun: true }),
     );
-    runtimeCtx.eventBus.emit(taskStateChanged(companyId, taskRunId, 'running', 'completed', threadId));
+    runtimeCtx.eventBus.emit(
+      taskStateChanged(companyId, taskRunId, 'running', 'completed', threadId),
+    );
     runtimeCtx.eventBus.emit(
       employeeStateChanged(
         companyId,

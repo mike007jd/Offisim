@@ -17,7 +17,8 @@ export function createFileWriteTool(config: BuiltinToolConfig): BuiltinTool | nu
           content: { type: 'string', description: 'Content to write to the file' },
           expectedPreviousContent: {
             type: 'string',
-            description: 'Required when overwriting an existing file; pass the exact current file content read before writing',
+            description:
+              'Required when overwriting an existing file; pass the exact current file content read before writing',
           },
         },
         required: ['path', 'content'],

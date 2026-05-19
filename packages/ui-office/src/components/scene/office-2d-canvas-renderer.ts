@@ -176,7 +176,15 @@ export interface EmployeeRenderData {
 export interface EmployeeBubbleRenderData {
   text: string;
   icon: string;
-  category: 'blocked' | 'waiting' | 'report' | 'tool' | 'dispatch' | 'handoff' | 'success' | 'ambient';
+  category:
+    | 'blocked'
+    | 'waiting'
+    | 'report'
+    | 'tool'
+    | 'dispatch'
+    | 'handoff'
+    | 'success'
+    | 'ambient';
   priority: number;
   sourceId: string;
 }

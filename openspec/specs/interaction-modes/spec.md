@@ -29,7 +29,7 @@ Browser-limited runtimes SHALL NOT expose those built-ins. SDK-backed model tran
 
 #### Scenario: Browser runtime omits project tools
 
-- **WHEN** a browser-limited runtime starts an employee turn without desktop built-ins
+- **WHEN** a desktop-trusted runtime starts an employee turn without desktop built-ins
 - **THEN** the model request does not expose `read_file`, `write_file`, or `bash`.
 
 ### Requirement: SDK-backed model transports SHALL NOT expose Offisim runtime tools
@@ -205,9 +205,9 @@ These tools SHALL only be added to an employee turn's available tool list when `
 
 ### Requirement: SessionModeSwitcher UI in main shell header
 
-`apps/web/src/components/session-mode/SessionModeSwitcher.tsx` SHALL render the current mode as a coloured badge (using `--color-foam`/`--color-coral-orange`/`--color-sea-blue`/`--color-kelp-green` for the 4 values respectively) and offer a popover listing all 4 modes with their `INTERACTION_MODE_DESCRIPTION`.
+`apps/desktop/renderer/src/components/session-mode/SessionModeSwitcher.tsx` SHALL render the current mode as a coloured badge (using `--color-foam`/`--color-coral-orange`/`--color-sea-blue`/`--color-kelp-green` for the 4 values respectively) and offer a popover listing all 4 modes with their `INTERACTION_MODE_DESCRIPTION`.
 
-`apps/web/src/components/app-shell/AppMainShell.tsx` header SHALL include the switcher between `notificationSlot` and `projectSlot`. The switcher SHALL only render when an active conversation exists.
+`apps/desktop/renderer/src/components/app-shell/AppMainShell.tsx` header SHALL include the switcher between `notificationSlot` and `projectSlot`. The switcher SHALL only render when an active conversation exists.
 
 The switcher SHALL persist the change via `PATCH /api/sessions/:id/mode` (web) or the Tauri `set_session_mode` command (desktop), then update local state. No reload SHALL be required.
 

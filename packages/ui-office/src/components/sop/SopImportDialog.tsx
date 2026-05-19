@@ -4,7 +4,7 @@ import { Button, DialogShell, Input, ToastBanner, useToasts } from '@offisim/ui-
 import { Download, Link } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showDiscardConfirm } from '../../lib/discard-confirm-toast';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 
 interface SopImportDialogProps {
@@ -14,7 +14,7 @@ interface SopImportDialogProps {
 }
 
 export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDialogProps) {
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const { toasts, addToast, dismissToast } = useToasts();
   const previewDebounceRef = useRef<number | null>(null);

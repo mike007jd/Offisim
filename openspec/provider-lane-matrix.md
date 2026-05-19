@@ -22,7 +22,7 @@ verified lane until the current runtime host actually supports it.
 | Provider Variant | Product | Endpoint | Gateway | Claude Agent SDK | OpenAI Agents SDK | Evidence | Notes |
 |---|---|---|---:|---:|---:|---|---|
 | `anthropic-default` | `anthropic-api` | Anthropic native | pending | pending | unsupported | No current Anthropic API key smoke in this workspace | Native Anthropic remains optional follow-up evidence; do not imply verified API-key Claude Agent SDK support |
-| `minimax-intl-anthropic-coding` | `minimax` | `https://api.minimax.io/anthropic` | verified | verified | unsupported | 2026-04-22 `gateway` smoke ok; `claude-agent-sdk` gateway smoke ok; `claude-agent-sdk` runtime smoke ok; shared-thread load hit expected `runtime.queue-depth` boundary; desktop trusted-host sidecar live verify returned `TAURI_MINIMAX_CLAUDE_HOST_OK` | Current model truth is `MiniMax-M2.7`; do not use stale `highspeed` wording. If live verify hits 401, first check `.env.local` `MINIMAX_*` injection into `VITE_MINIMAX_*` through `apps/web/vite.config.ts` |
+| `minimax-intl-anthropic-coding` | `minimax` | `https://api.minimax.io/anthropic` | verified | verified | unsupported | 2026-04-22 `gateway` smoke ok; `claude-agent-sdk` gateway smoke ok; `claude-agent-sdk` runtime smoke ok; shared-thread load hit expected `runtime.queue-depth` boundary; desktop trusted-host sidecar live verify returned `TAURI_MINIMAX_CLAUDE_HOST_OK` | Current model truth is `MiniMax-M2.7`; do not use stale `highspeed` wording. If live verify hits 401, first check `.env.local` `MINIMAX_*` injection into `VITE_MINIMAX_*` through `apps/desktop/renderer/vite.config.ts` |
 | `minimax-cn-anthropic-coding` | `minimax` | `https://api.minimaxi.com/anthropic` | pending | pending | unsupported | CN endpoint not exercised in this workspace | Keep gateway-only in product metadata for now |
 | `kimi-cn-anthropic-coding` | `kimi` | `https://api.moonshot.cn/anthropic` | pending | pending | unsupported | No current harness evidence | Do not expose Claude lane yet |
 | `zai-shared-anthropic-coding` | `zai-glm` | `https://api.z.ai/api/anthropic` | verified | verified | unsupported | 2026-04-22 `gateway` smoke ok; `claude-agent-sdk` gateway smoke ok; `claude-agent-sdk` runtime smoke ok; desktop trusted-host sidecar live verify returned `TAURI_ZAI_CLAUDE_HOST_OK` | Second verified Anthropic-compatible sample; product taxonomy may expose `claude-agent-sdk` only on supported trusted hosts |
@@ -63,7 +63,7 @@ OpenAI Agents SDK smoke:
 Credential notes:
 
 - If a row lacks credentials, leave it `pending`; do not recommend provider swapping as evidence.
-- MiniMax 401 must be triaged by checking whether `.env.local` `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`, and `MINIMAX_MODEL` are injected into `VITE_MINIMAX_API_KEY`, `VITE_MINIMAX_BASE_URL`, and `VITE_MINIMAX_MODEL` by `apps/web/vite.config.ts`.
+- MiniMax 401 must be triaged by checking whether `.env.local` `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`, and `MINIMAX_MODEL` are injected into `VITE_MINIMAX_API_KEY`, `VITE_MINIMAX_BASE_URL`, and `VITE_MINIMAX_MODEL` by `apps/desktop/renderer/vite.config.ts`.
 
 ## Host exposure rule
 

@@ -3,7 +3,7 @@ import type { CompanyTemplate } from '@offisim/core/browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 export type CreationStep = 'checking' | 'first-run' | 'creating' | 'ready';
 export type CompanyCreationMode = 'create-new' | 'populate-existing';
@@ -32,7 +32,7 @@ export function useCompanyCreation({
   mode = 'populate-existing',
   companyId: explicitCompanyId,
 }: UseCompanyCreationOptions = {}): UseCompanyCreationReturn {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const targetCompanyId = explicitCompanyId ?? activeCompanyId;
   const [step, setStep] = useState<CreationStep>('checking');

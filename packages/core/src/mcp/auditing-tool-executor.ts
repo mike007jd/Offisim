@@ -14,17 +14,17 @@ import { Logger } from '../services/logger.js';
 
 const logger = new Logger('mcp');
 import type { ToolDef } from '../llm/gateway.js';
+import type { HookRegistry } from '../runtime/hook-registry.js';
 import type { McpAuditRepository, NewMcpAudit } from '../runtime/repositories.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import type { InteractionService } from '../services/interaction-service.js';
-import type { HookRegistry } from '../runtime/hook-registry.js';
+import { BASH_DESTRUCTIVE_APPROVED_ARG } from '../tools/builtin/bash-tool.js';
+import { classifyShellCommand } from '../tools/builtin/shell-command-classifier.js';
 import {
   type RuntimeToolSource,
   type RuntimeToolType,
   resolveRuntimeToolSource,
 } from '../tools/tool-registry.js';
-import { BASH_DESTRUCTIVE_APPROVED_ARG } from '../tools/builtin/bash-tool.js';
-import { classifyShellCommand } from '../tools/builtin/shell-command-classifier.js';
 import { capToolResultForModel } from '../tools/tool-result-size.js';
 import { generateId } from '../utils/generate-id.js';
 
@@ -111,14 +111,14 @@ export class AuditingToolExecutor implements ToolExecutor {
       }
       const effectiveCall = before?.input ? { ...call, arguments: before.input } : call;
       let executionCall = effectiveCall;
-      let effectiveRecordCtx = before?.input
-        ? { ...recordCtx, call: effectiveCall }
-        : recordCtx;
+      let effectiveRecordCtx = before?.input ? { ...recordCtx, call: effectiveCall } : recordCtx;
       const shellGate = await this.resolveShellPermissionGate(effectiveRecordCtx, executionCall);
       if (shellGate.kind === 'return') return shellGate.response;
       executionCall = shellGate.call;
       effectiveRecordCtx =
-        executionCall === effectiveCall ? effectiveRecordCtx : { ...effectiveRecordCtx, call: executionCall };
+        executionCall === effectiveCall
+          ? effectiveRecordCtx
+          : { ...effectiveRecordCtx, call: executionCall };
       if (shellGate.approvedBy) approvedBy = shellGate.approvedBy;
       if (this.permissionAuthorizer) {
         const decision = await this.evaluatePermission(executionCall, serverName, threadId);
@@ -134,7 +134,10 @@ export class AuditingToolExecutor implements ToolExecutor {
         }
       }
 
-      const response = await this.capResponse(executionCall, await this.inner.execute(executionCall));
+      const response = await this.capResponse(
+        executionCall,
+        await this.inner.execute(executionCall),
+      );
       await this.hookRegistry?.emit('tool.after', {
         toolName: executionCall.name,
         input: executionCall.arguments,
@@ -200,8 +203,12 @@ export class AuditingToolExecutor implements ToolExecutor {
     response: ToolCallResponse,
   ): Promise<ToolCallResponse> {
     if (!response.success) return response;
-    const tool = (await this.inner.listAvailable(this.companyId)).find((item) => item.name === call.name);
-    return tool ? { ...response, result: await capToolResultForModel(tool, response.result) } : response;
+    const tool = (await this.inner.listAvailable(this.companyId)).find(
+      (item) => item.name === call.name,
+    );
+    return tool
+      ? { ...response, result: await capToolResultForModel(tool, response.result) }
+      : response;
   }
 
   private async evaluatePermission(
@@ -236,7 +243,10 @@ export class AuditingToolExecutor implements ToolExecutor {
     if (classification.decision === 'allow') return { kind: 'continue', call };
     if (classification.decision === 'deny') {
       const response = this.buildPermissionResponse('deny', classification.reason);
-      return { kind: 'return', response: await this.recordAndEmit(ctx, response, 'shell-classifier:deny') };
+      return {
+        kind: 'return',
+        response: await this.recordAndEmit(ctx, response, 'shell-classifier:deny'),
+      };
     }
     if (call.arguments[BASH_DESTRUCTIVE_APPROVED_ARG] === true) {
       return { kind: 'continue', call };
@@ -301,12 +311,15 @@ export class AuditingToolExecutor implements ToolExecutor {
     }
     return {
       kind: 'continue',
-      approvedBy: resolved.selectedOptionId === 'approve_thread' ? 'interaction:thread' : 'interaction:once',
+      approvedBy:
+        resolved.selectedOptionId === 'approve_thread' ? 'interaction:thread' : 'interaction:once',
     };
   }
 
   private async readOnlyHintForTool(toolName: string): Promise<boolean | undefined> {
-    const tool = (await this.inner.listAvailable(this.companyId)).find((item) => item.name === toolName);
+    const tool = (await this.inner.listAvailable(this.companyId)).find(
+      (item) => item.name === toolName,
+    );
     return tool?.annotations?.readOnlyHint;
   }
 

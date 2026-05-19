@@ -31,7 +31,7 @@ If you are pulling this repo onto a new machine, start here:
 Common local entrypoints:
 
 - Recommended desktop flow: `pnpm --filter @offisim/desktop dev`
-- Browser runtime only: `pnpm --filter @offisim/web dev`
+- Desktop renderer dev server only: `pnpm --filter @offisim/desktop-renderer dev`
 - Platform API: `pnpm --filter @offisim/platform dev`
 - Docker stack: `docker compose -f docker/docker-compose.yml up --build`
 
@@ -82,15 +82,15 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
    Marketplace assets may recommend model profiles, but must not hard-bind the product to one provider, one model, or one coding runtime.
 4. **Packages are declarative and auditable.**
    1.0 does not allow install hooks, postinstall scripts, embedded secrets, or hidden shell bootstrap behavior.
-5. **Desktop is the 1.0 reference environment.**
-   Hosted Web remains supported but constrained by browser capabilities.
+5. **Desktop is the product environment.**
+   Offisim ships as a Tauri desktop app with an internal WebView renderer, not a standalone web runtime.
 
 ## Repository / project shape
 
 Current application/package shape:
 
-- `apps/web` — Vite + React runtime shell in browser
-- `apps/desktop` — Tauri 2 desktop app (**reference environment**)
+- `apps/desktop` — Tauri 2 desktop app and release target
+- `apps/desktop/renderer` — internal Vite + React WebView renderer owned by the desktop app
 - `apps/platform` — registry/auth/review/install support API
 - `packages/core` — orchestration kernel and runtime domain logic
 - `packages/renderer` — scene tokens, layout engine, prefab/state logic

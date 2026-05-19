@@ -4,7 +4,7 @@ import { DARK_SEMANTIC_COLORS } from '@offisim/ui-core/tokens';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeExecution } from '../../runtime/offisim-runtime-context.js';
 import {
   CREATE_YOUR_OWN_TEMPLATE,
   EMPLOYEE_BIOS,
@@ -34,7 +34,7 @@ export function CompanyCreationWizard({
   onCreateYourOwn,
   onDismiss,
 }: Props) {
-  const { error: runtimeError, isReady, reinitRuntime } = useOffisimRuntime();
+  const { error: runtimeError, reinitRuntime } = useOffisimRuntimeExecution();
   const {
     step,
     templates: coreTemplates,
@@ -48,7 +48,7 @@ export function CompanyCreationWizard({
     runtimeReady: hookRuntimeReady,
     isCreating,
   } = useCompanyCreation({ mode, companyId });
-  const runtimeReady = hookRuntimeReady && isReady;
+  const runtimeReady = hookRuntimeReady;
 
   const templates = useMemo(() => [...coreTemplates, CREATE_YOUR_OWN_TEMPLATE], [coreTemplates]);
   const isCreateYourOwn = selectedTemplateId === 'create-your-own';

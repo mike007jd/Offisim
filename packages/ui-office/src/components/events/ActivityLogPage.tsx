@@ -1,8 +1,8 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
-import { ToastBanner, WorkspacePageSkeleton, cn, useToasts } from '@offisim/ui-core';
+import { ToastBanner, cn, useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { ActivityEmptyState } from './ActivityEmptyState';
 import { ActivityEventDetail } from './ActivityEventDetail';
@@ -18,7 +18,7 @@ import {
 } from './workspace/activity-log-utils';
 
 // ---------------------------------------------------------------------------
-// Types — mirrored from apps/web workspace types to avoid cross-package deps
+// Types — mirrored from apps/desktop/renderer workspace types to avoid cross-package deps
 // ---------------------------------------------------------------------------
 
 export type ActivityLogSessionState = {
@@ -46,7 +46,7 @@ export function ActivityLogPage({
   onSessionStateChange,
   onBackToOffice,
 }: ActivityLogPageProps) {
-  const { eventBus, bootstrapState } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const { toasts, addToast, dismissToast } = useToasts();
   const { tier } = useLayoutTier();
   const agents = useAgentStates();
@@ -56,12 +56,8 @@ export function ActivityLogPage({
   );
 
   // 7.1 — Subscribe to event store
-  const store = useMemo(
-    () => hydrateEventLogStore(eventBus, bootstrapState?.eventHistory ?? []),
-    [eventBus, bootstrapState],
-  );
+  const store = useMemo(() => hydrateEventLogStore(eventBus, []), [eventBus]);
   const [events, setEvents] = useState<RuntimeEvent[]>(() => store.events);
-  const isHydrating = !bootstrapState && events.length === 0;
 
   useEffect(() => {
     setEvents(store.events);
@@ -166,16 +162,6 @@ export function ActivityLogPage({
     },
     [onSessionStateChange],
   );
-
-  // 7.5 — Empty state: no events at all
-  if (isHydrating) {
-    return (
-      <div className="flex h-full flex-col" data-layout-tier={tier}>
-        <ToastBanner toasts={toasts} onDismiss={dismissToast} />
-        <WorkspacePageSkeleton />
-      </div>
-    );
-  }
 
   if (events.length === 0) {
     return (

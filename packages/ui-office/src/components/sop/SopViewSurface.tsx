@@ -8,7 +8,10 @@ import { useSopRuntimeState } from '../../hooks/useSopRuntimeState';
 import { useSops } from '../../hooks/useSops';
 import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
 import { parseSopDefinition } from '../../lib/sop-utils';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import {
+  useOffisimRuntimeExecution,
+  useOffisimRuntimeServices,
+} from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { StepFormValues } from './SopAddStepPopover';
 import { SopAddStepPopover } from './SopAddStepPopover';
@@ -89,7 +92,8 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
   const { tier } = useLayoutTier();
   const [persistedSidebar, setPersistedSidebar] = useSidebarCollapse('sops');
   const { sops, loading, error, deleteSop, refreshSops } = useSops();
-  const { sendMessage, repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
+  const { sendMessage } = useOffisimRuntimeExecution();
   const { toasts, addToast, dismissToast } = useToasts();
 
   const [editorOpen, setEditorOpen] = useState(false);

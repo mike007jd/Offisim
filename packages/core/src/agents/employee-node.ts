@@ -141,7 +141,10 @@ export async function employeeNode(
       exposedToLlm: tool.exposedToLlm,
     })),
   });
-  const maxToolRounds = Math.max(1, runtimeCtx.runtimePolicy?.toolLoop?.maxRounds ?? MAX_TOOL_ROUNDS);
+  const maxToolRounds = Math.max(
+    1,
+    runtimeCtx.runtimePolicy?.toolLoop?.maxRounds ?? MAX_TOOL_ROUNDS,
+  );
   runtimeCtx.conversationState.recordBudget({
     maxToolRounds,
     maxContextMessages: MAX_CONTEXT_MESSAGES,

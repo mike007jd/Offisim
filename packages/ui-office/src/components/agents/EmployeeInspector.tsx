@@ -18,7 +18,7 @@ import { useEmployeeMemories } from '../../hooks/useEmployeeMemories.js';
 import type { AddToast } from '../../lib/discard-confirm-toast.js';
 import { ROLE_LABELS } from '../../lib/roles';
 import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
 
@@ -188,7 +188,7 @@ export function EmployeeInspector({
   addToast,
 }: EmployeeInspectorProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const [employee, setEmployee] = useState<EmployeeRow | null>(null);
   const [isUpdatingEnabled, setIsUpdatingEnabled] = useState(false);
   const layoutTier = useLayoutTier();

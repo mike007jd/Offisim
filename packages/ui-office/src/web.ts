@@ -99,21 +99,31 @@ export {
   getSupportedExecutionLanesForPreset,
 } from './components/settings/provider-presets.js';
 export { resolveModelContextWindow } from './lib/provider-product-taxonomy.js';
-export { loadStoredBrowserMcpServers } from './lib/desktop-mcp-registry.js';
+export { loadStoredLocalMcpServers } from './lib/desktop-mcp-registry.js';
 export { getTrustedHostProductStatus } from './lib/desktop-provider-secrets.js';
 export { NotificationProvider } from './runtime/notification-provider.js';
 export {
+  OffisimRuntimeDesktopHostContext,
+  OffisimRuntimeExecutionContext,
+  OffisimRuntimeInteractionContext,
+  OffisimRuntimeServicesContext,
   OffisimRuntimeContext,
   OffisimRuntimeStatusContext,
-  type VaultDirectoryMode,
-  type VaultDirectoryStatus,
+  type OffisimRuntimeDesktopHostValue,
+  type OffisimRuntimeExecutionValue,
+  type OffisimRuntimeInteractionValue,
+  type OffisimRuntimeServicesValue,
   type OffisimRuntimeStatusValue,
   type OffisimRuntimeValue,
   type SendMessageResult,
   EMPTY_ENGINE_ADAPTERS,
   useAvailableEngineAdapters,
   useCompanyEmployeeRuntimeDefault,
+  useOffisimRuntimeDesktopHost,
+  useOffisimRuntimeExecution,
+  useOffisimRuntimeInteraction,
   useOffisimRuntime,
+  useOffisimRuntimeServices,
 } from './runtime/offisim-runtime-context.js';
 export { SceneCeremonyProvider } from './runtime/scene-ceremony-context.js';
 export { SceneIntentDispatcher } from './runtime/scene-intent-dispatcher.js';

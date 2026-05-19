@@ -125,7 +125,9 @@ export async function runDeterministicModelBench(
       evidenceClass: 'sdk-native',
       evidenceQuality: sdkNativePromoted ? 'deterministic' : 'blocked-missing-release-evidence',
       passed: sdkNativePromoted && report.passed,
-      gateSatisfied: sdkNativePromoted ? report.passed : sdkNativeProfile?.availability === 'blocked',
+      gateSatisfied: sdkNativePromoted
+        ? report.passed
+        : sdkNativeProfile?.availability === 'blocked',
       ...(sdkNativePromoted
         ? {}
         : {

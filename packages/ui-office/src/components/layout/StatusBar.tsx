@@ -4,12 +4,17 @@ import { Activity, Cpu, Square } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { STAGE_META, usePipelineStage } from '../../hooks/usePipelineStage';
-import { useOffisimRuntime, useOffisimRuntimeStatus } from '../../runtime/offisim-runtime-context';
+import {
+  type OffisimRuntimeInteractionValue,
+  useOffisimRuntimeExecution,
+  useOffisimRuntimeInteraction,
+  useOffisimRuntimeStatus,
+} from '../../runtime/offisim-runtime-context';
 import { useRuntimeActivityFeed } from '../../runtime/use-runtime-activity-feed';
 import { EnergyMeter } from './EnergyMeter.js';
 
 function pendingInteractionLabel(
-  pendingInteraction: NonNullable<ReturnType<typeof useOffisimRuntime>['pendingInteraction']>,
+  pendingInteraction: NonNullable<OffisimRuntimeInteractionValue['pendingInteraction']>,
 ): string {
   switch (pendingInteraction.kind) {
     case 'permission_request':
@@ -49,7 +54,8 @@ export function StatusBar({
   notificationSlot,
   gitBranchSlot,
 }: StatusBarProps) {
-  const { abortExecution, error, pendingInteraction } = useOffisimRuntime();
+  const { abortExecution, error } = useOffisimRuntimeExecution();
+  const { pendingInteraction } = useOffisimRuntimeInteraction();
   const { isRunning } = useOffisimRuntimeStatus();
   const metrics = useDashboardMetrics();
   const { stage: pipelineStage } = usePipelineStage();
@@ -110,7 +116,7 @@ function RunStateSegment({
   pipelineStage: ReturnType<typeof usePipelineStage>['stage'];
   runStatus: 'running' | 'error' | 'idle';
   activeProjectStatus: ProjectStatus | null;
-  pendingInteraction: ReturnType<typeof useOffisimRuntime>['pendingInteraction'];
+  pendingInteraction: OffisimRuntimeInteractionValue['pendingInteraction'];
 }) {
   return (
     <div className={`${SEGMENT_BASE_CLS} relative z-10`}>

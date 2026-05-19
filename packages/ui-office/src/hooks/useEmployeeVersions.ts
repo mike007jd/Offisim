@@ -1,6 +1,6 @@
 import type { EmployeeVersionRow, VersionDiff } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context';
 
 export interface UseEmployeeVersionsReturn {
   versions: EmployeeVersionRow[];
@@ -14,7 +14,7 @@ export interface UseEmployeeVersionsReturn {
 }
 
 export function useEmployeeVersions(employeeId: string | null): UseEmployeeVersionsReturn {
-  const { employeeVersionService: versionService } = useOffisimRuntime();
+  const { employeeVersionService: versionService } = useOffisimRuntimeServices();
 
   const [versions, setVersions] = useState<EmployeeVersionRow[]>([]);
   const [loading, setLoading] = useState(false);

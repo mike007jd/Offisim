@@ -46,8 +46,8 @@
       "target",
       "*.sql",
       "*.json",
-      "apps/web/public/pdf.worker.min.mjs",
-      "apps/web/src/generated/tailwind-theme.css",
+      "apps/desktop/renderer/public/pdf.worker.min.mjs",
+      "apps/desktop/renderer/src/generated/tailwind-theme.css",
       "openspec/changes/archive",
       "packages/asset-schema/src/schema/manifest-validator.generated.js"
     ]

@@ -10,7 +10,6 @@ import {
   getMovementDebugInfo,
   getMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
-import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
 import {
   buildDispatchRoute,
   buildReturnToMeetingRoute,
@@ -18,7 +17,8 @@ import {
 } from '../../lib/scene-behavior';
 import { buildZoneRouteWaypoints, getMeetingZoneId } from '../../lib/scene-nav';
 import { SeatRegistry } from '../../lib/seat-registry.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useTheme } from '../../theme/theme-provider.js';
@@ -138,7 +138,7 @@ export default function Office3DView({
   renderEmployeeBadge,
 }: Office3DViewProps) {
   const agents = useAgentStates();
-  const { eventBus, sceneIntentBus } = useOffisimRuntime();
+  const { eventBus, sceneIntentBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const { zones } = useCompanyZones();
 

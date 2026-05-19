@@ -159,8 +159,8 @@ production would render it.
 
 #### Scenario: PROD build does not include DevLightingPanel
 
-- **WHEN** building production bundle (`pnpm --filter @offisim/web build`)
-- **AND** searching the output `apps/web/dist/assets/*.js` for
+- **WHEN** building production bundle (`pnpm --filter @offisim/desktop-renderer build`)
+- **AND** searching the output `apps/desktop/renderer/dist/assets/*.js` for
   the literal `'DevLightingPanel'`
 - **THEN** zero JS chunks contain the symbol
 

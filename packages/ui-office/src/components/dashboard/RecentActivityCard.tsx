@@ -1,7 +1,7 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@offisim/ui-core';
 import { useEffect, useRef, useState } from 'react';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 
 interface ActivityItem {
   id: string;
@@ -17,7 +17,7 @@ const MAX_ITEMS = 10;
  * Subscribes to all events via a wildcard prefix.
  */
 export function RecentActivityCard() {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const [items, setItems] = useState<ActivityItem[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 

@@ -17,7 +17,7 @@ import { subscribeTaskMappers } from './activity-feed/mappers/task-mappers';
 import { subscribeToolMappers } from './activity-feed/mappers/tool-mappers';
 import { subscribeWorkspaceMappers } from './activity-feed/mappers/workspace-mappers';
 import { useActivityRingBuffer } from './activity-feed/useActivityRingBuffer';
-import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
+import { useOffisimRuntimeServices, useOffisimRuntimeStatus } from './offisim-runtime-context';
 import {
   activeToolGroupLabel,
   activeToolHeadline,
@@ -39,7 +39,7 @@ export function useRuntimeActivityFeed(opts?: { maxEntries?: number }): {
   totalCostUsd: number | null;
   hasActivity: boolean;
 } {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const { isRunning } = useOffisimRuntimeStatus();
   const maxEntries = opts?.maxEntries ?? 6;
   const { entries, push, clear } = useActivityRingBuffer({ capacity: maxEntries });

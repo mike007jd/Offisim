@@ -6,7 +6,10 @@ import type {
 } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime, useOffisimRuntimeStatus } from '../runtime/offisim-runtime-context';
+import {
+  useOffisimRuntimeServices,
+  useOffisimRuntimeStatus,
+} from '../runtime/offisim-runtime-context';
 import { useActiveEmployeeCount } from '../runtime/use-active-employee-count.js';
 
 export interface DashboardMetrics {
@@ -99,7 +102,7 @@ function estimateCost(inputTokens: number, outputTokens: number, model?: string)
  * read the same authoritative numbers.
  */
 export function useDashboardMetrics(): DashboardMetrics {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const { isRunning } = useOffisimRuntimeStatus();
   const { activeCompanyId } = useCompany();
   const employeeCount = useActiveEmployeeCount();

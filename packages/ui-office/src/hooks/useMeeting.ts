@@ -4,7 +4,7 @@ import type {
   RuntimeEvent,
 } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 /** Meeting runtime status — mirrors MeetingControls.MeetingStatus but scoped to this hook. */
 export type MeetingRunStatus = 'idle' | 'running' | 'paused';
@@ -60,7 +60,7 @@ export interface UseMeetingReturn {
  * flooding the React scheduler during rapid event bursts.
  */
 export function useMeeting(): UseMeetingReturn {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const [state, setState] = useState<MeetingState>(INITIAL_STATE);
   const [duration, setDuration] = useState<number | null>(null);
 

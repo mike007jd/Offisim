@@ -2,7 +2,7 @@
 
 > **When to use:** Any work touching workspace navigation, workspace pages (SOPs, Market, Activity Log, Settings), the WorkspaceRouter, session state management, back navigation, responsive layout tiers, or the FullPageWorkspaceShell.
 
-Current architecture decision: Offisim is Tauri v2 desktop-only. Renderer code belongs under desktop ownership (`apps/desktop/renderer` target); `apps/web` references are legacy migration paths, not standalone web product paths.
+Current architecture decision: Offisim is Tauri v2 desktop-only. Renderer code belongs under desktop ownership at `apps/desktop/renderer`; standalone web package is removed.
 
 ## Architecture Overview
 
@@ -43,7 +43,7 @@ App.tsx
 - `useWorkspaceSessionState` manages per-workspace state
 - State is preserved when switching away and restored when switching back
 - Each workspace defines its own default state factory (e.g. `createDefaultSopState()`)
-- State types target `apps/desktop/renderer/src/components/workspaces/types.ts`; legacy path is `apps/web/src/components/workspaces/types.ts` until migration completes.
+- State types live at `apps/desktop/renderer/src/components/workspaces/types.ts`.
 
 ## Responsive Layout
 

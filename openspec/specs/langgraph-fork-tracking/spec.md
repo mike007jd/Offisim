@@ -5,11 +5,11 @@ TBD - created by archiving change close-runtime-binding-and-routing-debt. Update
 ## Requirements
 ### Requirement: LangGraph fork tracking SHALL document local fork deltas
 
-Offisim SHALL maintain `openspec/specs/langgraph-fork-tracking.md` as the durable tracking record for the local LangGraph checkpoint fork. The document MUST identify `apps/web/src/lib/tauri-checkpoint.ts` as the local Tauri async SQL adaptation of upstream SqliteSaver and SHALL list the key behavior deltas that Offisim owns locally.
+Offisim SHALL maintain `openspec/specs/langgraph-fork-tracking.md` as the durable tracking record for the local LangGraph checkpoint fork. The document MUST identify `apps/desktop/renderer/src/lib/tauri-checkpoint.ts` as the local Tauri async SQL adaptation of upstream SqliteSaver and SHALL list the key behavior deltas that Offisim owns locally.
 
 #### Scenario: Local fork file is identified
 - **WHEN** reading the LangGraph fork tracking document
-- **THEN** it names `apps/web/src/lib/tauri-checkpoint.ts` as the local forked/adapted checkpoint implementation
+- **THEN** it names `apps/desktop/renderer/src/lib/tauri-checkpoint.ts` as the local forked/adapted checkpoint implementation
 - **AND** it states which upstream SqliteSaver version or package family was used as the comparison baseline
 
 #### Scenario: Key delta list exists

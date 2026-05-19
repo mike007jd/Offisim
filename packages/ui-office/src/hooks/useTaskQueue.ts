@@ -2,7 +2,7 @@ import type { TaskRunRow } from '@offisim/core/browser';
 import type { RuntimeEvent, TaskStatePayload } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context';
 
 export interface TaskQueueState {
   activeTasks: TaskRunRow[];
@@ -23,7 +23,7 @@ const COMPLETED_STATUSES = ['completed', 'failed', 'cancelled'];
  * events for live updates. Uses rAF batching to coalesce rapid updates.
  */
 export function useTaskQueue(): TaskQueueState {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [state, setState] = useState<TaskQueueState>({
     activeTasks: [],

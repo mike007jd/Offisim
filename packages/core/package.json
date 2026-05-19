@@ -16,6 +16,46 @@
       "types": "./dist/browser.d.ts",
       "import": "./dist/browser.js"
     },
+    "./runtime": {
+      "types": "./dist/runtime-public.d.ts",
+      "import": "./dist/runtime-public.js"
+    },
+    "./harness": {
+      "types": "./dist/harness-public.d.ts",
+      "import": "./dist/harness-public.js"
+    },
+    "./llm": {
+      "types": "./dist/llm-public.d.ts",
+      "import": "./dist/llm-public.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp-public.d.ts",
+      "import": "./dist/mcp-public.js"
+    },
+    "./services": {
+      "types": "./dist/services-public.d.ts",
+      "import": "./dist/services-public.js"
+    },
+    "./engine": {
+      "types": "./dist/engine-public.d.ts",
+      "import": "./dist/engine-public.js"
+    },
+    "./tools": {
+      "types": "./dist/tools-public.d.ts",
+      "import": "./dist/tools-public.js"
+    },
+    "./middleware": {
+      "types": "./dist/middleware-public.d.ts",
+      "import": "./dist/middleware-public.js"
+    },
+    "./templates": {
+      "types": "./dist/templates/index.d.ts",
+      "import": "./dist/templates/index.js"
+    },
+    "./renderer": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
     "./events": {
       "types": "./dist/events/event-factories.d.ts",
       "import": "./dist/events/event-factories.js"

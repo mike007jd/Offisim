@@ -16,7 +16,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context';
 import { useAgentStates } from '../runtime/use-agent-states';
 
 // ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ export function usePlanStepStore(): PlanStepState {
 // ---------------------------------------------------------------------------
 
 export function PlanStepStoreProvider({ children }: { children: ReactNode }) {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const agents = useAgentStates();
   const [state, setState] = useState<InternalState>(INITIAL);
   const agentsRef = useRef(agents);

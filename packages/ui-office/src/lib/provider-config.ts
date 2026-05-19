@@ -205,7 +205,7 @@ export function normalizeSupportedExecutionLanes(value: unknown): readonly LlmEx
 }
 
 function isRuntimeExecutionMode(value: unknown): value is RuntimeExecutionMode {
-  return value === 'auto' || value === 'desktop-trusted' || value === 'browser-limited';
+  return value === 'auto' || value === 'desktop-trusted';
 }
 
 function normalizeExecutionMode(value: unknown): RuntimeExecutionMode {
@@ -489,11 +489,9 @@ export function resolveEffectiveExecutionMode(
   executionMode: RuntimeExecutionMode,
   options: { tauri: boolean },
 ): RuntimeExecutionMode {
-  if (executionMode === 'browser-limited') {
-    return 'browser-limited';
-  }
-
-  return options.tauri ? 'desktop-trusted' : 'browser-limited';
+  void executionMode;
+  void options;
+  return 'desktop-trusted';
 }
 
 export function resolveAvailableExecutionLanes(
@@ -502,10 +500,7 @@ export function resolveAvailableExecutionLanes(
   options: { tauri: boolean },
 ): readonly LlmExecutionLane[] {
   const normalized = normalizeSupportedExecutionLanes(supportedLanes);
-  const effectiveMode = resolveEffectiveExecutionMode(executionMode, options);
-  if (effectiveMode === 'browser-limited') {
-    return [DEFAULT_EXECUTION_LANE];
-  }
+  resolveEffectiveExecutionMode(executionMode, options);
 
   const available = normalized.filter((lane) =>
     PRODUCT_RUNTIME_HOST_SUPPORTED_EXECUTION_LANES.includes(lane),
@@ -539,8 +534,9 @@ export function resolveEffectiveRuntimePolicy(
 
 export function getInstallEnvironmentForExecutionMode(
   executionMode: RuntimeExecutionMode,
-): 'desktop' | 'web_limited' {
-  return executionMode === 'browser-limited' ? 'web_limited' : 'desktop';
+): 'desktop' {
+  void executionMode;
+  return 'desktop';
 }
 
 export function buildRuntimeModelPolicy(config: ProviderConfig): ModelPolicyConfig {
@@ -638,7 +634,7 @@ export function resolveProviderHostAvailability(
     return {
       available: false,
       code: 'host-unavailable',
-      message: `${resolved.product.displayName} is unavailable in browser-limited runtime. Switch product or move to a trusted host.`,
+      message: `${resolved.product.displayName} requires the trusted desktop runtime.`,
     };
   }
   if (options.trustedHostStatus?.available) {
@@ -659,37 +655,12 @@ function isInvalidResolvedConfig(resolved: ResolvedProviderConfig | null): boole
   );
 }
 
-function getBrowserAvailableExecutionLanes(
-  resolved: ResolvedProviderConfig,
-): readonly LlmExecutionLane[] {
-  return resolveAvailableExecutionLanes(
-    getSupportedExecutionLanesForProduct(
-      resolved.product,
-      resolved.access.accessMode,
-      resolved.variant?.providerVariantId ?? null,
-    ),
-    DEFAULT_EXECUTION_MODE,
-    { tauri: false },
-  );
-}
-
 function clampProviderConfigForCurrentHost(
   config: ProviderConfig,
   resolved: ResolvedProviderConfig | null,
 ): ProviderConfig {
-  if (isTauri() || !resolved || resolved.transport.authStrategy === 'trusted-local-auth') {
-    return config;
-  }
-
-  const availableExecutionLanes = getBrowserAvailableExecutionLanes(resolved);
-  if (availableExecutionLanes.includes(config.executionLane)) {
-    return config;
-  }
-
-  return {
-    ...config,
-    executionLane: availableExecutionLanes[0] ?? DEFAULT_EXECUTION_LANE,
-  };
+  void resolved;
+  return config;
 }
 
 function hydrateDerivedProviderFields(config: ProviderConfig): ProviderConfig {

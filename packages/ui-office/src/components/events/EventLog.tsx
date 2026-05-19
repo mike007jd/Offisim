@@ -2,7 +2,7 @@ import type { EventBus } from '@offisim/core/browser';
 import type { RuntimeEvent } from '@offisim/shared-types';
 import { ScrollArea } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { EventFilters } from './EventFilters';
 import type { EventFilterState, EventFilterType } from './EventFilters';
 import { EventItem } from './EventItem';
@@ -173,11 +173,8 @@ export const LEVEL_ROW_STYLES: Record<EventDisplayLevel, string> = {
 };
 
 export function EventLog() {
-  const { eventBus, bootstrapState } = useOffisimRuntime();
-  const store = useMemo(
-    () => hydrateEventLogStore(eventBus, bootstrapState?.eventHistory ?? []),
-    [eventBus, bootstrapState],
-  );
+  const { eventBus } = useOffisimRuntimeServices();
+  const store = useMemo(() => hydrateEventLogStore(eventBus, []), [eventBus]);
   const [events, setEvents] = useState<RuntimeEvent[]>(() => store.events);
   const [filters, setFilters] = useState<EventFilterState>({
     types: ['All'],

@@ -202,10 +202,9 @@ The `personnel-runtime-engine-binding` capability remains the SSOT for company-l
 - **THEN** zero matches exist outside of `controller/useSettingsRuntimePolicy.ts` or other Settings → Runtime sibling hooks
 
 #### Scenario: ModelResolver consumes runtimePolicy only
-- **WHEN** grepping `apps/web/src/lib/browser-runtime.ts` and `apps/web/src/lib/tauri-runtime.ts` for `new ModelResolver(`
+- **WHEN** grepping `apps/desktop/renderer/src/lib/tauri-runtime.ts` for `new ModelResolver(`
 - **THEN** every call site passes `runtimePolicy` (the `RuntimePolicyConfig` from Settings) as the first argument
 
 #### Scenario: PolicyEditor component does not exist
 - **WHEN** running `ls packages/ui-office/src/components/company/PolicyEditor.tsx`
 - **THEN** the command exits with a non-zero status (no such file)
-

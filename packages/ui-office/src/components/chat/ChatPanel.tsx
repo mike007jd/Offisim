@@ -16,7 +16,13 @@ import {
   extractAtFragments,
   extractMentionHints,
 } from '../../lib/chat-commands.js';
-import { type SendMessageResult, useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import {
+  type SendMessageResult,
+  useOffisimRuntimeExecution,
+  useOffisimRuntimeInteraction,
+  useOffisimRuntimeServices,
+  useOffisimRuntimeStatus,
+} from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { useStreamingContentForConversation } from '../../runtime/use-streaming-content';
 import { useCompany } from '../company/CompanyContext.js';
@@ -221,19 +227,16 @@ export function ChatPanel({
   const {
     sendMessage,
     retryLastMessage,
-    isRunning,
     isReady,
     error,
     failedRunError,
     clearError,
     abortExecution,
-    pendingInteraction,
-    respondToInteraction,
-    interactionMode,
-    setInteractionMode,
-    attachmentStore,
-    eventBus,
-  } = useOffisimRuntime();
+  } = useOffisimRuntimeExecution();
+  const { pendingInteraction, respondToInteraction, interactionMode, setInteractionMode } =
+    useOffisimRuntimeInteraction();
+  const { attachmentStore, eventBus } = useOffisimRuntimeServices();
+  const { isRunning } = useOffisimRuntimeStatus();
   const { activeCompanyId } = useCompany();
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();

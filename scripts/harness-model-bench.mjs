@@ -1,6 +1,6 @@
-import { ensureRuntimeBuild, parseArgs } from './harness-lib.mjs';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { ensureRuntimeBuild, parseArgs } from './harness-lib.mjs';
 import { loadHarnessScenarios } from './harness-scenario-loader.mjs';
 
 const args = parseArgs(process.argv.slice(2));

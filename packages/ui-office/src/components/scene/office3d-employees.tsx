@@ -11,13 +11,13 @@ import {
   registerMovementHandle,
   unregisterMovementHandle,
 } from '../../hooks/useSceneOrchestrator.js';
-import type { EmployeePerformanceCue } from '../../runtime/employee-performance-cues.js';
 import {
   type SeatRegistry,
   computeRestSeatPosition,
   computeWorkspaceFallbackSeatPosition,
 } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
+import type { EmployeePerformanceCue } from '../../runtime/employee-performance-cues.js';
 import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import { useSceneColors } from '../../theme/use-scene-colors.js';

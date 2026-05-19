@@ -9,9 +9,9 @@ import {
   getPhaseColor,
   prepareWaitingDisplay,
 } from '../../lib/ceremony-visuals';
-import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
 import { SeatRegistry } from '../../lib/seat-registry.js';
 import { STATE_LABELS } from '../../lib/state-labels';
+import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
 import { isEmployeeBlocked } from '../../runtime/use-active-employee-count.js';
 import { type AgentState, useAgentStates } from '../../runtime/use-agent-states';
 import { useEmployeeSkillHighlights } from '../../runtime/use-employee-skill-highlights.js';

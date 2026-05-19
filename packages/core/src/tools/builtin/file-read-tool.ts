@@ -27,10 +27,14 @@ export function createFileReadTool(config: BuiltinToolConfig): BuiltinTool | nul
     },
     async execute(args, context) {
       const path = args.path as string;
-      const text = await fs.readFile(path, context?.threadId ? { threadId: context.threadId } : undefined);
+      const text = await fs.readFile(
+        path,
+        context?.threadId ? { threadId: context.threadId } : undefined,
+      );
       if (args.raw === true) return text;
       const offset = typeof args.offset === 'number' ? Math.max(1, Math.floor(args.offset)) : 1;
-      const limit = typeof args.limit === 'number' ? Math.max(1, Math.floor(args.limit)) : undefined;
+      const limit =
+        typeof args.limit === 'number' ? Math.max(1, Math.floor(args.limit)) : undefined;
       const lines = text.split(/\r?\n/u);
       const selected = lines.slice(offset - 1, limit ? offset - 1 + limit : undefined);
       return selected.map((line, index) => `${offset + index}\t${line}`).join('\n');

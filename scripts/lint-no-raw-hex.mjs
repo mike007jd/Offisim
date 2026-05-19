@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const rootDir = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const roots = [
-  'apps/web/src',
+  'apps/desktop/renderer/src',
   'packages/ui-office/src',
   'packages/ui-core/src',
   'packages/renderer/src',
@@ -13,7 +13,7 @@ const skipParts = [
   '/dist/',
   '/node_modules/',
   '/packages/ui-core/src/tokens/',
-  '/apps/web/src/generated/',
+  '/apps/desktop/renderer/src/generated/',
   '/catalog/provider-source-registry/',
 ];
 const fileExtensions = new Set(['.ts', '.tsx', '.css']);

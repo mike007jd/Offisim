@@ -36,7 +36,9 @@ export function isLocalFileOperationIntent(taskDescription: string): boolean {
   const normalized = stripUrls(normalizeIntentText(taskDescription));
   if (!normalized || !hasLocalFileReference(normalized)) return false;
   if (MUTATING_LOCAL_OPERATION_RE.test(normalized)) return true;
-  return READ_ONLY_LOCAL_OPERATION_RE.test(normalized) && !hasExplicitArtifactCreationIntent(normalized);
+  return (
+    READ_ONLY_LOCAL_OPERATION_RE.test(normalized) && !hasExplicitArtifactCreationIntent(normalized)
+  );
 }
 
 export function isUserRequestedDeliverableIntent(taskDescription: string): boolean {
@@ -46,10 +48,7 @@ export function isUserRequestedDeliverableIntent(taskDescription: string): boole
     const withoutUrls = stripUrls(normalized);
     return isUserRequestedDeliverableIntent(withoutUrls);
   }
-  return (
-    FILE_NAME_OR_PATH_RE.test(normalized) ||
-    hasExplicitArtifactCreationIntent(normalized)
-  );
+  return FILE_NAME_OR_PATH_RE.test(normalized) || hasExplicitArtifactCreationIntent(normalized);
 }
 
 export function isNewDeliverableRequest(taskDescription: string): boolean {

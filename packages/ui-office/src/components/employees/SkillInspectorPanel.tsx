@@ -1,13 +1,13 @@
 import type { SkillMetadata } from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 
 interface SkillInspectorPanelProps {
   skill: SkillMetadata | null;
 }
 
 export function SkillInspectorPanel({ skill }: SkillInspectorPanelProps) {
-  const runtime = useOffisimRuntime();
+  const runtime = useOffisimRuntimeServices();
   const [body, setBody] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

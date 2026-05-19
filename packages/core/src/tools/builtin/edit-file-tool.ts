@@ -6,7 +6,8 @@ export function createEditFileTool(config: BuiltinToolConfig): BuiltinTool | nul
   return {
     def: {
       name: 'edit_file',
-      description: 'Replace an exact string in a file. Refuses ambiguous matches unless replaceAll is true.',
+      description:
+        'Replace an exact string in a file. Refuses ambiguous matches unless replaceAll is true.',
       parameters: {
         type: 'object',
         properties: {
@@ -31,7 +32,9 @@ export function createEditFileTool(config: BuiltinToolConfig): BuiltinTool | nul
       if (matches > 1 && !replaceAll) {
         throw new Error(`[EDIT_TARGET_AMBIGUOUS] oldString matched ${matches} times.`);
       }
-      const next = replaceAll ? current.split(oldString).join(newString) : current.replace(oldString, newString);
+      const next = replaceAll
+        ? current.split(oldString).join(newString)
+        : current.replace(oldString, newString);
       await fs.writeFile(path, next, options);
       return `Edited ${path}: replaced ${replaceAll ? matches : 1} occurrence(s).`;
     },
@@ -42,9 +45,11 @@ function countMatches(text: string, needle: string): number {
   if (!needle) return 0;
   let count = 0;
   let index = 0;
-  while ((index = text.indexOf(needle, index)) >= 0) {
+  index = text.indexOf(needle, index);
+  while (index >= 0) {
     count += 1;
     index += needle.length;
+    index = text.indexOf(needle, index);
   }
   return count;
 }

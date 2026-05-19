@@ -251,7 +251,7 @@ export interface NewEmployee {
 /**
  * Repository facades that install-core needs.
  * @offisim/core provides memory and drizzle implementations.
- * apps/web bridges them via an adapter in OffisimRuntimeProvider.
+ * apps/desktop/renderer bridges them via an adapter in OffisimRuntimeProvider.
  */
 export interface InstallRepositories {
   readonly installTransactions: {

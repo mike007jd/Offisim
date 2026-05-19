@@ -7,7 +7,7 @@ import { ensurePortFree } from './ensure-port-free.mjs';
 const app = process.argv[2];
 
 if (!app) {
-  console.error('[tauri-before-dev] Usage: node scripts/tauri-before-dev.mjs <desktop|launcher>');
+  console.error('[tauri-before-dev] Usage: node scripts/tauri-before-dev.mjs <desktop>');
   process.exit(1);
 }
 

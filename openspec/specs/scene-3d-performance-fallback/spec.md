@@ -256,8 +256,8 @@ import); the chunk SHALL NOT appear in the main entry bundle.
 
 #### Scenario: Post chunk is split from main bundle
 
-- **WHEN** running `pnpm --filter @offisim/web build`
-- **AND** searching the output `apps/web/dist/assets/` for a
+- **WHEN** running `pnpm --filter @offisim/desktop-renderer build`
+- **AND** searching the output `apps/desktop/renderer/dist/assets/` for a
   chunk file containing `'@react-three/postprocessing'`
 - **THEN** the post-processing code lives in a separate chunk
   file, not in the main entry chunk

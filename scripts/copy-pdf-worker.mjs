@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copy `pdf.worker.min.mjs` from the installed `pdfjs-dist` legacy build into
- * `apps/web/public/`. Wired into `apps/web` `prebuild` so the file is always
+ * `apps/desktop/renderer/public/`. Wired into the desktop renderer `prebuild` so the file is always
  * available as a vite static asset at `/pdf.worker.min.mjs`.
  *
  * The Tauri release `.app` ships the same web bundle (loaded from
@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
-const DEST = resolve(ROOT, 'apps/web/public/pdf.worker.min.mjs');
+const DEST = resolve(ROOT, 'apps/desktop/renderer/public/pdf.worker.min.mjs');
 
 const requireFromDocEngine = createRequire(resolve(ROOT, 'packages/doc-engine/package.json'));
 const pdfjsPkg = requireFromDocEngine.resolve('pdfjs-dist/package.json');

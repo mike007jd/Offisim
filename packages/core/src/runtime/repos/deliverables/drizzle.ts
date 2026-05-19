@@ -99,10 +99,7 @@ export function createDeliverablesDrizzleRepos(db: Db): DeliverablesDrizzleRepos
           )
         : undefined;
       const whereClause = threadClause
-        ? and(
-            eq(schema.deliverables.company_id, companyId),
-            threadClause,
-          )
+        ? and(eq(schema.deliverables.company_id, companyId), threadClause)
         : eq(schema.deliverables.company_id, companyId);
       const rows = db
         .select({
@@ -134,10 +131,7 @@ export function createDeliverablesDrizzleRepos(db: Db): DeliverablesDrizzleRepos
           )
         : undefined;
       const whereClause = threadClause
-        ? and(
-            eq(schema.deliverables.company_id, companyId),
-            threadClause,
-          )
+        ? and(eq(schema.deliverables.company_id, companyId), threadClause)
         : eq(schema.deliverables.company_id, companyId);
       const rows = db
         .select()

@@ -34,7 +34,7 @@ export interface RegisterDesktopMcpServerInput {
   requestSurface?: 'settings' | 'installed-asset-runtime' | 'developer-runtime';
 }
 
-export interface BrowserMcpServerRecord {
+export interface LocalMcpServerRecord {
   name: string;
   transport: 'stdio' | 'sse';
   command?: string;
@@ -42,7 +42,7 @@ export interface BrowserMcpServerRecord {
   url?: string;
 }
 
-interface StoredBrowserMcpServerRecord {
+interface StoredLocalMcpServerRecord {
   name?: unknown;
   transport?: unknown;
   command?: unknown;
@@ -77,9 +77,9 @@ export async function unregisterDesktopMcpServer(serverId: string): Promise<void
   await invokeDesktop('mcp_unregister_server', { serverId });
 }
 
-export function loadStoredBrowserMcpServers(
+export function loadStoredLocalMcpServers(
   storage: Pick<Storage, 'getItem'> = localStorage,
-): BrowserMcpServerRecord[] {
+): LocalMcpServerRecord[] {
   try {
     const raw = storage.getItem('offisim:mcp-servers');
     if (!raw) return [];
@@ -88,7 +88,7 @@ export function loadStoredBrowserMcpServers(
     if (!Array.isArray(parsed)) return [];
 
     return parsed.flatMap((entry) => {
-      const record = entry as StoredBrowserMcpServerRecord;
+      const record = entry as StoredLocalMcpServerRecord;
       if (typeof record.name !== 'string') return [];
       if (record.transport !== 'stdio' && record.transport !== 'sse') return [];
 
@@ -107,7 +107,7 @@ export function loadStoredBrowserMcpServers(
           command: record.transport === 'stdio' ? (command ?? legacyValue) : undefined,
           args: record.transport === 'stdio' ? args : undefined,
           url: record.transport === 'sse' ? (url ?? legacyValue) : undefined,
-        } satisfies BrowserMcpServerRecord,
+        } satisfies LocalMcpServerRecord,
       ];
     });
   } catch {

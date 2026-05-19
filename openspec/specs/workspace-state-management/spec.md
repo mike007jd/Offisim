@@ -51,7 +51,7 @@ For direct chat, `selectedEmployeeId` SHALL be the only UI-state input used when
 
 ### Requirement: OfficeSessionState exposes selectedThreadId in defaults and serialization
 
-The `createDefaultSessionState()` factory SHALL return an `office` slice containing `selectedThreadId: null`. URL routing serialization / deserialization (`apps/web/src/lib/url-routing/`) SHALL round-trip `selectedThreadId` so deep links to a specific thread restore correctly. On bootstrap, when `selectedThreadId === null` and the active project has at least one `chat_threads` row, the runtime SHALL set `selectedThreadId` to the project's most-recently-updated thread.
+The `createDefaultSessionState()` factory SHALL return an `office` slice containing `selectedThreadId: null`. URL routing serialization / deserialization (`apps/desktop/renderer/src/lib/url-routing/`) SHALL round-trip `selectedThreadId` so deep links to a specific thread restore correctly. On bootstrap, when `selectedThreadId === null` and the active project has at least one `chat_threads` row, the runtime SHALL set `selectedThreadId` to the project's most-recently-updated thread.
 
 #### Scenario: Default factory includes selectedThreadId
 

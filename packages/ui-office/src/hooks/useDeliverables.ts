@@ -6,7 +6,7 @@ import {
   isDisplayableDeliverable,
   resolveDeliverableArtifact,
 } from '../lib/deliverable-artifacts';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context';
 
 export interface Deliverable {
   id: string;
@@ -62,7 +62,7 @@ function upsertDeliverable(list: Deliverable[], next: Deliverable): Deliverable[
  *   PitchHall in cross-thread mode) to receive every deliverable.
  */
 export function useDeliverables(filterChatThreadId?: string | null): Deliverable[] {
-  const { eventBus, listRecentDeliverables } = useOffisimRuntime();
+  const { eventBus, listRecentDeliverables } = useOffisimRuntimeServices();
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
 
   useEffect(() => {

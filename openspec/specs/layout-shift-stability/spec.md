@@ -91,7 +91,7 @@ The skeleton's outer reservation block SHALL apply the class `workspace-shell-lo
 
 ### Requirement: Custom fonts SHALL be preloaded with `font-display: swap`
 
-The web shell's `index.html` SHALL preload every custom font referenced by `apps/web/src/index.css` via `<link rel="preload" as="font" type="font/woff2" crossorigin>` tags placed in `<head>`. Each preloaded font SHALL be served from a same-origin path (no third-party CDN) so the Tauri release `.app` (running from `tauri://localhost`) can load it without CSP allowlist changes.
+The desktop renderer shell's `index.html` SHALL preload every custom font referenced by `apps/desktop/renderer/src/index.css` via `<link rel="preload" as="font" type="font/woff2" crossorigin>` tags placed in `<head>`. Each preloaded font SHALL be served from a same-origin path (no third-party CDN) so the Tauri release `.app` (running from `tauri://localhost`) can load it without CSP allowlist changes.
 
 Each `@font-face` block SHALL declare `font-display: swap` so the browser paints text immediately with the system fallback and re-paints once the custom font is ready, instead of blocking text render.
 
@@ -104,18 +104,18 @@ Combined preload payload SHALL be ≤ 200 KB. Future font additions SHALL re-eva
 
 #### Scenario: Web shell preloads Inter and JetBrains Mono
 
-- **WHEN** loading `apps/web/index.html`
+- **WHEN** loading `apps/desktop/renderer/index.html`
 - **THEN** the document `<head>` SHALL contain `<link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>` AND `<link rel="preload" href="/fonts/jetbrains-mono-var.woff2" as="font" type="font/woff2" crossorigin>`
 
 #### Scenario: Both fonts use font-display: swap
 
-- **WHEN** auditing `apps/web/src/index.css` `@font-face` blocks
+- **WHEN** auditing `apps/desktop/renderer/src/index.css` `@font-face` blocks
 - **THEN** both Inter and JetBrains Mono blocks SHALL declare `font-display: swap`
 - **AND** the `src` URL of each SHALL resolve to a same-origin path under `/fonts/`
 
 #### Scenario: First-paint FOUT is measurable but bounded
 
-- **WHEN** loading the web shell at 1440x900 with cache disabled and Slow 3G throttle
+- **WHEN** loading the desktop renderer shell at 1440x900 with cache disabled and Slow 3G throttle
 - **THEN** the cumulative layout shift attributable to font swap SHALL be ≤ 0.10 measured by Chrome DevTools Performance trace
 - **AND** the first contentful paint SHALL NOT block on font load (text SHALL render in system fallback within the first 100 ms after navigation start)
 
@@ -156,7 +156,7 @@ Reasoning region (`StreamingBubble.ReasoningRegion`) SHALL declare a tighter bou
 
 ### Requirement: Motion timing SHALL be expressed via custom properties pending Change F unification
 
-Three CSS custom properties SHALL be declared in `apps/web/src/index.css` `:root` block:
+Three CSS custom properties SHALL be declared in `apps/desktop/renderer/src/index.css` `:root` block:
 
 - `--motion-duration-fast: 120ms` — short-lived enter/exit (toasts, tooltips).
 - `--motion-duration-base: 200ms` — default enter/exit (dialogs, list items).
@@ -172,7 +172,7 @@ Looped non-enter/exit animations (`streaming-shimmer`) are owned by Change F.
 
 #### Scenario: Motion tokens declared in :root
 
-- **WHEN** auditing `apps/web/src/index.css` `:root` block
+- **WHEN** auditing `apps/desktop/renderer/src/index.css` `:root` block
 - **THEN** the four motion custom properties (`--motion-duration-fast`, `--motion-duration-base`, `--motion-duration-slow`, `--motion-easing-standard`) SHALL be declared
 - **AND** the `list-item-in` animation rule SHALL bind to `var(--motion-duration-base)` and `var(--motion-easing-standard)`
 

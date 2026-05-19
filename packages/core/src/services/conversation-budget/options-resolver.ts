@@ -113,8 +113,7 @@ export function resolveOptions(
       defaults.synopsisFailureThreshold ?? DEFAULT_SYNOPSIS_FAILURE_THRESHOLD,
     postCompactKeepNodeSummaries:
       defaults.postCompactKeepNodeSummaries ?? DEFAULT_POST_COMPACT_KEEP_NODE_SUMMARIES,
-    fullCompactTriggerTokens:
-      defaults.fullCompactTriggerTokens ?? windowDerivedFullCompactTrigger,
+    fullCompactTriggerTokens: defaults.fullCompactTriggerTokens ?? windowDerivedFullCompactTrigger,
     fullCompactTriggerMessages:
       defaults.fullCompactTriggerMessages ?? DEFAULT_FULL_COMPACT_TRIGGER_MESSAGES,
     fullCompactFailureThreshold:

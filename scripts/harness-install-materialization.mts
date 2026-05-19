@@ -359,11 +359,11 @@ async function assertRegistryInstallHashMismatchFailsBeforeMaterialization() {
 
 function assertReleaseDesktopUsesNativeInstallTransaction() {
   const tauriRuntime = readFileSync(
-    new URL('../apps/web/src/lib/tauri-runtime.ts', import.meta.url),
+    new URL('../apps/desktop/renderer/src/lib/tauri-runtime.ts', import.meta.url),
     'utf8',
   );
   const tauriDrizzle = readFileSync(
-    new URL('../apps/web/src/lib/tauri-drizzle.ts', import.meta.url),
+    new URL('../apps/desktop/renderer/src/lib/tauri-drizzle.ts', import.meta.url),
     'utf8',
   );
   const localDb = readFileSync(

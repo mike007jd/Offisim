@@ -2,7 +2,6 @@ import type {
   EmployeeVersionService,
   EventBus,
   McpServerConfig,
-  MemoryRepositoriesSnapshot,
   RuntimeRepositories,
   SkillLoader,
   ToolTelemetryService,
@@ -13,22 +12,12 @@ import type {
   EngineId,
   InteractionMode,
   InteractionRequest,
-  RuntimeEvent,
 } from '@offisim/shared-types';
 import { createContext, useContext } from 'react';
 import type { RunScope } from '../components/chat/chat-session-store';
 import type { AttachmentStore } from '../lib/attachment-store.js';
 import type { DeliverableHookRow } from '../lib/deliverable-artifacts.js';
 import type { SceneIntentBus } from './scene-intents.js';
-
-// ---------------------------------------------------------------------------
-// Stable context — values that change infrequently (repos, eventBus, etc.)
-// ---------------------------------------------------------------------------
-
-export interface OffisimRuntimeBootstrapState {
-  reposSnapshot: MemoryRepositoriesSnapshot | null;
-  eventHistory: RuntimeEvent[];
-}
 
 export interface FailedRunErrorState {
   message: string;
@@ -41,46 +30,9 @@ export type SendMessageResult =
   | { kind: 'assistant'; content: string }
   | { kind: 'system'; content: string };
 
-export type VaultDirectoryMode =
-  | 'unsupported'
-  | 'unmounted'
-  | 'needs-permission'
-  | 'error'
-  | 'mounted';
-
-export interface VaultDirectoryStatus {
-  supported: boolean;
-  mode: VaultDirectoryMode;
-  directoryName: string | null;
-  root?: string | null;
-  errorMessage?: string | null;
-}
-
-export interface OffisimRuntimeValue {
+export interface OffisimRuntimeServicesValue {
   eventBus: EventBus;
   sceneIntentBus?: SceneIntentBus;
-  isReady: boolean;
-  /** For re-render optimization prefer `useOffisimRuntimeStatus().isRunning` (dedicated volatile context). */
-  isRunning: boolean;
-  error: string | null;
-  failedRunError: FailedRunErrorState | null;
-  sendMessage: (
-    text: string,
-    options?: {
-      targetEmployeeId?: string;
-      threadId?: string;
-      /** Active project id; written into graph_threads.project_id + OffisimGraphState.projectId. */
-      projectId?: string | null;
-      entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
-      conversationKey?: string;
-      /** Per-execution chat run scope; threaded into graph config.configurable.runScope. */
-      runScope?: RunScope;
-    },
-  ) => Promise<SendMessageResult | undefined>;
-  retryLastMessage: (options?: { runScope?: RunScope }) => Promise<SendMessageResult | undefined>;
-  clearError: () => void;
-  /** Re-create runtime from current localStorage config. */
-  reinitRuntime: () => void;
   /** Install service — null only during bootstrap / in tauri-runtime-lite mode. */
   installService: InstallService | null;
   /** Runtime repositories — null when runtime is not yet ready. */
@@ -100,6 +52,61 @@ export interface OffisimRuntimeValue {
   disconnectMcpServer: (name: string) => Promise<void>;
   /** Set of currently connected MCP server names. */
   connectedMcpServers: ReadonlySet<string>;
+  /**
+   * List persisted deliverables for the active company, newest first.
+   * Summary-shape rows: `content` is empty until `loadDeliverableContent(id)` hydrates it.
+   * Returns `[]` when `repos.deliverables` is unavailable.
+   */
+  listRecentDeliverables?: (opts?: {
+    threadId?: string;
+    limit?: number;
+  }) => Promise<DeliverableHookRow[]>;
+  /**
+   * Lazy-load full content for a summary-shape deliverable row.
+   * Returns `null` when the row is absent from storage.
+   */
+  loadDeliverableContent?: (deliverableId: string) => Promise<DeliverableHookRow | null>;
+  /**
+   * Engine adapter IDs registered in the active runtime. Trusted
+   * desktop runtime publishes the IDs whose adapter is reachable. UI binding
+   * surfaces gate engine choices on this set rather than branching on platform.
+   */
+  availableEngineAdapters: ReadonlySet<EngineId>;
+  /**
+   * Company-level employee runtime default surfaced from the active runtime
+   * policy. `null` when the policy omits it (resolver falls through to provider).
+   */
+  companyEmployeeRuntimeDefault: EmployeeRuntimeBinding | null;
+  /**
+   * Per-platform chat attachment persistence + read backend. Wired by the
+   * Tauri runtime factory; shared by composer staging, the gateway-lane
+   * `read_attachment` tool, the bubble eviction probe, and the boot-time GC
+   * sweeper. Null in `tauri-runtime-lite` mode and during pre-runtime bootstrap.
+   */
+  attachmentStore: AttachmentStore | null;
+}
+
+export interface OffisimRuntimeExecutionValue {
+  isReady: boolean;
+  error: string | null;
+  failedRunError: FailedRunErrorState | null;
+  sendMessage: (
+    text: string,
+    options?: {
+      targetEmployeeId?: string;
+      threadId?: string;
+      /** Active project id; written into graph_threads.project_id + OffisimGraphState.projectId. */
+      projectId?: string | null;
+      entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+      conversationKey?: string;
+      /** Per-execution chat run scope; threaded into graph config.configurable.runScope. */
+      runScope?: RunScope;
+    },
+  ) => Promise<SendMessageResult | undefined>;
+  retryLastMessage: (options?: { runScope?: RunScope }) => Promise<SendMessageResult | undefined>;
+  clearError: () => void;
+  /** Re-create runtime from current local provider config. */
+  reinitRuntime: () => void;
   /** Abort the currently-running execution for the active thread. No-op if nothing is running. */
   abortExecution: () => void;
   /** Threads detected as 'running' or 'blocked' on startup. */
@@ -115,8 +122,9 @@ export interface OffisimRuntimeValue {
    * Re-invokes the graph with background_sync entryMode on the given threadId.
    */
   resumeThread: (threadId: string) => Promise<void>;
-  /** Synchronous browser bootstrap data used before async runtime init finishes. */
-  bootstrapState?: OffisimRuntimeBootstrapState | null;
+}
+
+export interface OffisimRuntimeInteractionValue {
   /** Active interaction mode for the current thread. */
   interactionMode?: InteractionMode;
   /** Pending human-in-the-loop request, if any. */
@@ -129,54 +137,67 @@ export interface OffisimRuntimeValue {
     freeformResponse?: string,
     options?: { runScope?: RunScope },
   ) => Promise<SendMessageResult | undefined>;
-  /**
-   * List persisted deliverables for the active company, newest first.
-   * Summary-shape rows: `content` is empty until `loadDeliverableContent(id)` hydrates it.
-   * Returns `[]` when `repos.deliverables` is unavailable (e.g. browser-only session).
-   */
-  listRecentDeliverables?: (opts?: {
-    threadId?: string;
-    limit?: number;
-  }) => Promise<DeliverableHookRow[]>;
-  /**
-   * Lazy-load full content for a summary-shape deliverable row.
-   * Returns `null` when the row is absent from storage.
-   */
-  loadDeliverableContent?: (deliverableId: string) => Promise<DeliverableHookRow | null>;
-  /** Desktop-only local vault root. Null in browser mode. */
+}
+
+export interface OffisimRuntimeDesktopHostValue {
+  /** Desktop local vault root. Null before the Tauri runtime exposes it. */
   desktopVaultRoot?: string | null;
-  /** Browser-only live vault status / controls. Undefined in desktop mode. */
-  getVaultDirectoryStatus?: () => Promise<VaultDirectoryStatus>;
-  mountVaultDirectory?: (handle?: FileSystemDirectoryHandle) => Promise<VaultDirectoryStatus>;
-  unmountVaultDirectory?: () => Promise<VaultDirectoryStatus>;
-  exportVaultSnapshotZip?: () => Promise<void>;
-  /**
-   * Engine adapter IDs registered in the active runtime. Empty in browser; trusted
-   * desktop runtime publishes the IDs whose adapter is reachable. UI binding
-   * surfaces gate engine choices on this set rather than branching on platform.
-   */
-  availableEngineAdapters: ReadonlySet<EngineId>;
-  /**
-   * Company-level employee runtime default surfaced from the active runtime
-   * policy. `null` when the policy omits it (resolver falls through to provider).
-   */
-  companyEmployeeRuntimeDefault: EmployeeRuntimeBinding | null;
-  /**
-   * Per-platform chat attachment persistence + read backend. Wired by the
-   * runtime factories (`browser-runtime.ts` → `WebAttachmentStore`,
-   * `tauri-runtime.ts` → `TauriAttachmentStore`); shared by composer staging,
-   * the gateway-lane `read_attachment` tool, the bubble eviction probe, and
-   * the boot-time GC sweeper. Null in `tauri-runtime-lite` mode and during
-   * pre-runtime bootstrap.
-   */
-  attachmentStore: AttachmentStore | null;
+}
+
+export interface OffisimRuntimeValue
+  extends OffisimRuntimeServicesValue,
+    OffisimRuntimeExecutionValue,
+    OffisimRuntimeInteractionValue,
+    OffisimRuntimeDesktopHostValue {
+  /** For re-render optimization prefer `useOffisimRuntimeStatus().isRunning` (dedicated volatile context). */
+  isRunning: boolean;
 }
 
 export const OffisimRuntimeContext = createContext<OffisimRuntimeValue | null>(null);
+export const OffisimRuntimeServicesContext = createContext<OffisimRuntimeServicesValue | null>(
+  null,
+);
+export const OffisimRuntimeExecutionContext = createContext<OffisimRuntimeExecutionValue | null>(
+  null,
+);
+export const OffisimRuntimeInteractionContext =
+  createContext<OffisimRuntimeInteractionValue | null>(null);
+export const OffisimRuntimeDesktopHostContext =
+  createContext<OffisimRuntimeDesktopHostValue | null>(null);
 
 export function useOffisimRuntime(): OffisimRuntimeValue {
   const ctx = useContext(OffisimRuntimeContext);
   if (!ctx) throw new Error('useOffisimRuntime must be used within <OffisimRuntimeProvider>');
+  return ctx;
+}
+
+export function useOffisimRuntimeServices(): OffisimRuntimeServicesValue {
+  const ctx = useContext(OffisimRuntimeServicesContext) ?? useContext(OffisimRuntimeContext);
+  if (!ctx)
+    throw new Error('useOffisimRuntimeServices must be used within <OffisimRuntimeProvider>');
+  return ctx;
+}
+
+export function useOffisimRuntimeExecution(): OffisimRuntimeExecutionValue {
+  const ctx = useContext(OffisimRuntimeExecutionContext) ?? useContext(OffisimRuntimeContext);
+  if (!ctx)
+    throw new Error('useOffisimRuntimeExecution must be used within <OffisimRuntimeProvider>');
+  return ctx;
+}
+
+export function useOffisimRuntimeInteraction(): OffisimRuntimeInteractionValue {
+  const ctx = useContext(OffisimRuntimeInteractionContext) ?? useContext(OffisimRuntimeContext);
+  if (!ctx) {
+    throw new Error('useOffisimRuntimeInteraction must be used within <OffisimRuntimeProvider>');
+  }
+  return ctx;
+}
+
+export function useOffisimRuntimeDesktopHost(): OffisimRuntimeDesktopHostValue {
+  const ctx = useContext(OffisimRuntimeDesktopHostContext) ?? useContext(OffisimRuntimeContext);
+  if (!ctx) {
+    throw new Error('useOffisimRuntimeDesktopHost must be used within <OffisimRuntimeProvider>');
+  }
   return ctx;
 }
 
@@ -190,7 +211,7 @@ export const EMPTY_ENGINE_ADAPTERS: ReadonlySet<EngineId> = Object.freeze(new Se
  * needed here.
  */
 export function useAvailableEngineAdapters(): ReadonlySet<EngineId> {
-  const ctx = useContext(OffisimRuntimeContext);
+  const ctx = useContext(OffisimRuntimeServicesContext) ?? useContext(OffisimRuntimeContext);
   return ctx?.availableEngineAdapters ?? EMPTY_ENGINE_ADAPTERS;
 }
 
@@ -199,7 +220,7 @@ export function useAvailableEngineAdapters(): ReadonlySet<EngineId> {
  * ready or the policy omits the field.
  */
 export function useCompanyEmployeeRuntimeDefault(): EmployeeRuntimeBinding | null {
-  const ctx = useContext(OffisimRuntimeContext);
+  const ctx = useContext(OffisimRuntimeServicesContext) ?? useContext(OffisimRuntimeContext);
   return ctx?.companyEmployeeRuntimeDefault ?? null;
 }
 

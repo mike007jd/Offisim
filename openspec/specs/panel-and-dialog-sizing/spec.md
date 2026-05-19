@@ -191,9 +191,9 @@ Both constants SHALL be documented via JSDoc in `dialog-shell.tsx` describing wh
 
 ### Requirement: Motion duration SHALL bind to `--motion-duration-base` token (interim)
 
-The 200 ms duration applied to dialog enter/exit (currently the literal `duration-200` Tailwind class at `dialog-shell.tsx:138`) SHALL be documented via JSDoc as the literal binding of the `--motion-duration-base` custom property declared in `apps/web/src/index.css`. The Tailwind class SHALL remain literal in this change (no Tailwind theme rewrite); Change F (`unify-design-token-system`) is responsible for rebinding the class to a Tailwind theme token that resolves to the variable.
+The 200 ms duration applied to dialog enter/exit (currently the literal `duration-200` Tailwind class at `dialog-shell.tsx:138`) SHALL be documented via JSDoc as the literal binding of the `--motion-duration-base` custom property declared in `apps/desktop/renderer/src/index.css`. The Tailwind class SHALL remain literal in this change (no Tailwind theme rewrite); Change F (`unify-design-token-system`) is responsible for rebinding the class to a Tailwind theme token that resolves to the variable.
 
-Three custom properties SHALL be declared in `apps/web/src/index.css` `:root`:
+Three custom properties SHALL be declared in `apps/desktop/renderer/src/index.css` `:root`:
 
 - `--motion-duration-fast: 120ms`
 - `--motion-duration-base: 200ms`
@@ -204,7 +204,7 @@ The `list-item-in` keyframe in the same CSS file SHALL bind to `var(--motion-dur
 
 #### Scenario: Motion tokens declared
 
-- **WHEN** auditing `apps/web/src/index.css` `:root` block
+- **WHEN** auditing `apps/desktop/renderer/src/index.css` `:root` block
 - **THEN** the four motion custom properties SHALL be declared
 - **AND** the `list-item-in` keyframe rule SHALL use `var(--motion-duration-base)` and `var(--motion-easing-standard)`
 

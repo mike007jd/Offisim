@@ -70,7 +70,7 @@ User cancellation of the system folder picker SHALL resolve `pickWorkspaceFolder
 
 ### Requirement: Web fallback disables folder binding without throwing
 
-In browser mode (no `__TAURI_INTERNALS__`), `ProjectCreateDialog` SHALL render the folder row as a disabled hint reading "Workspace folder · Available on desktop" with no picker button. The vite alias chain in `apps/web/vite.config.ts` MUST stub `@tauri-apps/plugin-dialog` and `@tauri-apps/plugin-opener` to noop modules under `apps/web/src/polyfills/` so that browser dev-mode dynamic import does not 404.
+In browser mode (no `__TAURI_INTERNALS__`), `ProjectCreateDialog` SHALL render the folder row as a disabled hint reading "Workspace folder · Available on desktop" with no picker button. The vite alias chain in `apps/desktop/renderer/vite.config.ts` MUST stub `@tauri-apps/plugin-dialog` and `@tauri-apps/plugin-opener` to noop modules under `apps/desktop/renderer/src/polyfills/` so that browser dev-mode dynamic import does not 404.
 
 `pickWorkspaceFolder()` in browser mode SHALL throw `FolderPickerUnavailableError` synchronously. UI SHALL never call it on web (the picker button is not rendered) — the error is the safety net for a misuse path, not a user-facing toast.
 
@@ -79,7 +79,7 @@ In browser mode (no `__TAURI_INTERNALS__`), `ProjectCreateDialog` SHALL render t
 - **THEN** the folder row shows muted "Available on desktop" text, no Choose button, and a sub-line clarifying that the project still gets a dedicated chat thread
 
 #### Scenario: Browser stub modules exist
-- **WHEN** running `pnpm --filter @offisim/web dev`
+- **WHEN** running `pnpm --filter @offisim/desktop-renderer dev`
 - **THEN** dynamic imports of `@tauri-apps/plugin-dialog` and `@tauri-apps/plugin-opener` resolve to the stub polyfills without 404, and no console error mentions either plugin
 
 #### Scenario: Programmatic misuse throws explicit error
@@ -402,7 +402,7 @@ The directory-loading state (`entries`, `directoryLoading`, `directoryError`) MA
 
 ### Requirement: Workspace-relative path adapters SHALL reject path escape attempts
 
-Any UI or skill-install adapter that accepts a workspace-relative file path SHALL reject `..` traversal, absolute-path substitution, and encoded path segments that escape the active project workspace root. This includes `apps/web/src/lib/tauri-skill-install-adapters.ts`; the implementation MUST keep the current path-escape defense as a durable workspace-sandbox invariant.
+Any UI or skill-install adapter that accepts a workspace-relative file path SHALL reject `..` traversal, absolute-path substitution, and encoded path segments that escape the active project workspace root. This includes `apps/desktop/renderer/src/lib/tauri-skill-install-adapters.ts`; the implementation MUST keep the current path-escape defense as a durable workspace-sandbox invariant.
 
 #### Scenario: `..` path is rejected before Tauri invocation
 - **WHEN** a skill-install adapter is asked to write `../outside/SKILL.md`

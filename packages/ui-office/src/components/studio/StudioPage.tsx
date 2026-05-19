@@ -26,7 +26,7 @@ import {
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveZonesToDb } from '../../lib/zone-persistence.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context.js';
 import { PlotZoneBreadcrumb } from './PlotZoneBreadcrumb.js';
 import { StudioCanvas } from './StudioCanvas.js';
 import { StudioCompanyIdentity } from './StudioCompanyIdentity.js';
@@ -132,7 +132,7 @@ function CompanyNameModal({
 export function StudioPage(props: StudioPageProps) {
   const { mode, repos, onBack, onCompanyCreated } = props;
   const companyId = props.mode === 'edit' ? props.companyId : undefined;
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const { toasts, addToast, dismissToast } = useToasts();
   const [saving, setSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);

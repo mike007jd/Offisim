@@ -11,6 +11,12 @@ import { contentStudioTemplate } from './content-studio.js';
 import { productTeamTemplate } from './product-team.js';
 import { rdCompanyTemplate } from './rd-company.js';
 
+export { agencyLiteTemplate } from './agency-lite.js';
+export { aiStartupTemplate } from './ai-startup.js';
+export { contentStudioTemplate } from './content-studio.js';
+export { productTeamTemplate } from './product-team.js';
+export { rdCompanyTemplate } from './rd-company.js';
+
 export interface CompanyTemplateEmployee {
   name: string;
   role_slug: RoleSlug;

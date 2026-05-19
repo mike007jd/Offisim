@@ -2,9 +2,9 @@ import type {
   EmployeeRuntimeBinding,
   EngineId,
   RuntimeEngineCapabilityMatrix,
+  RuntimeEngineCapabilityProfile,
   RuntimeEngineCapabilityStatus,
   RuntimeEngineEvidenceRequirements,
-  RuntimeEngineCapabilityProfile,
   RuntimeEvidenceClass,
   RuntimePolicyConfig,
 } from '@offisim/shared-types';

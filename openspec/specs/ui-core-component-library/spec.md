@@ -22,7 +22,7 @@ Application code in `apps/*` and `packages/ui-office` SHALL compose UI from prim
 The exception is non-component code (polyfill modules, native-shell sidecars, build-tool config) and canvas-rendered content (3D scene, 2D office canvas, SOP DAG canvas drawn into `<canvas>`), which are out of scope for this contract.
 
 #### Scenario: Application code does not import raw form controls
-- **WHEN** grepping `packages/ui-office/src/components/**/*.tsx` and `apps/web/src/components/**/*.tsx` for `<button ` (with trailing space, excluding `<button` substrings inside class names or strings) and `<input ` and `<textarea ` and `<select `
+- **WHEN** grepping `packages/ui-office/src/components/**/*.tsx` and `apps/desktop/renderer/src/components/**/*.tsx` for `<button ` (with trailing space, excluding `<button` substrings inside class names or strings) and `<input ` and `<textarea ` and `<select `
 - **THEN** every match has a 1-line justification comment OR is replaced with the ui-core equivalent
 
 #### Scenario: ui-core surface covers required primitives
@@ -161,7 +161,7 @@ This primitive is brand-agnostic. Internal-employee DiceBear rendering and exter
 
 `PopoverContent` defaults: `align="start"`, `sideOffset={4}`, `collisionPadding={8}`, portals to `document.body`. Popover content SHALL set `role="dialog"` + `aria-modal="false"` (non-modal floating panel).
 
-Apps SHALL mount one `<TooltipProvider>` at the root tree (`apps/web/src/App.tsx`). Multiple Providers in the same tree are forbidden because they break shared open/skip-delay state.
+Apps SHALL mount one `<TooltipProvider>` at the root tree (`apps/desktop/renderer/src/App.tsx`). Multiple Providers in the same tree are forbidden because they break shared open/skip-delay state.
 
 #### Scenario: Tooltip Provider mounts once at root
 - **WHEN** rendering the Web app shell

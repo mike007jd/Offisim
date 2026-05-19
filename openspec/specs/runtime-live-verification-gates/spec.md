@@ -8,7 +8,7 @@ The runtime verification process SHALL require direct web or desktop evidence be
 
 #### Scenario: Web gate verified
 - **WHEN** a residual gate is scoped to the web runtime
-- **THEN** the verifier MUST run the path in a real browser against the local web app and record the observable UI or log evidence.
+- **THEN** the verifier MUST run the path in a real browser against the local desktop renderer and record the observable UI or log evidence.
 
 #### Scenario: Desktop gate verified
 - **WHEN** a residual gate is scoped to desktop behavior

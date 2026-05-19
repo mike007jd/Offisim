@@ -76,9 +76,7 @@ kanbanRoute.patch('/api/kanban/:id', async (c) => {
     body.assignedEmployeeId !== undefined ||
     (body.state === undefined && body.blockedReason !== undefined);
   const updateCard = store.update;
-  let card = body.state
-    ? await store.transition(id, body.state, body.blockedReason)
-    : null;
+  let card = body.state ? await store.transition(id, body.state, body.blockedReason) : null;
   if (!body.state || hasMetadataPatch) {
     if (!updateCard) {
       unavailableKanbanUpdate();

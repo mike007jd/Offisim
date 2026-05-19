@@ -2,7 +2,7 @@ import type { ChatThread, ChatThreadUpdatedPayload, RuntimeEvent } from '@offisi
 import { Button, Input } from '@offisim/ui-core';
 import { Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 
 const DEBOUNCE_MS = 300;
@@ -35,7 +35,7 @@ export function WorkspaceSearch({
   onSelectThread,
   onSelectEmployee,
 }: WorkspaceSearchProps) {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const agents = useAgentStates();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');

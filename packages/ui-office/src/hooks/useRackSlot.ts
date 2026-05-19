@@ -3,7 +3,7 @@ import type { RackWithSlots } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 export interface UseRackSlotReturn {
   racks: RackWithSlots[];
@@ -18,7 +18,7 @@ export interface UseRackSlotReturn {
 }
 
 export function useRackSlot(): UseRackSlotReturn {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [racks, setRacks] = useState<RackWithSlots[]>([]);
   const [loading, setLoading] = useState(true);

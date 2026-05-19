@@ -1,6 +1,6 @@
 # Desktop Runtime Guidance
 
-Tauri 2 桌面壳，零 npm deps，frontendDist 直接指 `../../web/dist`。改完 `packages/ui-office` 必须先 `pnpm --filter @offisim/ui-office build` → 再 `pnpm --filter @offisim/desktop build`，否则 release `.app` 还是旧 UI。
+Tauri 2 桌面壳，frontendDist 直接指 `../renderer/dist`。改完 `packages/ui-office` 必须先 `pnpm --filter @offisim/ui-office build` → 再 `pnpm --filter @offisim/desktop build`，否则 release `.app` 还是旧 UI。
 
 ## Capabilities & privileged invokes
 

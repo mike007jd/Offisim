@@ -13,7 +13,7 @@ import {
   discoverAgentCard,
 } from '../../lib/agent-card-discovery';
 import { lookupExternalBrand } from '../../lib/brand-registry';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext';
 import { ExternalEmployeeInstallDialog } from '../employees/ExternalEmployeeInstallDialog';
 
@@ -32,7 +32,7 @@ export interface SettingsExternalTabProps {
 }
 
 export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps = {}) {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const { toasts, addToast, dismissToast } = useToasts();
 

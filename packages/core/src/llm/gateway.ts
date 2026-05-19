@@ -68,7 +68,13 @@ export interface LlmResponse {
   readonly reasoningContent?: string;
   readonly toolCalls: readonly ToolCallResult[];
   readonly usage: LlmUsage;
-  readonly stopReason?: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | 'refusal' | 'unknown';
+  readonly stopReason?:
+    | 'end_turn'
+    | 'tool_use'
+    | 'max_tokens'
+    | 'stop_sequence'
+    | 'refusal'
+    | 'unknown';
 }
 
 export interface LlmStreamChunk {

@@ -891,7 +891,7 @@ async function runCodexTurn(payload) {
             request.tools,
             allowNativeTools,
           ),
-          ephemeral: allowNativeTools ? false : true,
+          ephemeral: !allowNativeTools,
           experimentalRawEvents: allowNativeTools,
           persistExtendedHistory: false,
           personality: 'pragmatic',

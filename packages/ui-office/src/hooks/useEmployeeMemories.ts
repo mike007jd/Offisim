@@ -1,6 +1,6 @@
 import type { MemoryEntryRow } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 export interface CreateEmployeeMemoryInput {
   category: MemoryEntryRow['category'];
@@ -14,7 +14,7 @@ export interface UpdateEmployeeMemoryInput {
 }
 
 export function useEmployeeMemories(employeeId: string, companyId: string) {
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const [memories, setMemories] = useState<MemoryEntryRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -220,11 +220,11 @@ function assertCodexHostTextOnlyInstructions() {
 
 function assertTauriEngineAdaptersResolveProjectId() {
   const engineSource = readFileSync(
-    new URL('../apps/web/src/lib/tauri-engine-adapters.ts', import.meta.url),
+    new URL('../apps/desktop/renderer/src/lib/tauri-engine-adapters.ts', import.meta.url),
     'utf8',
   );
   const runtimeSource = readFileSync(
-    new URL('../apps/web/src/lib/tauri-runtime.ts', import.meta.url),
+    new URL('../apps/desktop/renderer/src/lib/tauri-runtime.ts', import.meta.url),
     'utf8',
   );
   const executorSource = readFileSync(

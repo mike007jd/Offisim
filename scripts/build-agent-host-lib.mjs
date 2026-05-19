@@ -4,8 +4,8 @@ import { createRequire } from 'node:module';
 import { dirname, relative, resolve } from 'node:path';
 
 export function loadEsbuild(root) {
-  const requireFromWeb = createRequire(resolve(root, 'apps/web/package.json'));
-  const vitePackageJson = requireFromWeb.resolve('vite/package.json');
+  const requireFromRenderer = createRequire(resolve(root, 'apps/desktop/renderer/package.json'));
+  const vitePackageJson = requireFromRenderer.resolve('vite/package.json');
   const esbuildPackageJson = resolve(dirname(vitePackageJson), '../esbuild/package.json');
   const requireFromEsbuild = createRequire(esbuildPackageJson);
   return requireFromEsbuild('esbuild');

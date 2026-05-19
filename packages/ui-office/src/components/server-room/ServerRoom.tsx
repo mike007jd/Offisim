@@ -17,7 +17,7 @@ import type { RackWithSlots } from '@offisim/core/browser';
 import type { ToolExecutionTelemetryPayload } from '@offisim/shared-types';
 import { useRackSlot } from '../../hooks/useRackSlot.js';
 import { useToolTelemetry } from '../../hooks/useToolTelemetry.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context.js';
 
 // ─── Status helpers ─────────────────────────────────────────────────────────
 
@@ -267,7 +267,7 @@ interface ServerRoomProps {
 }
 
 export function ServerRoom({ activeThreadId }: ServerRoomProps) {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const {
     racks,
     loading,

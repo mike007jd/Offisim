@@ -3,7 +3,7 @@ import type { LibraryDocumentRow } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 export interface UseLibraryReturn {
   documents: LibraryDocumentRow[];
@@ -16,7 +16,7 @@ export interface UseLibraryReturn {
 }
 
 export function useLibrary(): UseLibraryReturn {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [documents, setDocuments] = useState<LibraryDocumentRow[]>([]);
   const [loading, setLoading] = useState(true);

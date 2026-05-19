@@ -159,7 +159,7 @@ The `Memory` and `History` tabs SHALL render the same content the dialog previou
 - **THEN** zero matches exist
 
 #### Scenario: AppGlobalDialogs no longer mounts EmployeeEditorDialog
-- **WHEN** auditing `apps/web/src/components/app-shell/AppGlobalDialogs.tsx`
+- **WHEN** auditing `apps/desktop/renderer/src/components/app-shell/AppGlobalDialogs.tsx`
 - **THEN** the file SHALL NOT contain `<EmployeeEditorDialog />` or accept an `employeeEditor` prop wired to it
 
 #### Scenario: useRegisterModal not called for employee-editor

@@ -18,7 +18,7 @@ import { RegistryApiError } from '@offisim/registry-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { SKILL_MD_CONTENT_KEY } from '../lib/export-to-manifest.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 import { useRegistryClient } from './useRegistryClient.js';
 
 export type InstallStep =
@@ -145,7 +145,7 @@ async function materializeSkillFromPlan(
 }
 
 export function useInstallFlow(): InstallFlowState & InstallFlowActions {
-  const { installService, eventBus, skillLoader } = useOffisimRuntime();
+  const { installService, eventBus, skillLoader } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const registryClient = useRegistryClient();
   const sourceRefRef = useRef<string | null>(null);

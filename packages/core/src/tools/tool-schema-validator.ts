@@ -31,7 +31,9 @@ function zodFromJsonSchema(schema: Record<string, unknown>): z.ZodTypeAny {
         ? (schema.properties as Record<string, Record<string, unknown>>)
         : {};
     const required = new Set(
-      Array.isArray(schema.required) ? schema.required.filter((v): v is string => typeof v === 'string') : [],
+      Array.isArray(schema.required)
+        ? schema.required.filter((v): v is string => typeof v === 'string')
+        : [],
     );
     const shape: Record<string, z.ZodTypeAny> = {};
     for (const [key, value] of Object.entries(properties)) {

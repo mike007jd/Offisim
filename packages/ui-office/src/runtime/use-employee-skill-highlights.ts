@@ -2,7 +2,7 @@ import type { RuntimeEvent, SkillInstallOutcomePayload } from '@offisim/shared-t
 import { SKILL_INSTALL_OUTCOME, skillInstallOutcomeLabel } from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from './offisim-runtime-context';
+import { useOffisimRuntimeServices } from './offisim-runtime-context';
 
 const HIGHLIGHT_TTL_MS = 4_500;
 
@@ -20,7 +20,7 @@ export interface EmployeeSkillHighlight {
 }
 
 export function useEmployeeSkillHighlights(): ReadonlyMap<string, EmployeeSkillHighlight> {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [highlights, setHighlights] = useState<Map<string, EmployeeSkillHighlight>>(
     () => new Map(),

@@ -416,7 +416,7 @@ export class OrchestrationService {
     if (existing) {
       // Backfill project_id when an older row (or background_sync row) is
       // first hit by a chat turn — the workspace_root resolver in
-      // `apps/web/src/lib/tauri-runtime.ts` only follows graph_threads.project_id.
+      // `apps/desktop/renderer/src/lib/tauri-runtime.ts` only follows graph_threads.project_id.
       if (projectId && !existing.project_id) {
         await this.runtimeCtx.repos.threads.updateProject(threadId, projectId);
       }

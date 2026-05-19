@@ -11,7 +11,7 @@ import { parseEmployeeConfig, parseEmployeePersona } from '@offisim/shared-types
 import type { SkillMetadata } from '@offisim/shared-types';
 import { useCallback, useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context';
 
 export interface AvatarAppearance {
   skinColor: number;
@@ -194,7 +194,7 @@ export interface UseEmployeeEditorReturn {
 }
 
 export function useEmployeeEditor(): UseEmployeeEditorReturn {
-  const { repos, eventBus, employeeVersionService: versionService } = useOffisimRuntime();
+  const { repos, eventBus, employeeVersionService: versionService } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -402,7 +402,7 @@ export function useSkillsForEmployee(
   companyId: string | null,
   employeeId: string | null,
 ): SkillMetadata[] {
-  const runtime = useOffisimRuntime();
+  const runtime = useOffisimRuntimeServices();
   const [skills, setSkills] = useState<SkillMetadata[]>([]);
 
   useEffect(() => {

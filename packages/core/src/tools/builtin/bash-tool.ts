@@ -1,5 +1,5 @@
-import type { BuiltinTool, BuiltinToolConfig } from './types.js';
 import { classifyShellCommand } from './shell-command-classifier.js';
+import type { BuiltinTool, BuiltinToolConfig } from './types.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT = 100 * 1024; // 100KB

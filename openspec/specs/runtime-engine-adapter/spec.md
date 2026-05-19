@@ -37,7 +37,7 @@ The employee engine executor SHALL map engine activity into Offisim event famili
 
 Unverified SDK-backed model transports SHALL NOT expose Offisim file, shell, memory, todo, skill, or MCP tools. SDK/native runtime activity MUST be truthful: placeholder activity such as “engine accepted the assigned task” MUST NOT be emitted when no real stream, tool, completion, or error event exists.
 
-If a trusted sidecar host later emits legal tool lifecycle events, those events SHALL be serialized as JSON over the trusted IPC channel and consumed by `apps/web/src/lib/tauri-engine-adapters.ts`. The adapter SHALL yield `RuntimeActivityEvent` items with `kind: 'tool_started'` and `kind: 'tool_completed'`, using the same structural fields rendered for gateway lane tool activity.
+If a trusted sidecar host later emits legal tool lifecycle events, those events SHALL be serialized as JSON over the trusted IPC channel and consumed by `apps/desktop/renderer/src/lib/tauri-engine-adapters.ts`. The adapter SHALL yield `RuntimeActivityEvent` items with `kind: 'tool_started'` and `kind: 'tool_completed'`, using the same structural fields rendered for gateway lane tool activity.
 
 #### Scenario: Stream and tool mapping
 - **WHEN** an engine emits text, reasoning, tool-started, and tool-completed activity
@@ -91,7 +91,7 @@ Engine internal subagents, handoffs, or micro-plans SHALL be displayed as runtim
 Trusted engine adapters SHALL be available only in trusted desktop/backend runtimes. Browser-limited runtimes SHALL not silently downgrade engine mode into provider mode.
 
 #### Scenario: Browser runtime has no adapter
-- **WHEN** an employee selects `codex-engine` in browser-limited runtime
+- **WHEN** an employee selects `codex-engine` in desktop-trusted runtime
 - **THEN** employee execution fails closed with an unavailable-engine error
 - **AND** Offisim does not run the task through a different engine or provider path without explicit configuration
 
@@ -116,7 +116,7 @@ Trusted engine adapters SHALL be available only in trusted desktop/backend runti
 
 ### Requirement: Trusted desktop runtime SHALL register engine adapters by default
 
-The Tauri-backed runtime initialization in `apps/web/src/lib/tauri-runtime.ts` SHALL invoke `createTauriEngineAdapterRegistry({ enableProviderHostPreviewAdapters: true })`, registering both `claude-engine` and `codex-engine` adapters by default. The browser runtime SHALL continue to receive an empty engine adapter map.
+The Tauri-backed runtime initialization in `apps/desktop/renderer/src/lib/tauri-runtime.ts` SHALL invoke `createTauriEngineAdapterRegistry({ enableProviderHostPreviewAdapters: true })`, registering both `claude-engine` and `codex-engine` adapters by default. The browser runtime SHALL continue to receive an empty engine adapter map.
 
 #### Scenario: Tauri runtime registers both engines
 - **WHEN** the Tauri runtime initializes via `createTauriRuntimeInit(...)`

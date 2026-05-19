@@ -1,9 +1,9 @@
 import type { FileHistoryRow } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context';
 
 export function useFileHistory(threadId: string | null) {
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const [changes, setChanges] = useState<FileHistoryRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 

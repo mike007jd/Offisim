@@ -85,7 +85,7 @@ When `createGateway({ provider, baseURL, ... })` receives a non-empty `baseURL`,
 
 ### Requirement: ProviderConfig change is propagated by runtime reinit, not by per-scope override
 
-Changing the ProviderConfig (via Settings UI save / env reload / live verify fill-in) SHALL trigger a full runtime reinit (`reinit()` bumping `version` in `useRuntimeInit`), which disposes the old `ctx.llmGateway` and creates a new one. No node or service SHALL hold a cached/captured alternate gateway that survives ProviderConfig change. Dead code paths (currently `modelRegistry` has no initializer in apps/web or ui-office, so `ctx.modelRegistry` is always undefined) SHALL be either fully wired or removed — the ambiguity of a "half-registered model registry" is forbidden.
+Changing the ProviderConfig (via Settings UI save / env reload / live verify fill-in) SHALL trigger a full runtime reinit (`reinit()` bumping `version` in `useRuntimeInit`), which disposes the old `ctx.llmGateway` and creates a new one. No node or service SHALL hold a cached/captured alternate gateway that survives ProviderConfig change. Dead code paths (currently `modelRegistry` has no initializer in apps/desktop/renderer or ui-office, so `ctx.modelRegistry` is always undefined) SHALL be either fully wired or removed — the ambiguity of a "half-registered model registry" is forbidden.
 
 #### Scenario: Settings UI save rebuilds gateway
 
@@ -96,7 +96,7 @@ Changing the ProviderConfig (via Settings UI save / env reload / live verify fil
 
 #### Scenario: modelRegistry is either fully wired or absent
 
-- **WHEN** auditing `ModelRegistry` usage across apps/web + ui-office
+- **WHEN** auditing `ModelRegistry` usage across apps/desktop/renderer + ui-office
 - **THEN** EITHER a caller initializes + loads it with a real model list (and wires `ctx.modelRegistry` in runtime factory), OR the field is dropped from `RuntimeContext` and the `ctx.modelRegistry?.getGateway(...)` short-circuit is removed
 - **AND** a half-configured state where the type allows it but no caller uses it SHALL NOT persist (current state is an invitation for future bugs)
 
@@ -130,7 +130,7 @@ This contract is the hook by which Tauri desktop routes all outbound LLM HTTP to
 As of 2026-04-26 (commit `f3bb26dd`), the global default MiniMax model SHALL be `MiniMax-M2.7`, not `MiniMax-M2.7-highspeed`. Reason: the highspeed token plan is no longer supported by the upstream provider for our key tier, returning `2061: token plan not support model, MiniMax-M2.7-highspeed` on every request.
 
 All of the following SHALL reflect `MiniMax-M2.7` as the default and SHALL NOT reference `highspeed` as a runtime fallback:
-- `apps/web/vite.config.ts` `MINIMAX_MODEL` default.
+- `apps/desktop/renderer/vite.config.ts` `MINIMAX_MODEL` default.
 - `packages/ui-office/src/lib/provider-config.ts` env-fallback default.
 - `catalog/provider-source-registry/` curated entries (no `highspeed` model item).
 - All other env / config / preset paths that resolve a default MiniMax model name.

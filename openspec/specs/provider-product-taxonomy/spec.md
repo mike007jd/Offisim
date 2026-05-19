@@ -81,9 +81,9 @@ Products backed by trusted-host local auth or subscription auth, including `code
 
 Such products SHALL carry host-availability metadata. Unsupported hosts SHALL fail closed with a structured unavailable state instead of silently falling back to an API-key provider path.
 
-#### Scenario: Codex product is unavailable in browser-limited mode
+#### Scenario: Codex product is unavailable in desktop-trusted mode
 
-- **WHEN** the active runtime host is `browser-limited` and the selected product is `codex`
+- **WHEN** the active runtime host is `desktop-trusted` and the selected product is `codex`
 - **THEN** Offisim reports the product as unavailable on that host
 - **AND** the user is guided to switch product or move to a trusted runtime
 

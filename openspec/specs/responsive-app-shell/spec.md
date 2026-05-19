@@ -133,15 +133,15 @@ The Profile tab inside Personnel SHALL render any sticky save / delete actions w
 - **WHEN** the user scrolls to the bottom of the Profile tab content with unsaved changes
 - **THEN** the last form field, validation message, or section heading SHALL remain fully visible above any sticky action bar
 
-### Requirement: Narrow tier verification scope is the web SPA in browser
+### Requirement: Narrow tier verification scope is the desktop renderer in browser
 
-The narrow tier (`390x844`) verification surface SHALL be the web SPA opened in a browser viewport (`pnpm --filter @offisim/web dev` plus browser DevTools resize, or a production browser opening the deployed web SPA). The Tauri release `.app` window SHALL NOT be required to support narrow tier viewports.
+The narrow tier (`390x844`) verification surface SHALL be the desktop renderer opened in a browser viewport (`pnpm --filter @offisim/desktop-renderer dev` plus browser DevTools resize, or a production browser opening the deployed desktop renderer). The Tauri release `.app` window SHALL NOT be required to support narrow tier viewports.
 
-This Requirement does not weaken any of the existing narrow-tier scenarios (e.g., `Narrow viewport has no horizontal overflow`, `Empty Company Portal on narrow viewport`, `Template wizard start action on narrow viewport`, `Narrow stacks panes and avoids overflow`). Those scenarios continue to apply unchanged — but their verification target is the web SPA, not the desktop release shell.
+This Requirement does not weaken any of the existing narrow-tier scenarios (e.g., `Narrow viewport has no horizontal overflow`, `Empty Company Portal on narrow viewport`, `Template wizard start action on narrow viewport`, `Narrow stacks panes and avoids overflow`). Those scenarios continue to apply unchanged — but their verification target is the desktop renderer, not the desktop release shell.
 
-#### Scenario: Narrow scenario verification target is web SPA
+#### Scenario: Narrow scenario verification target is desktop renderer
 - **WHEN** any narrow-tier (`390x844`) scenario in this capability is verified during a release-readiness pass
-- **THEN** the verifier SHALL drive the web SPA in a browser viewport (or equivalent browser automation)
+- **THEN** the verifier SHALL drive the desktop renderer in a browser viewport (or equivalent browser automation)
 - **AND** the verifier SHALL NOT use the Tauri release `.app` as the narrow-tier surface
 
 #### Scenario: Tauri release `.app` is exempt from narrow tier
@@ -153,7 +153,7 @@ This Requirement does not weaken any of the existing narrow-tier scenarios (e.g.
 
 The Tauri release `.app` main window SHALL define a `minWidth` of at least `1024` and a `minHeight` consistent with the existing `responsive-app-shell` desktop and tablet tiers. The window's default `width` × `height` SHALL remain at least the existing tablet tier (`1280x800`) so first-launch lands inside a verified responsive tier.
 
-The desktop product floor SHALL NOT be relaxed solely to enable narrow-tier verification inside the desktop shell — narrow-tier verification has its own surface (web SPA, see prior Requirement).
+The desktop product floor SHALL NOT be relaxed solely to enable narrow-tier verification inside the desktop shell — narrow-tier verification has its own surface (desktop renderer, see prior Requirement).
 
 #### Scenario: Release `.app` window enforces minWidth ≥ 1024
 - **WHEN** the user attempts to drag the desktop release `.app` window to a width below `1024px`
@@ -171,7 +171,7 @@ The desktop product floor SHALL NOT be relaxed solely to enable narrow-tier veri
 
 ### Requirement: App shell SHALL initialize workspace state from URL on first paint
 
-`apps/web/src/App.tsx` SHALL parse `window.location` exactly once on
+`apps/desktop/renderer/src/App.tsx` SHALL parse `window.location` exactly once on
 first render (via `parseInitialUrl()`) and pass the resulting
 `{ workspace, sessionPatch, overlay }` triple as `initial` props to
 `useWorkspaceSessionState({ initial })` and `useOverlayState({ initial })`.
@@ -254,7 +254,7 @@ browser back — instead it SHALL be invoked by the Escape-key
 shortcut, which writes the resulting state via `updateWorkspaceState`
 (URL replace flows through `useUrlSync`).
 
-The hook SHALL remain importable from `apps/web/src/components/workspaces/`
+The hook SHALL remain importable from `apps/desktop/renderer/src/components/workspaces/`
 for backward compatibility but its internal implementation SHALL be
 URL-routing-driven.
 
@@ -304,7 +304,7 @@ SHALL be reflected in the URL through `useUrlSync`. The
 
 ### Requirement: createRouteToPersonnel SHALL drive single URL navigation
 
-`apps/web/src/lib/personnel-routing.ts` `createRouteToPersonnel` SHALL
+`apps/desktop/renderer/src/lib/personnel-routing.ts` `createRouteToPersonnel` SHALL
 build the target URL using the URL serializer, perform exactly one
 navigation step (`history.pushState` or `replaceState` per Decision 4),
 and call `applyParsedUrl` to write through state. It SHALL NOT call
@@ -333,9 +333,9 @@ visibility, drawer behavior, and pane stacking based on the returned
 six surfaces in scope are `SopViewSurface`, `MarketPage`,
 `ActivityLogPage`, `SettingsPage`, `PersonnelPage`, and the office
 workspace's center surface. The hook lives at
-`apps/web/src/components/workspaces/useLayoutTier.ts` and is re-exported
+`apps/desktop/renderer/src/components/workspaces/useLayoutTier.ts` and is re-exported
 from
-`apps/web/src/components/workspaces/useLayoutTier.ts` (re-exported from
+`apps/desktop/renderer/src/components/workspaces/useLayoutTier.ts` (re-exported from
 `@offisim/ui-office/web` for ui-office consumers) and SHALL choose its
 column count, sidebar visibility, drawer behavior, and pane stacking
 based on the returned `LayoutTierConfig.tier` value
@@ -617,11 +617,11 @@ The skeleton's outer block SHALL apply class `workspace-shell-loading-region` wh
 
 ### Requirement: Web shell SHALL preload custom fonts with font-display: swap
 
-`apps/web/index.html` SHALL contain `<link rel="preload" as="font" type="font/woff2" crossorigin>` tags for every custom font referenced by `apps/web/src/index.css` `@font-face` declarations. Each font SHALL be served from a same-origin path under `/fonts/` so the Tauri release `.app` running from `tauri://localhost` can load it without CSP allowlist changes.
+`apps/desktop/renderer/index.html` SHALL contain `<link rel="preload" as="font" type="font/woff2" crossorigin>` tags for every custom font referenced by `apps/desktop/renderer/src/index.css` `@font-face` declarations. Each font SHALL be served from a same-origin path under `/fonts/` so the Tauri release `.app` running from `tauri://localhost` can load it without CSP allowlist changes.
 
 Each `@font-face` block SHALL declare `font-display: swap` so first-paint uses system fallback and the swap to the custom font is non-blocking.
 
-After this change the web shell SHALL preload:
+After this change the desktop renderer shell SHALL preload:
 
 - `Inter` variable woff2 (`/fonts/inter-var.woff2`), weight `100 900`, Latin + Latin Extended subset, ≤ 110 KB.
 - `JetBrains Mono` variable woff2 (`/fonts/jetbrains-mono-var.woff2`), weight `100 800`, Latin subset, ≤ 80 KB.
@@ -630,19 +630,19 @@ Combined preload payload SHALL be ≤ 200 KB.
 
 #### Scenario: Web index.html preloads both fonts
 
-- **WHEN** loading `apps/web/dist/index.html` after build
+- **WHEN** loading `apps/desktop/renderer/dist/index.html` after build
 - **THEN** the document `<head>` SHALL contain `<link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>`
 - **AND** SHALL contain `<link rel="preload" href="/fonts/jetbrains-mono-var.woff2" as="font" type="font/woff2" crossorigin>`
 
 #### Scenario: Both @font-face blocks declare font-display: swap
 
-- **WHEN** auditing `apps/web/src/index.css` `@font-face` blocks
+- **WHEN** auditing `apps/desktop/renderer/src/index.css` `@font-face` blocks
 - **THEN** both Inter and JetBrains Mono blocks SHALL declare `font-display: swap`
 - **AND** `src` URLs SHALL resolve to same-origin `/fonts/*.woff2` paths (no third-party CDN)
 
 #### Scenario: First-paint FOUT is bounded
 
-- **WHEN** loading the web shell at 1440x900 with cache disabled and Slow 3G throttle
+- **WHEN** loading the desktop renderer shell at 1440x900 with cache disabled and Slow 3G throttle
 - **THEN** the cumulative layout shift attributable to font swap SHALL be ≤ 0.10 measured by Chrome DevTools Performance trace
 - **AND** the first contentful paint SHALL render text in system fallback within 100 ms after navigation start
 - **AND** the font preload requests SHALL initiate ≤ 50 ms after navigation start

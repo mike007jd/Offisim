@@ -112,7 +112,7 @@ be a no-op — useful for `InteractionPrompt` (high severity) and
 / `DialogTrigger` / `DialogContent` / `DialogHeader` / `DialogTitle` /
 `DialogDescription` / `DialogClose` exports SHALL NOT exist after this
 change. `packages/ui-core/src/components/dialog.tsx` SHALL be deleted.
-Every product surface (in `@offisim/ui-office`, `apps/web`,
+Every product surface (in `@offisim/ui-office`, `apps/desktop/renderer`,
 `apps/desktop`) that renders a modal dialog SHALL import `DialogShell`
 from `@offisim/ui-core` and render its content through `DialogShell`'s
 slot API (`title`, `description`, `footer`, `children`).

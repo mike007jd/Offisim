@@ -1,23 +1,23 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
-import { executeHandoff } from '../agents/employee-handoff.js';
-import { buildTurnRunner } from '../agents/employee-turn-runner.js';
-import { runToolRound } from '../agents/employee-tool-round.js';
-import { PROMPT_CACHE_VOLATILE_MARKER } from '../agents/employee-prompt-assembly.js';
 import { forkSubContext } from '../a2a/fork-sub-context.js';
+import { executeHandoff } from '../agents/employee-handoff.js';
+import { PROMPT_CACHE_VOLATILE_MARKER } from '../agents/employee-prompt-assembly.js';
+import { runToolRound } from '../agents/employee-tool-round.js';
+import { buildTurnRunner } from '../agents/employee-turn-runner.js';
 import { LlmError } from '../errors.js';
-import type { LlmGateway, LlmMessage, ToolDef } from '../llm/gateway.js';
+import { InMemoryEventBus } from '../events/event-bus.js';
 import { AnthropicAdapter } from '../llm/anthropic-adapter.js';
 import { createGateway } from '../llm/gateway-factory.js';
+import type { LlmGateway, LlmMessage, ToolDef } from '../llm/gateway.js';
 import { ModelRegistry } from '../llm/model-registry.js';
 import { ModelResolver } from '../llm/model-resolver.js';
 import { OpenAiAdapter } from '../llm/openai-adapter.js';
 import { recordedLlmCall } from '../llm/recorded-call.js';
 import { computeDelay } from '../llm/retry.js';
 import { teeStream } from '../llm/stream-tee.js';
-import { LlmMiddlewareChain } from '../middleware/chain.js';
 import { AuditingToolExecutor } from '../mcp/auditing-tool-executor.js';
+import { LlmMiddlewareChain } from '../middleware/chain.js';
 import { ToolPermissionEngine } from '../permissions/tool-permission-engine.js';
-import { InMemoryEventBus } from '../events/event-bus.js';
 import { HookRegistry } from '../runtime/hook-registry.js';
 import { createMemoryRepositories } from '../runtime/memory-repositories.js';
 import { createRuntimeContext } from '../runtime/runtime-context.js';
@@ -30,8 +30,8 @@ import { createEditFileTool } from '../tools/builtin/edit-file-tool.js';
 import { createFileReadTool } from '../tools/builtin/file-read-tool.js';
 import { createFileWriteTool } from '../tools/builtin/file-write-tool.js';
 import { createGlobTool, createGrepTool } from '../tools/builtin/search-tools.js';
-import type { BuiltinToolConfig, FsAdapter } from '../tools/builtin/types.js';
 import { classifyShellCommand } from '../tools/builtin/shell-command-classifier.js';
+import type { BuiltinToolConfig, FsAdapter } from '../tools/builtin/types.js';
 import { capToolResultForModel, readToolResultSpill } from '../tools/tool-result-size.js';
 import { validateToolInput } from '../tools/tool-schema-validator.js';
 
@@ -160,7 +160,10 @@ async function assertPromptCacheBoundary(): Promise<Record<string, unknown>> {
   );
   assert(hasCacheControl(anthropicBody.system), 'System stable prefix lacks cache_control.');
   assert(hasCacheControl(anthropicBody.tools), 'Tool block lacks cache_control.');
-  assert(hasCacheControl(anthropicBody.messages), 'Rolling conversation message lacks cache_control.');
+  assert(
+    hasCacheControl(anthropicBody.messages),
+    'Rolling conversation message lacks cache_control.',
+  );
 
   // Audit regression: in a tool-heavy agent loop the rolling breakpoint must
   // roll forward over tool_use/tool_result (stable history), not collapse to an
@@ -171,9 +174,17 @@ async function assertPromptCacheBoundary(): Promise<Record<string, unknown>> {
     messages: [
       { role: 'system', content: `Stable\n${PROMPT_CACHE_VOLATILE_MARKER}\nVolatile` },
       { role: 'user', content: 'inspect the repo' },
-      { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'read_file', arguments: { path: 'a' } }] },
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [{ id: 'c1', name: 'read_file', arguments: { path: 'a' } }],
+      },
       { role: 'tool', content: 'file a contents', toolCallId: 'c1' },
-      { role: 'assistant', content: '', toolCalls: [{ id: 'c2', name: 'read_file', arguments: { path: 'b' } }] },
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [{ id: 'c2', name: 'read_file', arguments: { path: 'b' } }],
+      },
       { role: 'tool', content: 'file b contents', toolCallId: 'c2' },
       { role: 'user', content: 'fresh volatile follow-up' },
     ],
@@ -229,7 +240,10 @@ async function assertPromptCacheBoundary(): Promise<Record<string, unknown>> {
     tools: [tool],
   });
   const openAiSerialized = JSON.stringify(openAiBodies[0]);
-  assert(!openAiSerialized.includes('cache_control'), 'OpenAI-compatible route leaked cache_control.');
+  assert(
+    !openAiSerialized.includes('cache_control'),
+    'OpenAI-compatible route leaked cache_control.',
+  );
   assert(
     !openAiSerialized.includes(PROMPT_CACHE_VOLATILE_MARKER),
     'OpenAI-compatible route leaked cache marker.',
@@ -319,10 +333,7 @@ async function assertShellInteractionAskFlow(): Promise<Record<string, unknown>>
     },
   });
   assert(bash, 'bash tool not created.');
-  await expectReject(
-    () => bash.execute({ command: 'rm -rf ./build' }),
-    'TOOL_PERMISSION_REQUIRED',
-  );
+  await expectReject(() => bash.execute({ command: 'rm -rf ./build' }), 'TOOL_PERMISSION_REQUIRED');
   await bash.execute({ command: 'rm -rf ./build', [BASH_DESTRUCTIVE_APPROVED_ARG]: true });
   assert(shellRan, 'Approved destructive bash command did not execute.');
 
@@ -331,7 +342,10 @@ async function assertShellInteractionAskFlow(): Promise<Record<string, unknown>>
     shellCall('rm -rf ./build'),
   );
   assert(approved.success === true, 'Approved destructive shell command did not continue.');
-  assert(approvedInner.executed === 1, 'Approved destructive shell command did not reach inner executor.');
+  assert(
+    approvedInner.executed === 1,
+    'Approved destructive shell command did not reach inner executor.',
+  );
   assert(
     approvedInner.lastArguments?.[BASH_DESTRUCTIVE_APPROVED_ARG] === true,
     'Approved destructive shell command was not marked for bash execution.',
@@ -342,26 +356,41 @@ async function assertShellInteractionAskFlow(): Promise<Record<string, unknown>>
     shellCall('rm -rf ./build'),
   );
   assert(denied.success === false, 'Rejected destructive shell command succeeded.');
-  assert(String(denied.error).includes('TOOL_PERMISSION_DENIED'), 'Rejected shell error code mismatch.');
+  assert(
+    String(denied.error).includes('TOOL_PERMISSION_DENIED'),
+    'Rejected shell error code mismatch.',
+  );
   assert(deniedInner.executed === 0, 'Rejected destructive shell command reached inner executor.');
 
   const nonInteractiveInner = new RecordingInnerToolExecutor('noninteractive');
-  const nonInteractive = await createAuditedShellExecutor(nonInteractiveInner, 'noninteractive').execute(
-    shellCall('rm -rf ./build'),
-  );
+  const nonInteractive = await createAuditedShellExecutor(
+    nonInteractiveInner,
+    'noninteractive',
+  ).execute(shellCall('rm -rf ./build'));
   assert(nonInteractive.success === false, 'Non-interactive destructive shell command succeeded.');
   assert(
     String(nonInteractive.error).includes('TOOL_PERMISSION_REQUIRED'),
     'Non-interactive shell did not fail closed with permission-required.',
   );
-  assert(nonInteractiveInner.executed === 0, 'Non-interactive shell command reached inner executor.');
-
-  const catastrophic = await createAuditedShellExecutor(new RecordingInnerToolExecutor('cat'), 'approve_once').execute(
-    shellCall('rm -rf /'),
+  assert(
+    nonInteractiveInner.executed === 0,
+    'Non-interactive shell command reached inner executor.',
   );
+
+  const catastrophic = await createAuditedShellExecutor(
+    new RecordingInnerToolExecutor('cat'),
+    'approve_once',
+  ).execute(shellCall('rm -rf /'));
   assert(catastrophic.success === false, 'Catastrophic shell command was not denied.');
-  assert(String(catastrophic.error).includes('TOOL_PERMISSION_DENIED'), 'Catastrophic error code mismatch.');
-  return { approved: approved.success, denied: denied.success, nonInteractive: nonInteractive.success };
+  assert(
+    String(catastrophic.error).includes('TOOL_PERMISSION_DENIED'),
+    'Catastrophic error code mismatch.',
+  );
+  return {
+    approved: approved.success,
+    denied: denied.success,
+    nonInteractive: nonInteractive.success,
+  };
 }
 
 function assertContextBudgetBoundary(): Record<string, unknown> {
@@ -446,7 +475,11 @@ async function assertContextOverflowRecoveryAndToolBoundary(): Promise<Record<st
 
   const cut = toolPairSafeCutIndex(
     [
-      { role: 'assistant', content: '', toolCalls: [{ id: 'call-1', name: 'read_file', arguments: {} }] },
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [{ id: 'call-1', name: 'read_file', arguments: {} }],
+      },
       { role: 'tool', content: 'result', toolCallId: 'call-1' },
       { role: 'user', content: 'next' },
     ],
@@ -517,7 +550,10 @@ async function assertLoopTruncationAbortCheckpoint(): Promise<Record<string, unk
   });
   assert(outcome.kind === 'continue', 'Abort reconciliation did not return a continued history.');
   const toolMessages = outcome.nextHistory.filter((message) => message.role === 'tool');
-  assert(toolMessages.length === 2, `Expected 2 synthetic tool results, saw ${toolMessages.length}.`);
+  assert(
+    toolMessages.length === 2,
+    `Expected 2 synthetic tool results, saw ${toolMessages.length}.`,
+  );
   assert(
     toolMessages.map((message) => message.toolCallId).join(',') === 'call-a,call-b',
     'Synthetic tool results do not match in-flight tool_use ids.',
@@ -595,7 +631,10 @@ async function assertCoreEditSearchBuiltins(): Promise<Record<string, unknown>> 
   assert(read && write && edit && glob && grep, 'Expected read/write/edit/glob/grep builtins.');
   const numbered = String(await read.execute({ path: 'src/raw.txt' }));
   const raw = String(await read.execute({ path: 'src/raw.txt', raw: true }));
-  assert(numbered.startsWith('1\tfirst line'), 'Default read_file should preserve line-numbered output.');
+  assert(
+    numbered.startsWith('1\tfirst line'),
+    'Default read_file should preserve line-numbered output.',
+  );
   assert(raw === 'first line\nsecond line\n', 'Raw read_file did not return exact file content.');
   await write.execute({
     path: 'src/raw.txt',
@@ -617,7 +656,10 @@ async function assertCoreEditSearchBuiltins(): Promise<Record<string, unknown>> 
   );
   const globResult = String(await glob.execute({ pattern: '**/*.ts', path: 'src' }));
   const grepResult = String(await grep.execute({ pattern: 'beta', path: 'src' }));
-  assert(globResult.includes('src/a.ts') && globResult.includes('src/b.ts'), 'Glob missed scoped files.');
+  assert(
+    globResult.includes('src/a.ts') && globResult.includes('src/b.ts'),
+    'Glob missed scoped files.',
+  );
   assert(grepResult.includes('src/a.ts:2:'), 'Grep missed line-numbered match.');
   return { globResult, grepResult };
 }
@@ -665,8 +707,14 @@ async function assertRetryStopReasonAndFallback(): Promise<Record<string, unknow
       },
     ],
   });
-  assert(registry.resolveForRequest('unknown')?.id === 'primary', 'Unknown model did not fall back.');
-  assert(registry.recordCapacityError('primary') === null, 'First capacity error downgraded too early.');
+  assert(
+    registry.resolveForRequest('unknown')?.id === 'primary',
+    'Unknown model did not fall back.',
+  );
+  assert(
+    registry.recordCapacityError('primary') === null,
+    'First capacity error downgraded too early.',
+  );
   const fallback = registry.recordCapacityError('primary');
   assert(fallback?.id === 'fallback', 'Repeated capacity errors did not downgrade.');
   assert(
@@ -743,7 +791,10 @@ async function assertRetryStopReasonAndFallback(): Promise<Record<string, unknow
   );
   const recorded = (await repos.llmCalls.findByThread('thread-gap'))[0];
   const usage = usageEvents[0]?.payload as { model?: string } | undefined;
-  assert(recorded?.model === 'fallback-model', 'Persisted LLM call did not use actual fallback model.');
+  assert(
+    recorded?.model === 'fallback-model',
+    'Persisted LLM call did not use actual fallback model.',
+  );
   assert(usage?.model === 'fallback-model', 'Usage event did not use actual fallback model.');
   return {
     retryAfter,
@@ -770,7 +821,11 @@ async function assertHookPermissionBoundary(): Promise<Record<string, unknown>> 
       }
     },
   });
-  const denied = await hookRegistry.runToolBefore({ toolName: 'deny_me', input: {}, threadId: 't' });
+  const denied = await hookRegistry.runToolBefore({
+    toolName: 'deny_me',
+    input: {},
+    threadId: 't',
+  });
   assert(denied?.blocked === true, 'tool.before deny was not observed.');
   const rewritten = await hookRegistry.runToolBefore({
     toolName: 'rewrite_me',
@@ -867,11 +922,21 @@ async function assertIsolatedSubRunPrimitive(): Promise<Record<string, unknown>>
     },
   });
   assert(childMessages.length === 1, 'Child context was not fresh.');
-  assert(!childMessages.some((message) => message.content.includes(parentSecret)), 'Parent secret leaked.');
-  assert(childTools.length === 1 && childTools[0]?.name === 'read_file', 'Scoped tools not passed.');
+  assert(
+    !childMessages.some((message) => message.content.includes(parentSecret)),
+    'Parent secret leaked.',
+  );
+  assert(
+    childTools.length === 1 && childTools[0]?.name === 'read_file',
+    'Scoped tools not passed.',
+  );
   assert(!JSON.stringify(result).includes(parentSecret), 'Parent received child transcript.');
   assert(result.summary === 'Scoped summary only.', 'Typed summary handoff missing.');
-  return { childMessages: childMessages.length, scopedTools: childTools.length, summary: result.summary };
+  return {
+    childMessages: childMessages.length,
+    scopedTools: childTools.length,
+    summary: result.summary,
+  };
 }
 
 async function assertIsolatedHandoffRouting(): Promise<Record<string, unknown>> {
@@ -937,7 +1002,10 @@ async function assertIsolatedHandoffRouting(): Promise<Record<string, unknown>> 
     currentStepOutputs?: Array<{ employeeId: string; content: string }>;
     handoffCount?: number;
   };
-  assert(update.pendingAssignments?.length === 0, 'Handoff still routed through shared pendingAssignments.');
+  assert(
+    update.pendingAssignments?.length === 0,
+    'Handoff still routed through shared pendingAssignments.',
+  );
   assert(update.handoffCount === 1, 'Handoff count not incremented.');
   assert(
     update.currentStepOutputs?.some(
@@ -956,7 +1024,10 @@ async function assertIsolatedHandoffRouting(): Promise<Record<string, unknown>> 
     (row) => row.employee_id === 'emp-target',
   );
   assert(targetTask?.status === 'completed', 'Isolated target task run was not completed.');
-  assert(targetTask.output_json?.includes('isolatedSubRun'), 'Target task output lacks sub-run marker.');
+  assert(
+    targetTask.output_json?.includes('isolatedSubRun'),
+    'Target task output lacks sub-run marker.',
+  );
   return {
     childRequests: mutableChildRequests.length,
     pendingAssignments: update.pendingAssignments?.length ?? 0,
@@ -992,7 +1063,10 @@ async function expectReject(fn: () => Promise<unknown>, includes: string): Promi
     await fn();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    assert(message.includes(includes), `Expected rejection to include ${includes}, got ${message}.`);
+    assert(
+      message.includes(includes),
+      `Expected rejection to include ${includes}, got ${message}.`,
+    );
     return;
   }
   throw new Error(`Expected operation to reject with ${includes}.`);
@@ -1012,7 +1086,10 @@ function createFixtureFs(files: Record<string, string>): FsAdapter {
     },
     async listDir(path) {
       const normalized = path.replace(/\/+$/u, '');
-      const children = new Map<string, { name: string; path: string; isFile: boolean; isDirectory: boolean }>();
+      const children = new Map<
+        string,
+        { name: string; path: string; isFile: boolean; isDirectory: boolean }
+      >();
       for (const filePath of Object.keys(files)) {
         if (filePath === normalized) continue;
         if (!filePath.startsWith(`${normalized}/`)) continue;
@@ -1100,12 +1177,14 @@ function scenarioState(overrides: Record<string, unknown> = {}) {
   } as never;
 }
 
-function createScenarioRuntime(options: {
-  readonly repos?: ReturnType<typeof createMemoryRepositories>;
-  readonly llmGateway?: LlmGateway;
-  readonly toolExecutor?: ToolExecutor;
-  readonly middlewareChain?: LlmMiddlewareChain;
-} = {}) {
+function createScenarioRuntime(
+  options: {
+    readonly repos?: ReturnType<typeof createMemoryRepositories>;
+    readonly llmGateway?: LlmGateway;
+    readonly toolExecutor?: ToolExecutor;
+    readonly middlewareChain?: LlmMiddlewareChain;
+  } = {},
+) {
   return createRuntimeContext({
     repos: options.repos ?? createMemoryRepositories(),
     eventBus: new InMemoryEventBus(),

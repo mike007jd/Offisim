@@ -5,7 +5,7 @@ import type {
   ToolExecutionTelemetryPayload,
 } from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
-import { useOffisimRuntime } from './offisim-runtime-context';
+import { useOffisimRuntimeServices } from './offisim-runtime-context';
 
 type SystemTone = 'info' | 'warning';
 
@@ -79,7 +79,7 @@ export function useSystemMessageFeed(): {
   entries: SystemMessageEntry[];
   hasMessages: boolean;
 } {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const [entries, setEntries] = useState<SystemMessageEntry[]>([]);
 
   useEffect(() => {

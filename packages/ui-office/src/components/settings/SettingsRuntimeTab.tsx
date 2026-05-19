@@ -144,7 +144,6 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
               <SelectContent>
                 <SelectItem value="auto">Auto</SelectItem>
                 <SelectItem value="desktop-trusted">Desktop trusted</SelectItem>
-                <SelectItem value="browser-limited">Browser limited</SelectItem>
               </SelectContent>
             </Select>
           </div>

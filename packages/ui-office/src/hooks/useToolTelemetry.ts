@@ -1,6 +1,6 @@
 import type { ToolExecutionTelemetryPayload } from '@offisim/shared-types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context';
 
 const MAX_ENTRIES = 50;
 
@@ -13,7 +13,7 @@ export interface ToolTelemetryStats {
 }
 
 export function useToolTelemetry(threadId: string | null) {
-  const { toolTelemetryService, eventBus } = useOffisimRuntime();
+  const { toolTelemetryService, eventBus } = useOffisimRuntimeServices();
   const [entries, setEntries] = useState<ToolExecutionTelemetryPayload[]>([]);
 
   // Load historical entries from service

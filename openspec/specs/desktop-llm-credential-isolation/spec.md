@@ -30,7 +30,7 @@ If a selected product requires trusted-host local auth and the current host cann
 Offisim SHALL NOT silently rewrite such a product into an API-key product or browser-direct route.
 
 #### Scenario: Codex is unavailable on webview-only host
-- **WHEN** the selected product is `codex` and the active host is `browser-limited`
+- **WHEN** the selected product is `codex` and the active host is `desktop-trusted`
 - **THEN** runtime init reports `product unavailable on current host`
 - **AND** no outbound request is attempted
 
@@ -70,13 +70,13 @@ All Tauri-mode outbound LLM work SHALL route through a Rust-owned bridge selecte
 Direct `globalThis.fetch(<provider-endpoint>)` / `new XMLHttpRequest()` / any other transport from webview to provider endpoints SHALL NOT occur in the Tauri code path.
 
 #### Scenario: Single transport hook in Tauri factory
-- **WHEN** auditing `apps/web/src/lib/tauri-runtime.ts`'s `createGateway({...})` call
+- **WHEN** auditing `apps/desktop/renderer/src/lib/tauri-runtime.ts`'s `createGateway({...})` call
 - **THEN** `fetch: createTauriLlmFetch(...)` is passed in every branch
 - **AND** `apiKey` is a non-credential placeholder
 
 #### Scenario: Claude lane routes through trusted host command
 - **WHEN** a Tauri runtime selects `executionLane = "claude-agent-sdk"`
-- **THEN** `apps/web/src/lib/tauri-runtime.ts` binds a `TauriClaudeAgentSdkGateway`, not a browser-direct SDK client
+- **THEN** `apps/desktop/renderer/src/lib/tauri-runtime.ts` binds a `TauriClaudeAgentSdkGateway`, not a browser-direct SDK client
 - **AND** each request invokes `claude_agent_execute`
 - **AND** the provider secret is injected only inside `claude_agent_host.rs`, not in webview JavaScript
 

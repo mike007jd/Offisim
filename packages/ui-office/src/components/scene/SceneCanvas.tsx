@@ -1,8 +1,8 @@
 import React, { Suspense, lazy, useEffect, useReducer, useRef } from 'react';
 import { IDLE_CEREMONY } from '../../hooks/useSceneOrchestrator.js';
-import { useCompany } from '../company/CompanyContext.js';
 import { useEmployeePerformanceCues } from '../../runtime/employee-performance-cues.js';
 import { useSceneCeremony } from '../../runtime/scene-ceremony-context.js';
+import { useCompany } from '../company/CompanyContext.js';
 import { PerformanceHUD } from './PerformanceHUD';
 import { SceneErrorPanel } from './scene-error-panel.js';
 import { SceneFallbackBadge } from './scene-fallback-badge.js';

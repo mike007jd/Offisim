@@ -3,7 +3,7 @@ import { Button } from '@offisim/ui-core';
 import { ExternalLink, FolderOpen, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { isFolderPickerAvailable, revealWorkspaceFolder } from '../../lib/folder-picker.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { ProjectWorkspaceFiles } from './ProjectWorkspaceFiles.js';
 
 export function ProjectSelectedSummary({
@@ -17,7 +17,7 @@ export function ProjectSelectedSummary({
   onError?: (message: string) => void;
   showWorkspaceFiles?: boolean;
 }) {
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const [threadCount, setThreadCount] = useState<number | null>(null);
   const [openingFolder, setOpeningFolder] = useState(false);
   const canOpenFolder = isFolderPickerAvailable() && Boolean(project.workspace_root);

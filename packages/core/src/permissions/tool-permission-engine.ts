@@ -199,7 +199,11 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
     const policy = this.deps.runtimePolicy?.toolPermissions;
     if (!policy?.enabled) return null;
 
-    const identities = buildRuntimeIdentities(request.serverName, request.toolName, request.arguments);
+    const identities = buildRuntimeIdentities(
+      request.serverName,
+      request.toolName,
+      request.arguments,
+    );
     const matchedRule = [...policy.rules]
       .filter((rule) => identities.some((identity) => globToRegex(rule.pattern).test(identity)))
       .sort((a, b) => b.pattern.length - a.pattern.length)[0];

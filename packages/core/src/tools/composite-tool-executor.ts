@@ -2,9 +2,9 @@ import type { ToolDef } from '../llm/gateway.js';
 import type { ToolCallRequest, ToolCallResponse, ToolExecutor } from '../runtime/tool-executor.js';
 import { Logger } from '../services/logger.js';
 import type { BuiltinTool, BuiltinToolExecutionContext } from './builtin/types.js';
+import type { RuntimeToolType } from './tool-registry.js';
 import { capToolResultForModel } from './tool-result-size.js';
 import { validateToolInput } from './tool-schema-validator.js';
-import type { RuntimeToolType } from './tool-registry.js';
 
 const logger = new Logger('composite-tool');
 

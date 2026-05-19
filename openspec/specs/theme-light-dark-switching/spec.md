@@ -44,7 +44,7 @@ The constant for the storage key SHALL be exported (or co-located) with the `The
 
 #### Scenario: First-time visitor defaults to system
 
-- **WHEN** a fresh browser session loads `apps/web` and `localStorage.getItem('offisim.theme')` returns `null`
+- **WHEN** a fresh browser session loads `apps/desktop/renderer` and `localStorage.getItem('offisim.theme')` returns `null`
 - **THEN** `useTheme().theme === 'system'` and `resolvedTheme` matches OS preference
 
 #### Scenario: Setting theme to dark persists
@@ -80,7 +80,7 @@ When `theme === 'system'`, `ThemeProvider` SHALL call `window.matchMedia('(prefe
 
 ### Requirement: Pre-hydration inline script SHALL apply the theme before React mounts
 
-`apps/web/index.html` SHALL contain an inline `<script>` block in `<head>` that runs before any module bundle loads. The script SHALL:
+`apps/desktop/renderer/index.html` SHALL contain an inline `<script>` block in `<head>` that runs before any module bundle loads. The script SHALL:
 
 1. Read `localStorage.getItem('offisim.theme')`
 2. If absent or invalid, default to `'system'`
@@ -90,7 +90,7 @@ When `theme === 'system'`, `ThemeProvider` SHALL call `window.matchMedia('(prefe
 
 The script SHALL be ≤ 256 characters minified, SHALL have no external dependencies, and SHALL run synchronously.
 
-The same `index.html` SHALL be served by both the web build (`apps/web/dist/index.html`) and the Tauri release WebView (which loads from `apps/web/dist/`).
+The same `index.html` SHALL be served by both the web build (`apps/desktop/renderer/dist/index.html`) and the Tauri release WebView (which loads from `apps/desktop/renderer/dist/`).
 
 #### Scenario: Page loads without flash in dark mode
 
@@ -136,7 +136,7 @@ The Tailwind theme keys (`@theme inline`) SHALL reference only the `-val` variab
 
 #### Scenario: Both scopes are present in the generated CSS
 
-- **WHEN** reading `apps/web/src/generated/tailwind-theme.css`
+- **WHEN** reading `apps/desktop/renderer/src/generated/tailwind-theme.css`
 - **THEN** the file contains both `:root {` and `:root.dark {` blocks, each with the same set of `--color-*-val` and `--shadow-*-val` variable assignments
 
 #### Scenario: Toggling the dark class flips every token
@@ -212,7 +212,7 @@ Touched Tailwind utility classes (semantic colors like `bg-surface`, `text-text-
 
 ### Requirement: Force-dark legacy code SHALL be removed
 
-The legacy `useEffect` in `packages/ui-office/src/theme/theme-provider.tsx` that calls `root.classList.add('dark'); root.classList.remove('light')` unconditionally SHALL be removed. The legacy literal `type Theme = 'dark'` SHALL be removed. The hand-authored "dark-only" comment in `apps/web/src/index.css` SHALL be replaced with a comment explaining that theme variables are emitted from `@offisim/ui-core/tokens`.
+The legacy `useEffect` in `packages/ui-office/src/theme/theme-provider.tsx` that calls `root.classList.add('dark'); root.classList.remove('light')` unconditionally SHALL be removed. The legacy literal `type Theme = 'dark'` SHALL be removed. The hand-authored "dark-only" comment in `apps/desktop/renderer/src/index.css` SHALL be replaced with a comment explaining that theme variables are emitted from `@offisim/ui-core/tokens`.
 
 `packages/ui-office/src/theme/use-scene-colors.ts` SHALL no longer contain the inline `DARK_SCENE` constant — the file is reduced to the hook implementation calling into `@offisim/ui-core/tokens`.
 

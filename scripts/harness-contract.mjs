@@ -430,7 +430,7 @@ function assertCompletionEvidenceFamilies(completionVerifier) {
 
 function assertCodexFullAgentRequestGuards() {
   const adapterSource = readFileSync(
-    resolve(ROOT, 'apps/web/src/lib/tauri-engine-adapters.ts'),
+    resolve(ROOT, 'apps/desktop/renderer/src/lib/tauri-engine-adapters.ts'),
     'utf8',
   );
   if (!/model:\s*envelope\.model/u.test(adapterSource)) {

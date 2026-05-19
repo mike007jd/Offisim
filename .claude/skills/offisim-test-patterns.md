@@ -2,7 +2,7 @@
 
 > **When to use:** Creating or editing deterministic harness scenarios, migrating legacy tests, or adding focused coverage for repositories, runtime orchestration, zones, renderer layout, workspace navigation, or UI-office hooks/components.
 
-Current architecture decision: Offisim is Tauri v2 desktop-only. `apps/web` is only a legacy renderer path until code moves under `apps/desktop/renderer`; do not add product validation that treats standalone web as a product surface.
+Current architecture decision: Offisim is Tauri v2 desktop-only. Renderer code lives under `apps/desktop/renderer`; do not add product validation that treats standalone web as a product surface.
 
 Use the repo's existing test scaffolds instead of inventing new fixtures.
 
@@ -29,7 +29,7 @@ Use the repo's existing test scaffolds instead of inventing new fixtures.
 
 ## Workspace IA Patterns
 
-- Workspace session state coverage belongs to the desktop renderer target `apps/desktop/renderer/src/components/workspaces/`; if code still lives under `apps/web/src/components/workspaces/`, treat that as a temporary legacy renderer location.
+- Workspace session state coverage belongs to the desktop renderer target `apps/desktop/renderer/src/components/workspaces/`.
 - `useWorkspaceSessionState.test.ts` — tests session state preservation across workspace switches.
 - `useWorkspaceBackNavigation.test.ts` — tests browser history integration and back unwind ordering.
 - `WorkspaceRouter.test.ts` — tests workspace exclusivity (exactly one workspace mounted at a time).

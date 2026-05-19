@@ -13,12 +13,15 @@ import { Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   listDesktopMcpServers,
-  loadStoredBrowserMcpServers,
+  loadStoredLocalMcpServers,
   registerDesktopMcpServer,
   unregisterDesktopMcpServer,
 } from '../../lib/desktop-mcp-registry';
 import { isTauri } from '../../lib/env';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import {
+  useOffisimRuntimeExecution,
+  useOffisimRuntimeServices,
+} from '../../runtime/offisim-runtime-context';
 import { SettingsSection, surfaceInputProps } from './settings-primitives';
 
 type DesktopCoreMcpServerConfig = CoreMcpServerConfig & {
@@ -55,7 +58,7 @@ interface PendingStdioConfirmation {
 const STORAGE_KEY = 'offisim:mcp-servers';
 
 function loadMcpServers(): McpServerConfig[] {
-  return loadStoredBrowserMcpServers().map((server) => ({
+  return loadStoredLocalMcpServers().map((server) => ({
     name: server.name,
     transport: server.transport,
     command: server.command,
@@ -98,8 +101,9 @@ function serverKey(server: McpServerConfig): string {
 }
 
 export function McpConfigPanel() {
-  const { connectMcpServer, disconnectMcpServer, connectedMcpServers, isReady } =
-    useOffisimRuntime();
+  const { connectMcpServer, disconnectMcpServer, connectedMcpServers } =
+    useOffisimRuntimeServices();
+  const { isReady } = useOffisimRuntimeExecution();
   const [servers, setServers] = useState<McpServerConfig[]>(loadMcpServers);
   const [connecting, setConnecting] = useState<string | null>(null);
 

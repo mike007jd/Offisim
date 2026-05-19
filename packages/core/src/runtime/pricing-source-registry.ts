@@ -61,9 +61,7 @@ export class PricingSourceRegistry {
     const inputCost =
       (input.inputTokens / 1_000_000) * resolution.inputCostPerMTok +
       ((input.cacheReadInputTokens ?? 0) / 1_000_000) * resolution.inputCostPerMTok * 0.1 +
-      ((input.cacheCreationInputTokens ?? 0) / 1_000_000) *
-        resolution.inputCostPerMTok *
-        1.25;
+      ((input.cacheCreationInputTokens ?? 0) / 1_000_000) * resolution.inputCostPerMTok * 1.25;
     const outputCost = (input.outputTokens / 1_000_000) * resolution.outputCostPerMTok;
     return {
       inputCost,

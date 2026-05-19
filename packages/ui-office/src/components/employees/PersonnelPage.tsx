@@ -26,7 +26,7 @@ import { useEmployeeEditor } from '../../hooks/useEmployeeEditor';
 import { lookupExternalBrand } from '../../lib/brand-registry';
 import { ROLE_LABELS, ROLE_OPTIONS } from '../../lib/roles';
 import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
 import { AppearanceTab } from './personnel-tabs/AppearanceTab';
@@ -65,7 +65,7 @@ export function PersonnelPage({
   onOpenCreator,
   onOpenMarket,
 }: PersonnelPageProps) {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const editor = useEmployeeEditor();
   const { tier } = useLayoutTier();

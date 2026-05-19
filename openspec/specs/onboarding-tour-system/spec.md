@@ -8,7 +8,7 @@ TBD - created by archiving change add-workspace-narrow-tier-and-states. Update P
 `packages/ui-office/src/components/onboarding/OnboardingTour.tsx` SHALL
 be the only component that renders first-run guidance hints, the
 highlight ring, and the progress indicator. The legacy
-`apps/web/src/components/OnboardingController.tsx` SHALL be deleted (or
+`apps/desktop/renderer/src/components/OnboardingController.tsx` SHALL be deleted (or
 reduced to a thin shim that mounts `OnboardingTour`); no other
 component SHALL render onboarding hints.
 
@@ -24,10 +24,10 @@ target's bounding rect AND a hint card with title, body, progress
 indicator, and Back / Next / Skip controls.
 
 #### Scenario: Legacy OnboardingController is removed
-- **WHEN** grepping `apps/web/src/components/OnboardingController.tsx`
+- **WHEN** grepping `apps/desktop/renderer/src/components/OnboardingController.tsx`
 - **THEN** the file SHALL either not exist or contain only a thin shim
   that imports and renders `<OnboardingTour />`
-- **AND** grepping `apps/web/src` for `data-onboarding-target=` SHALL
+- **AND** grepping `apps/desktop/renderer/src` for `data-onboarding-target=` SHALL
   return zero matches
 
 #### Scenario: OnboardingTour renders only when active step exists
@@ -304,7 +304,7 @@ the user to the existing Settings flow via the tour's first step.
 
 ### Requirement: Tour state SHALL migrate from legacy onboarding slots
 
-`apps/web/src/lib/onboarding-store.ts` SHALL contain a one-shot
+`apps/desktop/renderer/src/lib/onboarding-store.ts` SHALL contain a one-shot
 migration that runs at module init:
 
 - If `account.provider_configured === true`, mark

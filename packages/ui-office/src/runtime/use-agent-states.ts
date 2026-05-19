@@ -27,7 +27,7 @@ function appearanceEqual(a: EmployeeAppearance | null, b: EmployeeAppearance | n
   );
 }
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from './offisim-runtime-context';
+import { useOffisimRuntimeServices } from './offisim-runtime-context';
 
 export interface AgentTaskInfo {
   stepLabel: string;
@@ -107,11 +107,9 @@ function buildAgentStateMap(
  * responds to employee.created / employee.updated / employee.deleted events.
  */
 export function useAgentStates(): Map<string, AgentState> {
-  const { eventBus, repos, bootstrapState } = useOffisimRuntime();
+  const { eventBus, repos } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
-  const [agents, setAgents] = useState<Map<string, AgentState>>(() =>
-    buildAgentStateMap(activeCompanyId, bootstrapState?.reposSnapshot?.employees ?? []),
-  );
+  const [agents, setAgents] = useState<Map<string, AgentState>>(new Map());
 
   // Keep latest repos in a ref so the long-lived event subscriptions below
   // don't need to re-bind on every repo swap.
@@ -121,10 +119,10 @@ export function useAgentStates(): Map<string, AgentState> {
   }, [repos]);
 
   useEffect(() => {
-    const bootstrapEmployees = bootstrapState?.reposSnapshot?.employees ?? [];
-    setAgents((prev) => buildAgentStateMap(activeCompanyId, bootstrapEmployees, prev));
-
-    if (!repos || !activeCompanyId) return;
+    if (!repos || !activeCompanyId) {
+      setAgents(new Map());
+      return;
+    }
     let cancelled = false;
     repos.employees.findByCompany(activeCompanyId).then((rows) => {
       if (cancelled) return;
@@ -135,7 +133,7 @@ export function useAgentStates(): Map<string, AgentState> {
     return () => {
       cancelled = true;
     };
-  }, [repos, activeCompanyId, bootstrapState]);
+  }, [repos, activeCompanyId]);
 
   useEffect(() => {
     // Employee state changes (runtime activity)

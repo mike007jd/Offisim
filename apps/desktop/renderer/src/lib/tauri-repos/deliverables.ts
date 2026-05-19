@@ -1,0 +1,145 @@
+import type {
+  DeliverableRepository,
+  DeliverableRow,
+  DeliverableSummaryRow,
+  NewDeliverable,
+} from '@offisim/core/browser';
+import { coerceDeliverableKind } from '@offisim/core/browser';
+import * as schema from '@offisim/db-local';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
+import type { TauriDrizzleDb } from '../tauri-drizzle';
+
+const DEFAULT_LIST_LIMIT = 100;
+
+export interface DeliverablesTauriRepos {
+  deliverables: DeliverableRepository;
+}
+
+function rowToFull(row: {
+  deliverable_id: string;
+  company_id: string;
+  thread_id: string | null;
+  chat_thread_id?: string | null;
+  title: string;
+  content: string;
+  kind: string | null;
+  file_name: string | null;
+  mime_type: string | null;
+  contributors_json: string;
+  created_at: string;
+}): DeliverableRow {
+  return {
+    deliverable_id: row.deliverable_id,
+    company_id: row.company_id,
+    thread_id: row.thread_id,
+    chat_thread_id: row.chat_thread_id ?? null,
+    title: row.title,
+    content: row.content,
+    kind: coerceDeliverableKind(row.kind),
+    file_name: row.file_name,
+    mime_type: row.mime_type,
+    contributors_json: row.contributors_json,
+    created_at: row.created_at,
+  };
+}
+
+function rowToSummary(row: {
+  deliverable_id: string;
+  company_id: string;
+  thread_id: string | null;
+  chat_thread_id?: string | null;
+  title: string;
+  kind: string | null;
+  file_name: string | null;
+  mime_type: string | null;
+  contributors_json: string;
+  created_at: string;
+  content_size: number;
+}): DeliverableSummaryRow {
+  return {
+    deliverable_id: row.deliverable_id,
+    company_id: row.company_id,
+    thread_id: row.thread_id,
+    chat_thread_id: row.chat_thread_id ?? null,
+    title: row.title,
+    kind: coerceDeliverableKind(row.kind),
+    file_name: row.file_name,
+    mime_type: row.mime_type,
+    contributors_json: row.contributors_json,
+    created_at: row.created_at,
+    content_size: row.content_size ?? 0,
+  };
+}
+
+export function createDeliverablesTauriRepos(db: TauriDrizzleDb): DeliverablesTauriRepos {
+  const deliverables: DeliverableRepository = {
+    async insert(row: NewDeliverable) {
+      await db
+        .insert(schema.deliverables)
+        .values(row)
+        .onConflictDoNothing({ target: schema.deliverables.deliverable_id });
+    },
+    async findById(deliverableId) {
+      const rows = (await db
+        .select()
+        .from(schema.deliverables)
+        .where(eq(schema.deliverables.deliverable_id, deliverableId))) as Array<
+        Parameters<typeof rowToFull>[0]
+      >;
+      const first = rows[0];
+      return first ? rowToFull(first) : null;
+    },
+    async listByCompany(companyId, opts) {
+      const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
+      const threadClause = opts?.threadId
+        ? or(
+            eq(schema.deliverables.thread_id, opts.threadId),
+            eq(schema.deliverables.chat_thread_id, opts.threadId),
+          )
+        : undefined;
+      const whereClause = threadClause
+        ? and(eq(schema.deliverables.company_id, companyId), threadClause)
+        : eq(schema.deliverables.company_id, companyId);
+      const rows = (await db
+        .select({
+          deliverable_id: schema.deliverables.deliverable_id,
+          company_id: schema.deliverables.company_id,
+          thread_id: schema.deliverables.thread_id,
+          chat_thread_id: schema.deliverables.chat_thread_id,
+          title: schema.deliverables.title,
+          kind: schema.deliverables.kind,
+          file_name: schema.deliverables.file_name,
+          mime_type: schema.deliverables.mime_type,
+          contributors_json: schema.deliverables.contributors_json,
+          created_at: schema.deliverables.created_at,
+          content_size: sql<number>`length(${schema.deliverables.content})`.as('content_size'),
+        })
+        .from(schema.deliverables)
+        .where(whereClause)
+        .orderBy(desc(schema.deliverables.created_at))
+        .limit(limit)) as Array<Parameters<typeof rowToSummary>[0]>;
+      return rows.map(rowToSummary);
+    },
+    async listByCompanyWithContent(companyId, opts) {
+      const limit = opts?.limit ?? DEFAULT_LIST_LIMIT;
+      const threadClause = opts?.threadId
+        ? or(
+            eq(schema.deliverables.thread_id, opts.threadId),
+            eq(schema.deliverables.chat_thread_id, opts.threadId),
+          )
+        : undefined;
+      const whereClause = threadClause
+        ? and(eq(schema.deliverables.company_id, companyId), threadClause)
+        : eq(schema.deliverables.company_id, companyId);
+      const rows = (await db
+        .select()
+        .from(schema.deliverables)
+        .where(whereClause)
+        .orderBy(desc(schema.deliverables.created_at))
+        .limit(limit)) as Array<Parameters<typeof rowToFull>[0]>;
+      return rows.map(rowToFull);
+    },
+  };
+
+  return { deliverables };
+}

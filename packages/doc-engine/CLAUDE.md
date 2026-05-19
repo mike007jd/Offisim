@@ -16,8 +16,8 @@ Document export + import. Two halves:
 ## PDF worker bundling (cross-platform)
 
 - pdfjs-dist 4.x ESM lives at `pdfjs-dist/legacy/build/pdf.mjs` (cross-runtime entry).
-- Worker file `pdf.worker.min.mjs` MUST be copied into `apps/web/public/` so it serves at `/pdf.worker.min.mjs`. The Tauri release `.app` loads the same web bundle from `tauri://localhost/`, so no separate desktop copy is required for v1.
-- Copy step: `scripts/copy-pdf-worker.mjs`, wired into `apps/web` `prebuild` (and `predev`). Bumping the pdfjs-dist version automatically refreshes the bundled worker on next build/dev start — no version-locked check-in.
+- Worker file `pdf.worker.min.mjs` MUST be copied into `apps/desktop/renderer/public/` so it serves at `/pdf.worker.min.mjs`. The Tauri release `.app` loads the same web bundle from `tauri://localhost/`, so no separate desktop copy is required for v1.
+- Copy step: `scripts/copy-pdf-worker.mjs`, wired into `apps/desktop/renderer` `prebuild` (and `predev`). Bumping the pdfjs-dist version automatically refreshes the bundled worker on next build/dev start — no version-locked check-in.
 - `import/worker-resolver.ts` returns `'/pdf.worker.min.mjs'` in browser/webview, `null` in Node (which lets pdfjs fall back to its fakeWorker — slower but safe for tests).
 
 ## Fixtures + harness

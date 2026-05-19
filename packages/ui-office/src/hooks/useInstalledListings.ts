@@ -1,7 +1,7 @@
 import type { MarketListingInstalledPayload, RuntimeEvent, SkillRow } from '@offisim/shared-types';
 import { useEffect, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 /**
  * Set of marketplace `listingId`s that the active company already has
@@ -47,7 +47,7 @@ function isMarketplaceSkillRow(row: SkillRow): boolean {
 }
 
 export function useInstalledListings(): UseInstalledListingsResult {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [installedListingIds, setInstalledListingIds] = useState<ReadonlySet<string>>(new Set());
   const [installedPackageKeys, setInstalledPackageKeys] = useState<ReadonlySet<string>>(new Set());

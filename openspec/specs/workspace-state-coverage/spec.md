@@ -46,12 +46,10 @@ state during initial fetch.
 - **AND** SHALL NOT render the "No SOPs" empty state until the load
   resolves
 
-#### Scenario: Activity Log timeline shows skeleton during load
-- **WHEN** the Activity Log workspace mounts and the event log store
-  is hydrating from `bootstrapState.eventHistory`
-- **THEN** the timeline pane SHALL render a list skeleton
-- **AND** SHALL NOT render `ActivityEmptyState` variant `'no-events'`
-  until hydration completes
+#### Scenario: Activity Log timeline shows empty state without bootstrap history
+- **WHEN** the Activity Log workspace mounts before any runtime events are recorded
+- **THEN** the timeline pane SHALL render `ActivityEmptyState` variant `'no-events'`
+- **AND** SHALL begin rendering events as soon as they arrive from the runtime event bus
 
 #### Scenario: Market grid shows skeleton during load
 - **WHEN** the Market workspace mounts and `useMarketplace()` reports
@@ -263,10 +261,9 @@ preserved as a transient toast since the workspace remains usable.
 
 ### Requirement: Activity Log workspace SHALL render loading and error states
 
-`ActivityLogPage` SHALL render `WorkspaceListSkeleton` in the timeline
-area while the event log store is hydrating from
-`bootstrapState.eventHistory`. When event log subscription fails, the
-page SHALL render `ErrorState` with Retry.
+`ActivityLogPage` SHALL render an empty state when the desktop runtime event
+store has no events yet. When event log subscription fails, the page SHALL
+render `ErrorState` with Retry.
 
 The existing toast for "The selected event is no longer available"
 SHALL remain (transient; the workspace remains functional).

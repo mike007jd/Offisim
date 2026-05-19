@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { MeetingRunStatus } from '../../hooks/useMeeting';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { MeetingControls } from './MeetingControls';
 
 interface MeetingControlsAutoWiredProps {
@@ -13,7 +13,7 @@ interface MeetingControlsAutoWiredProps {
  * and dispatches meeting interrupt commands via EventBus.
  */
 export function MeetingControlsAutoWired({ meetingId, status }: MeetingControlsAutoWiredProps) {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
 
   const emit = useCallback(
     (type: string, detail?: Record<string, unknown>) => {

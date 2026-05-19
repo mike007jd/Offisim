@@ -2,7 +2,7 @@ import type { OfficeLayoutRow } from '@offisim/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 export interface UseOfficeLayoutReturn {
   layouts: OfficeLayoutRow[];
@@ -16,7 +16,7 @@ export interface UseOfficeLayoutReturn {
 }
 
 export function useOfficeLayout(): UseOfficeLayoutReturn {
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [layouts, setLayouts] = useState<OfficeLayoutRow[]>([]);
   const [activeLayout, setActiveLayout] = useState<OfficeLayoutRow | null>(null);

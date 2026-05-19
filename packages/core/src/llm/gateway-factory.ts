@@ -15,7 +15,7 @@ export interface GatewayConfig {
   retryConfig?: RetryConfig;
   /** Whether the provider accepts Anthropic cache_control request fields */
   supportsPromptCaching?: boolean;
-  /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
+  /** Allow browser-side API calls (required for the Tauri WebView) */
   dangerouslyAllowBrowser?: boolean;
   /**
    * Custom fetch implementation for credential-isolated transports. When set,

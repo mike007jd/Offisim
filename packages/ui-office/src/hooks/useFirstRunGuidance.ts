@@ -5,7 +5,7 @@ import type {
 } from '@offisim/shared-types';
 import { useToasts } from '@offisim/ui-core';
 import { useCallback, useEffect, useRef } from 'react';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
 
 const GUIDANCE_ITEMS = [
   {
@@ -50,7 +50,7 @@ function markDismissed(key: string): void {
 }
 
 export function useFirstRunGuidance() {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const { toasts, addToast, dismissToast } = useToasts();
   const bossEntryCountRef = useRef(0);
   const lastShownAtRef = useRef(0);

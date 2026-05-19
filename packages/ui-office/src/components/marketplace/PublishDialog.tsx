@@ -24,7 +24,7 @@ import {
   buildEmployeePackage,
   buildSkillPackage,
 } from '../../lib/export-to-manifest.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context.js';
 import { useCompany } from '../company/CompanyContext.js';
 
 type PublishKind = 'employee' | 'skill';
@@ -65,7 +65,7 @@ function downloadBytes(fileName: string, bytes: Uint8Array): void {
 }
 
 export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
-  const { repos, skillLoader } = useOffisimRuntime();
+  const { repos, skillLoader } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const { toasts, addToast, dismissToast } = useToasts();
   const [authToken, setAuthToken] = useState<string>(loadRegistryAuthToken() ?? '');

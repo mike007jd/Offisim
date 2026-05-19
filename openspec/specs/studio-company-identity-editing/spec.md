@@ -103,7 +103,7 @@ The files `packages/ui-office/src/components/company/CompanyEditor.tsx`, `packag
 - **THEN** zero matches exist
 
 #### Scenario: AppGlobalDialogs no longer mounts the modal
-- **WHEN** grepping `apps/web/src/components/app-shell/AppGlobalDialogs.tsx` for `'@offisim/ui-office/company-editor'` or `m.CompanyEditor`
+- **WHEN** grepping `apps/desktop/renderer/src/components/app-shell/AppGlobalDialogs.tsx` for `'@offisim/ui-office/company-editor'` or `m.CompanyEditor`
 - **THEN** zero matches exist
 
 ### Requirement: Legacy policy fields SHALL no longer be written to officeLayouts.layout_json

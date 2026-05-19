@@ -13,7 +13,7 @@ import { Button } from '@offisim/ui-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CeremonyState } from '../../hooks/useSceneOrchestrator';
 import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
 import { useCanvasInteraction } from './hooks/useCanvasInteraction';
@@ -38,7 +38,7 @@ export default function Office2DCanvasView({
   onDeselectEmployee,
 }: Office2DCanvasViewProps) {
   const { activeCompanyId } = useCompany();
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const sceneColors = useSceneColors();
   const companyId = activeCompanyId ?? '';
 

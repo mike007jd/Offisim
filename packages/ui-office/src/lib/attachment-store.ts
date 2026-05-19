@@ -1,9 +1,7 @@
 /**
- * Cross-platform contract for the chat attachment store. Two implementations
- * live in `apps/web/src/lib/`:
- *
- * - `WebAttachmentStore` — IndexedDB blobs (`offisim-chat-attachments`)
- * - `TauriAttachmentStore` — Rust-side `attachment_*` IPC commands
+ * Desktop chat attachment store contract. The active implementation lives in
+ * `apps/desktop/renderer/src/lib/tauri-attachment-store.ts` and persists
+ * through Rust-side `attachment_*` IPC commands.
  *
  * Runtime context wires the platform-correct instance via
  * `OffisimRuntimeValue.attachmentStore` so chat composer, send pipeline, GC

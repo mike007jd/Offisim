@@ -7,7 +7,7 @@ import type {
 } from '@offisim/shared-types';
 import { useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime, useOffisimRuntimeStatus } from './offisim-runtime-context';
+import { useOffisimRuntimeServices, useOffisimRuntimeStatus } from './offisim-runtime-context';
 
 export interface ActiveEmployeeCount {
   active: number;
@@ -49,18 +49,6 @@ function sameCounts(a: ActiveEmployeeCount, b: ActiveEmployeeCount): boolean {
   return a.active === b.active && a.total === b.total && a.blocked === b.blocked;
 }
 
-function getBootstrapEmployeeCount(
-  companyId: string | null,
-  bootstrapEmployees: ReadonlyArray<{ company_id: string }>,
-): number {
-  if (!companyId) return 0;
-  let count = 0;
-  for (const row of bootstrapEmployees) {
-    if (row.company_id === companyId) count++;
-  }
-  return count;
-}
-
 /**
  * Single source of truth for the "employees active" count surfaced in
  * StatusBar footer and 3D overlay. Owns one shared `Map<employeeId,
@@ -68,39 +56,23 @@ function getBootstrapEmployeeCount(
  * predicates above, and resets symmetrically on run-start and company switch.
  */
 export function useActiveEmployeeCount(): ActiveEmployeeCount {
-  const { eventBus, repos, bootstrapState } = useOffisimRuntime();
+  const { eventBus, repos } = useOffisimRuntimeServices();
   const { isRunning } = useOffisimRuntimeStatus();
   const { activeCompanyId } = useCompany();
 
-  const bootstrapEmployeeCount = getBootstrapEmployeeCount(
-    activeCompanyId,
-    bootstrapState?.reposSnapshot?.employees ?? [],
-  );
-
   const statesRef = useRef<Map<string, EmployeeState>>(new Map());
-  const [counts, setCounts] = useState<ActiveEmployeeCount>(() => ({
-    active: 0,
-    total: bootstrapEmployeeCount,
-    blocked: 0,
-  }));
+  const [counts, setCounts] = useState<ActiveEmployeeCount>({ active: 0, total: 0, blocked: 0 });
 
-  // Seed roster from bootstrap snapshot, then refine via repos when ready.
+  // Seed roster from desktop repos when ready.
   useEffect(() => {
     statesRef.current.clear();
-    const bootstrapEmployees = bootstrapState?.reposSnapshot?.employees ?? [];
-    if (activeCompanyId) {
-      for (const row of bootstrapEmployees) {
-        if (row.company_id === activeCompanyId) {
-          statesRef.current.set(row.employee_id, 'idle');
-        }
-      }
+    if (!repos || !activeCompanyId) {
+      setCounts((prev) => {
+        const next = deriveCounts(statesRef.current);
+        return sameCounts(prev, next) ? prev : next;
+      });
+      return;
     }
-    setCounts((prev) => {
-      const next = deriveCounts(statesRef.current);
-      return sameCounts(prev, next) ? prev : next;
-    });
-
-    if (!repos || !activeCompanyId) return;
     let cancelled = false;
     repos.employees.findByCompany(activeCompanyId).then((rows) => {
       if (cancelled) return;
@@ -118,7 +90,7 @@ export function useActiveEmployeeCount(): ActiveEmployeeCount {
     return () => {
       cancelled = true;
     };
-  }, [repos, activeCompanyId, bootstrapState]);
+  }, [repos, activeCompanyId]);
 
   // Run-start reset: re-idle every known employee without clearing roster.
   useEffect(() => {

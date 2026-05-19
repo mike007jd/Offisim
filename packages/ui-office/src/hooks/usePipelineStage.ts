@@ -6,7 +6,10 @@ import type {
 } from '@offisim/shared-types';
 import { SYSTEM_ROLES } from '@offisim/shared-types';
 import { useEffect, useRef, useState } from 'react';
-import { useOffisimRuntime, useOffisimRuntimeStatus } from '../runtime/offisim-runtime-context';
+import {
+  useOffisimRuntimeServices,
+  useOffisimRuntimeStatus,
+} from '../runtime/offisim-runtime-context';
 
 // ---------------------------------------------------------------------------
 // Shared pipeline stage hook — consumed by ChatPanel, StatusBar, PipelineProgress.
@@ -139,7 +142,7 @@ export interface PipelineStageInfo {
  * Clears automatically 3s after the runtime stops running.
  */
 export function usePipelineStage(): PipelineStageInfo {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const { isRunning } = useOffisimRuntimeStatus();
   const [stage, setStage] = useState<PipelineStage>(null);
   const [routeLabel, setRouteLabel] = useState<string | null>(null);

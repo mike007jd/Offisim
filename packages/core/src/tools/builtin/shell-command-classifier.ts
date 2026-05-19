@@ -182,7 +182,11 @@ function isWriteSegment(segment: string, first: string, second: string | undefin
   return WRITE_COMMANDS.has(first);
 }
 
-function isDestructive(first: string, second: string | undefined, tokens: readonly string[]): boolean {
+function isDestructive(
+  first: string,
+  second: string | undefined,
+  tokens: readonly string[],
+): boolean {
   if (first === 'rm' && tokens.some((token) => /^-[\w-]*r[\w-]*f|^-[\w-]*f[\w-]*r/u.test(token))) {
     return true;
   }

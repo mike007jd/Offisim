@@ -25,7 +25,12 @@ export function createGlobTool(config: BuiltinToolConfig): BuiltinTool | null {
       const root = (args.path as string | undefined) ?? '.';
       const regex = globToRegex(args.pattern as string);
       const entries = await walk(listDir, root, context?.threadId);
-      return entries.filter((entry) => regex.test(entry)).slice(0, MAX_RESULTS).join('\n') || '(no matches)';
+      return (
+        entries
+          .filter((entry) => regex.test(entry))
+          .slice(0, MAX_RESULTS)
+          .join('\n') || '(no matches)'
+      );
     },
   };
 }
@@ -58,7 +63,10 @@ export function createGrepTool(config: BuiltinToolConfig): BuiltinTool | null {
         if (results.length >= MAX_RESULTS) break;
         let text = '';
         try {
-          text = await fs.readFile(file, context?.threadId ? { threadId: context.threadId } : undefined);
+          text = await fs.readFile(
+            file,
+            context?.threadId ? { threadId: context.threadId } : undefined,
+          );
         } catch {
           continue;
         }

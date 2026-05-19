@@ -140,7 +140,7 @@ Each parser SHALL have at least one fixture-based test plus a malformed-input te
 
 #### Scenario: Parser output is byte-identical across web and Tauri
 
-- **WHEN** the same fixture file is parsed in the web SPA and in Tauri webview within the same release tag
+- **WHEN** the same fixture file is parsed in the desktop renderer and in Tauri webview within the same release tag
 - **THEN** the resulting `ParsedAttachment` JSON serialization is byte-equal
 
 ### Requirement: AI reads attachments via gateway-only `read_attachment` tool registered on boss + every employee node
@@ -281,13 +281,13 @@ A wire-payload assertion test SHALL run as part of the Rust integration suite co
 
 ### Requirement: Cross-platform parity is contractual
 
-Every observable behavior in this capability SHALL be identical between the web SPA (in browser) and Tauri release `.app`, except the documented "IDB unavailable" web fallback. Parser outputs SHALL be byte-equal across platforms for identical inputs. Composer affordances (paperclip, drag-drop, paste, attachment-only send), staging behavior (dedupe, caps, sha256), persisted-bubble rendering, `read_attachment` semantics, GC cascade behavior, and event sequences SHALL all match.
+Every observable behavior in this capability SHALL be identical between the desktop renderer (in browser) and Tauri release `.app`, except the documented "IDB unavailable" web fallback. Parser outputs SHALL be byte-equal across platforms for identical inputs. Composer affordances (paperclip, drag-drop, paste, attachment-only send), staging behavior (dedupe, caps, sha256), persisted-bubble rendering, `read_attachment` semantics, GC cascade behavior, and event sequences SHALL all match.
 
 Parity SHALL be enforced by the live verify checklist running every spec scenario on both platforms before archive.
 
 #### Scenario: Same fixture renders identically on both platforms
 
-- **WHEN** a user attaches the same fixture PDF on web SPA and on Tauri release `.app`
+- **WHEN** a user attaches the same fixture PDF on desktop renderer and on Tauri release `.app`
 - **THEN** chip filename + size + parser-summary preview SHALL match byte-for-byte
 - **AND** `read_attachment` invoked by the LLM SHALL return identical `structured` output
 
@@ -363,7 +363,7 @@ If the web runtime cannot open IndexedDB at all (private browsing, disabled stor
 
 #### Scenario: IDB unavailable in private browsing
 
-- **WHEN** the web app launches where `indexedDB.open(...)` rejects
+- **WHEN** the desktop renderer launches where `indexedDB.open(...)` rejects
 - **THEN** the paperclip button SHALL render disabled with a tooltip explaining the limitation
 - **AND** drag-drop SHALL show a `Storage unavailable` error overlay instead of staging files
 - **AND** clipboard paste SHALL drop file payloads while still pasting text

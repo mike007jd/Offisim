@@ -145,7 +145,7 @@ triggered by popstate does NOT cause `useUrlSync` to push a new entry
 
 ### Requirement: createRouteToPersonnel SHALL drive a single URL navigation
 
-`createRouteToPersonnel` in `apps/web/src/lib/personnel-routing.ts` SHALL compute the target URL via `serializePersonnelUrl(employeeId, tab)`, call `history.pushState(null, '', url)`, then call the registered `applyParsedUrl(parsed)` once. It SHALL NOT call `setActiveWorkspace` and `updateWorkspaceState` separately.
+`createRouteToPersonnel` in `apps/desktop/renderer/src/lib/personnel-routing.ts` SHALL compute the target URL via `serializePersonnelUrl(employeeId, tab)`, call `history.pushState(null, '', url)`, then call the registered `applyParsedUrl(parsed)` once. It SHALL NOT call `setActiveWorkspace` and `updateWorkspaceState` separately.
 
 The same single-URL-write pattern applies to any future cross-surface
 navigation helper (e.g. `routeToActivityEvent`, `routeToSop`,
@@ -248,7 +248,7 @@ SHALL be independent.
 
 ### Requirement: useUrlSync SHALL be the only writer of history.{push,replace}State
 
-`apps/web/src/lib/url-routing/useUrlSync.ts` SHALL be the sole
+`apps/desktop/renderer/src/lib/url-routing/useUrlSync.ts` SHALL be the sole
 component that calls `history.pushState` and `history.replaceState`
 during normal navigation. `useWorkspaceBackNavigation` SHALL no
 longer push entries on mount. Cross-surface helpers
@@ -258,8 +258,8 @@ immediately calls `applyParsedUrl`, but they SHALL NOT push entries
 that `useUrlSync` is not aware of.
 
 #### Scenario: No stray pushState
-- **WHEN** grepping `apps/web/src` for `pushState\|replaceState`
-- **THEN** matches occur only in `apps/web/src/lib/url-routing/` and `apps/web/src/lib/personnel-routing.ts`
+- **WHEN** grepping `apps/desktop/renderer/src` for `pushState\|replaceState`
+- **THEN** matches occur only in `apps/desktop/renderer/src/lib/url-routing/` and `apps/desktop/renderer/src/lib/personnel-routing.ts`
 - **AND** no occurrence exists in `useWorkspaceBackNavigation.ts`, `useWorkspaceSessionState.ts`, or workspace page components
 
 #### Scenario: Existing useDeepLinkInstall is unchanged

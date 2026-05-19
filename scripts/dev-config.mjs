@@ -3,17 +3,8 @@ export function getTauriBeforeDevConfig(app) {
     return {
       app: 'desktop',
       port: 5176,
-      skipEnvVar: 'OFFISIM_SKIP_WEB_DEV',
-      command: ['pnpm', '--filter', '@offisim/web', 'dev'],
-    };
-  }
-
-  if (app === 'launcher') {
-    return {
-      app: 'launcher',
-      port: 4200,
-      skipEnvVar: 'OFFISIM_SKIP_LAUNCHER_VITE_DEV',
-      command: ['pnpm', 'vite:dev'],
+      skipEnvVar: 'OFFISIM_SKIP_RENDERER_DEV',
+      command: ['pnpm', '--filter', '@offisim/desktop-renderer', 'dev'],
     };
   }
 
@@ -29,23 +20,9 @@ export function createDevAllProcesses() {
       env: {},
     },
     {
-      name: 'web',
-      cwd: '.',
-      command: ['pnpm', '--filter', '@offisim/web', 'dev'],
-      env: {},
-    },
-    {
       name: 'desktop',
       cwd: '.',
       command: ['pnpm', '--filter', '@offisim/desktop', 'dev'],
-      env: {
-        OFFISIM_SKIP_WEB_DEV: '1',
-      },
-    },
-    {
-      name: 'launcher',
-      cwd: '.',
-      command: ['pnpm', '--filter', '@offisim/launcher', 'dev'],
       env: {},
     },
   ];

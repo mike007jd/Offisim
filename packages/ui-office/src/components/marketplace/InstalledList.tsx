@@ -3,7 +3,7 @@ import { Button } from '@offisim/ui-core';
 import { RefreshCcw, Store, UploadCloud } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRegistryClient } from '../../hooks/useRegistryClient.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context.js';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context.js';
 import { useCompany } from '../company/CompanyContext.js';
 
 interface InstalledListProps {
@@ -40,7 +40,7 @@ function compareVersionStrings(a: string, b: string): -1 | 0 | 1 {
 
 export function InstalledList({ onStartInstall }: InstalledListProps) {
   const client = useRegistryClient();
-  const { repos } = useOffisimRuntime();
+  const { repos } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [items, setItems] = useState<InstalledPackageRow[]>([]);
   const [loading, setLoading] = useState(true);

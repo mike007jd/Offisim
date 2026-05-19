@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import type { Notification, UseNotificationsResult } from '../hooks/useNotifications';
-import { useOffisimRuntime } from './offisim-runtime-context';
+import { useOffisimRuntimeServices } from './offisim-runtime-context';
 
 const MAX_NOTIFICATIONS = 50;
 const MAX_TOASTS = 4;
@@ -26,7 +26,7 @@ export const NotificationContext = createContext<UseNotificationsResult | null>(
  * markRead/dismiss/clearAll propagate everywhere instantly.
  */
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [toasts, setToasts] = useState<ToastItem[]>([]);

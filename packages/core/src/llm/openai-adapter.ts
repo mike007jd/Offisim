@@ -20,7 +20,7 @@ export interface OpenAiAdapterOptions {
   /** Extra headers sent with every request (e.g. HTTP-Referer for OpenRouter) */
   defaultHeaders?: Record<string, string>;
   retryConfig?: RetryConfig;
-  /** Allow browser-side API calls (required for apps/web and Tauri desktop) */
+  /** Allow browser-side API calls (required for the Tauri WebView) */
   dangerouslyAllowBrowser?: boolean;
   /**
    * Custom fetch implementation. When set, the OpenAI SDK client is

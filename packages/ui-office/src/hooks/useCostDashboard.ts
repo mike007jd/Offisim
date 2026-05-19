@@ -3,7 +3,7 @@ import type { CostAggregate } from '@offisim/core/browser';
 import type { LlmUsageRecordedPayload, RuntimeEvent } from '@offisim/shared-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context';
 
 export interface CostSummary {
   totalCost: number;
@@ -33,7 +33,7 @@ const INITIAL_SUMMARY: CostSummary = {
  * aggregation instead of 3 separate queries.
  */
 export function useCostDashboard() {
-  const { repos, eventBus } = useOffisimRuntime();
+  const { repos, eventBus } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [summary, setSummary] = useState<CostSummary>(INITIAL_SUMMARY);
   const [byModel, setByModel] = useState<CostAggregate[]>([]);

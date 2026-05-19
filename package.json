@@ -45,7 +45,6 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "clean": "turbo run clean && rm -rf node_modules",
-    "launcher": "pnpm --filter @offisim/launcher dev",
     "release:run": "node scripts/run-clean-release.mjs"
   },
   "devDependencies": {

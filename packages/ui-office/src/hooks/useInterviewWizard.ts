@@ -2,7 +2,7 @@ import { employeeCreated } from '@offisim/core/browser';
 import type { RoleSlug } from '@offisim/shared-types';
 import { useCallback, useReducer, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntime } from '../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context';
 import type { EmployeeFormData } from './useEmployeeEditor';
 import { DEFAULT_APPEARANCE } from './useEmployeeEditor';
 
@@ -164,7 +164,7 @@ export interface UseInterviewWizardReturn {
 
 export function useInterviewWizard(): UseInterviewWizardReturn {
   const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
-  const { repos, eventBus, employeeVersionService: versionService } = useOffisimRuntime();
+  const { repos, eventBus, employeeVersionService: versionService } = useOffisimRuntimeServices();
   const { activeCompanyId } = useCompany();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

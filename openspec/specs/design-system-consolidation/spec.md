@@ -45,7 +45,7 @@ Touched surfaces SHALL use the design system spacing, radius, border, typography
 
 Large all-caps labels, monospaced text, heavy glass effects, and accent (cyan / blue) highlights SHALL be reserved for metadata, active states, or high-priority status rather than applied uniformly across an entire screen.
 
-Touched surfaces SHALL NOT contain raw hex literals (`#xxxxxx` outside the SSOT or catalog), arbitrary Tailwind shadow values (`shadow-[...]`), arbitrary Tailwind z-index values (`z-[...]`), or hard-coded transition/animation timings that do not reference `MOTION_DURATION` / `MOTION_EASING`. The `pnpm tokens:lint-hex` CI gate SHALL enforce this on the entire `apps/web/src/`, `packages/ui-office/src/`, `packages/ui-core/src/components/`, `packages/ui-core/src/lib/`, `packages/ui-core/src/hooks/`, and `packages/renderer/src/` source trees.
+Touched surfaces SHALL NOT contain raw hex literals (`#xxxxxx` outside the SSOT or catalog), arbitrary Tailwind shadow values (`shadow-[...]`), arbitrary Tailwind z-index values (`z-[...]`), or hard-coded transition/animation timings that do not reference `MOTION_DURATION` / `MOTION_EASING`. The `pnpm tokens:lint-hex` CI gate SHALL enforce this on the entire `apps/desktop/renderer/src/`, `packages/ui-office/src/`, `packages/ui-core/src/components/`, `packages/ui-core/src/lib/`, `packages/ui-core/src/hooks/`, and `packages/renderer/src/` source trees.
 
 Touched surfaces SHALL render correctly in both `light` and `dark` resolved themes (per `theme-light-dark-switching`). When a touched component uses a semantic token (e.g. `bg-surface`, `text-text-primary`), the value SHALL automatically adapt without per-component `dark:` variant authoring.
 
@@ -62,7 +62,7 @@ Touched surfaces SHALL render correctly in both `light` and `dark` resolved them
 #### Scenario: Touched surface tokens come from the SSOT
 
 - **WHEN** auditing the source files of any touched surface for design token consumption
-- **THEN** colors / shadows / spacing / radius / typography / motion / z-index values are imported from `@offisim/ui-core/tokens` or applied via Tailwind utility classes whose variables are defined in `apps/web/src/generated/tailwind-theme.css`
+- **THEN** colors / shadows / spacing / radius / typography / motion / z-index values are imported from `@offisim/ui-core/tokens` or applied via Tailwind utility classes whose variables are defined in `apps/desktop/renderer/src/generated/tailwind-theme.css`
 
 #### Scenario: Touched surface renders in both themes
 

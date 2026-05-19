@@ -324,7 +324,7 @@ The `confirm` outcome routes through the same `SkillInstallCommitter` two-phase 
 
 ### Requirement: Skill install committer outcome SHALL surface to chat with per-kind copy via a single SSOT
 
-When a `skill_install_confirm` interaction resolves, BOTH the chat assistant message (`apps/web/src/runtime/interaction-follow-up.ts`) AND the activity rail (`packages/ui-office/src/runtime/runtime-activity-formatters.ts` consumed via `subscribeInteractionMappers`) SHALL surface a message that reflects the actual `SkillInstallConfirmOutcome.kind`. The message SHALL distinguish between successful resolution paths (`installed` / `created` / `edited`), explicit cancellation (`cancelled`), staging timeout (`staging-expired`), and committer error (`error`).
+When a `skill_install_confirm` interaction resolves, BOTH the chat assistant message (`apps/desktop/renderer/src/runtime/interaction-follow-up.ts`) AND the activity rail (`packages/ui-office/src/runtime/runtime-activity-formatters.ts` consumed via `subscribeInteractionMappers`) SHALL surface a message that reflects the actual `SkillInstallConfirmOutcome.kind`. The message SHALL distinguish between successful resolution paths (`installed` / `created` / `edited`), explicit cancellation (`cancelled`), staging timeout (`staging-expired`), and committer error (`error`).
 
 The copy SSOT is `skillInstallOutcomeLabel(outcome)` exported from `@offisim/shared-types`. Both surfaces MUST consume this single function — no inline copy tables, no action-specific variants, no hardcoded `'Skill install confirmed' | 'Skill install cancelled'` strings.
 

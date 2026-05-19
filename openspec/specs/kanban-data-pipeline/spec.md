@@ -187,7 +187,7 @@ ctx.runtime.repos.kanban.transitionByTaskRun(
 
 ### Requirement: useKanbanStream hook provides reactive cards to UI
 
-`apps/web/src/runtime/useKanbanStream.ts` SHALL export `useKanbanStream(projectId): { cards, move, create }` that:
+`apps/desktop/renderer/src/runtime/useKanbanStream.ts` SHALL export `useKanbanStream(projectId): { cards, move, create }` that:
 
 - on mount fetches `GET /api/projects/:projectId/kanban` and stores cards
 - subscribes to `EventSource('/api/projects/:projectId/kanban/stream')` and merges updates
@@ -210,7 +210,7 @@ A desktop-equivalent hook SHALL exist in the Tauri binding directory with identi
 
 When `cards` is undefined, the component SHALL fall back to its pre-change behaviour (current `requestText`-based stub) so existing callers in dist do not break.
 
-`apps/web/src/components/app-shell/AppOverlayHost.tsx` SHALL pass `cards={stream.cards} onMove={stream.move} onCreate={stream.create}` from `useKanbanStream(activeProjectId)`.
+`apps/desktop/renderer/src/components/app-shell/AppOverlayHost.tsx` SHALL pass `cards={stream.cards} onMove={stream.move} onCreate={stream.create}` from `useKanbanStream(activeProjectId)`.
 
 #### Scenario: Existing caller without cards still renders
 - **WHEN** `<KanbanOverlay open={true} onClose={...} requestText="..." />` is rendered without `cards`
@@ -246,9 +246,9 @@ The backdrop scrim SHALL use `color-mix(in srgb, var(--color-abyss) 35%, transpa
 
 ### Requirement: 3D scene throttles while kanban overlay is open
 
-`apps/web/src/components/office-shell/OfficeSceneSurface.tsx` SHALL accept `paused?: boolean`. When `paused === true`, the surface SHALL forward `active={false}` to the underlying `SceneCanvas` (or call `setTargetFps(12)` if the scene exposes that API). When `paused === false`, the surface SHALL restore normal rendering.
+`apps/desktop/renderer/src/components/office-shell/OfficeSceneSurface.tsx` SHALL accept `paused?: boolean`. When `paused === true`, the surface SHALL forward `active={false}` to the underlying `SceneCanvas` (or call `setTargetFps(12)` if the scene exposes that API). When `paused === false`, the surface SHALL restore normal rendering.
 
-`apps/web/src/components/app-shell/AppMainShell.tsx` SHALL pass `paused={officeState.kanbanOpen}` to `<OfficeSceneSurface>`.
+`apps/desktop/renderer/src/components/app-shell/AppMainShell.tsx` SHALL pass `paused={officeState.kanbanOpen}` to `<OfficeSceneSurface>`.
 
 If the underlying scene exposes neither `active` toggling nor `setTargetFps`, the prop SHALL be a no-op and a TODO comment SHALL document the gap — performance throttling is non-blocking for the RC.
 
@@ -258,7 +258,7 @@ If the underlying scene exposes neither `active` toggling nor `setTargetFps`, th
 
 ### Requirement: Per-employee kanban-count badge in office scene
 
-`apps/web/src/components/office-shell/EmployeeBadgeOverlay.tsx` SHALL render, when count > 0, a small pill anchored to the top-right of the employee 3D label, showing the count of cards in `'todo'` or `'doing'` for that employee. The pill SHALL use `var(--color-kelp-green)` background and `var(--color-pearl)` (white) text.
+`apps/desktop/renderer/src/components/office-shell/EmployeeBadgeOverlay.tsx` SHALL render, when count > 0, a small pill anchored to the top-right of the employee 3D label, showing the count of cards in `'todo'` or `'doing'` for that employee. The pill SHALL use `var(--color-kelp-green)` background and `var(--color-pearl)` (white) text.
 
 `OfficeSceneSurface.tsx` SHALL mount one `<EmployeeBadgeOverlay employeeId={...} />` per visible employee.
 

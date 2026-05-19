@@ -151,8 +151,8 @@ Internal employees' customizer SHALL remain byte-identical to pre-change.
 
 ### Requirement: Bundle size increase is bounded
 
-The web production build's total size increase attributable to this change SHALL be at most 500 KB (measured via the existing `pnpm --filter @offisim/web build` output). This budget covers all four SVG assets, the new `BrandAvatar2D` component, the `LowPolyCharacter` variant expansion, and `brand-registry.ts`.
+The desktop renderer production build's total size increase attributable to this change SHALL be at most 500 KB (measured via the existing `pnpm --filter @offisim/desktop-renderer build` output). This budget covers all four SVG assets, the new `BrandAvatar2D` component, the `LowPolyCharacter` variant expansion, and `brand-registry.ts`.
 
 #### Scenario: Bundle budget
-- **WHEN** comparing the total `apps/web/dist/assets/*` byte size before and after this change
+- **WHEN** comparing the total `apps/desktop/renderer/dist/assets/*` byte size before and after this change
 - **THEN** the net increase is ≤ 500 KB

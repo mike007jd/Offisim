@@ -28,7 +28,7 @@ import {
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { toErrorMessage } from '../../lib/error-message.js';
-import { useOffisimRuntime } from '../../runtime/offisim-runtime-context';
+import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
 import { KanbanColumn } from './KanbanColumn';
@@ -150,7 +150,7 @@ function PlanKanbanBoard({
 }: Pick<KanbanBoardProps, 'agents' | 'requestText'>) {
   const dashboard = useTaskDashboard(agents);
   const { getTaskCost } = useDashboardMetrics();
-  const { eventBus } = useOffisimRuntime();
+  const { eventBus } = useOffisimRuntimeServices();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Card click → emit ui.task.focused (same pattern as TaskDashboard) ──
