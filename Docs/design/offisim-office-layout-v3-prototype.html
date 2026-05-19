@@ -69,7 +69,6 @@
 
       --title: 40px;
       --toolbar: 54px;
-      --statusbar: 30px;
 
       --font: "General Sans", ui-sans-serif, system-ui, -apple-system,
         BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -112,7 +111,7 @@
       border-radius: 14px;
       overflow: hidden;
       display: grid;
-      grid-template-rows: var(--title) var(--toolbar) 1fr var(--statusbar);
+      grid-template-rows: var(--title) var(--toolbar) 1fr;
       box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.5),
         0 40px 100px rgba(0, 0, 0, 0.55);
@@ -344,6 +343,19 @@
       transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
     }
     .filter:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
+
+    /* Workspace-root strip — relocated from the deleted rail project
+       summary. Open/Edit live on the scope-bar project segment. */
+    .ws-wsroot {
+      display: flex; align-items: center; gap: 7px;
+      padding: var(--sp-4) var(--sp-5) 0;
+      min-width: 0;
+    }
+    .ws-wsroot .ico { color: var(--ink-4); flex: none; }
+    .ws-wsroot .p {
+      font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
 
     /* ── File tree ─────────────────────────────────────── */
     .file-tree {
@@ -642,15 +654,34 @@
     }
     .stage-mode button:hover { color: var(--ink-1); }
     .stage-mode button.active { color: var(--accent); background: var(--accent-surface); }
-    .kanban-tab {
+    /* ── Stage run axis: two adjacent entries, same visual language,
+       different lifecycle. Board = persistent project/company-scoped
+       Kanban (present even when idle). Live = run-level broadcast that
+       sediments into the triggering conversation when the run ends. They
+       are NOT forced into one overlay. */
+    .stage-runaxis {
       left: 50%; transform: translateX(-50%);
-      padding: 0 16px;
       border-radius: 0 0 var(--r-md) var(--r-md);
-      align-items: center; gap: 7px;
-      color: var(--ink-2); font-size: var(--fs-sm); font-weight: 620;
-      transition: background 0.14s ease;
+      overflow: hidden;
     }
-    .kanban-tab:hover { background: #fff; color: var(--ink-1); }
+    .stage-entry {
+      height: 32px; padding: 0 15px;
+      border: 0; background: transparent;
+      display: inline-flex; align-items: center; gap: 7px;
+      color: var(--ink-2); font-size: var(--fs-sm); font-weight: 620;
+      transition: background 0.14s ease, color 0.14s ease;
+    }
+    .stage-entry + .stage-entry { border-left: 1px solid var(--line); }
+    .stage-entry:hover { background: #fff; color: var(--ink-1); }
+    .stage-entry .ico { color: var(--ink-3); }
+    .stage-entry.live-idle { color: var(--ink-4); }
+    .stage-entry.live-idle .ico { color: var(--ink-4); }
+    .stage-entry.live-active { color: var(--accent); }
+    .stage-entry.live-active .ico { color: var(--accent); }
+    .stage-entry .pulse-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent); animation: pulse 1.4s ease-in-out infinite;
+    }
 
     /* ── Inspector popover ─────────────────────────────── */
     .inspector-popover {
@@ -823,103 +854,91 @@
     }
     .dock-emp.add-slot .add-label { font-size: 9.5px; font-weight: 660; }
 
-    /* ── Right rail (RightSidebar: Chat / Inspect / Tasks) ─ */
+    /* ── Right rail = pure conversation, no tabs ───────────
+       The rail is one axis: a conversation list ⇄ the selected
+       conversation. The selected conversation IS everything for that
+       thread — messages, the sedimented run record (plan + activity that
+       ran in it), and its outputs. Chat / Inspect / Tasks tabs are gone:
+       they only existed to hold a mixed drawer. The run axis (Board +
+       live flow) and project summary do not live here (see stage + Files
+       + scope-bar). */
     .rail {
       min-width: 0; min-height: 0;
       background: var(--surface-1);
       border-left: 1px solid var(--line);
       display: grid;
-      grid-template-rows: auto auto auto 1fr;
+      grid-template-rows: auto 1fr auto;
     }
-    .rail-head {
+    /* Conversation-list state (the rail ⇄ toggles to this) */
+    .rail.is-list { grid-template-rows: auto 1fr; }
+    .conv-list-head {
       border-bottom: 1px solid var(--line);
-      padding: var(--sp-4) var(--sp-5) var(--sp-4);
-      display: flex; flex-direction: column; gap: var(--sp-3);
+      padding: var(--sp-4) var(--sp-5);
+      display: grid; grid-template-columns: 1fr 30px; gap: var(--sp-2);
     }
-    .rail-head-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
-    .rail-caps {
-      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
-      font-weight: 700; color: var(--ink-3); text-transform: uppercase;
-    }
-    .rail-flow {
-      border: 1px solid var(--line-soft); background: var(--surface-sunken);
-      color: var(--ink-3); border-radius: var(--r-pill);
-      padding: 2px 8px; font-size: 9px; letter-spacing: 0.16em;
-      font-weight: 680; text-transform: uppercase;
-    }
-    .rail-search .field {
+    .conv-list-head .field {
       height: 30px; padding: 0 10px;
       border: 1px solid var(--line); border-radius: var(--r-sm);
       background: var(--surface-sunken); color: var(--ink-4);
       display: flex; align-items: center; gap: 7px; font-size: var(--fs-sm);
       transition: border-color 0.14s ease, background 0.14s ease;
     }
-    .rail-search .field:hover { border-color: var(--line-strong); background: var(--surface-2); }
-    /* Project selector is owned solely by the top scope-bar (Company ▸ Project).
-       The rail no longer re-hosts a second ProjectSelector slot — project
-       context is echoed read-only via the composer ChatContextStrip and
-       managed in Inspect ▸ Project. */
+    .conv-list-head .field:hover { border-color: var(--line-strong); background: var(--surface-2); }
+    .conv-list-head .new {
+      width: 30px; height: 30px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-2); color: var(--ink-3);
+      display: grid; place-items: center;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .conv-list-head .new:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
+    .conv-list {
+      min-height: 0; overflow-y: auto;
+      padding: var(--sp-3) var(--sp-4);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .conv-list .gw-annot { padding: 0 var(--sp-2); margin-top: var(--sp-3); }
 
-    .rail-tabs {
-      display: flex; align-items: center; gap: 2px;
-      padding: var(--sp-3) var(--sp-3) 0;
-      border-bottom: 1px solid var(--line);
+    /* Selected-conversation state */
+    .conv-scroll {
+      min-height: 0; overflow-y: auto;
+      display: flex; flex-direction: column;
     }
-    .rail-tab {
-      height: 30px; padding: 0 12px;
-      border: 1px solid transparent; border-radius: var(--r-pill);
-      background: transparent; color: var(--ink-3);
-      font-size: var(--fs-sm); font-weight: 580;
-      display: flex; align-items: center; gap: 6px;
-      margin-bottom: var(--sp-3);
-      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
-    }
-    .rail-tab:hover { background: var(--surface-sunken); color: var(--ink-1); }
-    .rail-tab.active {
-      color: var(--accent); background: var(--accent-surface);
-      border-color: var(--accent-ring); font-weight: 640;
-    }
-    .rail-annot {
-      padding: var(--sp-3) var(--sp-5);
-      font-size: 9.5px; line-height: 1.5; color: var(--ink-3);
-      background: var(--surface-sunken);
-      border-bottom: 1px solid var(--line-soft);
-    }
-    .rail-annot b { color: var(--ink-2); font-weight: 700; }
-    .rail-annot code {
-      font-family: var(--mono); font-size: 0.92em;
-      background: var(--surface-1); border: 1px solid var(--line-soft);
-      padding: 0 4px; border-radius: 4px; color: var(--ink-2);
-    }
-    .rail-body { min-height: 0; position: relative; }
-    .rail-pane { display: none; height: 100%; min-height: 0; }
-    .rail-pane.active { display: grid; }
-    .rail-pane.chat-pane { grid-template-rows: auto 1fr auto; }
-    .rail-pane.scroll-pane {
-      grid-template-rows: 1fr; overflow-y: auto;
-      display: none;
-    }
-    .rail-pane.scroll-pane.active { display: block; }
-
-    /* Direct-chat header bar (faithful: only in direct chat) */
-    .direct-bar {
-      height: 32px;
-      display: flex; align-items: center; gap: var(--sp-3);
-      padding: 0 var(--sp-5);
-      border-bottom: 1px solid var(--line);
+    .conv-scroll .messages { overflow: visible; flex: none; }
+    /* Sedimented run record — the live flow does NOT vanish when a run
+       ends; it settles into the conversation that triggered it. Collapsed
+       by default; expands to the same Plan + Activity surface that
+       broadcasts on the stage during the run. */
+    .run-record {
+      margin: 0 var(--sp-6) var(--sp-6);
+      border: 1px solid var(--line-soft); border-radius: var(--r-lg);
       background: var(--surface-2);
+      box-shadow: var(--elev-1);
+      overflow: hidden;
     }
-    .direct-bar .back {
-      display: inline-flex; align-items: center; gap: 5px;
-      border: 0; background: transparent; color: var(--ink-3);
+    .rr-head {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-4) var(--sp-5);
+      cursor: pointer;
       font-size: var(--fs-sm);
-      transition: color 0.12s ease;
+      transition: background 0.12s ease;
     }
-    .direct-bar .back:hover { color: var(--accent); }
-    .direct-bar .who { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); }
-    .direct-bar .ann { margin-left: auto; font-size: 9px; font-style: italic; color: var(--ink-4); }
+    .rr-head:hover { background: var(--surface-sunken); }
+    .rr-head .ico { color: var(--ink-3); flex: none; }
+    .rr-title { font-weight: 640; color: var(--ink-1); }
+    .rr-meta { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .rr-cost { font-family: var(--mono); font-size: var(--fs-meta); color: #15824f; }
+    .rr-caret { margin-left: auto; color: var(--ink-4); display: grid; place-items: center; transition: transform 0.16s ease; }
+    .run-record.open .rr-caret { transform: rotate(90deg); }
+    .rr-body { display: none; padding: 0 var(--sp-5) var(--sp-5); border-top: 1px solid var(--line-soft); }
+    .run-record.open .rr-body { display: flex; flex-direction: column; gap: var(--sp-5); padding-top: var(--sp-5); }
 
-    /* ── Inspect pane sections ─────────────────────────── */
+    /* In-conversation Outputs block (thread-scoped, inline detail) */
+    .conv-outputs { padding: var(--sp-5) var(--sp-6) var(--sp-7); border-top: 1px solid var(--line); }
+    .conv-outputs .rail-sec-head { margin-bottom: var(--sp-4); }
+
+    /* ── Conversation section heads (reused for the run record + the
+       in-conversation Outputs block; was the old Inspect pane shell) ── */
     .rail-sec { border-bottom: 1px solid var(--line); padding: var(--sp-5); }
     .rail-sec-head {
       font-size: var(--fs-micro); letter-spacing: 0.16em;
@@ -937,23 +956,6 @@
     .rail-sec-head .add:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
     .rail-sec-head .ct { color: var(--ink-3); font-weight: 680; letter-spacing: 0; }
     .rail-empty { padding: var(--sp-7) var(--sp-5); font-size: var(--fs-sm); color: var(--ink-4); }
-
-    /* Project summary (ProjectSelectedSummary) */
-    .psum { display: flex; flex-direction: column; gap: var(--sp-3); }
-    .psum-row { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-sm); }
-    .psum-row .k { color: var(--ink-3); font-weight: 600; min-width: 92px; }
-    .psum-row .v { color: var(--ink-1); font-weight: 540; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .psum-row .v.mono { font-family: var(--mono); font-size: var(--fs-meta); }
-    .psum-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-1); }
-    .psum-btn {
-      height: 28px; padding: 0 11px;
-      border: 1px solid var(--line); border-radius: var(--r-sm);
-      background: var(--surface-2); color: var(--ink-2);
-      font-size: var(--fs-meta); font-weight: 600;
-      display: inline-flex; align-items: center; gap: 5px;
-      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
-    }
-    .psum-btn:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
 
     /* Thread list */
     .thread-list { display: flex; flex-direction: column; gap: 2px; }
@@ -1158,24 +1160,6 @@
     .plan-task .role { font-size: 9px; padding: 1px 6px; border-radius: 4px; background: var(--accent-surface); color: var(--accent); }
     .plan-task .cost { margin-left: auto; font-family: var(--mono); font-size: 9px; color: #15824f; }
 
-    /* Board card (Tasks → Board) */
-    .board-card {
-      border: 1px solid var(--line-soft); border-radius: var(--r-md);
-      background: var(--surface-sunken); padding: var(--sp-3) var(--sp-4);
-      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
-    }
-    .board-card .bc-l { min-width: 0; }
-    .board-card .bc-l h4 { margin: 0; font-size: var(--fs-micro); letter-spacing: 0.16em; font-weight: 700; color: var(--ink-3); text-transform: uppercase; }
-    .board-card .bc-l p { margin: 4px 0 0; font-size: var(--fs-meta); color: var(--ink-4); }
-    .board-card .bc-btn {
-      height: 28px; padding: 0 10px; flex: none;
-      border: 1px solid var(--line); border-radius: var(--r-sm);
-      background: var(--surface-1); color: var(--ink-2);
-      font-size: var(--fs-meta); font-weight: 600;
-      display: inline-flex; align-items: center; gap: 5px;
-      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
-    }
-    .board-card .bc-btn:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
     .chat-head {
       height: 48px;
       padding: 0 var(--sp-3) 0 var(--sp-2);
@@ -1428,67 +1412,93 @@
     .send.yolo { background: var(--danger); }
     .send.yolo:hover { background: #bf372f; }
 
-    /* ── Status bar (faithful to AppMainShell <StatusBar>) ─── */
-    .statusbar {
-      height: var(--statusbar);
-      display: flex; align-items: center;
-      gap: var(--sp-4);
-      padding: 0 var(--sp-5);
-      background: linear-gradient(#fbfcfe, #eef2f7);
-      border-top: 1px solid var(--line);
-      font-size: var(--fs-meta);
-      color: var(--ink-3);
+    /* ── Diegetic scene-border readout (replaces the OS-style status bar) ──
+       The bottom status bar was deleted as app-wide chrome. Cumulative
+       tokens + spend live as a quiet fixed readout on the scene border that
+       beats while a run is live ("money burning" is felt, not stated).
+       run-state text and the git-branch chip are deleted outright (scene
+       calm/moving carries run-state; Git already has a real left tab).
+       Latency is NOT here — it degrades into the live run overlay. */
+    .scene-cost {
+      position: absolute;
+      right: var(--sp-7); bottom: var(--sp-6);
+      z-index: 3;
+      display: flex; align-items: center; gap: var(--sp-3);
     }
-    .sb-run {
-      display: inline-flex; align-items: center; gap: 7px;
-      font-weight: 600; color: var(--ink-2);
-    }
-    .sb-rdot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--ok); box-shadow: 0 0 0 2px rgba(26, 164, 106, 0.16);
-    }
-    .sb-div { width: 1px; height: 14px; background: var(--line); }
-    .sb-tele {
+    .sc-readout {
       display: inline-flex; align-items: center; gap: 8px;
-      color: var(--ink-3); font-weight: 560;
+      height: 26px; padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-pill);
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(6px);
+      color: var(--ink-3); font-size: var(--fs-meta); font-weight: 580;
       font-variant-numeric: tabular-nums;
+      box-shadow: var(--elev-1);
     }
-    .sb-tele .ico { color: var(--accent); }
-    .sb-grow { flex: 1; }
-    .sb-chip {
-      height: 22px; padding: 0 9px;
-      display: inline-flex; align-items: center; gap: 5px;
-      border: 1px solid var(--line); border-radius: var(--r-pill);
-      background: var(--surface-sunken); color: var(--ink-3);
-      font-size: var(--fs-micro); font-weight: 660;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+    .sc-readout .ico { color: var(--accent); }
+    .sc-readout b { color: var(--ink-2); font-weight: 660; }
+    .sc-readout .sc-div { width: 1px; height: 12px; background: var(--line); }
+    .sc-beat { display: inline-flex; align-items: center; gap: 3px; }
+    .sc-beat::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--ok);
     }
-    .sb-chip:hover { background: var(--surface-1); color: var(--ink-1); border-color: var(--line-strong); }
-    .sb-chip.active {
-      background: var(--accent-surface); color: var(--accent);
-      border-color: var(--accent-ring);
+    /* Live: the readout pulses while a run is burning spend */
+    .scene-cost.live .sc-readout { border-color: var(--accent-ring); color: var(--ink-2); }
+    .scene-cost.live .sc-beat::before {
+      background: var(--accent);
+      animation: pulse 1.4s ease-in-out infinite;
     }
-    .sb-chip.git { letter-spacing: 0.04em; text-transform: none; font-weight: 600; }
-    .sb-chip.git .branch-glyph { font-family: var(--mono); color: var(--ink-4); }
-    .sb-bell {
+    /* Notification = quiet unread dot beside the readout — no bell, no bar.
+       Troubled employees/zones also self-highlight in the scene itself. */
+    .sc-notif {
       position: relative;
-      width: 24px; height: 22px;
-      border: 1px solid var(--line); border-radius: var(--r-sm);
-      background: var(--surface-sunken); color: var(--ink-3);
+      width: 26px; height: 26px;
+      border: 1px solid var(--line); border-radius: 50%;
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(6px);
+      color: var(--ink-4);
       display: grid; place-items: center;
-      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+      box-shadow: var(--elev-1);
+      transition: color 0.14s ease, border-color 0.14s ease;
     }
-    .sb-bell:hover { background: var(--surface-1); color: var(--ink-1); border-color: var(--line-strong); }
-    .sb-bell .nb-dot {
-      position: absolute; top: -4px; right: -4px;
-      min-width: 14px; height: 14px; padding: 0 3px;
+    .sc-notif:hover { color: var(--ink-2); border-color: var(--line-strong); }
+    .sc-notif .nb-dot {
+      position: absolute; top: -3px; right: -3px;
+      min-width: 13px; height: 13px; padding: 0 3px;
       display: grid; place-items: center;
       background: var(--danger); color: #fff;
-      font-size: 8.5px; font-weight: 780;
+      font-size: 8px; font-weight: 780;
       border-radius: var(--r-pill);
       box-shadow: 0 0 0 1.5px var(--surface-1);
     }
+    .sc-list {
+      position: absolute;
+      right: 0; bottom: 34px;
+      width: 264px;
+      background: var(--surface-1);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-lg);
+      box-shadow: var(--elev-3);
+      overflow: hidden;
+    }
+    .sc-list-h {
+      padding: 9px 12px; border-bottom: 1px solid var(--line-soft);
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 700; color: var(--ink-3); text-transform: uppercase;
+    }
+    .sc-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 9px 12px; border-bottom: 1px solid var(--line-soft);
+      font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.45;
+    }
+    .sc-item:last-child { border-bottom: 0; }
+    .sc-item .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; margin-top: 4px; }
+    .sc-item .dot.info { background: var(--accent); }
+    .sc-item .dot.ok { background: var(--ok); }
+    .sc-item .dot.warn { background: var(--warn); }
+    .sc-item .tm { margin-left: auto; font-size: var(--fs-micro); color: var(--ink-4); flex: none; }
 
     svg text { font-family: var(--font); }
 
@@ -1610,48 +1620,6 @@
       transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
     }
     .kb-add:hover { background: var(--surface-sunken); border-color: var(--line-soft); color: var(--accent); }
-
-    /* ── Dashboard overlay (DashboardOverlay) ──────────── */
-    .dash {
-      height: 660px; overflow-y: auto;
-      background: rgba(15, 20, 32, 0.86);
-      backdrop-filter: blur(3px);
-    }
-    .dash-inner { max-width: 1180px; margin: 0 auto; padding: 22px 20px 28px; }
-    .dash-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-    .dash-top h3 { margin: 0; font-size: var(--fs-lg); font-weight: 760; color: #f3f6fb; letter-spacing: 0.06em; text-transform: uppercase; }
-    .dash-x { width: 30px; height: 30px; border: 0; border-radius: var(--r-sm); background: transparent; color: #9aa6bd; display: grid; place-items: center; }
-    .dash-x:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
-    .dash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    .dash-card {
-      border: 1px solid rgba(255, 255, 255, 0.08); border-radius: var(--r-lg);
-      background: rgba(30, 38, 54, 0.6); padding: 14px;
-    }
-    .dash-card.wide { grid-column: span 2; }
-    .dc-h {
-      display: flex; align-items: center; gap: 7px;
-      font-size: var(--fs-meta); font-weight: 760; letter-spacing: 0.1em;
-      text-transform: uppercase; color: #9aa6bd; margin-bottom: 11px;
-    }
-    .dc-h .ico { color: #9aa6bd; }
-    .dc-h .bdg {
-      margin-left: auto; min-width: 16px; padding: 0 5px; height: 15px;
-      display: grid; place-items: center; border-radius: var(--r-pill);
-      background: rgba(214, 69, 61, 0.25); color: #ff9a93;
-      font-size: 9px; font-weight: 760;
-    }
-    .dc-big { font-size: 26px; font-weight: 720; color: #f3f6fb; font-variant-numeric: tabular-nums; }
-    .dc-sub { font-size: var(--fs-micro); color: #8b97ad; margin-top: 3px; }
-    .dc-rows { display: flex; flex-direction: column; gap: 7px; }
-    .dc-row { display: flex; align-items: center; gap: 8px; font-size: var(--fs-meta); color: #c4cdde; }
-    .dc-row .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dc-row .val { font-family: var(--mono); font-size: 10px; color: #9aa6bd; }
-    .dc-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-    .dc-dot.ok { background: #45c08a; } .dc-dot.warn { background: #e5a73a; }
-    .dc-dot.err { background: #ef6f68; } .dc-dot.info { background: #5d9bff; }
-    .dc-bar { height: 6px; border-radius: var(--r-pill); background: rgba(255,255,255,0.08); overflow: hidden; margin-top: 8px; }
-    .dc-bar i { display: block; height: 100%; background: #5d9bff; border-radius: var(--r-pill); }
-    .dc-empty { font-size: var(--fs-micro); color: #6f7c93; }
 
     /* ── Interaction modals (InteractionPrompt) ────────── */
     .modal-stack { display: flex; flex-direction: column; }
@@ -1932,7 +1900,7 @@
           <span class="s-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
         </button>
         <span class="scope-div"><svg class="ico xs"><use href="#i-chev-right"/></svg></span>
-        <button class="scope-seg project" title="Offisim · switch project · /Seafile/Offisim">
+        <button class="scope-seg project" title="Offisim · switch project · Open folder · Edit project — the project segment dropdown (EntityDropdown: All / Active / Completed / + New project) now also owns Open folder + Edit project for the selected project. The old rail ProjectSelectedSummary block is gone; its workspace path moved to the left Files pane.">
           <span class="s-icn"><svg class="ico sm"><use href="#i-folder"/></svg></span>
           <span class="s-name">Offisim</span>
           <span class="s-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
@@ -1944,7 +1912,7 @@
         <button>Market</button>
         <button>Personnel</button>
       </div>
-      <div class="iconbar reveal d1" title="Activity / Settings are peer workspaces; Studio is the only Office-only tool here. Boss Dashboard (⌘D) lives in the status bar; Notifications live in the status bar.">
+      <div class="iconbar reveal d1" title="Activity / Settings are peer workspaces; Studio is the only Office-only tool here. Boss Dashboard is removed with no replacement — live spend is diegetic on the scene border, single-run cost detail lives in the run flow; the cross-project historical ledger is a v1-deferred Activity Log design. Notifications have no bell and no status bar — a quiet unread dot beside the scene cost readout, plus troubled employees/zones self-highlighting in the scene.">
         <button class="iconbtn" title="Activity Log workspace"><svg class="ico sm"><use href="#i-activity"/></svg></button>
         <button class="iconbtn" title="Settings workspace"><svg class="ico sm"><use href="#i-settings"/></svg></button>
         <span class="iconbar-div"></span>
@@ -1964,9 +1932,15 @@
         <div class="ws-body">
           <!-- Files pane -->
           <div class="ws-pane active" id="pane-files">
-            <div class="ws-search">
-              <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search files…</div>
-              <button class="filter" title="Filter"><svg class="ico sm"><use href="#i-filter"/></svg></button>
+            <div class="ws-filehdr">
+              <div class="ws-wsroot" title="Workspace folder — relocated here from the deleted rail ProjectSelectedSummary. Open folder / Edit project now live on the top scope-bar project segment dropdown; no duplicate summary block.">
+                <svg class="ico xs"><use href="#i-folder"/></svg>
+                <span class="p">/Seafile/WebWorkSpace/Offisim</span>
+              </div>
+              <div class="ws-search">
+                <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search files…</div>
+                <button class="filter" title="Filter"><svg class="ico sm"><use href="#i-filter"/></svg></button>
+              </div>
             </div>
             <section class="file-tree">
               <article class="file-row">
@@ -1977,12 +1951,12 @@
               <article class="file-row indent-1">
                 <span class="caret"><svg class="ico xs"><use href="#i-chev-right"/></svg></span>
                 <span class="ftype"><svg class="ico sm"><use href="#i-folder"/></svg></span>
-                <span class="name">web</span><span></span>
+                <span class="name">desktop</span><span></span>
               </article>
               <article class="file-row indent-1">
                 <span class="caret"><svg class="ico xs"><use href="#i-chev-right"/></svg></span>
                 <span class="ftype"><svg class="ico sm"><use href="#i-folder"/></svg></span>
-                <span class="name">desktop</span><span></span>
+                <span class="name">platform</span><span></span>
               </article>
               <article class="file-row">
                 <span class="caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
@@ -2204,7 +2178,14 @@
           <button class="active"><svg class="ico sm"><use href="#i-cube"/></svg></button>
           <button><svg class="ico sm"><use href="#i-square"/></svg></button>
         </div>
-        <button class="stage-float kanban-tab"><svg class="ico sm"><use href="#i-grid"/></svg>Kanban<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
+        <div class="stage-float stage-runaxis" title="Run axis lives on the stage, not the rail. Two adjacent entries, one visual language, different lifecycle.">
+          <button class="stage-entry" data-kanban-toggle title="Board — persistent Kanban, project/company-scoped, present even when idle (cards carry projectId + companyId)">
+            <svg class="ico sm"><use href="#i-grid"/></svg>Board
+          </button>
+          <button class="stage-entry live-idle" title="Live — the current run's plan + activity broadcasts here on the stage; when the run ends it is NOT deleted, it sediments into the conversation that triggered it (re-open that conversation to review). Idle now: no active run.">
+            <svg class="ico sm"><use href="#i-pulse"/></svg>Live
+          </button>
+        </div>
         <div class="scene-wrap">
           <svg class="scene" viewBox="0 0 1600 800" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Office scene, fixed oblique camera">
             <defs>
@@ -2367,6 +2348,23 @@
             </g>
           </svg>
         </div>
+        <!-- Diegetic spend readout on the scene border (replaces the
+             deleted status-bar telemetry). Quiet + fixed when idle;
+             .scene-cost.live makes it beat while a run burns spend.
+             Latency is NOT here — it degrades into the live run overlay.
+             The unread dot is the only notification surface (no bell). -->
+        <div class="scene-cost">
+          <span class="sc-readout" title="Cumulative tokens · estimated spend for this company. Beats while a run is live (过程即价值 — money burning is felt, not stated). Latency lives in the run flow, not here.">
+            <svg class="ico xs"><use href="#i-sparkle"/></svg>
+            <span class="sc-beat"><b>142K</b> tok</span>
+            <span class="sc-div"></span>
+            <b>$1.84</b>
+          </span>
+          <button class="sc-notif" title="3 unread — quiet notification surface (no bell, no status bar). Troubled employees/zones also self-highlight in the scene. Click → list (see specimen).">
+            <svg class="ico sm"><use href="#i-bell"/></svg>
+            <span class="nb-dot">3</span>
+          </button>
+        </div>
       </section>
 
       <!-- ── Team dock ── -->
@@ -2437,38 +2435,26 @@
         </div>
       </section>
 
-      <!-- ── Right rail (RightSidebar: Chat / Inspect / Tasks) ── -->
+      <!-- ── Right rail = pure conversation, no tabs (conversation list ⇄ selected conversation) ── -->
       <aside class="rail reveal d4">
-        <!-- Workspace header: caps label + WorkspaceSearch + Project slot -->
-        <div class="rail-head">
-          <div class="rail-head-top">
-            <span class="rail-caps">Workspace</span>
-            <span class="rail-flow" title="STAGE_META workflow label — shown only on the Tasks tab while running">Boss · routing</span>
+        <!-- Conversation header (reuses .chat-head). Back ‹ → the
+             conversation list (the new home of thread switching; the old
+             Inspect ▸ Threads tab is gone). Team thread shows the thread
+             title; a direct chat shows "Direct · {employee}" in the sub.
+             There is no separate direct-bar — the conversation header is
+             the single header for both team and direct. -->
+        <div class="chat-head" title="Conversation header. Back ‹ returns to the conversation list (filter box + thread rows + new + inline rename + empty — see specimen 1). Team thread: title = thread name, sub = project · team thread. Direct chat: sub = 'Direct · {employee}'. Chat / Inspect / Tasks tabs are removed: the conversation IS messages + sedimented run record + outputs.">
+          <button class="crumb-back" title="Back to conversations"><svg class="ico sm"><use href="#i-arrow-left"/></svg></button>
+          <div class="crumb-wrap">
+            <span class="crumb-title">Fixture Parser Verification</span>
+            <span class="crumb-sub">Offisim · team thread</span>
           </div>
-          <div class="rail-search">
-            <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search threads, employees…</div>
+          <div class="chat-tools">
+            <button class="iconbtn" title="Conversation list"><svg class="ico sm"><use href="#i-message"/></svg></button>
           </div>
         </div>
 
-        <!-- Tab strip -->
-        <div class="rail-tabs">
-          <button class="rail-tab active" data-rpane="chat"><svg class="ico sm"><use href="#i-message"/></svg>Chat</button>
-          <button class="rail-tab" data-rpane="inspect"><svg class="ico sm"><use href="#i-file"/></svg>Inspect</button>
-          <button class="rail-tab" data-rpane="tasks"><svg class="ico sm"><use href="#i-terminal"/></svg>Tasks</button>
-        </div>
-        <div class="rail-annot">
-          Real <code>RightSidebar</code> = one rail with tabs <b>Chat / Inspect / Tasks / Git</b>. v3 hosts <b>Git</b> in the left workspace pane (Files / SOPs / Git); every other rail surface is preserved here 1:1.
-        </div>
-
-        <div class="rail-body">
-          <!-- ══ Chat pane ══ -->
-          <section class="rail-pane chat-pane active" id="rpane-chat">
-            <div class="direct-bar" title="ChatPanel direct-chat header — rendered ONLY when a direct employee is selected; team chat has no header (thread switching lives in Inspect ▸ Threads)">
-              <button class="back"><svg class="ico xs"><use href="#i-arrow-left"/></svg>Team</button>
-              <span class="who">Marcus Johnson</span>
-              <span class="ann">direct-chat only</span>
-            </div>
-
+        <div class="conv-scroll">
             <section class="messages">
               <div class="msg-row">
                 <div class="attachment">
@@ -2534,63 +2520,93 @@
               </div>
             </section>
 
-            <div class="composer">
-              <div class="composer-input">Enter a task to start collaborating…</div>
-              <div class="ccs" title="ChatContextStrip — project + staged-attachment count above ChatInput">
-                <svg class="ico xs"><use href="#i-folder"/></svg><b>Offisim</b>
-                <span class="ccs-div"></span>
-                <svg class="ico xs"><use href="#i-paperclip"/></svg>20 attachments available
+            <!-- Sedimented run record. The live flow does NOT vanish when
+                 a run ends — it settles into the conversation that
+                 triggered it. Collapsed by default; expands to the SAME
+                 Plan + Activity surface that broadcasts on the stage 'Live'
+                 entry during the run. Re-opening this conversation IS the
+                 review path. -->
+            <div class="run-record open" title="Run record for this thread — the Plan + Activity that ran here. During the run this broadcasts on the stage 'Live' entry; on completion it sediments into this conversation (not deleted). Shown expanded to demonstrate the preserved surface; collapsed by default.">
+              <div class="rr-head">
+                <svg class="ico sm"><use href="#i-pulse"/></svg>
+                <span class="rr-title">Run record</span>
+                <span class="rr-meta">3 / 7 steps · 1 blocked</span>
+                <span class="rr-cost">$0.04</span>
+                <span class="rr-caret"><svg class="ico xs"><use href="#i-chev-right"/></svg></span>
               </div>
-              <div class="composer-tools">
-                <button class="ibtn" title="Attach file — / and @ are typed inline (slash registry / mention), no button needed"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
-                <span class="divider"></span>
-                <button class="pill model-chip" title="Model — provider ▸ model cascade + think level. The only in-conversation model switch; reads configured ProviderConfig, full key/endpoint setup lives in Settings">
-                  <svg class="ico xs"><use href="#i-sparkle"/></svg>MiniMax · M2.7 · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
-                </button>
-                <button class="pill mode-chip mode-sop" title="SessionModeChip — the only mode entry (SOP / Human-in-loop / Direct / YOLO)">
-                  <span class="mode-dot"></span>SOP<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
-                </button>
-                <div class="grow"></div>
-                <button class="send">Send<svg class="ico sm"><use href="#i-send"/></svg></button>
-              </div>
-            </div>
-          </section>
-
-          <!-- ══ Inspect pane ══ -->
-          <section class="rail-pane scroll-pane" id="rpane-inspect">
-            <div class="rail-sec">
-              <div class="rail-sec-head">Project</div>
-              <div class="psum">
-                <div class="psum-row"><span class="k">Workspace</span><span class="v mono">/Seafile/WebWorkSpace/Offisim</span></div>
-                <div class="psum-row"><span class="k">Tasks</span><span class="v">4 in board · 2 active</span></div>
-                <div class="psum-row"><span class="k">Outputs</span><span class="v">2 deliverables</span></div>
-                <div class="psum-actions">
-                  <button class="psum-btn"><svg class="ico xs"><use href="#i-folder"/></svg>Open</button>
-                  <button class="psum-btn"><svg class="ico xs"><use href="#i-pencil"/></svg>Edit</button>
+              <div class="rr-body">
+                <div>
+                  <div class="rail-sec-head">Activity</div>
+                  <div class="actrail">
+                    <div class="act-pills">
+                      <span class="act-pill live"><svg class="ico xs"><use href="#i-pulse"/></svg>Employees executing plan</span>
+                      <span class="act-pill cost"><svg class="ico xs"><use href="#i-sparkle"/></svg>$0.04</span>
+                    </div>
+                    <div class="act-tools">
+                      <span class="act-tool"><svg class="ico xs"><use href="#i-wrench"/></svg>read_file<span class="s">3s</span></span>
+                      <span class="act-tool"><svg class="ico xs"><use href="#i-wrench"/></svg>bash<span class="s">11s</span></span>
+                    </div>
+                    <div class="act-entries">
+                      <div class="act-entry success"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Maya completed "Provision sandbox"</span></div>
+                      <div class="act-entry info"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Alex started "Edge case review"</span><span class="x">x3</span></div>
+                      <div class="act-entry warning"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Plan step 4 blocked — awaiting verifier</span></div>
+                    </div>
+                  </div>
+                  <div class="gw-annot" style="margin-top:6px">During a run this exact surface is the live broadcast on the stage <b>Live</b> entry. Idle conversation = no run record. Bursts of the same entry collapse to an <code>×N</code> badge.</div>
                 </div>
-                <div class="gw-annot" style="margin-top:6px">ProjectSelectedSummary also hosts the desktop workspace file tree (ProjectWorkspaceFiles) when <code>showWorkspaceFiles</code>.</div>
-              </div>
-            </div>
-
-            <div class="rail-sec">
-              <div class="rail-sec-head">
-                Threads
-                <button class="add" title="New thread"><svg class="ico xs"><use href="#i-plus"/></svg></button>
-              </div>
-              <div class="thread-list">
-                <button class="thread-row active"><span class="t-name">Fixture Parser Verification</span></button>
-                <div class="thread-rename" title="Double-click a row → inline rename (Enter save / Esc cancel)">
-                  <input value="Onboarding plan" />
-                  <button title="Save"><svg class="ico xs"><use href="#i-check"/></svg></button>
-                  <button title="Cancel"><svg class="ico xs"><use href="#i-x"/></svg></button>
+                <div>
+                  <div class="rail-sec-head">Plan</div>
+                  <div class="plan">
+                    <div class="plan-head">
+                      <h4>Plan Progress</h4>
+                      <div class="st"><span class="a">2 active</span><span class="c">3/7</span></div>
+                    </div>
+                    <div class="plan-bar"><i style="width:43%"></i></div>
+                    <div class="plan-seg" title="StepProgressBar — click a segment to filter to that step">
+                      <span class="done"></span><span class="done"></span><span class="done"></span>
+                      <span class="active"></span><span></span><span></span><span></span>
+                    </div>
+                    <div class="plan-step">
+                      <div class="ps-head">
+                        <span class="ps-idx">#4</span>
+                        <span class="ps-name">Edge case review</span>
+                        <span class="ps-prog">1/2</span>
+                      </div>
+                      <div class="plan-task">
+                        <div class="pt-top">
+                          <span class="dot run"></span>
+                          <span class="who">Alex Chen</span>
+                          <span class="stt">Running</span>
+                        </div>
+                        <div class="desc">Review boundary conditions for the markdown attachment parser.</div>
+                        <div class="ptm"><span class="role">developer</span><span class="cost">$0.0123</span></div>
+                      </div>
+                    </div>
+                    <div class="plan-step">
+                      <div class="ps-head">
+                        <span class="ps-idx">#3</span>
+                        <span class="ps-name">Provision sandbox</span>
+                        <span class="ps-prog">1/1</span>
+                      </div>
+                      <div class="plan-task">
+                        <div class="pt-top">
+                          <span class="dot done"></span>
+                          <span class="who">Maya Lin</span>
+                          <span class="stt">Done</span>
+                        </div>
+                        <div class="desc">Bootstrap deterministic harness sandbox.</div>
+                        <div class="ptm"><span class="role">devops</span><span class="cost">$0.0081</span></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="gw-annot" style="margin-top:6px">Rendered when <code>planSteps&gt;0 || stage==='planning'</code>. No plan but running → centered stage-label card. The <b>Board</b> is a persistent stage entry (project/company-scoped), NOT part of the run record — it sits beside <b>Live</b> on the stage run axis.</div>
                 </div>
-                <button class="thread-row"><span class="t-name">Q3 Roadmap Draft</span></button>
-                <button class="thread-row"><span class="t-name">Doc-Engine smoke</span></button>
               </div>
-              <div class="gw-annot" style="margin-top:8px">Empty state: "No threads yet." · active row = border-focus + accent-muted · auto-title rewrites titles via <code>chat_thread.updated</code>.</div>
             </div>
 
-            <div class="rail-sec">
+            <!-- Thread-scoped Outputs, inline detail (was Inspect ▸ Outputs;
+                 the project-summary block is deleted, see Files + scope-bar). -->
+            <div class="conv-outputs">
               <div class="rail-sec-head">Outputs <span class="ct">2</span></div>
               <!-- Full DeliverableCard (isNew glow) -->
               <div class="dlv new">
@@ -2648,128 +2664,53 @@
                   </div>
                 </div>
               </div>
-              <div class="gw-annot" style="margin-top:4px">Empty = "No Outputs Yet" placeholder (icon + hint). New deliverable highlights 3s + scrolls into view. Save-as-SOP shows "Saved!" 2s after success.</div>
+              <div class="gw-annot" style="margin-top:4px">Outputs are thread-scoped and live inside the conversation (inline detail). Empty = "No Outputs Yet" placeholder (icon + hint). New deliverable highlights 3s + scrolls into view. Save-as-SOP shows "Saved!" 2s after success. No project bound → the rail shows the conversation list with "Select a project to start a conversation."</div>
             </div>
+          </div>
 
-            <div class="rail-empty" style="border-top:1px dashed var(--line-strong)">No project bound → "Select a project to inspect files, threads, and outputs."</div>
-          </section>
-
-          <!-- ══ Tasks pane ══ -->
-          <section class="rail-pane scroll-pane" id="rpane-tasks">
-            <div class="rail-sec">
-              <div class="rail-sec-head">Activity</div>
-              <div class="actrail">
-                <div class="act-pills">
-                  <span class="act-pill live"><svg class="ico xs"><use href="#i-pulse"/></svg>Employees executing plan</span>
-                  <span class="act-pill cost"><svg class="ico xs"><use href="#i-sparkle"/></svg>$0.04</span>
-                </div>
-                <div class="act-tools">
-                  <span class="act-tool"><svg class="ico xs"><use href="#i-wrench"/></svg>read_file<span class="s">3s</span></span>
-                  <span class="act-tool"><svg class="ico xs"><use href="#i-wrench"/></svg>bash<span class="s">11s</span></span>
-                </div>
-                <div class="act-entries">
-                  <div class="act-entry success"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Maya completed "Provision sandbox"</span></div>
-                  <div class="act-entry info"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Alex started "Edge case review"</span><span class="x">x3</span></div>
-                  <div class="act-entry warning"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Plan step 4 blocked — awaiting verifier</span></div>
-                </div>
+            <div class="composer">
+              <div class="composer-input">Enter a task to start collaborating…</div>
+              <div class="ccs" title="ChatContextStrip — project + staged-attachment count above ChatInput">
+                <svg class="ico xs"><use href="#i-folder"/></svg><b>Offisim</b>
+                <span class="ccs-div"></span>
+                <svg class="ico xs"><use href="#i-paperclip"/></svg>20 attachments available
               </div>
-              <div class="gw-annot" style="margin-top:6px">Always shown. Idle = "Run a task to see live activity here." Bursts of the same entry collapse to an <code>×N</code> badge.</div>
-            </div>
-
-            <div class="rail-sec">
-              <div class="rail-sec-head">Plan</div>
-              <div class="plan">
-                <div class="plan-head">
-                  <h4>Plan Progress</h4>
-                  <div class="st"><span class="a">2 active</span><span class="c">3/7</span></div>
-                </div>
-                <div class="plan-bar"><i style="width:43%"></i></div>
-                <div class="plan-seg" title="StepProgressBar — click a segment to filter to that step">
-                  <span class="done"></span><span class="done"></span><span class="done"></span>
-                  <span class="active"></span><span></span><span></span><span></span>
-                </div>
-                <div class="plan-step">
-                  <div class="ps-head">
-                    <span class="ps-idx">#4</span>
-                    <span class="ps-name">Edge case review</span>
-                    <span class="ps-prog">1/2</span>
-                  </div>
-                  <div class="plan-task">
-                    <div class="pt-top">
-                      <span class="dot run"></span>
-                      <span class="who">Alex Chen</span>
-                      <span class="stt">Running</span>
-                    </div>
-                    <div class="desc">Review boundary conditions for the markdown attachment parser.</div>
-                    <div class="ptm"><span class="role">developer</span><span class="cost">$0.0123</span></div>
-                  </div>
-                </div>
-                <div class="plan-step">
-                  <div class="ps-head">
-                    <span class="ps-idx">#3</span>
-                    <span class="ps-name">Provision sandbox</span>
-                    <span class="ps-prog">1/1</span>
-                  </div>
-                  <div class="plan-task">
-                    <div class="pt-top">
-                      <span class="dot done"></span>
-                      <span class="who">Maya Lin</span>
-                      <span class="stt">Done</span>
-                    </div>
-                    <div class="desc">Bootstrap deterministic harness sandbox.</div>
-                    <div class="ptm"><span class="role">devops</span><span class="cost">$0.0081</span></div>
-                  </div>
-                </div>
-              </div>
-              <div class="gw-annot" style="margin-top:6px">Rendered only when <code>planSteps&gt;0 || stage==='planning'</code>. No plan but running → centered stage-label card. No plan + idle → section hidden.</div>
-            </div>
-
-            <div class="rail-sec" style="border-bottom:0">
-              <div class="board-card">
-                <div class="bc-l">
-                  <h4>Board</h4>
-                  <p>4 cards in the project board</p>
-                </div>
-                <button class="bc-btn" data-kanban-toggle><svg class="ico xs"><use href="#i-clipboard"/></svg>Open</button>
+              <div class="composer-tools">
+                <button class="ibtn" title="Attach file — / and @ are typed inline (slash registry / mention), no button needed"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
+                <span class="divider"></span>
+                <button class="pill model-chip" title="Model — provider ▸ model cascade + think level. The only in-conversation model switch; reads configured ProviderConfig, full key/endpoint setup lives in Settings">
+                  <svg class="ico xs"><use href="#i-sparkle"/></svg>MiniMax · M2.7 · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+                </button>
+                <button class="pill mode-chip mode-sop" title="SessionModeChip — the only mode entry (SOP / Human-in-loop / Direct / YOLO)">
+                  <span class="mode-dot"></span>SOP<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+                </button>
+                <div class="grow"></div>
+                <button class="send">Send<svg class="ico sm"><use href="#i-send"/></svg></button>
               </div>
             </div>
-          </section>
-        </div>
       </aside>
     </main>
 
-    <!-- ── Status bar ── -->
-    <footer class="statusbar reveal d4">
-      <span class="sb-run" title="Run-state segment — idle = Ready; running = pulsing pipeline stage + Stop button (see states prototype). Model name & project identity intentionally removed (model → composer chip; project → scope-bar + Inspect, was a 3rd duplicate)">
-        <span class="sb-rdot"></span>Ready
-      </span>
-      <span class="sb-grow"></span>
-      <span class="sb-tele" title="Live runtime telemetry — cumulative tokens · estimated cost · last latency. Real values (the 过程即价值 readout); this is why the bar stays, not a static restatement">
-        <svg class="ico xs"><use href="#i-sparkle"/></svg>142K tok<span class="sb-div"></span>$1.84<span class="sb-div"></span>1.2s
-      </span>
-      <button class="sb-chip active" title="Toggle dashboard (⌘D) — StatusBar dashboardSlot, Office-only">Dashboard</button>
-      <button class="sb-bell" title="Notifications — StatusBar notificationSlot (NotificationCenter)">
-        <svg class="ico sm"><use href="#i-bell"/></svg>
-        <span class="nb-dot">3</span>
-      </button>
-      <span class="sb-chip git" title="Workspace /Seafile/Offisim · branch main — StatusBar gitBranchSlot (web returns null → hidden)">
-        <span class="branch-glyph">⎇</span>main
-      </span>
-    </footer>
+    <!-- Status bar removed — the OS-style bottom chrome is gone. Its
+         content was decomposed by ownership, not relocated: run-state →
+         deleted (scene calm vs. moving carries it); git branch → deleted
+         (Git is a real left tab); token/$ → diegetic scene-border readout;
+         latency → degrades into the live run overlay; Dashboard → removed
+         (D6); notifications → quiet unread dot beside the scene readout. -->
   </div>
 
   <!-- ════════════ STATE SPECIMENS ════════════ -->
   <div class="spec-suite">
     <div class="spec-suite-head">
       <h2>Office — state specimens</h2>
-      The frame above is the resting Office. These are the remaining Office states an implementing agent must build, expressed 1:1 with real component code. <b>Thread lifecycle</b> (list / new / inline-rename / empty / active) is covered in the Inspect ▸ Threads section above and is not repeated here.
+      The frame above is the resting Office: the right rail is a <b>selected conversation</b> (messages + sedimented run record + thread outputs + composer) — no Chat/Inspect/Tasks tabs, no status bar, no Boss Dashboard. The run axis (<b>Board</b> + <b>Live</b>) lives on the stage; spend is a diegetic scene-border readout. These specimens are the remaining Office states an implementing agent must build, expressed 1:1 with real component code.
     </div>
 
-    <!-- 1 · Kanban expanded board -->
+    <!-- 1 · Board — persistent stage entry (Kanban expanded) -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">1</span><span class="t">Kanban — expanded board</span>
-        <span class="d">KanbanTray expanded · LiveKanbanBoard (5 columns) over the stage · top chip ↔ <code style="color:#aab6cc">officeState.kanbanOpen</code> · ⎋ / outside-click collapse</span>
+        <span class="n">1</span><span class="t">Board — persistent stage entry</span>
+        <span class="d">The <code style="color:#aab6cc">Board</code> stage-run-axis entry expands LiveKanbanBoard (5 columns) over the stage · project/company-scoped, present even when idle (cards carry projectId + companyId) · ⎋ / outside-click collapse · adjacent to <code style="color:#aab6cc">Live</code>, one visual language, different lifecycle</span>
       </div>
       <div class="spec-frame spec-stage-bg">
         <div class="kb">
@@ -2860,115 +2801,161 @@
       </div>
     </div>
 
-    <!-- 2 · Boss Dashboard overlay -->
+    <!-- 2 · Conversation list (the rail ⇄ list state) -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">2</span><span class="t">Boss Dashboard — overlay</span>
-        <span class="d">DashboardOverlay · full-screen below header · ⌘D / status-bar chip / ⎋ · backdrop-click closes</span>
+        <span class="n">2</span><span class="t">Conversation list — the rail ⇄ list state</span>
+        <span class="d">The rail toggles between this list and a selected conversation (the resting frame shows the conversation). Top box = filter, degraded from WorkspaceSearch — the "workspace search" pseudo-concept is deleted; it only filters conversations now. ThreadList rows · + new · double-click inline rename (Enter save / Esc cancel) · active = border-focus + accent-muted · empty "No threads yet." · auto-title rewrites via <code style="color:#aab6cc">chat_thread.updated</code></span>
       </div>
-      <div class="spec-frame">
-        <div class="dash">
-          <div class="dash-inner">
-            <div class="dash-top">
-              <h3>Boss Dashboard</h3>
-              <button class="dash-x"><svg class="ico"><use href="#i-x"/></svg></button>
+      <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
+        <div class="rail is-list" style="width:460px;height:420px;border-radius:var(--r-lg);border:1px solid var(--line-strong);overflow:hidden;box-shadow:var(--elev-2)">
+          <div class="conv-list-head">
+            <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Filter conversations…</div>
+            <button class="new" title="New thread"><svg class="ico sm"><use href="#i-plus"/></svg></button>
+          </div>
+          <div class="conv-list">
+            <button class="thread-row active"><span class="t-name">Fixture Parser Verification</span></button>
+            <div class="thread-rename" title="Double-click a row → inline rename (Enter save / Esc cancel)">
+              <input value="Onboarding plan" />
+              <button title="Save"><svg class="ico xs"><use href="#i-check"/></svg></button>
+              <button title="Cancel"><svg class="ico xs"><use href="#i-x"/></svg></button>
             </div>
-            <div class="dash-grid">
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-dollar"/></svg>Cost Overview</div>
-                <div class="dc-big">$1.84</div>
-                <div class="dc-sub">today · 142 K tokens · 38 calls</div>
-                <div class="dc-bar"><i style="width:46%"></i></div>
-              </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-building"/></svg>Company Status</div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="dc-dot ok"></span><span class="lbl">11 employees · 3 active</span></div>
-                  <div class="dc-row"><span class="dc-dot info"></span><span class="lbl">2 SOPs running</span></div>
-                  <div class="dc-row"><span class="dc-dot warn"></span><span class="lbl">1 plan blocked</span></div>
+            <button class="thread-row"><span class="t-name">Q3 Roadmap Draft</span></button>
+            <button class="thread-row"><span class="t-name">Doc-Engine smoke</span></button>
+            <div class="gw-annot">Empty state: "No threads yet." · no project bound → "Select a project to start a conversation."</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 · Live — run broadcast on the stage -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">3</span><span class="t">Live — run broadcast on the stage</span>
+        <span class="d">The <code style="color:#aab6cc">Live</code> stage entry opens this while a run is active: Plan + Activity broadcast over the scene (the structured "needs intervention" surface — plan step status, blocked, error entries — never forced into 3D). Adjacent to <code style="color:#aab6cc">Board</code>, one visual language, different lifecycle.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
+        <div style="width:560px;max-width:100%;background:var(--surface-1);border:1px solid var(--line-strong);border-radius:var(--r-lg);box-shadow:var(--elev-3);overflow:hidden">
+          <div class="rr-head" style="cursor:default;border-bottom:1px solid var(--line-soft)">
+            <svg class="ico sm"><use href="#i-pulse"/></svg>
+            <span class="rr-title">Live · Fixture Parser Verification</span>
+            <span class="rr-meta">3 / 7 · 1 blocked</span>
+            <span class="rr-cost">$0.04</span>
+            <span class="rr-meta" style="margin-left:auto" title="Latency degrades into the live run overlay, never into the persistent scene readout">1.2s latency</span>
+          </div>
+          <div style="padding:var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-5)">
+            <div>
+              <div class="rail-sec-head">Activity</div>
+              <div class="actrail">
+                <div class="act-pills">
+                  <span class="act-pill live"><svg class="ico xs"><use href="#i-pulse"/></svg>Employees executing plan</span>
+                  <span class="act-pill cost"><svg class="ico xs"><use href="#i-sparkle"/></svg>$0.04</span>
+                </div>
+                <div class="act-tools">
+                  <span class="act-tool"><svg class="ico xs"><use href="#i-wrench"/></svg>read_file<span class="s">3s</span></span>
+                  <span class="act-tool"><svg class="ico xs"><use href="#i-wrench"/></svg>bash<span class="s">11s</span></span>
+                </div>
+                <div class="act-entries">
+                  <div class="act-entry success"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Maya completed "Provision sandbox"</span></div>
+                  <div class="act-entry info"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Alex started "Edge case review"</span><span class="x">x3</span></div>
+                  <div class="act-entry warning"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Plan step 4 blocked — awaiting verifier</span></div>
                 </div>
               </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-sparkle"/></svg>Cost by Model</div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="lbl">MiniMax-M2.7</span><span class="val">$1.72</span></div>
-                  <div class="dc-bar"><i style="width:93%"></i></div>
-                  <div class="dc-row"><span class="lbl">embedding</span><span class="val">$0.12</span></div>
-                  <div class="dc-bar"><i style="width:11%"></i></div>
+            </div>
+            <div>
+              <div class="rail-sec-head">Plan</div>
+              <div class="plan">
+                <div class="plan-head">
+                  <h4>Plan Progress</h4>
+                  <div class="st"><span class="a">2 active</span><span class="c">3/7</span></div>
                 </div>
-              </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-queue"/></svg>Task Queue</div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="dc-dot info"></span><span class="lbl">Edge case review</span><span class="val">run</span></div>
-                  <div class="dc-row"><span class="dc-dot ok"></span><span class="lbl">Provision sandbox</span><span class="val">done</span></div>
-                  <div class="dc-row"><span class="dc-dot warn"></span><span class="lbl">Verify sign-off</span><span class="val">wait</span></div>
+                <div class="plan-bar"><i style="width:43%"></i></div>
+                <div class="plan-seg" title="StepProgressBar — click a segment to filter to that step">
+                  <span class="done"></span><span class="done"></span><span class="done"></span>
+                  <span class="active"></span><span></span><span></span><span></span>
                 </div>
-              </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-bell"/></svg>Notifications<span class="bdg">3</span></div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="dc-dot info"></span><span class="lbl">Plan step 4 needs review</span></div>
-                  <div class="dc-row"><span class="dc-dot ok"></span><span class="lbl">Deliverable saved</span></div>
-                  <div class="dc-row"><span class="dc-dot warn"></span><span class="lbl">Provider latency spike</span></div>
+                <div class="plan-step">
+                  <div class="ps-head">
+                    <span class="ps-idx">#4</span>
+                    <span class="ps-name">Edge case review</span>
+                    <span class="ps-prog">1/2</span>
+                  </div>
+                  <div class="plan-task">
+                    <div class="pt-top">
+                      <span class="dot run"></span>
+                      <span class="who">Alex Chen</span>
+                      <span class="stt">Running</span>
+                    </div>
+                    <div class="desc">Review boundary conditions for the markdown attachment parser.</div>
+                    <div class="ptm"><span class="role">developer</span><span class="cost">$0.0123</span></div>
+                  </div>
                 </div>
-              </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-alert"/></svg>Error History<span class="bdg">1</span></div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="dc-dot err"></span><span class="lbl">TOOL_TIMEOUT · employee-engine</span><span class="val">10:41</span></div>
-                </div>
-              </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-users"/></svg>Team Health</div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="dc-dot ok"></span><span class="lbl">Throughput nominal</span></div>
-                  <div class="dc-row"><span class="dc-dot info"></span><span class="lbl">Avg task 2m 14s</span></div>
-                </div>
-              </div>
-              <div class="dash-card wide">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-activity"/></svg>Recent Activity</div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="dc-dot ok"></span><span class="lbl">Maya completed "Provision sandbox"</span><span class="val">2m</span></div>
-                  <div class="dc-row"><span class="dc-dot info"></span><span class="lbl">Alex started "Edge case review"</span><span class="val">4m</span></div>
-                  <div class="dc-row"><span class="dc-dot info"></span><span class="lbl">Boss routed request → manager</span><span class="val">6m</span></div>
-                </div>
-              </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-file"/></svg>Recent Outputs<span class="bdg" style="background:rgba(93,155,255,0.25);color:#9dc0ff">2</span></div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="lbl">Q3 Roadmap Outline</span><span class="val">2m</span></div>
-                  <div class="dc-row"><span class="lbl">fixture-report.md</span><span class="val">6m</span></div>
-                </div>
-              </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-target"/></svg>Execution Summary</div>
-                <div class="dc-big" style="font-size:20px">3 / 7</div>
-                <div class="dc-sub">steps complete · 1 blocked</div>
-              </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-diff"/></svg>File Changes</div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="lbl">graph/state.ts</span><span class="val">+18 −4</span></div>
-                  <div class="dc-row"><span class="lbl">ChatPanel.tsx</span><span class="val">+9 −3</span></div>
-                </div>
-              </div>
-              <div class="dash-card">
-                <div class="dc-h"><svg class="ico sm"><use href="#i-bulb"/></svg>Insights</div>
-                <div class="dc-rows">
-                  <div class="dc-row"><span class="dc-dot info"></span><span class="lbl">Attachment reuse saved 1 re-parse</span></div>
+                <div class="plan-step">
+                  <div class="ps-head">
+                    <span class="ps-idx">#3</span>
+                    <span class="ps-name">Provision sandbox</span>
+                    <span class="ps-prog">1/1</span>
+                  </div>
+                  <div class="plan-task">
+                    <div class="pt-top">
+                      <span class="dot done"></span>
+                      <span class="who">Maya Lin</span>
+                      <span class="stt">Done</span>
+                    </div>
+                    <div class="desc">Bootstrap deterministic harness sandbox.</div>
+                    <div class="ptm"><span class="role">devops</span><span class="cost">$0.0081</span></div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+      <div class="spec-cap" style="border-top:1px solid rgba(255,255,255,0.06);border-bottom:0">
+        <span class="d">Same surface as the resting frame's <b>Run record</b>: when the run ends this is NOT deleted — it sediments into the conversation that triggered it (re-open that conversation to review). Board vs Live = two adjacent stage entries, one visual language, different lifecycle; never merged into one overlay.</span>
+      </div>
     </div>
 
-    <!-- 3 · Interaction / approval modals -->
+    <!-- 4 · Scene cost readout + notifications (diegetic) -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">3</span><span class="t">Approvals — InteractionPrompt</span>
+        <span class="n">4</span><span class="t">Scene cost readout + notifications</span>
+        <span class="d">The deleted status bar's spend is now diegetic on the scene border. Quiet + fixed when idle; <code style="color:#aab6cc">.scene-cost.live</code> beats while a run burns spend (过程即价值 — money burning is felt, not stated). No bell, no status bar: the only notification surface is a quiet unread dot beside the readout (click → list) plus troubled employees/zones self-highlighting in the scene. Latency is NOT here — it lives in the Live run overlay.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:34px 28px;display:flex;gap:44px;justify-content:center;align-items:flex-start;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+          <span class="gw-annot" style="color:#8b97ad;margin:0">Idle — quiet, fixed</span>
+          <div class="scene-cost" style="position:static">
+            <span class="sc-readout"><svg class="ico xs"><use href="#i-sparkle"/></svg><span class="sc-beat"><b>142K</b> tok</span><span class="sc-div"></span><b>$1.84</b></span>
+            <button class="sc-notif"><svg class="ico sm"><use href="#i-bell"/></svg><span class="nb-dot">3</span></button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+          <span class="gw-annot" style="color:#8b97ad;margin:0">Run live — beating</span>
+          <div class="scene-cost live" style="position:static">
+            <span class="sc-readout"><svg class="ico xs"><use href="#i-sparkle"/></svg><span class="sc-beat"><b>+18K</b> tok</span><span class="sc-div"></span><b>$0.04</b></span>
+            <button class="sc-notif"><svg class="ico sm"><use href="#i-bell"/></svg><span class="nb-dot">3</span></button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+          <span class="gw-annot" style="color:#8b97ad;margin:0">Unread list (click the dot)</span>
+          <div class="sc-list" style="position:static">
+            <div class="sc-list-h">Notifications · 3 unread</div>
+            <div class="sc-item"><span class="dot info"></span><div>Plan step 4 needs review</div><span class="tm">2m</span></div>
+            <div class="sc-item"><span class="dot ok"></span><div>Deliverable saved · Q3 Roadmap Outline</div><span class="tm">4m</span></div>
+            <div class="sc-item"><span class="dot warn"></span><div>Provider latency spike</div><span class="tm">6m</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="spec-cap" style="border-top:1px solid rgba(255,255,255,0.06);border-bottom:0">
+        <span class="d">Boss Dashboard is removed with no replacement. Live diegetic spend + the Live overlay's single-run cost detail cover main-path cost anxiety. The cross-project historical aggregate ledger is explicitly <b>v1-deferred</b> (known gap) — it is NOT given a fake home; if ever needed it is a dedicated Activity Log peer-workspace design.</span>
+      </div>
+    </div>
+
+    <!-- 5 · Interaction / approval modals -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">5</span><span class="t">Approvals — InteractionPrompt</span>
         <span class="d">severity 'high' → DialogShell modal (no backdrop/escape close) · else inline in chat · skill_install_confirm → SkillInstallConfirmBubble</span>
       </div>
       <div class="modal-stack">
@@ -3081,10 +3068,10 @@ Run the verify script against the deliverable set…</div>
       </div>
     </div>
 
-    <!-- 4 · Studio fullscreen + Office-editor entry -->
+    <!-- 6 · Studio fullscreen + Office-editor entry -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">4</span><span class="t">Studio — fullscreen</span>
+        <span class="n">6</span><span class="t">Studio — fullscreen</span>
         <span class="d">StudioPage (overlay 'studio', create | edit) · ⌘S save · ⎋ steps Asset→Zone→Plot · unsaved-name prompt on create</span>
       </div>
       <div class="spec-frame">
@@ -3143,10 +3130,10 @@ Run the verify script against the deliverable set…</div>
       </div>
     </div>
 
-    <!-- 5 · Model switcher — cascading menu -->
+    <!-- 7 · Model switcher — cascading menu -->
     <div class="spec-state">
       <div class="spec-cap">
-        <span class="n">5</span><span class="t">Model switcher — cascading menu</span>
+        <span class="n">7</span><span class="t">Model switcher — cascading menu</span>
         <span class="d">Composer chip ↑ (next to SessionModeChip) · Provider ▸ Model is a true cascade · Think level is a persistent segment (not a 3rd level) · footer routes to Settings — reads configured ProviderConfig, never forks key/endpoint setup</span>
       </div>
       <div class="spec-frame spec-stage-bg" style="padding:34px 28px;display:flex;justify-content:center">
@@ -3217,21 +3204,11 @@ Run the verify script against the deliverable set…</div>
       });
     });
 
-    // Right rail tabs (Chat / Inspect / Tasks) — real RightSidebar Tabs
-    const railFlow = document.querySelector('.rail-flow');
-    function syncRailFlow(active) {
-      if (railFlow) railFlow.style.display = active === 'tasks' ? '' : 'none';
-    }
-    syncRailFlow('chat');
-    document.querySelectorAll('.rail-tab').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const target = btn.dataset.rpane;
-        if (!target) return;
-        document.querySelectorAll('.rail-tab').forEach((b) => b.classList.toggle('active', b === btn));
-        document.querySelectorAll('.rail-pane').forEach((p) =>
-          p.classList.toggle('active', p.id === `rpane-${target}`),
-        );
-        syncRailFlow(target);
+    // Right rail = pure conversation, no tabs. The sedimented run record
+    // collapses/expands in place; everything else is one scroll.
+    document.querySelectorAll('.run-record .rr-head').forEach((head) => {
+      head.addEventListener('click', () => {
+        head.closest('.run-record').classList.toggle('open');
       });
     });
 
