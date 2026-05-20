@@ -12,6 +12,7 @@
   <style>
     :root {
       --bg: #eef1f6;
+      --surface-0: #f7f9fc;
       --surface-1: #ffffff;
       --surface-2: #fbfcfe;
       --surface-sunken: #f1f4f9;
@@ -34,8 +35,11 @@
       --ok: #1aa46a;        --ok-surface: #e4f5ec;
       --warn: #c98410;      --warn-surface: #fdf2dd;
       --danger: #d6453d;    --danger-surface: #fdeae9;
-      --info: #2f6bff;      --info-surface: #ecf2ff;
       --violet: #7c4ddb;    --violet-surface: #f1ebfd;
+
+      /* --info aliased to --accent per V3 DNA §2/§3 (no duplicate info token). */
+      --info: var(--accent);
+      --info-surface: var(--accent-surface);
 
       /* DAG role colors — 1:1 with SopDagNode ROLE_COLORS */
       --role-developer: #3b82f6;
@@ -52,7 +56,7 @@
       --elev-3: 0 18px 44px rgba(18, 28, 50, 0.20), 0 4px 12px rgba(18, 28, 50, 0.10);
 
       --sp-1: 4px; --sp-2: 6px; --sp-3: 8px; --sp-4: 10px;
-      --sp-5: 12px; --sp-6: 14px; --sp-7: 16px; --sp-8: 20px; --sp-9: 28px;
+      --sp-5: 12px; --sp-6: 14px; --sp-7: 16px; --sp-8: 20px;
 
       --fs-micro: 10px; --fs-meta: 11px; --fs-sm: 12px;
       --fs-base: 13px; --fs-md: 14px; --fs-lg: 15px; --fs-xl: 19px;
@@ -116,7 +120,7 @@
     .titlebar {
       height: var(--title);
       display: flex; align-items: center; gap: var(--sp-6);
-      padding: 0 var(--sp-7);
+      padding: 0 var(--sp-5);
       background: linear-gradient(#fcfdfe, #eef2f7);
       border-bottom: 1px solid var(--line);
     }
@@ -124,14 +128,14 @@
     .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
     .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
-    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); }
+    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); letter-spacing: 0.02em; }
 
-    /* Top bar */
+    /* Top bar — identical grammar to V3 (no bell). */
     .topbar {
       height: var(--toolbar);
       position: relative;
       display: flex; align-items: center; gap: var(--sp-5);
-      padding: 0 var(--sp-6);
+      padding: 0 var(--sp-5);
       background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--line);
@@ -140,9 +144,9 @@
     .topbar .iconbar { margin-left: auto; }
     .nav, .iconbar {
       height: 34px; border: 1px solid var(--line); border-radius: var(--r-md);
-      background: var(--surface-2); display: flex; align-items: center; box-shadow: var(--elev-1);
+      background: var(--surface-2); display: flex; align-items: center;
     }
-    .nav { padding: 3px; gap: 2px; }
+    .nav { padding: 3px; gap: 2px; box-shadow: var(--elev-1); }
     .nav button {
       height: 28px; padding: 0 14px; border: 0; border-radius: var(--r-sm);
       background: transparent; color: var(--ink-2);
@@ -151,18 +155,16 @@
       transition: background 0.14s ease, color 0.14s ease;
     }
     .nav button:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
-    .nav button.active { background: var(--accent-surface); color: var(--accent); font-weight: 640; box-shadow: inset 0 0 0 1px var(--accent-ring); }
-    .iconbar { padding: 3px; gap: 2px; }
+    .nav button.active { color: var(--accent); background: var(--accent-surface); font-weight: 620; box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .iconbar { padding: 3px; gap: 2px; box-shadow: var(--elev-1); }
     .iconbtn {
       width: 28px; height: 28px; border: 0; border-radius: var(--r-sm);
       background: transparent; color: var(--ink-3);
       display: grid; place-items: center;
       transition: background 0.14s ease, color 0.14s ease;
-      position: relative;
     }
     .iconbtn:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
-    .iconbtn.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
-    .iconbtn .nb { position: absolute; top: 1px; right: 1px; min-width: 13px; height: 13px; padding: 0 3px; border-radius: var(--r-pill); background: var(--danger); color: #fff; font-size: 8px; font-weight: 760; display: grid; place-items: center; }
+    .iconbar-div { width: 1px; height: 16px; background: var(--line); margin: 0 3px; }
 
     .scope-bar {
       position: relative; display: flex; align-items: center;
@@ -180,7 +182,9 @@
     .scope-seg .s-icn { display: grid; place-items: center; flex: none; }
     .scope-seg.company .s-icn { width: 22px; height: 22px; border-radius: var(--r-xs); background: var(--accent-surface); color: var(--accent); }
     .scope-seg.project .s-icn { color: var(--ink-3); }
-    .scope-seg .s-name { font-size: var(--fs-base); font-weight: 640; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .scope-seg .s-name { font-size: var(--fs-base); font-weight: 640; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .scope-seg.company .s-name { max-width: 150px; }
+    .scope-seg.project .s-name { max-width: 140px; }
     .scope-seg .s-caret { color: var(--ink-4); display: grid; place-items: center; flex: none; }
     .scope-div { color: var(--ink-4); display: grid; place-items: center; flex: none; }
 
@@ -193,60 +197,111 @@
     .sop-side-top { display: flex; align-items: center; justify-content: space-between; }
     .sop-side-cap { font-size: var(--fs-micro); font-weight: 700; letter-spacing: var(--ls-caps); color: var(--ink-3); text-transform: uppercase; }
     .sop-side-acts { display: flex; align-items: center; gap: 4px; }
-    .mini-btn { width: 24px; height: 24px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-3); display: grid; place-items: center; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
+    .mini-btn { width: 22px; height: 22px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-2); color: var(--ink-3); display: grid; place-items: center; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
     .mini-btn:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
-    .sop-search { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-sunken); }
+    .sop-search { display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-sunken); }
     .sop-search input { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; font-size: var(--fs-sm); color: var(--ink-1); }
     .sop-search .ico { color: var(--ink-4); }
     .sop-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--sp-3) var(--sp-3); display: flex; flex-direction: column; gap: 2px; }
-    .sop-row { text-align: left; border: 1px solid transparent; border-radius: var(--r-sm); padding: 9px 10px; background: transparent; color: var(--ink-2); transition: background 0.12s ease, color 0.12s ease; }
+    .sop-row { text-align: left; border: 1px solid transparent; border-radius: var(--r-sm); padding: 8px 10px; background: transparent; color: var(--ink-2); transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
     .sop-row:hover { background: var(--surface-sunken); color: var(--ink-1); }
     .sop-row.active { border-color: var(--accent-ring); background: var(--accent-surface); color: var(--accent); }
     .sop-row .sr-name { font-size: var(--fs-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sop-row .sr-meta { font-size: 9.5px; color: var(--ink-4); margin-top: 3px; }
+    .sop-row .sr-meta { font-size: 9.5px; color: var(--ink-4); margin-top: 3px; letter-spacing: 0.02em; }
     .sop-row.active .sr-meta { color: color-mix(in srgb, var(--accent) 65%, var(--ink-4)); }
     .sop-empty-list { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 14px; text-align: center; color: var(--ink-4); }
     .sop-empty-list .ico { color: var(--ink-4); }
     .sop-empty-list p { font-size: var(--fs-sm); margin: 0; }
-    .skel { height: 46px; border-radius: var(--r-sm); background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line-soft) 37%, var(--surface-sunken) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+    .skel { height: 42px; border-radius: var(--r-sm); background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line-soft) 37%, var(--surface-sunken) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
     @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
     /* collapsed (tablet) rail */
     .sop-rail { width: 44px; border-right: 1px solid var(--line); background: color-mix(in srgb, var(--surface-2) 70%, transparent); display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0; }
-    .sop-rail .rb { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-4); display: grid; place-items: center; font-size: var(--fs-micro); font-weight: 700; text-transform: uppercase; }
+    .sop-rail .rb { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-4); display: grid; place-items: center; font-size: var(--fs-micro); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
     .sop-rail .rb.active { border-color: var(--accent-ring); background: var(--accent-surface); color: var(--accent); }
     .sop-rail .rdiv { width: 22px; height: 1px; background: var(--line); }
 
     /* ── Zone B · center column ── */
     .sop-center { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); position: relative; }
 
-    .sop-toolbar { flex: none; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 var(--sp-5); border-bottom: 1px solid var(--line); background: var(--surface-1); }
-    .tb-btn { height: 28px; padding: 0 11px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-2); font-size: var(--fs-sm); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
-    .tb-btn:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
-    .tb-btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
-    .tb-btn.primary:hover { background: var(--accent-press); }
-    .tb-btn.primary:disabled, .tb-btn:disabled { background: var(--surface-sunken); color: var(--ink-4); border-color: var(--line); cursor: not-allowed; }
-    .tb-btn.editing { border-color: var(--warn); background: var(--warn-surface); color: #8a5a0c; }
-    .tb-btn.danger { border-color: rgba(214,69,61,0.4); color: #b8352e; }
-    .tb-btn.danger:hover { background: var(--danger-surface); }
-    .tb-icon { width: 28px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-3); display: grid; place-items: center; }
+    /* Toolbar — V3 chip-grammar container (height 34, --r-md outer, transparent buttons, hover --accent-surface). */
+    .sop-toolbar {
+      flex: none; height: 46px;
+      display: flex; align-items: center; gap: var(--sp-2);
+      padding: 0 var(--sp-5);
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-1);
+    }
+    .tb-group {
+      display: flex; align-items: center; gap: 2px;
+      height: 34px; padding: 3px;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--surface-2); box-shadow: var(--elev-1);
+    }
+    .tb-btn {
+      height: 28px; padding: 0 11px;
+      border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-2);
+      font-size: var(--fs-sm); font-weight: 580;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+    .tb-btn:hover { background: var(--accent-surface); color: var(--accent); }
+    .tb-btn.primary { background: var(--accent); color: var(--accent-fg); font-weight: 620; padding: 0 12px; }
+    .tb-btn.primary:hover { background: var(--accent-press); color: var(--accent-fg); }
+    .tb-btn.primary:disabled, .tb-btn:disabled { background: transparent; color: var(--ink-4); cursor: not-allowed; }
+    .tb-btn.editing { background: var(--warn-surface); color: #8a5a0c; box-shadow: inset 0 0 0 1px rgba(201, 132, 16, 0.32); font-weight: 620; }
+    .tb-btn.editing:hover { background: var(--warn-surface); color: #8a5a0c; }
+    .tb-btn.danger { color: #b8352e; }
+    .tb-btn.danger:hover { background: var(--danger-surface); color: #b8352e; }
+    .tb-icon {
+      width: 28px; height: 28px; padding: 0;
+      border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-3);
+      display: grid; place-items: center;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+    .tb-icon:hover { background: var(--accent-surface); color: var(--accent); }
     .tb-spacer { flex: 1; }
 
-    /* save status pill (absolute, top-right of center) */
-    .save-pill { position: absolute; top: 50px; right: 16px; z-index: 6; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 8px; border-radius: var(--r-xs); border: 1px solid var(--line); background: var(--surface-1); color: var(--ink-3); }
+    /* save status pill (absolute, top-right of center) — caps-label vocabulary. */
+    .save-pill {
+      position: absolute; top: 56px; right: 16px; z-index: 6;
+      font-size: 9.5px; letter-spacing: var(--ls-caps); font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 9px; border-radius: var(--r-pill);
+      border: 1px solid var(--line); background: var(--surface-1); color: var(--ink-3);
+      box-shadow: var(--elev-1);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .save-pill::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--ink-4);
+    }
+    .save-pill.saving::before { background: var(--accent); animation: pulse 1.6s ease infinite; }
     .save-pill.saved { border-color: rgba(26,164,106,0.35); background: var(--ok-surface); color: #15824f; }
+    .save-pill.saved::before { background: var(--ok); }
     .save-pill.error { border-color: rgba(214,69,61,0.35); background: var(--danger-surface); color: #b8352e; }
+    .save-pill.error::before { background: var(--danger); animation: pulse 1.6s ease infinite; }
 
-    /* run progress strip (SopRunProgressStrip, h-8) */
-    .run-strip { flex: none; height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 var(--sp-5); border-bottom: 1px solid; font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.02em; }
-    .run-strip.run { border-color: var(--info); background: var(--info-surface); color: var(--info); }
+    /* run progress strip — status-pill grammar (dot + 1.6s pulse if running). */
+    .run-strip {
+      flex: none; height: 32px;
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: 0 var(--sp-5);
+      border-bottom: 1px solid;
+      font-size: var(--fs-meta); font-weight: 660;
+      letter-spacing: 0.02em;
+    }
+    .run-strip.run { border-color: var(--accent-ring); background: var(--accent-surface); color: var(--accent); }
     .run-strip.done { border-color: rgba(26,164,106,0.4); background: var(--ok-surface); color: #15824f; }
-    .run-strip.fail { border-color: var(--danger); background: var(--danger-surface); color: #b8352e; }
-    .run-strip .sd { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-    .sd.info { background: var(--info); } .sd.info.pulse { animation: pulse 1.3s ease infinite; }
+    .run-strip.fail { border-color: rgba(214,69,61,0.4); background: var(--danger-surface); color: #b8352e; }
+    .run-strip .sd { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+    .sd.info { background: var(--accent); }
+    .sd.info.pulse { animation: pulse 1.6s ease infinite; }
     .sd.ok { background: var(--ok); }
-    .sd.err { background: var(--danger); } .sd.err.pulse { animation: pulse 1.3s ease infinite; }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .sd.err { background: var(--danger); animation: pulse 1.6s ease infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
     /* DAG canvas */
     .dag-canvas {
@@ -261,32 +316,32 @@
     .dag-node {
       position: absolute; width: 240px; height: 118px;
       display: flex; overflow: hidden;
-      border: 1px solid var(--line); border-radius: var(--r-md);
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
       background: var(--surface-1); box-shadow: var(--elev-1);
-      transition: border-color 0.14s ease, box-shadow 0.14s ease;
+      transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
     }
-    .dag-node:hover { border-color: var(--line-strong); box-shadow: var(--elev-2); }
-    .dag-node.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring), var(--elev-2); }
+    .dag-node:hover { border-color: var(--line-strong); box-shadow: var(--elev-2); transform: translateY(-1px); }
+    .dag-node.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring), var(--elev-2); transform: none; }
     .dag-node .bar { width: 4px; flex: none; }
     .dag-node .body { flex: 1; min-width: 0; padding: 11px 12px; display: flex; flex-direction: column; gap: 6px; }
     .dn-top { display: flex; align-items: center; gap: 7px; min-width: 0; }
     .dn-status { width: 8px; height: 8px; border-radius: 50%; flex: none; }
     .dn-status.pending { background: var(--ink-4); }
-    .dn-status.active { background: var(--info); animation: pulse 1.3s ease infinite; }
+    .dn-status.active { background: var(--accent); animation: pulse 1.6s ease infinite; }
     .dn-status.completed { background: var(--ok); }
     .dn-status.failed { background: var(--danger); }
     .dn-label { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dn-chip { flex: none; height: 17px; padding: 0 7px; border-radius: var(--r-pill); font-size: 9px; font-weight: 640; display: inline-flex; align-items: center; }
+    .dn-chip { flex: none; height: 17px; padding: 0 7px; border-radius: var(--r-pill); font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; display: inline-flex; align-items: center; }
     .dn-chip.deps { background: var(--surface-sunken); color: var(--ink-3); }
-    .dn-chip.failed { background: var(--danger-surface); color: #b8352e; text-transform: uppercase; letter-spacing: 0.04em; }
-    .dn-chip.norole { background: var(--warn-surface); color: #8a5a0c; border: 1px solid rgba(201,132,16,0.4); }
-    .dn-chip.role { color: var(--ink-1); }
+    .dn-chip.failed { background: var(--danger-surface); color: #b8352e; }
+    .dn-chip.norole { background: var(--warn-surface); color: #8a5a0c; box-shadow: inset 0 0 0 1px rgba(201,132,16,0.4); text-transform: none; letter-spacing: 0.02em; }
+    .dn-chip.role { color: var(--ink-1); text-transform: lowercase; letter-spacing: 0.02em; font-weight: 680; }
     .dn-instr { flex: 1; font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dn-out { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dn-out { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.02em; }
 
     /* DAG ports (circles drawn over node edge) */
     .port { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--surface-1); border: 2.5px solid; transform: translate(-50%, -50%); }
-    .port.in { border-color: var(--info); }
+    .port.in { border-color: var(--accent); }
     .port.out { border-color: var(--warn); }
     .port.dim { opacity: 0.4; }
     .port.accept { border-color: var(--warn); border-width: 3.5px; width: 17px; height: 17px; }
@@ -294,41 +349,106 @@
     .port.hot { border-width: 3.5px; width: 17px; height: 17px; }
 
     .dag-fit { position: absolute; right: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 6px; z-index: 4; }
-    .dag-fit .zb { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-3); display: grid; place-items: center; box-shadow: var(--elev-1); }
-    .dag-fit .zb:hover { color: var(--accent); border-color: var(--accent-ring); }
+    .dag-fit .zb { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-3); display: grid; place-items: center; box-shadow: var(--elev-1); transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease; }
+    .dag-fit .zb:hover { color: var(--accent); border-color: var(--accent-ring); background: var(--accent-surface); }
 
-    .canvas-note { position: absolute; left: 14px; bottom: 12px; font-size: 9.5px; font-style: italic; font-weight: 600; color: var(--ink-4); background: color-mix(in srgb, var(--surface-1) 86%, transparent); padding: 4px 9px; border-radius: var(--r-pill); border: 1px solid var(--line-soft); z-index: 4; }
+    .canvas-note { position: absolute; left: 14px; bottom: 12px; font-size: 9.5px; font-weight: 580; color: var(--ink-4); background: color-mix(in srgb, var(--surface-1) 86%, transparent); padding: 4px 10px; border-radius: var(--r-pill); border: 1px solid var(--line-soft); z-index: 4; }
 
-    /* SopNlCommandBar (bottom, h-16/64px) */
-    .sop-cmd { flex: none; height: 60px; display: flex; align-items: center; gap: 9px; padding: 0 var(--sp-7); border-top: 1px solid var(--line); background: var(--surface-1); }
-    .sop-cmd .cmd-in { flex: 1; height: 38px; display: flex; align-items: center; padding: 0 13px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken); color: var(--ink-3); font-size: var(--fs-base); }
-    .sop-cmd .cmd-in.ready { background: var(--surface-1); color: var(--ink-1); }
-    .sop-cmd .cmd-in.ready.focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
-    .sop-cmd .send { width: 38px; height: 38px; border: 0; border-radius: var(--r-md); background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; }
+    /* SopNlCommandBar (bottom) — composer-input chip grammar from V3. */
+    .sop-cmd {
+      flex: none; height: 60px;
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: 0 var(--sp-7);
+      border-top: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+    .sop-cmd .cmd-in {
+      flex: 1; height: 40px;
+      display: flex; align-items: center;
+      padding: 0 13px;
+      border: 1px solid var(--line-strong); border-radius: var(--r-md);
+      background: var(--surface-1); color: var(--ink-4);
+      font-size: var(--fs-md);
+      transition: border-color 0.14s ease, box-shadow 0.14s ease;
+    }
+    .sop-cmd .cmd-in.ready { color: var(--ink-4); }
+    .sop-cmd .cmd-in:hover { border-color: var(--accent-ring); }
+    .sop-cmd .cmd-in.focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); color: var(--ink-1); }
+    .sop-cmd .send {
+      width: 40px; height: 40px; border: 0; border-radius: var(--r-md);
+      background: var(--accent); color: var(--accent-fg);
+      display: grid; place-items: center;
+      transition: background 0.12s ease;
+    }
+    .sop-cmd .send:hover { background: var(--accent-press); }
     .sop-cmd .send:disabled { background: var(--surface-sunken); color: var(--ink-4); cursor: not-allowed; }
 
-    /* ── Zone C · SopInspectorPanel (320px) ── */
+    /* ── Zone C · SopInspectorPanel (320px) — mirrors V3 rail-sec pattern. */
     .sop-insp { border-left: 1px solid var(--line); background: var(--surface-1); min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
-    .insp-pad { padding: var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-7); }
-    .insp-empty { flex: 1; display: grid; place-items: center; padding: 0 24px; text-align: center; color: var(--ink-4); font-size: var(--fs-sm); }
-    .insp-title { font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); }
+    .insp-pad { padding: 0; display: flex; flex-direction: column; }
+    .insp-empty { flex: 1; display: grid; place-items: center; padding: 40px 24px; text-align: center; color: var(--ink-4); font-size: var(--fs-sm); }
+
+    .insp-head {
+      padding: var(--sp-5) var(--sp-5) var(--sp-4);
+      border-bottom: 1px solid var(--line);
+    }
+    .insp-title { font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); letter-spacing: -0.005em; }
     .insp-sub { display: flex; align-items: center; gap: 7px; font-size: var(--fs-sm); color: var(--ink-3); margin-top: 5px; }
     .insp-sub .id { width: 7px; height: 7px; border-radius: 50%; }
-    .insp-sec-label { font-family: var(--mono); font-size: 9.5px; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-4); margin-bottom: 7px; }
-    .insp-instr { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.6; white-space: pre-wrap; }
+
+    .insp-sec {
+      border-bottom: 1px solid var(--line-soft);
+      padding: var(--sp-5);
+      display: flex; flex-direction: column; gap: var(--sp-3);
+    }
+    .insp-sec:last-child { border-bottom: 0; }
+    .insp-sec-label {
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 700; color: var(--ink-3); text-transform: uppercase;
+    }
+    .insp-instr { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.6; white-space: pre-wrap; margin: 0; }
     .insp-instr.empty { font-style: italic; color: var(--ink-4); }
-    .insp-warn { font-size: var(--fs-meta); line-height: 1.5; padding: 8px 10px; border-radius: var(--r-sm); border: 1px solid rgba(201,132,16,0.4); background: var(--warn-surface); color: #8a5a0c; }
+    .insp-warn {
+      font-size: var(--fs-meta); line-height: 1.5;
+      padding: 8px 10px; border-radius: var(--r-sm);
+      border: 1px solid rgba(201,132,16,0.4); background: var(--warn-surface); color: #8a5a0c;
+    }
     .insp-warn b { font-weight: 700; }
-    .insp-err { border: 1px solid rgba(214,69,61,0.3); background: var(--danger-surface); border-radius: var(--r-sm); padding: 8px 10px; font-size: var(--fs-meta); line-height: 1.5; color: #b8352e; }
-    .insp-err .et { font-family: var(--mono); font-weight: 600; }
-    .insp-dep { width: 100%; text-align: left; border: 0; border-radius: var(--r-xs); background: var(--surface-sunken); color: var(--ink-2); font-size: var(--fs-sm); padding: 7px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background 0.12s ease, color 0.12s ease; }
-    .insp-dep:hover { background: var(--accent-surface); color: var(--accent); }
+    .insp-err {
+      border: 1px solid rgba(214,69,61,0.3); background: var(--danger-surface);
+      border-radius: var(--r-sm); padding: 8px 10px;
+      font-size: var(--fs-meta); line-height: 1.5; color: #b8352e;
+    }
+    .insp-err .et { font-family: var(--mono); font-weight: 660; letter-spacing: 0.02em; }
+    .insp-dep {
+      width: 100%; text-align: left;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2); color: var(--ink-2);
+      font-size: var(--fs-sm); font-weight: 580;
+      padding: 7px 10px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .insp-dep:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
     .insp-dep + .insp-dep { margin-top: 5px; }
-    .insp-none { font-size: var(--fs-sm); font-style: italic; color: var(--ink-4); }
+    .insp-none { font-size: var(--fs-sm); font-style: italic; color: var(--ink-4); margin: 0; }
     .insp-key-row { display: flex; align-items: center; gap: 8px; }
-    .insp-key { flex: 1; min-width: 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--accent); background: var(--surface-sunken); border-radius: var(--r-xs); padding: 7px 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .insp-copy { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 600; color: var(--ink-3); background: var(--surface-sunken); border: 0; border-radius: var(--r-xs); padding: 7px 9px; }
-    .insp-copy:hover { background: var(--accent-surface); color: var(--accent); }
+    .insp-key {
+      flex: 1; min-width: 0;
+      font-family: var(--mono); font-size: var(--fs-meta);
+      color: var(--accent); background: var(--surface-sunken);
+      border-radius: var(--r-xs); padding: 7px 9px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .insp-copy {
+      flex: none; display: inline-flex; align-items: center; gap: 5px;
+      font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase;
+      color: var(--ink-3); background: var(--surface-2);
+      border: 1px solid var(--line-soft); border-radius: var(--r-xs);
+      padding: 6px 9px;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .insp-copy:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
 
     /* ══════════ State specimens ══════════ */
     .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
@@ -355,7 +475,7 @@
     .dlg { width: 100%; max-width: 520px; margin: 0 auto; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--elev-3); overflow: hidden; }
     .dlg.sm { max-width: 420px; }
     .dlg-h { padding: var(--sp-7) var(--sp-7) var(--sp-5); border-bottom: 1px solid var(--line-soft); }
-    .dlg-h .dt { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); display: flex; align-items: center; gap: 8px; }
+    .dlg-h .dt { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); display: flex; align-items: center; gap: 8px; letter-spacing: -0.005em; }
     .dlg-h .dd { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 5px; }
     .dlg-b { padding: var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-5); max-height: 360px; overflow-y: auto; }
     .dlg-f { padding: var(--sp-5) var(--sp-7); border-top: 1px solid var(--line-soft); display: flex; justify-content: flex-end; gap: 8px; background: var(--surface-2); }
@@ -370,23 +490,39 @@
     .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
     .btn.primary:disabled { background: var(--surface-sunken); color: var(--ink-4); border: 1px solid var(--line); }
     .btn.outline { background: var(--surface-1); }
-    .step-card { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-sunken); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .step-card { border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--surface-2); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
     .step-card .row1 { display: flex; align-items: center; gap: 8px; }
-    .step-card .ix { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); width: 26px; flex: none; }
+    .step-card .ix { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); width: 26px; flex: none; letter-spacing: 0.04em; }
     .step-card .row1 .inp { flex: 1; height: 28px; }
-    .step-card .sel { height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-2); font-size: var(--fs-meta); display: flex; align-items: center; gap: 5px; }
-    .step-card .tr { color: var(--ink-4); background: transparent; border: 0; padding: 4px; }
-    .step-card .tr:hover { color: var(--danger); }
+    /* Custom-chev select chip — chip-grammar, no native arrow. */
+    .step-card .sel,
+    .popover .sel {
+      height: 28px; padding: 0 28px 0 9px;
+      border: 1px solid var(--line); border-radius: var(--r-xs);
+      background: var(--surface-1); color: var(--ink-2);
+      font-size: var(--fs-meta); font-weight: 580;
+      display: inline-flex; align-items: center; gap: 5px;
+      position: relative;
+    }
+    .step-card .sel::after,
+    .popover .sel::after {
+      content: ""; position: absolute; right: 8px; top: 50%;
+      width: 10px; height: 10px; transform: translateY(-50%);
+      background: no-repeat center / 10px 10px;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2393a0b2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+    }
+    .step-card .tr { color: var(--ink-4); background: transparent; border: 0; padding: 4px; border-radius: var(--r-xs); }
+    .step-card .tr:hover { color: var(--danger); background: var(--danger-surface); }
     .step-card .after { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .step-card .after .lbl { font-size: 9.5px; color: var(--ink-4); }
-    .dep-chip { height: 19px; padding: 0 8px; border-radius: var(--r-xs); font-size: 9.5px; font-weight: 600; border: 1px solid var(--line); background: var(--surface-1); color: var(--ink-4); }
+    .step-card .after .lbl { font-size: 9.5px; color: var(--ink-4); font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; }
+    .dep-chip { height: 19px; padding: 0 8px; border-radius: var(--r-pill); font-size: 9.5px; font-weight: 660; border: 1px solid var(--line); background: var(--surface-1); color: var(--ink-3); }
     .dep-chip.on { border-color: var(--accent-ring); background: var(--accent-surface); color: var(--accent); }
-    .err-box { border: 1px solid var(--danger); background: var(--danger-surface); border-radius: var(--r-xs); padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; }
-    .err-box p { margin: 0; font-size: 9.5px; color: #b8352e; }
-    .preview-card { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-sunken); padding: 12px; }
-    .preview-card .pn { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); }
-    .preview-card .pdsc { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; }
-    .preview-card .pst { font-size: 9.5px; color: var(--ink-4); margin-top: 5px; }
+    .err-box { border: 1px solid rgba(214, 69, 61, 0.35); background: var(--danger-surface); border-radius: var(--r-sm); padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; }
+    .err-box p { margin: 0; font-size: 10.5px; color: #b8352e; }
+    .preview-card { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-2); padding: 12px; box-shadow: var(--elev-1); }
+    .preview-card .pn { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); }
+    .preview-card .pdsc { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; line-height: 1.5; }
+    .preview-card .pst { font-size: 9.5px; color: var(--ink-4); margin-top: 6px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
 
     .popover { width: 280px; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--elev-3); padding: 12px; display: flex; flex-direction: column; gap: 9px; }
     .ctx-menu { width: 144px; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--elev-3); padding: 5px; }
@@ -404,13 +540,13 @@
 
     .empty-hero { max-width: 460px; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 40px 0; }
     .empty-hero .eh-ic { width: 56px; height: 56px; border-radius: var(--r-lg); background: var(--surface-1); border: 1px solid var(--line); box-shadow: var(--elev-1); display: grid; place-items: center; color: var(--ink-3); }
-    .empty-hero .eh-t { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); }
+    .empty-hero .eh-t { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); letter-spacing: -0.005em; }
     .empty-hero .eh-d { font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.6; }
     .empty-hero .eh-acts { display: flex; gap: 9px; }
-    .empty-hero .eh-foot { font-size: var(--fs-meta); color: var(--ink-4); font-style: italic; }
+    .empty-hero .eh-foot { font-size: var(--fs-meta); color: var(--ink-4); }
 
-    .mini-pane { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); overflow: hidden; box-shadow: var(--elev-1); }
-    .mini-pane-cap { padding: 7px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-4); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
+    .mini-pane { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-1); overflow: hidden; box-shadow: var(--elev-1); }
+    .mini-pane-cap { padding: 7px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-3); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
     .mini-pane-body { padding: 14px; }
 
     /* responsive specimens */
@@ -420,9 +556,9 @@
     .ph-drawer { position: absolute; inset: 0 60px 0 0; background: var(--surface-1); border-right: 1px solid var(--line); box-shadow: var(--elev-3); z-index: 3; }
     .ph-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 60%, transparent); z-index: 2; }
     .ph-sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 56%; background: var(--surface-1); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; box-shadow: var(--elev-3); z-index: 4; display: flex; flex-direction: column; }
-    .ph-sheet-h { height: 40px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--line-soft); font-size: var(--fs-sm); font-weight: 620; color: var(--ink-2); }
+    .ph-sheet-h { height: 40px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--line-soft); font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-3); }
 
-    .annot { font-size: 9.5px; font-weight: 600; color: var(--ink-4); font-style: italic; }
+    .annot { font-size: 9.5px; font-weight: 700; color: var(--ink-4); letter-spacing: var(--ls-caps); text-transform: uppercase; }
 
     ::-webkit-scrollbar { width: 7px; height: 7px; }
     ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); border: 2px solid transparent; background-clip: content-box; }
@@ -430,7 +566,7 @@
     @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
     .reveal { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
     .reveal.d1 { animation-delay: 0.05s; }
-    @media (prefers-reduced-motion: reduce) { .reveal, .skel, .dn-status.active, .sd.pulse { animation: none; } * { transition: none !important; } }
+    @media (prefers-reduced-motion: reduce) { .reveal, .skel, .dn-status.active, .sd.pulse, .save-pill.saving::before, .save-pill.error::before { animation: none; } * { transition: none !important; } }
   </style>
 </head>
 <body>
@@ -441,7 +577,6 @@
     <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
     <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M15 9h3a2 2 0 0 1 2 2v10"/><path d="M3 21h18M8 7h3M8 11h3M8 15h3"/></symbol>
     <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></symbol>
-    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
     <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 9h6M9 13h6M9 17h4"/></symbol>
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
@@ -492,10 +627,9 @@
         <button>Market</button>
         <button>Personnel</button>
       </div>
-      <div class="iconbar reveal d1">
-        <button class="iconbtn" title="Activity log"><svg class="ico sm"><use href="#i-activity"/></svg></button>
-        <button class="iconbtn" title="Notifications"><svg class="ico sm"><use href="#i-bell"/></svg><span class="nb">3</span></button>
-        <button class="iconbtn" title="Settings"><svg class="ico sm"><use href="#i-settings"/></svg></button>
+      <div class="iconbar reveal d1" title="Activity / Settings only. Bell removed per V3 DNA — notifications surface diegetically (see Office scene-cost dot).">
+        <button class="iconbtn" title="Activity Log workspace"><svg class="ico sm"><use href="#i-activity"/></svg></button>
+        <button class="iconbtn" title="Settings workspace"><svg class="ico sm"><use href="#i-settings"/></svg></button>
       </div>
     </nav>
 
@@ -518,23 +652,23 @@
         <div class="sop-list">
           <button class="sop-row active">
             <div class="sr-name">Feature Delivery Pipeline</div>
-            <div class="sr-meta">5 steps</div>
+            <div class="sr-meta">5 STEPS</div>
           </button>
           <button class="sop-row">
             <div class="sr-name">Bug Triage &amp; Hotfix</div>
-            <div class="sr-meta">4 steps · synced</div>
+            <div class="sr-meta">4 STEPS · SYNCED</div>
           </button>
           <button class="sop-row">
             <div class="sr-name">Marketing Launch Checklist</div>
-            <div class="sr-meta">7 steps</div>
+            <div class="sr-meta">7 STEPS</div>
           </button>
           <button class="sop-row">
             <div class="sr-name">Weekly Content Cycle</div>
-            <div class="sr-meta">6 steps · synced</div>
+            <div class="sr-meta">6 STEPS · SYNCED</div>
           </button>
           <button class="sop-row">
             <div class="sr-name">Incident Postmortem</div>
-            <div class="sr-meta">3 steps</div>
+            <div class="sr-meta">3 STEPS</div>
           </button>
         </div>
       </aside>
@@ -542,11 +676,15 @@
       <!-- ZONE B · toolbar + canvas + command bar -->
       <div class="sop-center">
         <div class="sop-toolbar reveal">
-          <button class="tb-btn primary"><svg class="ico xs"><use href="#i-play"/></svg>Run</button>
-          <button class="tb-btn"><svg class="ico xs"><use href="#i-pencil"/></svg>Edit</button>
+          <div class="tb-group">
+            <button class="tb-btn primary"><svg class="ico xs"><use href="#i-play"/></svg>Run</button>
+            <button class="tb-btn"><svg class="ico xs"><use href="#i-pencil"/></svg>Edit</button>
+          </div>
           <span class="tb-spacer"></span>
-          <button class="tb-btn"><svg class="ico xs"><use href="#i-refresh"/></svg>Sync</button>
-          <button class="tb-btn danger"><svg class="ico xs"><use href="#i-trash"/></svg>Delete</button>
+          <div class="tb-group">
+            <button class="tb-btn"><svg class="ico xs"><use href="#i-refresh"/></svg>Sync</button>
+            <button class="tb-btn danger"><svg class="ico xs"><use href="#i-trash"/></svg>Delete</button>
+          </div>
         </div>
 
         <div class="dag-canvas reveal d1">
@@ -557,9 +695,9 @@
               <path d="M270,116 C294,116 306,116 330,116" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round"/>
               <!-- s1 -> s3 (completed) -->
               <path d="M270,116 C294,116 306,259 330,259" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round"/>
-              <!-- s2 -> s4 (active = info, animated dot) -->
-              <path d="M570,116 C618,116 642,116 690,116" fill="none" stroke="var(--info)" stroke-width="2.5" stroke-linecap="round"/>
-              <circle r="3.5" fill="var(--info)">
+              <!-- s2 -> s4 (active = accent, animated dot) -->
+              <path d="M570,116 C618,116 642,116 690,116" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+              <circle r="3.5" fill="var(--accent)">
                 <animateMotion dur="1.5s" repeatCount="indefinite" path="M570,116 C618,116 642,116 690,116"/>
               </circle>
               <!-- s3 -> s4 (pending = border) -->
@@ -590,7 +728,7 @@
                 <div class="dn-top">
                   <span class="dn-status completed"></span>
                   <span class="dn-label">Design mockups</span>
-                  <span class="dn-chip deps">deps · 1</span>
+                  <span class="dn-chip deps">deps 1</span>
                   <span class="dn-chip role" style="background:color-mix(in srgb,var(--role-designer) 22%,transparent)">designer</span>
                 </div>
                 <div class="dn-instr">Produce hi-fi screens from the approved requirements.</div>
@@ -606,7 +744,7 @@
                 <div class="dn-top">
                   <span class="dn-status pending"></span>
                   <span class="dn-label">Scaffold API</span>
-                  <span class="dn-chip deps">deps · 1</span>
+                  <span class="dn-chip deps">deps 1</span>
                   <span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span>
                 </div>
                 <div class="dn-instr">Stand up endpoints + schema against the requirements.</div>
@@ -622,7 +760,7 @@
                 <div class="dn-top">
                   <span class="dn-status active"></span>
                   <span class="dn-label">Implement feature</span>
-                  <span class="dn-chip deps">deps · 2</span>
+                  <span class="dn-chip deps">deps 2</span>
                   <span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span>
                 </div>
                 <div class="dn-instr">Wire UI to API; cover the golden path + edge cases.</div>
@@ -638,7 +776,7 @@
                 <div class="dn-top">
                   <span class="dn-status pending"></span>
                   <span class="dn-label">QA sign-off</span>
-                  <span class="dn-chip deps">deps · 1</span>
+                  <span class="dn-chip deps">deps 1</span>
                   <span class="dn-chip role" style="background:color-mix(in srgb,var(--role-qa) 22%,transparent)">qa</span>
                 </div>
                 <div class="dn-instr">Regression pass + verify acceptance criteria.</div>
@@ -664,28 +802,30 @@
       <!-- ZONE C · SopInspectorPanel -->
       <aside class="sop-insp reveal d1">
         <div class="insp-pad">
-          <div>
+          <div class="insp-head">
             <div class="insp-title">Implement feature</div>
             <div class="insp-sub">
-              <span class="id" style="background:var(--info)"></span>
+              <span class="id" style="background:var(--accent)"></span>
               <span>Active</span>
               <span aria-hidden>·</span>
               <span>developer</span>
             </div>
           </div>
 
-          <div>
+          <div class="insp-sec">
             <div class="insp-sec-label">Instruction</div>
             <p class="insp-instr">Wire the new UI to the scaffolded API. Cover the golden path plus the empty / error / loading states. Keep the diff scoped to this feature.</p>
           </div>
 
-          <div>
+          <div class="insp-sec">
             <div class="insp-sec-label">Dependencies</div>
-            <button class="insp-dep">Design mockups</button>
-            <button class="insp-dep">Scaffold API</button>
+            <div>
+              <button class="insp-dep">Design mockups</button>
+              <button class="insp-dep">Scaffold API</button>
+            </div>
           </div>
 
-          <div>
+          <div class="insp-sec">
             <div class="insp-sec-label">Output key</div>
             <div class="insp-key-row">
               <code class="insp-key">feature_branch</code>
@@ -708,18 +848,24 @@
     <div class="spec-state">
       <div class="spec-cap">
         <span class="n">1</span><span class="t">Canvas — Edit mode</span>
-        <span class="d"><code>editMode=true</code> · toolbar adds Add Step + Auto Layout · Edit toggle warning-tinted · ports activate (input=info / output=warning) · drag-to-connect · node drag rect · edge disconnect ×</span>
+        <span class="d"><code>editMode=true</code> · toolbar adds Add Step + Auto Layout · Edit toggle warning-tinted · ports activate (input=accent / output=warning) · drag-to-connect · node drag rect · edge disconnect ×</span>
       </div>
       <div class="spec-frame">
         <div class="mini-pane">
           <div class="sop-toolbar" style="border-radius:0">
-            <button class="tb-btn primary"><svg class="ico xs"><use href="#i-play"/></svg>Run</button>
-            <button class="tb-btn editing"><svg class="ico xs"><use href="#i-pencil"/></svg>Editing</button>
-            <button class="tb-btn"><svg class="ico xs"><use href="#i-plus"/></svg>Add Step</button>
-            <button class="tb-btn"><svg class="ico xs"><use href="#i-grid"/></svg>Auto Layout</button>
+            <div class="tb-group">
+              <button class="tb-btn primary"><svg class="ico xs"><use href="#i-play"/></svg>Run</button>
+              <button class="tb-btn editing"><svg class="ico xs"><use href="#i-pencil"/></svg>Editing</button>
+            </div>
+            <div class="tb-group">
+              <button class="tb-btn"><svg class="ico xs"><use href="#i-plus"/></svg>Add Step</button>
+              <button class="tb-btn"><svg class="ico xs"><use href="#i-grid"/></svg>Auto Layout</button>
+            </div>
             <span class="tb-spacer"></span>
-            <button class="tb-btn"><svg class="ico xs"><use href="#i-refresh"/></svg>Sync</button>
-            <button class="tb-btn danger"><svg class="ico xs"><use href="#i-trash"/></svg>Delete</button>
+            <div class="tb-group">
+              <button class="tb-btn"><svg class="ico xs"><use href="#i-refresh"/></svg>Sync</button>
+              <button class="tb-btn danger"><svg class="ico xs"><use href="#i-trash"/></svg>Delete</button>
+            </div>
           </div>
           <div class="dag-canvas stage-bg" style="height:340px">
             <div class="dag-stage">
@@ -747,7 +893,7 @@
               <div class="dag-node" style="left:384px;top:31px">
                 <div class="bar" style="background:var(--role-developer)"></div>
                 <div class="body">
-                  <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Scaffold API</span><span class="dn-chip deps">deps · 1</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span></div>
+                  <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Scaffold API</span><span class="dn-chip deps">deps 1</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span></div>
                   <div class="dn-instr">Stand up endpoints + schema.</div>
                   <div class="dn-out">→ api_scaffold</div>
                 </div>
@@ -758,7 +904,7 @@
               <div class="dag-node" style="left:730px;top:165px">
                 <div class="bar" style="background:var(--role-qa)"></div>
                 <div class="body">
-                  <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">QA sign-off</span><span class="dn-chip deps">deps · 1</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-qa) 22%,transparent)">qa</span></div>
+                  <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">QA sign-off</span><span class="dn-chip deps">deps 1</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-qa) 22%,transparent)">qa</span></div>
                   <div class="dn-instr">Regression pass.</div>
                   <div class="dn-out">→ qa_report</div>
                 </div>
@@ -793,7 +939,7 @@
               <div class="dag-node" style="position:relative;left:0;top:0">
                 <div class="bar" style="background:var(--role-developer)"></div>
                 <div class="body">
-                  <div class="dn-top"><span class="dn-status active"></span><span class="dn-label">Active step</span><span class="dn-chip deps">deps · 2</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span></div>
+                  <div class="dn-top"><span class="dn-status active"></span><span class="dn-label">Active step</span><span class="dn-chip deps">deps 2</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span></div>
                   <div class="dn-instr">Status dot pulses while the step is running.</div>
                   <div class="dn-out">→ active_out</div>
                 </div>
@@ -814,9 +960,9 @@
               <svg width="100%" height="172" style="overflow:visible">
                 <path d="M20,28 C90,28 110,28 180,28" fill="none" stroke="var(--line-strong)" stroke-width="2" stroke-linecap="round"/>
                 <text x="200" y="32" font-size="11" fill="var(--ink-3)" font-family="var(--font)">pending — border, 2px</text>
-                <path d="M20,68 C90,68 110,68 180,68" fill="none" stroke="var(--info)" stroke-width="2.5" stroke-linecap="round"/>
-                <circle r="3.5" fill="var(--info)"><animateMotion dur="1.5s" repeatCount="indefinite" path="M20,68 C90,68 110,68 180,68"/></circle>
-                <text x="200" y="72" font-size="11" fill="var(--ink-3)" font-family="var(--font)">active — info, 2.5px, traveling dot</text>
+                <path d="M20,68 C90,68 110,68 180,68" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+                <circle r="3.5" fill="var(--accent)"><animateMotion dur="1.5s" repeatCount="indefinite" path="M20,68 C90,68 110,68 180,68"/></circle>
+                <text x="200" y="72" font-size="11" fill="var(--ink-3)" font-family="var(--font)">active — accent, 2.5px, traveling dot</text>
                 <path d="M20,108 C90,108 110,108 180,108" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round"/>
                 <text x="200" y="112" font-size="11" fill="var(--ink-3)" font-family="var(--font)">completed — success, 2px</text>
                 <path d="M20,148 C90,148 110,148 180,148" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round"/>
@@ -826,9 +972,9 @@
           </div>
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <span class="annot" style="color:#8b97ad">Save status pill (canvas top-right):</span>
-          <span class="save-pill" style="position:static">Saving…</span>
-          <span class="save-pill saved" style="position:static">All changes saved</span>
+          <span class="annot">Save status pill (canvas top-right):</span>
+          <span class="save-pill saving" style="position:static">Saving</span>
+          <span class="save-pill saved" style="position:static">All saved</span>
           <span class="save-pill error" style="position:static">Save failed</span>
         </div>
       </div>
@@ -925,7 +1071,7 @@
     <div class="spec-state">
       <div class="spec-cap">
         <span class="n">5</span><span class="t">SopInspectorPanel states</span>
-        <span class="d">no step selected · failed step (Last error box + missing-role warning) · read-only by contract</span>
+        <span class="d">no step selected · failed step (Last error box + missing-role warning) · sectionised like V3 rail-sec — caps label per block, line-soft dividers, read-only by contract</span>
       </div>
       <div class="spec-frame spec-grid-2">
         <div class="mini-pane">
@@ -941,27 +1087,29 @@
           <div class="mini-pane-body" style="padding:0">
             <div class="sop-insp" style="border-left:0;height:auto">
               <div class="insp-pad">
-                <div>
+                <div class="insp-head">
                   <div class="insp-title">Deploy to staging</div>
                   <div class="insp-sub"><span class="id" style="background:var(--danger)"></span><span>Failed</span><span aria-hidden>·</span><span>devops</span></div>
                 </div>
-                <div class="insp-warn">No employee with role <b>devops</b> — dispatcher will fall back.</div>
-                <div>
+                <div class="insp-sec">
+                  <div class="insp-warn">No employee with role <b>devops</b> — dispatcher will fall back.</div>
+                </div>
+                <div class="insp-sec">
                   <div class="insp-sec-label">Last error</div>
                   <div class="insp-err">
                     <div class="et">deploy.timeout</div>
                     <div style="margin-top:3px;white-space:pre-wrap">Staging deploy exceeded 120s budget; rollback initiated.</div>
                   </div>
                 </div>
-                <div>
+                <div class="insp-sec">
                   <div class="insp-sec-label">Instruction</div>
                   <p class="insp-instr empty">No instruction</p>
                 </div>
-                <div>
+                <div class="insp-sec">
                   <div class="insp-sec-label">Dependencies</div>
                   <p class="insp-none">None</p>
                 </div>
-                <div>
+                <div class="insp-sec">
                   <div class="insp-sec-label">Output key</div>
                   <div class="insp-key-row">
                     <code class="insp-key">staging_deploy</code>
@@ -991,14 +1139,14 @@
             <div class="fld"><div class="inp"><input style="border:0;background:transparent;outline:none;width:100%" value="Feature Delivery Pipeline" placeholder="SOP name..." /></div></div>
             <div class="fld"><div class="inp"><span class="ph">Description (optional)</span></div></div>
             <div style="display:flex;align-items:center;justify-content:space-between">
-              <span class="annot" style="text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-4)">Steps (2)</span>
-              <button class="btn" style="height:24px;padding:0 9px;font-size:9.5px;background:transparent;border:0;color:var(--accent)"><svg class="ico xs"><use href="#i-plus"/></svg>Add Step</button>
+              <span class="annot">Steps (2)</span>
+              <button class="btn" style="height:24px;padding:0 9px;font-size:9.5px;background:transparent;border:0;color:var(--accent);font-weight:660"><svg class="ico xs"><use href="#i-plus"/></svg>Add Step</button>
             </div>
             <div class="step-card">
               <div class="row1">
                 <span class="ix">#1</span>
                 <div class="inp"><input style="border:0;background:transparent;outline:none;width:100%" value="Draft requirements" /></div>
-                <span class="sel">PM <svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+                <span class="sel">PM</span>
               </div>
               <div class="inp area">Capture the user-facing goal and acceptance criteria.</div>
             </div>
@@ -1006,12 +1154,12 @@
               <div class="row1">
                 <span class="ix">#2</span>
                 <div class="inp"><input style="border:0;background:transparent;outline:none;width:100%" value="Design mockups" /></div>
-                <span class="sel">Designer <svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+                <span class="sel">Designer</span>
                 <button class="tr"><svg class="ico xs"><use href="#i-trash"/></svg></button>
               </div>
               <div class="inp area">Produce hi-fi screens from approved requirements.</div>
               <div class="after">
-                <span class="lbl">After:</span>
+                <span class="lbl">After</span>
                 <button class="dep-chip on">#1</button>
               </div>
             </div>
@@ -1057,7 +1205,7 @@
             <div class="preview-card">
               <div class="pn">Release Train</div>
               <div class="pdsc">Cut, validate, and ship a versioned release.</div>
-              <div class="pst">8 steps</div>
+              <div class="pst">8 STEPS</div>
             </div>
           </div>
           <div class="dlg-f">
@@ -1079,7 +1227,7 @@
           <div class="annot" style="color:#8b97ad;margin-bottom:8px">Add / Edit step popover</div>
           <div class="popover">
             <div class="inp"><input style="border:0;background:transparent;outline:none;width:100%" value="" placeholder="Step label..." /></div>
-            <span class="sel" style="height:36px;justify-content:space-between">Developer <svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+            <span class="sel" style="height:36px;width:100%;justify-content:flex-start">Developer</span>
             <div class="inp area" style="min-height:48px"><span class="ph">Instruction (optional)...</span></div>
             <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:2px">
               <button class="btn outline" style="height:28px">Cancel</button>
@@ -1127,9 +1275,9 @@
                   <div class="sop-search"><svg class="ico xs"><use href="#i-search"/></svg><input placeholder="Search..." /></div>
                 </div>
                 <div class="sop-list" style="padding:0 8px 8px">
-                  <button class="sop-row active"><div class="sr-name">Feature Delivery Pipeline</div><div class="sr-meta">5 steps</div></button>
-                  <button class="sop-row"><div class="sr-name">Bug Triage &amp; Hotfix</div><div class="sr-meta">4 steps · synced</div></button>
-                  <button class="sop-row"><div class="sr-name">Incident Postmortem</div><div class="sr-meta">3 steps</div></button>
+                  <button class="sop-row active"><div class="sr-name">Feature Delivery Pipeline</div><div class="sr-meta">5 STEPS</div></button>
+                  <button class="sop-row"><div class="sr-name">Bug Triage &amp; Hotfix</div><div class="sr-meta">4 STEPS · SYNCED</div></button>
+                  <button class="sop-row"><div class="sr-name">Incident Postmortem</div><div class="sr-meta">3 STEPS</div></button>
                 </div>
               </div>
             </div>
@@ -1153,10 +1301,10 @@
               </div>
               <div class="ph-sheet">
                 <div class="ph-sheet-h"><span>Step inspector</span><button class="tb-icon" style="width:24px;height:24px;border:0"><svg class="ico xs"><use href="#i-x"/></svg></button></div>
-                <div style="padding:14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto">
-                  <div><div class="insp-title" style="font-size:var(--fs-base)">Implement feature</div><div class="insp-sub"><span class="id" style="background:var(--info)"></span><span>Active</span><span aria-hidden>·</span><span>developer</span></div></div>
-                  <div><div class="insp-sec-label">Instruction</div><p class="insp-instr">Wire UI to API; cover edge cases.</p></div>
-                  <div><div class="insp-sec-label">Output key</div><div class="insp-key-row"><code class="insp-key">feature_branch</code><button class="insp-copy"><svg class="ico xs"><use href="#i-copy"/></svg>Copy</button></div></div>
+                <div style="padding:0;display:flex;flex-direction:column;overflow-y:auto">
+                  <div class="insp-head"><div class="insp-title" style="font-size:var(--fs-base)">Implement feature</div><div class="insp-sub"><span class="id" style="background:var(--accent)"></span><span>Active</span><span aria-hidden>·</span><span>developer</span></div></div>
+                  <div class="insp-sec"><div class="insp-sec-label">Instruction</div><p class="insp-instr">Wire UI to API; cover edge cases.</p></div>
+                  <div class="insp-sec"><div class="insp-sec-label">Output key</div><div class="insp-key-row"><code class="insp-key">feature_branch</code><button class="insp-copy"><svg class="ico xs"><use href="#i-copy"/></svg>Copy</button></div></div>
                 </div>
               </div>
             </div>
@@ -1167,12 +1315,12 @@
           <div class="mini-pane" style="width:340px">
             <div class="mini-pane-cap">tier = tablet</div>
             <div class="mini-pane-body stage-bg" style="position:relative;height:300px;padding:0">
-              <button class="tb-icon" style="position:absolute;right:14px;top:14px;width:34px;height:34px;border-radius:var(--r-pill);box-shadow:var(--elev-2)"><svg class="ico sm"><use href="#i-panel-r"/></svg></button>
+              <button class="tb-icon" style="position:absolute;right:14px;top:14px;width:34px;height:34px;border-radius:var(--r-pill);box-shadow:var(--elev-2);background:var(--surface-1);border:1px solid var(--line)"><svg class="ico sm"><use href="#i-panel-r"/></svg></button>
               <div style="position:absolute;right:14px;top:42px;bottom:14px;width:240px;background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--elev-3);overflow:hidden">
                 <div style="height:34px;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;border-bottom:1px solid var(--line-soft)"><button class="tb-icon" style="width:24px;height:24px;border:0"><svg class="ico xs"><use href="#i-x"/></svg></button></div>
-                <div style="padding:14px;display:flex;flex-direction:column;gap:12px">
-                  <div><div class="insp-title" style="font-size:var(--fs-base)">QA sign-off</div><div class="insp-sub"><span class="id" style="background:var(--ink-4)"></span><span>Pending</span><span aria-hidden>·</span><span>qa</span></div></div>
-                  <div><div class="insp-sec-label">Output key</div><div class="insp-key-row"><code class="insp-key">qa_report</code><button class="insp-copy"><svg class="ico xs"><use href="#i-copy"/></svg>Copy</button></div></div>
+                <div class="insp-pad">
+                  <div class="insp-head"><div class="insp-title" style="font-size:var(--fs-base)">QA sign-off</div><div class="insp-sub"><span class="id" style="background:var(--ink-4)"></span><span>Pending</span><span aria-hidden>·</span><span>qa</span></div></div>
+                  <div class="insp-sec"><div class="insp-sec-label">Output key</div><div class="insp-key-row"><code class="insp-key">qa_report</code><button class="insp-copy"><svg class="ico xs"><use href="#i-copy"/></svg>Copy</button></div></div>
                 </div>
               </div>
               <span class="annot" style="position:absolute;left:14px;bottom:12px;color:var(--ink-4)">Collapsed sidebar shows the 44px first-letter rail (specimen 4).</span>

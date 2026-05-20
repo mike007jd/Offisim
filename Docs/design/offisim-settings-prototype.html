@@ -12,6 +12,7 @@
   <style>
     :root {
       --bg: #eef1f6;
+      --surface-0: #f7f9fc;
       --surface-1: #ffffff;
       --surface-2: #fbfcfe;
       --surface-sunken: #f1f4f9;
@@ -30,6 +31,10 @@
       --accent-fg: #ffffff;
       --accent-surface: #ecf2ff;
       --accent-ring: rgba(47, 107, 255, 0.36);
+
+      /* --info aliased to --accent per DNA §2 */
+      --info: var(--accent);
+      --info-surface: var(--accent-surface);
 
       --ok: #1aa46a;        --ok-surface: #e4f5ec;
       --warn: #c98410;      --warn-surface: #fdf2dd;
@@ -91,7 +96,7 @@
     }
 
     button { font: inherit; cursor: pointer; }
-    input, select, textarea { font: inherit; }
+    input, textarea { font: inherit; }
 
     .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
     .ico {
@@ -104,7 +109,7 @@
     .ico.xs { width: 12px; height: 12px; }
     .ico.lg { width: 18px; height: 18px; }
 
-    /* Title bar */
+    /* ───────────── Title bar ───────────── */
     .titlebar {
       height: var(--title);
       display: flex; align-items: center; gap: var(--sp-6);
@@ -118,7 +123,7 @@
     .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
     .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); }
 
-    /* Top bar */
+    /* ───────────── Top bar ───────────── */
     .topbar {
       height: var(--toolbar);
       position: relative;
@@ -174,7 +179,7 @@
     .scope-div { color: var(--ink-4); display: grid; place-items: center; flex: none; }
     .scope-alert { min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center; background: var(--danger); color: #fff; font-size: 9px; font-weight: 760; border-radius: var(--r-pill); flex: none; }
 
-    /* ── Settings shell ── */
+    /* ───────────── Settings shell ───────────── */
     .settings { min-height: 0; display: grid; grid-template-columns: 244px 1fr; background: var(--bg); overflow: hidden; }
 
     .set-nav {
@@ -182,269 +187,495 @@
       background: var(--surface-1);
       display: flex; flex-direction: column;
       padding: var(--sp-7) var(--sp-4);
-      gap: 2px;
+      gap: 1px;
       min-height: 0; overflow-y: auto;
     }
-    .set-nav-title { font-size: var(--fs-xl); font-weight: 680; color: var(--ink-1); letter-spacing: -0.02em; padding: 0 var(--sp-4) var(--sp-7); }
+    .set-nav-title {
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 700; color: var(--ink-3); text-transform: uppercase;
+      padding: 2px var(--sp-4) var(--sp-6);
+    }
     .set-tab {
       display: flex; align-items: center; gap: var(--sp-4);
-      height: 38px; padding: 0 var(--sp-4);
+      height: 32px; padding: 0 var(--sp-4);
       border: 0; border-radius: var(--r-sm);
       background: transparent; color: var(--ink-2);
-      font-size: var(--fs-base); font-weight: 560; text-align: left;
+      font-size: var(--fs-sm); font-weight: 580; text-align: left;
       transition: background 0.14s ease, color 0.14s ease;
     }
     .set-tab .ico { color: var(--ink-4); }
     .set-tab:hover { background: var(--surface-sunken); color: var(--ink-1); }
     .set-tab:hover .ico { color: var(--ink-2); }
-    .set-tab.active { background: var(--accent-surface); color: var(--accent); font-weight: 640; }
+    .set-tab.active {
+      background: var(--accent-surface); color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent-ring);
+      font-weight: 620;
+    }
     .set-tab.active .ico { color: var(--accent); }
 
     .set-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-    .set-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-8) 48px var(--sp-8); }
-    .set-pane { display: none; max-width: 980px; }
+    .set-scroll {
+      flex: 1; min-height: 0; overflow-y: auto;
+      padding: var(--sp-8) 32px var(--sp-8);
+      display: flex; justify-content: center;
+    }
+    .set-pane { display: none; width: 100%; max-width: 720px; }
     .set-pane.active { display: block; }
 
-    .pane-head { margin-bottom: var(--sp-8); }
-    .pane-title { font-size: var(--fs-xl); font-weight: 680; color: var(--ink-1); letter-spacing: -0.02em; }
-    .pane-desc { font-size: var(--fs-base); color: var(--ink-3); font-weight: 520; margin-top: 5px; line-height: 1.5; max-width: 720px; }
+    /* page-level title (not over-sized; --fs-md per DNA §6) */
+    .pane-head { margin-bottom: var(--sp-7); }
+    .pane-title { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); letter-spacing: -0.005em; }
+    .pane-desc { font-size: var(--fs-sm); color: var(--ink-3); font-weight: 520; margin-top: 4px; line-height: 1.5; }
 
-    .section { border-top: 1px solid var(--line); padding: var(--sp-8) 0; }
-    .section:first-of-type { border-top: 0; padding-top: 0; }
-    .section-head { margin-bottom: var(--sp-7); display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-6); }
-    .section-headings { min-width: 0; }
-    .section-label { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; }
-    .section-hint { font-size: var(--fs-sm); color: var(--ink-4); font-weight: 520; margin-top: 5px; line-height: 1.45; }
-    .subhead { font-size: var(--fs-micro); font-weight: 700; letter-spacing: var(--ls-caps); color: var(--ink-4); text-transform: uppercase; margin: 0 0 var(--sp-5); }
-    .subhead.mt { margin-top: var(--sp-7); }
+    /* caps label (DNA §6 — only "section heading" style) */
+    .label {
+      font-size: var(--fs-micro);
+      letter-spacing: var(--ls-caps);
+      font-weight: 680;
+      color: var(--ink-3);
+      text-transform: uppercase;
+    }
 
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-7) var(--sp-8); }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-7) var(--sp-8); }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-7) var(--sp-8); }
-    .field { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .sec { margin-top: var(--sp-7); }
+    .sec:first-of-type { margin-top: 0; }
+    .sec-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--sp-5); margin-bottom: var(--sp-3);
+    }
+    .sec-hint { font-size: var(--fs-meta); color: var(--ink-4); font-weight: 520; line-height: 1.45; margin-top: 3px; max-width: 540px; }
+
+    /* card-block (DNA §11 Settings rule: elev-1 + --r-md + line-soft + 16px pad) */
+    .card-block {
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-md);
+      background: var(--surface-1);
+      box-shadow: var(--elev-1);
+      padding: 16px;
+      transition: border-color 0.14s ease, box-shadow 0.14s ease;
+    }
+    .card-block + .card-block { margin-top: var(--sp-3); }
+    .card-block .label + * { margin-top: var(--sp-4); }
+
+    /* subhead inside card-block (rare; reuse caps label) */
+    .subhead { font-size: var(--fs-micro); font-weight: 680; letter-spacing: var(--ls-caps); color: var(--ink-3); text-transform: uppercase; margin: 0 0 var(--sp-3); }
+    .subhead.mt { margin-top: var(--sp-6); }
+
+    /* Grids */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-5) var(--sp-6); }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5) var(--sp-6); }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-5) var(--sp-6); }
+    .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
     .field.span-2 { grid-column: 1 / -1; }
-    .field-label { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+    .field-label {
+      font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2);
+      display: flex; align-items: center; gap: 6px;
+    }
     .field-label .opt { color: var(--ink-4); font-weight: 520; }
     .field-label .req { color: var(--danger); font-weight: 700; }
     .field-note { font-size: var(--fs-meta); color: var(--ink-4); font-weight: 520; line-height: 1.45; }
     .field-note b { color: var(--ink-2); font-weight: 640; }
+    .annot { font-size: 9.5px; font-weight: 580; color: var(--ink-4); font-style: italic; margin-top: 3px; line-height: 1.4; }
 
-    .callout { font-size: var(--fs-meta); font-weight: 540; line-height: 1.45; padding: 8px 11px; border-radius: var(--r-sm); display: flex; align-items: flex-start; gap: 7px; }
-    .callout .ico { margin-top: 1px; }
+    /* Callouts — info aliased to accent */
+    .callout {
+      font-size: var(--fs-meta); font-weight: 540; line-height: 1.45;
+      padding: 7px 10px; border-radius: var(--r-sm);
+      display: flex; align-items: flex-start; gap: 7px;
+    }
+    .callout .ico { margin-top: 1px; flex: none; }
     .callout.warn { background: var(--warn-surface); color: #8a5a0c; }
     .callout.info { background: var(--accent-surface); color: var(--accent); }
     .callout.muted { background: var(--surface-sunken); color: var(--ink-3); }
 
-    .annot { font-size: 9.5px; font-weight: 600; color: var(--ink-4); font-style: italic; margin-top: 4px; }
-
+    /* ──── Inputs / controls ──── */
+    /* .ctl is a wrapper for native text inputs + textarea; 34px height */
     .ctl {
-      height: 38px; padding: 0 12px;
+      height: 34px; padding: 0 10px;
       border: 1px solid var(--line); border-radius: var(--r-sm);
-      background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-base);
+      background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-sm);
       display: flex; align-items: center; gap: var(--sp-3);
       transition: border-color 0.14s ease, box-shadow 0.14s ease;
     }
     .ctl:hover { border-color: var(--line-strong); }
     .ctl:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
-    .ctl input, .ctl select { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; color: var(--ink-1); font-size: var(--fs-base); }
-    .ctl .lead, .ctl .trail { color: var(--ink-4); display: grid; place-items: center; }
+    .ctl input, .ctl textarea {
+      flex: 1; min-width: 0; border: 0; background: transparent; outline: none;
+      color: var(--ink-1); font-size: var(--fs-sm);
+    }
+    .ctl .lead, .ctl .trail { color: var(--ink-4); display: grid; place-items: center; flex: none; }
     .ctl.mono input, .ctl.mono textarea { font-family: var(--mono); font-size: var(--fs-sm); letter-spacing: 0.01em; }
-    .ctl.area { height: auto; align-items: stretch; padding: 9px 12px; }
-    .ctl.area textarea { flex: 1; border: 0; background: transparent; outline: none; resize: vertical; min-height: 96px; color: var(--ink-1); line-height: 1.5; }
+    .ctl.area { height: auto; align-items: stretch; padding: 8px 10px; }
+    .ctl.area textarea { flex: 1; border: 0; background: transparent; outline: none; resize: vertical; min-height: 80px; color: var(--ink-1); line-height: 1.5; font-family: var(--mono); }
     .ctl.ro { background: var(--surface-sunken); }
-    .ctl-btn {
-      height: 36px; padding: 0 13px;
+
+    /* Custom select trigger (replaces native <select> per DNA §11/§12) */
+    .sel {
+      height: 34px; width: 100%; padding: 0 32px 0 10px;
       border: 1px solid var(--line); border-radius: var(--r-sm);
-      background: var(--surface-2); color: var(--ink-2);
+      background: var(--surface-1);
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2393a0b2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      color: var(--ink-1); font-size: var(--fs-sm); text-align: left;
+      display: flex; align-items: center; gap: var(--sp-3);
+      transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
+    }
+    .sel:hover { border-color: var(--line-strong); background-color: var(--surface-2); }
+    .sel:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+    .sel .sv { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-1); font-weight: 580; }
+    .sel.mono .sv { font-family: var(--mono); font-size: var(--fs-sm); }
+    .sel.ro { background-color: var(--surface-sunken); pointer-events: none; }
+
+    /* Secondary buttons (chip-grammar derived) */
+    .ctl-btn {
+      height: 30px; padding: 0 11px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1); color: var(--ink-2);
       font-size: var(--fs-sm); font-weight: 600;
-      display: inline-flex; align-items: center; gap: 7px;
+      display: inline-flex; align-items: center; gap: 6px;
       transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
     }
     .ctl-btn:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
-    .ctl-btn.sm { height: 32px; padding: 0 11px; font-size: var(--fs-meta); }
+    .ctl-btn.sm { height: 26px; padding: 0 9px; font-size: var(--fs-meta); }
     .ctl-btn.ok { border-color: rgba(26,164,106,0.4); background: var(--ok-surface); color: #15824f; }
     .ctl-btn.ok:hover { border-color: var(--ok); }
-    .ctl-btn.danger { border-color: rgba(214,69,61,0.4); color: #b8352e; }
+    .ctl-btn.danger { border-color: rgba(214,69,61,0.4); color: #b8352e; background: var(--surface-1); }
     .ctl-btn.danger:hover { background: var(--danger-surface); }
 
-    .surface-card {
-      border: 1px solid var(--line); border-radius: var(--r-lg);
-      background: var(--surface-1); box-shadow: var(--elev-1);
-      padding: var(--sp-7);
-      display: grid; grid-template-columns: 44px 1fr auto; gap: var(--sp-5); align-items: center;
+    /* Provider header card (compressed inside card-block; no --r-lg) */
+    .pv-row { display: grid; grid-template-columns: 36px 1fr auto; gap: var(--sp-5); align-items: center; }
+    .pv-logo {
+      width: 36px; height: 36px; border-radius: var(--r-sm);
+      background: linear-gradient(135deg, #2f6bff, #6b4dff);
+      color: #fff; display: grid; place-items: center;
+      font-weight: 720; font-size: var(--fs-sm);
     }
-    .pv-logo { width: 44px; height: 44px; border-radius: var(--r-md); background: linear-gradient(135deg, #2f6bff, #6b4dff); color: #fff; display: grid; place-items: center; font-weight: 720; font-size: var(--fs-md); }
-    .pv-name { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); display: flex; align-items: center; gap: 8px; }
-    .pv-meta { font-size: var(--fs-meta); color: var(--ink-3); font-weight: 520; margin-top: 3px; }
-    .badge-ok { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 9px; border-radius: var(--r-pill); background: var(--ok-surface); color: #15824f; font-size: 9.5px; font-weight: 720; letter-spacing: 0.04em; text-transform: uppercase; }
-    .badge-ok::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ok); }
+    .pv-name { font-size: var(--fs-base); font-weight: 640; color: var(--ink-1); display: flex; align-items: center; gap: 7px; }
+    .pv-meta { font-size: var(--fs-meta); color: var(--ink-3); font-weight: 520; margin-top: 2px; }
 
-    .route-summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-top: var(--sp-6); }
-    .route-summary .rs-name { font-size: var(--fs-base); font-weight: 660; color: var(--ink-1); }
-    .pill-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--r-pill); background: var(--accent-surface); color: var(--accent); font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
-    .route-trail { font-size: var(--fs-meta); color: var(--ink-3); font-weight: 540; }
+    /* Status pills (DNA §8) */
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 19px; padding: 0 8px; border-radius: var(--r-pill);
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; }
+    .pill.ok { background: var(--ok-surface); color: #15824f; }
+    .pill.ok::before { background: var(--ok); }
+    .pill.warn { background: var(--warn-surface); color: #8a5a0c; }
+    .pill.warn::before { background: var(--warn); }
+    .pill.info { background: var(--accent-surface); color: var(--accent); }
+    .pill.info::before { background: var(--accent); }
+    .pill.muted { background: var(--surface-sunken); color: var(--ink-3); }
+    .pill.muted::before { background: var(--ink-4); }
+    .pill.running::before { animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--accent-ring); }
+      50% { box-shadow: 0 0 0 4px transparent; }
+    }
 
-    .seg { display: inline-flex; padding: 3px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-sunken); gap: 2px; }
+    /* Route summary line */
+    .route-summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+    .route-summary .rs-name { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); }
+    .route-trail { font-size: var(--fs-meta); color: var(--ink-3); font-weight: 540; font-family: var(--mono); }
+    .chip-mini {
+      display: inline-flex; align-items: center; height: 18px; padding: 0 7px;
+      border-radius: var(--r-pill); background: var(--accent-surface); color: var(--accent);
+      font-size: 9px; font-weight: 720; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+
+    /* Segmented (chip-grammar §5) */
+    .seg {
+      display: inline-flex; padding: 3px; gap: 2px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-2); box-shadow: var(--elev-1);
+    }
     .seg button {
-      height: 30px; padding: 0 16px; border: 0; border-radius: var(--r-xs);
+      height: 26px; padding: 0 12px; border: 0; border-radius: var(--r-xs);
       background: transparent; color: var(--ink-3); font-size: var(--fs-sm); font-weight: 580;
       transition: background 0.14s ease, color 0.14s ease;
     }
-    .seg button:hover { color: var(--ink-1); }
-    .seg button.active { background: var(--surface-1); color: var(--accent); box-shadow: var(--elev-1); font-weight: 640; }
+    .seg button:hover { color: var(--ink-1); background: var(--surface-sunken); }
+    .seg button.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); font-weight: 640; }
 
-    /* Catalog disclosure */
-    details.disclosure { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
-    details.disclosure + details.disclosure { margin-top: var(--sp-5); }
+    /* Disclosure */
+    details.disclosure {
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-1); box-shadow: var(--elev-1);
+    }
+    details.disclosure + details.disclosure { margin-top: var(--sp-3); }
     details.disclosure > summary {
-      list-style: none; cursor: pointer; padding: var(--sp-5) var(--sp-6);
+      list-style: none; cursor: pointer; padding: 10px var(--sp-5);
       display: flex; align-items: center; gap: var(--sp-3);
-      font-size: var(--fs-base); font-weight: 640; color: var(--ink-1);
+      font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1);
     }
     details.disclosure > summary::-webkit-details-marker { display: none; }
-    details.disclosure > summary .chev { color: var(--ink-3); transition: transform 0.18s ease; }
+    details.disclosure > summary .chev { color: var(--ink-3); transition: transform 0.18s ease; display: grid; place-items: center; }
     details.disclosure[open] > summary .chev { transform: rotate(90deg); }
-    details.disclosure .disclosure-body { padding: 0 var(--sp-6) var(--sp-6); border-top: 1px solid var(--line-soft); padding-top: var(--sp-6); }
-    .catalog-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-5); margin-bottom: var(--sp-5); }
-    .catalog-row .cr-meta { font-size: var(--fs-meta); color: var(--ink-3); }
+    details.disclosure .disclosure-body {
+      padding: var(--sp-5);
+      border-top: 1px solid var(--line-soft);
+    }
+    .catalog-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--sp-5); margin-bottom: var(--sp-4);
+    }
+    .catalog-row .cr-t { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    .catalog-row .cr-meta { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 2px; }
     .catalog-srcs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
-    .catalog-src { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); padding: var(--sp-4); }
+    .catalog-src {
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2); padding: var(--sp-4);
+    }
     .catalog-src .cs-label { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-2); }
-    .catalog-src .cs-sum { font-size: var(--fs-meta); color: var(--ink-4); margin-top: 3px; }
-    .catalog-err { margin-top: var(--sp-4); font-size: var(--fs-meta); padding: 7px 10px; border-radius: var(--r-xs); background: var(--warn-surface); color: #8a5a0c; }
-    .chip-mini { display: inline-flex; align-items: center; height: 19px; padding: 0 8px; border-radius: var(--r-pill); background: var(--accent-surface); color: var(--accent); font-size: 9px; font-weight: 720; text-transform: uppercase; letter-spacing: 0.04em; }
+    .catalog-src .cs-sum { font-size: var(--fs-meta); color: var(--ink-4); margin-top: 2px; font-family: var(--mono); }
+    .catalog-err {
+      margin-top: var(--sp-3); font-size: var(--fs-meta);
+      padding: 6px 9px; border-radius: var(--r-xs);
+      background: var(--warn-surface); color: #8a5a0c;
+      display: flex; align-items: center; gap: 6px;
+    }
 
-    /* Toggle */
-    .toggle-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--sp-7); padding: var(--sp-5) 0; border-bottom: 1px solid var(--line-soft); }
-    .toggle-row:last-child { border-bottom: 0; }
-    .toggle-row .tr-title { font-size: var(--fs-base); font-weight: 600; color: var(--ink-1); }
-    .toggle-row .tr-desc { font-size: var(--fs-meta); color: var(--ink-3); font-weight: 520; margin-top: 3px; line-height: 1.45; max-width: 580px; }
-    .switch { width: 40px; height: 23px; border-radius: var(--r-pill); background: var(--line-strong); border: 0; position: relative; transition: background 0.18s ease; }
-    .switch::after { content: ""; position: absolute; top: 2.5px; left: 2.5px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: var(--elev-1); transition: transform 0.18s cubic-bezier(0.4,0,0.2,1); }
+    /* Toggle row */
+    .toggle-row {
+      display: grid; grid-template-columns: 1fr auto; align-items: center;
+      gap: var(--sp-5); padding: var(--sp-3) 0;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .toggle-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .toggle-row:first-child { padding-top: 0; }
+    .toggle-row .tr-title { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-1); }
+    .toggle-row .tr-desc { font-size: var(--fs-meta); color: var(--ink-3); font-weight: 520; margin-top: 2px; line-height: 1.45; max-width: 460px; }
+    .switch {
+      width: 36px; height: 20px; border-radius: var(--r-pill);
+      background: var(--line-strong); border: 0; position: relative; flex: none;
+      transition: background 0.18s ease;
+    }
+    .switch::after {
+      content: ""; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%; background: #fff;
+      box-shadow: var(--elev-1); transition: transform 0.18s cubic-bezier(0.4,0,0.2,1);
+    }
     .switch.on { background: var(--accent); }
-    .switch.on::after { transform: translateX(17px); }
+    .switch.on::after { transform: translateX(16px); }
 
-    /* Harness */
-    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-5); }
-    .stat-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); padding: var(--sp-5); }
+    /* Stat grid (Main harness control) */
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); margin-top: var(--sp-4); }
+    .stat-card {
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2); padding: 10px 12px;
+    }
     .stat-card.warn { border-color: rgba(201,132,16,0.32); background: var(--warn-surface); }
-    .stat-k { font-size: var(--fs-meta); font-weight: 600; color: var(--ink-3); }
+    .stat-k { font-size: var(--fs-micro); font-weight: 680; letter-spacing: 0.06em; color: var(--ink-3); text-transform: uppercase; }
     .stat-card.warn .stat-k { color: #8a5a0c; }
-    .stat-v { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); margin-top: 5px; }
+    .stat-v { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); margin-top: 3px; }
     .stat-card.warn .stat-v { color: #8a5a0c; }
-    .profile-row { display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-4) var(--sp-5); margin-top: var(--sp-3); font-size: var(--fs-meta); }
+    .profile-row {
+      display: flex; align-items: center; justify-content: space-between;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      padding: 7px 10px; margin-top: var(--sp-2); font-size: var(--fs-meta);
+      background: var(--surface-2);
+    }
     .profile-row .pr-name { font-weight: 600; color: var(--ink-1); font-family: var(--mono); font-size: var(--fs-sm); }
-    .profile-row .pr-ok { color: #15824f; font-weight: 620; }
-    .profile-row .pr-no { color: #8a5a0c; font-weight: 600; }
+    .profile-row .pr-ok { color: #15824f; font-weight: 620; font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .profile-row .pr-no { color: #8a5a0c; font-weight: 620; font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; }
 
     /* Vault */
-    .vault-card { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-1); box-shadow: var(--elev-1); padding: var(--sp-7); }
-    .vault-card + .vault-card { margin-top: var(--sp-5); }
+    .vault-card { padding: var(--sp-5); }
+    .vault-card + .vault-card { margin-top: var(--sp-3); }
     .vault-head { display: flex; align-items: center; gap: var(--sp-4); }
-    .vault-ico { width: 36px; height: 36px; border-radius: var(--r-md); background: var(--accent-surface); color: var(--accent); display: grid; place-items: center; }
-    .vault-title { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); display: flex; align-items: center; gap: 8px; }
+    .vault-ico {
+      width: 30px; height: 30px; border-radius: var(--r-sm);
+      background: var(--accent-surface); color: var(--accent);
+      display: grid; place-items: center; flex: none;
+    }
+    .vault-title { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); display: flex; align-items: center; gap: 7px; }
     .vault-sub { font-size: var(--fs-meta); color: var(--ink-3); font-weight: 520; margin-top: 2px; }
-    .vault-status { font-size: var(--fs-sm); color: var(--ink-2); margin: var(--sp-5) 0; line-height: 1.5; }
-    .vault-path { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; }
-    .vault-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
-    .mode-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 7px; border-radius: var(--r-pill); background: var(--surface-sunken); color: var(--ink-3); }
+    .vault-status { font-size: var(--fs-meta); color: var(--ink-2); margin: var(--sp-3) 0; line-height: 1.5; }
+    .vault-path { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3); margin-top: 3px; }
+    .vault-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .mode-tag {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 1px 6px; border-radius: var(--r-pill);
+      background: var(--surface-sunken); color: var(--ink-3);
+    }
 
     /* MCP */
-    .mcp-form { display: grid; grid-template-columns: 140px 1fr 1.4fr auto; gap: var(--sp-3); align-items: end; }
+    .mcp-form {
+      display: grid; grid-template-columns: 150px 1fr 1.4fr auto;
+      gap: var(--sp-3); align-items: end;
+    }
     .mcp-args { margin-top: var(--sp-3); }
     .add-btn {
-      height: 38px; padding: 0 16px;
+      height: 34px; padding: 0 14px;
       border: 1px solid rgba(26,164,106,0.4); border-radius: var(--r-sm);
       background: var(--ok-surface); color: #15824f;
       font-size: var(--fs-sm); font-weight: 640;
-      display: inline-flex; align-items: center; gap: 7px;
+      display: inline-flex; align-items: center; gap: 6px;
       transition: background 0.14s ease, border-color 0.14s ease;
     }
     .add-btn:hover { border-color: var(--ok); background: #d8f0e3; }
     .form-error { margin-top: var(--sp-3); font-size: var(--fs-meta); color: #b8352e; }
-    .confirm-card { border: 1px solid rgba(201,132,16,0.4); background: var(--warn-surface); border-radius: var(--r-md); padding: var(--sp-5) var(--sp-6); margin-top: var(--sp-5); font-size: var(--fs-sm); color: var(--ink-2); }
-    .confirm-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-4); }
-    .confirm-head .ch-title { font-weight: 660; color: var(--ink-1); display: flex; align-items: center; gap: 7px; }
-    .risk-badge { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px; border-radius: var(--r-pill); background: rgba(201,132,16,0.18); color: #8a5a0c; font-size: 9.5px; font-weight: 720; text-transform: uppercase; letter-spacing: 0.04em; }
-    .confirm-dl { display: grid; grid-template-columns: 80px 1fr; gap: 6px var(--sp-5); }
+
+    /* Stdio confirm card (warn-surface — keeps DNA §8 vocabulary) */
+    .confirm-card {
+      border: 1px solid rgba(201,132,16,0.4); background: var(--warn-surface);
+      border-radius: var(--r-md); padding: var(--sp-4) var(--sp-5);
+      margin-top: var(--sp-4); font-size: var(--fs-meta); color: var(--ink-2);
+    }
+    .confirm-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-3); }
+    .confirm-head .ch-title { font-weight: 660; color: var(--ink-1); display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+    .confirm-dl { display: grid; grid-template-columns: 72px 1fr; gap: 4px var(--sp-4); }
     .confirm-dl dt { color: var(--ink-3); }
     .confirm-dl dd { margin: 0; font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-1); word-break: break-all; }
-    .confirm-actions { display: flex; gap: var(--sp-3); margin-top: var(--sp-5); }
+    .confirm-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-4); }
 
-    .mcp-group { margin-top: var(--sp-6); }
-    .mcp-group:first-child { margin-top: 0; }
-    .mcp-group-head { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; padding: var(--sp-3); }
-    .mcp-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: var(--sp-4); padding: var(--sp-4); border-radius: var(--r-sm); transition: background 0.12s ease; }
+    .mcp-group { margin-top: var(--sp-5); }
+    .mcp-group:first-of-type { margin-top: 0; }
+    .mcp-group-head {
+      display: flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 680; color: var(--ink-3); text-transform: uppercase;
+      padding: var(--sp-2) var(--sp-3) var(--sp-3);
+    }
+    .mcp-row {
+      display: grid; grid-template-columns: 1fr auto auto;
+      align-items: center; gap: var(--sp-4);
+      padding: 9px var(--sp-3); border-radius: var(--r-sm);
+      transition: background 0.12s ease;
+    }
+    .mcp-row + .mcp-row { border-top: 1px solid var(--line-soft); }
     .mcp-row:hover { background: var(--surface-sunken); }
     .mcp-name-row { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
-    .mcp-name { font-size: var(--fs-base); font-weight: 600; color: var(--ink-1); }
-    .mcp-conn { display: inline-flex; align-items: center; gap: 5px; height: 19px; padding: 0 8px; border-radius: var(--r-pill); font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
-    .mcp-conn::before { content: ""; width: 5px; height: 5px; border-radius: 50%; }
-    .mcp-conn.up { background: var(--ok-surface); color: #15824f; }
-    .mcp-conn.up::before { background: var(--ok); }
-    .mcp-conn.down { background: var(--surface-sunken); color: var(--ink-3); }
-    .mcp-conn.down::before { background: var(--ink-4); }
-    .mcp-conn.busy { background: var(--accent-surface); color: var(--accent); }
-    .mcp-conn.busy::before { background: var(--accent); }
-    .mcp-cmd { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .mcp-row .micro { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-3); display: grid; place-items: center; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
+    .mcp-name { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    .mcp-cmd {
+      font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3);
+      margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .mcp-row .micro {
+      width: 26px; height: 26px;
+      border: 1px solid var(--line); border-radius: var(--r-xs);
+      background: var(--surface-1); color: var(--ink-3);
+      display: grid; place-items: center;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
     .mcp-row .micro:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
     .mcp-row .micro.danger:hover { background: var(--danger-surface); color: #b8352e; border-color: rgba(214,69,61,0.4); }
-    .empty-line { font-size: var(--fs-sm); color: var(--ink-4); padding: var(--sp-5) var(--sp-3); }
+    .row-actions { display: flex; align-items: center; gap: 4px; }
+    .empty-line { font-size: var(--fs-meta); color: var(--ink-4); padding: var(--sp-4) var(--sp-3); font-style: italic; }
 
-    /* External */
-    .ext-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-6); margin-bottom: var(--sp-7); }
-    .ext-loading { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--ink-3); padding: var(--sp-5) 0; }
-    .spin { width: 14px; height: 14px; border: 2px solid var(--line-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    /* External Employees */
+    .ext-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--sp-5); margin-bottom: var(--sp-7);
+    }
+    .ext-loading {
+      display: flex; align-items: center; gap: 8px;
+      font-size: var(--fs-sm); color: var(--ink-3); padding: var(--sp-4) 0;
+    }
+    .spin {
+      width: 13px; height: 13px;
+      border: 2px solid var(--line-strong); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .ext-row { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-1); box-shadow: var(--elev-1); padding: var(--sp-6); margin-top: var(--sp-4); transition: border-color 0.14s ease, box-shadow 0.14s ease; }
+    .ext-row {
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-1); box-shadow: var(--elev-1);
+      padding: var(--sp-5); margin-top: var(--sp-3);
+      transition: border-color 0.14s ease, box-shadow 0.14s ease;
+    }
     .ext-row:hover { border-color: var(--line-strong); box-shadow: var(--elev-2); }
-    .ext-main { display: grid; grid-template-columns: 44px 1fr auto; gap: var(--sp-5); align-items: flex-start; }
-    .ext-logo { width: 44px; height: 44px; border-radius: var(--r-md); display: grid; place-items: center; color: #fff; font-weight: 720; }
+    .ext-main {
+      display: grid; grid-template-columns: 36px 1fr auto;
+      gap: var(--sp-4); align-items: flex-start;
+    }
+    .ext-logo {
+      width: 36px; height: 36px; border-radius: var(--r-sm);
+      display: grid; place-items: center; color: #fff; font-weight: 720; font-size: var(--fs-sm);
+    }
     .ext-info { min-width: 0; }
-    .ext-name-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-3); }
-    .ext-name { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); }
-    .ext-brand { font-size: var(--fs-micro); color: var(--ink-2); background: var(--surface-sunken); border: 1px solid var(--line-soft); padding: 1px 8px; border-radius: var(--r-pill); font-weight: 600; }
-    .ext-role { font-size: var(--fs-micro); color: var(--ink-4); }
-    .ext-url { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3); margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ext-card-meta { font-size: var(--fs-micro); color: var(--ink-4); margin-top: 3px; }
-    .ext-actions { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
-    .ext-token { display: flex; align-items: flex-end; gap: var(--sp-3); border: 1px solid var(--line); background: var(--surface-sunken); border-radius: var(--r-md); padding: var(--sp-5); margin-top: var(--sp-5); }
+    .ext-name-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); }
+    .ext-name { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); }
+    .ext-brand {
+      font-size: 9.5px; color: var(--violet);
+      background: var(--violet-surface); border: 1px solid rgba(124,77,219,0.22);
+      padding: 1px 7px; border-radius: var(--r-pill);
+      font-weight: 720; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .ext-role { font-size: var(--fs-micro); color: var(--ink-4); font-family: var(--mono); }
+    .ext-url { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ext-card-meta { font-size: var(--fs-micro); color: var(--ink-4); margin-top: 2px; }
+    .ext-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .ext-token {
+      display: flex; align-items: flex-end; gap: var(--sp-3);
+      border: 1px solid var(--line-soft); background: var(--surface-2);
+      border-radius: var(--r-sm); padding: var(--sp-4);
+      margin-top: var(--sp-4);
+    }
     .ext-token .field { flex: 1; }
-    .empty-card { border: 1.5px dashed var(--line-strong); border-radius: var(--r-lg); padding: var(--sp-9) var(--sp-7); text-align: center; margin-top: var(--sp-5); }
-    .empty-card .ec-t { font-size: var(--fs-base); font-weight: 660; color: var(--ink-1); }
-    .empty-card .ec-d { font-size: var(--fs-meta); color: var(--ink-4); margin-top: 5px; }
+    .empty-card {
+      border: 1px dashed var(--line-strong); border-radius: var(--r-md);
+      padding: var(--sp-8) var(--sp-6); text-align: center; margin-top: var(--sp-3);
+      background: var(--surface-2);
+    }
+    .empty-card .ec-t { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); }
+    .empty-card .ec-d { font-size: var(--fs-meta); color: var(--ink-4); margin-top: 4px; }
 
-    /* saveError banner */
-    .err-banner { display: flex; align-items: flex-start; gap: var(--sp-4); padding: var(--sp-5) var(--sp-6); border: 1px solid rgba(214,69,61,0.4); background: var(--danger-surface); border-radius: var(--r-md); margin-bottom: var(--sp-7); }
+    /* Save / error bars */
+    .err-banner {
+      display: flex; align-items: flex-start; gap: var(--sp-4);
+      padding: var(--sp-4) var(--sp-5);
+      border: 1px solid rgba(214,69,61,0.4);
+      background: var(--danger-surface);
+      border-radius: var(--r-sm);
+      margin-bottom: var(--sp-5);
+    }
     .err-banner .ico { color: #b8352e; margin-top: 1px; }
-    .err-banner .eb-t { font-size: var(--fs-base); font-weight: 660; color: #b8352e; }
-    .err-banner .eb-m { font-size: var(--fs-meta); color: var(--ink-2); margin-top: 3px; }
+    .err-banner .eb-t { font-size: var(--fs-sm); font-weight: 660; color: #b8352e; }
+    .err-banner .eb-m { font-size: var(--fs-meta); color: var(--ink-2); margin-top: 2px; }
     .err-banner .eb-retry { margin-left: auto; }
 
-    /* Save bar (real: single full-width button, hidden only on External) */
-    .save-bar { flex: none; border-top: 1px solid var(--line); background: rgba(255,255,255,0.94); backdrop-filter: blur(8px); padding: var(--sp-5) 48px var(--sp-6); box-shadow: 0 -6px 20px rgba(20,32,56,0.05); }
+    .save-bar {
+      flex: none; border-top: 1px solid var(--line);
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(8px);
+      padding: var(--sp-4) 32px var(--sp-5);
+    }
     .save-bar.hidden { display: none; }
+    .save-bar-inner { max-width: 720px; margin: 0 auto; }
     .btn-save-full {
-      height: 44px; width: 100%;
-      border: 0; border-radius: var(--r-md);
+      height: 36px; width: 100%;
+      border: 0; border-radius: var(--r-sm);
       background: var(--accent); color: var(--accent-fg);
-      font-size: var(--fs-base); font-weight: 660;
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      font-size: var(--fs-sm); font-weight: 640;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
       transition: background 0.14s ease;
     }
     .btn-save-full:hover { background: var(--accent-press); }
     .btn-save-full:disabled { background: var(--surface-sunken); color: var(--ink-4); border: 1px solid var(--line); cursor: not-allowed; }
-    .save-bar .save-tip { text-align: center; font-size: 9.5px; color: var(--ink-4); margin-top: 6px; }
+    .btn-save-inline {
+      height: 30px; padding: 0 14px;
+      border: 0; border-radius: var(--r-sm);
+      background: var(--accent); color: var(--accent-fg);
+      font-size: var(--fs-sm); font-weight: 620;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: background 0.14s ease;
+    }
+    .btn-save-inline:hover { background: var(--accent-press); }
+    .save-tip { text-align: center; font-size: 9.5px; color: var(--ink-4); margin-top: 5px; line-height: 1.4; }
 
+    /* Scrollbars */
     .set-scroll::-webkit-scrollbar, .set-nav::-webkit-scrollbar { width: 7px; }
-    .set-scroll::-webkit-scrollbar-thumb, .set-nav::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); border: 2px solid transparent; background-clip: content-box; }
+    .set-scroll::-webkit-scrollbar-thumb, .set-nav::-webkit-scrollbar-thumb {
+      background: var(--line-strong); border-radius: var(--r-pill);
+      border: 2px solid transparent; background-clip: content-box;
+    }
     .set-scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-4); background-clip: content-box; }
 
-    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-    .reveal { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-    .reveal.d1 { animation-delay: 0.05s; }
-    @media (prefers-reduced-motion: reduce) { .reveal, .spin { animation: none; } * { transition: none !important; } }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .reveal { animation: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+    .reveal.d1 { animation-delay: 0.04s; }
+    @media (prefers-reduced-motion: reduce) { .reveal, .spin, .pill.running::before { animation: none; } * { transition: none !important; } }
   </style>
 </head>
 <body>
@@ -455,7 +686,6 @@
     <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2"/><path d="M3 9h17l-2.4 9a1.5 1.5 0 0 1-1.5 1H5a2 2 0 0 1-2-2z"/></symbol>
     <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M15 9h3a2 2 0 0 1 2 2v10"/><path d="M3 21h18M8 7h3M8 11h3M8 15h3"/></symbol>
     <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></symbol>
-    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
     <symbol id="i-bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="2.5"/><path d="M12 8V4M9 4h6"/><circle cx="9.5" cy="13" r="1.1"/><circle cx="14.5" cy="13" r="1.1"/></symbol>
     <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 1.5V4M15 1.5V4M9 20v2.5M15 20v2.5M1.5 9H4M1.5 15H4M20 9h2.5M20 15h2.5"/></symbol>
@@ -508,7 +738,6 @@
       </div>
       <div class="iconbar reveal d1">
         <button class="iconbtn" title="Activity log"><svg class="ico sm"><use href="#i-activity"/></svg></button>
-        <button class="iconbtn" title="Notifications"><svg class="ico sm"><use href="#i-bell"/></svg></button>
         <button class="iconbtn active" title="Settings"><svg class="ico sm"><use href="#i-settings"/></svg></button>
       </div>
     </nav>
@@ -524,55 +753,54 @@
 
       <div class="set-main">
         <div class="set-scroll">
-          <!-- ══ Provider ══ -->
+          <!-- ══════ Provider ══════ -->
           <div class="set-pane active" id="pane-provider">
             <div class="pane-head">
               <div class="pane-title">Provider</div>
               <div class="pane-desc">The model vendor every employee uses. Offisim calls the vendor API directly — there is no proxy. Product + access mode resolve the route; the execution lane decides whether Offisim tools are exposed.</div>
             </div>
 
-            <div class="surface-card" style="margin-bottom:var(--sp-8)">
-              <div class="pv-logo">M</div>
-              <div>
-                <div class="pv-name">MiniMax Global <span class="badge-ok">Connected</span></div>
-                <div class="pv-meta">MiniMax-M2.7 · gateway lane · global • chat/completions</div>
+            <div class="sec">
+              <div class="card-block">
+                <div class="pv-row">
+                  <div class="pv-logo">M</div>
+                  <div>
+                    <div class="pv-name">MiniMax Global <span class="pill ok">Connected</span></div>
+                    <div class="pv-meta">MiniMax-M2.7 · gateway lane · global · chat/completions</div>
+                  </div>
+                  <button class="ctl-btn"><svg class="ico sm"><use href="#i-refresh"/></svg>Test connection</button>
+                </div>
               </div>
-              <button class="ctl-btn"><svg class="ico sm"><use href="#i-refresh"/></svg>Test connection</button>
             </div>
 
-            <div class="section">
-              <div class="grid-2" style="align-items:start">
-                <div style="display:flex;flex-direction:column;gap:var(--sp-5)">
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Route</div></div></div>
+              <div class="card-block">
+                <div class="grid-2">
                   <div class="field">
                     <span class="field-label">Product</span>
-                    <div class="ctl">
-                      <select><option>MiniMax</option><option>OpenAI</option><option>OpenRouter</option><option>Anthropic</option><option>LM Studio</option></select>
-                      <span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
-                    </div>
+                    <button class="sel" type="button"><span class="sv">MiniMax</span></button>
                   </div>
                   <div class="field">
                     <span class="field-label">Access mode</span>
-                    <div class="ctl">
-                      <select><option>Global API key</option><option>Host-resolved</option><option>Local server</option></select>
-                      <span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
-                    </div>
-                    <span class="field-note">Direct key auth against the global MiniMax endpoint. No host resolver required.</span>
+                    <button class="sel" type="button"><span class="sv">Global API key</span></button>
                   </div>
-                </div>
-                <div>
-                  <div class="route-summary" style="margin-top:0">
-                    <span class="rs-name">MiniMax Global</span>
-                    <span class="pill-badge">Global API key</span>
-                    <span class="route-trail">openai-compat • chat/completions • global</span>
+                  <div class="field span-2">
+                    <div class="route-summary">
+                      <span class="rs-name">MiniMax Global</span>
+                      <span class="chip-mini">Global API key</span>
+                      <span class="route-trail">openai-compat · chat/completions · global</span>
+                    </div>
+                    <span class="field-note" style="margin-top:6px">Direct key auth against the global MiniMax endpoint. No host resolver required.</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="section">
-              <div class="section-head"><div class="section-headings"><div class="section-label">Model</div></div></div>
-              <div class="grid-2">
-                <div class="field span-2">
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Model</div></div></div>
+              <div class="card-block">
+                <div class="field">
                   <span class="field-label">Model</span>
                   <div class="ctl mono"><input value="MiniMax-M2.7" placeholder="model-name" list="modelopts" /></div>
                   <datalist id="modelopts"><option value="MiniMax-M2.7"></option><option value="MiniMax-M2.7-highspeed"></option></datalist>
@@ -581,10 +809,10 @@
               </div>
             </div>
 
-            <div class="section">
-              <div class="section-head"><div class="section-headings"><div class="section-label">Credentials</div></div></div>
-              <div class="grid-2">
-                <div class="field span-2">
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Credentials</div></div></div>
+              <div class="card-block">
+                <div class="field">
                   <span class="field-label">Secure API key</span>
                   <div class="ctl mono">
                     <span class="lead"><svg class="ico sm"><use href="#i-key"/></svg></span>
@@ -594,25 +822,27 @@
                   <span class="field-note">Leave empty to keep the stored credential · Credential destination: <b>https://api.minimax.io</b></span>
                   <div class="annot">When access mode ≠ API key: this field is replaced by "Credentials managed by host."</div>
                 </div>
-              </div>
-              <div style="margin-top:var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-3)">
-                <div class="callout warn"><svg class="ico xs"><use href="#i-alert"/></svg>Thinking model — keep max tokens at 1024+. <span class="annot" style="margin:0">(shown when selected variant is a thinking provider)</span></div>
-                <div class="callout info"><svg class="ico xs"><use href="#i-info"/></svg>Runtime binding activates only when a trusted host resolver is available. <span class="annot" style="margin:0">(shown for host-resolved products)</span></div>
+                <div style="margin-top:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-2)">
+                  <div class="callout warn"><svg class="ico xs"><use href="#i-alert"/></svg>Thinking model — keep max tokens at 1024+. <span class="annot" style="margin:0">(shown when selected variant is a thinking provider)</span></div>
+                  <div class="callout info"><svg class="ico xs"><use href="#i-info"/></svg>Runtime binding activates only when a trusted host resolver is available. <span class="annot" style="margin:0">(shown for host-resolved products)</span></div>
+                </div>
               </div>
             </div>
 
-            <div class="section">
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Advanced</div></div></div>
+
               <details class="disclosure">
                 <summary><span class="chev"><svg class="ico sm"><use href="#i-chev-right"/></svg></span>Advanced model catalog</summary>
                 <div class="disclosure-body">
                   <div class="catalog-row">
                     <div>
-                      <div style="font-size:var(--fs-base);font-weight:620;color:var(--ink-1)">模型目录更新</div>
+                      <div class="cr-t">模型目录更新</div>
                       <div class="cr-meta">上次成功 2026-05-15 18:40 · Hermes Agent / OpenClaw scope, LiteLLM + OpenRouter model metadata</div>
                     </div>
                     <button class="ctl-btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>更新模型目录</button>
                   </div>
-                  <div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-4)">
+                  <div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-3)">
                     <span class="chip-mini">Agent scoped</span>
                     <span style="font-size:var(--fs-meta);color:var(--ink-3)">42 fresh model suggestions for MiniMax.</span>
                   </div>
@@ -620,22 +850,22 @@
                     <div class="catalog-src"><div class="cs-label">Hermes Agent</div><div class="cs-sum">12 providers / 42 models</div></div>
                     <div class="catalog-src"><div class="cs-label">OpenClaw</div><div class="cs-sum">8 providers / 31 models</div></div>
                   </div>
-                  <div class="catalog-err">Last refresh failed: network unreachable <span class="annot" style="margin:0">(error state)</span></div>
+                  <div class="catalog-err"><svg class="ico xs"><use href="#i-alert"/></svg>Last refresh failed: network unreachable <span class="annot" style="margin:0">(error state)</span></div>
                 </div>
               </details>
 
               <details class="disclosure" open>
                 <summary><span class="chev"><svg class="ico sm"><use href="#i-chev-right"/></svg></span>Advanced routing</summary>
                 <div class="disclosure-body">
-                  <div class="section-hint" style="margin:0 0 var(--sp-6)">MiniMax global key route. Variant and execution lane resolve the transport.</div>
+                  <div class="sec-hint" style="margin:0 0 var(--sp-4)">MiniMax global key route. Variant and execution lane resolve the transport.</div>
                   <div class="grid-2">
                     <div class="field">
                       <span class="field-label">Provider variant <span class="annot" style="margin:0">(shown when &gt;1 variant)</span></span>
-                      <div class="ctl"><select><option>MiniMax Global (default)</option><option>MiniMax CN</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div>
+                      <button class="sel" type="button"><span class="sv">MiniMax Global (default)</span></button>
                     </div>
                     <div class="field">
                       <span class="field-label">Execution lane</span>
-                      <div class="ctl"><select><option>Gateway</option><option>Claude Agent SDK</option><option>Codex App Server</option><option>OpenAI Agents SDK</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div>
+                      <button class="sel" type="button"><span class="sv">Gateway</span></button>
                       <span class="field-note">Gateway lane exposes Offisim tools when the runtime has a trusted host + workspace. The SDK options are <b>model-transport bindings only</b> — not a tools-capable product lane; file/shell/memory/skill work needs the gateway path or a verified SDK-native runtime profile. <b>Other lanes exist in metadata but cannot run on this host.</b></span>
                     </div>
                     <div class="field span-2">
@@ -659,104 +889,119 @@
             </div>
           </div>
 
-          <!-- ══ Runtime ══ -->
+          <!-- ══════ Runtime ══════ -->
           <div class="set-pane" id="pane-runtime">
             <div class="pane-head">
               <div class="pane-title">Runtime</div>
               <div class="pane-desc">How agents execute — runtime defaults, appearance, the main harness owner, conversation memory, the local vault, and scene diagnostics.</div>
             </div>
 
-            <div class="section">
-              <div class="section-head"><div class="section-headings"><div class="section-label">Runtime defaults</div></div></div>
-              <div class="grid-3">
-                <div class="field">
-                  <span class="field-label">Execution mode</span>
-                  <div class="ctl"><select><option>Auto</option><option>Desktop trusted</option><option>Browser limited</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div>
-                </div>
-                <div class="field">
-                  <span class="field-label">Tool search</span>
-                  <div class="ctl"><select><option>Enabled</option><option>Disabled</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div>
-                </div>
-                <div class="field">
-                  <span class="field-label">Git auto-commit</span>
-                  <div class="ctl"><select><option>Enabled</option><option>Disabled</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div>
-                </div>
-                <div class="field span-2">
-                  <span class="field-label">Default employee runtime</span>
-                  <div class="ctl"><select><option>Offisim core (gateway)</option><option>Claude Agent SDK driver</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div>
-                  <div class="annot">Real control = RuntimeBindingControl (company-scoped runtime profile picker), not a plain 2-option select.</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="section">
-              <div class="section-head"><div class="section-headings"><div class="section-label">Appearance</div></div></div>
-              <div class="grid-2">
-                <div class="field">
-                  <span class="field-label">Theme</span>
-                  <div class="seg"><button class="active">System</button><button>Light</button><button>Dark</button></div>
-                  <span class="field-note">Following OS preference: Light</span>
-                </div>
-                <div class="field">
-                  <span class="field-label">Display density</span>
-                  <div class="seg"><button>Compact</button><button class="active">Normal</button><button>Spacious</button></div>
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Runtime defaults</div></div></div>
+              <div class="card-block">
+                <div class="grid-3">
+                  <div class="field">
+                    <span class="field-label">Execution mode</span>
+                    <button class="sel" type="button"><span class="sv">Auto</span></button>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Tool search</span>
+                    <button class="sel" type="button"><span class="sv">Enabled</span></button>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Git auto-commit</span>
+                    <button class="sel" type="button"><span class="sv">Enabled</span></button>
+                  </div>
+                  <div class="field span-2" style="grid-column:1 / -1">
+                    <span class="field-label">Default employee runtime</span>
+                    <button class="sel" type="button"><span class="sv">Offisim core (gateway)</span></button>
+                    <div class="annot">Real control = RuntimeBindingControl (company-scoped runtime profile picker), not a plain 2-option select.</div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="section">
-              <div class="section-head"><div class="section-headings"><div class="section-label">Main harness control</div><div class="section-hint">Who owns the top-level runtime. Replacement mode stays locked until release evidence is recorded.</div></div></div>
-              <div class="stat-grid">
-                <div class="stat-card"><div class="stat-k">Default owner</div><div class="stat-v">Offisim core</div></div>
-                <div class="stat-card"><div class="stat-k">Driver profiles</div><div class="stat-v">1 verified</div></div>
-                <div class="stat-card warn"><div class="stat-k">Replacement mode</div><div class="stat-v">Unavailable until release evidence</div></div>
-              </div>
-              <div class="profile-row"><span class="pr-name">claude-agent-sdk:driver</span><span class="pr-ok">Verified</span></div>
-              <div class="profile-row"><span class="pr-name">codex-agent-sdk:replacement</span><span class="pr-no">No release evidence</span></div>
-            </div>
-
-            <div class="section">
-              <div class="section-head"><div class="section-headings"><div class="section-label">Conversation memory &amp; summarization</div></div></div>
-              <div class="subhead">Memory</div>
-              <div class="grid-4">
-                <div class="field">
-                  <span class="field-label">Enabled</span>
-                  <div class="ctl"><select><option>Enabled</option><option>Disabled</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div>
-                </div>
-                <div class="field">
-                  <span class="field-label">Prompt injection</span>
-                  <div class="ctl"><select><option>Enabled</option><option>Disabled</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div>
-                </div>
-                <div class="field">
-                  <span class="field-label">Max facts</span>
-                  <div class="ctl"><input type="number" value="200" /></div>
-                </div>
-                <div class="field">
-                  <span class="field-label">Confidence threshold</span>
-                  <div class="ctl"><input type="number" value="0.6" step="0.1" /></div>
-                </div>
-              </div>
-              <div class="subhead mt">Summarization</div>
-              <div class="section-hint" style="margin:-6px 0 var(--sp-5)">Auto-compress long conversations.</div>
-              <div class="grid-3">
-                <div class="field">
-                  <span class="field-label">Enabled</span>
-                  <div class="ctl"><select><option>Enabled</option><option>Disabled</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div>
-                </div>
-                <div class="field">
-                  <span class="field-label">Trigger tokens</span>
-                  <div class="ctl"><input type="number" value="48000" /></div>
-                </div>
-                <div class="field">
-                  <span class="field-label">Keep recent messages</span>
-                  <div class="ctl"><input type="number" value="12" /></div>
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Appearance</div></div></div>
+              <div class="card-block">
+                <div class="grid-2">
+                  <div class="field">
+                    <span class="field-label">Theme</span>
+                    <div class="seg"><button class="active">System</button><button>Light</button><button>Dark</button></div>
+                    <span class="field-note">Following OS preference: Light</span>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Display density</span>
+                    <div class="seg"><button>Compact</button><button class="active">Normal</button><button>Spacious</button></div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="section">
-              <div class="section-head"><div class="section-headings"><div class="section-label">Local vault</div></div></div>
-              <div class="vault-card">
+            <div class="sec">
+              <div class="sec-head">
+                <div>
+                  <div class="label">Main harness control</div>
+                  <div class="sec-hint">Who owns the top-level runtime. Replacement mode stays locked until release evidence is recorded.</div>
+                </div>
+              </div>
+              <div class="card-block">
+                <div class="stat-grid" style="margin-top:0">
+                  <div class="stat-card"><div class="stat-k">Default owner</div><div class="stat-v">Offisim core</div></div>
+                  <div class="stat-card"><div class="stat-k">Driver profiles</div><div class="stat-v">1 verified</div></div>
+                  <div class="stat-card warn"><div class="stat-k">Replacement mode</div><div class="stat-v">Unavailable until release evidence</div></div>
+                </div>
+                <div style="margin-top:var(--sp-4)">
+                  <div class="profile-row"><span class="pr-name">claude-agent-sdk:driver</span><span class="pr-ok">Verified</span></div>
+                  <div class="profile-row"><span class="pr-name">codex-agent-sdk:replacement</span><span class="pr-no">No release evidence</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Conversation memory &amp; summarization</div></div></div>
+              <div class="card-block">
+                <div class="subhead">Memory</div>
+                <div class="grid-4">
+                  <div class="field">
+                    <span class="field-label">Enabled</span>
+                    <button class="sel" type="button"><span class="sv">Enabled</span></button>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Prompt injection</span>
+                    <button class="sel" type="button"><span class="sv">Enabled</span></button>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Max facts</span>
+                    <div class="ctl"><input type="number" value="200" /></div>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Confidence</span>
+                    <div class="ctl"><input type="number" value="0.6" step="0.1" /></div>
+                  </div>
+                </div>
+                <div class="subhead mt">Summarization</div>
+                <div class="sec-hint" style="margin:-2px 0 var(--sp-3)">Auto-compress long conversations.</div>
+                <div class="grid-3">
+                  <div class="field">
+                    <span class="field-label">Enabled</span>
+                    <button class="sel" type="button"><span class="sv">Enabled</span></button>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Trigger tokens</span>
+                    <div class="ctl"><input type="number" value="48000" /></div>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Keep recent</span>
+                    <div class="ctl"><input type="number" value="12" /></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Local vault</div></div></div>
+              <div class="card-block vault-card">
                 <div class="vault-head">
                   <span class="vault-ico"><svg class="ico sm"><use href="#i-folder-open"/></svg></span>
                   <div>
@@ -770,7 +1015,7 @@
                 </div>
                 <div class="vault-actions"><button class="ctl-btn"><svg class="ico sm"><use href="#i-folder-open"/></svg>Open folder</button></div>
               </div>
-              <div class="vault-card">
+              <div class="card-block vault-card">
                 <div class="vault-head">
                   <span class="vault-ico"><svg class="ico sm"><use href="#i-folder-open"/></svg></span>
                   <div>
@@ -787,103 +1032,106 @@
               </div>
             </div>
 
-            <div class="section">
-              <div class="section-head">
-                <div class="section-headings">
-                  <div class="section-label">2D scene diagnostics</div>
-                  <div class="section-hint">Export the last 10 employee→zone drag attempts (PointerEvent stream, hit results, drop decision) as JSON for incident debugging.</div>
+            <div class="sec">
+              <div class="sec-head">
+                <div>
+                  <div class="label">2D scene diagnostics</div>
+                  <div class="sec-hint">Export the last 10 employee→zone drag attempts (PointerEvent stream, hit results, drop decision) as JSON for incident debugging.</div>
                 </div>
-                <button class="ctl-btn sm"><svg class="ico xs"><use href="#i-file"/></svg>Export 2D drop diagnostic</button>
+                <button class="ctl-btn sm"><svg class="ico xs"><use href="#i-file"/></svg>Export drop diagnostic</button>
               </div>
             </div>
           </div>
 
-          <!-- ══ MCP ══ -->
+          <!-- ══════ MCP ══════ -->
           <div class="set-pane" id="pane-mcp">
             <div class="pane-head">
               <div class="pane-title">MCP Servers</div>
               <div class="pane-desc">Model Context Protocol tool servers available to employees. SSE works everywhere; stdio is desktop-only and gated by a high-risk confirm.</div>
             </div>
 
-            <div class="section">
-              <div class="section-head"><div class="section-headings"><div class="section-label">Add MCP server</div></div></div>
-              <div class="mcp-form">
-                <div class="field"><div class="ctl"><select><option>SSE</option><option>Stdio — Desktop only</option></select><span class="trail"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></div></div>
-                <div class="field"><div class="ctl"><input placeholder="Server name" /></div></div>
-                <div class="field"><div class="ctl mono"><input placeholder="http://localhost:3001/sse" /></div></div>
-                <button class="add-btn"><svg class="ico sm"><use href="#i-plus"/></svg>Add</button>
-              </div>
-              <div class="mcp-args"><div class="ctl mono"><input placeholder="Arguments (one per line, optional) — stdio only" /></div></div>
-              <div class="form-error">Server name is required. <span class="annot" style="margin:0">(form error line)</span></div>
-
-              <div class="confirm-card">
-                <div class="confirm-head">
-                  <span class="ch-title"><svg class="ico sm"><use href="#i-alert"/></svg>Confirm stdio MCP server</span>
-                  <span class="risk-badge">High risk</span>
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Add MCP server</div></div></div>
+              <div class="card-block">
+                <div class="mcp-form">
+                  <div class="field"><button class="sel" type="button"><span class="sv">SSE</span></button></div>
+                  <div class="field"><div class="ctl"><input placeholder="Server name" /></div></div>
+                  <div class="field"><div class="ctl mono"><input placeholder="http://localhost:3001/sse" /></div></div>
+                  <button class="add-btn"><svg class="ico sm"><use href="#i-plus"/></svg>Add</button>
                 </div>
-                <dl class="confirm-dl">
-                  <dt>Command</dt><dd>uvx --from serena serena-mcp-server</dd>
-                  <dt>Args</dt><dd>--context ide-assistant</dd>
-                  <dt>Source</dt><dd>user-config</dd>
-                  <dt>Tools</dt><dd>Unknown until startup</dd>
-                </dl>
-                <div class="confirm-actions">
-                  <button class="ctl-btn ok"><svg class="ico sm"><use href="#i-check"/></svg>Confirm</button>
-                  <button class="ctl-btn">Cancel</button>
+                <div class="mcp-args"><div class="ctl mono"><input placeholder="Arguments (one per line, optional) — stdio only" /></div></div>
+                <div class="form-error">Server name is required. <span class="annot" style="margin:0">(form error line)</span></div>
+
+                <div class="confirm-card">
+                  <div class="confirm-head">
+                    <span class="ch-title"><svg class="ico sm"><use href="#i-alert"/></svg>Confirm stdio MCP server</span>
+                    <span class="pill warn">High risk</span>
+                  </div>
+                  <dl class="confirm-dl">
+                    <dt>Command</dt><dd>uvx --from serena serena-mcp-server</dd>
+                    <dt>Args</dt><dd>--context ide-assistant</dd>
+                    <dt>Source</dt><dd>user-config</dd>
+                    <dt>Tools</dt><dd>Unknown until startup</dd>
+                  </dl>
+                  <div class="confirm-actions">
+                    <button class="ctl-btn ok"><svg class="ico sm"><use href="#i-check"/></svg>Confirm</button>
+                    <button class="ctl-btn">Cancel</button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="section">
-              <div class="section-head"><div class="section-headings"><div class="section-label">Configured servers</div></div></div>
+            <div class="sec">
+              <div class="sec-head"><div><div class="label">Configured servers</div></div></div>
+              <div class="card-block">
+                <div class="mcp-group">
+                  <div class="mcp-group-head"><svg class="ico xs"><use href="#i-terminal"/></svg>Stdio · 2</div>
+                  <div class="mcp-row">
+                    <div class="mcp-info">
+                      <div class="mcp-name-row"><span class="mcp-name">serena</span><span class="pill ok">Connected</span></div>
+                      <div class="mcp-cmd">uvx --from serena serena-mcp-server --context ide-assistant</div>
+                    </div>
+                    <span></span>
+                    <div class="row-actions"><button class="micro danger" title="Delete server"><svg class="ico xs"><use href="#i-trash"/></svg></button></div>
+                  </div>
+                  <div class="mcp-row">
+                    <div class="mcp-info">
+                      <div class="mcp-name-row"><span class="mcp-name">gitnexus</span><span class="pill muted">Disconnected</span></div>
+                      <div class="mcp-cmd">npx -y gitnexus mcp --repo .</div>
+                    </div>
+                    <span></span>
+                    <div class="row-actions">
+                      <button class="micro" title="Reconnect"><svg class="ico xs"><use href="#i-refresh"/></svg></button>
+                      <button class="micro danger" title="Delete server"><svg class="ico xs"><use href="#i-trash"/></svg></button>
+                    </div>
+                  </div>
+                </div>
 
-              <div class="mcp-group">
-                <div class="mcp-group-head"><svg class="ico xs"><use href="#i-terminal"/></svg>STDIO · 2</div>
-                <div class="mcp-row">
-                  <div class="mcp-info">
-                    <div class="mcp-name-row"><span class="mcp-name">serena</span><span class="mcp-conn up">Connected</span></div>
-                    <div class="mcp-cmd">uvx --from serena serena-mcp-server --context ide-assistant</div>
-                  </div>
-                  <span></span>
-                  <div class="ext-actions"><button class="micro danger" title="Delete server"><svg class="ico xs"><use href="#i-trash"/></svg></button></div>
-                </div>
-                <div class="mcp-row">
-                  <div class="mcp-info">
-                    <div class="mcp-name-row"><span class="mcp-name">gitnexus</span><span class="mcp-conn down">Disconnected</span></div>
-                    <div class="mcp-cmd">npx -y gitnexus mcp --repo .</div>
-                  </div>
-                  <span></span>
-                  <div class="ext-actions">
-                    <button class="micro" title="Reconnect"><svg class="ico xs"><use href="#i-refresh"/></svg></button>
-                    <button class="micro danger" title="Delete server"><svg class="ico xs"><use href="#i-trash"/></svg></button>
+                <div class="mcp-group">
+                  <div class="mcp-group-head"><svg class="ico xs"><use href="#i-globe"/></svg>SSE · 1</div>
+                  <div class="mcp-row">
+                    <div class="mcp-info">
+                      <div class="mcp-name-row"><span class="mcp-name">context7</span><span class="pill info running">Connecting…</span></div>
+                      <div class="mcp-cmd">https://mcp.context7.com/sse</div>
+                    </div>
+                    <span></span>
+                    <div class="row-actions"><button class="micro danger" title="Delete server"><svg class="ico xs"><use href="#i-trash"/></svg></button></div>
                   </div>
                 </div>
+
+                <div class="empty-line">Empty state: "No MCP servers configured. Add one above to enable tool use."</div>
               </div>
-
-              <div class="mcp-group">
-                <div class="mcp-group-head"><svg class="ico xs"><use href="#i-globe"/></svg>SSE · 1</div>
-                <div class="mcp-row">
-                  <div class="mcp-info">
-                    <div class="mcp-name-row"><span class="mcp-name">context7</span><span class="mcp-conn busy">Connecting…</span></div>
-                    <div class="mcp-cmd">https://mcp.context7.com/sse</div>
-                  </div>
-                  <span></span>
-                  <div class="ext-actions"><button class="micro danger" title="Delete server"><svg class="ico xs"><use href="#i-trash"/></svg></button></div>
-                </div>
-              </div>
-
-              <div class="empty-line">Empty state: "No MCP servers configured. Add one above to enable tool use."</div>
             </div>
           </div>
 
-          <!-- ══ External Employees ══ -->
+          <!-- ══════ External Employees ══════ -->
           <div class="set-pane" id="pane-external">
             <div class="ext-head">
               <div>
                 <div class="pane-title">External Employees</div>
                 <div class="pane-desc">Branded A2A agents connected to this company. Offisim dispatches tasks over JSON-RPC using each agent card.</div>
               </div>
-              <button class="btn-save-full" style="width:auto;height:38px;padding:0 18px"><svg class="ico sm"><use href="#i-plug"/></svg>Connect agent</button>
+              <button class="btn-save-inline"><svg class="ico sm"><use href="#i-plug"/></svg>Connect agent</button>
             </div>
 
             <div class="ext-loading"><span class="spin"></span>Loading… <span class="annot" style="margin:0">(loading state)</span></div>
@@ -909,10 +1157,10 @@
               </div>
               <div class="ext-token">
                 <div class="field">
-                  <span class="field-label" style="font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-4)">Bearer token</span>
+                  <span class="label">Bearer token</span>
                   <div class="ctl mono"><input type="password" value="oc_live_8821bd…" placeholder="leave empty to clear" /></div>
                 </div>
-                <button class="btn-save-full" style="width:auto;height:38px;padding:0 18px">Save</button>
+                <button class="btn-save-inline">Save</button>
                 <button class="ctl-btn">Cancel</button>
               </div>
             </div>
@@ -945,10 +1193,12 @@
           </div>
         </div>
 
-        <!-- Save bar: single full-width button. Real: shown on Provider/Runtime/MCP, hidden ONLY on External. -->
+        <!-- Save bar: single full-width button. Hidden ONLY on External. -->
         <div class="save-bar" id="saveBar">
-          <button class="btn-save-full"><svg class="ico sm"><use href="#i-check"/></svg>Save changes</button>
-          <div class="save-tip">Tooltip carries state: "Save provider + runtime changes" / "No changes to save" / "Resolve validation issues before saving" / "Save failed — retry". On error, a banner with Retry appears above content; label → "Saving…" while saving; button disabled when no changes / validation fails.</div>
+          <div class="save-bar-inner">
+            <button class="btn-save-full"><svg class="ico sm"><use href="#i-check"/></svg>Save changes</button>
+            <div class="save-tip">Tooltip carries state: "Save provider + runtime changes" / "No changes to save" / "Resolve validation issues before saving" / "Save failed — retry". On error, a banner with Retry appears above content; label → "Saving…" while saving; button disabled when no changes / validation fails.</div>
+          </div>
         </div>
       </div>
     </div>

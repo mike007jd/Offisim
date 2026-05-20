@@ -11,46 +11,65 @@
   />
   <style>
     :root {
+      /* ── Surface & elevation ───────────────────────── */
       --bg: #eef1f6;
+      --surface-0: #f7f9fc;
       --surface-1: #ffffff;
       --surface-2: #fbfcfe;
       --surface-sunken: #f1f4f9;
-      --surface-hover: #f3f6fb;
 
+      /* ── Ink ramp ──────────────────────────────────── */
       --ink-1: #131a27;
       --ink-2: #3c4a60;
       --ink-3: #647186;
       --ink-4: #93a0b2;
 
+      /* ── Hairlines ─────────────────────────────────── */
       --line: #dde3ec;
       --line-soft: #e9edf4;
       --line-strong: #c8d1de;
 
+      /* ── Accent ────────────────────────────────────── */
       --accent: #2f6bff;
       --accent-press: #1f54d8;
       --accent-fg: #ffffff;
       --accent-surface: #ecf2ff;
       --accent-ring: rgba(47, 107, 255, 0.36);
-      --accent-text: #1f54d8;
-      --accent-muted: #e3ecff;
 
+      /* DNA §2: --info is an alias of --accent; do not duplicate */
+      --info: var(--accent);
+      --info-surface: var(--accent-surface);
+
+      /* ── Status ────────────────────────────────────── */
       --ok: #1aa46a;        --ok-surface: #e4f5ec;
       --warn: #c98410;      --warn-surface: #fdf2dd;
       --danger: #d6453d;    --danger-surface: #fdeae9;
-      --info: #2f6bff;      --info-surface: #ecf2ff;
       --violet: #7c4ddb;    --violet-surface: #f1ebfd;
 
-      --r-xs: 5px; --r-sm: 7px; --r-md: 9px; --r-lg: 13px; --r-xl: 18px; --r-pill: 999px;
+      /* ── Radius ────────────────────────────────────── */
+      --r-xs: 5px;
+      --r-sm: 7px;
+      --r-md: 9px;
+      --r-lg: 13px;
+      --r-pill: 999px;
 
+      /* ── Elevation ─────────────────────────────────── */
       --elev-1: 0 1px 2px rgba(20, 32, 56, 0.06), 0 1px 1px rgba(20, 32, 56, 0.04);
       --elev-2: 0 4px 14px rgba(20, 32, 56, 0.10), 0 1px 3px rgba(20, 32, 56, 0.06);
       --elev-3: 0 18px 44px rgba(18, 28, 50, 0.20), 0 4px 12px rgba(18, 28, 50, 0.10);
 
+      /* ── Spacing scale ─────────────────────────────── */
       --sp-1: 4px; --sp-2: 6px; --sp-3: 8px; --sp-4: 10px;
-      --sp-5: 12px; --sp-6: 14px; --sp-7: 16px; --sp-8: 20px; --sp-9: 28px;
+      --sp-5: 12px; --sp-6: 14px; --sp-7: 16px; --sp-8: 20px;
 
-      --fs-micro: 10px; --fs-meta: 11px; --fs-sm: 12px;
-      --fs-base: 13px; --fs-md: 14px; --fs-lg: 15px; --fs-xl: 19px; --fs-2xl: 24px;
+      /* ── Type scale (no --fs-2xl per DNA §3) ───────── */
+      --fs-micro: 10px;
+      --fs-meta: 11px;
+      --fs-sm: 12px;
+      --fs-base: 13px;
+      --fs-md: 14px;
+      --fs-lg: 15px;
+      --fs-xl: 19px;
       --ls-caps: 0.14em;
 
       --title: 40px;
@@ -66,12 +85,16 @@
 
     * { box-sizing: border-box; }
     *:focus { outline: none; }
-    *:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: var(--r-xs); }
+    *:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-radius: var(--r-xs);
+    }
 
     body {
       margin: 0;
       min-height: 100vh;
-      display: flex; flex-direction: column; align-items: center; gap: 30px;
+      display: flex; flex-direction: column; align-items: center; gap: 28px;
       padding: 28px;
       background: radial-gradient(1200px 700px at 50% -10%, #1f2738 0%, #0f1420 60%, #0b0f17 100%);
       color: var(--ink-1);
@@ -92,6 +115,7 @@
       grid-template-rows: var(--title) var(--toolbar) 1fr;
       box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 40px 100px rgba(0, 0, 0, 0.55);
       position: relative;
+      flex: none;
     }
 
     button { font: inherit; cursor: pointer; }
@@ -106,62 +130,81 @@
     }
     .ico.sm { width: 14px; height: 14px; }
     .ico.xs { width: 12px; height: 12px; }
-    .ico.lg { width: 18px; height: 18px; }
-    .ico.xl { width: 20px; height: 20px; }
     .ico.fill { fill: currentColor; stroke: none; }
 
-    /* Title bar */
+    /* ── Title bar (V3) ────────────────────────────────── */
     .titlebar {
       height: var(--title);
       display: flex; align-items: center; gap: var(--sp-6);
-      padding: 0 var(--sp-7);
+      padding: 0 var(--sp-5);
       background: linear-gradient(#fcfdfe, #eef2f7);
       border-bottom: 1px solid var(--line);
     }
     .traffic { display: flex; gap: 8px; }
     .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
-    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
-    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); }
+    .brand {
+      display: flex; align-items: baseline; gap: 9px;
+      font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em;
+    }
+    .brand .ver {
+      font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600;
+      padding: 2px 6px; border-radius: var(--r-pill);
+      background: var(--surface-sunken); letter-spacing: 0.02em;
+    }
 
-    /* Top bar (shared chrome) */
+    /* ── Top bar (V3 — no bell) ────────────────────────── */
     .topbar {
       height: var(--toolbar);
       position: relative;
       display: flex; align-items: center; gap: var(--sp-5);
-      padding: 0 var(--sp-6);
+      padding: 0 var(--sp-5);
       background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--line);
     }
-    .topbar .nav { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+    .topbar .nav {
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+    }
     .topbar .iconbar { margin-left: auto; }
+
     .nav, .iconbar {
-      height: 34px; border: 1px solid var(--line); border-radius: var(--r-md);
-      background: var(--surface-2); display: flex; align-items: center; box-shadow: var(--elev-1);
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      background: var(--surface-2);
+      display: flex; align-items: center;
+      box-shadow: var(--elev-1);
     }
     .nav { padding: 3px; gap: 2px; }
     .nav button {
-      height: 28px; padding: 0 14px; border: 0; border-radius: var(--r-sm);
+      height: 28px; padding: 0 14px;
+      border: 0; border-radius: var(--r-sm);
       background: transparent; color: var(--ink-2);
       font-size: var(--fs-base); font-weight: 560;
       display: flex; align-items: center; gap: 6px;
       transition: background 0.14s ease, color 0.14s ease;
     }
     .nav button:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
-    .nav button.active { background: var(--accent-surface); color: var(--accent); font-weight: 640; box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .nav .active {
+      color: var(--accent); background: var(--accent-surface);
+      font-weight: 620;
+      box-shadow: inset 0 0 0 1px var(--accent-ring);
+    }
     .iconbar { padding: 3px; gap: 2px; }
     .iconbtn {
-      width: 28px; height: 28px; border: 0; border-radius: var(--r-sm);
-      background: transparent; color: var(--ink-3);
+      width: 28px; height: 28px;
+      border: 0; border-radius: var(--r-sm); background: transparent;
+      color: var(--ink-3);
       display: grid; place-items: center;
       transition: background 0.14s ease, color 0.14s ease;
-      position: relative;
     }
     .iconbtn:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
-    .iconbtn.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
-    .iconbtn .nb { position: absolute; top: 1px; right: 1px; min-width: 13px; height: 13px; padding: 0 3px; border-radius: var(--r-pill); background: var(--danger); color: #fff; font-size: 8px; font-weight: 760; display: grid; place-items: center; }
+    .iconbar-div { width: 1px; height: 16px; background: var(--line); margin: 0 3px; }
 
+    /* ── Scope breadcrumb (V3) ─────────────────────────── */
     .scope-bar {
       position: relative; display: flex; align-items: center;
       height: 36px; padding: 3px;
@@ -176,280 +219,770 @@
     }
     .scope-seg:hover { background: var(--surface-sunken); }
     .scope-seg .s-icn { display: grid; place-items: center; flex: none; }
-    .scope-seg.company .s-icn { width: 22px; height: 22px; border-radius: var(--r-xs); background: var(--accent-surface); color: var(--accent); }
+    .scope-seg.company .s-icn {
+      width: 22px; height: 22px; border-radius: var(--r-xs);
+      background: var(--accent-surface); color: var(--accent);
+    }
     .scope-seg.project .s-icn { color: var(--ink-3); }
-    .scope-seg .s-name { font-size: var(--fs-base); font-weight: 640; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .scope-seg .s-name {
+      font-size: var(--fs-base); font-weight: 640; color: var(--ink-1);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;
+    }
     .scope-seg .s-caret { color: var(--ink-4); display: grid; place-items: center; flex: none; }
     .scope-div { color: var(--ink-4); display: grid; place-items: center; flex: none; }
 
-    /* ── shared atoms ── */
-    .badge { height: 19px; padding: 0 9px; border-radius: var(--r-pill); font-size: 9.5px;
-      font-weight: 660; display: inline-flex; align-items: center; gap: 4px; }
+    /* ── Caps label (DNA §6) ───────────────────────────── */
+    .caps {
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 680; color: var(--ink-3);
+      text-transform: uppercase;
+    }
+
+    /* ── Shared atoms ──────────────────────────────────── */
+    .badge {
+      height: 19px; padding: 0 9px; border-radius: var(--r-pill);
+      font-size: 9.5px; font-weight: 720; letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .badge::before { content: ""; width: 5px; height: 5px; border-radius: 50%; flex: none; }
     .badge.ok { background: var(--ok-surface); color: #15824f; }
-    .badge.info { background: var(--info-surface); color: var(--info); }
+    .badge.ok::before { background: var(--ok); }
+    .badge.ok.running::before { animation: pulse 1.6s ease-in-out infinite; }
+    .badge.accent { background: var(--accent-surface); color: var(--accent); }
+    .badge.accent::before { background: var(--accent); }
     .badge.warn { background: var(--warn-surface); color: #8a5a0c; }
+    .badge.warn::before { background: var(--warn); }
     .badge.err { background: var(--danger-surface); color: #b8352e; }
-    .badge.sec { background: var(--surface-sunken); color: var(--ink-3); }
+    .badge.err::before { background: var(--danger); }
+    .badge.sec { background: var(--surface-sunken); color: var(--ink-2); }
+    .badge.sec::before { background: var(--ink-4); }
     .badge.violet { background: var(--violet-surface); color: var(--violet); }
-    .badge.dot { width: 6px; height: 6px; padding: 0; border-radius: 50%; }
-    .btn { height: 34px; padding: 0 15px; border-radius: var(--r-md); font-size: var(--fs-sm);
-      font-weight: 620; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line);
-      background: var(--surface-1); color: var(--ink-2); white-space: nowrap; }
-    .btn:hover { background: var(--surface-sunken); }
-    .btn.sm { height: 28px; padding: 0 11px; font-size: var(--fs-meta); }
-    .btn.xs { height: 24px; padding: 0 8px; font-size: var(--fs-micro); border-radius: var(--r-sm); }
+    .badge.violet::before { background: var(--violet); }
+    .badge.dotless::before { display: none; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(1.5); }
+    }
+
+    /* V3 .btn grammar */
+    .btn {
+      height: 30px; padding: 0 12px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1); color: var(--ink-2);
+      font-size: var(--fs-sm); font-weight: 620;
+      display: inline-flex; align-items: center; gap: 6px;
+      white-space: nowrap;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .btn:hover { background: var(--surface-sunken); border-color: var(--line-strong); color: var(--ink-1); }
+    .btn.sm { height: 26px; padding: 0 10px; font-size: var(--fs-meta); }
+    .btn.xs { height: 22px; padding: 0 8px; font-size: var(--fs-micro); border-radius: var(--r-xs); }
     .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
-    .btn.primary:hover { background: var(--accent-press); }
-    .btn.ghost { background: transparent; border-color: transparent; }
-    .btn.ghost:hover { background: var(--surface-sunken); }
+    .btn.primary:hover { background: var(--accent-press); border-color: transparent; }
+    .btn.ghost { background: transparent; border-color: transparent; color: var(--ink-3); }
+    .btn.ghost:hover { background: var(--surface-sunken); color: var(--ink-1); }
     .btn.danger { background: var(--danger-surface); color: #b8352e; border-color: rgba(214,69,61,0.35); }
-    .btn.success { background: var(--ok); color: #fff; border-color: transparent; }
+    .btn.danger:hover { background: rgba(214,69,61,0.13); border-color: rgba(214,69,61,0.5); }
     .btn[disabled], .btn.disabled { opacity: 0.42; cursor: not-allowed; }
-    .field-l { font-size: var(--fs-sm); font-weight: 560; color: var(--ink-2); }
-    .inp { height: 36px; width: 100%; padding: 0 11px; border: 1px solid var(--line);
-      border-radius: var(--r-md); background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-sm); }
-    .inp::placeholder { color: var(--ink-4); }
-    .inp:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
-    select.inp { padding-right: 28px; appearance: none;
-      background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center; }
+
     .hint { font-size: var(--fs-meta); color: var(--ink-4); line-height: 1.5; }
 
-    /* ── DialogShell skin ── */
-    .dlg-scrim { position: absolute; inset: 0; background: rgba(15,20,32,0.52);
-      backdrop-filter: blur(2px); display: grid; place-items: center; padding: 28px; z-index: 5; }
-    .dlg { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-xl);
-      box-shadow: var(--elev-3); display: flex; flex-direction: column; max-height: 100%;
-      width: 100%; overflow: hidden; }
-    .dlg.sm { max-width: 420px; } .dlg.md { max-width: 560px; }
-    .dlg.lg { max-width: 720px; } .dlg.xl { max-width: 900px; }
-    .dlg-head { padding: 18px 22px 14px; border-bottom: 1px solid var(--line-soft);
-      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .dlg-head h2 { margin: 0; font-size: var(--fs-xl); font-weight: 680; color: var(--ink-1); letter-spacing: -0.01em; }
-    .dlg-head p { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--ink-3); }
-    .dlg-x { width: 28px; height: 28px; flex: none; border: 0; border-radius: var(--r-sm);
-      background: transparent; color: var(--ink-3); display: grid; place-items: center; }
-    .dlg-x:hover { background: var(--surface-sunken); color: var(--ink-1); }
-    .dlg-body { padding: 20px 22px; overflow-y: auto; }
+    /* Custom-arrow native select (DNA §12.5) */
+    .sel-native {
+      height: 28px; max-width: 220px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center;
+      color: var(--ink-1); font-size: var(--fs-meta);
+      padding: 0 28px 0 10px; appearance: none;
+    }
 
-    /* ════════ ResumeBar — components/project/ResumeBar.tsx ════════ */
-    .rb { display: flex; align-items: center; gap: 8px; border: 1px solid var(--warn);
-      background: var(--warn-surface); border-radius: var(--r-lg); padding: 8px 14px;
-      font-size: var(--fs-sm); box-shadow: var(--elev-2); }
-    .rb .lbl { flex: none; color: #8a5a0c; font-weight: 600; }
+    /* ════════ ResumeBar (V3 status-pill grammar §8) ════════ */
+    .rb {
+      display: flex; align-items: center; gap: 10px;
+      border: 1px solid var(--warn);
+      background: var(--warn-surface);
+      border-radius: var(--r-md);
+      padding: 7px 12px;
+      font-size: var(--fs-sm);
+      box-shadow: var(--elev-1);
+    }
+    .rb .ic { color: var(--warn); flex: none; display: grid; place-items: center; }
+    .rb.running .ic::before {
+      content: ""; display: inline-block; width: 6px; height: 6px;
+      border-radius: 50%; background: var(--warn);
+      animation: pulse 1.6s ease-in-out infinite;
+      margin-right: 6px; vertical-align: middle;
+    }
+    .rb .lbl {
+      flex: none; color: #8a5a0c; font-weight: 660;
+      font-size: var(--fs-meta); letter-spacing: 0.02em;
+    }
     .rb .pjs { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; min-width: 0; }
-    .rb .pj { max-width: 200px; border: 1px solid var(--warn); background: var(--surface-1);
-      border-radius: var(--r-sm); padding: 5px 9px; font-size: var(--fs-micro); color: var(--ink-1);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .rb .pj:hover { background: var(--surface-hover); }
-    .rb .dis { margin-left: auto; flex: none; border: 0; background: transparent;
-      color: #8a5a0c; font-size: var(--fs-micro); }
-    .rb .dis:hover { color: var(--ink-1); }
+    .rb .pj {
+      max-width: 220px; height: 24px;
+      border: 1px solid var(--line); background: var(--surface-1);
+      border-radius: var(--r-xs); padding: 0 9px;
+      font-size: var(--fs-micro); font-weight: 600; color: var(--ink-1);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .rb .pj:hover { background: var(--surface-sunken); border-color: var(--line-strong); }
+    .rb .pj.review { color: var(--accent); border-color: var(--accent-ring); background: var(--accent-surface); }
+    .rb .dis {
+      margin-left: auto; flex: none;
+      height: 24px; padding: 0 9px;
+      border: 0; border-radius: var(--r-xs);
+      background: transparent; color: #8a5a0c;
+      font-size: var(--fs-micro); font-weight: 600;
+    }
+    .rb .dis:hover { background: rgba(201,132,16,0.16); color: #6c4709; }
 
-    /* ════════ ErrorBanner — components/error/ErrorBanner.tsx ════════ */
-    .eb { border: 1px solid rgba(214,69,61,0.3); border-bottom-width: 2px;
-      background: rgba(214,69,61,0.10); border-radius: var(--r-md); overflow: hidden; }
-    .eb-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+    /* ════════ ErrorBanner (danger-surface + 1px line) ════════ */
+    .eb {
+      border: 1px solid rgba(214,69,61,0.32);
+      background: var(--danger-surface);
+      border-radius: var(--r-md);
+      overflow: hidden;
+      box-shadow: var(--elev-1);
+    }
+    .eb-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 11px;
+    }
     .eb-bar .ic { color: var(--danger); flex: none; }
-    .eb-msg { flex: 1; min-width: 0; font-family: var(--mono); font-size: var(--fs-sm);
-      color: #b8352e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .eb-acts { display: flex; align-items: center; gap: 1px; flex: none; }
-    .eb-btn { height: 24px; padding: 0 8px; border: 0; border-radius: var(--r-sm);
-      background: transparent; color: #b8352e; font-size: var(--fs-micro);
-      display: inline-flex; align-items: center; gap: 4px; }
-    .eb-btn:hover { background: rgba(214,69,61,0.13); }
-    .eb-x { width: 24px; justify-content: center; padding: 0; }
-    .eb-swap { display: flex; align-items: center; gap: 9px; padding: 9px 12px;
-      border-top: 1px solid rgba(214,69,61,0.2); }
-    .eb-swap .l { font-family: var(--mono); font-size: var(--fs-micro); color: #b8352e; flex: none; }
-    .eb-swap select { height: 28px; max-width: 220px; border: 1px solid rgba(214,69,61,0.3);
-      border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-1);
-      font-size: var(--fs-meta); padding: 0 24px 0 9px; appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 8px center; }
-    .eb-det { padding: 0 12px 10px; border-top: 1px solid rgba(214,69,61,0.2); }
-    .eb-det .box { margin-top: 9px; background: rgba(7,16,28,0.92); color: #c8d3e6;
-      font-family: var(--mono); font-size: 10px; line-height: 1.75; border-radius: var(--r-sm);
-      padding: 10px 12px; max-height: 200px; overflow: auto; }
+    .eb-msg {
+      flex: 1; min-width: 0;
+      font-family: var(--mono); font-size: var(--fs-sm);
+      color: #b8352e;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .eb-acts { display: flex; align-items: center; gap: 2px; flex: none; }
+    /* ErrorBanner action buttons reuse V3 .btn grammar */
+    .eb-btn {
+      height: 24px; padding: 0 8px;
+      border: 1px solid transparent; border-radius: var(--r-xs);
+      background: transparent; color: #b8352e;
+      font-size: var(--fs-micro); font-weight: 620;
+      display: inline-flex; align-items: center; gap: 4px;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+    .eb-btn:hover { background: rgba(214,69,61,0.14); }
+    .eb-btn.on { background: rgba(214,69,61,0.18); border-color: rgba(214,69,61,0.32); }
+    .eb-x { width: 24px; padding: 0; justify-content: center; color: #b8352e; }
+    .eb-swap {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 11px;
+      border-top: 1px solid rgba(214,69,61,0.22);
+    }
+    .eb-swap .l { font-family: var(--mono); font-size: var(--fs-micro); color: #b8352e; flex: none; font-weight: 620; }
+    .eb-det { padding: 0 11px 10px; border-top: 1px solid rgba(214,69,61,0.22); }
+    .eb-det .box {
+      margin-top: 9px; background: #0f172a; color: #c8d3e6;
+      font-family: var(--mono); font-size: 10px; line-height: 1.7;
+      border-radius: var(--r-sm); padding: 10px 12px;
+      max-height: 200px; overflow: auto;
+    }
     .eb-det .box .k { color: #f3736b; }
     .eb-det .box .hist { margin-top: 6px; padding-left: 8px; border-left: 1px solid rgba(146,191,255,0.18); }
     .eb-det .box .hh { color: #e7926a; }
     .eb-det .box .ts { color: rgba(200,211,230,0.55); }
 
-    /* ════════ PipelineProgress — components/chat/PipelineProgress.tsx ════════ */
-    .pp { border-top: 1px solid var(--line-soft); background: var(--surface-2); padding: 10px 16px 8px; }
+    /* ════════ PipelineProgress (V3 .plan-seg / .plan-task grammar) ════════ */
+    .pp {
+      border-top: 1px solid var(--line-soft);
+      background: var(--surface-2);
+      padding: 10px 14px 8px;
+    }
     .pp-flow { display: flex; align-items: flex-start; justify-content: center; }
-    .pp-node { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 54px; flex: none; }
-    .pp-dot { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; }
-    .pp-dot.done { background: var(--ok-surface); color: #15824f; box-shadow: inset 0 0 0 1px var(--ok); }
-    .pp-dot.active { box-shadow: 0 0 0 2px currentColor, 0 0 12px -2px currentColor; }
-    .pp-dot.active i { width: 7px; height: 7px; border-radius: 50%; background: currentColor;
-      display: block; animation: ppPulse 1.2s ease-in-out infinite; }
-    .pp-dot.pending { background: var(--surface-sunken); color: var(--ink-4); box-shadow: inset 0 0 0 1px var(--line-strong); }
+    .pp-node {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      width: 54px; flex: none;
+    }
+    .pp-dot {
+      width: 20px; height: 20px; border-radius: 50%;
+      display: grid; place-items: center;
+    }
+    .pp-dot.done {
+      background: var(--ok-surface); color: #15824f;
+      box-shadow: inset 0 0 0 1px var(--ok);
+    }
+    .pp-dot.active {
+      box-shadow: 0 0 0 2px currentColor, 0 0 10px -2px currentColor;
+    }
+    .pp-dot.active i {
+      width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+      display: block; animation: pulse 1.6s ease-in-out infinite;
+    }
+    .pp-dot.pending {
+      background: var(--surface-sunken); color: var(--ink-4);
+      box-shadow: inset 0 0 0 1px var(--line-strong);
+    }
     .pp-dot.pending i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: block; }
-    .pp-dot.err { background: var(--danger-surface); color: #b8352e; box-shadow: inset 0 0 0 1px var(--danger);
-      font-weight: 760; font-size: 11px; }
-    .pp-lbl { font-size: 10px; font-weight: 560; }
-    .c-warn { color: var(--warn); } .c-accent { color: var(--accent); }
-    .c-info { color: var(--info); } .c-ok { color: var(--ok); }
-    .pp-conn { flex: 1; min-width: 10px; max-width: 36px; height: 2px; margin-top: 9px; border-radius: 1px; }
-    .pp-conn.done { background: var(--ok); } .pp-conn.pending { background: var(--line); }
-    .pp-stop { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent;
-      color: var(--ink-4); font-size: 10px; padding: 4px 8px; border-radius: var(--r-sm); }
-    .pp-stop:hover { background: var(--danger-surface); color: #b8352e; }
-    .pp-sub { margin-top: 5px; text-align: center; font-size: 10px; letter-spacing: 0.04em; color: var(--ink-4); }
-    @keyframes ppPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .pp-dot.err {
+      background: var(--danger-surface); color: #b8352e;
+      box-shadow: inset 0 0 0 1px var(--danger);
+      font-weight: 760; font-size: 11px;
+    }
+    .pp-lbl {
+      font-size: 9.5px; font-weight: 720;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--ink-4);
+    }
+    .c-warn { color: var(--warn); } .c-accent { color: var(--accent); } .c-ok { color: var(--ok); }
+    .pp-conn {
+      flex: 1; min-width: 10px; max-width: 36px;
+      height: 2px; margin-top: 9px; border-radius: 1px;
+    }
+    .pp-conn.done { background: var(--ok); }
+    .pp-conn.pending { background: var(--line); }
+    /* Stop reuses V3 .btn grammar (danger variant) */
+    .pp-stop {
+      height: 24px; padding: 0 9px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1); color: var(--ink-3);
+      font-size: var(--fs-micro); font-weight: 620;
+      display: inline-flex; align-items: center; gap: 5px;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .pp-stop:hover {
+      background: var(--danger-surface); color: #b8352e;
+      border-color: rgba(214,69,61,0.4);
+    }
+    .pp-sub {
+      margin-top: 6px; text-align: center;
+      font-size: var(--fs-micro); letter-spacing: 0.04em;
+      color: var(--ink-4);
+    }
 
-    /* ════════ MeetingPanel — components/office/MeetingPanel.tsx ════════ */
-    .mtg { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-1);
-      padding: 12px; box-shadow: var(--elev-1); }
-    .mtg-h { display: flex; align-items: center; gap: 8px; }
-    .mtg-h .ty { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    /* Stage-chip grammar (DNA §5 container grammar) */
+    .stage-chips {
+      display: flex; align-items: center; gap: 3px;
+      height: 30px; padding: 3px;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--surface-2);
+    }
+    .stage-chip {
+      height: 22px; padding: 0 9px;
+      border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-3);
+      font-size: 9.5px; font-weight: 720;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .stage-chip.on { background: var(--accent-surface); color: var(--accent); }
+    .stage-chip.done { color: var(--ok); }
+    .stage-chip .d { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+    /* ════════ MeetingPanel — V3 .dlv-style card grammar ════════ */
+    .mtg {
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-md);
+      background: var(--surface-1);
+      overflow: hidden;
+      box-shadow: var(--elev-1);
+    }
+    .mtg-h {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; border-bottom: 1px solid var(--line-soft);
+    }
+    .mtg-h .ty {
+      display: flex; align-items: center; gap: 6px;
+      font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1);
+    }
+    .mtg-h .ty .ico { color: var(--ink-3); }
     .mtg-h .dur { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3); }
     .mtg-h .sp { margin-left: auto; }
-    .mtg-sec { margin-top: 12px; }
-    .mtg-sl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.13em; color: var(--ink-4); margin-bottom: 7px; }
+    .mtg-body { padding: 11px 12px; display: flex; flex-direction: column; gap: 11px; }
+    .mtg-sl {
+      font-size: 9.5px; font-weight: 680; letter-spacing: var(--ls-caps);
+      color: var(--ink-3); text-transform: uppercase;
+      margin-bottom: 6px;
+    }
     .mtg-dots { display: flex; gap: 6px; flex-wrap: wrap; }
-    .mdot { position: relative; width: 22px; height: 22px; border-radius: 50%; display: grid;
-      place-items: center; font-size: 9px; font-weight: 620; }
-    .mdot.on { background: var(--accent-muted); color: var(--accent-text); box-shadow: inset 0 0 0 1px var(--accent-ring); }
-    .mdot.on .ac { position: absolute; right: -1px; top: -1px; width: 7px; height: 7px;
-      border-radius: 50%; background: var(--ok); border: 1.5px solid var(--surface-1); }
+    .mdot {
+      position: relative;
+      width: 22px; height: 22px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 9px; font-weight: 660;
+    }
+    .mdot.on {
+      background: var(--accent-surface); color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent-ring);
+    }
+    .mdot.on .ac {
+      position: absolute; right: -1px; top: -1px;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--ok); border: 1.5px solid var(--surface-1);
+    }
     .mdot.off { background: var(--surface-sunken); color: var(--ink-4); }
-    .mtg-cnt { margin-top: 6px; font-size: var(--fs-meta); color: var(--ink-3); }
-    .mtg-tr { max-height: 108px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
-    .mtg-tr .ln { font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; }
-    .mtg-tr .ln .who { color: var(--accent-text); font-weight: 600; }
+    .mtg-cnt { margin-top: 6px; font-size: var(--fs-meta); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+    .mtg-tr {
+      max-height: 108px; overflow: auto;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .mtg-tr .ln {
+      font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.5;
+    }
+    .mtg-tr .ln .who { color: var(--accent); font-weight: 640; }
     .mtg-ai { display: flex; flex-direction: column; gap: 6px; }
-    .mai { display: flex; align-items: flex-start; gap: 7px; font-size: var(--fs-meta); }
-    .mai .ck { flex: none; margin-top: 1px; }
-    .mai .ds { flex: 1; min-width: 0; color: var(--ink-2); }
-    .mai .as { font-size: 9px; color: var(--ink-4); }
-    .mai .pr { flex: none; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+    .mai {
+      display: flex; align-items: flex-start; gap: 7px;
+      font-size: var(--fs-meta);
+    }
+    .mai .ck { flex: none; margin-top: 2px; }
+    .mai .ds { flex: 1; min-width: 0; color: var(--ink-2); line-height: 1.5; }
+    .mai .as { font-size: var(--fs-micro); color: var(--ink-4); }
+    .mai .pr {
+      flex: none;
+      font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 720;
+    }
     .p-hi { color: var(--danger); } .p-md { color: #c98410; } .p-lo { color: var(--ink-4); }
-    .mtg-empty { display: flex; align-items: center; gap: 7px; color: var(--ink-4); font-size: 10px; padding: 6px 0; }
-    .cai { display: flex; align-items: center; gap: 8px; border: 1px solid; border-radius: var(--r-md);
-      padding: 8px 10px; font-size: var(--fs-meta); }
+    .mtg-empty {
+      display: flex; align-items: center; gap: 7px;
+      color: var(--ink-4); font-size: var(--fs-micro); padding: 6px 0;
+    }
+    /* MeetingActionItems — V3 .run-record style row, --r-md + line-soft */
+    .cai {
+      display: flex; align-items: center; gap: 8px;
+      border: 1px solid; border-radius: var(--r-md);
+      padding: 8px 10px; font-size: var(--fs-meta);
+    }
     .cai + .cai { margin-top: 6px; }
-    .cai.hi { border-color: var(--danger); background: var(--danger-surface); color: #b8352e; }
-    .cai.md { border-color: var(--warn); background: var(--warn-surface); color: #8a5a0c; }
-    .cai.lo { border-color: var(--line); background: var(--surface-sunken); color: var(--ink-2); }
-    .cai .dg { margin-left: auto; flex: none; border: 1px solid currentColor; background: transparent;
-      color: inherit; border-radius: var(--r-sm); padding: 3px 9px; font-size: 9px; font-weight: 660; }
+    .cai.hi { border-color: rgba(214,69,61,0.32); background: var(--danger-surface); color: #b8352e; }
+    .cai.md { border-color: rgba(201,132,16,0.32); background: var(--warn-surface); color: #8a5a0c; }
+    .cai.lo { border-color: var(--line-soft); background: var(--surface-2); color: var(--ink-2); }
+    .cai .ico { flex: none; }
+    .cai .dg {
+      margin-left: auto; flex: none;
+      height: 22px; padding: 0 9px;
+      border: 1px solid currentColor; border-radius: var(--r-xs);
+      background: transparent; color: inherit;
+      font-size: 9px; font-weight: 720; letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .cai .dg:hover { background: rgba(255,255,255,0.6); }
 
-    /* ════════ Chat attachment staging — components/chat/{ChatInput,StagedAttachmentChip,AttachmentDropOverlay}.tsx ════════ */
-    .cmp { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-1); padding: 8px 10px; }
-    .cmp-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-    .cmp .ph { flex: 1; color: var(--ink-4); font-size: var(--fs-sm); }
-    .clip { width: 26px; height: 26px; border: 0; background: transparent; color: var(--ink-4);
-      border-radius: var(--r-xs); display: grid; place-items: center; }
-    .clip:hover { background: var(--surface-hover); color: var(--ink-1); }
-    .clip[disabled] { opacity: 0.4; cursor: not-allowed; }
-    .send { width: 30px; height: 30px; border: 0; border-radius: var(--r-md); background: var(--accent);
-      color: #fff; display: grid; place-items: center; flex: none; }
-    .att-grid { display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); }
-    .att-chip { display: flex; align-items: center; gap: 8px; min-width: 0; border: 1px solid var(--line);
-      background: var(--surface-1); border-radius: var(--r-md); padding: 5px 8px; font-size: var(--fs-meta); }
-    .att-chip .ic { flex: none; color: var(--ink-3); }
-    .att-chip .th { width: 30px; height: 30px; border-radius: var(--r-xs); flex: none;
-      background: linear-gradient(135deg, #9db8ff, #c4a0e8); }
-    .att-chip .mid { min-width: 0; flex: 1; }
-    .att-chip .fn { font-weight: 560; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .att-chip .sm { margin-top: 1px; font-size: 10px; color: var(--ink-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* ════════ Chat attachment staging (V3 .attachment row + .icard skin) ════════ */
+    .cmp {
+      border: 1px solid var(--line-strong); border-radius: var(--r-md);
+      background: var(--surface-1); padding: 10px 12px;
+    }
+    .cmp-row { display: flex; align-items: center; gap: 7px; margin-top: 8px; }
+    .cmp .ph {
+      color: var(--ink-4); font-size: var(--fs-sm); line-height: 1.5;
+    }
+    /* Paperclip / send reuse V3 .composer-tools button grammar */
+    .clip {
+      width: 30px; height: 30px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1); color: var(--ink-3);
+      display: grid; place-items: center;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .clip:hover {
+      background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring);
+    }
+    .clip[disabled] { opacity: 0.42; cursor: not-allowed; }
+    .send {
+      height: 30px; padding: 0 14px;
+      border: 0; border-radius: var(--r-sm);
+      background: var(--accent); color: var(--accent-fg);
+      font-size: var(--fs-sm); font-weight: 660;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .send:hover { background: var(--accent-press); }
+    .send.icon-only { width: 30px; padding: 0; }
+    /* V3 .attachment row */
+    .att-grid {
+      display: grid; gap: 6px;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    }
+    .att-chip {
+      display: grid; grid-template-columns: 30px 1fr 22px;
+      align-items: center; gap: 9px; min-width: 0;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-2);
+      padding: 6px 9px; font-size: var(--fs-meta);
+      transition: border-color 0.12s ease, background 0.12s ease;
+    }
+    .att-chip:hover { border-color: var(--line-strong); background: var(--surface-1); }
+    .att-chip .ic-cell {
+      width: 30px; height: 30px; border-radius: var(--r-xs);
+      background: var(--accent-surface); color: var(--accent);
+      display: grid; place-items: center;
+    }
+    .att-chip .th {
+      width: 30px; height: 30px; border-radius: var(--r-xs);
+      background: linear-gradient(135deg, #9db8ff, #c4a0e8);
+    }
+    .att-chip .mid { min-width: 0; }
+    .att-chip .fn {
+      font-weight: 640; color: var(--ink-1); font-size: var(--fs-sm);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .att-chip .sm {
+      margin-top: 2px; font-size: var(--fs-micro); color: var(--ink-3);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
     .att-chip .sm.busy { color: var(--ink-3); }
     .att-chip .sm.err { color: #b8352e; }
-    .att-chip .rm { flex: none; border: 0; background: transparent; color: var(--ink-4);
-      border-radius: var(--r-xs); padding: 2px; display: grid; place-items: center; }
-    .att-chip .rm:hover { background: var(--surface-hover); color: var(--ink-1); }
-    .att-err { border: 1px solid rgba(201,132,16,0.4); background: var(--warn-surface);
-      color: #8a5a0c; font-size: 11px; padding: 5px 9px; border-radius: var(--r-sm);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .att-chip .rm {
+      width: 22px; height: 22px;
+      border: 0; background: transparent; color: var(--ink-4);
+      border-radius: var(--r-xs);
+      display: grid; place-items: center;
+    }
+    .att-chip .rm:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    /* V3 .toast-skin error rows */
+    .att-err {
+      border: 1px solid rgba(201,132,16,0.4);
+      background: var(--warn-surface); color: #8a5a0c;
+      font-size: var(--fs-micro); font-weight: 600;
+      padding: 6px 10px; border-radius: var(--r-sm);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      box-shadow: var(--elev-1);
+    }
     .att-err + .att-err { margin-top: 4px; }
-    .att-drop { position: absolute; inset: 8px; border: 2px dashed var(--accent-ring);
-      border-radius: var(--r-lg); background: rgba(47,107,255,0.07); display: grid; place-items: center;
-      color: var(--accent-text); font-weight: 640; font-size: var(--fs-sm); }
-    .att-drop.unavail { border-color: rgba(201,132,16,0.5); background: rgba(201,132,16,0.10); color: #8a5a0c; }
+    .att-drop {
+      position: absolute; inset: 8px;
+      border: 2px dashed var(--accent-ring);
+      border-radius: var(--r-md);
+      background: rgba(47,107,255,0.07);
+      display: grid; place-items: center;
+      color: var(--accent); font-weight: 640; font-size: var(--fs-sm);
+      letter-spacing: 0.02em;
+    }
+    .att-drop.unavail {
+      border-color: rgba(201,132,16,0.5);
+      background: rgba(201,132,16,0.10);
+      color: #8a5a0c;
+    }
 
-    /* ════════ KeyboardShortcutsDialog — components/shared/KeyboardShortcutsDialog.tsx ════════ */
-    .ks-row { display: flex; align-items: center; justify-content: space-between;
-      border: 1px solid var(--line-soft); background: var(--surface-sunken);
-      border-radius: var(--r-md); padding: 8px 12px; font-size: var(--fs-sm); }
-    .ks-row + .ks-row { margin-top: 8px; }
-    .ks-row .ds { color: var(--ink-2); }
-    kbd { border: 1px solid var(--line-strong); background: var(--surface-1); border-radius: var(--r-sm);
-      padding: 3px 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
-    .sc-tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-meta); margin-top: 4px; }
-    .sc-tbl th { text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
-      color: var(--ink-4); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--line); }
-    .sc-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); color: var(--ink-2); vertical-align: top; }
-    .sc-tbl td .cmd { font-family: var(--mono); color: var(--accent-text); font-weight: 560; }
-    .sc-tbl td .al { font-family: var(--mono); color: var(--ink-4); font-size: 10px; }
+    /* ════════ KeyboardShortcuts + slash registry (dense chip-grammar) ════════ */
+    /* V3 .icard / .dlg shell (no --r-xl on routine cards; .dlg allowed) */
+    .dlg {
+      background: var(--surface-1);
+      border: 1px solid var(--line);
+      border-radius: var(--r-lg);
+      box-shadow: var(--elev-2);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .dlg-head {
+      padding: 14px 16px; border-bottom: 1px solid var(--line-soft);
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    }
+    .dlg-head h2 {
+      margin: 0; font-size: var(--fs-xl); font-weight: 680;
+      color: var(--ink-1); letter-spacing: -0.01em;
+    }
+    .dlg-head p { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--ink-3); }
+    .dlg-x {
+      width: 28px; height: 28px; flex: none;
+      border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-3);
+      display: grid; place-items: center;
+    }
+    .dlg-x:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    .dlg-body { padding: 14px 16px; overflow-y: auto; }
 
-    /* ── scene / chat resting placeholders ── */
-    .office { display: grid; grid-template-columns: 1fr 440px; height: 100%; }
-    .scene { position: relative; background:
-      radial-gradient(900px 480px at 50% 22%, #f6f8fc 0%, #e9edf5 60%, #e3e8f1 100%);
-      overflow: hidden; }
-    .scene .floor { position: absolute; inset: 0;
-      background-image: linear-gradient(rgba(20,32,56,0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(20,32,56,0.05) 1px, transparent 1px);
-      background-size: 38px 38px; mask-image: radial-gradient(680px 420px at 50% 40%, #000 0%, transparent 78%); }
-    .scene .zone { position: absolute; border-radius: var(--r-lg); border: 1px solid; padding: 8px 10px;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.08em; }
-    .pin { position: absolute; width: 16px; height: 16px; border-radius: 50%;
-      border: 2px solid var(--surface-1); box-shadow: var(--elev-1); }
-    .chatcol { border-left: 1px solid var(--line); background: var(--surface-1);
-      display: flex; flex-direction: column; min-height: 0; }
-    .chat-h { height: 44px; flex: none; display: flex; align-items: center; gap: 8px;
-      padding: 0 14px; border-bottom: 1px solid var(--line-soft); font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
-    .chat-b { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-    .bub { max-width: 86%; padding: 9px 12px; border-radius: var(--r-lg); font-size: var(--fs-sm); line-height: 1.55; }
-    .bub.me { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: var(--r-xs); }
-    .bub.ai { align-self: flex-start; background: var(--surface-sunken); color: var(--ink-1); border-bottom-left-radius: var(--r-xs); }
-    .bub .who { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-4); margin-bottom: 4px; }
-    .chat-f { flex: none; border-top: 1px solid var(--line-soft); }
+    /* KS rows = chip-grammar row */
+    .ks-row {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 30px; padding: 0 11px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2);
+      font-size: var(--fs-sm);
+    }
+    .ks-row + .ks-row { margin-top: 6px; }
+    .ks-row .ds { color: var(--ink-2); font-weight: 540; }
+    kbd {
+      border: 1px solid var(--line); background: var(--surface-1);
+      border-radius: var(--r-xs);
+      padding: 2px 7px;
+      font-family: var(--mono); font-size: var(--fs-micro);
+      color: var(--ink-2); font-weight: 580;
+    }
+    /* Dense table for slash registry */
+    .sc-tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-meta); }
+    .sc-tbl th {
+      text-align: left; padding: 7px 9px;
+      font-size: var(--fs-micro); font-weight: 700;
+      letter-spacing: var(--ls-caps); text-transform: uppercase;
+      color: var(--ink-3);
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+    .sc-tbl td {
+      padding: 6px 9px; border-bottom: 1px solid var(--line-soft);
+      color: var(--ink-2); vertical-align: top;
+    }
+    .sc-tbl td .cmd { font-family: var(--mono); color: var(--accent); font-weight: 620; }
+    .sc-tbl td .al { font-family: var(--mono); color: var(--ink-4); font-size: var(--fs-micro); }
+
+    /* ── Resting Office (V3 surfaces, slimmed for states context) ── */
+    .office { display: grid; grid-template-columns: 1fr 440px; height: 100%; min-height: 0; }
+    .scene {
+      position: relative;
+      background:
+        linear-gradient(rgba(244, 247, 251, 0.85), rgba(244, 247, 251, 0.85)),
+        linear-gradient(90deg, rgba(40, 60, 90, 0.055) 1px, transparent 1px),
+        linear-gradient(rgba(40, 60, 90, 0.055) 1px, transparent 1px);
+      background-size: auto, 40px 40px, 40px 40px;
+      overflow: hidden;
+    }
+    .scene .zone {
+      position: absolute; border-radius: var(--r-md);
+      border: 1px solid;
+      padding: 7px 10px;
+      font-size: 9.5px; font-weight: 720;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .pin {
+      position: absolute; width: 14px; height: 14px;
+      border-radius: 50%; border: 2px solid var(--surface-1);
+      box-shadow: var(--elev-1);
+    }
+    .pin.active::after {
+      content: ""; position: absolute; inset: -5px;
+      border-radius: 50%; border: 2px solid var(--accent-ring);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    /* Stage run-axis (V3) */
+    .stage-float {
+      position: absolute;
+      top: 0;
+      height: 30px;
+      display: flex;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--line);
+      border-top: 0;
+      box-shadow: var(--elev-1);
+      z-index: 2;
+    }
+    .stage-mode { left: 14px; border-radius: 0 0 var(--r-md) var(--r-md); overflow: hidden; }
+    .stage-mode button {
+      width: 42px; height: 30px;
+      border: 0; background: transparent;
+      color: var(--ink-3);
+      display: grid; place-items: center;
+      transition: background 0.14s ease, color 0.14s ease;
+    }
+    .stage-mode button.active { color: var(--accent); background: var(--accent-surface); }
+    .stage-runaxis {
+      left: 50%; transform: translateX(-50%);
+      border-radius: 0 0 var(--r-md) var(--r-md);
+      overflow: hidden;
+    }
+    .stage-entry {
+      height: 30px; padding: 0 13px;
+      border: 0; background: transparent;
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--ink-2); font-size: var(--fs-sm); font-weight: 620;
+    }
+    .stage-entry + .stage-entry { border-left: 1px solid var(--line); }
+    .stage-entry .ico { color: var(--ink-3); }
+    .stage-entry.live-active { color: var(--accent); }
+    .stage-entry.live-active .ico { color: var(--accent); }
+    .stage-entry .pulse-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    /* Diegetic scene-cost readout (V3 §9) */
+    .scene-cost {
+      position: absolute; right: 16px; bottom: 14px; z-index: 3;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sc-readout {
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 26px; padding: 0 11px;
+      border: 1px solid var(--accent-ring);
+      border-radius: var(--r-pill);
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(6px);
+      color: var(--ink-2); font-size: var(--fs-meta); font-weight: 580;
+      font-variant-numeric: tabular-nums;
+      box-shadow: var(--elev-1);
+    }
+    .sc-readout .ico { color: var(--accent); }
+    .sc-readout b { color: var(--ink-1); font-weight: 660; }
+    .sc-readout .sc-div { width: 1px; height: 12px; background: var(--line); }
+    .sc-beat::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.4s ease-in-out infinite;
+      display: inline-block; margin-right: 5px; vertical-align: middle;
+    }
+    .sc-notif {
+      position: relative;
+      width: 26px; height: 26px;
+      border: 1px solid var(--line); border-radius: 50%;
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(6px);
+      color: var(--ink-3);
+      display: grid; place-items: center;
+      box-shadow: var(--elev-1);
+    }
+    .sc-notif .unread {
+      position: absolute; top: -1px; right: -1px;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--danger);
+      box-shadow: 0 0 0 1.5px var(--surface-1);
+    }
+
+    /* Right rail (V3 — one axis, no tabs) */
+    .chatcol {
+      border-left: 1px solid var(--line); background: var(--surface-1);
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .chat-h {
+      height: 44px; flex: none;
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 14px; border-bottom: 1px solid var(--line-soft);
+      font-size: var(--fs-base); font-weight: 660; color: var(--ink-1);
+    }
+    .chat-h .ico { color: var(--ink-3); }
+    .chat-h .meta { margin-left: auto; font-size: var(--fs-meta); color: var(--ink-4); font-weight: 540; }
+    .chat-b {
+      flex: 1; min-height: 0; overflow-y: auto;
+      padding: 14px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .bub {
+      max-width: 86%; padding: 9px 12px;
+      border-radius: var(--r-md);
+      font-size: var(--fs-sm); line-height: 1.55;
+    }
+    .bub.me {
+      align-self: flex-end;
+      background: var(--accent); color: #fff;
+      border-bottom-right-radius: var(--r-xs);
+    }
+    .bub.ai {
+      align-self: flex-start;
+      background: var(--surface-sunken); color: var(--ink-1);
+      border-bottom-left-radius: var(--r-xs);
+    }
+    .bub .who {
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 680; text-transform: uppercase;
+      color: var(--ink-3); margin-bottom: 4px;
+    }
+    .bub.me .who { color: rgba(255,255,255,0.78); }
+    .chat-f { flex: none; border-top: 1px solid var(--line-soft); background: var(--surface-2); }
     .chat-f .pad { padding: 10px 12px; }
 
-    /* ══════════ specimen suite scaffolding ══════════ */
-    .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
-    .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
-    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    /* Mode chip (composer footer — V3 grammar) */
+    .mode-chip {
+      height: 26px; padding: 0 10px;
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid var(--accent-ring); border-radius: var(--r-pill);
+      background: var(--accent-surface); color: var(--accent);
+      font-size: var(--fs-micro); font-weight: 640;
+    }
+    .mode-chip .d { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+    /* ════════ Specimen-suite scaffolding ════════ */
+    .spec-suite {
+      width: min(1600px, 100%);
+      display: flex; flex-direction: column; gap: 22px;
+      flex: none;
+    }
+    .spec-suite-head {
+      color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6;
+      padding: 0 4px;
+    }
+    .spec-suite-head h2 {
+      margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680;
+      color: #fff; letter-spacing: -0.01em;
+    }
     .spec-suite-head b { color: #aebfff; font-weight: 640; }
     .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
-    .spec-state { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.45); background: var(--bg); }
-    .spec-cap { display: flex; align-items: center; gap: var(--sp-3); padding: 9px 14px;
-      background: linear-gradient(#11161f, #0c0f16); color: #d6deec; font-size: var(--fs-sm);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06); flex-wrap: wrap; }
-    .spec-cap .n { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-xs);
-      background: rgba(47, 107, 255, 0.22); color: #9db8ff; font-size: var(--fs-micro); font-weight: 760; flex: none; }
+    .spec-state {
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.45);
+      background: var(--bg);
+    }
+    .spec-cap {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: 9px 14px;
+      background: linear-gradient(#11161f, #0c0f16);
+      color: #d6deec; font-size: var(--fs-sm);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-wrap: wrap;
+    }
+    .spec-cap .n {
+      display: grid; place-items: center;
+      width: 20px; height: 20px; border-radius: var(--r-xs);
+      background: rgba(47, 107, 255, 0.22); color: #9db8ff;
+      font-size: var(--fs-micro); font-weight: 760; flex: none;
+    }
     .spec-cap .t { font-weight: 640; color: #fff; }
     .spec-cap .d { color: #8b97ad; }
     .spec-cap code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
     .spec-frame { position: relative; background: var(--bg); padding: 22px; }
-    .spec-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .spec-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .spec-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-    .mini-pane { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1);
-      overflow: hidden; box-shadow: var(--elev-1); }
-    .mini-cap { padding: 7px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
-      text-transform: uppercase; color: var(--ink-4); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
+    .mini-pane {
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-md);
+      background: var(--surface-1);
+      overflow: hidden;
+      box-shadow: var(--elev-1);
+    }
+    .mini-cap {
+      padding: 7px 12px;
+      font-size: var(--fs-micro); font-weight: 700;
+      letter-spacing: var(--ls-caps); text-transform: uppercase;
+      color: var(--ink-3);
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--line-soft);
+    }
     .mini-bd { padding: 14px; }
-    .annot-dark { font-size: 10px; font-style: italic; color: #8b97ad; padding: 6px 4px 0; line-height: 1.65; }
+    .mini-bd.sunken { background: var(--surface-sunken); }
+    .mini-bd.flush { padding: 0; }
+    .annot-dark {
+      font-size: var(--fs-micro); font-style: italic;
+      color: #8b97ad;
+      padding: 6px 4px 0; line-height: 1.65;
+    }
     .annot-dark code { font-family: var(--mono); color: #aab6cc; font-style: normal; }
     .annot-dark b { color: #aebfff; font-style: normal; font-weight: 640; }
-    .rev-flag { display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: var(--r-pill);
-      background: rgba(201,132,16,0.18); color: #e0b15a; font-size: 9px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.06em; font-style: normal; }
-    .legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 18px; padding: 14px 16px; background: var(--surface-1); }
-    .legend .li { display: flex; align-items: center; gap: 10px; font-size: var(--fs-meta); color: var(--ink-2); }
+    .rev-flag {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 1px 7px; border-radius: var(--r-pill);
+      background: rgba(201,132,16,0.18); color: #e0b15a;
+      font-size: 9px; font-weight: 720;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      font-style: normal;
+    }
+    .legend {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 18px;
+      padding: 12px 14px; background: var(--surface-1);
+      border-top: 1px solid var(--line-soft);
+    }
+    .legend .li {
+      display: flex; align-items: center; gap: 10px;
+      font-size: var(--fs-meta); color: var(--ink-2);
+    }
+    .legend .li b { font-weight: 660; color: var(--ink-1); }
     .legend .li code { font-family: var(--mono); color: var(--ink-4); margin-left: auto; }
 
     ::-webkit-scrollbar { width: 7px; height: 7px; }
-    ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill);
-      border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--line-strong); border-radius: var(--r-pill);
+      border: 2px solid transparent; background-clip: content-box;
+    }
 
     @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
     .reveal { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-    @media (prefers-reduced-motion: reduce) { .reveal, .pp-dot.active i { animation: none; } * { transition: none !important; } }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .pp-dot.active i, .badge.ok.running::before, .rb.running .ic::before,
+      .pin.active::after, .sc-beat::before, .stage-entry .pulse-dot { animation: none; }
+      * { transition: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -460,8 +993,8 @@
     <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
     <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M15 9h3a2 2 0 0 1 2 2v10"/><path d="M3 21h18M8 7h3M8 11h3M8 15h3"/></symbol>
     <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></symbol>
-    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M14 4l6 6M3 21l3-1 12-12-5-5L4 15z"/></symbol>
     <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 0-2 2z"/><path d="M5 4v16"/><path d="M9 8h6M9 12h6"/></symbol>
     <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1-5h14l1 5M4 9h16M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M9 20v-6h6v6"/></symbol>
     <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.5a4.5 4.5 0 0 1 4.5 4.5"/></symbol>
@@ -479,13 +1012,18 @@
     <symbol id="i-square" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
     <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M20 11l-8.5 8.5a4.5 4.5 0 0 1-6.4-6.4L13.5 5a3 3 0 0 1 4.2 4.2l-8.5 8.5a1.5 1.5 0 0 1-2.1-2.1L14.6 8"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16"/></symbol>
+    <symbol id="i-grid-board" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="16" rx="1"/><rect x="14" y="4" width="6" height="9" rx="1"/></symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 21v-9M12 12L4 7.5M12 12l8-4.5"/></symbol>
+    <symbol id="i-square2" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></symbol>
     <symbol id="i-present" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="11" rx="2"/><path d="M12 15v4M8 21l4-2 4 2"/></symbol>
     <symbol id="i-check-square" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12l3 3 5-6"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 4L3 11l7 3 3 7z"/><path d="M21 4l-11 10"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
     <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M8 12a5 5 0 1 1 8 0c-1 1.4-1.5 2-1.7 3H9.7c-.2-1-.7-1.6-1.7-3z"/></symbol>
-    <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2M9 13l2 2M14 4c4 0 6 2 6 6-1 5-6 8-9 9l-2-2-2-2c1-3 4-8 9-11z"/><circle cx="15" cy="9" r="1.4"/></symbol>
     <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 5V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M9 5h6M9 12h6M9 16h4"/></symbol>
+    <symbol id="i-dollar" viewBox="0 0 24 24"><path d="M12 2v20M16 7a4 4 0 0 0-4-2c-2.5 0-4 1.4-4 3.2C8 13 16 11 16 15.5c0 1.9-1.7 3.5-4 3.5a4.5 4.5 0 0 1-4-2.3"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10H9"/></symbol>
   </svg>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -505,7 +1043,7 @@
     </header>
 
     <nav class="topbar">
-      <div class="scope-bar">
+      <div class="scope-bar reveal">
         <button class="scope-seg company">
           <span class="s-icn"><svg class="ico xs"><use href="#i-building"/></svg></span>
           <span class="s-name">Acme Studio</span>
@@ -518,51 +1056,85 @@
           <span class="s-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
         </button>
       </div>
-      <div class="nav">
+      <div class="nav reveal">
         <button class="active"><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
-        <button><svg class="ico sm"><use href="#i-book"/></svg>SOPs</button>
-        <button><svg class="ico sm"><use href="#i-store"/></svg>Market</button>
-        <button><svg class="ico sm"><use href="#i-users"/></svg>Personnel</button>
+        <button>SOPs</button>
+        <button>Market</button>
+        <button>Personnel</button>
       </div>
-      <div class="iconbar">
-        <button class="iconbtn" title="Activity log"><svg class="ico sm"><use href="#i-activity"/></svg></button>
-        <button class="iconbtn" title="Notifications"><svg class="ico sm"><use href="#i-bell"/></svg><span class="nb">2</span></button>
-        <button class="iconbtn" title="Settings"><svg class="ico sm"><use href="#i-settings"/></svg></button>
+      <div class="iconbar reveal" title="V3 iconbar — Activity / Settings only. Studio is the Office-only tool after a 1px divider. No bell.">
+        <button class="iconbtn" title="Activity Log workspace"><svg class="ico sm"><use href="#i-activity"/></svg></button>
+        <button class="iconbtn" title="Settings workspace"><svg class="ico sm"><use href="#i-settings"/></svg></button>
+        <span class="iconbar-div"></span>
+        <button class="iconbtn" title="Studio — edit company office layout"><svg class="ico sm"><use href="#i-pen"/></svg></button>
       </div>
     </nav>
 
     <div class="office">
-      <div class="scene">
-        <div class="floor"></div>
-        <div class="zone" style="left:6%;top:14%;width:42%;height:34%;
-          background:rgba(47,107,255,0.10);border-color:rgba(47,107,255,0.4);color:#1f54d8">DEV BAY</div>
-        <div class="zone" style="right:6%;top:14%;width:38%;height:34%;
-          background:rgba(124,77,219,0.10);border-color:rgba(124,77,219,0.4);color:#6a3fc0">PRODUCT</div>
-        <div class="zone" style="left:6%;bottom:12%;width:88%;height:30%;
-          background:rgba(26,164,106,0.10);border-color:rgba(26,164,106,0.4);color:#15824f">MEETING</div>
-        <span class="pin" style="left:20%;top:26%;background:#2f6bff"></span>
-        <span class="pin" style="left:33%;top:33%;background:#7c4ddb"></span>
-        <span class="pin" style="right:22%;top:28%;background:#1aa46a"></span>
-        <span class="pin" style="left:48%;bottom:24%;background:#c98410"></span>
-      </div>
+      <!-- Stage -->
+      <section class="scene">
+        <!-- Stage-mode + run-axis (V3 floating shells) -->
+        <div class="stage-float stage-mode">
+          <button class="active" title="3D"><svg class="ico sm"><use href="#i-cube"/></svg></button>
+          <button title="2D"><svg class="ico sm"><use href="#i-square2"/></svg></button>
+        </div>
+        <div class="stage-float stage-runaxis">
+          <button class="stage-entry"><svg class="ico sm"><use href="#i-grid-board"/></svg>Board</button>
+          <button class="stage-entry live-active">
+            <svg class="ico sm"><use href="#i-pulse"/></svg>Live
+            <span class="pulse-dot"></span>
+          </button>
+        </div>
 
-      <div class="chatcol">
-        <div class="chat-h"><svg class="ico sm"><use href="#i-users"/></svg>Team · Q3 Launch</div>
+        <!-- Zones -->
+        <div class="zone" style="left:6%;top:14%;width:42%;height:34%;
+          background:rgba(47,107,255,0.10);border-color:rgba(47,107,255,0.4);color:#1f54d8">Dev bay</div>
+        <div class="zone" style="right:6%;top:14%;width:38%;height:34%;
+          background:rgba(124,77,219,0.10);border-color:rgba(124,77,219,0.4);color:#6a3fc0">Product</div>
+        <div class="zone" style="left:6%;bottom:14%;width:88%;height:30%;
+          background:rgba(26,164,106,0.10);border-color:rgba(26,164,106,0.4);color:#15824f">Meeting</div>
+        <span class="pin" style="left:20%;top:26%;background:var(--accent)"></span>
+        <span class="pin active" style="left:33%;top:33%;background:var(--violet)"></span>
+        <span class="pin" style="right:22%;top:28%;background:var(--ok)"></span>
+        <span class="pin" style="left:48%;bottom:26%;background:var(--warn)"></span>
+
+        <!-- Diegetic scene cost (V3 §9) -->
+        <div class="scene-cost">
+          <span class="sc-readout">
+            <svg class="ico xs"><use href="#i-dollar"/></svg>
+            <span class="sc-beat"><b>$0.142</b></span>
+            <span class="sc-div"></span>
+            <span>4.2k tok</span>
+          </span>
+          <button class="sc-notif" title="2 unread notifications"><svg class="ico xs"><use href="#i-bulb"/></svg><span class="unread"></span></button>
+        </div>
+      </section>
+
+      <!-- Right rail (one axis, no tabs) -->
+      <aside class="chatcol">
+        <div class="chat-h">
+          <svg class="ico sm"><use href="#i-users"/></svg>
+          Team · Q3 Launch
+          <span class="meta">3 employees · run live</span>
+        </div>
         <div class="chat-b">
-          <div class="bub me">Draft the Q3 launch announcement and a 5-step rollout plan.</div>
+          <div class="bub me">
+            <div class="who">You</div>
+            Draft the Q3 launch announcement and a 5-step rollout plan.
+          </div>
           <div class="bub ai">
             <div class="who">Boss</div>
             On it — routing to the team. Maya is drafting the announcement, Leo is sequencing the rollout.
           </div>
           <div class="bub ai">
-            <div class="who">Maya · Content Lead</div>
+            <div class="who">Maya · Content lead</div>
             Announcement draft v1 is taking shape. Rollout plan coming next.
           </div>
         </div>
         <div class="chat-f">
           <!-- PipelineProgress pinned above composer — executing stage -->
           <div class="pp">
-            <div style="display:flex;align-items:center;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
               <div class="pp-flow" style="flex:1">
                 <div class="pp-node"><div class="pp-dot done"><svg class="ico xs"><use href="#i-check"/></svg></div><div class="pp-lbl c-ok">Boss</div></div>
                 <div class="pp-conn done"></div>
@@ -583,13 +1155,14 @@
               <div class="ph">Message the team…</div>
               <div class="cmp-row">
                 <button class="clip" aria-label="Attach file"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
+                <span class="mode-chip"><span class="d"></span>SOP</span>
                 <div style="flex:1"></div>
-                <button class="send" aria-label="Send"><svg class="ico sm"><use href="#i-send"/></svg></button>
+                <button class="send icon-only" aria-label="Send"><svg class="ico sm"><use href="#i-send"/></svg></button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </aside>
     </div>
   </div>
 
@@ -622,10 +1195,11 @@
           <div>
             <div class="mini-pane">
               <div class="mini-cap">1 running thread — "Resume {name}"</div>
-              <div class="mini-bd" style="background:var(--surface-sunken)">
-                <div class="rb">
+              <div class="mini-bd sunken">
+                <div class="rb running">
+                  <span class="ic"><svg class="ico sm"><use href="#i-clock"/></svg></span>
                   <span class="lbl">1 unfinished project</span>
-                  <span class="pjs"><button class="pj" title="Q3 Launch">Resume Q3 Launch</button></span>
+                  <span class="pjs"><button class="pj" title="Q3 Launch"><svg class="ico xs"><use href="#i-arrow-right"/></svg>Resume Q3 Launch</button></span>
                   <button class="dis" aria-label="Dismiss unfinished project notice">Dismiss</button>
                 </div>
               </div>
@@ -633,15 +1207,17 @@
             <p class="annot-dark">Shown only when <code>isOffice &amp;&amp; unfinishedThreads.length&gt;0</code>.
               Hook queries <code>threads.findByCompany(companyId,{status:'running'})</code> +
               <code>{status:'blocked'}</code>, enriches with project name. Reload-time counterpart to
-              the resting window's live pipeline.</p>
+              the resting window's live pipeline. Warn-surface + 1px line + pulsing dot follows the
+              V3 status-pill grammar (<code>.running ::before</code> pulse 1.6s).</p>
           </div>
           <div>
             <div class="mini-pane">
               <div class="mini-cap">1 blocked thread — action flips to "Review"</div>
-              <div class="mini-bd" style="background:var(--surface-sunken)">
+              <div class="mini-bd sunken">
                 <div class="rb">
+                  <span class="ic"><svg class="ico sm"><use href="#i-alert-tri"/></svg></span>
                   <span class="lbl">1 project needs review</span>
-                  <span class="pjs"><button class="pj" title="Pricing model">Review Pricing model</button></span>
+                  <span class="pjs"><button class="pj review" title="Pricing model"><svg class="ico xs"><use href="#i-arrow-right"/></svg>Review Pricing model</button></span>
                   <button class="dis" aria-label="Dismiss unfinished project notice">Dismiss</button>
                 </div>
               </div>
@@ -655,13 +1231,14 @@
           <div>
             <div class="mini-pane">
               <div class="mini-cap">Mixed running + blocked — "{n} projects need attention"</div>
-              <div class="mini-bd" style="background:var(--surface-sunken)">
-                <div class="rb">
+              <div class="mini-bd sunken">
+                <div class="rb running">
+                  <span class="ic"><svg class="ico sm"><use href="#i-clock"/></svg></span>
                   <span class="lbl">3 projects need attention</span>
                   <span class="pjs">
-                    <button class="pj" title="Q3 Launch">Resume Q3 Launch</button>
-                    <button class="pj" title="Pricing model">Review Pricing model</button>
-                    <button class="pj" title="Brand refresh — phase 2 discovery research">Resume Brand refresh — phase 2 disc…</button>
+                    <button class="pj" title="Q3 Launch"><svg class="ico xs"><use href="#i-arrow-right"/></svg>Resume Q3 Launch</button>
+                    <button class="pj review" title="Pricing model"><svg class="ico xs"><use href="#i-arrow-right"/></svg>Review Pricing model</button>
+                    <button class="pj" title="Brand refresh — phase 2 discovery research"><svg class="ico xs"><use href="#i-arrow-right"/></svg>Resume Brand refresh — phase 2 disc…</button>
                   </span>
                   <button class="dis" aria-label="Dismiss unfinished project notice">Dismiss</button>
                 </div>
@@ -670,13 +1247,13 @@
             <p class="annot-dark">Label resolution: only blocked → <code>"1 project needs review"</code> /
               <code>"{n} projects need review"</code>; mixed → <code>"{n} projects need attention"</code>;
               only running → <code>"1 unfinished project"</code> / <code>"{n} unfinished projects"</code>.
-              Project chips wrap, each <code>max-w-[200px] truncate</code> with full name in
+              Project chips wrap, each <code>max-w-[220px] truncate</code> with full name in
               <code>title</code>.</p>
           </div>
           <div>
             <div class="mini-pane">
               <div class="mini-cap">Hidden state — renders null</div>
-              <div class="mini-bd" style="background:var(--surface-sunken);display:grid;place-items:center;min-height:96px">
+              <div class="mini-bd sunken" style="display:grid;place-items:center;min-height:96px">
                 <div class="hint" style="text-align:center"><code>projects.length === 0</code> → <code>return null</code><br/>(no banner, no reserved space)</div>
               </div>
             </div>
@@ -703,25 +1280,25 @@
                 <span class="eb-msg">Employee run failed: provider returned 429 (rate limited) at node employee</span>
                 <div class="eb-acts">
                   <button class="eb-btn" title="Retry with same configuration"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry</button>
-                  <button class="eb-btn" title="Re-dispatch task to a different employee"><svg class="ico xs"><use href="#i-user-cog"/></svg>Swap Person</button>
-                  <button class="eb-btn" title="Change LLM model in settings and retry"><svg class="ico xs"><use href="#i-zap"/></svg>Swap Model</button>
+                  <button class="eb-btn" title="Re-dispatch task to a different employee"><svg class="ico xs"><use href="#i-user-cog"/></svg>Swap person</button>
+                  <button class="eb-btn" title="Change LLM model in settings and retry"><svg class="ico xs"><use href="#i-zap"/></svg>Swap model</button>
                   <button class="eb-btn"><svg class="ico xs"><use href="#i-code"/></svg>Details <svg class="ico xs"><use href="#i-chev-down"/></svg></button>
                   <button class="eb-btn eb-x" aria-label="Dismiss error"><svg class="ico sm"><use href="#i-x"/></svg></button>
                 </div>
               </div>
             </div>
           </div>
-          <div class="legend" style="border-top:1px solid var(--line-soft)">
+          <div class="legend">
             <div class="li"><b>Retry</b><code>shown iff onRetry — failedRunError exists</code></div>
-            <div class="li"><b>Swap Person</b><code>iff onSwapPerson &amp;&amp; employeeList.length&gt;0</code></div>
-            <div class="li"><b>Swap Model</b><code>iff onSwapModel → onOpenSettings()</code></div>
+            <div class="li"><b>Swap person</b><code>iff onSwapPerson &amp;&amp; employeeList.length&gt;0</code></div>
+            <div class="li"><b>Swap model</b><code>iff onSwapModel → onOpenSettings()</code></div>
             <div class="li"><b>Details</b><code>always — toggles panel</code></div>
           </div>
         </div>
         <div class="spec-grid-2" style="margin-top:18px">
           <div>
             <div class="mini-pane">
-              <div class="mini-cap">Swap Person expanded — re-dispatch dropdown</div>
+              <div class="mini-cap">Swap person expanded — re-dispatch dropdown</div>
               <div class="mini-bd">
                 <div class="eb">
                   <div class="eb-bar">
@@ -729,13 +1306,13 @@
                     <span class="eb-msg">Employee run failed</span>
                     <div class="eb-acts">
                       <button class="eb-btn"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry</button>
-                      <button class="eb-btn" style="background:rgba(214,69,61,0.13)"><svg class="ico xs"><use href="#i-user-cog"/></svg>Swap Person</button>
+                      <button class="eb-btn on"><svg class="ico xs"><use href="#i-user-cog"/></svg>Swap person</button>
                       <button class="eb-btn eb-x" aria-label="Dismiss error"><svg class="ico sm"><use href="#i-x"/></svg></button>
                     </div>
                   </div>
                   <div class="eb-swap">
                     <span class="l">Re-dispatch to:</span>
-                    <select aria-label="Select employee">
+                    <select class="sel-native" aria-label="Select employee" style="border-color:rgba(214,69,61,0.3)">
                       <option>Select employee…</option>
                       <option>Maya Chen (content-lead)</option>
                       <option>Leo Park (project-manager)</option>
@@ -759,7 +1336,7 @@
                     <svg class="ico sm ic"><use href="#i-alert-circle"/></svg>
                     <span class="eb-msg">Employee run failed</span>
                     <div class="eb-acts">
-                      <button class="eb-btn" style="background:rgba(214,69,61,0.13)"><svg class="ico xs"><use href="#i-code"/></svg>Details <svg class="ico xs"><use href="#i-chev-up"/></svg></button>
+                      <button class="eb-btn on"><svg class="ico xs"><use href="#i-code"/></svg>Details <svg class="ico xs"><use href="#i-chev-up"/></svg></button>
                       <button class="eb-btn eb-x" aria-label="Dismiss error"><svg class="ico sm"><use href="#i-x"/></svg></button>
                     </div>
                   </div>
@@ -803,9 +1380,9 @@
           <div>
             <div class="mini-pane">
               <div class="mini-cap">stage = 'boss' (ANALYZING)</div>
-              <div class="mini-bd" style="padding:0">
+              <div class="mini-bd flush">
                 <div class="pp">
-                  <div style="display:flex;align-items:center;gap:8px">
+                  <div style="display:flex;align-items:center;gap:10px">
                     <div class="pp-flow" style="flex:1">
                       <div class="pp-node"><div class="pp-dot active c-warn"><i></i></div><div class="pp-lbl c-warn">Boss</div></div>
                       <div class="pp-conn pending"></div>
@@ -831,9 +1408,9 @@
           <div>
             <div class="mini-pane">
               <div class="mini-cap">stage = 'executing' (EXECUTING)</div>
-              <div class="mini-bd" style="padding:0">
+              <div class="mini-bd flush">
                 <div class="pp">
-                  <div style="display:flex;align-items:center;gap:8px">
+                  <div style="display:flex;align-items:center;gap:10px">
                     <div class="pp-flow" style="flex:1">
                       <div class="pp-node"><div class="pp-dot done"><svg class="ico xs"><use href="#i-check"/></svg></div><div class="pp-lbl c-ok">Boss</div></div>
                       <div class="pp-conn done"></div>
@@ -859,9 +1436,9 @@
           <div>
             <div class="mini-pane">
               <div class="mini-cap">stage = 'summary' (DELIVERING) — Stop hidden after run ends</div>
-              <div class="mini-bd" style="padding:0">
+              <div class="mini-bd flush">
                 <div class="pp">
-                  <div style="display:flex;align-items:center;gap:8px">
+                  <div style="display:flex;align-items:center;gap:10px">
                     <div class="pp-flow" style="flex:1">
                       <div class="pp-node"><div class="pp-dot done"><svg class="ico xs"><use href="#i-check"/></svg></div><div class="pp-lbl c-ok">Boss</div></div>
                       <div class="pp-conn done"></div>
@@ -883,23 +1460,38 @@
               running. Bar entirely hidden when <code>compact</code> or no stage.</p>
           </div>
         </div>
+
+        <!-- Stage-chip reference (DNA §5 container grammar) -->
         <div class="mini-pane" style="margin-top:18px">
-          <div class="mini-cap">STAGE_META (5 pipeline stages) + 8-phase ceremony enum — reference, both real</div>
+          <div class="mini-cap">STAGE_META (5 pipeline stages) — chip grammar reference</div>
+          <div class="mini-bd" style="background:var(--surface-2)">
+            <div class="stage-chips">
+              <span class="stage-chip done"><span class="d"></span>Boss</span>
+              <span class="stage-chip done"><span class="d"></span>Manager</span>
+              <span class="stage-chip done"><span class="d"></span>PM</span>
+              <span class="stage-chip on"><span class="d"></span>Employee</span>
+              <span class="stage-chip"><span class="d"></span>Summary</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mini-pane" style="margin-top:14px">
+          <div class="mini-cap">STAGE_META + 8-phase ceremony enum — reference, both real</div>
           <div style="padding:0;display:grid;grid-template-columns:1fr 1fr;gap:0">
             <table class="sc-tbl" style="margin:0">
               <thead><tr><th>stage</th><th>label</th><th>chatLabel</th><th>color</th></tr></thead>
               <tbody>
-                <tr><td><span class="cmd">boss</span></td><td>ANALYZING</td><td>Boss analyzing…</td><td><span class="badge warn">warning</span></td></tr>
-                <tr><td><span class="cmd">manager</span></td><td>ROUTING</td><td>Manager routing…</td><td><span class="badge info">accent</span></td></tr>
-                <tr><td><span class="cmd">planning</span></td><td>PLANNING</td><td>PM planning…</td><td><span class="badge info">info</span></td></tr>
-                <tr><td><span class="cmd">executing</span></td><td>EXECUTING</td><td>Executing…</td><td><span class="badge ok">success</span></td></tr>
-                <tr><td><span class="cmd">summary</span></td><td>DELIVERING</td><td>Delivering…</td><td><span class="badge info">accent</span></td></tr>
+                <tr><td><span class="cmd">boss</span></td><td>ANALYZING</td><td>Boss analyzing…</td><td><span class="badge warn">warn</span></td></tr>
+                <tr><td><span class="cmd">manager</span></td><td>ROUTING</td><td>Manager routing…</td><td><span class="badge accent">accent</span></td></tr>
+                <tr><td><span class="cmd">planning</span></td><td>PLANNING</td><td>PM planning…</td><td><span class="badge accent">accent</span></td></tr>
+                <tr><td><span class="cmd">executing</span></td><td>EXECUTING</td><td>Executing…</td><td><span class="badge ok">ok</span></td></tr>
+                <tr><td><span class="cmd">summary</span></td><td>DELIVERING</td><td>Delivering…</td><td><span class="badge accent">accent</span></td></tr>
               </tbody>
             </table>
             <table class="sc-tbl" style="margin:0;border-left:1px solid var(--line)">
               <thead><tr><th>CeremonyPhase</th><th>CEREMONY_LABELS</th></tr></thead>
               <tbody>
-                <tr><td><span class="cmd">idle</span></td><td class="al">— (null, bar hidden)</td></tr>
+                <tr><td><span class="cmd">idle</span></td><td><span class="al">— (null, bar hidden)</span></td></tr>
                 <tr><td><span class="cmd">gathering</span></td><td>Team gathering</td></tr>
                 <tr><td><span class="cmd">analyzing</span></td><td>Boss analyzing</td></tr>
                 <tr><td><span class="cmd">planning</span></td><td>PM planning</td></tr>
@@ -934,40 +1526,43 @@
                   <div class="mtg-h">
                     <div class="ty"><svg class="ico sm"><use href="#i-bulb"/></svg>Brainstorm</div>
                     <span class="dur">04:12</span>
-                    <span class="sp"><span class="badge ok">Live</span></span>
+                    <span class="sp"><span class="badge ok running">Live</span></span>
                   </div>
-                  <div class="mtg-sec">
-                    <div class="mtg-sl">In room</div>
-                    <div class="mtg-dots">
-                      <span class="mdot on">MC<span class="ac"></span></span>
-                      <span class="mdot on">LP<span class="ac"></span></span>
-                      <span class="mdot off">SO</span>
-                      <span class="mdot off">RB</span>
+                  <div class="mtg-body">
+                    <div>
+                      <div class="mtg-sl">In room</div>
+                      <div class="mtg-dots">
+                        <span class="mdot on">MC<span class="ac"></span></span>
+                        <span class="mdot on">LP<span class="ac"></span></span>
+                        <span class="mdot off">SO</span>
+                        <span class="mdot off">RB</span>
+                      </div>
+                      <div class="mtg-cnt">4 people</div>
                     </div>
-                    <div class="mtg-cnt">4 people</div>
-                  </div>
-                  <div class="mtg-sec">
-                    <div class="mtg-sl">Transcript</div>
-                    <div class="mtg-tr">
-                      <div class="ln"><span class="who">Maya:</span> launch angle should lead with the migration win</div>
-                      <div class="ln"><span class="who">Leo:</span> agreed — sequence rollout by tier</div>
-                      <div class="ln"><span class="who">Maya:</span> I'll own the announcement copy</div>
+                    <div>
+                      <div class="mtg-sl">Transcript</div>
+                      <div class="mtg-tr">
+                        <div class="ln"><span class="who">Maya:</span> launch angle should lead with the migration win</div>
+                        <div class="ln"><span class="who">Leo:</span> agreed — sequence rollout by tier</div>
+                        <div class="ln"><span class="who">Maya:</span> I'll own the announcement copy</div>
+                      </div>
                     </div>
-                  </div>
-                  <div class="mtg-sec">
-                    <div class="mtg-sl">Actions (2)</div>
-                    <div class="mtg-ai">
-                      <div class="mai"><svg class="ico xs ck p-hi"><use href="#i-check-square"/></svg><span class="ds">Draft tiered rollout sequence<span class="as"> → Leo Park</span></span><span class="pr p-hi">High</span></div>
-                      <div class="mai"><svg class="ico xs ck p-md"><use href="#i-check-square"/></svg><span class="ds">Write announcement copy v1<span class="as"> → Maya Chen</span></span><span class="pr p-md">Medium</span></div>
+                    <div>
+                      <div class="mtg-sl">Actions (2)</div>
+                      <div class="mtg-ai">
+                        <div class="mai"><svg class="ico xs ck p-hi"><use href="#i-check-square"/></svg><span class="ds">Draft tiered rollout sequence<span class="as"> → Leo Park</span></span><span class="pr p-hi">High</span></div>
+                        <div class="mai"><svg class="ico xs ck p-md"><use href="#i-check-square"/></svg><span class="ds">Write announcement copy v1<span class="as"> → Maya Chen</span></span><span class="pr p-md">Medium</span></div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             <p class="annot-dark"><code>MeetingState</code> = <code>{ meetingId, status, participantIds,
-              startTime, actions[], transcript[] }</code>. Active dot = blue ring + green activity dot;
-              idle = slate. Subscribes <code>meeting.state.changed</code> +
-              <code>meeting.action.created</code>.</p>
+              startTime, actions[], transcript[] }</code>. Active dot = accent ring + ok activity dot;
+              idle = sunken. Subscribes <code>meeting.state.changed</code> +
+              <code>meeting.action.created</code>. Card uses V3 <code>.dlv</code> grammar
+              (<code>--r-md</code> + <code>--line-soft</code> + elev-1).</p>
           </div>
           <div>
             <div class="mini-pane">
@@ -979,24 +1574,26 @@
                     <span class="dur">00:48</span>
                     <span class="sp"><span class="badge warn">Paused</span></span>
                   </div>
-                  <div class="mtg-sec">
-                    <div class="mtg-sl">In room</div>
-                    <div class="mtg-dots">
-                      <span class="mdot off">MC</span>
-                      <span class="mdot off">LP</span>
+                  <div class="mtg-body">
+                    <div>
+                      <div class="mtg-sl">In room</div>
+                      <div class="mtg-dots">
+                        <span class="mdot off">MC</span>
+                        <span class="mdot off">LP</span>
+                      </div>
+                      <div class="mtg-cnt">2 people</div>
                     </div>
-                    <div class="mtg-cnt">2 people</div>
-                  </div>
-                  <div class="mtg-sec">
-                    <div class="mtg-empty"><svg class="ico xs"><use href="#i-alert-tri"/></svg>Waiting for discussion...</div>
+                    <div>
+                      <div class="mtg-empty"><svg class="ico xs"><use href="#i-alert-tri"/></svg>Waiting for discussion…</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-            <p class="annot-dark">Badge: <code>'Live'</code> (success) when running,
-              <code>'Paused'</code> (warning) when paused, hidden when idle. Empty state
+            <p class="annot-dark">Badge: <code>'Live'</code> (ok) when running,
+              <code>'Paused'</code> (warn) when paused, hidden when idle. Empty state
               (<code>transcript.length===0 &amp;&amp; actions.length===0</code>) =
-              <code>"Waiting for discussion..."</code> with alert-triangle. Duration is mono
+              <code>"Waiting for discussion…"</code> with alert-triangle. Duration is mono
               <code>MM:SS</code>. Participants/Transcript/Actions sections each render only when
               non-empty.</p>
           </div>
@@ -1019,7 +1616,8 @@
               as <code>MeetingActionItems</code>. <code>Delegate</code> →
               <code>onDelegate('@{employeeName} {description}')</code> auto-populates the composer with
               the mention + description. Priority skin: high
-              <code>border-error/bg-error-muted</code>, medium <code>warning</code>, low default.</p>
+              <code>border-danger/bg-danger-surface</code>, medium <code>warn-surface</code>, low
+              <code>surface-2</code>.</p>
           </div>
         </div>
       </div>
@@ -1036,24 +1634,24 @@
               <div class="mini-cap">Composer with staged chips — parsing / parsed / parse-error</div>
               <div class="mini-bd">
                 <div class="cmp">
-                  <div class="att-grid" style="margin-bottom:8px">
+                  <div class="att-grid" style="margin-bottom:10px">
                     <div class="att-chip">
                       <span class="th"></span>
                       <div class="mid"><div class="fn">launch-hero.png</div><div class="sm">1.2 MB · 2048×1152</div></div>
                       <button class="rm" aria-label="Remove"><svg class="ico xs"><use href="#i-x"/></svg></button>
                     </div>
                     <div class="att-chip">
-                      <svg class="ico sm ic"><use href="#i-file-text"/></svg>
+                      <span class="ic-cell"><svg class="ico sm"><use href="#i-file-text"/></svg></span>
                       <div class="mid"><div class="fn">q3-brief.pdf</div><div class="sm">820 KB · PDF · 12 pages</div></div>
                       <button class="rm" aria-label="Remove"><svg class="ico xs"><use href="#i-x"/></svg></button>
                     </div>
                     <div class="att-chip">
-                      <svg class="ico sm ic"><use href="#i-grid"/></svg>
+                      <span class="ic-cell"><svg class="ico sm"><use href="#i-grid"/></svg></span>
                       <div class="mid"><div class="fn">metrics.xlsx</div><div class="sm busy">Parsing…</div></div>
                       <button class="rm" aria-label="Remove"><svg class="ico xs"><use href="#i-x"/></svg></button>
                     </div>
                     <div class="att-chip">
-                      <svg class="ico sm ic"><use href="#i-file-text"/></svg>
+                      <span class="ic-cell" style="background:var(--danger-surface);color:#b8352e"><svg class="ico sm"><use href="#i-file-text"/></svg></span>
                       <div class="mid"><div class="fn">notes.docx</div><div class="sm err">Parse error · unsupported zip entry</div></div>
                       <button class="rm" aria-label="Remove"><svg class="ico xs"><use href="#i-x"/></svg></button>
                     </div>
@@ -1062,7 +1660,7 @@
                   <div class="cmp-row">
                     <button class="clip" aria-label="Attach file"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
                     <div style="flex:1"></div>
-                    <button class="send" aria-label="Send"><svg class="ico sm"><use href="#i-send"/></svg></button>
+                    <button class="send icon-only" aria-label="Send"><svg class="ico sm"><use href="#i-send"/></svg></button>
                   </div>
                 </div>
               </div>
@@ -1080,20 +1678,20 @@
             <div class="mini-pane">
               <div class="mini-cap">Staging error stack — all 6 ChatAttachmentFailReason</div>
               <div class="mini-bd">
-                <div style="margin-bottom:8px">
-                  <div class="att-err">huge-video.mov: exceeds the 8 MB per-file limit</div>
-                  <div class="att-err">deck-final.pptx: exceeds the 32 MB total attachment limit</div>
-                  <div class="att-err">q3-brief.pdf: Already attached</div>
-                  <div class="att-err">notes.docx: storage unavailable in this browser window</div>
-                  <div class="att-err">scan.tiff: parser failed</div>
-                  <div class="att-err">report.pdf: failed to persist attachment</div>
+                <div style="margin-bottom:10px">
+                  <div class="att-err">huge-video.mov · exceeds the 8 MB per-file limit</div>
+                  <div class="att-err">deck-final.pptx · exceeds the 32 MB total attachment limit</div>
+                  <div class="att-err">q3-brief.pdf · already attached</div>
+                  <div class="att-err">notes.docx · storage unavailable in this browser window</div>
+                  <div class="att-err">scan.tiff · parser failed</div>
+                  <div class="att-err">report.pdf · failed to persist attachment</div>
                 </div>
                 <div class="cmp">
                   <div class="ph">Message the team…</div>
                   <div class="cmp-row">
                     <button class="clip" disabled aria-label="Attach file" title="Storage unavailable — try a non-private window"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
                     <div style="flex:1"></div>
-                    <button class="send" aria-label="Send"><svg class="ico sm"><use href="#i-send"/></svg></button>
+                    <button class="send icon-only" aria-label="Send"><svg class="ico sm"><use href="#i-send"/></svg></button>
                   </div>
                 </div>
               </div>
@@ -1114,7 +1712,10 @@
             <div class="mini-pane">
               <div class="mini-cap">Drop overlay — Files dragged over composer</div>
               <div class="mini-bd" style="position:relative;min-height:120px">
-                <div class="cmp" style="opacity:0.5"><div class="ph">Message the team…</div><div class="cmp-row"><button class="clip"><svg class="ico sm"><use href="#i-paperclip"/></svg></button><div style="flex:1"></div><button class="send"><svg class="ico sm"><use href="#i-send"/></svg></button></div></div>
+                <div class="cmp" style="opacity:0.5">
+                  <div class="ph">Message the team…</div>
+                  <div class="cmp-row"><button class="clip"><svg class="ico sm"><use href="#i-paperclip"/></svg></button><div style="flex:1"></div><button class="send icon-only"><svg class="ico sm"><use href="#i-send"/></svg></button></div>
+                </div>
                 <div class="att-drop">Drop to attach</div>
               </div>
             </div>
@@ -1127,7 +1728,10 @@
             <div class="mini-pane">
               <div class="mini-cap">Drop overlay — storage unavailable variant</div>
               <div class="mini-bd" style="position:relative;min-height:120px">
-                <div class="cmp" style="opacity:0.5"><div class="ph">Message the team…</div><div class="cmp-row"><button class="clip" disabled><svg class="ico sm"><use href="#i-paperclip"/></svg></button><div style="flex:1"></div><button class="send"><svg class="ico sm"><use href="#i-send"/></svg></button></div></div>
+                <div class="cmp" style="opacity:0.5">
+                  <div class="ph">Message the team…</div>
+                  <div class="cmp-row"><button class="clip" disabled><svg class="ico sm"><use href="#i-paperclip"/></svg></button><div style="flex:1"></div><button class="send icon-only"><svg class="ico sm"><use href="#i-send"/></svg></button></div>
+                </div>
                 <div class="att-drop unavail">Storage unavailable</div>
               </div>
             </div>
@@ -1152,14 +1756,17 @@
             <div class="mini-pane">
               <div class="mini-cap">DialogShell md — the 6 real key bindings (SHORTCUTS)</div>
               <div class="mini-bd" style="background:var(--surface-2)">
-                <div class="dlg" style="box-shadow:var(--elev-1);max-width:none">
-                  <div class="dlg-head"><div><h2>Keyboard Shortcuts</h2></div><button class="dlg-x"><svg class="ico sm"><use href="#i-x"/></svg></button></div>
+                <div class="dlg">
+                  <div class="dlg-head">
+                    <div><h2>Keyboard shortcuts</h2><p>Global bindings — captured at the window level.</p></div>
+                    <button class="dlg-x"><svg class="ico sm"><use href="#i-x"/></svg></button>
+                  </div>
                   <div class="dlg-body">
-                    <div class="ks-row"><span class="ds">Toggle Dashboard</span><kbd>Cmd/Ctrl + D</kbd></div>
-                    <div class="ks-row"><span class="ds">Toggle Kanban</span><kbd>Cmd/Ctrl + J</kbd></div>
-                    <div class="ks-row"><span class="ds">Toggle 3D / 2D view</span><kbd>Cmd/Ctrl + 1</kbd></div>
-                    <div class="ks-row"><span class="ds">Edit selected employee</span><kbd>Cmd/Ctrl + E</kbd></div>
-                    <div class="ks-row"><span class="ds">Open keyboard shortcuts</span><kbd>Cmd/Ctrl + /</kbd></div>
+                    <div class="ks-row"><span class="ds">Toggle Dashboard</span><kbd>Cmd/Ctrl · D</kbd></div>
+                    <div class="ks-row"><span class="ds">Toggle Kanban</span><kbd>Cmd/Ctrl · J</kbd></div>
+                    <div class="ks-row"><span class="ds">Toggle 3D / 2D view</span><kbd>Cmd/Ctrl · 1</kbd></div>
+                    <div class="ks-row"><span class="ds">Edit selected employee</span><kbd>Cmd/Ctrl · E</kbd></div>
+                    <div class="ks-row"><span class="ds">Open keyboard shortcuts</span><kbd>Cmd/Ctrl · /</kbd></div>
                     <div class="ks-row"><span class="ds">Close current overlay or selection</span><kbd>Escape</kbd></div>
                   </div>
                 </div>
@@ -1178,7 +1785,7 @@
               <div class="mini-cap">Slash command registry — adjacent surface (<code>chat-commands.ts</code>), distinct from key bindings</div>
               <div style="padding:0;max-height:340px;overflow:auto">
                 <table class="sc-tbl">
-                  <thead><tr><th>command</th><th>category</th><th>does</th></tr></thead>
+                  <thead><tr><th>Command</th><th>Category</th><th>Does</th></tr></thead>
                   <tbody>
                     <tr><td><span class="cmd">/hire</span></td><td>team</td><td>Start HR hiring flow</td></tr>
                     <tr><td><span class="cmd">/assess</span></td><td>team</td><td>Run team performance assessment</td></tr>
@@ -1201,7 +1808,8 @@
             </div>
             <p class="annot-dark">Slash commands are a <b>separate</b> input affordance (typed in the
               composer), not keyboard bindings — included here because a UI rebuild must keep both
-              entry systems. 15 commands across 5 categories; aliases shown muted.</p>
+              entry systems. 15 commands across 5 categories; aliases shown muted. Rows are dense
+              chip-grammar with mono <code>--fs-meta</code> keys.</p>
           </div>
         </div>
       </div>
@@ -1211,13 +1819,16 @@
     <div class="spec-state">
       <div class="spec-cap"><span class="n">!</span><span class="t">Reverse-risk register — what a rebuild must not silently drop</span></div>
       <div class="spec-frame">
-        <div class="legend" style="grid-template-columns:1fr;border-radius:var(--r-md);border:1px solid var(--line)">
-          <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>PipelineProgress</b> → running pipeline becomes invisible and there is no <code>Stop</code>; user cannot tell who is running or abort it. Highest-value loss.</span></div>
-          <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>ErrorBanner</b> recovery actions → a failed run dead-ends; no Retry / Swap Person / Swap Model / Details path. Banner intentionally never auto-closes.</span></div>
-          <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>ResumeBar</b> → an interrupted/blocked run is unrecoverable after reload (threads stay <code>running</code>/<code>blocked</code> but are unreachable).</span></div>
-          <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop the attachment <b>error region</b> → every cap / dedupe / storage / parse rejection becomes a silent no-op; user sees nothing.</span></div>
-          <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>MeetingActionItems</b> Delegate → meeting outcomes never convert to delegated follow-up; the meeting becomes a dead-end transcript.</span></div>
-          <div class="li"><span class="rev-flag">note</span><span style="flex:1"><b>error</b> pipeline node state is defined (<code>getNodeState()</code>) but unreached by the live stage mapper — spec keeps it so a rebuild wires failure into the bar rather than re-inventing it.</span></div>
+        <div class="mini-pane">
+          <div class="mini-cap">5 rev-risks + 1 note</div>
+          <div class="legend" style="grid-template-columns:1fr">
+            <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>PipelineProgress</b> → running pipeline becomes invisible and there is no <code>Stop</code>; user cannot tell who is running or abort it. Highest-value loss.</span></div>
+            <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>ErrorBanner</b> recovery actions → a failed run dead-ends; no Retry / Swap person / Swap model / Details path. Banner intentionally never auto-closes.</span></div>
+            <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>ResumeBar</b> → an interrupted/blocked run is unrecoverable after reload (threads stay <code>running</code>/<code>blocked</code> but are unreachable).</span></div>
+            <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop the attachment <b>error region</b> → every cap / dedupe / storage / parse rejection becomes a silent no-op; user sees nothing.</span></div>
+            <div class="li"><span class="rev-flag">rev-risk</span><span style="flex:1">Drop <b>MeetingActionItems</b> Delegate → meeting outcomes never convert to delegated follow-up; the meeting becomes a dead-end transcript.</span></div>
+            <div class="li"><span class="rev-flag">note</span><span style="flex:1"><b>error</b> pipeline node state is defined (<code>getNodeState()</code>) but unreached by the live stage mapper — spec keeps it so a rebuild wires failure into the bar rather than re-inventing it.</span></div>
+          </div>
         </div>
       </div>
     </div>

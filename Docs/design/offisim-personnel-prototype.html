@@ -11,45 +11,60 @@
   />
   <style>
     :root {
+      /* ── Surface & elevation ───────────────────────── */
       --bg: #eef1f6;
+      --surface-0: #f7f9fc;
       --surface-1: #ffffff;
       --surface-2: #fbfcfe;
       --surface-sunken: #f1f4f9;
-      --surface-hover: #f3f6fb;
 
+      /* ── Ink ramp ──────────────────────────────────── */
       --ink-1: #131a27;
       --ink-2: #3c4a60;
       --ink-3: #647186;
       --ink-4: #93a0b2;
 
+      /* ── Hairlines ─────────────────────────────────── */
       --line: #dde3ec;
       --line-soft: #e9edf4;
       --line-strong: #c8d1de;
 
+      /* ── Accent ────────────────────────────────────── */
       --accent: #2f6bff;
       --accent-press: #1f54d8;
       --accent-fg: #ffffff;
       --accent-surface: #ecf2ff;
       --accent-ring: rgba(47, 107, 255, 0.36);
-      --accent-text: #1f54d8;
 
+      /* ── Status ────────────────────────────────────── */
       --ok: #1aa46a;        --ok-surface: #e4f5ec;
       --warn: #c98410;      --warn-surface: #fdf2dd;
       --danger: #d6453d;    --danger-surface: #fdeae9;
-      --info: #2f6bff;      --info-surface: #ecf2ff;
       --violet: #7c4ddb;    --violet-surface: #f1ebfd;
+      /* --info aliased to --accent per V3 §2 (no duplicate token) */
+      --info: var(--accent);
+      --info-surface: var(--accent-surface);
 
-      --r-xs: 5px; --r-sm: 7px; --r-md: 9px; --r-lg: 13px; --r-xl: 18px; --r-pill: 999px;
+      /* ── Radius (no --r-xl outside .dlg) ───────────── */
+      --r-xs: 5px; --r-sm: 7px; --r-md: 9px; --r-lg: 13px; --r-pill: 999px;
 
+      /* ── Elevation ─────────────────────────────────── */
       --elev-1: 0 1px 2px rgba(20, 32, 56, 0.06), 0 1px 1px rgba(20, 32, 56, 0.04);
       --elev-2: 0 4px 14px rgba(20, 32, 56, 0.10), 0 1px 3px rgba(20, 32, 56, 0.06);
       --elev-3: 0 18px 44px rgba(18, 28, 50, 0.20), 0 4px 12px rgba(18, 28, 50, 0.10);
 
+      /* ── Spacing scale ─────────────────────────────── */
       --sp-1: 4px; --sp-2: 6px; --sp-3: 8px; --sp-4: 10px;
-      --sp-5: 12px; --sp-6: 14px; --sp-7: 16px; --sp-8: 20px; --sp-9: 28px;
+      --sp-5: 12px; --sp-6: 14px; --sp-7: 16px; --sp-8: 20px;
 
-      --fs-micro: 10px; --fs-meta: 11px; --fs-sm: 12px;
-      --fs-base: 13px; --fs-md: 14px; --fs-lg: 15px; --fs-xl: 19px; --fs-2xl: 24px;
+      /* ── Type scale (no --fs-2xl outside .dlg) ─────── */
+      --fs-micro: 10px;
+      --fs-meta: 11px;
+      --fs-sm: 12px;
+      --fs-base: 13px;
+      --fs-md: 14px;
+      --fs-lg: 15px;
+      --fs-xl: 19px;
       --ls-caps: 0.14em;
 
       --title: 40px;
@@ -70,7 +85,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      display: flex; flex-direction: column; align-items: center; gap: 30px;
+      display: flex; flex-direction: column; align-items: center; gap: 28px;
       padding: 28px;
       background: radial-gradient(1200px 700px at 50% -10%, #1f2738 0%, #0f1420 60%, #0b0f17 100%);
       color: var(--ink-1);
@@ -90,6 +105,7 @@
       display: grid;
       grid-template-rows: var(--title) var(--toolbar) 1fr;
       box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 40px 100px rgba(0, 0, 0, 0.55);
+      flex: none;
     }
 
     button { font: inherit; cursor: pointer; }
@@ -107,11 +123,11 @@
     .ico.lg { width: 18px; height: 18px; }
     .ico.fill { fill: currentColor; stroke: none; }
 
-    /* Title bar */
+    /* ── Title bar (V3 verbatim) ────────────────────── */
     .titlebar {
       height: var(--title);
       display: flex; align-items: center; gap: var(--sp-6);
-      padding: 0 var(--sp-7);
+      padding: 0 var(--sp-5);
       background: linear-gradient(#fcfdfe, #eef2f7);
       border-bottom: 1px solid var(--line);
     }
@@ -119,25 +135,26 @@
     .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
     .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
     .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
-    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); }
+    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); letter-spacing: 0.02em; }
 
-    /* Top bar (shared chrome) */
+    /* ── Top bar (V3 verbatim, no bell) ─────────────── */
     .topbar {
       height: var(--toolbar);
       position: relative;
       display: flex; align-items: center; gap: var(--sp-5);
-      padding: 0 var(--sp-6);
+      padding: 0 var(--sp-5);
       background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--line);
     }
     .topbar .nav { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
     .topbar .iconbar { margin-left: auto; }
+
     .nav, .iconbar {
       height: 34px; border: 1px solid var(--line); border-radius: var(--r-md);
-      background: var(--surface-2); display: flex; align-items: center; box-shadow: var(--elev-1);
+      background: var(--surface-2); display: flex; align-items: center;
     }
-    .nav { padding: 3px; gap: 2px; }
+    .nav { padding: 3px; gap: 2px; box-shadow: var(--elev-1); }
     .nav button {
       height: 28px; padding: 0 14px; border: 0; border-radius: var(--r-sm);
       background: transparent; color: var(--ink-2);
@@ -146,19 +163,19 @@
       transition: background 0.14s ease, color 0.14s ease;
     }
     .nav button:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
-    .nav button.active { background: var(--accent-surface); color: var(--accent); font-weight: 640; box-shadow: inset 0 0 0 1px var(--accent-ring); }
-    .iconbar { padding: 3px; gap: 2px; }
+    .nav .active { color: var(--accent); background: var(--accent-surface); font-weight: 620; box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .iconbar { padding: 3px; gap: 2px; box-shadow: var(--elev-1); }
     .iconbtn {
-      width: 28px; height: 28px; border: 0; border-radius: var(--r-sm);
-      background: transparent; color: var(--ink-3);
+      width: 28px; height: 28px;
+      border: 0; border-radius: var(--r-sm); background: transparent;
+      color: var(--ink-3);
       display: grid; place-items: center;
       transition: background 0.14s ease, color 0.14s ease;
-      position: relative;
     }
     .iconbtn:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
     .iconbtn.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
-    .iconbtn .nb { position: absolute; top: 1px; right: 1px; min-width: 13px; height: 13px; padding: 0 3px; border-radius: var(--r-pill); background: var(--danger); color: #fff; font-size: 8px; font-weight: 760; display: grid; place-items: center; }
 
+    /* ── Scope bar (V3 verbatim) ────────────────────── */
     .scope-bar {
       position: relative; display: flex; align-items: center;
       height: 36px; padding: 3px;
@@ -180,285 +197,659 @@
     .scope-div { color: var(--ink-4); display: grid; place-items: center; flex: none; }
 
     /* ══════════ Personnel workspace shell ══════════
-       Non-Office workspace: AppLayout side panel = null, center = WorkspaceRouter.
-       Full-width — no right rail. 3-pane internal grid driven by useLayoutTier:
-       desktop = 280|1fr|420 (rail 64 when collapsed) · tablet = 220|1fr (inspector
-       stacks under DetailHeader) · narrow = 1col (list XOR detail). */
-    .pers { min-height: 0; display: grid; background: var(--bg); overflow: hidden;
-      grid-template-columns: 280px minmax(0,1fr) minmax(0,420px); }
+       Tri-pane: 280 | 1fr | 420 (rail 64 when collapsed)
+       tablet → 220 | 1fr (inspector stacks under DetailHeader)
+       narrow → 1col (list XOR detail) */
+    .pers {
+      min-height: 0;
+      display: grid;
+      background: var(--bg);
+      overflow: hidden;
+      grid-template-columns: 280px minmax(0,1fr) minmax(0,420px);
+    }
 
-    /* ── Left rail · roster list ── */
-    .pers-rail { min-height: 0; display: flex; flex-direction: column;
-      border-right: 1px solid var(--line); background: var(--surface-2); }
-    .pr-head { border-bottom: 1px solid var(--line); padding: 12px; }
-    .pr-srch-row { display: flex; align-items: center; gap: 8px; }
+    /* ── Left rail · roster list ──────────────────── */
+    .pers-rail {
+      min-height: 0;
+      display: flex; flex-direction: column;
+      border-right: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+    .pr-head { border-bottom: 1px solid var(--line); padding: var(--sp-4) var(--sp-5); }
+    .pr-srch-row { display: flex; align-items: center; gap: var(--sp-2); }
     .pr-search { position: relative; flex: 1; min-width: 0; }
-    .pr-search .ico { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-4); }
-    .pr-search input { width: 100%; height: 36px; padding: 0 11px 0 30px; border: 1px solid var(--line);
-      border-radius: var(--r-md); background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-sm); }
+    .pr-search > .ico {
+      position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+      color: var(--ink-4); pointer-events: none;
+    }
+    .pr-search input {
+      width: 100%; height: 30px;
+      padding: 0 10px 0 28px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-sunken); color: var(--ink-1);
+      font-size: var(--fs-sm);
+      transition: border-color 0.14s ease, background 0.14s ease;
+    }
     .pr-search input::placeholder { color: var(--ink-4); }
-    .pr-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
-    .pr-collapse { width: 32px; height: 32px; flex: none; border: 1px solid var(--line); border-radius: var(--r-md);
-      background: var(--surface-sunken); color: var(--ink-2); display: grid; place-items: center; transition: background 0.12s ease; }
-    .pr-collapse:hover { background: var(--surface-hover); }
-    .pr-filter { margin-top: 12px; display: block; }
-    .pr-filter .lbl { display: block; margin-bottom: 5px; font-size: var(--fs-micro); font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-4); }
-    .pr-sel { width: 100%; height: 36px; padding: 0 30px 0 12px; border: 1px solid var(--line); border-radius: var(--r-md);
-      background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
-      color: var(--ink-1); font-size: var(--fs-sm); font-weight: 560; -webkit-appearance: none; appearance: none; }
-    .pr-list { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
-    .pr-emp { width: 100%; min-height: 58px; display: flex; align-items: center; gap: 12px;
-      padding: 8px 12px; margin-bottom: 8px; border: 1px solid transparent; border-radius: var(--r-md);
-      background: transparent; text-align: left; transition: background 0.12s ease, border-color 0.12s ease; }
-    .pr-emp:hover { border-color: var(--line); background: var(--surface-hover); }
-    .pr-emp.sel { border-color: var(--accent); background: var(--accent-surface); }
-    .pr-emp .pe-info { min-width: 0; flex: 1; }
-    .pr-emp .pe-name-row { display: flex; align-items: baseline; gap: 8px; }
-    .pr-emp .pe-name { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-1);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .pr-emp .pe-dis { font-size: var(--fs-micro); color: var(--ink-4); }
-    .pr-emp .pe-meta { margin-top: 2px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-    .pr-emp .pe-role { font-size: var(--fs-meta); color: var(--ink-2); }
-    .pe-brand { height: 16px; padding: 0 6px; border-radius: var(--r-pill); border: 1px solid var(--line);
-      background: var(--surface-sunken); color: var(--ink-3); font-size: 9.5px; display: inline-flex; align-items: center; }
+    .pr-search input:hover { border-color: var(--line-strong); background: var(--surface-2); }
+    .pr-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); background: var(--surface-1); }
+    .pr-collapse {
+      width: 30px; height: 30px; flex: none;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-sunken); color: var(--ink-3);
+      display: grid; place-items: center;
+      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+    }
+    .pr-collapse:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
 
-    /* avatar — faithful stand-in for EmployeeAvatar (DiceBear 2D / block person) */
-    .av { flex: none; border-radius: 26%; display: grid; place-items: center;
+    /* Role filter — caps label + custom-arrow select (container grammar) */
+    .pr-filter { margin-top: var(--sp-3); display: block; }
+    .pr-filter .lbl {
+      display: block; margin-bottom: var(--sp-1);
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 680; color: var(--ink-3); text-transform: uppercase;
+    }
+    .pr-sel, .selbox {
+      height: 30px; padding: 0 28px 0 10px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center;
+      color: var(--ink-1); font-size: var(--fs-sm); font-weight: 560;
+      -webkit-appearance: none; appearance: none;
+      display: flex; align-items: center;
+      width: 100%;
+    }
+    .pr-list {
+      flex: 1; min-height: 0; overflow-y: auto;
+      padding: var(--sp-2) var(--sp-3);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+
+    /* Roster row — thread-row grammar (V3 lines 962-976) */
+    .pr-emp {
+      display: flex; align-items: center; gap: var(--sp-3);
+      width: 100%; min-height: 38px; padding: 4px 8px;
+      border: 1px solid transparent; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-2);
+      text-align: left;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .pr-emp:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    .pr-emp.sel { border-color: var(--accent-ring); background: var(--accent-surface); color: var(--accent); font-weight: 620; }
+    .pr-emp .pe-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .pr-emp .pe-name-row { display: flex; align-items: baseline; gap: 6px; }
+    .pr-emp .pe-name {
+      font-size: var(--fs-sm); font-weight: 600; color: inherit;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pr-emp .pe-dis { font-size: var(--fs-micro); color: var(--ink-4); }
+    .pr-emp .pe-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .pr-emp .pe-role { font-size: var(--fs-micro); color: var(--ink-3); }
+    .pr-emp.sel .pe-role, .pr-emp.sel .pe-dis { color: var(--accent); opacity: 0.78; }
+    .pe-brand {
+      height: 16px; padding: 0 6px; border-radius: var(--r-pill);
+      border: 1px solid var(--line);
+      background: var(--surface-1); color: var(--ink-3);
+      font-size: 9.5px; display: inline-flex; align-items: center;
+      letter-spacing: 0.05em; text-transform: uppercase; font-weight: 700;
+    }
+
+    /* Avatar — DiceBear 2D fallback stand-in */
+    .av {
+      flex: none; border-radius: 26%;
+      display: grid; place-items: center;
       color: #fff; font-weight: 720; letter-spacing: -0.02em;
       background: linear-gradient(150deg, var(--av-a, #6a8dff), var(--av-b, #3a5fd0));
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18); overflow: hidden; }
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+      overflow: hidden;
+    }
     .av svg { width: 62%; height: 62%; opacity: 0.94; }
     .av.brand { background: linear-gradient(150deg, #586273, #353c49); }
 
     /* collapsed rail variant */
     .pers.collapsed { grid-template-columns: 64px minmax(0,1fr) minmax(0,420px); }
-    .pers.collapsed .pr-head { padding: 8px; }
-    .pers.collapsed .pr-emp { justify-content: center; padding: 8px 4px; }
+    .pers.collapsed .pr-head { padding: var(--sp-3) var(--sp-2); }
+    .pers.collapsed .pr-emp { justify-content: center; padding: 4px 2px; }
     .pers.collapsed .pe-info { display: none; }
 
-    /* ── Center · detail ── */
-    .pers-detail { min-height: 0; display: flex; flex-direction: column;
-      border-right: 1px solid var(--line); background: var(--surface-1); }
-    .pd-head { flex: none; display: flex; align-items: center; gap: var(--sp-7);
-      padding: var(--sp-7) var(--sp-9); border-bottom: 1px solid var(--line); background: var(--surface-1); }
-    .pd-back { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px;
-      border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken);
-      color: var(--ink-2); font-size: var(--fs-meta); flex: none; }
+    /* ── Center · detail ──────────────────────────── */
+    .pers-detail {
+      min-height: 0;
+      display: flex; flex-direction: column;
+      border-right: 1px solid var(--line);
+      background: var(--surface-1);
+    }
+    /* Tightened per brief §11 Personnel — sp-5 sp-7, avatar 56 */
+    .pd-head {
+      flex: none;
+      display: flex; align-items: center; gap: var(--sp-5);
+      padding: var(--sp-5) var(--sp-7);
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-1);
+    }
+    .pd-back {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 28px; padding: 0 9px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-2); color: var(--ink-2);
+      font-size: var(--fs-meta); font-weight: 600;
+      flex: none;
+      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+    }
+    .pd-back:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
     .pd-id { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .pd-name { margin: 0; font-size: var(--fs-xl); font-weight: 700; color: var(--ink-1);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .pd-role { font-size: var(--fs-sm); color: var(--ink-3);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .pd-pills { flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-    .st-pill { height: 22px; padding: 0 11px; border-radius: var(--r-pill); border: 1px solid;
-      font-size: var(--fs-meta); display: inline-flex; align-items: center; }
+    .pd-name {
+      margin: 0; font-size: var(--fs-xl); font-weight: 700; color: var(--ink-1);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+    .pd-role {
+      font-size: var(--fs-sm); color: var(--ink-3);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pd-pills { flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+    .st-pill {
+      height: 20px; padding: 0 9px; border-radius: var(--r-pill);
+      border: 1px solid;
+      font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .st-pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
     .st-pill.on { border-color: rgba(26,164,106,0.4); background: var(--ok-surface); color: #15824f; }
+    .st-pill.on::before { background: var(--ok); animation: pulse 1.6s ease-in-out infinite; }
     .st-pill.off { border-color: var(--line); background: var(--surface-sunken); color: var(--ink-4); }
+    .st-pill.off::before { background: var(--ink-4); }
     .st-pill.brand { border-color: var(--line); background: var(--surface-sunken); color: var(--ink-3); }
+    .st-pill.brand::before { background: var(--ink-3); }
     .pd-empty { flex: 1; display: grid; place-items: center; padding: 40px; }
 
-    /* ── Tabs inspector ── */
-    .pers-insp { min-height: 0; display: flex; flex-direction: column; background: var(--surface-2); }
-    .insp-tabs { flex: none; display: flex; gap: 2px; overflow-x: auto; padding: 6px 8px;
-      border-bottom: 1px solid var(--line); background: var(--surface-2); }
-    .insp-tabs button { flex: none; height: 28px; padding: 0 12px; border: 0; border-radius: var(--r-sm);
-      background: transparent; color: var(--ink-3); font-size: var(--fs-sm); font-weight: 560;
-      transition: background 0.12s ease, color 0.12s ease; }
-    .insp-tabs button:hover { background: var(--surface-hover); color: var(--ink-1); }
-    .insp-tabs button.active { background: var(--accent-surface); color: var(--accent);
-      font-weight: 640; box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(1.5); }
+    }
+
+    /* ── Inspector tabs (V3 .ws-tabs chip-grammar) ── */
+    .pers-insp {
+      min-height: 0;
+      display: flex; flex-direction: column;
+      background: var(--surface-2);
+    }
+    .insp-tabs {
+      flex: none;
+      height: 44px;
+      display: flex; align-items: center; gap: 2px;
+      padding: 0 var(--sp-5);
+      border-bottom: 1px solid var(--line);
+      overflow-x: auto;
+    }
+    .insp-tab {
+      flex: none;
+      height: 28px; padding: 0 11px;
+      border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-3);
+      font-size: var(--fs-sm); font-weight: 580;
+      display: flex; align-items: center; gap: 6px;
+      transition: background 0.14s ease, color 0.14s ease;
+    }
+    .insp-tab:hover { background: rgba(20, 32, 56, 0.04); color: var(--ink-1); }
+    .insp-tab.active {
+      color: var(--accent); background: var(--accent-surface);
+      font-weight: 640;
+    }
     .insp-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .insp-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 22px var(--sp-9); }
+    .insp-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-7); }
 
-    /* ── Profile tab ── */
-    .prof-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 32px; padding-bottom: 24px; }
-    .prof-sec { display: flex; flex-direction: column; gap: 14px; }
-    .prof-sec h3 { margin: 0; font-size: var(--fs-meta); font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.14em; color: var(--ink-4); }
-    .fld { display: flex; flex-direction: column; }
-    .fld > label, .fld > .fl { margin-bottom: 5px; font-size: var(--fs-sm); color: var(--ink-2); }
-    .inp { height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: var(--r-md);
-      background: var(--surface-1); color: var(--ink-1); font-size: var(--fs-sm); display: flex; align-items: center; }
+    /* ── Caps label (the only "section heading" style) ── */
+    .insp-sec-label, .cap-label {
+      display: block;
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 680; color: var(--ink-3);
+      text-transform: uppercase;
+    }
+
+    /* ── Profile tab · field grammar (no card wrapper) ── */
+    .prof-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      column-gap: var(--sp-8); row-gap: var(--sp-7);
+      padding-bottom: var(--sp-7);
+    }
+    .prof-sec { display: flex; flex-direction: column; gap: var(--sp-4); }
+    .prof-sec .insp-sec-label { margin-bottom: var(--sp-1); }
+    .fld { display: flex; flex-direction: column; gap: 5px; }
+    .fld > label, .fld > .fl {
+      font-size: var(--fs-meta); color: var(--ink-2); font-weight: 560;
+    }
+    .inp {
+      height: 32px; padding: 0 10px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1); color: var(--ink-1);
+      font-size: var(--fs-sm);
+      display: flex; align-items: center;
+      transition: border-color 0.14s ease, box-shadow 0.14s ease;
+    }
+    .inp:hover { border-color: var(--line-strong); }
     .inp.ph { color: var(--ink-4); }
-    .inp.area { height: auto; min-height: 72px; align-items: flex-start; padding: 9px 11px;
-      line-height: 1.5; color: var(--ink-2); white-space: pre-wrap; }
+    .inp.area {
+      height: auto; min-height: 64px;
+      align-items: flex-start; padding: 8px 10px;
+      line-height: 1.5; color: var(--ink-2);
+      white-space: pre-wrap;
+    }
     .inp.area.ph { color: var(--ink-4); }
-    .selbox { height: 36px; padding: 0 30px 0 11px; border: 1px solid var(--line); border-radius: var(--r-md);
-      background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
-      color: var(--ink-1); font-size: var(--fs-sm); display: flex; align-items: center; }
-    .hint { margin-top: 5px; font-size: var(--fs-micro); color: var(--ink-4); }
+    .hint { font-size: var(--fs-micro); color: var(--ink-4); line-height: 1.4; }
     .hint.warn { color: var(--warn); }
-    .seg { display: inline-flex; padding: 3px; border: 1px solid var(--line); border-radius: var(--r-md);
-      background: var(--surface-sunken); gap: 2px; }
-    .seg button { height: 26px; padding: 0 13px; border: 0; border-radius: var(--r-sm);
-      background: transparent; color: var(--ink-3); font-size: var(--fs-meta); font-weight: 560; }
-    .seg button.on { background: var(--surface-1); color: var(--ink-1); font-weight: 640; box-shadow: var(--elev-1); }
-    .toggle-btn { height: 30px; padding: 0 14px; align-self: flex-start; border-radius: var(--r-md);
-      font-size: var(--fs-sm); font-weight: 600; border: 1px solid transparent; }
+
+    /* Segmented control — container grammar */
+    .seg {
+      display: inline-flex; padding: 3px; gap: 2px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-2);
+      align-self: flex-start;
+    }
+    .seg button {
+      height: 24px; padding: 0 10px; border: 0; border-radius: var(--r-xs);
+      background: transparent; color: var(--ink-3);
+      font-size: var(--fs-meta); font-weight: 580;
+      transition: background 0.14s ease, color 0.14s ease;
+    }
+    .seg button:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
+    .seg button.on {
+      background: var(--surface-1); color: var(--ink-1);
+      font-weight: 640; box-shadow: var(--elev-1);
+    }
+
+    .toggle-btn {
+      height: 28px; padding: 0 12px;
+      align-self: flex-start;
+      border-radius: var(--r-sm);
+      font-size: var(--fs-sm); font-weight: 620;
+      border: 1px solid transparent;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: background 0.14s ease;
+    }
     .toggle-btn.on { background: var(--accent); color: var(--accent-fg); }
-    .toggle-btn.off { background: var(--surface-sunken); color: var(--ink-2); border-color: var(--line); }
-    .sysprompt { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken); overflow: hidden; }
-    .sysprompt > button { width: 100%; display: flex; align-items: center; gap: 7px; padding: 9px 12px;
-      border: 0; background: transparent; color: var(--ink-2); font-size: var(--fs-sm); }
-    .sysprompt pre { margin: 0; padding: 0 12px 12px; background: var(--surface-1); white-space: pre-wrap;
-      font-family: var(--mono); font-size: 10.5px; line-height: 1.6; color: var(--ink-3); }
-    .chips { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 5px; }
-    .chips button { height: 22px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-xs);
-      background: var(--surface-sunken); color: var(--ink-3); font-size: 9.5px; }
-    .chips button:hover { border-color: var(--accent); color: var(--accent-text); }
+    .toggle-btn.on:hover { background: var(--accent-press); }
+    .toggle-btn.off { background: var(--surface-2); color: var(--ink-2); border-color: var(--line); }
+    .toggle-btn.off:hover { background: var(--surface-sunken); }
 
-    .savebar { flex: none; border-top: 1px solid var(--line); background: var(--surface-2);
-      padding: 12px var(--sp-9); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .savebar .left { flex: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .del-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-meta); color: var(--danger); }
+    /* System-prompt disclosure — V3 sediment card grammar */
+    .sysprompt {
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-2); overflow: hidden;
+      box-shadow: var(--elev-1);
+    }
+    .sysprompt > button {
+      width: 100%;
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 11px;
+      border: 0; background: transparent;
+      color: var(--ink-2); font-size: var(--fs-sm); font-weight: 600;
+      text-align: left;
+    }
+    .sysprompt pre {
+      margin: 0;
+      padding: 0 11px 11px;
+      background: var(--surface-1);
+      white-space: pre-wrap;
+      font-family: var(--mono); font-size: 10.5px; line-height: 1.6;
+      color: var(--ink-3);
+    }
 
-    /* ── Appearance tab ── */
-    .app-grid { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 16px; }
-    .avc { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--line);
-      border-radius: var(--r-lg); background: var(--surface-sunken); padding: 14px; }
-    .avc .cap { font-size: var(--fs-micro); font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.14em; color: var(--ink-1); }
-    .swrow .sl { margin-bottom: 6px; font-size: var(--fs-micro); color: var(--ink-4); }
+    .chips { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px; }
+    .chips button {
+      height: 22px; padding: 0 8px;
+      border: 1px solid var(--line); border-radius: var(--r-xs);
+      background: var(--surface-1); color: var(--ink-3);
+      font-size: 9.5px; font-weight: 600;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+    .chips button:hover { background: var(--accent-surface); border-color: var(--accent-ring); color: var(--accent); }
+
+    /* SaveBar — tight: 32px buttons, low vertical padding */
+    .savebar {
+      flex: none;
+      border-top: 1px solid var(--line);
+      background: var(--surface-2);
+      padding: var(--sp-3) var(--sp-7);
+      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+    }
+    .savebar .left { flex: 1; display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+    .del-confirm {
+      display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+      font-size: var(--fs-meta); color: var(--danger);
+    }
+
+    /* ── Appearance tab ─────────────────────────── */
+    .app-grid { display: grid; grid-template-columns: minmax(0,1fr) 260px; gap: var(--sp-7); }
+    .avc {
+      display: flex; flex-direction: column; gap: var(--sp-3);
+    }
+    .avc .cap-label { margin-bottom: 2px; }
+    .swrow { display: flex; flex-direction: column; gap: 4px; }
+    .swrow .sl { font-size: var(--fs-micro); color: var(--ink-4); letter-spacing: 0.02em; }
     .swrow .sws { display: flex; flex-wrap: wrap; gap: 6px; }
-    .sw { width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; flex: none; }
-    .sw.on { border-color: var(--ink-1); box-shadow: 0 0 0 1px var(--accent-ring); }
-    .gender { display: flex; gap: 4px; }
-    .gender button { flex: 1; height: 26px; border: 1px solid var(--line); background: var(--surface-1);
-      color: var(--ink-3); font-size: var(--fs-meta); }
-    .gender button.on { border-color: var(--accent); background: var(--accent-surface); color: var(--accent-text); }
-    .avc-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sw {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid transparent; flex: none;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+      transition: transform 0.12s ease, border-color 0.12s ease;
+    }
+    .sw:hover { transform: scale(1.08); }
+    .sw.on { border-color: var(--ink-1); box-shadow: 0 0 0 2px var(--accent-ring), inset 0 0 0 1px rgba(0,0,0,0.08); }
+    .gender {
+      display: inline-flex; padding: 3px; gap: 2px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-2);
+    }
+    .gender button {
+      flex: 1; height: 24px; padding: 0 11px;
+      border: 0; border-radius: var(--r-xs);
+      background: transparent; color: var(--ink-3);
+      font-size: var(--fs-meta); font-weight: 580;
+    }
+    .gender button:hover { color: var(--ink-1); background: rgba(20,32,56,0.04); }
+    .gender button.on { background: var(--surface-1); color: var(--ink-1); font-weight: 640; box-shadow: var(--elev-1); }
+    .avc-2col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
     .avc-2col .sl { margin-bottom: 4px; font-size: var(--fs-micro); color: var(--ink-4); }
     .avc-2col .selbox { height: 30px; font-size: var(--fs-meta); }
-    .prev-col { display: flex; flex-direction: column; gap: 12px; }
-    .prev { position: relative; aspect-ratio: 256/200; min-height: 168px; max-width: 256px; width: 100%;
-      border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-sunken);
-      display: grid; place-items: center; }
-    .prev .pl { position: absolute; left: 8px; top: 6px; font-size: 9.5px; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-4); }
-    .prev .figure { width: 96px; height: 120px; display: grid; place-items: center; color: var(--ink-3); }
+    .prev-col { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .prev {
+      position: relative; aspect-ratio: 256/200;
+      min-height: 152px; max-width: 256px; width: 100%;
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-sunken);
+      display: grid; place-items: center;
+      box-shadow: var(--elev-1);
+    }
+    .prev .pl {
+      position: absolute; left: 8px; top: 6px;
+      font-size: 9.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: var(--ls-caps);
+      color: var(--ink-4);
+    }
+    .prev .figure { width: 88px; height: 110px; display: grid; place-items: center; color: var(--ink-3); }
 
-    /* ── Runtime tab ── */
-    .rbind { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .rbind-opt { display: flex; flex-direction: column; gap: 4px; min-height: 92px;
-      border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1);
-      padding: 12px; text-align: left; }
-    .rbind-opt:hover { border-color: var(--line-strong); background: var(--surface-hover); }
-    .rbind-opt.sel { border-color: var(--accent); background: var(--accent-surface); color: var(--accent-text); }
+    /* ── Runtime tab ────────────────────────────── */
+    .rbind { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+    .rbind-opt {
+      display: flex; flex-direction: column; gap: 4px;
+      min-height: 86px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-1);
+      padding: var(--sp-4);
+      text-align: left;
+      box-shadow: var(--elev-1);
+      transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+    }
+    .rbind-opt:hover { border-color: var(--line-strong); box-shadow: var(--elev-2); transform: translateY(-1px); }
+    .rbind-opt.sel { border-color: var(--accent); background: var(--accent-surface); box-shadow: var(--elev-1); }
+    .rbind-opt.sel .lab, .rbind-opt.sel .des { color: var(--accent); }
     .rbind-opt.dis { opacity: 0.55; cursor: not-allowed; }
-    .rbind-opt .lab { font-size: var(--fs-sm); font-weight: 620; color: inherit; }
+    .rbind-opt .lab { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); }
     .rbind-opt .des { font-size: var(--fs-meta); line-height: 1.4; color: var(--ink-3); }
-    .rbind-opt.sel .des { color: var(--accent-text); }
     .rbind-opt .prof { font-size: 9.5px; line-height: 1.4; color: var(--ink-4); font-family: var(--mono); }
     .rbind-opt .full { font-size: 9.5px; line-height: 1.4; color: var(--warn); }
     .rbind-opt .ok { font-size: 9.5px; color: #15824f; }
-    .rbind-opt .req { margin-top: 3px; font-size: 9.5px; text-transform: uppercase;
-      letter-spacing: 0.1em; color: var(--warn); }
+    .rbind-opt .req {
+      margin-top: 2px;
+      font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--warn);
+    }
     .rbind-resolved { font-size: var(--fs-meta); color: var(--ink-3); }
     .rbind-resolved b { color: var(--ink-1); font-weight: 640; }
-    .rbind-disc { border: 1px solid rgba(201,132,16,0.3); background: var(--warn-surface);
-      border-radius: var(--r-md); padding: 10px 12px; font-size: var(--fs-meta); line-height: 1.5; color: #8a5a0c; }
-    .lock-note { display: flex; align-items: center; gap: 8px; font-size: var(--fs-meta); color: var(--ink-4); }
+    .rbind-disc {
+      border: 1px solid rgba(201,132,16,0.30);
+      background: var(--warn-surface);
+      border-radius: var(--r-sm);
+      padding: 9px 11px;
+      font-size: var(--fs-meta); line-height: 1.5; color: #8a5a0c;
+    }
+    .lock-note {
+      display: flex; align-items: center; gap: 8px;
+      font-size: var(--fs-meta); color: var(--ink-3);
+      padding: 9px 11px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-sunken);
+    }
 
-    /* ── Skills tab ── */
-    .sk-empty { display: flex; flex-direction: column; align-items: center; gap: 8px;
-      border: 1px dashed var(--line-strong); border-radius: var(--r-md); padding: 24px; text-align: center; }
+    /* ── Skills · list rows w/ thread-row affordance ── */
+    .sk-empty {
+      display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+      border: 1px dashed var(--line-strong); border-radius: var(--r-md);
+      padding: var(--sp-7); text-align: center;
+      background: var(--surface-2);
+    }
     .sk-empty .ico { color: var(--ink-4); }
-    .sk-empty p { margin: 0; max-width: 260px; font-size: var(--fs-meta); font-style: italic; color: var(--ink-4); }
-    .skrow { display: flex; align-items: flex-start; gap: 8px; border: 1px solid var(--line);
-      border-radius: var(--r-md); background: var(--surface-sunken); padding: 12px; }
+    .sk-empty p { margin: 0; max-width: 260px; font-size: var(--fs-meta); color: var(--ink-4); line-height: 1.5; }
+
+    .skrow {
+      display: flex; align-items: flex-start; gap: var(--sp-3);
+      padding: 8px 9px;
+      border: 1px solid transparent; border-radius: var(--r-sm);
+      background: transparent;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+    .skrow:hover { background: var(--surface-sunken); border-color: var(--line-soft); }
+    .skrow.sel { background: var(--accent-surface); border-color: var(--accent-ring); }
     .skrow > .ico { margin-top: 1px; color: var(--accent); flex: none; }
-    .skrow .sr-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .skrow .sr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .skrow .sr-top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
     .skrow .sr-name { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-1); }
-    .scope-tag { height: 18px; padding: 0 7px; border-radius: var(--r-pill); border: 1px solid var(--line);
-      background: var(--surface-1); color: var(--ink-3); font-size: 9.5px; display: inline-flex; align-items: center; }
-    .ovr-tag { height: 18px; padding: 0 7px; border-radius: var(--r-pill); border: 1px solid var(--warn);
-      background: var(--warn-surface); color: #8a5a0c; font-size: 9.5px; display: inline-flex; align-items: center; }
-    .skrow .sr-desc { margin: 5px 0 0; font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; }
+    .scope-tag {
+      height: 17px; padding: 0 7px; border-radius: var(--r-pill);
+      border: 1px solid var(--line); background: var(--surface-1);
+      color: var(--ink-3); font-size: 9px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      display: inline-flex; align-items: center;
+    }
+    .ovr-tag {
+      height: 17px; padding: 0 7px; border-radius: var(--r-pill);
+      border: 1px solid rgba(201,132,16,0.40); background: var(--warn-surface);
+      color: #8a5a0c; font-size: 9px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      display: inline-flex; align-items: center;
+    }
+    .skrow .sr-desc { margin: 0; font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; }
 
-    /* ── Memory tab ── */
-    .mem-compose { display: grid; grid-template-columns: 140px 1fr 120px auto; gap: 8px; align-items: center; }
-    .mem-filter { display: grid; grid-template-columns: 140px 1fr; gap: 8px; }
-    .mem-compose .selbox, .mem-filter .selbox { height: 34px; }
-    .mem-compose .inp, .mem-filter .inp { height: 34px; }
-    .rng { -webkit-appearance: none; appearance: none; height: 4px; border-radius: var(--r-pill);
-      background: var(--line-strong); }
-    .rng::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
-      background: var(--accent); cursor: pointer; }
-    .mem-add { height: 34px; padding: 0 14px; border: 1px solid var(--line); border-radius: var(--r-md);
-      background: var(--surface-1); color: var(--ink-2); font-size: var(--fs-sm); }
+    /* ── Memory · compose + filter + rows ───────── */
+    .mem-compose {
+      display: grid;
+      grid-template-columns: 130px 1fr 100px auto;
+      gap: var(--sp-2); align-items: center;
+    }
+    .mem-filter { display: grid; grid-template-columns: 130px 1fr; gap: var(--sp-2); }
+    .mem-compose .selbox, .mem-filter .selbox,
+    .mem-compose .inp, .mem-filter .inp { height: 30px; font-size: var(--fs-sm); }
+    .rng {
+      -webkit-appearance: none; appearance: none;
+      height: 4px; border-radius: var(--r-pill);
+      background: var(--line-strong);
+    }
+    .rng::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px; height: 13px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+      box-shadow: 0 1px 2px rgba(20,32,56,0.20);
+    }
+    .mem-add {
+      height: 30px; padding: 0 12px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1); color: var(--ink-2);
+      font-size: var(--fs-sm); font-weight: 600;
+      transition: background 0.14s ease;
+    }
+    .mem-add:hover:not(:disabled) { background: var(--surface-sunken); }
     .mem-add:disabled { color: var(--ink-4); background: var(--surface-sunken); cursor: not-allowed; }
-    .mem-sec { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-sunken); padding: 12px; }
-    .mem-sec .mh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
-    .mem-sec .mh h4 { margin: 0; font-size: var(--fs-sm); font-weight: 620; text-transform: capitalize; color: var(--ink-1); }
-    .mem-sec .mh .ct { font-size: var(--fs-meta); color: var(--ink-4); }
-    .mem-sec .empty { font-size: var(--fs-meta); color: var(--ink-4); }
-    .mem-entry { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); padding: 9px; }
-    .mem-entry + .mem-entry { margin-top: 8px; }
-    .mem-entry textarea, .mem-entry .ta { width: 100%; min-height: 56px; border: 1px solid var(--line);
-      border-radius: var(--r-sm); background: var(--surface-1); padding: 8px 10px; font: inherit;
-      font-size: var(--fs-sm); color: var(--ink-1); resize: vertical; }
-    .mem-entry .mrow { margin-top: 8px; display: flex; align-items: center; gap: 12px;
-      font-size: var(--fs-meta); color: var(--ink-3); }
-    .mem-entry .mrow .del { margin-left: auto; height: 24px; padding: 0 9px; border: 1px solid var(--line);
-      border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-3); font-size: var(--fs-meta); }
 
-    /* ── History tab ── */
-    .fork-badge { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--r-sm);
-      background: var(--info-surface); border: 1px solid rgba(47,107,255,0.2); font-size: var(--fs-meta); color: var(--ink-2); }
+    .mem-sec { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .mem-sec .mh { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+    .mem-sec .mh h4 {
+      margin: 0;
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      font-weight: 680; color: var(--ink-3); text-transform: uppercase;
+    }
+    .mem-sec .mh .ct {
+      font-size: 9.5px; font-weight: 680; color: var(--ink-3);
+      background: var(--surface-sunken); border-radius: var(--r-pill);
+      padding: 1px 7px;
+    }
+    .mem-sec .empty {
+      font-size: var(--fs-meta); color: var(--ink-4); margin: 0; padding: 6px 0;
+    }
+
+    /* Memory entry — thread-row-style affordance */
+    .mem-entry {
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-1);
+      padding: 9px 10px;
+      transition: border-color 0.12s ease, background 0.12s ease;
+    }
+    .mem-entry:hover { border-color: var(--line); background: var(--surface-2); }
+    .mem-entry .ta {
+      width: 100%;
+      font-size: var(--fs-sm); color: var(--ink-1); line-height: 1.55;
+    }
+    .mem-entry textarea {
+      width: 100%; min-height: 52px;
+      border: 1px solid var(--line); border-radius: var(--r-xs);
+      background: var(--surface-2); padding: 7px 9px;
+      font: inherit; font-size: var(--fs-sm); color: var(--ink-1);
+      resize: vertical;
+    }
+    .mem-entry .mrow {
+      margin-top: 7px;
+      display: flex; align-items: center; gap: var(--sp-3);
+      font-size: var(--fs-micro); color: var(--ink-4);
+    }
+    .mem-entry .mrow label { display: flex; align-items: center; gap: 6px; }
+    .mem-entry .mrow .del {
+      margin-left: auto;
+      height: 22px; padding: 0 8px;
+      border: 1px solid var(--line); border-radius: var(--r-xs);
+      background: var(--surface-1); color: var(--ink-3);
+      font-size: var(--fs-micro); font-weight: 600;
+    }
+    .mem-entry .mrow .del:hover { color: var(--danger); border-color: rgba(214,69,61,0.4); }
+
+    /* ── History · fork badge + version timeline ─ */
+    .fork-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: var(--r-sm);
+      background: var(--accent-surface);
+      border: 1px solid rgba(47,107,255,0.20);
+      font-size: var(--fs-meta); color: var(--ink-2);
+    }
     .fork-badge .mono { font-family: var(--mono); }
     .fork-badge .pkg { color: var(--ink-4); }
-    .ver-list { display: flex; flex-direction: column; gap: 4px; max-height: 192px; overflow-y: auto;
-      border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: 6px; background: var(--surface-1); }
-    .ver-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: var(--r-sm);
-      border: 1px solid transparent; background: transparent; text-align: left; }
-    .ver-row:hover { background: var(--surface-hover); }
-    .ver-row.sel { background: var(--accent-surface); border-color: var(--accent-ring); }
-    .ver-row .vn { width: 28px; flex: none; font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-4); }
-    .ver-row .vsum { flex: 1; font-size: var(--fs-meta); color: var(--ink-3);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ver-diff { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 9px; }
-    .ver-diff .dh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; gap: 8px; }
-    .ver-diff .dh .dt { font-size: var(--fs-meta); font-weight: 600; color: var(--ink-2); }
+
+    /* version rows: thread-row-style affordance */
+    .ver-list {
+      display: flex; flex-direction: column; gap: 2px;
+      max-height: 200px; overflow-y: auto;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      padding: 4px; background: var(--surface-1);
+    }
+    .ver-row {
+      display: flex; align-items: center; gap: var(--sp-2);
+      height: 30px; padding: 0 9px;
+      border: 1px solid transparent; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-2);
+      font-size: var(--fs-meta); text-align: left;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .ver-row:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    .ver-row.sel {
+      border-color: var(--accent-ring); background: var(--accent-surface);
+      color: var(--accent); font-weight: 620;
+    }
+    .ver-row .vn { width: 26px; flex: none; font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-4); }
+    .ver-row.sel .vn { color: var(--accent); }
+    .ver-row .vsum {
+      flex: 1; font-size: var(--fs-meta); color: inherit;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .ver-diff {
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-1);
+      padding: 9px;
+      box-shadow: var(--elev-1);
+    }
+    .ver-diff .dh {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px; gap: var(--sp-2);
+    }
+    .ver-diff .dh .dt { font-size: var(--fs-meta); font-weight: 620; color: var(--ink-2); }
     .difftbl { width: 100%; border-collapse: collapse; font-size: var(--fs-meta); }
-    .difftbl th { text-align: left; padding: 6px 8px; color: var(--ink-3); font-weight: 600;
-      border-bottom: 1px solid var(--line); }
-    .difftbl td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+    .difftbl th {
+      text-align: left; padding: 6px 8px; color: var(--ink-3); font-weight: 600;
+      border-bottom: 1px solid var(--line);
+      font-size: var(--fs-micro); letter-spacing: var(--ls-caps); text-transform: uppercase;
+    }
+    .difftbl td {
+      padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: top;
+    }
     .difftbl td.f { font-family: var(--mono); }
     .difftbl td pre { margin: 0; font-family: var(--mono); font-size: 10px; white-space: pre-wrap; word-break: break-all; }
     .df-add { color: #15824f; } .df-rm { color: #b8352e; } .df-ch { color: var(--warn); }
 
-    /* shared bits */
-    .badge { height: 19px; padding: 0 9px; border-radius: var(--r-pill); font-size: 9.5px;
-      font-weight: 660; display: inline-flex; align-items: center; }
+    /* ── Shared badges / buttons ────────────────── */
+    .badge {
+      height: 19px; padding: 0 9px; border-radius: var(--r-pill);
+      font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      display: inline-flex; align-items: center;
+    }
     .badge.ok { background: var(--ok-surface); color: #15824f; }
-    .badge.info { background: var(--info-surface); color: var(--info); }
+    .badge.info { background: var(--accent-surface); color: var(--accent); }
     .badge.warn { background: var(--warn-surface); color: #8a5a0c; }
     .badge.sec { background: var(--surface-sunken); color: var(--ink-3); }
-    .btn { height: 32px; padding: 0 14px; border-radius: var(--r-md); font-size: var(--fs-sm);
-      font-weight: 620; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line);
-      background: var(--surface-1); color: var(--ink-2); }
+
+    .btn {
+      height: 30px; padding: 0 12px;
+      border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: 620;
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid var(--line);
+      background: var(--surface-1); color: var(--ink-2);
+      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+    }
     .btn:hover { background: var(--surface-sunken); }
-    .btn.sm { height: 28px; padding: 0 11px; font-size: var(--fs-meta); }
+    .btn.sm { height: 28px; padding: 0 10px; font-size: var(--fs-meta); }
     .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
     .btn.primary:hover { background: var(--accent-press); }
     .btn.primary:disabled { background: var(--surface-sunken); color: var(--ink-4); border: 1px solid var(--line); cursor: not-allowed; }
     .btn.danger { background: var(--danger); color: #fff; border-color: transparent; }
+    .btn.danger:hover { background: #b8352e; }
     .btn.outline { background: var(--surface-1); }
 
-    .hero { max-width: 420px; margin: 0 auto; text-align: center; display: flex;
-      flex-direction: column; align-items: center; gap: 12px; padding: 48px 0; }
-    .hero .hi { width: 50px; height: 50px; border-radius: var(--r-xl); background: var(--surface-1);
-      border: 1px solid var(--line); box-shadow: var(--elev-1); display: grid; place-items: center; color: var(--ink-3); }
+    .hero {
+      max-width: 340px; margin: 0 auto; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-8) 0;
+    }
+    .hero .hi {
+      width: 44px; height: 44px;
+      border-radius: var(--r-md);
+      background: var(--surface-1);
+      border: 1px solid var(--line); box-shadow: var(--elev-1);
+      display: grid; place-items: center; color: var(--ink-3);
+    }
     .hero .ht { font-size: var(--fs-md); font-weight: 700; color: var(--ink-1); }
-    .hero .hd { font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.6; }
-    .hero .htech { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4);
-      background: var(--surface-sunken); border-radius: var(--r-xs); padding: 5px 9px; }
-    .hero .ha { display: flex; gap: 9px; margin-top: 3px; }
-    .sk-shimmer { background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line-soft) 37%, var(--surface-sunken) 63%);
-      background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: var(--r-xs); }
+    .hero .hd { font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.55; }
+    .hero .htech {
+      font-family: var(--mono); font-size: 9.5px; color: var(--ink-4);
+      background: var(--surface-sunken); border-radius: var(--r-xs);
+      padding: 5px 9px;
+    }
+    .hero .ha { display: flex; gap: 8px; margin-top: 2px; }
+
+    .sk-shimmer {
+      background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line-soft) 37%, var(--surface-sunken) 63%);
+      background-size: 400% 100%; animation: shimmer 1.4s ease infinite;
+      border-radius: var(--r-sm);
+    }
     @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
-    .skel-row { height: 58px; border-radius: var(--r-md); margin-bottom: 8px; }
+    .skel-row { height: 38px; border-radius: var(--r-sm); margin: 0 0 var(--sp-2); }
 
     /* ══════════ State specimens ══════════ */
     .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
@@ -466,39 +857,70 @@
     .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
     .spec-suite-head b { color: #aebfff; font-weight: 640; }
     .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
-    .spec-state { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.45); background: var(--bg); }
-    .spec-cap { display: flex; align-items: center; gap: var(--sp-3); padding: 9px 14px;
-      background: linear-gradient(#11161f, #0c0f16); color: #d6deec; font-size: var(--fs-sm);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06); flex-wrap: wrap; }
-    .spec-cap .n { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-xs);
-      background: rgba(47, 107, 255, 0.22); color: #9db8ff; font-size: var(--fs-micro); font-weight: 760; flex: none; }
+    .spec-state {
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.45);
+      background: var(--bg);
+    }
+    .spec-cap {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: 9px 14px;
+      background: linear-gradient(#11161f, #0c0f16);
+      color: #d6deec; font-size: var(--fs-sm);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-wrap: wrap;
+    }
+    .spec-cap .n {
+      display: grid; place-items: center;
+      width: 20px; height: 20px; border-radius: var(--r-xs);
+      background: rgba(47, 107, 255, 0.22); color: #9db8ff;
+      font-size: var(--fs-micro); font-weight: 760; flex: none;
+    }
     .spec-cap .t { font-weight: 640; color: #fff; }
     .spec-cap .d { color: #8b97ad; }
     .spec-cap code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
     .spec-frame { position: relative; background: var(--bg); padding: 22px; }
     .spec-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
     .spec-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-    .mini-pane { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1);
-      overflow: hidden; box-shadow: var(--elev-1); }
-    .mini-cap { padding: 7px 12px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em;
-      text-transform: uppercase; color: var(--ink-4); background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
+    .mini-pane {
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--surface-1);
+      overflow: hidden; box-shadow: var(--elev-1);
+    }
+    .mini-cap {
+      padding: 7px 12px;
+      font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps);
+      text-transform: uppercase; color: var(--ink-4);
+      background: var(--surface-2); border-bottom: 1px solid var(--line-soft);
+    }
     .annot { font-size: 9.5px; font-weight: 600; color: var(--ink-4); font-style: italic; }
-    .annot-dark { font-size: 10px; font-style: italic; color: #8b97ad; padding: 6px 4px 0; }
+    .annot-dark {
+      font-size: 10px; font-style: italic;
+      color: #8b97ad; padding: 6px 4px 0;
+    }
     .annot-dark code { font-family: var(--mono); color: #aab6cc; }
-    .rev-flag { display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: var(--r-pill);
-      background: rgba(201,132,16,0.18); color: #e0b15a; font-size: 9px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.06em; }
+    .rev-flag {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 1px 7px; border-radius: var(--r-pill);
+      background: rgba(201,132,16,0.18); color: #e0b15a;
+      font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
 
     ::-webkit-scrollbar { width: 7px; height: 7px; }
-    ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill);
-      border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--line-strong); border-radius: var(--r-pill);
+      border: 2px solid transparent; background-clip: content-box;
+    }
 
     @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
     .reveal { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
     .reveal.d1 { animation-delay: 0.05s; }
-    .spin { animation: spin 0.9s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .reveal, .sk-shimmer, .spin { animation: none; } * { transition: none !important; } }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .sk-shimmer { animation: none; }
+      * { transition: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -510,14 +932,12 @@
     <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
     <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M15 9h3a2 2 0 0 1 2 2v10"/><path d="M3 21h18M8 7h3M8 11h3M8 15h3"/></symbol>
     <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></symbol>
-    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></symbol>
     <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 0-2 2z"/><path d="M5 4v16"/><path d="M9 8h6M9 12h6"/></symbol>
     <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1-5h14l1 5M4 9h16M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M9 20v-6h6v6"/></symbol>
     <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.5a4.5 4.5 0 0 1 4.5 4.5"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
-    <symbol id="i-user-plus" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M18 8v6M15 11h6"/></symbol>
     <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M10 4a2 2 0 0 1 4 0v2h3a1 1 0 0 1 1 1v3h2a2 2 0 0 1 0 4h-2v4a1 1 0 0 1-1 1h-4v-2a2 2 0 0 0-4 0v2H6a1 1 0 0 1-1-1v-4H4a2 2 0 0 1 0-4h1V7a1 1 0 0 1 1-1h4z"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
     <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l4 4v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M8 4v5h7M8 14h8v6H8z"/></symbol>
@@ -554,7 +974,6 @@
       </div>
       <div class="iconbar reveal d1">
         <button class="iconbtn" title="Activity log"><svg class="ico sm"><use href="#i-activity"/></svg></button>
-        <button class="iconbtn" title="Notifications"><svg class="ico sm"><use href="#i-bell"/></svg><span class="nb">3</span></button>
         <button class="iconbtn" title="Settings"><svg class="ico sm"><use href="#i-settings"/></svg></button>
       </div>
     </nav>
@@ -582,49 +1001,49 @@
         </div>
         <div class="pr-list">
           <button class="pr-emp sel">
-            <span class="av" style="width:32px;height:32px;font-size:12px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span>
+            <span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span>
             <span class="pe-info">
               <span class="pe-name-row"><span class="pe-name">Maya Chen</span></span>
               <span class="pe-meta"><span class="pe-role">Frontend Dev</span></span>
             </span>
           </button>
           <button class="pr-emp">
-            <span class="av" style="width:32px;height:32px;font-size:12px;--av-a:#2f9f6a;--av-b:#1c7a4c">DS</span>
+            <span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#2f9f6a;--av-b:#1c7a4c">DS</span>
             <span class="pe-info">
               <span class="pe-name-row"><span class="pe-name">Diego Santos</span><span class="pe-dis">disabled</span></span>
               <span class="pe-meta"><span class="pe-role">Backend Dev</span></span>
             </span>
           </button>
           <button class="pr-emp">
-            <span class="av" style="width:32px;height:32px;font-size:12px;--av-a:#e0763f;--av-b:#c0551f">AK</span>
+            <span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#e0763f;--av-b:#c0551f">AK</span>
             <span class="pe-info">
               <span class="pe-name-row"><span class="pe-name">Aria Kim</span></span>
               <span class="pe-meta"><span class="pe-role">UI Designer</span></span>
             </span>
           </button>
           <button class="pr-emp">
-            <span class="av" style="width:32px;height:32px;font-size:12px;--av-a:#3aa0d4;--av-b:#1f7fb0">NP</span>
+            <span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#3aa0d4;--av-b:#1f7fb0">NP</span>
             <span class="pe-info">
               <span class="pe-name-row"><span class="pe-name">Noah Patel</span></span>
               <span class="pe-meta"><span class="pe-role">QA</span></span>
             </span>
           </button>
           <button class="pr-emp">
-            <span class="av" style="width:32px;height:32px;font-size:12px;--av-a:#d6453d;--av-b:#b0322b">SR</span>
+            <span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#d6453d;--av-b:#b0322b">SR</span>
             <span class="pe-info">
               <span class="pe-name-row"><span class="pe-name">Sam Rivera</span></span>
               <span class="pe-meta"><span class="pe-role">DevOps</span></span>
             </span>
           </button>
           <button class="pr-emp">
-            <span class="av brand" style="width:32px;height:32px"><svg class="ico"><use href="#i-user"/></svg></span>
+            <span class="av brand" style="width:30px;height:30px"><svg class="ico"><use href="#i-user"/></svg></span>
             <span class="pe-info">
               <span class="pe-name-row"><span class="pe-name">Hermes Agent</span></span>
               <span class="pe-meta"><span class="pe-role">Researcher</span><span class="pe-brand">Hermes</span></span>
             </span>
           </button>
           <button class="pr-emp">
-            <span class="av brand" style="width:32px;height:32px"><svg class="ico"><use href="#i-user"/></svg></span>
+            <span class="av brand" style="width:30px;height:30px"><svg class="ico"><use href="#i-user"/></svg></span>
             <span class="pe-info">
               <span class="pe-name-row"><span class="pe-name">Codex Peer</span></span>
               <span class="pe-meta"><span class="pe-role">Developer</span><span class="pe-brand">Codex</span></span>
@@ -636,10 +1055,10 @@
       <!-- Center detail -->
       <section class="pers-detail">
         <div class="pd-head">
-          <span class="av" style="width:64px;height:64px;font-size:22px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span>
+          <span class="av" style="width:56px;height:56px;font-size:19px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span>
           <div class="pd-id">
             <h2 class="pd-name">Maya Chen</h2>
-            <span class="pd-role">Frontend Dev</span>
+            <span class="pd-role">Frontend Dev · Engineering Bay · Desk 1</span>
           </div>
           <div class="pd-pills">
             <span class="st-pill on">Enabled</span>
@@ -650,18 +1069,18 @@
       <!-- Right inspector -->
       <section class="pers-insp">
         <div class="insp-tabs">
-          <button class="active">Profile</button>
-          <button>Appearance</button>
-          <button>Runtime</button>
-          <button>Skills</button>
-          <button>Memory</button>
-          <button>History</button>
+          <button class="insp-tab active">Profile</button>
+          <button class="insp-tab">Appearance</button>
+          <button class="insp-tab">Runtime</button>
+          <button class="insp-tab">Skills</button>
+          <button class="insp-tab">Memory</button>
+          <button class="insp-tab">History</button>
         </div>
         <div class="insp-body">
           <div class="insp-scroll">
             <div class="prof-grid">
               <section class="prof-sec">
-                <h3>Identity</h3>
+                <span class="insp-sec-label">Identity</span>
                 <div class="fld"><label>Name</label><div class="inp">Maya Chen</div></div>
                 <div class="fld"><label>Role</label><div class="selbox">Frontend Dev</div></div>
                 <div class="fld"><span class="fl">Status</span><button class="toggle-btn on">Enabled</button></div>
@@ -669,7 +1088,7 @@
                   <span class="hint">MCP tools enabled</span></div>
               </section>
               <section class="prof-sec">
-                <h3>Persona</h3>
+                <span class="insp-sec-label">Persona</span>
                 <div class="fld"><label>Expertise</label><div class="inp area">React 19, design systems, accessibility, tight UI diffs</div></div>
                 <div class="fld"><label>Working Style</label><div class="inp area">detail-oriented, collaborative</div></div>
                 <div class="fld"><span class="fl">Communication Frequency</span>
@@ -679,16 +1098,21 @@
                 <div class="fld"><label>Decision Style</label><div class="selbox">Collaborative</div></div>
               </section>
               <section class="prof-sec">
-                <h3>Config</h3>
+                <span class="insp-sec-label">Config</span>
                 <div class="fld"><span class="fl">Model mode</span>
                   <span class="seg"><button class="on">Inherit unified setting</button><button>Custom model</button></span>
                   <span class="hint">Uses the company-wide model from Settings &gt; Provider.</span></div>
                 <div class="fld"><label>Temperature</label><div class="inp">0.7</div></div>
                 <div class="fld"><label>Max Tokens</label><div class="inp">4096</div></div>
-                <div class="fld"><span class="fl">Skills</span>
-                  <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg>
-                    <div><div class="sr-top"><span class="sr-name">Competitive Teardown</span><span class="scope-tag">global</span></div>
-                    <p class="sr-desc">Structured market + competitor analysis.</p></div></div></div>
+              </section>
+              <section class="prof-sec">
+                <span class="insp-sec-label">Skills</span>
+                <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg>
+                  <div class="sr-main">
+                    <div class="sr-top"><span class="sr-name">Competitive Teardown</span><span class="scope-tag">global</span></div>
+                    <p class="sr-desc">Structured market + competitor analysis.</p>
+                  </div>
+                </div>
               </section>
             </div>
           </div>
@@ -705,7 +1129,7 @@
   <div class="spec-suite">
     <div class="spec-suite-head">
       <h2>Personnel — state specimens</h2>
-      The window above is the resting <b>desktop tier</b>: 3-pane grid <code>280px | 1fr | 420px</code> — roster rail
+      The window above is the resting <b>desktop tier</b>: 3-pane grid <code>280 | 1fr | 420</code> — roster rail
       (<b>EmployeeAvatar</b> rows, search + role filter) · center <b>DetailHeader</b> · right 6-tab inspector
       (Profile / Appearance / Runtime / Skills / Memory / History, all <code>forceMount</code> + retain state).
       Personnel is a full-width center workspace — non-Office routes through <code>WorkspaceRouter</code>, no right rail.
@@ -721,7 +1145,13 @@
       <div class="spec-frame spec-grid-2">
         <div>
           <div class="mini-pane" style="height:330px;display:flex;flex-direction:column">
-            <div class="pr-head"><div class="pr-srch-row"><div class="pr-search"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search employees..." disabled/></div><button class="pr-collapse"><svg class="ico sm"><use href="#i-chev-left"/></svg></button></div><label class="pr-filter"><span class="lbl">Role filter</span><div class="pr-sel">All roles</div></label></div>
+            <div class="pr-head">
+              <div class="pr-srch-row">
+                <div class="pr-search"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search employees..." disabled/></div>
+                <button class="pr-collapse"><svg class="ico sm"><use href="#i-chev-left"/></svg></button>
+              </div>
+              <label class="pr-filter"><span class="lbl">Role filter</span><div class="pr-sel">All roles</div></label>
+            </div>
             <div class="pr-list">
               <div class="sk-shimmer skel-row"></div><div class="sk-shimmer skel-row"></div><div class="sk-shimmer skel-row"></div>
               <div class="sk-shimmer skel-row"></div><div class="sk-shimmer skel-row"></div><div class="sk-shimmer skel-row"></div>
@@ -733,7 +1163,7 @@
           <div class="mini-pane" style="height:330px;display:flex;flex-direction:column">
             <div class="pr-head"><div class="pr-srch-row"><div class="pr-search"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search employees..." disabled/></div></div></div>
             <div class="pr-list" style="display:grid;place-items:center">
-              <div class="hero" style="padding:8px">
+              <div class="hero">
                 <div class="hi"><svg class="ico lg"><use href="#i-alert"/></svg></div>
                 <div class="ht">Couldn't load employees</div>
                 <div class="hd">The roster could not be refreshed.</div>
@@ -748,7 +1178,7 @@
           <div class="mini-pane" style="height:330px;display:flex;flex-direction:column">
             <div class="pr-head"><div class="pr-srch-row"><div class="pr-search"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search employees..." disabled/></div></div></div>
             <div class="pr-list" style="display:grid;place-items:center">
-              <div class="hero" style="padding:8px">
+              <div class="hero">
                 <div class="hi"><svg class="ico lg"><use href="#i-users"/></svg></div>
                 <div class="ht">No employees yet</div>
                 <div class="hd">Hire the first teammate for this company.</div>
@@ -762,7 +1192,7 @@
           <div class="mini-pane" style="height:330px;display:flex;flex-direction:column">
             <div class="pr-head"><div class="pr-srch-row"><div class="pr-search"><svg class="ico sm"><use href="#i-search"/></svg><input value="zzz" disabled/></div></div><label class="pr-filter"><span class="lbl">Role filter</span><div class="pr-sel">QA</div></label></div>
             <div class="pr-list" style="display:grid;place-items:center">
-              <div class="hero" style="padding:8px">
+              <div class="hero">
                 <div class="hi"><svg class="ico lg"><use href="#i-search-x"/></svg></div>
                 <div class="ht">No matching employees</div>
                 <div class="hd">Reset the search or role filter to broaden the list.</div>
@@ -785,15 +1215,15 @@
             <aside class="pers-rail">
               <div class="pr-head"><div class="pr-srch-row" style="justify-content:center"><button class="pr-collapse" title="Expand"><svg class="ico sm"><use href="#i-chev-right"/></svg></button></div></div>
               <div class="pr-list">
-                <button class="pr-emp"><span class="av" style="width:32px;height:32px;font-size:12px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span></button>
-                <button class="pr-emp"><span class="av" style="width:32px;height:32px;font-size:12px;--av-a:#2f9f6a;--av-b:#1c7a4c">DS</span></button>
-                <button class="pr-emp"><span class="av" style="width:32px;height:32px;font-size:12px;--av-a:#e0763f;--av-b:#c0551f">AK</span></button>
-                <button class="pr-emp"><span class="av" style="width:32px;height:32px;font-size:12px;--av-a:#3aa0d4;--av-b:#1f7fb0">NP</span></button>
-                <button class="pr-emp"><span class="av brand" style="width:32px;height:32px"><svg class="ico"><use href="#i-user"/></svg></span></button>
+                <button class="pr-emp"><span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span></button>
+                <button class="pr-emp"><span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#2f9f6a;--av-b:#1c7a4c">DS</span></button>
+                <button class="pr-emp"><span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#e0763f;--av-b:#c0551f">AK</span></button>
+                <button class="pr-emp"><span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#3aa0d4;--av-b:#1f7fb0">NP</span></button>
+                <button class="pr-emp"><span class="av brand" style="width:30px;height:30px"><svg class="ico"><use href="#i-user"/></svg></span></button>
               </div>
             </aside>
             <section class="pers-detail">
-              <div class="pd-empty"><div class="hero" style="padding:0"><div class="hi"><svg class="ico lg"><use href="#i-user"/></svg></div><div class="ht">Select an employee</div></div></div>
+              <div class="pd-empty"><div class="hero"><div class="hi"><svg class="ico lg"><use href="#i-user"/></svg></div><div class="ht">Select an employee</div></div></div>
             </section>
             <section class="pers-insp" style="background:var(--surface-2)"></section>
           </div>
@@ -810,19 +1240,23 @@
         <div>
           <div class="mini-pane">
             <div class="mini-cap">Sticky save bar · delete confirm</div>
-            <div style="padding:14px 16px;background:var(--surface-2);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-              <div class="del-confirm"><span>Delete Maya Chen? This cannot be undone.</span>
-                <button class="btn danger sm">Delete</button><button class="btn outline sm">Cancel</button></div>
+            <div class="savebar" style="background:var(--surface-2)">
+              <div class="left del-confirm">
+                <span>Delete Maya Chen? This cannot be undone.</span>
+                <button class="btn danger sm">Delete</button>
+                <button class="btn outline sm">Cancel</button>
+              </div>
               <button class="btn primary sm" disabled>Save</button>
             </div>
-            <div style="padding:10px 16px;font-size:var(--fs-meta);color:var(--danger);border-top:1px solid var(--line-soft)">deleteError surfaces inline here when confirmDelete() rejects</div>
+            <div style="padding:9px 16px;font-size:var(--fs-meta);color:var(--danger);border-top:1px solid var(--line-soft);background:var(--surface-1)">deleteError surfaces inline here when confirmDelete() rejects</div>
           </div>
           <p class="annot-dark">Save disabled unless <code>isDirty &amp;&amp; name.trim() &amp;&amp; !isSaving</code>; while saving → "Deleting..." / "Saving...".</p>
         </div>
         <div>
           <div class="mini-pane">
             <div class="mini-cap">Config · model mode = Custom model</div>
-            <div style="padding:16px;display:flex;flex-direction:column;gap:14px;background:var(--surface-1)">
+            <div style="padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--surface-1)">
+              <span class="insp-sec-label">Config</span>
               <div class="fld"><span class="fl">Model mode</span><span class="seg"><button>Inherit unified setting</button><button class="on">Custom model</button></span><span class="hint">This employee will use the explicit model below.</span></div>
               <div class="fld"><label>Model family</label><div class="selbox">Configured validation models</div></div>
               <div class="fld"><label>Override model</label><div class="inp ph">e.g. MiniMax-M2.7, GLM-5.1, openai/gpt-oss-120b:free</div>
@@ -841,8 +1275,9 @@
         <span class="d">Custom Instructions <b>Textarea</b> rows=4 · collapsible <b>System Prompt Preview</b> renders <code>buildSystemPrompt(formData)</code> live</span></div>
       <div class="spec-frame">
         <div class="mini-pane" style="max-width:760px;margin:0 auto">
-          <div style="padding:16px;display:flex;flex-direction:column;gap:14px;background:var(--surface-1)">
-            <div class="fld"><label>Custom Instructions</label><div class="inp area ph" style="min-height:88px">Additional instructions for this employee's behavior...</div></div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--surface-1)">
+            <span class="insp-sec-label">Persona</span>
+            <div class="fld"><label>Custom Instructions</label><div class="inp area ph" style="min-height:80px">Additional instructions for this employee's behavior...</div></div>
             <div class="sysprompt">
               <button><svg class="ico xs"><use href="#i-chev-down"/></svg>System Prompt Preview</button>
               <pre>You are Maya Chen, a Frontend Dev at Acme Studio.
@@ -864,7 +1299,7 @@ risks before acting on irreversible changes.</pre>
     <!-- 5 · Appearance tab -->
     <div class="spec-state">
       <div class="spec-cap"><span class="n">5</span><span class="t">Appearance tab — AvatarCustomizer + 2D/3D previews · external fixed</span>
-        <span class="d">internal: grid <code>1fr | 280px</code> — <b>AvatarCustomizer</b> + live <b>PreviewCard</b> 2D (DicebearAvatar) / 3D (block figure, OrbitControls) · external: "Brand avatar — appearance is fixed."</span></div>
+        <span class="d">internal: grid <code>1fr | 260</code> — <b>AvatarCustomizer</b> + live <b>PreviewCard</b> 2D (DicebearAvatar) / 3D (block figure, OrbitControls) · external: "Brand avatar — appearance is fixed."</span></div>
       <div class="spec-frame spec-grid-2">
         <div>
           <div class="mini-pane">
@@ -872,17 +1307,17 @@ risks before acting on irreversible changes.</pre>
             <div style="padding:16px;background:var(--surface-1)">
               <div class="app-grid">
                 <div class="avc">
-                  <div class="cap">Appearance</div>
+                  <span class="cap-label">Appearance</span>
                   <div class="swrow"><div class="sl">Skin tone</div><div class="sws"><span class="sw" style="background:#fde8d5"></span><span class="sw on" style="background:#fdbcb4"></span><span class="sw" style="background:#e8a87c"></span><span class="sw" style="background:#b07650"></span><span class="sw" style="background:#6b3f2a"></span></div></div>
                   <div class="swrow"><div class="sl">Hair color</div><div class="sws"><span class="sw on" style="background:#1a1a1a"></span><span class="sw" style="background:#6b3f1e"></span><span class="sw" style="background:#d4a843"></span><span class="sw" style="background:#b03020"></span><span class="sw" style="background:#9e9e9e"></span><span class="sw" style="background:#3d6bce"></span></div></div>
                   <div class="swrow"><div class="sl">Clothing color</div><div class="sws"><span class="sw" style="background:#4f6df5"></span><span class="sw on" style="background:#2f9f6a"></span><span class="sw" style="background:#d6453d"></span><span class="sw" style="background:#c98410"></span><span class="sw" style="background:#7c4ddb"></span></div></div>
-                  <div class="swrow"><div class="sl">Clothing accent</div><div class="sws"><span class="sw on" style="background:#4f6df5"></span><span class="sw" style="background:#2f9f6a"></span><span class="sw" style="background:#d6453d"></span><span class="sw" style="background:#c98410"></span><span class="sw" style="background:#7c4ddb"></span></div><div class="sl" style="margin-top:5px">Renders as a visible vest panel.</div></div>
-                  <div><div class="sl" style="margin-bottom:6px;font-size:var(--fs-micro);color:var(--ink-4)">Gender presentation</div><div class="gender"><button class="on">Neutral</button><button>Masc</button><button>Fem</button></div></div>
+                  <div class="swrow"><div class="sl">Clothing accent</div><div class="sws"><span class="sw on" style="background:#4f6df5"></span><span class="sw" style="background:#2f9f6a"></span><span class="sw" style="background:#d6453d"></span><span class="sw" style="background:#c98410"></span><span class="sw" style="background:#7c4ddb"></span></div><div class="sl" style="margin-top:3px">Renders as a visible vest panel.</div></div>
+                  <div class="swrow"><div class="sl">Gender presentation</div><div class="gender"><button class="on">Neutral</button><button>Masc</button><button>Fem</button></div></div>
                   <div class="avc-2col"><div><div class="sl">Hair style</div><div class="selbox">Short</div></div><div><div class="sl">Body type</div><div class="selbox">Normal</div></div></div>
                 </div>
                 <div class="prev-col">
-                  <div class="prev"><span class="pl">2D</span><span class="av" style="width:96px;height:96px;font-size:30px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span></div>
-                  <div class="prev"><span class="pl">3D</span><span class="figure"><svg class="ico" style="width:54px;height:78px"><use href="#i-user"/></svg></span></div>
+                  <div class="prev"><span class="pl">2D</span><span class="av" style="width:88px;height:88px;font-size:28px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span></div>
+                  <div class="prev"><span class="pl">3D</span><span class="figure"><svg class="ico" style="width:48px;height:70px"><use href="#i-user"/></svg></span></div>
                 </div>
               </div>
             </div>
@@ -894,10 +1329,10 @@ risks before acting on irreversible changes.</pre>
             <div class="mini-cap">External brand peer</div>
             <div style="padding:16px;background:var(--surface-1)">
               <div class="app-grid">
-                <div style="display:flex;align-items:center;min-height:120px"><p style="font-size:var(--fs-meta);color:var(--ink-4)">Brand avatar — appearance is fixed.</p></div>
+                <div style="display:flex;align-items:center;min-height:120px"><p style="font-size:var(--fs-meta);color:var(--ink-4);line-height:1.5">Brand avatar — appearance is fixed.</p></div>
                 <div class="prev-col">
-                  <div class="prev"><span class="pl">2D</span><span class="av brand" style="width:96px;height:96px"><svg class="ico" style="width:46px;height:46px"><use href="#i-user"/></svg></span></div>
-                  <div class="prev"><span class="pl">3D</span><span class="figure"><svg class="ico" style="width:54px;height:78px;color:var(--ink-4)"><use href="#i-user"/></svg></span></div>
+                  <div class="prev"><span class="pl">2D</span><span class="av brand" style="width:88px;height:88px"><svg class="ico" style="width:42px;height:42px"><use href="#i-user"/></svg></span></div>
+                  <div class="prev"><span class="pl">3D</span><span class="figure"><svg class="ico" style="width:48px;height:70px;color:var(--ink-4)"><use href="#i-user"/></svg></span></div>
                 </div>
               </div>
             </div>
@@ -915,8 +1350,8 @@ risks before acting on irreversible changes.</pre>
         <div>
           <div class="mini-pane">
             <div class="mini-cap">Internal · Execution binding</div>
-            <div style="padding:16px;background:var(--surface-1)">
-              <h3 style="margin:0 0 12px;font-size:var(--fs-meta);font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--ink-4)">Execution binding</h3>
+            <div style="padding:16px;background:var(--surface-1);display:flex;flex-direction:column;gap:12px">
+              <span class="insp-sec-label">Execution binding</span>
               <div class="rbind">
                 <div class="rbind-opt sel"><span class="lab">Inherit company default</span><span class="des">Use the company capability profile.</span></div>
                 <div class="rbind-opt"><span class="lab">Offisim gateway tools</span><span class="des">Default harness with Offisim file, shell, MCP, and evidence paths.</span></div>
@@ -925,8 +1360,8 @@ risks before acting on irreversible changes.</pre>
                 <div class="rbind-opt dis"><span class="lab">OpenAI text engine</span><span class="des">Preview text/reasoning only; no Offisim local tools.</span><span class="req">Requires trusted desktop runtime</span></div>
                 <div class="rbind-opt"><span class="lab">Codex full-agent</span><span class="des">Blocked until selected-model release evidence passes.</span><span class="full">Unavailable: release-app / cancellation</span></div>
               </div>
-              <p class="rbind-resolved" style="margin:12px 0 0">Resolved: <b>Provider gateway (from company default)</b></p>
-              <div class="rbind-disc" style="margin-top:12px">Text-only preview · SDK transport is model access, not a full-agent route. Gateway-bridged tools and SDK-native full-agent profiles become selectable only after deterministic, benchmark, trusted-host, release app, denied-path, cancellation, rollback, sandbox, and credential-boundary evidence passes.</div>
+              <p class="rbind-resolved" style="margin:0">Resolved: <b>Provider gateway (from company default)</b></p>
+              <div class="rbind-disc">Text-only preview · SDK transport is model access, not a full-agent route. Gateway-bridged tools and SDK-native full-agent profiles become selectable only after deterministic, benchmark, trusted-host, release app, denied-path, cancellation, rollback, sandbox, and credential-boundary evidence passes.</div>
             </div>
           </div>
           <p class="annot-dark">RadioGroup; engine cards disabled when adapter unavailable (<code>useAvailableEngineAdapters</code>) or profile blocked. Save bar (Save w/ disk icon) appears only while <code>isDirty</code>.</p>
@@ -950,7 +1385,8 @@ risks before acting on irreversible changes.</pre>
       <div class="spec-frame spec-grid-2">
         <div>
           <div class="mini-pane"><div class="mini-cap">No skills</div>
-            <div style="padding:16px;background:var(--surface-1)">
+            <div style="padding:16px;background:var(--surface-1);display:flex;flex-direction:column;gap:12px">
+              <span class="insp-sec-label">Skills</span>
               <div class="sk-empty"><svg class="ico lg"><use href="#i-puzzle"/></svg><p>No skills available. Skills installed from the marketplace or created locally will appear here.</p></div>
             </div>
           </div>
@@ -958,13 +1394,14 @@ risks before acting on irreversible changes.</pre>
         </div>
         <div>
           <div class="mini-pane"><div class="mini-cap">Merged skills</div>
-            <div style="padding:16px;background:var(--surface-1);display:flex;flex-direction:column;gap:8px">
-              <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg><div><div class="sr-top"><span class="sr-name">Competitive Teardown</span><span class="scope-tag">personal</span></div><p class="sr-desc">Structured market + competitor analysis skill that emits a graded teardown report.</p></div></div>
-              <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg><div><div class="sr-top"><span class="sr-name">Release Checklist</span><span class="scope-tag">global</span><span class="ovr-tag">overridden by your own</span></div><p class="sr-desc">Pre-ship verification SOP — superseded by this employee's personal copy.</p></div></div>
-              <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg><div><div class="sr-top"><span class="sr-name">Doc Summarizer</span><span class="scope-tag">global</span></div><p class="sr-desc">Condenses long context into a structured brief.</p></div></div>
+            <div style="padding:16px;background:var(--surface-1);display:flex;flex-direction:column;gap:10px">
+              <span class="insp-sec-label">Skills</span>
+              <div class="skrow sel"><svg class="ico sm"><use href="#i-puzzle"/></svg><div class="sr-main"><div class="sr-top"><span class="sr-name">Competitive Teardown</span><span class="scope-tag">personal</span></div><p class="sr-desc">Structured market + competitor analysis skill that emits a graded teardown report.</p></div></div>
+              <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg><div class="sr-main"><div class="sr-top"><span class="sr-name">Release Checklist</span><span class="scope-tag">global</span><span class="ovr-tag">overridden by your own</span></div><p class="sr-desc">Pre-ship verification SOP — superseded by this employee's personal copy.</p></div></div>
+              <div class="skrow"><svg class="ico sm"><use href="#i-puzzle"/></svg><div class="sr-main"><div class="sr-top"><span class="sr-name">Doc Summarizer</span><span class="scope-tag">global</span></div><p class="sr-desc">Condenses long context into a structured brief.</p></div></div>
             </div>
           </div>
-          <p class="annot-dark">Also embedded inside Profile ▸ Config "Skills" (edit mode only). Read-only here; SKILL.md body preview / editing is a follow-up (<b>SkillInspectorPanel</b> is the read-only viewer).</p>
+          <p class="annot-dark">Also embedded inside Profile ▸ Skills section (edit mode only). Read-only here; SKILL.md body preview / editing is a follow-up (<b>SkillInspectorPanel</b> is the read-only viewer). Rows use thread-row affordance — hover surface-sunken, active accent-surface + accent-ring.</p>
         </div>
       </div>
     </div>
@@ -972,10 +1409,11 @@ risks before acting on irreversible changes.</pre>
     <!-- 8 · Memory tab -->
     <div class="spec-state">
       <div class="spec-cap"><span class="n">8</span><span class="t">Memory tab — compose + filter + category-grouped entries</span>
-        <span class="d"><b>MemoryPanel</b> (<code>useEmployeeMemories</code>) · compose grid <code>140|1fr|120|auto</code> · filter <code>140|1fr</code> · 4 fixed sections experience/decision/knowledge/preference · loading / empty / no-selection states</span></div>
+        <span class="d"><b>MemoryPanel</b> (<code>useEmployeeMemories</code>) · compose grid <code>130|1fr|100|auto</code> · filter <code>130|1fr</code> · 4 fixed sections experience/decision/knowledge/preference · loading / empty / no-selection states</span></div>
       <div class="spec-frame">
         <div class="mini-pane" style="max-width:920px;margin:0 auto">
           <div style="padding:16px;background:var(--surface-1);display:flex;flex-direction:column;gap:14px">
+            <span class="insp-sec-label">Compose</span>
             <div class="mem-compose">
               <div class="selbox">knowledge</div>
               <div class="inp ph">Seed a memory...</div>
@@ -989,14 +1427,16 @@ risks before acting on irreversible changes.</pre>
             <div class="mem-sec">
               <div class="mh"><h4>experience</h4><span class="ct">2</span></div>
               <div class="mem-entry"><div class="ta">Shipped the v3 layout overhaul; learned the Tabs retain-state class is required to avoid CLS.</div>
-                <div class="mrow"><label style="display:flex;align-items:center;gap:8px">Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.8" style="width:90px"/></label><span>scope: employee</span><span>reinforced: 3</span><button class="del">Delete</button></div></div>
+                <div class="mrow"><label>Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.8" style="width:78px"/></label><span>scope: employee</span><span>reinforced: 3</span><button class="del">Delete</button></div></div>
               <div class="mem-entry"><div class="ta">Boss prefers one bundled PR over many small ones for refactors in the chat area.</div>
-                <div class="mrow"><label style="display:flex;align-items:center;gap:8px">Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.6" style="width:90px"/></label><span>scope: company</span><span>reinforced: 1</span><button class="del">Delete</button></div></div>
+                <div class="mrow"><label>Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.6" style="width:78px"/></label><span>scope: company</span><span>reinforced: 1</span><button class="del">Delete</button></div></div>
             </div>
             <div class="mem-sec"><div class="mh"><h4>decision</h4><span class="ct">0</span></div><p class="empty">No entries in this category.</p></div>
-            <div class="mem-sec"><div class="mh"><h4>knowledge</h4><span class="ct">1</span></div>
+            <div class="mem-sec">
+              <div class="mh"><h4>knowledge</h4><span class="ct">1</span></div>
               <div class="mem-entry"><div class="ta">The deterministic harness is the only allowed automated-proof layer; product validation is live-agent only.</div>
-                <div class="mrow"><label style="display:flex;align-items:center;gap:8px">Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.7" style="width:90px"/></label><span>scope: company</span><span>reinforced: 5</span><button class="del">Delete</button></div></div></div>
+                <div class="mrow"><label>Importance <input class="rng" type="range" min="0" max="1" step="0.1" value="0.7" style="width:78px"/></label><span>scope: company</span><span>reinforced: 5</span><button class="del">Delete</button></div></div>
+            </div>
             <div class="mem-sec"><div class="mh"><h4>preference</h4><span class="ct">0</span></div><p class="empty">No entries in this category.</p></div>
           </div>
         </div>
@@ -1012,6 +1452,7 @@ risks before acting on irreversible changes.</pre>
         <div>
           <div class="mini-pane"><div class="mini-cap">Forked · timeline + diff (v3 selected)</div>
             <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:12px">
+              <span class="insp-sec-label">Version history</span>
               <div class="fork-badge"><span class="badge info">Forked</span><span>From: <span class="mono">asset_frontend_eng_v2</span> <span class="pkg">(pkg: pkg_studio_bundle)</span></span></div>
               <div class="ver-list">
                 <div class="ver-row"><span class="vn">v5</span><span class="badge info">Updated</span><span class="vsum">Tighten persona; bump max tokens</span><span class="badge sec">current</span></div>
@@ -1035,10 +1476,10 @@ risks before acting on irreversible changes.</pre>
         </div>
         <div>
           <div class="spec-grid-3" style="grid-template-columns:1fr">
-            <div><div class="mini-pane"><div class="mini-cap">Loading</div><div style="padding:24px;background:var(--surface-1);text-align:center;font-size:var(--fs-sm);color:var(--ink-4)">Loading version history...</div></div></div>
-            <div><div class="mini-pane"><div class="mini-cap">No history</div><div style="padding:24px;background:var(--surface-1);text-align:center;font-size:var(--fs-sm);color:var(--ink-4)">No version history available.</div></div></div>
-            <div><div class="mini-pane"><div class="mini-cap">Single version</div><div style="padding:24px;background:var(--surface-1);text-align:center;font-size:var(--fs-sm);color:var(--ink-4)">Only one version exists. Make changes to build up history.</div></div></div>
-            <div><div class="mini-pane"><div class="mini-cap">No employee selected</div><div style="padding:24px;background:var(--surface-1);display:grid;place-items:center"><div class="hero" style="padding:0"><div class="hi"><svg class="ico lg"><use href="#i-clock"/></svg></div><div class="ht">Select an employee to view version history.</div></div></div></div></div>
+            <div><div class="mini-pane"><div class="mini-cap">Loading</div><div style="padding:22px;background:var(--surface-1);text-align:center;font-size:var(--fs-sm);color:var(--ink-4)">Loading version history...</div></div></div>
+            <div><div class="mini-pane"><div class="mini-cap">No history</div><div style="padding:22px;background:var(--surface-1);text-align:center;font-size:var(--fs-sm);color:var(--ink-4)">No version history available.</div></div></div>
+            <div><div class="mini-pane"><div class="mini-cap">Single version</div><div style="padding:22px;background:var(--surface-1);text-align:center;font-size:var(--fs-sm);color:var(--ink-4)">Only one version exists. Make changes to build up history.</div></div></div>
+            <div><div class="mini-pane"><div class="mini-cap">No employee selected</div><div style="padding:22px;background:var(--surface-1);display:grid;place-items:center"><div class="hero" style="padding:0"><div class="hi"><svg class="ico lg"><use href="#i-clock"/></svg></div><div class="ht">Select an employee to view version history.</div></div></div></div></div>
           </div>
           <p class="annot-dark">Rollback confirm row replaces the button: "Rollback to vN?" + Confirm/Cancel; "Rolling back..." while pending.</p>
         </div>
@@ -1054,12 +1495,14 @@ risks before acting on irreversible changes.</pre>
           <div class="mini-pane" style="height:380px">
             <div class="pers" style="height:100%;grid-template-columns:200px minmax(0,1fr)">
               <aside class="pers-rail"><div class="pr-head"><div class="pr-srch-row"><div class="pr-search"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search..." disabled/></div></div></div>
-                <div class="pr-list"><button class="pr-emp sel"><span class="av" style="width:28px;height:28px;font-size:11px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span><span class="pe-info"><span class="pe-name">Maya Chen</span><span class="pe-meta"><span class="pe-role">Frontend Dev</span></span></span></button>
-                <button class="pr-emp"><span class="av" style="width:28px;height:28px;font-size:11px;--av-a:#2f9f6a;--av-b:#1c7a4c">DS</span><span class="pe-info"><span class="pe-name">Diego Santos</span></span></button></div></aside>
+                <div class="pr-list">
+                  <button class="pr-emp sel"><span class="av" style="width:28px;height:28px;font-size:11px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span><span class="pe-info"><span class="pe-name">Maya Chen</span><span class="pe-meta"><span class="pe-role">Frontend Dev</span></span></span></button>
+                  <button class="pr-emp"><span class="av" style="width:28px;height:28px;font-size:11px;--av-a:#2f9f6a;--av-b:#1c7a4c">DS</span><span class="pe-info"><span class="pe-name">Diego Santos</span></span></button>
+                </div></aside>
               <section class="pers-detail">
-                <div class="pd-head" style="padding:12px 16px"><span class="av" style="width:44px;height:44px;font-size:16px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span><div class="pd-id"><h2 class="pd-name" style="font-size:var(--fs-lg)">Maya Chen</h2><span class="pd-role">Frontend Dev</span></div><div class="pd-pills"><span class="st-pill on">Enabled</span></div></div>
-                <div style="border-top:1px solid var(--line);flex:1;min-height:0;display:flex;flex-direction:column">
-                  <div class="insp-tabs"><button class="active">Profile</button><button>Appearance</button><button>Runtime</button><button>Skills</button><button>Memory</button><button>History</button></div>
+                <div class="pd-head" style="padding:var(--sp-4) var(--sp-5);gap:var(--sp-3)"><span class="av" style="width:40px;height:40px;font-size:14px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span><div class="pd-id"><h2 class="pd-name" style="font-size:var(--fs-lg)">Maya Chen</h2><span class="pd-role">Frontend Dev</span></div><div class="pd-pills"><span class="st-pill on">Enabled</span></div></div>
+                <div style="flex:1;min-height:0;display:flex;flex-direction:column">
+                  <div class="insp-tabs"><button class="insp-tab active">Profile</button><button class="insp-tab">Appearance</button><button class="insp-tab">Runtime</button><button class="insp-tab">Skills</button><button class="insp-tab">Memory</button><button class="insp-tab">History</button></div>
                   <div style="flex:1;padding:14px;background:var(--surface-1);font-size:var(--fs-meta);color:var(--ink-4)">Tab content scrolls here, stacked below the header.</div>
                 </div>
               </section>
@@ -1072,8 +1515,8 @@ risks before acting on irreversible changes.</pre>
             <div class="pers" style="height:100%;grid-template-columns:1fr">
               <aside class="pers-rail"><div class="pr-head"><div class="pr-srch-row"><div class="pr-search"><svg class="ico sm"><use href="#i-search"/></svg><input placeholder="Search employees..." disabled/></div></div><label class="pr-filter"><span class="lbl">Role filter</span><div class="pr-sel">All roles</div></label></div>
                 <div class="pr-list">
-                  <button class="pr-emp"><span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span><span class="pe-info"><span class="pe-name">Maya Chen</span><span class="pe-meta"><span class="pe-role">Frontend Dev</span></span></span></button>
-                  <button class="pr-emp"><span class="av" style="width:30px;height:30px;font-size:11px;--av-a:#e0763f;--av-b:#c0551f">AK</span><span class="pe-info"><span class="pe-name">Aria Kim</span><span class="pe-meta"><span class="pe-role">UI Designer</span></span></span></button>
+                  <button class="pr-emp"><span class="av" style="width:28px;height:28px;font-size:11px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span><span class="pe-info"><span class="pe-name">Maya Chen</span><span class="pe-meta"><span class="pe-role">Frontend Dev</span></span></span></button>
+                  <button class="pr-emp"><span class="av" style="width:28px;height:28px;font-size:11px;--av-a:#e0763f;--av-b:#c0551f">AK</span><span class="pe-info"><span class="pe-name">Aria Kim</span><span class="pe-meta"><span class="pe-role">UI Designer</span></span></span></button>
                 </div></aside>
             </div>
           </div>
@@ -1083,9 +1526,9 @@ risks before acting on irreversible changes.</pre>
           <div class="mini-pane" style="height:380px;max-width:240px;margin:0 auto">
             <div class="pers" style="height:100%;grid-template-columns:1fr">
               <section class="pers-detail">
-                <div class="pd-head" style="padding:12px 14px;gap:10px"><button class="pd-back"><svg class="ico xs"><use href="#i-chev-left"/></svg>Back</button><span class="av" style="width:40px;height:40px;font-size:15px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span><div class="pd-id"><h2 class="pd-name" style="font-size:var(--fs-md)">Maya Chen</h2><span class="pd-role">Frontend Dev</span></div></div>
-                <div style="border-top:1px solid var(--line);flex:1;min-height:0;display:flex;flex-direction:column">
-                  <div class="insp-tabs" style="flex-wrap:nowrap"><button class="active">Profile</button><button>Appear.</button><button>Runtime</button><button>Skills</button><button>Memory</button></div>
+                <div class="pd-head" style="padding:var(--sp-4) var(--sp-5);gap:var(--sp-3)"><button class="pd-back"><svg class="ico xs"><use href="#i-chev-left"/></svg>Back</button><span class="av" style="width:36px;height:36px;font-size:13px;--av-a:#7c4ddb;--av-b:#5b2fb0">MC</span><div class="pd-id"><h2 class="pd-name" style="font-size:var(--fs-md)">Maya Chen</h2><span class="pd-role">Frontend Dev</span></div></div>
+                <div style="flex:1;min-height:0;display:flex;flex-direction:column">
+                  <div class="insp-tabs" style="flex-wrap:nowrap"><button class="insp-tab active">Profile</button><button class="insp-tab">Appear.</button><button class="insp-tab">Runtime</button><button class="insp-tab">Skills</button><button class="insp-tab">Memory</button></div>
                   <div style="flex:1;padding:14px;background:var(--surface-1);font-size:var(--fs-meta);color:var(--ink-4)">Detail + stacked tabs fill the single column.</div>
                 </div>
               </section>
