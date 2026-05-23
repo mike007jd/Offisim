@@ -76,6 +76,7 @@ const DRAWER_STACK_ID = 'header:workspace-drawer';
 
 interface HeaderSlots {
   title: string;
+  showTitle: boolean;
   viewMode: ReactNode;
   company: ReactNode;
   project: ReactNode;
@@ -132,6 +133,7 @@ export function Header({
 
   const slots: HeaderSlots = {
     title: isOffice ? companyName || 'Office' : workspaceTitle || 'Workspace',
+    showTitle: !isOffice,
     viewMode:
       isOffice && viewMode && onViewModeChange ? (
         <ViewModeToggle
@@ -140,11 +142,10 @@ export function Header({
           onSegmentClick={onViewModeClick}
         />
       ) : null,
-    company:
-      isOffice && onOpenCompanySelect ? (
-        <CompanySwitcher currentName={companyName} onManageCompanies={onOpenCompanySelect} />
-      ) : null,
-    project: isOffice && projectSlot ? <span ref={projectSelectorRef}>{projectSlot}</span> : null,
+    company: onOpenCompanySelect ? (
+      <CompanySwitcher currentName={companyName} onManageCompanies={onOpenCompanySelect} />
+    ) : null,
+    project: projectSlot ? <span ref={projectSelectorRef}>{projectSlot}</span> : null,
     peerNav: (
       <PeerWorkspaceNav
         items={peerWorkspaces.filter((item) => NAV_PILL_KEYS.has(item.key))}
@@ -212,18 +213,18 @@ export function Header({
     );
   }
 
-  return <DesktopHeader slots={slots} isOffice={isOffice} />;
+  return <DesktopHeader slots={slots} />;
 }
 
 // ---------------------------------------------------------------------------
 // Desktop layout
 // ---------------------------------------------------------------------------
 
-function DesktopHeader({ slots, isOffice }: { slots: HeaderSlots; isOffice: boolean }) {
+function DesktopHeader({ slots }: { slots: HeaderSlots }) {
   return (
     <header className="relative flex h-14 items-center gap-sp-5 px-sp-5 text-ink-1">
       <div className="flex min-w-0 basis-80 items-center gap-2 overflow-hidden">
-        {!isOffice && (
+        {slots.showTitle && (
           <h1 className="truncate text-sm font-semibold tracking-wide text-text-primary">
             {slots.title}
           </h1>
@@ -347,9 +348,7 @@ function NarrowHeader({
                   />
                 </div>
               ) : null}
-              {isOffice && slots.project ? (
-                <div className="rounded-lg p-1">{slots.project}</div>
-              ) : null}
+              {slots.project ? <div className="rounded-lg p-1">{slots.project}</div> : null}
               {isOffice && slots.mode ? <div className="rounded-lg p-1">{slots.mode}</div> : null}
               {isOffice && slots.officeTools ? (
                 <div className="rounded-lg p-1">{slots.officeTools}</div>

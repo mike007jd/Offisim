@@ -234,8 +234,25 @@ export function MarketPage({
           </div>
         )}
 
-        {/* Explore: Error state */}
-        {showError && <MarketErrorState error={error} onRetry={refresh} />}
+        {/* Explore: Error state keeps the inventory shell visible. */}
+        {showError && (
+          <>
+            <MarketErrorState error={error} onRetry={refresh} variant="banner" />
+            <MarketCardGrid
+              results={results}
+              isLoading={false}
+              isLoadingMore={false}
+              hasMore={false}
+              onSelectListing={handleSelectListing}
+              onLoadMore={loadMore}
+              installedListingIds={installedListingIds}
+              installedPackageKeys={installedPackageKeys}
+            />
+            {results.length === 0 && (
+              <MarketEmptyState variant="unavailable" onAction={refresh} actionLabel="Retry" />
+            )}
+          </>
+        )}
 
         {/* Explore: Empty state */}
         {showEmpty && (

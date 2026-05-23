@@ -7,19 +7,27 @@ const defaultRoots = [
   'apps/desktop/renderer/src/components',
   'packages/ui-office/src/components',
   'packages/ui-core/src/components',
+  'packages/ui-core/src/tokens',
 ];
 const scanRoots = process.argv.slice(2).length > 0 ? process.argv.slice(2) : defaultRoots;
 const fileExtensions = new Set(['.ts', '.tsx', '.css']);
-const skipParts = [
-  '/dist/',
-  '/node_modules/',
-  '/src-tauri/',
-  '/generated/',
-  '/assets/',
-  '/scene/',
-  '/office/editor/',
-];
+const skipParts = ['/dist/', '/node_modules/', '/src-tauri/', '/generated/', '/assets/'];
 const runtimeGeometryFiles = [
+  '/packages/ui-office/src/components/office/editor/PresetPalette.tsx',
+  '/packages/ui-office/src/components/scene/MeetingBubble3D.tsx',
+  '/packages/ui-office/src/components/scene/ManagerPresence3D.tsx',
+  '/packages/ui-office/src/components/scene/Office2DCanvasView.tsx',
+  '/packages/ui-office/src/components/scene/Office3DView.tsx',
+  '/packages/ui-office/src/components/scene/PerformanceHUD.tsx',
+  '/packages/ui-office/src/components/scene/office3d-employees.tsx',
+  '/packages/ui-office/src/components/scene/office3d-primitives.tsx',
+  '/packages/ui-office/src/components/scene/office3d-scene-primitives.tsx',
+  '/packages/ui-office/src/components/scene/office3d-sections.tsx',
+  '/packages/ui-office/src/components/scene/scene-error-panel.tsx',
+  '/packages/ui-office/src/components/scene/character-mesh-builder.tsx',
+  '/packages/ui-office/src/components/scene/hooks/useCanvasViewport.ts',
+  '/packages/ui-office/src/components/scene/prefabs/RestAreaMesh3D.tsx',
+  '/packages/ui-office/src/components/scene/prefabs/WorkstationMesh3D.tsx',
   '/packages/ui-office/src/components/studio/StudioCanvas.tsx',
   '/packages/ui-office/src/components/studio/StudioGhost.tsx',
   '/packages/ui-office/src/components/studio/StudioPlacedPrefabs.tsx',
@@ -65,7 +73,7 @@ const checks = [
   {
     name: 'arbitrary Tailwind value',
     regex:
-      /\b(?:-?[a-z0-9]+:)*(?:w|h|min-w|max-w|min-h|max-h|size|gap|px|py|p|m|mt|mb|ml|mr|inset|top|right|bottom|left|rounded(?:-[trblxyse]|-[trbl][trbl])?|text|tracking|aspect|shadow|grid-cols|grid-rows|z)-\[[^\]]+\]/g,
+      /\b(?:-?[a-z0-9]+:|[a-z0-9-]+\[[^\]]+\]:)*(?:bg|border|ring|from|via|to|w|h|min-w|max-w|min-h|max-h|size|gap|px|py|p|m|mt|mb|ml|mr|inset|top|right|bottom|left|rounded(?:-[trblxyse]|-[trbl][trbl])?|text|tracking|aspect|shadow|grid-cols|grid-rows|z)-\[[^\]]+\]/g,
     note: 'promote this to a token, named utility, or reusable primitive',
   },
   {
@@ -88,6 +96,12 @@ function shouldSkip(file) {
 
 function shouldSkipCheck(file, checkName) {
   const normalized = file.replaceAll('\\', '/');
+  if (
+    checkName === 'color-mix outside tokens' &&
+    normalized.includes('/packages/ui-core/src/tokens/')
+  ) {
+    return true;
+  }
   if (
     (checkName === 'inline style object' ||
       checkName === 'inline visual styling' ||

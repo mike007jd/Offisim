@@ -5,7 +5,6 @@ import {
   Header,
   KanbanTray,
   NotificationCenter,
-  ProjectSelectedSummary,
   ProjectSelector,
   type ProviderConfig,
 } from '@offisim/ui-office/web';
@@ -262,21 +261,7 @@ export function AppMainShell(props: AppMainShellProps) {
       eventLog={
         isOffice ? (
           <Suspense fallback={null}>
-            <CollaborationSidebar
-              {...collaborationRailProps}
-              projectSlot={<ProjectSelector {...projectSelectorProps} summaryMode="none" />}
-              projectSummarySlot={
-                activeProject ? (
-                  <ProjectSelectedSummary
-                    project={activeProject}
-                    onRequestEdit={onRequestEditProject}
-                    onError={collaborationRailProps.onProjectError}
-                    showWorkspaceFiles
-                  />
-                ) : null
-              }
-              onSearchSelectEmployee={onEditExternalEmployee}
-            />
+            <CollaborationSidebar {...collaborationRailProps} />
           </Suspense>
         ) : null
       }

@@ -50,7 +50,7 @@ export function ZoneInspector({
         <>
           <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
             <div className="flex items-center gap-2">
-              <h2 className="font-mono text-caption font-bold uppercase tracking-[0.15em] text-text-secondary">
+              <h2 className="font-mono text-caption font-bold uppercase tracking-wider text-text-secondary">
                 ZONE
               </h2>
               {selectedZoneRequired && (
@@ -90,6 +90,7 @@ export function ZoneInspector({
               <div className="flex items-center gap-2">
                 <span
                   className="h-3 w-3 rounded-sm"
+                  // ui-hardcode-allowed: runtime zone accent swatch.
                   style={{ backgroundColor: zone.accentColor }}
                 />
                 <span className="font-mono text-xs capitalize text-text-secondary">

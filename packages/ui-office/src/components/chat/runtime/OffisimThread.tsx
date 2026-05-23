@@ -1,16 +1,18 @@
 import {
+  AttachmentPrimitive,
   ErrorPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
   useAuiState,
 } from '@assistant-ui/react';
 import { cn } from '@offisim/ui-core';
-import { useMemo, type ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import type { AttachmentStore } from '../../../lib/attachment-store';
 import { SentAttachmentChip } from '../SentAttachmentChip';
 import { MarkdownText } from './markdown-text';
-import { Reasoning } from './reasoning';
+import { Reasoning, ReasoningGroup } from './reasoning';
 import { ToolFallback } from './tool-fallback';
+import { ToolGroup } from './tool-group';
 import type { OffisimMessageCustom } from './useOffisimExternalStore';
 
 /**
@@ -46,15 +48,23 @@ function AttachmentList({ attachmentStore }: { attachmentStore: AttachmentStore 
   const attachments = custom?.attachments ?? [];
   if (attachments.length === 0) return null;
   return (
-    <div className="mt-1 grid w-full min-w-0 grid-cols-1 gap-1 overflow-hidden sm:grid-cols-2">
-      {attachments.map((attachment) => (
-        <SentAttachmentChip
-          key={attachment.attachmentId}
-          attachment={attachment}
-          attachmentStore={attachmentStore}
-        />
-      ))}
-    </div>
+    <MessagePrimitive.Attachments>
+      {({ attachment }) => {
+        const ref = attachments.find((item) => item.attachmentId === attachment.id);
+        if (!ref) {
+          return (
+            <AttachmentPrimitive.Root className="mt-1 rounded-md border border-line px-2.5 py-1.5 text-fs-sm text-ink-2">
+              <AttachmentPrimitive.Name />
+            </AttachmentPrimitive.Root>
+          );
+        }
+        return (
+          <div className="mt-1 min-w-0">
+            <SentAttachmentChip attachment={ref} attachmentStore={attachmentStore} />
+          </div>
+        );
+      }}
+    </MessagePrimitive.Attachments>
   );
 }
 
@@ -71,6 +81,8 @@ const createAssistantMessage = (attachmentStore: AttachmentStore | null) => {
             components={{
               Text: MarkdownText,
               Reasoning,
+              ReasoningGroup,
+              ToolGroup,
               tools: { Fallback: ToolFallback },
             }}
           />
@@ -107,6 +119,19 @@ const createUserMessage = (attachmentStore: AttachmentStore | null) => {
   return UserMessage;
 };
 
+function SystemMessage() {
+  return (
+    <MessagePrimitive.Root data-role="system" className="flex w-full justify-center py-1.5">
+      <div className="max-w-prose rounded-md border border-line-soft bg-surface-sunken px-2.5 py-1.5 text-center text-fs-sm leading-relaxed text-ink-3">
+        <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
+        <MessagePrimitive.Error>
+          <ErrorLine />
+        </MessagePrimitive.Error>
+      </div>
+    </MessagePrimitive.Root>
+  );
+}
+
 export interface OffisimThreadProps {
   /** Rendered by `ThreadPrimitive.Empty` when the conversation has no messages. */
   emptyState?: ReactNode;
@@ -125,7 +150,7 @@ export function OffisimThread({
     [attachmentStore],
   );
   const components = useMemo(
-    () => ({ UserMessage, AssistantMessage }),
+    () => ({ UserMessage, AssistantMessage, SystemMessage }),
     [AssistantMessage, UserMessage],
   );
   return (

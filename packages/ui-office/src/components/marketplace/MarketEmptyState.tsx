@@ -1,9 +1,9 @@
 import { EmptyState } from '@offisim/ui-core';
-import { CheckCircle, Package, Search, Upload } from 'lucide-react';
+import { CheckCircle, Package, Search, Upload, WifiOff } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface MarketEmptyStateProps {
-  readonly variant: 'no-results' | 'no-installed' | 'no-updates' | 'no-published';
+  readonly variant: 'no-results' | 'no-installed' | 'no-updates' | 'no-published' | 'unavailable';
   readonly onAction: () => void;
   readonly actionLabel: string;
 }
@@ -31,6 +31,11 @@ const VARIANT_CONFIG: Record<
     icon: Upload,
     title: 'No published packages',
     description: 'Share your creations with the community by publishing a package.',
+  },
+  unavailable: {
+    icon: WifiOff,
+    title: 'No cached packages',
+    description: 'The marketplace service is offline and there are no cached listings to show.',
   },
 };
 

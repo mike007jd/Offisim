@@ -78,8 +78,11 @@ function roleColor(role: string): string {
 function resizeTextarea(element: HTMLTextAreaElement | null, currentText: string) {
   if (!element) return;
   element.style.height = 'auto';
-  // Max 3 lines (~72px), min 1 line (32px)
-  element.style.height = `${Math.min(element.scrollHeight, 72)}px`;
+  const maxHeight = Number.parseFloat(getComputedStyle(element).maxHeight);
+  const nextHeight = Number.isFinite(maxHeight)
+    ? Math.min(element.scrollHeight, maxHeight)
+    : element.scrollHeight;
+  element.style.height = `${nextHeight}px`;
   void currentText;
 }
 
@@ -245,19 +248,22 @@ export function ChatInput({
   }, []);
 
   // ── Send logic ──────────────────────────────────────────────────
-  function setComposerText(nextText: string) {
-    setText(nextText);
-    aui.composer().setText(nextText);
-  }
+  const setComposerText = useCallback(
+    (nextText: string) => {
+      setText(nextText);
+      aui.composer().setText(nextText);
+    },
+    [aui],
+  );
 
-  function clearComposer() {
+  const clearComposer = useCallback(() => {
     setComposerText('');
     setShowSlashMenu(false);
     setShowMentionMenu(false);
     setSlashFilter('');
     setMentionFilter('');
     staging.clear();
-  }
+  }, [setComposerText, staging.clear]);
 
   async function handleSend() {
     const trimmed = text.trim();
@@ -539,7 +545,7 @@ export function ChatInput({
         void staging.handleStaging(files).then(focusComposerAfterAttach);
       }
     },
-    [focusComposerAfterAttach, staging.handleStaging, text],
+    [focusComposerAfterAttach, setComposerText, staging.handleStaging, text],
   );
 
   const onDragEnter = useCallback((e: ReactDragEvent) => {
@@ -715,19 +721,15 @@ export function ChatInput({
           maxLength={8000}
           className="max-h-20 min-h-8 min-w-0 flex-1 resize-none py-1.5 text-sm leading-snug"
         />
-        <ComposerPrimitive.Send
-          render={
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!canSend}
-              aria-label="Send message"
-              className="size-7 shrink-0 rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
-            >
-              <ArrowUp className="size-3.5" aria-hidden="true" />
-            </Button>
-          }
-        />
+        <Button
+          type="submit"
+          size="icon"
+          disabled={!canSend}
+          aria-label="Send message"
+          className="size-7 shrink-0 rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
+        >
+          <ArrowUp className="size-3.5" aria-hidden="true" />
+        </Button>
       </div>
 
       {/* Hint line */}

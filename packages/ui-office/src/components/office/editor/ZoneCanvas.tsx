@@ -1,6 +1,7 @@
 // raw-hex-allowed-file: asset renderer palette; non-design-token content colors.
 import type { PrefabDefinition, ZonePreset } from '@offisim/shared-types';
 import { isRequiredArchetype } from '@offisim/shared-types';
+import { cn } from '@offisim/ui-core';
 import { ARCHETYPE_ICONS, LOCK_ICON_PATH, getFloorPatternId } from './archetype-visuals.js';
 import type { DragState, EditorZone, PlacedItem } from './types.js';
 import { SCALE, SVG_H, SVG_W, editorZoneRect, prefabColor, toSVG } from './types.js';
@@ -46,8 +47,10 @@ export function ZoneCanvas({
 }: ZoneCanvasProps) {
   return (
     <div
-      className="flex-1 flex items-center justify-center overflow-hidden bg-[#020409]"
-      style={{ cursor: placingPreset ? 'crosshair' : drag ? 'grabbing' : 'default' }}
+      className={cn(
+        'flex-1 flex items-center justify-center overflow-hidden bg-surface-sunken',
+        placingPreset ? 'cursor-crosshair' : drag ? 'cursor-grabbing' : 'cursor-default',
+      )}
     >
       <svg
         ref={svgRef}
@@ -165,6 +168,7 @@ function ZoneBlock({
         height={r.h}
         rx={5}
         fill={`url(#${patternId})`}
+        // ui-hardcode-allowed: SVG pattern color inherits the runtime zone accent.
         style={{ color: z.accentColor }}
       />
       <rect
@@ -177,7 +181,7 @@ function ZoneBlock({
         stroke={isSelected ? z.accentColor : `${z.accentColor}30`}
         strokeWidth={isSelected ? 2 : 1}
         strokeDasharray={isDragging ? '4 2' : undefined}
-        style={{ cursor: placingPreset ? 'crosshair' : 'grab' }}
+        className={cn(placingPreset ? 'cursor-crosshair' : 'cursor-grab')}
         onPointerDown={(e) => onPointerDown(z.id, e)}
       />
       <rect
@@ -188,8 +192,10 @@ function ZoneBlock({
         fill={z.accentColor}
         opacity={isSelected ? 0.9 : 0.5}
         rx={5}
+        // ui-hardcode-allowed: SVG overlay must ignore pointer hit-testing.
         style={{ pointerEvents: 'none' }}
       />
+      {/* ui-hardcode-allowed: SVG label group must ignore pointer hit-testing. */}
       <g style={{ pointerEvents: 'none' }}>
         {required && (
           <g transform={`translate(${r.x + 6}, ${r.y + 8})`}>
@@ -223,6 +229,7 @@ function ZoneBlock({
         </text>
       </g>
       {archIcon && (
+        // ui-hardcode-allowed: SVG icon group must ignore pointer hit-testing.
         <g transform={`translate(${r.x + r.w - 16}, ${r.y + 6})`} style={{ pointerEvents: 'none' }}>
           <svg
             width="10"
@@ -247,6 +254,7 @@ function ZoneBlock({
         fill={`${z.accentColor}30`}
         fontSize="7"
         fontFamily="monospace"
+        // ui-hardcode-allowed: SVG size label must ignore pointer hit-testing.
         style={{ pointerEvents: 'none' }}
       >
         {z.w}x{z.d}
@@ -262,6 +270,7 @@ function ZoneBlock({
           <g
             key={item.instanceId}
             transform={`translate(${sx}, ${sy}) rotate(${item.rotation})`}
+            // ui-hardcode-allowed: placed prefab SVG marks are passive visual geometry.
             style={{ pointerEvents: 'none' }}
           >
             <rect
@@ -310,6 +319,7 @@ function ZoneBlock({
           stroke="#ef4444"
           strokeWidth={1.5}
           strokeDasharray="4 2"
+          // ui-hardcode-allowed: overlap SVG hatch is passive visual geometry.
           style={{ pointerEvents: 'none' }}
         />
       )}
@@ -325,6 +335,7 @@ function ZoneBlock({
             stroke={z.accentColor}
             strokeWidth={1.5}
             strokeDasharray="4 3"
+            // ui-hardcode-allowed: selection SVG ring is passive visual geometry.
             style={{ pointerEvents: 'none' }}
           />
           {[
@@ -340,6 +351,7 @@ function ZoneBlock({
               r={3}
               fill={z.accentColor}
               opacity={0.6}
+              // ui-hardcode-allowed: selection SVG handles are passive visual geometry.
               style={{ pointerEvents: 'none' }}
             />
           ))}
@@ -359,6 +371,7 @@ function GhostPreview({ preset, ghostPos, overlaps }: GhostPreviewProps) {
   const hasOverlap = overlaps.length > 0;
   const color = hasOverlap ? '#ef4444' : '#22c55e';
   return (
+    // ui-hardcode-allowed: ghost preview SVG group is passive visual geometry.
     <g transform={`translate(${ghostPos.x}, ${ghostPos.y})`} style={{ pointerEvents: 'none' }}>
       <rect
         x={-(preset.w * SCALE) / 2}

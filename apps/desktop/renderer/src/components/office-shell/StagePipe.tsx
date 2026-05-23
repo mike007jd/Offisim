@@ -72,7 +72,7 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
       >
         <span
           aria-hidden="true"
-          className="relative size-2 shrink-0 rounded-full bg-accent before:absolute before:-inset-1 before:animate-pulse before:rounded-full before:border-[1.5px] before:border-accent-ring"
+          className="relative size-2 shrink-0 rounded-full bg-accent before:absolute before:-inset-1 before:animate-pulse before:rounded-full before:border before:border-accent-ring"
         />
         <span className="max-w-56 truncate font-semibold text-ink-1" title={stepLabel}>
           {stepLabel}

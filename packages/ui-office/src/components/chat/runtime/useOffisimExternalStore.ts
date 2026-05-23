@@ -31,6 +31,31 @@ type OffisimContentPart =
   | { readonly type: 'reasoning'; readonly text: string }
   | { readonly type: 'text'; readonly text: string };
 
+function attachmentType(ref: ChatAttachmentRef): 'image' | 'document' | 'file' {
+  if (ref.kind === 'image' || ref.mimeType.startsWith('image/')) return 'image';
+  if (
+    ref.kind === 'document' ||
+    ref.mimeType === 'application/pdf' ||
+    ref.mimeType.includes('word') ||
+    ref.mimeType.includes('spreadsheet') ||
+    ref.mimeType.includes('presentation')
+  ) {
+    return 'document';
+  }
+  return 'file';
+}
+
+function toAssistantAttachment(ref: ChatAttachmentRef) {
+  return {
+    id: ref.attachmentId,
+    type: attachmentType(ref),
+    name: ref.filename,
+    contentType: ref.mimeType,
+    status: { type: 'complete' as const },
+    content: [],
+  };
+}
+
 /** Maps Offisim message state onto an assistant-ui `MessageStatus`. */
 function resolveMessageStatus(message: OffisimAdapterMessage): ThreadMessageLike['status'] {
   if (message.isRunning) return { type: 'running' };
@@ -72,6 +97,9 @@ export function convertOffisimMessage(message: OffisimAdapterMessage): ThreadMes
     role: message.role,
     content,
     id: message.id,
+    ...(message.role === 'user' && message.attachments && message.attachments.length > 0
+      ? { attachments: message.attachments.map(toAssistantAttachment) }
+      : {}),
     ...(typeof message.createdAt === 'number' ? { createdAt: new Date(message.createdAt) } : {}),
     ...(status ? { status } : {}),
     metadata: { custom: custom as unknown as Record<string, unknown> },

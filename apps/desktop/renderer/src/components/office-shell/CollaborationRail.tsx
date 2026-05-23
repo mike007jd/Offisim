@@ -1,6 +1,5 @@
 import type { ProjectRow } from '@offisim/shared-types';
 import { ChatDrawer, ChatPanel, RightSidebar } from '@offisim/ui-office/web';
-import type { ReactNode } from 'react';
 import type { StarterPrompt } from '../../lib/onboarding-prompts';
 
 interface CollaborationRailProps {
@@ -25,12 +24,8 @@ interface CollaborationRailProps {
 }
 
 interface CollaborationSidebarProps extends CollaborationRailProps {
-  projectSlot?: ReactNode;
-  projectSummarySlot?: ReactNode;
   kanbanCardCount?: number;
   kanbanOpen?: boolean;
-  gitSlot?: ReactNode;
-  onSearchSelectEmployee?: (employeeId: string) => void;
 }
 
 function renderChatPanel({
@@ -95,21 +90,14 @@ export function ChatDock(props: CollaborationRailProps) {
 }
 
 export function CollaborationSidebar(props: CollaborationSidebarProps) {
-  const projectId = props.activeProject?.project_id ?? null;
   return (
     <RightSidebar
-      projectSlot={props.projectSlot}
-      projectSummarySlot={props.projectSummarySlot}
       chatPanel={renderChatPanel({
         ...props,
         showPipelineProgress: false,
         showMeetingPanel: false,
         showActivityRail: true,
       })}
-      activeThreadId={props.activeThreadId}
-      activeProjectId={projectId}
-      onSelectThread={props.onSelectThread}
-      onSelectEmployee={props.onSearchSelectEmployee}
     />
   );
 }
