@@ -45,6 +45,10 @@
     padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   }
 
+  .grid-app-header-desktop {
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+  }
+
   .grid-personnel-desktop-expanded {
     grid-template-columns: 280px minmax(0, 1fr) minmax(0, 420px);
   }

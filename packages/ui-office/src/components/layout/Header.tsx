@@ -223,19 +223,16 @@ export function Header({
 
 function DesktopHeader({ slots }: { slots: HeaderSlots }) {
   return (
-    <header className="relative flex h-14 items-center gap-sp-5 px-sp-5 text-ink-1">
-      <div className="flex min-w-0 basis-80 items-center gap-2 overflow-hidden">
+    <header className="grid-app-header-desktop grid h-14 items-center gap-sp-4 px-sp-5 text-ink-1">
+      <div className="flex min-w-0 items-center gap-2 overflow-hidden justify-self-start">
         {slots.viewMode}
         {slots.company}
         {slots.project}
       </div>
 
-      {/* Centered peer-workspace navigation (scope-bar grammar). */}
-      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
-        <div className="pointer-events-auto">{slots.peerNav}</div>
-      </div>
+      <div className="min-w-0 max-w-full overflow-hidden justify-self-center">{slots.peerNav}</div>
 
-      <div className="ml-auto flex min-w-0 items-center justify-end gap-2 overflow-hidden">
+      <div className="flex min-w-0 items-center justify-end gap-2 overflow-hidden justify-self-end">
         {slots.apiSettings}
         {slots.mode}
         {slots.marketActions}
@@ -552,7 +549,7 @@ function PeerWorkspaceNav({
   return (
     <nav
       aria-label="Primary workspace navigation"
-      className="flex items-center gap-0.5 rounded-md border border-border-default bg-surface-muted p-0.5 shadow-elev-1"
+      className="flex max-w-full items-center gap-0.5 overflow-hidden rounded-md border border-border-default bg-surface-muted p-0.5 shadow-elev-1"
     >
       {items.map((item) => {
         const selected = item.key === active;

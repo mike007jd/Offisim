@@ -196,7 +196,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
       <Card className="rounded-r-md border-line-soft bg-surface-1 shadow-elev-1">
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-r-md bg-accent text-accent-foreground shadow-elev-1">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-r-md bg-accent text-accent-fg shadow-elev-1">
               <KeyRound className="size-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
