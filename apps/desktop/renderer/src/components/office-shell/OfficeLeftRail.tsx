@@ -1,9 +1,27 @@
 import type { ProjectRow } from '@offisim/shared-types';
-import { Button, cn } from '@offisim/ui-core';
 import { ProjectWorkspaceFiles, useSops } from '@offisim/ui-office/web';
 import { FileText, FolderClosed, GitBranch, Workflow } from 'lucide-react';
 import { useState } from 'react';
 import { GitWorkbench } from '../git/GitWorkbench';
+import {
+  OfficeRailBody,
+  OfficeRailContent,
+  OfficeRailEmpty,
+  OfficeRailIconSlot,
+  OfficeRailPane,
+  OfficeRailScroller,
+  OfficeRailShell,
+  OfficeRailSopButton,
+  OfficeRailSopDescription,
+  OfficeRailSopList,
+  OfficeRailSopMeta,
+  OfficeRailSopTitle,
+  OfficeRailTabBadge,
+  OfficeRailTabButton,
+  OfficeRailTabs,
+  OfficeRailWorkspaceHeader,
+  OfficeRailWorkspacePath,
+} from './OfficeShellSurfaces';
 
 type LeftRailTab = 'files' | 'sops' | 'git';
 
@@ -26,87 +44,97 @@ export function OfficeLeftRail({ activeProject, onOpenSops }: OfficeLeftRailProp
   const workspaceRoot = activeProject?.workspace_root ?? null;
 
   return (
-    <div className="flex h-full flex-col bg-surface-1 text-ink-1">
-      <div className="flex h-11 items-center gap-0.5 border-b border-line px-sp-5">
+    <OfficeRailShell>
+      <OfficeRailTabs>
         <LeftRailTabButton
           active={tab === 'files'}
           onClick={() => setTab('files')}
-          icon={<FileText className="size-3.5" />}
+          icon={
+            <OfficeRailIconSlot>
+              <FileText />
+            </OfficeRailIconSlot>
+          }
           label="Files"
         />
         <LeftRailTabButton
           active={tab === 'sops'}
           onClick={() => setTab('sops')}
-          icon={<Workflow className="size-3.5" />}
+          icon={
+            <OfficeRailIconSlot>
+              <Workflow />
+            </OfficeRailIconSlot>
+          }
           label="SOPs"
           badge={sops.length > 0 ? sops.length : undefined}
         />
         <LeftRailTabButton
           active={tab === 'git'}
           onClick={() => setTab('git')}
-          icon={<GitBranch className="size-3.5" />}
+          icon={
+            <OfficeRailIconSlot>
+              <GitBranch />
+            </OfficeRailIconSlot>
+          }
           label="Git"
         />
-      </div>
+      </OfficeRailTabs>
 
-      <div className="min-h-0 overflow-hidden">
+      <OfficeRailContent>
         {tab === 'files' ? (
-          <div className="flex h-full min-h-0 flex-col">
+          <OfficeRailPane>
             {workspaceRoot ? (
-              <div className="flex min-w-0 items-center gap-1.5 px-sp-5 pt-sp-4">
-                <FolderClosed className="size-3 shrink-0 text-ink-4" aria-hidden="true" />
-                <span className="truncate font-mono text-fs-meta text-ink-3" title={workspaceRoot}>
+              <OfficeRailWorkspaceHeader>
+                <OfficeRailIconSlot>
+                  <FolderClosed aria-hidden="true" />
+                </OfficeRailIconSlot>
+                <OfficeRailWorkspacePath title={workspaceRoot}>
                   {workspaceRoot}
-                </span>
-              </div>
+                </OfficeRailWorkspacePath>
+              </OfficeRailWorkspaceHeader>
             ) : null}
-            <div className="min-h-0 flex-1 overflow-hidden">
+            <OfficeRailBody>
               {activeProject ? (
                 <ProjectWorkspaceFiles
                   projectId={activeProject.project_id}
                   workspaceRoot={workspaceRoot}
                 />
               ) : (
-                <LeftRailEmpty message="Select a project to browse its workspace files." />
+                <OfficeRailEmpty>Select a project to browse its workspace files.</OfficeRailEmpty>
               )}
-            </div>
-          </div>
+            </OfficeRailBody>
+          </OfficeRailPane>
         ) : null}
 
         {tab === 'sops' ? (
-          <div className="custom-scrollbar h-full overflow-y-auto px-sp-5 py-sp-4">
+          <OfficeRailScroller>
             {sops.length === 0 ? (
-              <LeftRailEmpty message="No SOPs yet. Build one in the SOPs workspace." />
+              <OfficeRailEmpty>No SOPs yet. Build one in the SOPs workspace.</OfficeRailEmpty>
             ) : (
-              <ul className="flex flex-col gap-sp-3">
+              <OfficeRailSopList>
                 {sops.map((sop) => (
                   <li key={sop.sopTemplateId}>
-                    <Button
+                    <OfficeRailSopButton
                       type="button"
-                      variant="ghost"
                       onClick={() => onOpenSops(sop.sopTemplateId)}
-                      className="h-auto w-full flex-col items-stretch rounded-r-md border border-line-soft bg-surface-1 px-sp-5 py-sp-4 text-left shadow-elev-1 transition-all hover:border-line-strong hover:bg-surface-1 hover:shadow-elev-2"
                     >
-                      <p className="truncate text-fs-base font-semibold text-ink-1">{sop.name}</p>
+                      <OfficeRailSopTitle>{sop.name}</OfficeRailSopTitle>
                       {sop.description ? (
-                        <p className="mt-1 line-clamp-2 text-fs-meta text-ink-3">
-                          {sop.description}
-                        </p>
+                        <OfficeRailSopDescription>{sop.description}</OfficeRailSopDescription>
                       ) : null}
-                      <p className="mt-1.5 text-fs-micro font-medium text-ink-4">
+                      <OfficeRailSopMeta>
                         {sop.stepCount} {sop.stepCount === 1 ? 'step' : 'steps'}
-                      </p>
-                    </Button>
+                      </OfficeRailSopMeta>
+                    </OfficeRailSopButton>
                   </li>
                 ))}
-              </ul>
+              </OfficeRailSopList>
             )}
-          </div>
+          </OfficeRailScroller>
         ) : null}
 
         {tab === 'git' ? <GitWorkbench activeProject={activeProject} /> : null}
-      </div>
-    </div>
+      </OfficeRailContent>
+    </OfficeRailShell>
   );
 }
 
@@ -124,38 +152,17 @@ function LeftRailTabButton({
   badge?: number;
 }) {
   return (
-    <Button
+    <OfficeRailTabButton
       type="button"
-      variant="ghost"
       aria-pressed={active}
       onClick={onClick}
-      className={cn(
-        'flex h-7 items-center gap-1.5 rounded-r-sm px-2.5 text-fs-sm font-medium transition-colors',
-        active
-          ? 'bg-accent-surface font-semibold text-accent'
-          : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
-      )}
+      state={active ? 'active' : 'idle'}
     >
       {icon}
       {label}
       {badge != null ? (
-        <span
-          className={cn(
-            'grid h-4 min-w-5 place-items-center rounded-r-pill px-1.5 text-fs-micro font-bold',
-            active ? 'bg-accent/15 text-accent' : 'bg-surface-sunken text-ink-3',
-          )}
-        >
-          {badge}
-        </span>
+        <OfficeRailTabBadge state={active ? 'active' : 'idle'}>{badge}</OfficeRailTabBadge>
       ) : null}
-    </Button>
-  );
-}
-
-function LeftRailEmpty({ message }: { message: string }) {
-  return (
-    <div className="flex h-full items-center justify-center px-sp-5 text-center">
-      <p className="text-fs-meta text-ink-4">{message}</p>
-    </div>
+    </OfficeRailTabButton>
   );
 }
