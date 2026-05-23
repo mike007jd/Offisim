@@ -851,6 +851,48 @@
     padding: var(--sp-3) var(--sp-5);
   }
 
+  .stage-run-header-group {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+
+  .stage-run-kicker,
+  .stage-run-section-title {
+    color: var(--ink-3);
+    font-size: var(--text-fs-micro);
+    font-weight: var(--text-caption--font-weight);
+    letter-spacing: var(--tracking-ls-caps);
+    text-transform: uppercase;
+  }
+
+  .stage-run-meta {
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-fs-micro);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stage-run-close-button {
+    border-radius: var(--r-sm);
+    color: var(--ink-4);
+    height: var(--spacing-6);
+    transition-duration: var(--duration-normal);
+    transition-property: background-color, color;
+    width: var(--spacing-6);
+  }
+
+  .stage-run-close-button:hover {
+    background: var(--surface-sunken);
+    color: var(--ink-2);
+  }
+
+  .stage-run-close-button svg {
+    height: calc(var(--spacing-3) + (var(--spacing-1) / 2));
+    width: calc(var(--spacing-3) + (var(--spacing-1) / 2));
+  }
+
   .stage-run-scroll-area {
     max-height: 100dvh;
     overflow-y: auto;
@@ -863,6 +905,34 @@
 
   .stage-run-section-last {
     border-bottom: 0;
+  }
+
+  .stage-run-section-header {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+    margin-block-end: var(--sp-2);
+  }
+
+  .stage-run-count-badge {
+    background: var(--surface-sunken);
+    border-radius: var(--radius-pill);
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-fs-meta);
+    font-weight: var(--text-caption--font-weight);
+    padding: calc(var(--spacing-1) / 2) calc(var(--spacing-1) + (var(--spacing-1) / 2));
+  }
+
+  .stage-run-empty {
+    color: var(--ink-4);
+    font-size: var(--text-fs-meta);
+  }
+
+  .stage-run-step-list {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--sp-1) + (var(--sp-1) / 2));
   }
 
   .stage-run-status-dot {
@@ -920,6 +990,33 @@
 
   .stage-run-step-item-idle {
     background: var(--surface-2);
+  }
+
+  .stage-run-step-body {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .stage-run-step-status-dot {
+    margin-block-start: var(--spacing-1);
+  }
+
+  .stage-run-step-title {
+    color: var(--ink-1);
+    font-size: var(--text-fs-meta);
+    font-weight: var(--text-body--font-weight);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stage-run-step-meta {
+    color: var(--ink-3);
+    font-size: var(--text-fs-micro);
+    margin-block-start: calc(var(--spacing-1) / 2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .stage-axis-bar {

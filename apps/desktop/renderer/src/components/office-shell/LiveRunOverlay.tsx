@@ -1,4 +1,3 @@
-import { Button } from '@offisim/ui-core';
 import {
   ActivityRail,
   useDashboardMetrics,
@@ -7,12 +6,25 @@ import {
 } from '@offisim/ui-office/web';
 import { X } from 'lucide-react';
 import {
+  StageRunCloseButton,
+  StageRunCountBadge,
+  StageRunEmpty,
   StageRunHeader,
+  StageRunHeaderGroup,
+  StageRunKicker,
+  StageRunMeta,
   StageRunPanel,
   StageRunScrollArea,
   StageRunSection,
+  StageRunSectionHeader,
+  StageRunSectionTitle,
   StageRunStatusDot,
+  StageRunStepBody,
   StageRunStepItem,
+  StageRunStepList,
+  StageRunStepMeta,
+  StageRunStepStatusDot,
+  StageRunStepTitle,
 } from './StageRunSurfaces';
 
 interface LiveRunOverlayProps {
@@ -48,42 +60,33 @@ export function LiveRunOverlay({ onClose }: LiveRunOverlayProps) {
   return (
     <StageRunPanel>
       <StageRunHeader>
-        <div className="flex min-w-0 items-center gap-2">
+        <StageRunHeaderGroup>
           <StageRunStatusDot state={isRunning ? 'running' : 'idle'} />
-          <span className="text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
-            Live run
-          </span>
-          <span className="font-mono text-fs-micro tabular-nums text-ink-3">
+          <StageRunKicker>Live run</StageRunKicker>
+          <StageRunMeta>
             {latencyLabel ? `${latencyLabel} · ` : ''}
             {formatCost(metrics.estimatedCostUsd)}
-          </span>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Close live run overlay"
-          onClick={onClose}
-          className="size-6 rounded-r-sm text-ink-4 transition-colors hover:bg-surface-sunken hover:text-ink-2"
-        >
-          <X className="size-3.5" />
-        </Button>
+          </StageRunMeta>
+        </StageRunHeaderGroup>
+        <StageRunCloseButton type="button" aria-label="Close live run overlay" onClick={onClose}>
+          <X aria-hidden="true" />
+        </StageRunCloseButton>
       </StageRunHeader>
 
       <StageRunScrollArea>
         <StageRunSection>
-          <div className="mb-2 flex items-center gap-2 text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
-            <span>Plan</span>
+          <StageRunSectionHeader>
+            <StageRunSectionTitle>Plan</StageRunSectionTitle>
             {stats.total > 0 ? (
-              <span className="rounded-r-pill bg-surface-sunken px-1.5 py-0.5 font-mono text-fs-meta font-semibold tracking-normal text-ink-3">
+              <StageRunCountBadge>
                 {stats.completed}/{stats.total}
-              </span>
+              </StageRunCountBadge>
             ) : null}
-          </div>
+          </StageRunSectionHeader>
           {steps.length === 0 ? (
-            <p className="text-fs-meta text-ink-4">No plan yet — the run is still warming up.</p>
+            <StageRunEmpty>No plan yet — the run is still warming up.</StageRunEmpty>
           ) : (
-            <ol className="flex flex-col gap-1.5">
+            <StageRunStepList>
               {steps.map((step) => {
                 const assignee =
                   step.tasks.find((t) => t.status === 'active')?.assigneeName ??
@@ -93,26 +96,24 @@ export function LiveRunOverlay({ onClose }: LiveRunOverlayProps) {
                 const isCurrent = step.stepIndex === currentStepIndex;
                 return (
                   <StageRunStepItem key={step.stepIndex} state={isCurrent ? 'current' : 'idle'}>
-                    <StageRunStatusDot state={stageDotState(step.status)} className="mt-1" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-fs-meta font-medium text-ink-1">
+                    <StageRunStepStatusDot state={stageDotState(step.status)} />
+                    <StageRunStepBody>
+                      <StageRunStepTitle>
                         #{step.stepIndex + 1} {step.description}
-                      </p>
-                      {assignee ? (
-                        <p className="mt-0.5 truncate text-fs-micro text-ink-3">{assignee}</p>
-                      ) : null}
-                    </div>
+                      </StageRunStepTitle>
+                      {assignee ? <StageRunStepMeta>{assignee}</StageRunStepMeta> : null}
+                    </StageRunStepBody>
                   </StageRunStepItem>
                 );
               })}
-            </ol>
+            </StageRunStepList>
           )}
         </StageRunSection>
 
         <StageRunSection boundary="last">
-          <div className="mb-2 text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
-            Activity
-          </div>
+          <StageRunSectionHeader>
+            <StageRunSectionTitle>Activity</StageRunSectionTitle>
+          </StageRunSectionHeader>
           <ActivityRail variant="full" />
         </StageRunSection>
       </StageRunScrollArea>

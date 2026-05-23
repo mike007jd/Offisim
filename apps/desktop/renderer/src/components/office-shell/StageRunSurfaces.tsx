@@ -38,6 +38,41 @@ export function StageRunHeader({ className, ...props }: HTMLAttributes<HTMLEleme
   );
 }
 
+export function StageRunHeaderGroup({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="stage-run-header-group"
+      className={cn('stage-run-header-group', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageRunKicker({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span data-slot="stage-run-kicker" className={cn('stage-run-kicker', className)} {...props} />
+  );
+}
+
+export function StageRunMeta({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return <span data-slot="stage-run-meta" className={cn('stage-run-meta', className)} {...props} />;
+}
+
+export function StageRunCloseButton({
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'variant' | 'size'>) {
+  return (
+    <Button
+      data-slot="stage-run-close-button"
+      variant="ghost"
+      size="icon"
+      className={cn('stage-run-close-button', className)}
+      {...props}
+    />
+  );
+}
+
 export function StageRunStatusDot({
   className,
   state,
@@ -147,6 +182,96 @@ export function StageRunStepItem({
       data-slot="stage-run-step-item"
       data-state={state ?? 'idle'}
       className={cn(runStepItemVariants({ state }), className)}
+      {...props}
+    />
+  );
+}
+
+export function StageRunStepStatusDot({
+  className,
+  state,
+  ...props
+}: HTMLAttributes<HTMLSpanElement> & VariantProps<typeof runStatusDotVariants>) {
+  return (
+    <span
+      aria-hidden="true"
+      data-slot="stage-run-step-status-dot"
+      data-state={state ?? 'idle'}
+      className={cn(runStatusDotVariants({ state }), 'stage-run-step-status-dot', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageRunSectionHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="stage-run-section-header"
+      className={cn('stage-run-section-header', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageRunSectionTitle({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      data-slot="stage-run-section-title"
+      className={cn('stage-run-section-title', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageRunCountBadge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      data-slot="stage-run-count-badge"
+      className={cn('stage-run-count-badge', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageRunEmpty({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
+  return <p data-slot="stage-run-empty" className={cn('stage-run-empty', className)} {...props} />;
+}
+
+export function StageRunStepList({ className, ...props }: HTMLAttributes<HTMLOListElement>) {
+  return (
+    <ol
+      data-slot="stage-run-step-list"
+      className={cn('stage-run-step-list', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageRunStepBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="stage-run-step-body"
+      className={cn('stage-run-step-body', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageRunStepTitle({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
+  return (
+    <p
+      data-slot="stage-run-step-title"
+      className={cn('stage-run-step-title', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageRunStepMeta({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
+  return (
+    <p
+      data-slot="stage-run-step-meta"
+      className={cn('stage-run-step-meta', className)}
       {...props}
     />
   );
