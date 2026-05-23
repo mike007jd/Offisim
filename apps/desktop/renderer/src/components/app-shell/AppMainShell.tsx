@@ -282,7 +282,7 @@ export function AppMainShell(props: AppMainShellProps) {
             activeWorkspace={activeWorkspace}
             sessionState={workspaceSessionState}
             updateWorkspaceState={updateWorkspaceState}
-            marketPageProps={{ onStartInstall: onStartMarketInstall }}
+            marketPageProps={{ onStartInstall: onStartMarketInstall, onFileImport }}
             sopsPageProps={{ onOpenTemplates: handleOpenSopTemplates }}
             activityLogPageProps={{ onBackToOffice: handleBackToOffice }}
             personnelPageProps={{

@@ -193,6 +193,7 @@ export function WorkspaceRouter({
             sessionState={sessionState.market}
             onSessionStateChange={handleMarketChange}
             onStartInstall={marketPageProps?.onStartInstall}
+            onFileImport={marketPageProps?.onFileImport}
           />
         )}
 

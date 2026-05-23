@@ -167,6 +167,7 @@ export interface WorkspaceRouterProps {
   updateWorkspaceState: UpdateWorkspaceStateFn;
   marketPageProps?: {
     onStartInstall?: (listingId: string, version: string) => void;
+    onFileImport?: (file: File) => void;
   };
   sopsPageProps?: {
     onOpenTemplates?: () => void;

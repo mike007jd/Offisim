@@ -29,12 +29,14 @@ export interface MarketPageProps {
     updater: (prev: MarketSessionState) => MarketSessionState,
   ) => void;
   readonly onStartInstall?: (listingId: string, version: string) => void;
+  readonly onFileImport?: (file: File) => void;
 }
 
 export function MarketPage({
   sessionState,
   onSessionStateChange,
   onStartInstall,
+  onFileImport,
 }: MarketPageProps) {
   const { toasts, addToast, dismissToast } = useToasts();
   const { tier } = useLayoutTier();
@@ -183,6 +185,7 @@ export function MarketPage({
           onKindChange={handleKindChange}
           onManageTabChange={handleManageTabChange}
           onPublishClick={() => setPublishDialogOpen(true)}
+          onFileImport={onFileImport}
           variant={tier === 'narrow' ? 'narrow' : 'default'}
         />
       )}

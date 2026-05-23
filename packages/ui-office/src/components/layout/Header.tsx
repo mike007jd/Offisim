@@ -235,7 +235,6 @@ function DesktopHeader({ slots }: { slots: HeaderSlots }) {
       <div className="flex min-w-0 items-center justify-end gap-2 overflow-hidden justify-self-end">
         {slots.apiSettings}
         {slots.mode}
-        {slots.marketActions}
         {slots.iconbar}
       </div>
     </header>
