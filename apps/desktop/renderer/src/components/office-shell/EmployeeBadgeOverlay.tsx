@@ -1,5 +1,6 @@
 import { isTauri, useEmployeeSkillHighlights } from '@offisim/ui-office/web';
 import { useEffect, useState } from 'react';
+import { EmployeeBadgeStack, EmployeeKanbanBadge, EmployeeSkillBadge } from './OfficeShellSurfaces';
 
 type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
 
@@ -24,21 +25,12 @@ export function EmployeeBadgeOverlay({ employeeId }: { employeeId: string }) {
   if (count <= 0 && !skillHighlight) return null;
 
   return (
-    <div
+    <EmployeeBadgeStack
       aria-label={skillHighlight?.detail ?? `${count} active kanban card${count === 1 ? '' : 's'}`}
-      className="flex flex-col items-center gap-1"
     >
-      {skillHighlight ? (
-        <span className="max-w-24 truncate rounded-full border border-success/40 bg-success-muted px-2 py-1 text-caption font-extrabold leading-none text-success shadow-glow-success">
-          {skillHighlight.label}
-        </span>
-      ) : null}
-      {count > 0 ? (
-        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-success px-1.5 text-caption font-black text-text-inverse shadow-glow-success">
-          {count > 99 ? '99+' : count}
-        </span>
-      ) : null}
-    </div>
+      {skillHighlight ? <EmployeeSkillBadge>{skillHighlight.label}</EmployeeSkillBadge> : null}
+      {count > 0 ? <EmployeeKanbanBadge>{count > 99 ? '99+' : count}</EmployeeKanbanBadge> : null}
+    </EmployeeBadgeStack>
   );
 }
 

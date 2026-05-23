@@ -1160,6 +1160,90 @@
     font-weight: var(--text-body--font-weight);
   }
 
+  .office-scene-root {
+    height: 100%;
+    position: relative;
+    width: 100%;
+  }
+
+  .office-scene-canvas-fallback {
+    border-radius: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  .office-scene-canvas-skeleton {
+    border-radius: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  .office-scene-overlay-layer {
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+    z-index: var(--z-elevated);
+  }
+
+  .office-scene-team-dock-host {
+    bottom: 0;
+    display: flex;
+    inset-inline: 0;
+    justify-content: center;
+    padding: 0 var(--spacing-4) var(--spacing-4);
+    pointer-events: none;
+    position: absolute;
+    z-index: var(--z-elevated);
+  }
+
+  .office-scene-team-dock-frame {
+    border: var(--border-width-thin) solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--elev-2);
+    max-width: calc(var(--spacing-16) * 20);
+    overflow: hidden;
+    pointer-events: auto;
+    width: 100%;
+  }
+
+  .employee-badge-stack {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+  }
+
+  .employee-skill-badge {
+    background: var(--color-success-muted);
+    border: var(--border-width-thin) solid color-mix(in srgb, var(--color-success) 40%, transparent);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-glow-success);
+    color: var(--color-success);
+    font-size: var(--text-caption);
+    font-weight: var(--text-display--font-weight);
+    line-height: 1;
+    max-width: calc(var(--spacing-16) + var(--spacing-8) + var(--spacing-4));
+    overflow: hidden;
+    padding: var(--spacing-1) var(--spacing-2);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .employee-kanban-badge {
+    align-items: center;
+    background: var(--color-success);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-glow-success);
+    color: var(--color-text-inverse);
+    display: inline-flex;
+    font-size: var(--text-caption);
+    font-weight: var(--text-display--font-weight);
+    height: var(--spacing-5);
+    justify-content: center;
+    min-width: var(--spacing-5);
+    padding-inline: calc(var(--spacing-1) + (var(--spacing-1) / 2));
+  }
+
   .office-rail-shell {
     background: var(--surface-1);
     color: var(--ink-1);

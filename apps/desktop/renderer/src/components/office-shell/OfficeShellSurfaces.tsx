@@ -1,4 +1,4 @@
-import { Button, cn } from '@offisim/ui-core';
+import { Button, Skeleton, cn } from '@offisim/ui-core';
 import { type VariantProps, cva } from 'class-variance-authority';
 import type { ComponentProps, HTMLAttributes } from 'react';
 
@@ -41,6 +41,54 @@ const costPillVariants = cva('scene-cost-pill', {
   },
   defaultVariants: { state: 'idle' },
 });
+
+export function OfficeSceneRoot({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div data-slot="office-scene-root" className={cn('office-scene-root', className)} {...props} />
+  );
+}
+
+export function OfficeSceneCanvasFallback({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="office-scene-canvas-fallback"
+      className={cn('office-scene-canvas-fallback', className)}
+      {...props}
+    >
+      <Skeleton aria-label="Loading office scene" className="office-scene-canvas-skeleton" />
+    </div>
+  );
+}
+
+export function OfficeSceneOverlayLayer({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="office-scene-overlay-layer"
+      className={cn('office-scene-overlay-layer', className)}
+      {...props}
+    />
+  );
+}
+
+export function OfficeSceneTeamDockHost({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="office-scene-team-dock-host"
+      className={cn('office-scene-team-dock-host', className)}
+      {...props}
+    />
+  );
+}
+
+export function OfficeSceneTeamDockFrame({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="office-scene-team-dock-frame"
+      className={cn('office-scene-team-dock-frame', className)}
+      {...props}
+    />
+  );
+}
 
 export function OfficeRailShell({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
@@ -207,6 +255,37 @@ export function OfficeRailEmpty({ className, children, ...props }: HTMLAttribute
     <div data-slot="office-rail-empty" className={cn('office-rail-empty', className)} {...props}>
       <p className="office-rail-empty-message">{children}</p>
     </div>
+  );
+}
+
+export function EmployeeBadgeStack({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      role="group"
+      data-slot="employee-badge-stack"
+      className={cn('employee-badge-stack', className)}
+      {...props}
+    />
+  );
+}
+
+export function EmployeeSkillBadge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      data-slot="employee-skill-badge"
+      className={cn('employee-skill-badge', className)}
+      {...props}
+    />
+  );
+}
+
+export function EmployeeKanbanBadge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      data-slot="employee-kanban-badge"
+      className={cn('employee-kanban-badge', className)}
+      {...props}
+    />
   );
 }
 

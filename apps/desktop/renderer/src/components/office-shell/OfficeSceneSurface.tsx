@@ -10,6 +10,13 @@ import {
 } from '@offisim/ui-office/web';
 import React, { type ReactNode, Suspense, useCallback, useMemo } from 'react';
 import { EmployeeBadgeOverlay } from './EmployeeBadgeOverlay';
+import {
+  OfficeSceneCanvasFallback,
+  OfficeSceneOverlayLayer,
+  OfficeSceneRoot,
+  OfficeSceneTeamDockFrame,
+  OfficeSceneTeamDockHost,
+} from './OfficeShellSurfaces';
 import { SceneCostReadout } from './SceneCostReadout';
 import { StagePipe } from './StagePipe';
 import { StageRunAxisFloats } from './StageRunAxisFloats';
@@ -101,9 +108,9 @@ export function OfficeSceneSurface({
   );
 
   return (
-    <div className="relative h-full w-full">
+    <OfficeSceneRoot>
       <CeremonyHost>
-        <Suspense fallback={<div className="h-full w-full animate-pulse bg-surface-elevated" />}>
+        <Suspense fallback={<OfficeSceneCanvasFallback />}>
           <SceneCanvas
             active={sceneInteractive && !paused}
             reducedMotion={reducedMotion}
@@ -118,20 +125,17 @@ export function OfficeSceneSurface({
             renderEmployeeBadge={renderEmployeeBadge}
           />
         </Suspense>
-        {/* Diegetic stage insets — overlays only; the canvas renderer is unchanged. */}
-        <div className="pointer-events-none absolute inset-0 z-elevated">
+        <OfficeSceneOverlayLayer>
           <StageRunAxisFloats kanbanOpen={kanbanOpen} onToggleKanban={onToggleKanban} />
           <StagePipe activeThreadId={activeThreadId} />
           <SceneCostReadout notificationSlot={notificationSlot} />
-        </div>
+        </OfficeSceneOverlayLayer>
         {teamDockSlot ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-elevated flex justify-center px-4 pb-4">
-            <div className="pointer-events-auto w-full max-w-5xl overflow-hidden rounded-r-lg border border-line shadow-elev-2">
-              {teamDockSlot}
-            </div>
-          </div>
+          <OfficeSceneTeamDockHost>
+            <OfficeSceneTeamDockFrame>{teamDockSlot}</OfficeSceneTeamDockFrame>
+          </OfficeSceneTeamDockHost>
         ) : null}
       </CeremonyHost>
-    </div>
+    </OfficeSceneRoot>
   );
 }
