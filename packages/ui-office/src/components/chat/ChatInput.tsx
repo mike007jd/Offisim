@@ -1,7 +1,15 @@
-import { ComposerPrimitive, type CreateAttachment, useAui } from '@assistant-ui/react';
+import {
+  ComposerPrimitive,
+  type CreateAttachment,
+  type Unstable_DirectiveFormatter,
+  type Unstable_TriggerItem,
+  unstable_useMentionAdapter,
+  unstable_useSlashCommandAdapter,
+  useAui,
+} from '@assistant-ui/react';
 import type { EventBus } from '@offisim/core/browser';
 import type { ParsedAttachment, StagedAttachment } from '@offisim/shared-types';
-import { Button, Input, Textarea, cn } from '@offisim/ui-core';
+import { Button, Input, Textarea, TriggerListboxSurface, cn } from '@offisim/ui-core';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import {
   type KeyboardEvent,
@@ -18,12 +26,13 @@ import type { AttachmentStore } from '../../lib/attachment-store.js';
 import {
   COMMAND_CATEGORIES,
   type ChatCommand,
-  filterCommands,
+  getVisibleCommands,
   parseCommand,
 } from '../../lib/chat-commands.js';
 import { isTauri } from '../../lib/env.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useTourTarget } from '../onboarding/tour-context.js';
+import { AgentAvatar } from './AgentAvatar.js';
 import { AttachmentDropOverlay } from './AttachmentDropOverlay.js';
 import { StagedAttachmentChip } from './StagedAttachmentChip.js';
 import { mergeClipboardTextIntoComposer } from './clipboard-text.js';
@@ -31,6 +40,7 @@ import { readTauriDroppedFiles } from './tauri-dropped-files.js';
 import { useChatAttachmentStaging } from './useChatAttachmentStaging.js';
 
 type TauriDropPosition = { x: number; y: number };
+type ComposerTriggerMatch = { query: string; offset: number };
 
 export interface ChatInputAttachmentPayload {
   staged: StagedAttachment[];
@@ -53,26 +63,29 @@ interface MentionOption {
   role: string;
 }
 
-// ── Role color mapping ─────────────────────────────────────────────
-
-const ROLE_COLORS: Record<string, string> = {
-  developer: 'bg-info',
-  engineer: 'bg-info',
-  backend: 'bg-info',
-  frontend: 'bg-accent',
-  fullstack: 'bg-info',
-  pm: 'bg-accent',
-  product_manager: 'bg-accent',
-  researcher: 'bg-success',
-  analyst: 'bg-success',
-  designer: 'bg-warning',
-  artist: 'bg-warning',
-  ui_designer: 'bg-warning',
-  ux_designer: 'bg-warning',
+const mentionFormatter: Unstable_DirectiveFormatter = {
+  serialize(item) {
+    return `@${item.label}`;
+  },
+  parse(text) {
+    return text ? [{ kind: 'text', text }] : [];
+  },
 };
 
-function roleColor(role: string): string {
-  return ROLE_COLORS[role] ?? 'bg-text-muted';
+function detectComposerTrigger(
+  text: string,
+  triggerChar: string,
+  cursorPosition: number,
+): ComposerTriggerMatch | null {
+  const textUpToCursor = text.slice(0, Math.min(cursorPosition, text.length));
+  for (let i = textUpToCursor.length - 1; i >= 0; i -= 1) {
+    const char = textUpToCursor[i] ?? '';
+    if (/\s/u.test(char)) return null;
+    if (!textUpToCursor.startsWith(triggerChar, i)) continue;
+    if (i > 0 && !/\s/u.test(textUpToCursor[i - 1] ?? '')) continue;
+    return { query: textUpToCursor.slice(i + triggerChar.length), offset: i };
+  }
+  return null;
 }
 
 function resizeTextarea(element: HTMLTextAreaElement | null, currentText: string) {
@@ -117,6 +130,7 @@ export function ChatInput({
   const aui = useAui();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const latestTextRef = useRef('');
   const [dragActive, setDragActive] = useState(false);
   const dragDepthRef = useRef(0);
   const chatInputElementRef = useRef<HTMLElement | null>(null);
@@ -129,20 +143,6 @@ export function ChatInput({
     eventBus,
   });
 
-  // ── Menu state ──────────────────────────────────────────────────
-  const [showSlashMenu, setShowSlashMenu] = useState(false);
-  const [slashFilter, setSlashFilter] = useState('');
-  const [slashIndex, setSlashIndex] = useState(0);
-
-  const [showMentionMenu, setShowMentionMenu] = useState(false);
-  const [mentionFilter, setMentionFilter] = useState('');
-  const [mentionIndex, setMentionIndex] = useState(0);
-  const [mentionStartPos, setMentionStartPos] = useState(-1);
-
-  const menuRef = useRef<HTMLDivElement>(null);
-  const slashItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const mentionItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
   // ── Mention options ─────────────────────────────────────────────
   const mentionOptions: MentionOption[] = useMemo(() => {
     if (!agents) return [];
@@ -154,102 +154,28 @@ export function ChatInput({
     return [{ id: 'team', name: 'Team', role: 'Everyone' }, ...entries];
   }, [agents]);
 
-  // ── Filtered lists ──────────────────────────────────────────────
-  const filteredSlash: ChatCommand[] = useMemo(() => {
-    return filterCommands(slashFilter);
-  }, [slashFilter]);
-
-  const filteredMentions = useMemo(() => {
-    const q = mentionFilter.toLowerCase();
-    return mentionOptions.filter(
-      (m) => m.name.toLowerCase().includes(q) || m.role.toLowerCase().includes(q),
-    );
-  }, [mentionFilter, mentionOptions]);
+  const visibleCommands = useMemo(() => getVisibleCommands(), []);
+  const commandById = useMemo(() => {
+    return new Map(visibleCommands.map((command) => [command.name, command]));
+  }, [visibleCommands]);
 
   // ── Auto-resize textarea ────────────────────────────────────────
   useEffect(() => {
     resizeTextarea(textareaRef.current, text);
   }, [text]);
 
-  // ── Close menus on outside click ────────────────────────────────
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowSlashMenu(false);
-        setShowMentionMenu(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  // ── Clamp indices ───────────────────────────────────────────────
-  useEffect(() => {
-    if (slashIndex >= filteredSlash.length) setSlashIndex(Math.max(0, filteredSlash.length - 1));
-  }, [filteredSlash.length, slashIndex]);
-
-  useEffect(() => {
-    if (mentionIndex >= filteredMentions.length)
-      setMentionIndex(Math.max(0, filteredMentions.length - 1));
-  }, [filteredMentions.length, mentionIndex]);
-
-  // ── Scroll active row into view (kbd nav) ──────────────────────
-  useEffect(() => {
-    if (!showSlashMenu) return;
-    slashItemRefs.current[slashIndex]?.scrollIntoView({ block: 'nearest' });
-  }, [slashIndex, showSlashMenu]);
-
-  useEffect(() => {
-    if (!showMentionMenu) return;
-    mentionItemRefs.current[mentionIndex]?.scrollIntoView({ block: 'nearest' });
-  }, [mentionIndex, showMentionMenu]);
-
   // ── Input change handler ────────────────────────────────────────
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
+    latestTextRef.current = val;
     setText(val);
     resizeTextarea(e.currentTarget, val);
-
-    // Slash menu: triggers when input starts with /
-    if (val.startsWith('/')) {
-      const afterSlash = val.slice(1).split(' ')[0] ?? '';
-      setSlashFilter(afterSlash);
-      setShowSlashMenu(true);
-      setSlashIndex(0);
-      // Close mention menu if slash is active
-      setShowMentionMenu(false);
-    } else {
-      setShowSlashMenu(false);
-    }
-
-    // Mention menu: triggers when @ is typed
-    if (!val.startsWith('/')) {
-      const cursorPos = e.target.selectionStart ?? val.length;
-      // Search backwards from cursor for @
-      const beforeCursor = val.slice(0, cursorPos);
-      const lastAt = beforeCursor.lastIndexOf('@');
-      if (lastAt >= 0) {
-        // Check there's no space before @ (or @ is at start)
-        const charBefore = lastAt > 0 ? beforeCursor[lastAt - 1] : ' ';
-        if (lastAt === 0 || charBefore === ' ' || charBefore === '\n') {
-          const fragment = beforeCursor.slice(lastAt + 1);
-          // Only show menu if we haven't completed the mention (no space after name)
-          if (!fragment.includes(' ')) {
-            setMentionFilter(fragment);
-            setMentionStartPos(lastAt);
-            setShowMentionMenu(true);
-            setMentionIndex(0);
-            return;
-          }
-        }
-      }
-      setShowMentionMenu(false);
-    }
   }, []);
 
   // ── Send logic ──────────────────────────────────────────────────
   const setComposerText = useCallback(
     (nextText: string) => {
+      latestTextRef.current = nextText;
       setText(nextText);
       aui.composer().setText(nextText);
     },
@@ -258,15 +184,11 @@ export function ChatInput({
 
   const clearComposer = useCallback(() => {
     setComposerText('');
-    setShowSlashMenu(false);
-    setShowMentionMenu(false);
-    setSlashFilter('');
-    setMentionFilter('');
     staging.clear();
   }, [setComposerText, staging.clear]);
 
-  async function handleSend() {
-    const trimmed = text.trim();
+  async function handleSend(messageText = text) {
+    const trimmed = messageText.trim();
     const hasAttachments = staging.staged.length > 0;
     if ((!trimmed && !hasAttachments) || disabled) return;
 
@@ -311,29 +233,101 @@ export function ChatInput({
     }
     composer.send();
     composer.setRunConfig({});
+    latestTextRef.current = '';
     setText('');
-    setShowSlashMenu(false);
-    setShowMentionMenu(false);
-    setSlashFilter('');
-    setMentionFilter('');
     staging.clear();
   }
 
   // ── Select slash command ────────────────────────────────────────
   function selectSlashCommand(cmd: ChatCommand) {
+    const currentText = latestTextRef.current;
+    const slashTrigger = detectComposerTrigger(
+      currentText,
+      '/',
+      textareaRef.current?.selectionStart ?? currentText.length,
+    );
+    if (slashTrigger && slashTrigger.offset !== 0) {
+      setComposerText(currentText);
+      void handleSend(currentText);
+      return;
+    }
     setComposerText(`/${cmd.name} `);
-    setShowSlashMenu(false);
     textareaRef.current?.focus();
   }
 
-  // ── Select mention ─────────────────────────────────────────────
-  function selectMention(option: MentionOption) {
-    // Replace @fragment with @Name
-    const before = text.slice(0, mentionStartPos);
-    const afterCursor = text.slice(mentionStartPos + 1 + mentionFilter.length);
-    setComposerText(`${before}@${option.name} ${afterCursor}`);
-    setShowMentionMenu(false);
-    textareaRef.current?.focus();
+  const slashCommand = unstable_useSlashCommandAdapter({
+    commands: visibleCommands.map((command) => ({
+      id: command.name,
+      label: `/${command.name}`,
+      description: command.description,
+      execute: () => selectSlashCommand(command),
+    })),
+    removeOnExecute: true,
+  });
+
+  const mention = unstable_useMentionAdapter({
+    includeModelContextTools: false,
+    formatter: mentionFormatter,
+    items: mentionOptions.map((option) => ({
+      id: option.id,
+      type: 'mention',
+      label: option.name,
+      description: option.role,
+      metadata: {
+        initial: option.name[0] ?? '',
+        role: option.role,
+      },
+    })),
+    onInserted: () => {
+      const nextText = aui.composer().getState().text;
+      setText(nextText);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+  });
+
+  function slashQueryHasNoResults(value: string, cursorPosition: number): boolean {
+    const slashTrigger = detectComposerTrigger(value, '/', cursorPosition);
+    if (!slashTrigger?.query) return false;
+    const lowerQuery = slashTrigger.query.toLowerCase();
+    return !visibleCommands.some(
+      (command) =>
+        command.name.includes(lowerQuery) ||
+        command.aliases?.some((alias) => alias.includes(lowerQuery)) ||
+        command.description.toLowerCase().includes(lowerQuery),
+    );
+  }
+
+  function mentionQueryHasNoResults(value: string, cursorPosition: number): boolean {
+    const beforeCursor = value.slice(0, cursorPosition);
+    const lastAt = beforeCursor.lastIndexOf('@');
+    if (lastAt < 0) return false;
+    const charBefore = lastAt > 0 ? beforeCursor[lastAt - 1] : ' ';
+    if (lastAt !== 0 && charBefore !== ' ' && charBefore !== '\n') return false;
+    const query = beforeCursor.slice(lastAt + 1);
+    if (!query || query.includes(' ')) return false;
+    const lowerQuery = query.toLowerCase();
+    return !mentionOptions.some(
+      (option) =>
+        option.name.toLowerCase().includes(lowerQuery) ||
+        option.role.toLowerCase().includes(lowerQuery),
+    );
+  }
+
+  function handleComposerKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+    const value = e.currentTarget.value;
+    const parsed = parseCommand(value.trim());
+    const shouldRunNoArgCommand = parsed && parsed.args === '' && parsed.command.type !== 'runtime';
+    const shouldSendAttachmentOnly = staging.staged.length > 0 && !value.trim();
+    const cursorPosition = e.currentTarget.selectionStart ?? value.length;
+    const shouldSendNoResultTrigger =
+      slashQueryHasNoResults(value, cursorPosition) ||
+      mentionQueryHasNoResults(value, cursorPosition);
+
+    if (shouldRunNoArgCommand || shouldSendAttachmentOnly || shouldSendNoResultTrigger) {
+      e.preventDefault();
+      void handleSend(value);
+    }
   }
 
   const focusComposerAfterAttach = useCallback(() => {
@@ -342,82 +336,6 @@ export function ChatInput({
       textareaRef.current?.focus();
     });
   }, []);
-
-  // ── Keyboard navigation ─────────────────────────────────────────
-  function handleKeyDown(e: KeyboardEvent) {
-    // Slash menu navigation
-    if (showSlashMenu && filteredSlash.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSlashIndex((i) => (i + 1) % filteredSlash.length);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSlashIndex((i) => (i - 1 + filteredSlash.length) % filteredSlash.length);
-        return;
-      }
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        const cmd = filteredSlash[slashIndex];
-        const parsed = parseCommand(text.trim());
-        if (parsed && parsed.command === cmd && parsed.args === '' && cmd.type !== 'runtime') {
-          void handleSend();
-          return;
-        }
-        if (cmd) selectSlashCommand(cmd);
-        return;
-      }
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const cmd = filteredSlash[slashIndex];
-        if (cmd) selectSlashCommand(cmd);
-        return;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setShowSlashMenu(false);
-        return;
-      }
-    }
-
-    // Mention menu navigation
-    if (showMentionMenu && filteredMentions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setMentionIndex((i) => (i + 1) % filteredMentions.length);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setMentionIndex((i) => (i - 1 + filteredMentions.length) % filteredMentions.length);
-        return;
-      }
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        const opt = filteredMentions[mentionIndex];
-        if (opt) selectMention(opt);
-        return;
-      }
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const opt = filteredMentions[mentionIndex];
-        if (opt) selectMention(opt);
-        return;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setShowMentionMenu(false);
-        return;
-      }
-    }
-
-    // Normal send: Enter without shift
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      void handleSend();
-    }
-  }
 
   const canSend = (!!text.trim() || staging.staged.length > 0) && !disabled;
   const registerChatInputTarget = useTourTarget('office:chat-input');
@@ -582,188 +500,182 @@ export function ChatInput({
   );
 
   const dropMessage = staging.storageAvailable ? 'Drop to attach' : 'Storage unavailable';
-
   return (
-    <ComposerPrimitive.Root
-      ref={setChatInputTargetRef}
-      className="relative box-border w-full min-w-0 max-w-full overflow-hidden border-t border-border-default px-3 py-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void handleSend();
-      }}
-      onDragEnter={onDragEnter}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-    >
-      <AttachmentDropOverlay visible={dragActive} message={dropMessage} />
-      <Input ref={fileInputRef} type="file" multiple hidden onChange={onPickerChange} />
-      {/* Slash command menu */}
-      {showSlashMenu && filteredSlash.length > 0 && (
-        <div
-          ref={menuRef}
-          className="absolute bottom-full left-3 right-3 z-50 mb-1 overflow-hidden rounded-lg border border-border-default bg-surface-elevated shadow-modal"
-        >
-          <div className="max-h-60 overflow-y-auto py-1">
-            {filteredSlash.map((cmd, i) => (
-              <Button
-                key={cmd.name}
-                ref={(el) => {
-                  slashItemRefs.current[i] = el;
-                }}
-                type="button"
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'h-8 w-full justify-start gap-2.5 rounded-none px-3 text-left',
-                  i === slashIndex
-                    ? 'bg-accent-muted text-accent-text'
-                    : 'text-text-secondary hover:bg-surface-hover',
-                )}
-                onMouseEnter={() => setSlashIndex(i)}
-                onClick={() => selectSlashCommand(cmd)}
-              >
-                <span className="shrink-0 font-mono text-xs text-accent">/{cmd.name}</span>
-                <span
-                  className={`rounded px-1.5 py-0.5 text-caption font-semibold uppercase tracking-wider ${COMMAND_CATEGORIES[cmd.category]?.badgeClass ?? 'bg-surface-muted text-text-muted'}`}
-                >
-                  {cmd.category}
-                </span>
-                <span className="truncate text-xs text-text-secondary">{cmd.description}</span>
-                {cmd.argumentHint && (
-                  <span className="ml-auto shrink-0 truncate text-caption text-text-muted">
-                    {cmd.argumentHint}
-                  </span>
-                )}
-              </Button>
+    <ComposerPrimitive.Unstable_TriggerPopoverRoot>
+      <ComposerPrimitive.Root
+        ref={setChatInputTargetRef}
+        className="chat-composer-root"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleSend();
+        }}
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
+        <AttachmentDropOverlay visible={dragActive} message={dropMessage} />
+        <Input ref={fileInputRef} type="file" multiple hidden onChange={onPickerChange} />
+
+        {/* Staged attachment chips */}
+        {staging.errors.length > 0 && (
+          <output className="chat-composer-stack" aria-live="polite">
+            {staging.errors.map((error) => (
+              <div key={error.id} className="chat-composer-error">
+                {error.message}
+              </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Mention menu */}
-      {showMentionMenu && filteredMentions.length > 0 && (
-        <div
-          ref={menuRef}
-          className="absolute bottom-full left-3 right-3 z-50 mb-1 overflow-hidden rounded-lg border border-border-default bg-surface-elevated shadow-modal"
-        >
-          <div className="max-h-60 overflow-y-auto py-1">
-            {filteredMentions.map((opt, i) => (
-              <Button
-                key={opt.id}
-                ref={(el) => {
-                  mentionItemRefs.current[i] = el;
-                }}
-                type="button"
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'h-8 w-full justify-start gap-2.5 rounded-none px-3 text-left',
-                  i === mentionIndex
-                    ? 'bg-accent-muted text-accent-text'
-                    : 'text-text-secondary hover:bg-surface-hover',
-                )}
-                onMouseEnter={() => setMentionIndex(i)}
-                onClick={() => selectMention(opt)}
-              >
-                <span
-                  className={`flex size-4 shrink-0 items-center justify-center rounded-full text-caption font-bold text-text-inverse ${roleColor(opt.role)}`}
-                >
-                  {opt.name[0]}
-                </span>
-                <span className="text-xs font-medium">{opt.name}</span>
-                <span className="truncate text-xs text-text-muted">{opt.role}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Staged attachment chips */}
-      {staging.errors.length > 0 && (
-        <output
-          className="mb-1 flex min-w-0 max-w-full flex-col gap-1 overflow-hidden"
-          aria-live="polite"
-        >
-          {staging.errors.map((error) => (
-            <div
-              key={error.id}
-              className="min-w-0 max-w-full truncate rounded border border-warning/40 bg-warning-muted px-2 py-1 text-caption text-warning"
-            >
-              {error.message}
-            </div>
-          ))}
-        </output>
-      )}
-      {staging.staged.length > 0 && (
-        <div className="mb-1 grid min-w-0 max-w-full grid-cols-1 gap-1 overflow-hidden sm:grid-cols-2">
-          {staging.staged.map((s) => (
-            <StagedAttachmentChip
-              key={s.attachmentId}
-              attachment={s}
-              onRemove={staging.removeStaged}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Input row */}
-      <div className="flex w-full min-w-0 max-w-full items-end gap-2">
-        <ComposerPrimitive.Input
-          render={<Textarea />}
-          ref={textareaRef}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onPaste={onPaste}
-          placeholder={placeholder}
-          disabled={disabled}
-          rows={1}
-          maxLength={8000}
-          className="max-h-20 min-h-8 min-w-0 flex-1 resize-none py-1.5 text-sm leading-snug"
-        />
-        <Button
-          type="submit"
-          size="icon"
-          disabled={!canSend}
-          aria-label="Send message"
-          className="size-7 shrink-0 rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
-        >
-          <ArrowUp className="size-3.5" aria-hidden="true" />
-        </Button>
-      </div>
-
-      {/* Hint line */}
-      <div className="mt-1 flex w-full min-w-0 max-w-full flex-wrap items-center gap-3 overflow-hidden px-1">
-        {disabled && disabledReason ? (
-          <span className="text-caption text-warning">{disabledReason}</span>
-        ) : (
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled || !staging.storageAvailable}
-              aria-label="Attach file"
-              title={
-                staging.storageAvailable
-                  ? 'Attach file'
-                  : 'Storage unavailable — try a non-private window'
-              }
-              className="size-6 rounded p-0.5 text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Paperclip className="size-3" aria-hidden="true" />
-            </Button>
-            <span className="text-caption text-text-muted">
-              <kbd className="text-text-muted">/</kbd> commands
-            </span>
-            <span className="text-caption text-text-muted">
-              <kbd className="text-text-muted">@</kbd> mention
-            </span>
-          </>
+          </output>
         )}
-        {modeChip ? <span className="ml-auto">{modeChip}</span> : null}
-      </div>
-    </ComposerPrimitive.Root>
+        {staging.staged.length > 0 && (
+          <div className="chat-composer-attachments">
+            {staging.staged.map((s) => (
+              <StagedAttachmentChip
+                key={s.attachmentId}
+                attachment={s}
+                onRemove={staging.removeStaged}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="chat-composer-input-shell">
+          <div className="chat-composer-input-row">
+            <ComposerPrimitive.Input
+              render={<Textarea />}
+              ref={textareaRef}
+              onChange={handleChange}
+              onKeyDown={handleComposerKeyDown}
+              onPaste={onPaste}
+              placeholder={placeholder}
+              disabled={disabled}
+              cancelOnEscape={false}
+              submitMode="enter"
+              rows={1}
+              maxLength={8000}
+              className="chat-composer-textarea"
+            />
+            <Button
+              type="submit"
+              variant="accent"
+              size="iconSm"
+              disabled={!canSend}
+              aria-label="Send message"
+              className="chat-composer-submit"
+            >
+              <ArrowUp className="chat-composer-send-icon" aria-hidden="true" />
+            </Button>
+          </div>
+
+          <ComposerPrimitive.Unstable_TriggerPopover
+            char="/"
+            adapter={slashCommand.adapter}
+            aria-label="Command suggestions"
+            render={<TriggerListboxSurface />}
+          >
+            <ComposerPrimitive.Unstable_TriggerPopover.Action {...slashCommand.action} />
+            <ComposerTriggerMenuItems
+              renderItem={(item, index) => {
+                const command = commandById.get(item.id);
+                if (!command) return null;
+                return (
+                  <ComposerPrimitive.Unstable_TriggerPopoverItem
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    render={<Button variant="ghost" size="sm" />}
+                    className="chat-composer-menu-item"
+                  >
+                    <span className="chat-composer-command-name">/{command.name}</span>
+                    <span
+                      className={cn(
+                        'chat-composer-command-badge',
+                        COMMAND_CATEGORIES[command.category]?.badgeClass ??
+                          'bg-surface-muted text-text-muted',
+                      )}
+                    >
+                      {command.category}
+                    </span>
+                    <span className="chat-composer-command-description">{command.description}</span>
+                    {command.argumentHint && (
+                      <span className="chat-composer-command-argument">{command.argumentHint}</span>
+                    )}
+                  </ComposerPrimitive.Unstable_TriggerPopoverItem>
+                );
+              }}
+            />
+          </ComposerPrimitive.Unstable_TriggerPopover>
+
+          <ComposerPrimitive.Unstable_TriggerPopover
+            char="@"
+            adapter={mention.adapter}
+            aria-label="Mention suggestions"
+            render={<TriggerListboxSurface />}
+          >
+            <ComposerPrimitive.Unstable_TriggerPopover.Directive {...mention.directive} />
+            <ComposerTriggerMenuItems
+              renderItem={(item, index) => (
+                <ComposerPrimitive.Unstable_TriggerPopoverItem
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  render={<Button variant="ghost" size="sm" />}
+                  className="chat-composer-menu-item"
+                >
+                  <AgentAvatar name={item.label} role={String(item.description ?? '')} />
+                  <span className="chat-composer-mention-name">{item.label}</span>
+                  <span className="chat-composer-mention-role">{item.description}</span>
+                </ComposerPrimitive.Unstable_TriggerPopoverItem>
+              )}
+            />
+          </ComposerPrimitive.Unstable_TriggerPopover>
+        </div>
+
+        {/* Hint line */}
+        <div className="chat-composer-meta-row">
+          {disabled && disabledReason ? (
+            <span className="text-caption text-warning">{disabledReason}</span>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="iconSm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled || !staging.storageAvailable}
+                aria-label="Attach file"
+                title={
+                  staging.storageAvailable
+                    ? 'Attach file'
+                    : 'Storage unavailable — try a non-private window'
+                }
+                className="chat-composer-attach-button"
+              >
+                <Paperclip className="chat-composer-attach-icon" aria-hidden="true" />
+              </Button>
+              <span className="text-caption text-text-muted">
+                <kbd className="text-text-muted">/</kbd> commands
+              </span>
+              <span className="text-caption text-text-muted">
+                <kbd className="text-text-muted">@</kbd> mention
+              </span>
+            </>
+          )}
+          {modeChip ? <span className="ml-auto min-w-0 shrink">{modeChip}</span> : null}
+        </div>
+      </ComposerPrimitive.Root>
+    </ComposerPrimitive.Unstable_TriggerPopoverRoot>
+  );
+}
+
+function ComposerTriggerMenuItems({
+  renderItem,
+}: {
+  renderItem: (item: Unstable_TriggerItem, index: number) => ReactNode;
+}) {
+  return (
+    <ComposerPrimitive.Unstable_TriggerPopoverItems className="chat-composer-menu-list">
+      {(items) => items.map(renderItem)}
+    </ComposerPrimitive.Unstable_TriggerPopoverItems>
   );
 }

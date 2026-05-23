@@ -37,3 +37,4 @@ export * from './components/textarea.js';
 export * from './components/tooltip.js';
 export * from './components/toast-banner.js';
 export * from './components/toolbar.js';
+export * from './components/trigger-listbox.js';
