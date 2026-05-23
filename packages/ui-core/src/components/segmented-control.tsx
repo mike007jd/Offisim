@@ -19,6 +19,7 @@ export interface SegmentedControlProps<V extends string> {
   onSelectClick?: (value: V) => void;
   items: SegmentedControlItem<V>[];
   size?: 'sm' | 'md';
+  layout?: 'default' | 'scroll';
   ariaLabel?: string;
   className?: string;
 }
@@ -33,6 +34,7 @@ export function SegmentedControl<V extends string>({
   onSelectClick,
   items,
   size = 'md',
+  layout = 'default',
   ariaLabel,
   className,
 }: SegmentedControlProps<V>) {
@@ -42,6 +44,7 @@ export function SegmentedControl<V extends string>({
       aria-label={ariaLabel}
       className={cn(
         'inline-flex items-center rounded-lg border border-border-default bg-surface-muted p-0.5',
+        layout === 'scroll' && 'max-w-full overflow-x-auto',
         className,
       )}
     >
@@ -63,6 +66,7 @@ export function SegmentedControl<V extends string>({
             }}
             className={cn(
               'inline-flex items-center justify-center gap-1.5 rounded-md px-3 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50',
+              layout === 'scroll' && 'shrink-0 whitespace-nowrap',
               size === 'sm' ? 'h-7 text-xs' : 'h-8 text-sm',
               selected
                 ? 'bg-accent-muted text-accent-text'

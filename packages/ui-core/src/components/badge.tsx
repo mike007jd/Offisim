@@ -30,7 +30,7 @@ const badgeVariants = cva(
 );
 
 export interface BadgeProps
-  extends HTMLAttributes<HTMLDivElement>,
+  extends HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {
   dismissible?: boolean;
   onDismiss?: () => void;
@@ -46,7 +46,7 @@ function Badge({
   ...props
 }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant, size }), className)} {...props}>
+    <span className={cn(badgeVariants({ variant, size }), className)} {...props}>
       {children}
       {dismissible ? (
         <button
@@ -58,7 +58,7 @@ function Badge({
           <X className="h-3 w-3" aria-hidden="true" />
         </button>
       ) : null}
-    </div>
+    </span>
   );
 }
 

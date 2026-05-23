@@ -1,5 +1,6 @@
 import { type HTMLAttributes, forwardRef } from 'react';
 import { cn } from '../lib/utils.js';
+import { Button, type ButtonProps } from './button.js';
 
 export type ToolbarDensity = 'default' | 'compact';
 
@@ -51,3 +52,47 @@ export const ToolbarSeparator = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDi
 ToolbarSeparator.displayName = 'ToolbarSeparator';
 
 export const ToolbarSpacer = () => <div className="flex-1" aria-hidden />;
+
+export interface ToolbarButtonProps extends Omit<ButtonProps, 'variant' | 'size'> {
+  shape?: 'default' | 'compact';
+}
+
+export const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(
+  ({ className, shape = 'default', ...props }, ref) => (
+    <Button
+      ref={ref}
+      type="button"
+      variant="outline"
+      size="sm"
+      className={cn(
+        'gap-sp-1 rounded-r-md border-line bg-surface-2 text-fs-meta font-semibold text-ink-1 shadow-elev-1 hover:bg-surface-sunken hover:text-ink-1',
+        shape === 'compact' && 'rounded-r-sm',
+        className,
+      )}
+      {...props}
+    />
+  ),
+);
+ToolbarButton.displayName = 'ToolbarButton';
+
+export interface ToolbarIconButtonProps extends Omit<ButtonProps, 'variant' | 'size'> {
+  shape?: 'default' | 'compact';
+}
+
+export const ToolbarIconButton = forwardRef<HTMLButtonElement, ToolbarIconButtonProps>(
+  ({ className, shape = 'default', ...props }, ref) => (
+    <Button
+      ref={ref}
+      type="button"
+      variant="outline"
+      size="icon"
+      className={cn(
+        'size-8 shrink-0 rounded-r-md border-line bg-surface-2 text-ink-3 shadow-elev-1 hover:bg-surface-sunken hover:text-ink-1',
+        shape === 'compact' && 'rounded-r-sm',
+        className,
+      )}
+      {...props}
+    />
+  ),
+);
+ToolbarIconButton.displayName = 'ToolbarIconButton';

@@ -1,11 +1,13 @@
 import type { AssetKind } from '@offisim/asset-schema';
 import {
-  Button,
   EntityDropdown,
   type EntityDropdownItem,
   Input,
   SegmentedControl,
   type SegmentedControlItem,
+  ToolbarButton,
+  ToolbarIconButton,
+  cn,
   useFocusTrap,
   useRegisterModal,
   useTopmostEscape,
@@ -44,6 +46,7 @@ export interface MarketFilterBarProps {
 }
 
 const MANAGE_TABS = ['installed', 'updates', 'published'] as const;
+const FILTER_ICON_CLASS = 'size-3 shrink-0 text-ink-4';
 
 const KIND_FILTER_ICON: Partial<Record<AssetKind | 'all', LucideIcon>> = {
   employee: UserPlus,
@@ -65,11 +68,13 @@ function Segmented<V extends string>({
   value,
   options,
   onChange,
+  layout = 'bar',
 }: {
   ariaLabel: string;
   value: V;
   options: ReadonlyArray<SegmentedOption<V>>;
   onChange: (value: V) => void;
+  layout?: 'bar' | 'sheet';
 }) {
   return (
     <SegmentedControl
@@ -77,7 +82,11 @@ function Segmented<V extends string>({
       value={value}
       onChange={onChange}
       size="sm"
-      className="rounded-r-md border-line bg-surface-2 shadow-elev-1"
+      layout={layout === 'sheet' ? 'scroll' : 'default'}
+      className={cn(
+        'rounded-r-md border-line bg-surface-2 shadow-elev-1',
+        layout === 'sheet' && 'w-full justify-start',
+      )}
       items={options.map((opt): SegmentedControlItem<V> => {
         const Icon = opt.icon;
         return {
@@ -132,6 +141,7 @@ export function MarketFilterBar({
     enabled: narrowSheetOpen,
   });
   useFocusTrap(sheetRef, narrowSheetOpen);
+  const segmentedLayout = narrow ? 'sheet' : 'bar';
 
   const controls: ReactNode = (
     <>
@@ -141,6 +151,7 @@ export function MarketFilterBar({
           value={kind}
           options={KIND_OPTIONS}
           onChange={onKindChange}
+          layout={segmentedLayout}
         />
       )}
 
@@ -150,22 +161,17 @@ export function MarketFilterBar({
           value={sort}
           options={SORT_OPTION_LIST}
           onChange={onSortChange}
+          layout={segmentedLayout}
         />
       )}
 
-      <ModeDropdown mode={mode} onModeChange={onModeChange} />
+      <ModeDropdown mode={mode} onModeChange={onModeChange} inSheet={narrow} />
 
       {mode === 'explore' && (
-        <Button
-          type="button"
-          onClick={onPublishClick}
-          variant="outline"
-          size="sm"
-          className="gap-1.5 rounded-r-md border-line bg-surface-2 text-fs-meta font-semibold text-ink-2 shadow-elev-1 hover:bg-surface-sunken hover:text-ink-1"
-        >
-          <CloudUpload className="size-3" aria-hidden="true" />
+        <ToolbarButton onClick={onPublishClick} className="text-ink-2">
+          <CloudUpload className={FILTER_ICON_CLASS} aria-hidden="true" />
           Publish
-        </Button>
+        </ToolbarButton>
       )}
     </>
   );
@@ -185,16 +191,9 @@ export function MarketFilterBar({
         </div>
 
         {narrow ? (
-          <Button
-            type="button"
-            onClick={() => setSheetOpen(true)}
-            variant="outline"
-            size="icon"
-            className="size-8 shrink-0 rounded-r-md border-line bg-surface-2 text-ink-3 shadow-elev-1"
-            aria-label="Open market filters"
-          >
+          <ToolbarIconButton onClick={() => setSheetOpen(true)} aria-label="Open market filters">
             <SlidersHorizontal className="size-4" />
-          </Button>
+          </ToolbarIconButton>
         ) : (
           <div className="flex flex-wrap items-center justify-end gap-3">{controls}</div>
         )}
@@ -208,18 +207,15 @@ export function MarketFilterBar({
           >
             <div className="mb-4 flex items-center justify-between">
               <div className="text-fs-sm font-semibold text-ink-1">Market filters</div>
-              <Button
-                type="button"
+              <ToolbarIconButton
                 onClick={() => setSheetOpen(false)}
-                variant="outline"
-                size="icon"
-                className="size-8 rounded-r-sm border-line text-ink-3"
+                shape="compact"
                 aria-label="Close market filters"
               >
                 <X className="size-4" />
-              </Button>
+              </ToolbarIconButton>
             </div>
-            <div className="flex flex-col gap-3">{controls}</div>
+            <div className="flex min-w-0 flex-col gap-3 overflow-hidden">{controls}</div>
           </div>
         </div>
       )}
@@ -239,9 +235,11 @@ export function MarketFilterBar({
 function ModeDropdown({
   mode,
   onModeChange,
+  inSheet,
 }: {
   mode: 'explore' | 'manage';
   onModeChange: (mode: 'explore' | 'manage') => void;
+  inSheet: boolean;
 }) {
   const items: EntityDropdownItem[] = [
     { id: 'explore', label: 'Explore' },
@@ -250,23 +248,17 @@ function ModeDropdown({
   return (
     <EntityDropdown
       trigger={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-1.5 rounded-r-md border-line bg-surface-2 text-fs-meta font-semibold text-ink-1 shadow-elev-1 hover:bg-surface-sunken"
-          aria-label="Marketplace mode"
-        >
+        <ToolbarButton aria-label="Marketplace mode">
           <span>{mode === 'explore' ? 'Explore' : 'Manage'}</span>
-          <ChevronDown className="size-3 shrink-0 text-ink-4" />
-        </Button>
+          <ChevronDown className={FILTER_ICON_CLASS} />
+        </ToolbarButton>
       }
       items={items}
       activeId={mode}
       onSelect={(id) => onModeChange(id as 'explore' | 'manage')}
       align="end"
       collisionPadding={8}
-      contentClassName="w-44"
+      contentClassName={cn('w-44', inSheet && 'z-modal')}
     />
   );
 }
@@ -286,17 +278,11 @@ function ManageTabDropdown({
   return (
     <EntityDropdown
       trigger={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-1.5 rounded-r-sm border-line bg-surface-2 text-fs-meta font-semibold text-ink-1 shadow-elev-1 hover:bg-surface-sunken"
-          aria-label="Manage view"
-        >
-          <Layers className="size-3 shrink-0 text-ink-4" />
+        <ToolbarButton shape="compact" aria-label="Manage view">
+          <Layers className={FILTER_ICON_CLASS} />
           <span>{current}</span>
-          <ChevronDown className="size-3 shrink-0 text-ink-4" />
-        </Button>
+          <ChevronDown className={FILTER_ICON_CLASS} />
+        </ToolbarButton>
       }
       items={items}
       activeId={manageTab}
