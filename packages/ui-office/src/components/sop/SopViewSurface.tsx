@@ -149,6 +149,15 @@ export function SopViewSurface({
     [sops, sessionState.selectedSopId],
   );
 
+  useEffect(() => {
+    if (tier === 'narrow' || loading || error) return;
+    const firstSop = sops[0];
+    if (sessionState.selectedSopId || !firstSop) return;
+    onSessionStateChange((prev) =>
+      prev.selectedSopId ? prev : { ...prev, selectedSopId: firstSop.sopTemplateId },
+    );
+  }, [error, loading, onSessionStateChange, sessionState.selectedSopId, sops, tier]);
+
   // Parse definition
   const definition = useMemo(
     () => (selectedSop ? parseSopDefinition(selectedSop.definitionJson) : null),

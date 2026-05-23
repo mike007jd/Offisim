@@ -176,6 +176,22 @@ export function PersonnelPage({
     [employees, sessionState.selectedEmployeeId],
   );
 
+  useEffect(() => {
+    if (tier === 'narrow' || employeesLoading || employeesError) return;
+    const firstEmployee = filteredEmployees[0];
+    if (sessionState.selectedEmployeeId || !firstEmployee) return;
+    onSessionStateChange((prev) =>
+      prev.selectedEmployeeId ? prev : { ...prev, selectedEmployeeId: firstEmployee.employee_id },
+    );
+  }, [
+    employeesError,
+    employeesLoading,
+    filteredEmployees,
+    onSessionStateChange,
+    sessionState.selectedEmployeeId,
+    tier,
+  ]);
+
   const handleSelectEmployee = (id: string) => {
     onSessionStateChange((prev) => ({ ...prev, selectedEmployeeId: id }));
   };
