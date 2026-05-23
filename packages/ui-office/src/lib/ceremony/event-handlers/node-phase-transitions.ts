@@ -65,6 +65,7 @@ export function subscribeNodePhaseTransitions(
       if (
         node === 'pm' ||
         node === 'planner' ||
+        node === 'pm_planner' ||
         node === 'project_manager' ||
         node === 'product_manager'
       ) {

@@ -4,6 +4,7 @@ import type { MemoryInstallRepositoriesSnapshot } from '../memory-install-repos.
 import type { createMemoryPrefabRepository } from '../memory-prefab-repository.js';
 import type {
   AgentEventRow,
+  CompanyTemplateAssetRow,
   CompactSummaryRow,
   CompanyRow,
   DeliverableSummaryRow,
@@ -66,6 +67,7 @@ export interface MemoryRepositoriesSnapshot extends MemoryInstallRepositoriesSna
   employeeVersions: EmployeeVersionRow[];
   costRates: ModelCostRateRow[];
   sopTemplates: SopTemplateRow[];
+  companyTemplates: CompanyTemplateAssetRow[];
   racks: RackRow[];
   slots: SlotRow[];
   workstationRacks: WorkstationRackRow[];

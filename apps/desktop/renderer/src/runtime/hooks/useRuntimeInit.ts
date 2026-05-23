@@ -260,8 +260,10 @@ export function useRuntimeInit({
       try {
         const { HumanMessage } = await import('@langchain/core/messages');
         if (!runtime.orch) {
-          setError('Runtime not fully initialized (no orchestration service).');
-          return undefined;
+          const message =
+            'Runtime not ready for AI work: no provider credential is configured. Company setup and editing are still available.';
+          setError(message);
+          return { kind: 'system', content: message };
         }
         const explicitMemory = parseExplicitUserMemory(text);
         if (explicitMemory && runtime.userMemoryService) {

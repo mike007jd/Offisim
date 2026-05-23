@@ -2,6 +2,7 @@ import { avataaars } from '@dicebear/collection';
 import { createAvatar } from '@dicebear/core';
 import type { EmployeeAppearance } from '@offisim/shared-types';
 import { parseEmployeePersona } from '@offisim/shared-types';
+import { hashStringToInt } from './scene-hash.js';
 
 // Tuple SSOT — add/reorder entries here; derived arrays stay index-aligned structurally.
 const OUTFIT_PALETTE = [
@@ -74,16 +75,8 @@ export function resolveAvatarSeed(agent: {
   return persona.avatarSeed ?? agent.name;
 }
 
-function hashSeed(seed: string): number {
-  let hash = 5381;
-  for (let i = 0; i < seed.length; i++) {
-    hash = ((hash << 5) + hash + seed.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
-
 export function paletteIndex(seed: string, paletteLength: number): number {
-  return Math.abs((hashSeed(seed) * KNUTH_PRIME) >>> 0) % paletteLength;
+  return Math.abs((hashStringToInt(seed) * KNUTH_PRIME) >>> 0) % paletteLength;
 }
 
 export function outfitColorFromSeed(seed: string): string {

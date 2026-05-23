@@ -8,7 +8,7 @@ import { RoundedBox } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { SceneMaterial } from '../../../theme/scene-materials.js';
+import { EmissiveMaterial, SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
 import { buildServerRackBakedTexture } from '../server-rack-lod-texture.js';
 
@@ -72,7 +72,7 @@ export function ServerRackUnit3D({
           {[-0.22, 0, 0.22].map((x, ledIndex) => (
             <mesh key={`unit-led-${y}-${x}`} position={[x, Math.min(y, height - 0.18), 0.405]}>
               <circleGeometry args={[0.026, 8]} />
-              <meshBasicMaterial color={pickUnitLedColor(rowIndex + ledIndex)} />
+              <EmissiveMaterial color={pickUnitLedColor(rowIndex + ledIndex)} tier="led" />
             </mesh>
           ))}
         </group>
@@ -128,7 +128,7 @@ export function ServerRackMesh3D({
   return (
     <group ref={groupRef} position={position} rotation={[0, rotY, 0]}>
       {/* Server racks */}
-      {[-4, -1.5, 1, 3.5].map((x) => (
+      {[-4, -1.5, 1, 3.5].map((x, rackIndex) => (
         <group key={`rack-${x}`} position={[x, 0, -0.5]}>
           {/* Rack cabinet */}
           <RoundedBox
@@ -141,7 +141,7 @@ export function ServerRackMesh3D({
             <SceneMaterial
               materialClass="metal"
               color={sc.serverBody}
-              overrides={{ roughness: 0.3 }}
+              overrides={{ roughness: 0.42 }}
             />
           </RoundedBox>
           {/* Front panel */}
@@ -150,35 +150,83 @@ export function ServerRackMesh3D({
             <SceneMaterial
               materialClass="metal"
               color={sc.furniture}
-              overrides={{ roughness: 0.4 }}
+              overrides={{ roughness: 0.5 }}
             />
           </mesh>
           {lodLevel === 'live' ? (
             <>
-              {[0.4, 0.7, 1.0, 1.3, 1.6, 1.9, 2.2, 2.5].map((y, rowIndex) => (
-                <group key={`led-row-${x}-${y}`}>
-                  {[-0.4, -0.2, 0, 0.2, 0.4].map((lx, ledIndex) => (
-                    <mesh key={`led-${x}-${y}-${lx}`} position={[lx, y, 0.52]}>
-                      <circleGeometry args={[0.03, 8]} />
-                      <meshBasicMaterial color={pickRackLedColor(rowIndex + ledIndex)} />
-                    </mesh>
-                  ))}
-                </group>
-              ))}
-              {[0.3, 1.2, 2.1].map((y) => (
-                <group key={`vent-${x}-${y}`}>
-                  {[-0.5, -0.3, -0.1, 0.1, 0.3, 0.5].map((vx) => (
-                    <mesh key={`vline-${x}-${y}-${vx}`} position={[vx, y, 0.515]}>
-                      <planeGeometry args={[0.08, 0.04]} />
+              {/* 8 × 1U slots with type variation: blank panel / cable bundle / drive bay */}
+              {Array.from({ length: 8 }, (_, n) => n).map((uIndex) => {
+                const yBase = 0.32 + uIndex * 0.31;
+                const slotHash = (rackIndex * 17 + uIndex * 23) % 7;
+                const showLed = slotHash < 2;
+                const kind: 'blank' | 'cable' | 'drive' =
+                  slotHash < 2 ? 'drive' : slotHash < 5 ? 'blank' : 'cable';
+                return (
+                  <group key={`u-${x}-${yBase.toFixed(2)}`}>
+                    {/* 1U bezel (horizontal seam line) */}
+                    <mesh position={[0, yBase + 0.305, 0.518]}>
+                      <planeGeometry args={[1.35, 0.012]} />
                       <SceneMaterial
                         materialClass="metal"
-                        color={sc.furnitureLight}
-                        overrides={{ roughness: 0.5 }}
+                        color={sc.furnitureDark}
+                        overrides={{ roughness: 0.62 }}
                       />
                     </mesh>
-                  ))}
-                </group>
+                    {kind === 'drive' && (
+                      <>
+                        {[-0.45, -0.15, 0.15, 0.45].map((bayX) => (
+                          <mesh
+                            key={`bay-${x}-${uIndex}-${bayX}`}
+                            position={[bayX, yBase + 0.13, 0.515]}
+                          >
+                            <boxGeometry args={[0.22, 0.18, 0.022]} />
+                            <SceneMaterial materialClass="metal-brushed" color={sc.furnitureDark} />
+                          </mesh>
+                        ))}
+                        {showLed && (
+                          <mesh position={[-0.58, yBase + 0.18, 0.527]}>
+                            <circleGeometry args={[0.024, 8]} />
+                            <EmissiveMaterial
+                              color={pickRackLedColor(uIndex + rackIndex)}
+                              tier="led"
+                            />
+                          </mesh>
+                        )}
+                      </>
+                    )}
+                    {kind === 'cable' &&
+                      [0.06, 0.14, 0.22].map((cy) => (
+                        <mesh key={`cable-${x}-${uIndex}-${cy}`} position={[0, yBase + cy, 0.514]}>
+                          <boxGeometry args={[1.2, 0.018, 0.014]} />
+                          <SceneMaterial materialClass="rubber" color={sc.cableChannel} />
+                        </mesh>
+                      ))}
+                    {kind === 'blank' && (
+                      <mesh position={[0, yBase + 0.155, 0.512]}>
+                        <planeGeometry args={[1.34, 0.26]} />
+                        <SceneMaterial materialClass="metal-brushed" color={sc.furniture} />
+                      </mesh>
+                    )}
+                  </group>
+                );
+              })}
+              {/* Top PDU (power distribution unit) */}
+              <mesh position={[0, 2.78, 0.515]} castShadow>
+                <boxGeometry args={[1.42, 0.12, 0.04]} />
+                <SceneMaterial materialClass="metal-brushed" color={sc.furnitureDark} />
+              </mesh>
+              {[-0.55, -0.27, 0, 0.27, 0.55].map((sx) => (
+                <mesh key={`pdu-socket-${x}-${sx}`} position={[sx, 2.78, 0.54]}>
+                  <circleGeometry args={[0.018, 8]} />
+                  <SceneMaterial materialClass="plastic" color={sc.furnitureLight} />
+                </mesh>
               ))}
+              {/* PDU power LED */}
+              <mesh position={[-0.66, 2.78, 0.541]}>
+                <circleGeometry args={[0.014, 6]} />
+                <EmissiveMaterial color={sc.ledGreen} tier="led" />
+              </mesh>
             </>
           ) : (
             <mesh position={[0, 1.4, 0.525]}>

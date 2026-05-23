@@ -3,7 +3,6 @@ import { isInsideZone, resolveZoneForRole } from '@offisim/shared-types';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as THREE from 'three';
 import { useCompanyZones } from '../../hooks/useCompanyZones.js';
 import {
   type CeremonyState,
@@ -21,7 +20,6 @@ import type { EmployeePerformanceCueMap } from '../../runtime/employee-performan
 import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import type { AgentState } from '../../runtime/use-agent-states';
-import { useTheme } from '../../theme/theme-provider.js';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import { useCompany } from '../company/CompanyContext.js';
 import { DevLightingPanel } from './DevLightingPanel.js';
@@ -44,15 +42,15 @@ import {
   toZone3DLayout,
 } from './office3d-shared.js';
 import { OFFICE_CAMERA_PRESET } from './scene-art-direction.js';
+import { SceneCinematicController } from './scene-cinematic-controller.js';
+import { SceneDustParticles } from './scene-dust-particles.js';
+import { SceneEnvironmentLights } from './scene-environment-lights.js';
 import { SceneLightingRig } from './scene-lighting-rig.js';
-import {
-  type SceneLightingTier,
-  getDevLightingOverrides,
-  getRendererConfig,
-} from './scene-performance-tier.js';
+import { type SceneLightingTier, getDevLightingOverrides } from './scene-performance-tier.js';
 import { ScenePostprocessing } from './scene-postprocessing.js';
 import { shouldAnimateOfficeScene } from './scene-render-policy.js';
-import { RoomShell } from './scene-room-shell.js';
+import { getSceneRendererConfig } from './scene-renderer-config.js';
+import { FloorLineGrid, RoomShell } from './scene-room-shell.js';
 import { useOffice3DViewState } from './useOffice3DViewState.js';
 import type { Office3DPrefabInstance } from './useOffice3DViewState.js';
 import { useScenePerformanceTier } from './useScenePerformanceTier.js';
@@ -495,11 +493,10 @@ function Office3DViewInner({
   const [lightingTier, setLightingTier] = useState<SceneLightingTier>('high');
   const [, setDevOverrideVersion] = useState(0);
   const sc = useSceneColors();
-  const { resolvedTheme } = useTheme();
-  const rendererConfig = getRendererConfig(lightingTier);
+  const rendererConfig = getSceneRendererConfig(lightingTier);
   const devLightingOverrides = getDevLightingOverrides();
-  const shadowsEnabled = devLightingOverrides.shadows ?? lightingTier !== 'off';
-  const postProcessingEnabled = devLightingOverrides.post ?? resolvedTheme === 'dark';
+  const shadowsEnabled = devLightingOverrides.shadows ?? rendererConfig.shadowMap.enabled;
+  const postProcessingEnabled = devLightingOverrides.post ?? lightingTier !== 'off';
   const {
     setFlowLines,
     handleDeselect,
@@ -535,7 +532,8 @@ function Office3DViewInner({
       <Canvas
         dpr={rendererConfig.dpr}
         frameloop={shouldAnimate ? 'always' : 'demand'}
-        shadows={shadowsEnabled ? { type: THREE.PCFShadowMap } : false}
+        shadows={shadowsEnabled ? { type: rendererConfig.shadowMap.type } : false}
+        gl={rendererConfig.gl}
         camera={{ position: OFFICE_CAMERA_PRESET.position, fov: OFFICE_CAMERA_PRESET.fov }}
       >
         <ScenePerformanceController
@@ -544,10 +542,14 @@ function Office3DViewInner({
           onRequestForce2D={onRequestForce2D}
         />
         <SceneFrameLoopController animate={shouldAnimate} controlsRef={controlsRef} />
+        <SceneCinematicController ceremony={ceremony} tier={lightingTier} />
         <color attach="background" args={[sc.sceneBackground]} />
         <SceneLightingRig tier={lightingTier} agents={agents} devOverrides={devLightingOverrides} />
+        <SceneEnvironmentLights tier={lightingTier} />
+        <SceneDustParticles tier={lightingTier} animate={shouldAnimate} />
 
         <RoomShell onFloorClick={handleDeselect} />
+        {isDragging && <FloorLineGrid />}
 
         <Office3DZoneLayer
           zones3D={zones3D}

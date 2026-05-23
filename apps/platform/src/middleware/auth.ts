@@ -16,6 +16,56 @@ import type { PlatformEnv } from '../types.js';
  * 3. Unauthenticated — request continues without userId/userEmail
  */
 
+export const API_TOKEN_SCOPES = ['publish:write', 'install:receipt', 'reviews:write'] as const;
+export const MAX_API_TOKEN_EXPIRY_DAYS = 365;
+
+export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number];
+
+const API_TOKEN_SCOPE_SET = new Set<string>(API_TOKEN_SCOPES);
+
+export function normalizeApiTokenScopes(value: unknown): ApiTokenScope[] {
+  if (!Array.isArray(value)) return [];
+  const scopes: ApiTokenScope[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    if (!API_TOKEN_SCOPE_SET.has(item)) continue;
+    const scope = item as ApiTokenScope;
+    if (!scopes.includes(scope)) scopes.push(scope);
+  }
+  return scopes;
+}
+
+export function parseApiTokenScopes(value: unknown): ApiTokenScope[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new HTTPException(400, { message: 'scopes must be an array' });
+  }
+  const scopes: ApiTokenScope[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || !API_TOKEN_SCOPE_SET.has(item)) {
+      throw new HTTPException(400, { message: 'scopes contains an unsupported API token scope' });
+    }
+    const scope = item as ApiTokenScope;
+    if (!scopes.includes(scope)) scopes.push(scope);
+  }
+  return scopes;
+}
+
+export function parseApiTokenExpiryDays(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > MAX_API_TOKEN_EXPIRY_DAYS
+  ) {
+    throw new HTTPException(400, {
+      message: `expires_in_days must be an integer between 1 and ${MAX_API_TOKEN_EXPIRY_DAYS}`,
+    });
+  }
+  return value;
+}
+
 export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
   const authHeader = c.req.header('authorization');
 
@@ -50,7 +100,7 @@ export const optionalAuth = createMiddleware<PlatformEnv>(async (c, next) => {
           c.set('userId', offisimUser.user_id);
           c.set('userEmail', offisimUser.email);
           c.set('authKind', 'api-token');
-          c.set('apiTokenScopes', Array.isArray(tokenRow.scopes) ? tokenRow.scopes : []);
+          c.set('apiTokenScopes', normalizeApiTokenScopes(tokenRow.scopes));
         }
 
         // Update last_used_at (fire-and-forget)
@@ -168,6 +218,21 @@ export const requireAuth = createMiddleware<PlatformEnv>(async (c, next) => {
   await next();
 });
 
+export const requireSessionAuth = createMiddleware<PlatformEnv>(async (c, next) => {
+  if (c.get('authKind') !== 'session') {
+    return c.json(
+      {
+        error: {
+          code: 'SESSION_AUTH_REQUIRED',
+          message: 'This route requires an authenticated browser session.',
+        },
+      },
+      403,
+    );
+  }
+  await next();
+});
+
 export function getRequiredUserId(c: { get: (key: 'userId') => string | undefined }): string {
   const userId = c.get('userId');
   if (!userId) {
@@ -182,8 +247,8 @@ export function requireScope(scope: string) {
       await next();
       return;
     }
-    const scopes = c.get('apiTokenScopes') ?? [];
-    if (!scopes.includes(scope)) {
+    const scopes = normalizeApiTokenScopes(c.get('apiTokenScopes'));
+    if (!scopes.some((tokenScope) => tokenScope === scope)) {
       return c.json(
         {
           error: {

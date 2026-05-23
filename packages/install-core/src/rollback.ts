@@ -53,10 +53,52 @@ export async function rollback(
   );
   collectErrors(employeeResults, result.employeeIds, (id) => `employees.delete(${id})`, errors);
 
-  try {
-    await repos.installedPackages.delete(result.installedPackageId);
-  } catch (err) {
-    errors.push(formatError(`installedPackages.delete(${result.installedPackageId})`, err));
+  const prefabResults = await Promise.allSettled(
+    (result.prefabInstanceIds ?? []).map((id) => repos.prefabInstances?.delete(id)),
+  );
+  collectErrors(
+    prefabResults,
+    result.prefabInstanceIds ?? [],
+    (id) => `prefabInstances.delete(${id})`,
+    errors,
+  );
+
+  const layoutResults = await Promise.allSettled(
+    (result.officeLayoutIds ?? []).map((id) => repos.officeLayouts?.delete(id)),
+  );
+  collectErrors(
+    layoutResults,
+    result.officeLayoutIds ?? [],
+    (id) => `officeLayouts.delete(${id})`,
+    errors,
+  );
+
+  const sopResults = await Promise.allSettled(
+    (result.sopTemplateIds ?? []).map((id) => repos.sopTemplates?.delete(id)),
+  );
+  collectErrors(
+    sopResults,
+    result.sopTemplateIds ?? [],
+    (id) => `sopTemplates.delete(${id})`,
+    errors,
+  );
+
+  const companyTemplateResults = await Promise.allSettled(
+    (result.companyTemplateIds ?? []).map((id) => repos.companyTemplates?.delete(id)),
+  );
+  collectErrors(
+    companyTemplateResults,
+    result.companyTemplateIds ?? [],
+    (id) => `companyTemplates.delete(${id})`,
+    errors,
+  );
+
+  if (result.installedPackageId) {
+    try {
+      await repos.installedPackages.delete(result.installedPackageId);
+    } catch (err) {
+      errors.push(formatError(`installedPackages.delete(${result.installedPackageId})`, err));
+    }
   }
 
   if (errors.length > 0) {

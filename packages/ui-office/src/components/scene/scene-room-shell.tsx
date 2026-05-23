@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { SceneMaterial } from '../../theme/scene-materials.js';
+import { EmissiveMaterial, SceneMaterial } from '../../theme/scene-materials.js';
 import { useSceneColors } from '../../theme/use-scene-colors.js';
 import {
   FLOOR_BANDS,
@@ -28,7 +28,7 @@ function buildGridGeometry(width: number, depth: number, step: number) {
   return geometry;
 }
 
-function FloorLineGrid() {
+export function FloorLineGrid() {
   const sc = useSceneColors();
   const minorGeometry = useMemo(
     () => buildGridGeometry(OFFICE_ROOM.width, OFFICE_ROOM.depth, ROOM_GRID.minorStep),
@@ -89,20 +89,230 @@ function FloorBands() {
   );
 }
 
-function BackWallPanels() {
+type WallPanelKind = 'framed-art' | 'corkboard' | 'season-screen' | 'framed-art-alt';
+
+const WALL_PANEL_KINDS: ReadonlyArray<WallPanelKind> = [
+  'framed-art',
+  'corkboard',
+  'season-screen',
+  'framed-art-alt',
+];
+
+const STICKY_NOTE_LAYOUT: ReadonlyArray<{
+  dx: number;
+  dy: number;
+  rot: number;
+  colorKey: 'noteAmber' | 'noteCyan' | 'notePink';
+}> = [
+  { dx: -1.6, dy: 0.45, rot: 0.06, colorKey: 'noteAmber' },
+  { dx: -0.8, dy: 0.65, rot: -0.04, colorKey: 'noteCyan' },
+  { dx: 0.1, dy: 0.3, rot: 0.08, colorKey: 'notePink' },
+  { dx: 1.2, dy: 0.6, rot: -0.02, colorKey: 'noteAmber' },
+  { dx: -1.4, dy: -0.4, rot: 0.05, colorKey: 'notePink' },
+  { dx: 0.4, dy: -0.55, rot: -0.07, colorKey: 'noteCyan' },
+  { dx: 1.6, dy: -0.3, rot: 0.03, colorKey: 'noteAmber' },
+] as const;
+
+// Sticky note tints: warm office decoration, intentionally not in semantic tokens.
+const NOTE_COLORS = {
+  noteAmber: '#f5c161', // raw-hex-allowed
+  noteCyan: '#9bd4d0', // raw-hex-allowed
+  notePink: '#e89db4', // raw-hex-allowed
+} as const;
+
+import type { MaterialClass } from '../../theme/scene-materials.js';
+
+function WallPanelFrame({
+  width,
+  height,
+  z,
+  frameClass,
+  frameColor,
+  insetMargin = 0.3,
+  renderInsetBackground = true,
+  children,
+}: {
+  width: number;
+  height: number;
+  z: number;
+  frameClass: MaterialClass;
+  frameColor: string;
+  insetMargin?: number;
+  renderInsetBackground?: boolean;
+  children: (innerWidth: number, innerHeight: number) => React.ReactNode;
+}) {
   const sc = useSceneColors();
+  const innerWidth = width - insetMargin;
+  const innerHeight = height - insetMargin;
   return (
-    <>
-      {WALL_PANELS.map((panel) => (
-        <mesh
-          key={panel.id}
-          position={[panel.x, panel.y, -OFFICE_ROOM.depth / 2 + 0.17]}
-          receiveShadow
-        >
-          <boxGeometry args={[panel.width, panel.height, panel.depth]} />
+    <group position={[0, 0, z]}>
+      <mesh receiveShadow>
+        <boxGeometry args={[width, height, 0.06]} />
+        <SceneMaterial materialClass={frameClass} color={frameColor} />
+      </mesh>
+      {renderInsetBackground && (
+        <mesh position={[0, 0, 0.04]}>
+          <planeGeometry args={[innerWidth, innerHeight]} />
           <SceneMaterial materialClass="plastic" color={sc.wallPanel} />
         </mesh>
-      ))}
+      )}
+      {children(innerWidth, innerHeight)}
+    </group>
+  );
+}
+
+function FramedArtPanel({
+  width,
+  height,
+  z,
+  variant,
+}: {
+  width: number;
+  height: number;
+  z: number;
+  variant: 'a' | 'b';
+}) {
+  const sc = useSceneColors();
+  const bandTop = variant === 'a' ? sc.accentCool : sc.accentWarm;
+  const bandMid = variant === 'a' ? sc.accentWarm : sc.accentCool;
+  return (
+    <WallPanelFrame
+      width={width}
+      height={height}
+      z={z}
+      insetMargin={0.5}
+      frameClass="wood"
+      frameColor={sc.deskEdge}
+    >
+      {(innerWidth, innerHeight) => (
+        <>
+          <mesh position={[0, innerHeight * 0.18, 0.045]}>
+            <planeGeometry args={[innerWidth * 0.7, innerHeight * 0.18]} />
+            <SceneMaterial materialClass="fabric" color={bandTop} overrides={{ roughness: 0.85 }} />
+          </mesh>
+          <mesh position={[0, -innerHeight * 0.08, 0.045]}>
+            <planeGeometry args={[innerWidth * 0.92, innerHeight * 0.12]} />
+            <SceneMaterial materialClass="fabric" color={bandMid} overrides={{ roughness: 0.85 }} />
+          </mesh>
+        </>
+      )}
+    </WallPanelFrame>
+  );
+}
+
+function CorkboardPanel({ width, height, z }: { width: number; height: number; z: number }) {
+  const sc = useSceneColors();
+  return (
+    <WallPanelFrame
+      width={width}
+      height={height}
+      z={z}
+      frameClass="wood"
+      frameColor={sc.deskEdge}
+      renderInsetBackground={false}
+    >
+      {(innerWidth, innerHeight) => (
+        <>
+          <mesh position={[0, 0, 0.04]}>
+            <planeGeometry args={[innerWidth, innerHeight]} />
+            <SceneMaterial
+              materialClass="fabric"
+              color={sc.furnitureDark}
+              overrides={{ roughness: 0.96 }}
+            />
+          </mesh>
+          {STICKY_NOTE_LAYOUT.map((note) => (
+            <mesh
+              key={`note-${note.dx}-${note.dy}`}
+              position={[note.dx, note.dy, 0.05]}
+              rotation={[0, 0, note.rot]}
+              castShadow
+            >
+              <planeGeometry args={[0.55, 0.55]} />
+              <SceneMaterial
+                materialClass="plastic"
+                color={NOTE_COLORS[note.colorKey]}
+                overrides={{ roughness: 0.7 }}
+              />
+            </mesh>
+          ))}
+        </>
+      )}
+    </WallPanelFrame>
+  );
+}
+
+function SeasonScreenPanel({
+  width,
+  height,
+  z,
+}: {
+  width: number;
+  height: number;
+  z: number;
+}) {
+  const sc = useSceneColors();
+  const bars = [0.32, 0.48, 0.62, 0.41, 0.78, 0.55, 0.68];
+  return (
+    <WallPanelFrame
+      width={width}
+      height={height}
+      z={z}
+      frameClass="metal-brushed"
+      frameColor={sc.furnitureDark}
+      renderInsetBackground={false}
+    >
+      {(innerWidth, innerHeight) => (
+        <>
+          <mesh position={[0, 0, 0.04]}>
+            <planeGeometry args={[innerWidth, innerHeight]} />
+            <EmissiveMaterial color={sc.screen} tier="screen" />
+          </mesh>
+          {bars.map((bar, i) => {
+            const usable = innerWidth - 0.3;
+            const bw = usable / bars.length - 0.05;
+            const x = -usable / 2 + bw / 2 + i * (bw + 0.05);
+            const bh = bar * (innerHeight - 0.3);
+            return (
+              <mesh
+                key={`bar-${bar}-${x.toFixed(2)}`}
+                position={[x, -innerHeight / 2 + 0.2 + bh / 2, 0.05]}
+              >
+                <planeGeometry args={[bw, bh]} />
+                <EmissiveMaterial color={sc.ledCyan} tier="accent" />
+              </mesh>
+            );
+          })}
+        </>
+      )}
+    </WallPanelFrame>
+  );
+}
+
+function BackWallPanels() {
+  const sc = useSceneColors();
+  const wallZ = -OFFICE_ROOM.depth / 2 + 0.17;
+  return (
+    <>
+      {WALL_PANELS.map((panel, i) => {
+        const kind = WALL_PANEL_KINDS[i % WALL_PANEL_KINDS.length] ?? 'framed-art';
+        return (
+          <group key={panel.id} position={[panel.x, panel.y, 0]}>
+            {kind === 'framed-art' && (
+              <FramedArtPanel width={panel.width} height={panel.height} z={wallZ} variant="a" />
+            )}
+            {kind === 'framed-art-alt' && (
+              <FramedArtPanel width={panel.width} height={panel.height} z={wallZ} variant="b" />
+            )}
+            {kind === 'corkboard' && (
+              <CorkboardPanel width={panel.width} height={panel.height} z={wallZ} />
+            )}
+            {kind === 'season-screen' && (
+              <SeasonScreenPanel width={panel.width} height={panel.height} z={wallZ} />
+            )}
+          </group>
+        );
+      })}
       <mesh position={[0, OFFICE_ROOM.trimHeight / 2, -OFFICE_ROOM.depth / 2 + 0.34]} receiveShadow>
         <boxGeometry args={[OFFICE_ROOM.width, OFFICE_ROOM.trimHeight, 0.26]} />
         <SceneMaterial materialClass="plastic" color={sc.wallTrim} />
@@ -134,7 +344,6 @@ export function RoomShell({ onFloorClick }: { onFloorClick?: () => void }) {
         />
       </mesh>
       <FloorBands />
-      <FloorLineGrid />
       <mesh position={[0, OFFICE_ROOM.wallHeight / 2, -OFFICE_ROOM.depth / 2]} receiveShadow>
         <boxGeometry args={[OFFICE_ROOM.width, OFFICE_ROOM.wallHeight, 0.3]} />
         <SceneMaterial materialClass="plastic" color={sc.wallShell} />

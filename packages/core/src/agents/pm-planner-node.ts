@@ -118,11 +118,13 @@ export async function pmPlannerNode(
   let plan: LlmPlan | null = prep.reviewedPlan;
   let sopTemplateId: string | undefined;
 
-  if (prep.directive.sopTemplateId && !prep.planRevisionNote) {
+  const typedSopTemplateId = prep.runScope?.sopTemplateId ?? prep.directive.sopTemplateId;
+
+  if (typedSopTemplateId && !prep.planRevisionNote) {
     const explicit = await tryBuildExplicitSopPlan(
       prep.runtimeCtx.repos,
       prep.runtimeCtx.eventBus,
-      prep.directive.sopTemplateId,
+      typedSopTemplateId,
       prep.allEnabled,
     );
     if (explicit) {

@@ -1,0 +1,13 @@
+{
+  "id": "install-materialization-rolls-back-partial-production-assets",
+  "category": "install-runtime",
+  "entryMode": "boss_chat",
+  "interactionMode": "boss_proxy",
+  "seed": {
+    "company": { "companyId": "company-install-rollback", "name": "Install Rollback Co" },
+    "thread": { "threadId": "thread-install-rollback", "status": "running" }
+  },
+  "initialState": {},
+  "runs": [],
+  "assertions": [{ "kind": "installMaterializationRollback" }]
+}

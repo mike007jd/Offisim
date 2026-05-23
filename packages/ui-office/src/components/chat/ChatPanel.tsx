@@ -453,6 +453,7 @@ export function ChatPanel({
       options?: {
         entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
         attachments?: ChatInputAttachmentPayload;
+        toolPolicy?: RunScope['toolPolicy'];
       },
     ) => {
       // Notify parent of user message (only for team chat, not direct employee chat)
@@ -530,6 +531,7 @@ export function ChatPanel({
         conversationKey: runConversationKey,
         runId: genRunId(),
         threadId: activeThreadId,
+        ...(options?.toolPolicy ? { toolPolicy: options.toolPolicy } : {}),
         ...(persistedRefs.length > 0 ? { pendingAttachments: persistedRefs } : {}),
         ...(availableAttachments.length > 0 ? { availableAttachments } : {}),
       };
@@ -617,7 +619,7 @@ export function ChatPanel({
     (command: ChatCommand, args: string) => {
       if (command.type === 'runtime') {
         const prompt = command.buildPrompt(args);
-        handleSend(prompt, { entryMode: command.entryMode });
+        handleSend(prompt, { entryMode: command.entryMode, toolPolicy: command.runToolPolicy });
         return;
       }
       if (command.type === 'client') {

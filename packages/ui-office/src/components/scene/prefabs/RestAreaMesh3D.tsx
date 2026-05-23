@@ -14,6 +14,10 @@ export interface RestAreaMesh3DProps {
   state?: string;
 }
 
+function SofaFabricMaterial({ color, opacity = 0.96 }: { color: string; opacity?: number }) {
+  return <meshBasicMaterial color={color} transparent opacity={opacity} toneMapped={false} />;
+}
+
 export function RestAreaMesh3D({
   position = [0, 0, 0],
   rotation = 0,
@@ -30,11 +34,11 @@ export function RestAreaMesh3D({
         <SceneMaterial materialClass="fabric" color={sc.furnitureLight} />
       </mesh>
       {/* Sofa set 1 - L shape */}
-      <RoundedBox args={[4, 0.4, 1.2]} position={[-1, 0.2, -2.2]} radius={0.1} castShadow>
-        <SceneMaterial materialClass="fabric" color={sc.ledAmber} />
+      <RoundedBox args={[4, 0.4, 1.2]} position={[-1, 0.2, -2.2]} radius={0.1}>
+        <SofaFabricMaterial color={sc.ledAmber} />
       </RoundedBox>
-      <RoundedBox args={[4, 0.6, 0.3]} position={[-1, 0.5, -2.75]} radius={0.1} castShadow>
-        <SceneMaterial materialClass="fabric" color={sc.ledAmber} />
+      <RoundedBox args={[4, 0.6, 0.3]} position={[-1, 0.5, -2.75]} radius={0.1}>
+        <SofaFabricMaterial color={sc.ledAmber} opacity={0.9} />
       </RoundedBox>
       {[-2.2, -1, 0.2].map((x) => (
         <RoundedBox
@@ -42,21 +46,16 @@ export function RestAreaMesh3D({
           args={[0.75, 0.12, 0.55]}
           position={[x, 0.45, -2.18]}
           radius={0.08}
-          castShadow
         >
-          <SceneMaterial
-            materialClass="fabric"
-            color={sc.accentWarm}
-            overrides={{ roughness: 0.86 }}
-          />
+          <SofaFabricMaterial color={sc.accentWarm} />
         </RoundedBox>
       ))}
       {/* Sofa set 2 */}
-      <RoundedBox args={[3, 0.4, 1]} position={[1, 0.2, 2]} radius={0.1} castShadow>
-        <SceneMaterial materialClass="fabric" color={sc.accentWarm} />
+      <RoundedBox args={[3, 0.4, 1]} position={[1, 0.2, 2]} radius={0.1}>
+        <SofaFabricMaterial color={sc.accentWarm} />
       </RoundedBox>
-      <RoundedBox args={[3, 0.6, 0.3]} position={[1, 0.5, 2.45]} radius={0.1} castShadow>
-        <SceneMaterial materialClass="fabric" color={sc.accentWarm} />
+      <RoundedBox args={[3, 0.6, 0.3]} position={[1, 0.5, 2.45]} radius={0.1}>
+        <SofaFabricMaterial color={sc.accentWarm} opacity={0.9} />
       </RoundedBox>
       {[-0.1, 0.95, 2].map((x) => (
         <RoundedBox
@@ -64,13 +63,8 @@ export function RestAreaMesh3D({
           args={[0.68, 0.12, 0.46]}
           position={[x, 0.45, 2]}
           radius={0.08}
-          castShadow
         >
-          <SceneMaterial
-            materialClass="fabric"
-            color={sc.ledAmber}
-            overrides={{ roughness: 0.86 }}
-          />
+          <SofaFabricMaterial color={sc.ledAmber} />
         </RoundedBox>
       ))}
       <RoundedBox args={[1.05, 0.22, 0.72]} position={[-3.2, 0.22, -0.15]} radius={0.08} castShadow>

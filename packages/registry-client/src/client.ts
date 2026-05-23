@@ -27,6 +27,11 @@ import type {
   VersionListResponse,
 } from './types.js';
 
+export const REGISTRY_CLIENT_MAX_JSON_BYTES = 1024 * 1024;
+export const REGISTRY_CLIENT_TIMEOUT_MS = 10_000;
+
+const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
+
 export interface RegistryClientConfig {
   baseUrl: string;
   authToken?: string;
@@ -162,25 +167,44 @@ export class RegistryClient {
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    const res = await this.fetch(url, {
-      method,
-      headers: this.headers(),
-      body: body ? JSON.stringify(body) : undefined,
-      credentials: this.credentials,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REGISTRY_CLIENT_TIMEOUT_MS);
+    try {
+      const res = await this.fetch(url, {
+        method,
+        headers: this.headers(),
+        body: body ? JSON.stringify(body) : undefined,
+        credentials: this.credentials,
+        redirect: 'manual',
+        signal: controller.signal,
+      });
 
-    if (!res.ok) {
-      const errorBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-      const fallback = { code: 'UNKNOWN', message: res.statusText };
-      const errObj = (errorBody.error ?? fallback) as {
-        code: string;
-        message: string;
-        details?: Record<string, unknown>;
-      };
-      throw new RegistryApiError(res.status, errObj.code, errObj.message, errObj.details);
+      if (REDIRECT_STATUS_CODES.has(res.status)) {
+        throw new RegistryApiError(
+          res.status,
+          'REDIRECT_NOT_ALLOWED',
+          'Registry API redirects are not allowed',
+        );
+      }
+
+      if (!res.ok) {
+        const errorBody = (await readRegistryJson(res).catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
+        const fallback = { code: 'UNKNOWN', message: res.statusText };
+        const errObj = (errorBody.error ?? fallback) as {
+          code: string;
+          message: string;
+          details?: Record<string, unknown>;
+        };
+        throw new RegistryApiError(res.status, errObj.code, errObj.message, errObj.details);
+      }
+
+      return await readRegistryJson<T>(res);
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    return res.json() as Promise<T>;
   }
 
   private get<T>(path: string): Promise<T> {
@@ -198,4 +222,50 @@ export class RegistryClient {
   private delete<T>(path: string): Promise<T> {
     return this.request<T>('DELETE', path);
   }
+}
+
+async function readRegistryJson<T = unknown>(response: Response): Promise<T> {
+  const text = await readRegistryTextWithLimit(response, REGISTRY_CLIENT_MAX_JSON_BYTES);
+  if (!text.trim()) return null as T;
+  return JSON.parse(text) as T;
+}
+
+async function readRegistryTextWithLimit(response: Response, maxBytes: number): Promise<string> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength) {
+    const parsed = Number.parseInt(contentLength, 10);
+    if (Number.isFinite(parsed) && parsed > maxBytes) {
+      throw new Error(`Registry response exceeded ${maxBytes} bytes`);
+    }
+  }
+
+  if (!response.body) {
+    throw new Error('Registry response did not expose a readable stream');
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        throw new Error(`Registry response exceeded ${maxBytes} bytes`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
 }

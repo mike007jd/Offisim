@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Offisim · Workspace (collaboration suite)</title>
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+  <link
+    href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #eef1f6;
+      --surface-0: #f7f9fc;
+      --surface-1: #ffffff;
+      --surface-2: #fbfcfe;
+      --surface-sunken: #f1f4f9;
+      --ink-1: #131a27;
+      --ink-2: #3c4a60;
+      --ink-3: #647186;
+      --ink-4: #93a0b2;
+      --line: #dde3ec;
+      --line-soft: #e9edf4;
+      --line-strong: #c8d1de;
+      --accent: #2f6bff;
+      --accent-press: #1f54d8;
+      --accent-fg: #ffffff;
+      --accent-surface: #ecf2ff;
+      --accent-ring: rgba(47, 107, 255, 0.36);
+      --ok: #1aa46a;        --ok-surface: #e4f5ec;
+      --warn: #c98410;      --warn-surface: #fdf2dd;
+      --danger: #d6453d;    --danger-surface: #fdeae9;
+      --violet: #7c4ddb;    --violet-surface: #f1ebfd;
+      --r-xs: 5px; --r-sm: 7px; --r-md: 9px; --r-lg: 13px; --r-pill: 999px;
+      --elev-1: 0 1px 2px rgba(20, 32, 56, 0.06), 0 1px 1px rgba(20, 32, 56, 0.04);
+      --elev-2: 0 4px 14px rgba(20, 32, 56, 0.10), 0 1px 3px rgba(20, 32, 56, 0.06);
+      --elev-3: 0 18px 44px rgba(18, 28, 50, 0.20), 0 4px 12px rgba(18, 28, 50, 0.10);
+      --sp-1: 4px; --sp-2: 6px; --sp-3: 8px; --sp-4: 10px;
+      --sp-5: 12px; --sp-6: 14px; --sp-7: 16px; --sp-8: 20px;
+      --fs-micro: 10px; --fs-meta: 11px; --fs-sm: 12px; --fs-base: 13px;
+      --fs-md: 14px; --fs-lg: 15px; --ls-caps: 0.14em;
+      --title: 40px; --toolbar: 54px;
+      --font: "General Sans", ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo", monospace;
+      font-family: var(--font);
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; }
+    *:focus { outline: none; }
+    *:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: var(--r-xs); }
+    body {
+      margin: 0; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 28px; padding: 28px;
+      background: radial-gradient(1200px 700px at 50% -10%, #1f2738 0%, #0f1420 60%, #0b0f17 100%);
+      color: var(--ink-1); font-size: var(--fs-base);
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+      font-variant-numeric: tabular-nums;
+    }
+    .app {
+      width: min(1600px, 100%);
+      height: min(1000px, calc(100vh - 56px));
+      background: var(--bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px; overflow: hidden;
+      display: grid; grid-template-rows: var(--title) var(--toolbar) 1fr;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 40px 100px rgba(0, 0, 0, 0.55);
+      flex: none;
+    }
+    button { font: inherit; cursor: pointer; }
+    .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .ico { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; fill: none; flex: none; display: block; }
+    .ico.sm { width: 14px; height: 14px; }
+    .ico.xs { width: 12px; height: 12px; }
+    .ico.fill { fill: currentColor; stroke: none; }
+
+    /* ── Title bar ── */
+    .titlebar { height: var(--title); display: flex; align-items: center; gap: var(--sp-6); padding: 0 var(--sp-5); background: linear-gradient(#fcfdfe, #eef2f7); border-bottom: 1px solid var(--line); }
+    .traffic { display: flex; gap: 8px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+    .red { background: #ff5f57; } .yellow { background: #febc2e; } .green { background: #28c840; }
+    .brand { display: flex; align-items: baseline; gap: 9px; font-weight: 640; font-size: var(--fs-md); letter-spacing: -0.01em; }
+    .brand .ver { font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600; padding: 2px 6px; border-radius: var(--r-pill); background: var(--surface-sunken); letter-spacing: 0.02em; }
+
+    /* ── Top bar ── */
+    .topbar { height: var(--toolbar); position: relative; display: flex; align-items: center; gap: var(--sp-5); padding: 0 var(--sp-5); background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+    .topbar .nav { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+    .topbar .iconbar { margin-left: auto; }
+    .nav, .iconbar { height: 34px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); display: flex; align-items: center; }
+    .nav { padding: 3px; gap: 2px; box-shadow: var(--elev-1); }
+    .nav button { height: 28px; padding: 0 14px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink-2); font-size: var(--fs-base); font-weight: 560; display: flex; align-items: center; gap: 6px; transition: background 0.14s ease, color 0.14s ease; }
+    .nav button:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
+    .nav .active { color: var(--accent); background: var(--accent-surface); font-weight: 620; box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .iconbar { padding: 3px; gap: 2px; box-shadow: var(--elev-1); }
+    .iconbtn { width: 28px; height: 28px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink-3); display: grid; place-items: center; transition: background 0.14s ease, color 0.14s ease; }
+    .iconbtn:hover { background: rgba(20, 32, 56, 0.05); color: var(--ink-1); }
+    .iconbar-div { width: 1px; height: 16px; background: var(--line); margin: 0 3px; }
+
+    /* ── Scope breadcrumb ── */
+    .scope-bar { position: relative; display: flex; align-items: center; height: 36px; padding: 3px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); box-shadow: var(--elev-1); max-width: 440px; }
+    .scope-seg { display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 9px; border: 0; border-radius: var(--r-sm); background: transparent; min-width: 0; transition: background 0.14s ease; }
+    .scope-seg:hover { background: var(--surface-sunken); }
+    .scope-seg .s-icn { display: grid; place-items: center; flex: none; }
+    .scope-seg.company .s-icn { width: 22px; height: 22px; border-radius: var(--r-xs); background: var(--accent-surface); color: var(--accent); }
+    .scope-seg.project .s-icn { color: var(--ink-3); }
+    .scope-seg .s-name { font-size: var(--fs-base); font-weight: 640; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .scope-seg.company .s-name { max-width: 150px; } .scope-seg.project .s-name { max-width: 140px; }
+    .scope-seg .s-caret { color: var(--ink-4); display: grid; place-items: center; flex: none; }
+    .scope-div { color: var(--ink-4); display: grid; place-items: center; flex: none; }
+
+    /* ════════════════════════════════════════════════════
+       WORKSPACE SUITE — the new surface.
+       Office = watch AI employees collaborate live in 3D.
+       Workspace = the company's business-software layer (the
+       in-game "desktop / phone" system): an enterprise suite
+       (Messenger / Approvals / Docs / Calendar / Meetings /
+       Contacts / Workplace) over the SAME company, projects,
+       employees, conversations, deliverables, approvals.
+       ════════════════════════════════════════════════════ */
+    .suite { min-height: 0; display: grid; grid-template-columns: 64px 1fr; }
+
+    /* Left vertical app rail (the suite's app switcher) */
+    .appbar { background: var(--surface-0); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: var(--sp-4) 0 var(--sp-3); gap: 3px; min-height: 0; }
+    .appbar-id { width: 34px; height: 34px; border-radius: var(--r-md); background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--line), var(--elev-1); margin-bottom: var(--sp-3); }
+    .appbtn { position: relative; width: 52px; padding: 7px 0 6px; border: 1px solid transparent; border-radius: var(--r-md); background: transparent; color: var(--ink-3); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease; }
+    .appbtn .lab { font-size: 9px; font-weight: 620; letter-spacing: 0.01em; }
+    .appbtn:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    .appbtn.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .appbtn .nb { position: absolute; top: 2px; right: 7px; min-width: 15px; height: 15px; padding: 0 4px; display: grid; place-items: center; background: var(--danger); color: #fff; font-size: 9px; font-weight: 760; border-radius: var(--r-pill); box-shadow: 0 1px 3px rgba(214, 69, 61, 0.4); }
+    .appbtn .nb.dot { min-width: 8px; width: 8px; height: 8px; padding: 0; right: 11px; top: 5px; }
+    .appbar-sp { flex: 1; min-height: 8px; }
+
+    /* Right body — per-app layout */
+    .suite-body { min-width: 0; min-height: 0; display: grid; background: var(--surface-1); }
+    .suite-body.split { grid-template-columns: 320px 1fr; }
+    .suite-body.single { grid-template-columns: 1fr; }
+    .suite-list { min-width: 0; min-height: 0; border-right: 1px solid var(--line); display: grid; grid-template-rows: auto 1fr; background: var(--surface-1); }
+    .suite-detail { min-width: 0; min-height: 0; display: grid; }
+    .min0 { min-width: 0; }
+
+    /* Generic list header (Messenger / Approvals / Docs / Contacts) */
+    .lst-head { border-bottom: 1px solid var(--line-soft); padding: var(--sp-4) var(--sp-5) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
+    .lst-head-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+    .lst-title { font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); letter-spacing: -0.01em; }
+    .lst-add { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-3); display: grid; place-items: center; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
+    .lst-add:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
+    .field { height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-sunken); color: var(--ink-4); display: flex; align-items: center; gap: 7px; font-size: var(--fs-sm); transition: border-color 0.14s ease, background 0.14s ease; }
+    .field:hover { border-color: var(--line-strong); background: var(--surface-2); }
+    .lst-scroll { min-height: 0; overflow-y: auto; padding: var(--sp-3) var(--sp-3); display: flex; flex-direction: column; gap: 1px; }
+
+    /* In-list segmented filter (To do/Done/CC; All/Unread) — container grammar */
+    .seg { display: inline-flex; align-items: center; height: 30px; padding: 3px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); gap: 2px; box-shadow: var(--elev-1); }
+    .seg button { height: 24px; padding: 0 10px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink-3); font-size: var(--fs-meta); font-weight: 600; display: inline-flex; align-items: center; gap: 5px; transition: background 0.12s ease, color 0.12s ease; }
+    .seg button:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    .seg button.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .seg button .ct { font-family: var(--mono); font-size: 9px; opacity: 0.8; }
+
+    /* ── Messenger conversation row ── */
+    .im-row { display: grid; grid-template-columns: 40px 1fr; gap: var(--sp-3); align-items: center; padding: var(--sp-3) var(--sp-3); border: 1px solid transparent; border-radius: var(--r-md); background: transparent; text-align: left; transition: background 0.12s ease, border-color 0.12s ease; }
+    .im-row:hover { background: var(--surface-sunken); }
+    .im-row.active { background: var(--accent-surface); border-color: var(--accent-ring); }
+    .im-av { width: 40px; height: 40px; border-radius: var(--r-md); background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--line); position: relative; flex: none; }
+    .im-av.group { display: grid; place-items: center; background: var(--accent-surface); color: var(--accent); }
+    .im-av.bot { display: grid; place-items: center; background: var(--violet-surface); color: var(--violet); }
+    .im-av.ext { box-shadow: 0 0 0 1px var(--violet); }
+    .im-av .pres { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--surface-1); }
+    .pres.on { background: var(--ok); } .pres.busy { background: var(--warn); } .pres.blocked { background: var(--danger); } .pres.off { background: var(--ink-4); }
+    .im-main { min-width: 0; }
+    .im-l1 { display: flex; align-items: baseline; gap: var(--sp-2); }
+    .im-nm { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .im-row.active .im-nm { color: var(--accent); }
+    .im-btag { flex: none; font-size: 8.5px; font-weight: 760; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; background: var(--violet-surface); color: var(--violet); }
+    .im-tm { flex: none; font-size: 9.5px; color: var(--ink-4); font-variant-numeric: tabular-nums; }
+    .im-l2 { display: flex; align-items: center; gap: var(--sp-2); margin-top: 3px; }
+    .im-snip { flex: 1; min-width: 0; font-size: var(--fs-meta); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .im-nb { flex: none; min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center; background: var(--danger); color: #fff; font-size: 9px; font-weight: 760; border-radius: var(--r-pill); }
+    .im-nb.mut { background: var(--ink-4); }
+    .im-rd { flex: none; color: var(--ok); display: grid; place-items: center; }
+    .im-mute { flex: none; color: var(--ink-4); }
+    .im-sec { padding: var(--sp-4) var(--sp-3) var(--sp-2); font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-4); text-transform: uppercase; }
+
+    /* ── Conversation tabs (Chat / Files / Docs +) — container grammar ── */
+    .conv-tabs { display: flex; align-items: center; gap: 2px; padding: var(--sp-3) var(--sp-5); border-bottom: 1px solid var(--line-soft); background: var(--surface-1); }
+    .conv-tab { height: 28px; padding: 0 12px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink-2); font-size: var(--fs-sm); font-weight: 580; display: inline-flex; align-items: center; gap: 6px; transition: background 0.12s ease, color 0.12s ease; }
+    .conv-tab:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    .conv-tab.active { background: var(--accent-surface); color: var(--accent); font-weight: 640; box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .conv-tab .ct { font-family: var(--mono); font-size: 9px; opacity: 0.85; }
+    .conv-tab.add { color: var(--ink-4); padding: 0 9px; }
+
+    /* ── Chat header (reused from Office rail) ── */
+    .chat-head { height: 48px; padding: 0 var(--sp-3) 0 var(--sp-2); border-bottom: 1px solid var(--line-soft); display: grid; grid-template-columns: 36px 1fr auto; gap: var(--sp-2); align-items: center; }
+    .chat-head .ch-av { width: 30px; height: 30px; border-radius: var(--r-sm); background-size: cover; box-shadow: 0 0 0 1px var(--line); justify-self: center; }
+    .chat-head .ch-av.group { display: grid; place-items: center; background: var(--accent-surface); color: var(--accent); }
+    .crumb-back { width: 30px; height: 30px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink-3); display: grid; place-items: center; transition: background 0.12s ease, color 0.12s ease; }
+    .crumb-back:hover { background: var(--surface-sunken); color: var(--accent); }
+    .crumb-wrap { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .crumb-title { font-size: var(--fs-base); font-weight: 660; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; display: flex; align-items: center; gap: 6px; }
+    .crumb-sub { color: var(--ink-3); font-size: var(--fs-micro); font-weight: 540; }
+    .chat-tools { display: flex; gap: 2px; align-items: center; }
+    .chat-tools .iconbtn { width: 30px; height: 30px; }
+
+    /* ── Messages (reused) ── */
+    .conv-scroll { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+    .messages { min-height: 0; padding: var(--sp-6) var(--sp-6) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-6); }
+    .msg-row { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .msg-row.me { align-items: flex-end; }
+    .msg-from { display: flex; align-items: center; gap: 7px; }
+    .msg-from .av { width: 22px; height: 22px; border-radius: 50%; background-size: cover; box-shadow: 0 0 0 1px var(--line); }
+    .msg-from .nm { font-size: var(--fs-meta); font-weight: 660; color: var(--ink-2); }
+    .msg-from .rl { font-size: 9px; font-weight: 600; color: var(--ink-4); padding: 1px 6px; border-radius: 4px; background: var(--surface-sunken); }
+    .msg-from .tm { font-size: 9.5px; color: var(--ink-4); }
+    .bubble { max-width: 78%; padding: 9px 12px; border-radius: var(--r-lg); font-size: var(--fs-md); line-height: 1.5; color: var(--ink-1); background: var(--surface-sunken); border: 1px solid var(--line-soft); }
+    .bubble.me { background: var(--accent-surface); border-color: var(--accent-ring); }
+    .bubble code { font-family: var(--mono); font-size: 0.85em; background: rgba(255,255,255,0.7); padding: 1px 5px; border-radius: 4px; color: var(--ink-2); }
+    .bubble ul { margin: var(--sp-2) 0 0 18px; padding: 0; }
+    .bubble li { margin: 3px 0; }
+    .attachment { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); display: grid; grid-template-columns: 32px 1fr 26px; align-items: center; gap: var(--sp-3); padding: 9px 11px; max-width: 78%; transition: border-color 0.12s ease, background 0.12s ease; }
+    .attachment:hover { border-color: var(--line-strong); background: var(--surface-1); }
+    .file-icon { width: 30px; height: 30px; border-radius: var(--r-xs); background: var(--accent-surface); color: var(--accent); display: grid; place-items: center; }
+    .download { color: var(--ink-3); display: grid; place-items: center; }
+    .fname { font-weight: 640; color: var(--ink-1); font-size: var(--fs-sm); }
+    .meta { color: var(--ink-3); font-size: var(--fs-micro); margin-top: 2px; }
+    .reasoning { display: inline-flex; align-items: center; gap: 6px; border-left: 2px solid var(--accent-ring); padding-left: 10px; color: var(--accent); font-size: var(--fs-micro); font-weight: 680; letter-spacing: 0.1em; text-transform: uppercase; }
+    .day-sep { align-self: center; font-size: 9.5px; font-weight: 620; color: var(--ink-4); background: var(--surface-sunken); border-radius: var(--r-pill); padding: 2px 11px; }
+
+    /* ── Sedimented run record (reused) ── */
+    .run-record { margin: 0 var(--sp-6) var(--sp-6); border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--surface-2); box-shadow: var(--elev-1); overflow: hidden; }
+    .rr-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); cursor: pointer; font-size: var(--fs-sm); transition: background 0.12s ease; }
+    .rr-head:hover { background: var(--surface-sunken); }
+    .rr-head .ico { color: var(--ink-3); flex: none; }
+    .rr-title { font-weight: 640; color: var(--ink-1); }
+    .rr-meta { color: var(--ink-3); }
+    .rr-cost { font-family: var(--mono); font-size: var(--fs-meta); color: #15824f; }
+    .rr-caret { margin-left: auto; color: var(--ink-4); display: grid; place-items: center; transition: transform 0.16s ease; }
+    .run-record.open .rr-caret { transform: rotate(90deg); }
+    .rr-body { display: none; padding: 0 var(--sp-5) var(--sp-5); border-top: 1px solid var(--line-soft); }
+    .run-record.open .rr-body { display: flex; flex-direction: column; gap: var(--sp-5); padding-top: var(--sp-5); }
+    .rail-sec-head { font-size: var(--fs-micro); letter-spacing: 0.16em; font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-4); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+    .rail-sec-head .ct { color: var(--ink-3); font-weight: 680; letter-spacing: 0; }
+    .actrail { border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--surface-2); padding: var(--sp-4); box-shadow: var(--elev-1); }
+    .act-pills { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+    .act-pill { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: var(--r-pill); font-size: var(--fs-micro); font-weight: 620; border: 1px solid; }
+    .act-pill.live { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
+    .act-pill.cost { background: var(--violet-surface); color: var(--violet); border-color: rgba(124, 77, 219, 0.3); }
+    .act-pill .ico { animation: pulse 1.6s ease-in-out infinite; }
+    .act-entries { display: grid; gap: 5px; margin-top: var(--sp-3); }
+    .act-entry { display: flex; align-items: flex-start; gap: var(--sp-2); border: 1px solid; border-radius: var(--r-md); padding: 6px 9px; font-size: var(--fs-micro); line-height: 1.5; }
+    .act-entry .ico { margin-top: 2px; opacity: 0.8; flex: none; }
+    .act-entry.info { border-color: rgba(47, 107, 255, 0.25); background: var(--accent-surface); color: var(--accent); }
+    .act-entry.success { border-color: rgba(26, 164, 106, 0.25); background: var(--ok-surface); color: #15824f; }
+    .act-entry.warning { border-color: rgba(201, 132, 16, 0.25); background: var(--warn-surface); color: #8a5a0c; }
+    .act-entry .x { margin-left: auto; background: var(--surface-1); border-radius: var(--r-pill); padding: 0 5px; font-family: var(--mono); font-size: 9px; flex: none; }
+
+    /* ── Composer (reused) ── */
+    .composer { border-top: 1px solid var(--line); padding: var(--sp-5); background: var(--surface-2); display: grid; gap: var(--sp-3); }
+    .composer-input { min-height: 52px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface-1); padding: 11px 13px; font-size: var(--fs-md); color: var(--ink-4); line-height: 1.45; display: flex; align-items: flex-start; transition: border-color 0.14s ease, box-shadow 0.14s ease; }
+    .composer-input::after { content: ""; width: 1.5px; height: 18px; background: var(--accent); margin-left: 1px; animation: caret 1.1s steps(1) infinite; }
+    .composer-input:hover { border-color: var(--accent-ring); }
+    .composer-tools { display: flex; align-items: center; gap: var(--sp-2); }
+    .composer-tools .ibtn { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-3); display: grid; place-items: center; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
+    .composer-tools .ibtn:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
+    .composer-tools .divider { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
+    .composer-tools .pill { height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; background: var(--surface-1); color: var(--ink-2); border: 1px solid var(--line); border-radius: var(--r-pill); font-size: var(--fs-meta); font-weight: 580; transition: background 0.12s ease, border-color 0.12s ease; }
+    .composer-tools .pill:hover { background: var(--surface-sunken); }
+    .pill.mode-chip { cursor: pointer; font-weight: 640; }
+    .mode-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 7px; }
+    .pill.mode-sop { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); } .pill.mode-sop .mode-dot { background: var(--accent); }
+    .pill.mode-hil { background: var(--warn-surface); color: #8a5a0c; border-color: rgba(201, 132, 16, 0.4); } .pill.mode-hil .mode-dot { background: var(--warn); }
+    .pill.mode-direct { background: var(--surface-sunken); color: var(--ink-2); border-color: var(--line); } .pill.mode-direct .mode-dot { background: var(--ink-4); }
+    .pill.mode-yolo { background: var(--danger-surface); color: #b8352e; border-color: rgba(214, 69, 61, 0.4); } .pill.mode-yolo .mode-dot { background: var(--danger); }
+    .mode-caret { color: currentColor; opacity: 0.6; display: grid; place-items: center; }
+    .pill.model-chip { cursor: pointer; font-weight: 620; color: var(--ink-2); }
+    .grow { flex: 1; }
+    .send { height: 30px; padding: 0 14px; border: 0; border-radius: var(--r-sm); background: var(--accent); color: var(--accent-fg); font-size: var(--fs-sm); font-weight: 660; display: flex; align-items: center; justify-content: center; gap: 7px; transition: background 0.15s ease, transform 0.1s ease; }
+    .send:hover { background: var(--accent-press); } .send:active { transform: scale(0.97); }
+
+    /* ── Deliverable card (reused for Messenger Docs tab + Docs app) ── */
+    .dlv { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-2); overflow: hidden; }
+    .dlv.new { border-color: var(--ok); box-shadow: 0 0 0 3px var(--ok-surface); }
+    .dlv-head { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4) var(--sp-4) var(--sp-2); }
+    .dlv-head .ico { color: var(--ink-3); flex: none; margin-top: 1px; }
+    .dlv-head .main { flex: 1; min-width: 0; }
+    .dlv-titlerow { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+    .dlv-title { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dlv-meta { flex: none; font-size: var(--fs-micro); color: var(--ink-3); }
+    .dlv-stack { display: flex; margin-top: 5px; }
+    .dlv-stack .av { width: 20px; height: 20px; border-radius: 50%; background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--line); margin-left: -6px; }
+    .dlv-stack .av:first-child { margin-left: 0; }
+    .dlv-stack .more { min-width: 20px; height: 20px; padding: 0 4px; display: grid; place-items: center; margin-left: -6px; background: var(--surface-sunken); color: var(--ink-3); border-radius: var(--r-pill); font-size: 9px; font-weight: 680; box-shadow: 0 0 0 1px var(--line); }
+    .dlv-body { padding: 0 var(--sp-4) var(--sp-4); }
+    .dlv-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-micro); margin-bottom: var(--sp-3); }
+    .dlv-namechip { display: inline-flex; align-items: center; border: 1px solid var(--ok); background: var(--surface-1); color: #15824f; border-radius: var(--r-xs); padding: 1px 7px; font-weight: 620; }
+    .dlv-chips .mt { color: var(--ink-3); } .dlv-chips .emp { color: var(--ink-4); }
+    .dlv-content { font-family: var(--mono); font-size: var(--fs-meta); line-height: 1.55; color: var(--ink-3); white-space: pre-wrap; word-break: break-word; margin: 0 0 var(--sp-3); }
+    .dlv-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
+    .dlv-btn { height: 24px; padding: 0 8px; border: 0; border-radius: var(--r-xs); background: transparent; color: var(--ink-3); font-size: var(--fs-micro); font-weight: 580; display: inline-flex; align-items: center; gap: 4px; transition: background 0.12s ease, color 0.12s ease; }
+    .dlv-btn:hover { background: var(--surface-sunken); color: var(--ink-1); }
+    .dlv-fmt { height: 24px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface-1); color: var(--ink-3); font-size: var(--fs-micro); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+    .dlv-btn.sop-promoted { background: var(--ok); color: #fff; font-weight: 660; }
+
+    /* ── System / notification feed (Messenger system channel) ── */
+    .sys-card { display: grid; grid-template-columns: 30px 1fr; gap: var(--sp-3); border: 1px solid var(--line-soft); border-left-width: 3px; border-radius: var(--r-md); background: var(--surface-1); padding: var(--sp-4); box-shadow: var(--elev-1); }
+    .sys-card.info { border-left-color: var(--accent); } .sys-card.success { border-left-color: var(--ok); }
+    .sys-card.warning { border-left-color: var(--warn); } .sys-card.error { border-left-color: var(--danger); }
+    .sys-ic { width: 30px; height: 30px; border-radius: var(--r-sm); display: grid; place-items: center; }
+    .sys-card.info .sys-ic { background: var(--accent-surface); color: var(--accent); }
+    .sys-card.success .sys-ic { background: var(--ok-surface); color: #15824f; }
+    .sys-card.warning .sys-ic { background: var(--warn-surface); color: #8a5a0c; }
+    .sys-card.error .sys-ic { background: var(--danger-surface); color: #b8352e; }
+    .sys-l1 { display: flex; align-items: center; gap: var(--sp-2); }
+    .sys-src { font-size: 9px; font-weight: 760; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--surface-sunken); color: var(--ink-3); }
+    .sys-ttl { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); }
+    .sys-tm { margin-left: auto; font-size: 9.5px; color: var(--ink-4); }
+    .sys-msg { font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; margin-top: 3px; }
+    .sys-act { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
+    .sys-btn { height: 26px; padding: 0 11px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-2); font-size: var(--fs-meta); font-weight: 620; display: inline-flex; align-items: center; gap: 5px; transition: background 0.12s ease, border-color 0.12s ease; }
+    .sys-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .sys-btn:hover { background: var(--surface-sunken); } .sys-btn.primary:hover { background: var(--accent-press); }
+
+    /* ── Approvals (OA) ── */
+    .oa-row { display: grid; grid-template-columns: 1fr; gap: 5px; padding: var(--sp-4) var(--sp-4); border: 1px solid transparent; border-radius: var(--r-md); background: transparent; text-align: left; transition: background 0.12s ease, border-color 0.12s ease; }
+    .oa-row:hover { background: var(--surface-sunken); }
+    .oa-row.active { background: var(--accent-surface); border-color: var(--accent-ring); }
+    .oa-r1 { display: flex; align-items: center; gap: var(--sp-2); }
+    .oa-type { font-size: 8.5px; font-weight: 760; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; }
+    .oa-type.perm { background: var(--warn-surface); color: #8a5a0c; }
+    .oa-type.plan { background: var(--accent-surface); color: var(--accent); }
+    .oa-type.ask { background: var(--violet-surface); color: var(--violet); }
+    .oa-type.install { background: var(--ok-surface); color: #15824f; }
+    .oa-age { margin-left: auto; font-size: 9.5px; color: var(--ink-4); }
+    .oa-ttl { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); line-height: 1.35; }
+    .oa-from { display: flex; align-items: center; gap: 6px; font-size: var(--fs-micro); color: var(--ink-3); }
+    .oa-from .av { width: 16px; height: 16px; border-radius: 50%; background-size: cover; box-shadow: 0 0 0 1px var(--line); }
+    /* OA detail */
+    .oa-detail { min-height: 0; display: grid; grid-template-rows: auto 1fr auto; }
+    .oa-d-head { padding: var(--sp-5) var(--sp-7); border-bottom: 1px solid var(--line-soft); }
+    .oa-d-type { display: inline-flex; align-items: center; gap: 6px; }
+    .oa-d-ttl { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); margin-top: var(--sp-3); letter-spacing: -0.01em; }
+    .oa-d-sub { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; display: flex; align-items: center; gap: 7px; }
+    .oa-d-sub .av { width: 18px; height: 18px; border-radius: 50%; background-size: cover; box-shadow: 0 0 0 1px var(--line); }
+    .oa-d-body { min-height: 0; overflow-y: auto; padding: var(--sp-7); display: flex; flex-direction: column; gap: var(--sp-5); }
+    .oa-card { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-2); padding: var(--sp-5); box-shadow: var(--elev-1); }
+    .oa-card-h { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-4); }
+    .oa-kv { display: grid; grid-template-columns: 116px 1fr; gap: var(--sp-2) var(--sp-4); font-size: var(--fs-sm); }
+    .oa-kv dt { color: var(--ink-3); } .oa-kv dd { margin: 0; color: var(--ink-1); font-weight: 560; }
+    .oa-kv code { font-family: var(--mono); font-size: 0.9em; background: var(--surface-sunken); padding: 1px 6px; border-radius: 4px; color: var(--ink-2); }
+    .oa-cmd { font-family: var(--mono); font-size: var(--fs-meta); line-height: 1.6; color: var(--ink-2); background: #0f172a; color: #cdd6e6; border-radius: var(--r-sm); padding: 10px 12px; white-space: pre-wrap; word-break: break-word; }
+    .oa-reason { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.55; }
+    .oa-scope-h { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin-bottom: var(--sp-3); }
+    .oa-foot { border-top: 1px solid var(--line); padding: var(--sp-5) var(--sp-7); background: var(--surface-2); display: flex; align-items: center; gap: var(--sp-3); }
+    .oa-deny { height: 34px; padding: 0 16px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-1); color: var(--ink-2); font-size: var(--fs-sm); font-weight: 620; }
+    .oa-deny:hover { border-color: var(--danger); color: #b8352e; background: var(--danger-surface); }
+    .oa-approve { height: 34px; padding: 0 18px; border: 0; border-radius: var(--r-sm); background: var(--accent); color: #fff; font-size: var(--fs-sm); font-weight: 660; display: inline-flex; align-items: center; gap: 7px; }
+    .oa-approve:hover { background: var(--accent-press); }
+
+    /* ── Docs app rows ── */
+    .doc-row { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid transparent; border-radius: var(--r-md); text-align: left; background: transparent; transition: background 0.12s ease, border-color 0.12s ease; }
+    .doc-row:hover { background: var(--surface-sunken); } .doc-row.active { background: var(--accent-surface); border-color: var(--accent-ring); }
+    .doc-ic { width: 30px; height: 30px; border-radius: var(--r-sm); background: var(--surface-sunken); color: var(--ink-3); display: grid; place-items: center; }
+    .doc-row.active .doc-ic { background: var(--surface-1); color: var(--accent); }
+    .doc-nm { display: block; font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-sub { display: block; font-size: 9.5px; color: var(--ink-4); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-fmt { flex: none; font-size: 8.5px; font-weight: 760; letter-spacing: 0.04em; padding: 2px 6px; border-radius: 4px; background: var(--surface-sunken); color: var(--ink-3); }
+    .doc-view { min-height: 0; display: grid; grid-template-rows: auto 1fr; }
+    .doc-view-h { padding: var(--sp-5) var(--sp-7); border-bottom: 1px solid var(--line-soft); }
+    .doc-view-body { min-height: 0; overflow-y: auto; padding: var(--sp-7); }
+    .doc-paper { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-1); box-shadow: var(--elev-1); padding: 26px 30px; max-width: 720px; margin: 0 auto; }
+    .doc-paper h1 { font-size: 19px; font-weight: 700; margin: 0 0 var(--sp-4); color: var(--ink-1); }
+    .doc-paper h2 { font-size: var(--fs-lg); font-weight: 660; margin: var(--sp-7) 0 var(--sp-3); color: var(--ink-1); }
+    .doc-paper p, .doc-paper li { font-size: var(--fs-md); line-height: 1.65; color: var(--ink-2); }
+    .doc-paper ul { margin: var(--sp-3) 0 0 20px; }
+
+    /* ── Contacts ── */
+    .ct-grp { padding: var(--sp-4) var(--sp-3) var(--sp-2); font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-4); text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+    .ct-grp .ct { font-family: var(--mono); font-size: 9px; }
+    .ct-row { display: grid; grid-template-columns: 34px 1fr auto; gap: var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-3); border: 1px solid transparent; border-radius: var(--r-md); text-align: left; background: transparent; transition: background 0.12s ease, border-color 0.12s ease; }
+    .ct-row:hover { background: var(--surface-sunken); } .ct-row.active { background: var(--accent-surface); border-color: var(--accent-ring); }
+    .ct-av { width: 34px; height: 34px; border-radius: var(--r-md); background-size: cover; box-shadow: 0 0 0 1px var(--line); position: relative; }
+    .ct-av.ext { box-shadow: 0 0 0 1px var(--violet); }
+    .ct-av .pres { position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--surface-1); }
+    .ct-nm { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    .ct-role { font-size: 9.5px; color: var(--ink-4); margin-top: 1px; }
+    .ct-st { font-size: 9px; font-weight: 640; padding: 1px 7px; border-radius: var(--r-pill); }
+    .ct-st.on { background: var(--ok-surface); color: #15824f; } .ct-st.busy { background: var(--warn-surface); color: #8a5a0c; }
+    .ct-st.blocked { background: var(--danger-surface); color: #b8352e; } .ct-st.off { background: var(--surface-sunken); color: var(--ink-4); }
+    .ct-detail { min-height: 0; overflow-y: auto; padding: var(--sp-8) var(--sp-8); }
+    .ct-prof { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--sp-3); padding-bottom: var(--sp-7); border-bottom: 1px solid var(--line-soft); }
+    .ct-prof .big { width: 84px; height: 84px; border-radius: var(--r-lg); background-size: cover; box-shadow: 0 0 0 1px var(--line), var(--elev-2); }
+    .ct-prof .nm { font-size: 19px; font-weight: 700; color: var(--ink-1); }
+    .ct-prof .rl { font-size: var(--fs-sm); color: var(--ink-3); }
+    .ct-cta { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
+    .ct-kv { display: grid; grid-template-columns: 110px 1fr; gap: var(--sp-3) var(--sp-4); font-size: var(--fs-sm); padding-top: var(--sp-6); }
+    .ct-kv dt { color: var(--ink-3); } .ct-kv dd { margin: 0; color: var(--ink-1); font-weight: 560; }
+
+    /* ── Calendar / Meetings ── */
+    .cal { min-height: 0; display: grid; grid-template-rows: auto 1fr; }
+    .cal-head { padding: var(--sp-5) var(--sp-7); border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; gap: var(--sp-4); }
+    .cal-ttl { font-size: var(--fs-lg); font-weight: 680; color: var(--ink-1); }
+    .cal-body { min-height: 0; overflow-y: auto; padding: var(--sp-6) var(--sp-7); display: grid; grid-template-columns: 1fr 360px; gap: var(--sp-7); }
+    .agenda { display: flex; flex-direction: column; gap: var(--sp-5); }
+    .ag-day { display: grid; grid-template-columns: 64px 1fr; gap: var(--sp-4); }
+    .ag-date { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); text-align: right; }
+    .ag-date span { display: block; font-size: 9.5px; font-weight: 600; color: var(--ink-4); }
+    .ag-date.today { color: var(--accent); } .ag-date.today span { color: var(--accent); }
+    .ag-evts { display: flex; flex-direction: column; gap: 6px; }
+    .evt { display: grid; grid-template-columns: 4px 1fr; gap: var(--sp-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-1); padding: var(--sp-3) var(--sp-4); box-shadow: var(--elev-1); align-items: stretch; }
+    .evt .bar { border-radius: var(--r-pill); }
+    .evt.meeting .bar { background: var(--accent); } .evt.run .bar { background: var(--violet); } .evt.ceremony .bar { background: var(--ok); } .evt.deadline .bar { background: var(--warn); }
+    .evt-main { min-width: 0; }
+    .evt-t { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    .evt-sub { font-size: 9.5px; color: var(--ink-4); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+    .evt-tm { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); }
+    .meet { border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--surface-2); box-shadow: var(--elev-1); overflow: hidden; align-self: start; }
+    .meet-h { padding: var(--sp-5); border-bottom: 1px solid var(--line-soft); }
+    .meet-h .t { font-size: var(--fs-md); font-weight: 680; color: var(--ink-1); }
+    .meet-h .s { font-size: 9.5px; color: var(--ink-4); margin-top: 3px; }
+    .meet-b { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
+    .ai { display: grid; grid-template-columns: 18px 1fr auto; gap: var(--sp-3); align-items: start; font-size: var(--fs-sm); }
+    .ai .box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--line-strong); margin-top: 1px; display: grid; place-items: center; color: transparent; }
+    .ai.done .box { background: var(--ok); border-color: var(--ok); color: #fff; }
+    .ai .tx { color: var(--ink-1); line-height: 1.4; } .ai.done .tx { color: var(--ink-3); text-decoration: line-through; }
+    .ai .who { display: flex; align-items: center; gap: 5px; font-size: 9.5px; color: var(--ink-4); }
+    .ai .who .av { width: 16px; height: 16px; border-radius: 50%; background-size: cover; box-shadow: 0 0 0 1px var(--line); }
+
+    /* ── Workplace launcher ── */
+    .wp { min-height: 0; overflow-y: auto; padding: var(--sp-8) var(--sp-8); }
+    .wp-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-5); margin-bottom: var(--sp-7); }
+    .wp-hi { font-size: 21px; font-weight: 700; color: var(--ink-1); letter-spacing: -0.01em; }
+    .wp-hi .sub { display: block; font-size: var(--fs-sm); font-weight: 540; color: var(--ink-3); margin-top: 4px; }
+    .wp-stats { display: flex; gap: var(--sp-3); }
+    .wp-stat { border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-1); box-shadow: var(--elev-1); padding: var(--sp-3) var(--sp-5); min-width: 88px; }
+    .wp-stat .v { font-size: var(--fs-lg); font-weight: 720; color: var(--ink-1); font-variant-numeric: tabular-nums; }
+    .wp-stat .k { font-size: 9.5px; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+    .wp-stat.alert .v { color: var(--warn); }
+    .wp-sec-h { font-size: var(--fs-micro); letter-spacing: var(--ls-caps); font-weight: 700; color: var(--ink-3); text-transform: uppercase; margin: var(--sp-6) 0 var(--sp-4); }
+    .wp-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--sp-4); }
+    .wp-tile { display: flex; flex-direction: column; gap: var(--sp-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-1); box-shadow: var(--elev-1); padding: var(--sp-5); text-align: left; transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease; }
+    .wp-tile:hover { border-color: var(--line-strong); box-shadow: var(--elev-2); transform: translateY(-1px); }
+    .wp-tile .ic { width: 38px; height: 38px; border-radius: var(--r-md); display: grid; place-items: center; }
+    .wp-tile .nm { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); }
+    .wp-tile .ds { font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.45; }
+    .wp-tile .nb { align-self: flex-start; margin-top: auto; font-size: 9.5px; font-weight: 660; padding: 1px 8px; border-radius: var(--r-pill); background: var(--accent-surface); color: var(--accent); }
+    .ic.b-accent { background: var(--accent-surface); color: var(--accent); } .ic.b-violet { background: var(--violet-surface); color: var(--violet); }
+    .ic.b-ok { background: var(--ok-surface); color: #15824f; } .ic.b-warn { background: var(--warn-surface); color: #8a5a0c; }
+    .ic.b-ink { background: var(--surface-sunken); color: var(--ink-2); }
+
+    /* ── Specimen suite scaffold (reused from V3) ── */
+    .spec-suite { width: min(1600px, 100%); display: flex; flex-direction: column; gap: 22px; flex: none; }
+    .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
+    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    .spec-suite-head b { color: #aebfff; font-weight: 640; }
+    .spec-state { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.45); background: var(--bg); }
+    .spec-cap { display: flex; align-items: center; gap: var(--sp-3); padding: 9px 14px; background: linear-gradient(#11161f, #0c0f16); color: #d6deec; font-size: var(--fs-sm); border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+    .spec-cap .n { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-xs); background: rgba(47, 107, 255, 0.22); color: #9db8ff; font-size: var(--fs-micro); font-weight: 760; }
+    .spec-cap .t { font-weight: 640; color: #fff; }
+    .spec-cap .d { color: #8b97ad; }
+    .spec-frame { position: relative; background: var(--bg); height: 660px; display: flex; }
+    .spec-frame .suite { width: 100%; }
+    .gw-annot { font-size: 9px; font-weight: 600; color: var(--ink-4); font-style: italic; line-height: 1.5; }
+    .ann-strip { padding: 8px 14px; background: linear-gradient(#11161f, #0c0f16); border-top: 1px solid rgba(255,255,255,0.06); color: #8b97ad; font-size: 10px; font-style: italic; line-height: 1.5; }
+    .ann-strip b { color: #aebfff; font-style: normal; font-weight: 600; }
+    .ann-strip code { font-family: var(--mono); font-style: normal; color: #c7d2e6; font-size: 9.5px; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(1.5); } }
+    @keyframes caret { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .act-pill .ico, .composer-input::after { animation: none; } }
+  </style>
+</head>
+<body>
+  <!-- ══ Icon sprite (V3 base + suite additions) ══ -->
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="i-chev-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-5L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14 5l2-2"/><path d="M20 20v-4h-4"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12l15-7-5 15-3.5-5z"/><path d="M11.5 12.5L20 5"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M21 11l-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></symbol>
+    <symbol id="i-at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M15.5 12v1.5a2.5 2.5 0 0 0 5 0V12a8.5 8.5 0 1 0-3.4 6.8"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5m0 0l6-6m-6 6l6 6"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M15 9h3a2 2 0 0 1 2 2v10"/><path d="M3 21h18M8 7h3M8 11h3M8 15h3"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M14 4l6 6M3 21l3-1 12-12-5-5L4 15z"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 11h6M9 15h4"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14 7a4 4 0 0 1-5 5L4 17a2.8 2.8 0 0 0 4 4l5-5a4 4 0 0 1 5-5l-2.5-2.5L14 7l1.5-3.5z"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v5M12 18h.01"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3 3 0 0 1 0 5.8M17 14a6 6 0 0 1 4 6"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 21v-9M12 12L4 7.5M12 12l8-4.5"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9l1-4h14l1 4M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M4 9h16M9 20v-6h6v6"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <!-- suite additions -->
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M4 13h4l1.5 3h5L16 13h4"/><path d="M5 5h14l2 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/></symbol>
+    <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M14 8a4 4 0 0 1 0 8"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></symbol>
+  </svg>
+
+  <!-- ════════════════ RESTING FRAME — Workspace ▸ Messenger ▸ team group chat ════════════════ -->
+  <div class="app">
+    <header class="titlebar">
+      <div class="traffic"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+      <div class="brand">Offisim <span class="ver">v0.8.0</span></div>
+    </header>
+
+    <nav class="topbar">
+      <div class="scope-bar">
+        <button class="scope-seg company" title="Switch company">
+          <span class="s-icn"><svg class="ico xs"><use href="#i-building"/></svg></span>
+          <span class="s-name">Acme Robotics</span>
+          <span class="s-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+        </button>
+        <span class="scope-div"><svg class="ico xs"><use href="#i-chev-right"/></svg></span>
+        <button class="scope-seg project" title="Switch project · Open folder · Edit project">
+          <span class="s-icn"><svg class="ico sm"><use href="#i-folder"/></svg></span>
+          <span class="s-name">Q3 Launch</span>
+          <span class="s-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+        </button>
+      </div>
+      <div class="nav">
+        <button><svg class="ico sm"><use href="#i-building"/></svg>Office</button>
+        <button class="active"><svg class="ico sm"><use href="#i-grid"/></svg>Workspace</button>
+        <button>SOPs</button>
+        <button>Market</button>
+        <button>Personnel</button>
+      </div>
+      <div class="iconbar" title="Activity / Settings are peer workspaces">
+        <button class="iconbtn" title="Activity Log workspace"><svg class="ico sm"><use href="#i-activity"/></svg></button>
+        <button class="iconbtn" title="Settings workspace"><svg class="ico sm"><use href="#i-settings"/></svg></button>
+      </div>
+    </nav>
+
+    <main class="suite">
+      <!-- Left app rail — the suite's app switcher (Office/SOPs/Market/Personnel stay in the top nav; these are the in-Workspace apps) -->
+      <aside class="appbar" title="Workspace apps. The suite is the company's business-software layer over the same company / projects / employees / conversations / approvals / deliverables that Office shows live in 3D.">
+        <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')" title="You — the boss"></span>
+        <button class="appbtn active"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
+        <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
+        <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
+        <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
+        <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
+        <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
+        <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
+        <span class="appbar-sp"></span>
+        <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
+      </aside>
+
+      <!-- Messenger — split: conversation list + selected group chat -->
+      <section class="suite-body split">
+        <!-- Conversation list -->
+        <div class="suite-list">
+          <div class="lst-head">
+            <div class="lst-head-top">
+              <span class="lst-title">Chats</span>
+              <button class="lst-add" title="New chat / group"><svg class="ico sm"><use href="#i-plus"/></svg></button>
+            </div>
+            <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search people, groups, messages</div>
+          </div>
+          <div class="lst-scroll">
+            <button class="im-row active">
+              <span class="im-av group"><svg class="ico sm"><use href="#i-building"/></svg></span>
+              <span class="im-main">
+                <span class="im-l1"><span class="im-nm">Q3 Launch · Team</span><span class="im-tm">14:32</span></span>
+                <span class="im-l2"><span class="im-snip">Maya: Fixture parser verified ✅</span><span class="im-nb">3</span></span>
+              </span>
+            </button>
+            <button class="im-row">
+              <span class="im-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"><span class="pres busy"></span></span>
+              <span class="im-main">
+                <span class="im-l1"><span class="im-nm">Alex Chen</span><span class="im-tm">14:30</span></span>
+                <span class="im-l2"><span class="im-snip">On it — reviewing the edge cases now</span><span class="im-nb">1</span></span>
+              </span>
+            </button>
+            <button class="im-row">
+              <span class="im-av bot"><svg class="ico sm"><use href="#i-sparkle"/></svg></span>
+              <span class="im-main">
+                <span class="im-l1"><span class="im-nm">System</span><span class="im-btag">bot</span><span class="im-tm">14:18</span></span>
+                <span class="im-l2"><span class="im-snip">HR assessment complete · 3 roles recommended</span><span class="im-nb">2</span></span>
+              </span>
+            </button>
+            <button class="im-row">
+              <span class="im-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"><span class="pres on"></span></span>
+              <span class="im-main">
+                <span class="im-l1"><span class="im-nm">Maya Lin</span><span class="im-tm">13:55</span></span>
+                <span class="im-l2"><span class="im-snip">Sandbox is ready whenever you are</span><span class="im-rd"><svg class="ico xs"><use href="#i-check"/></svg></span></span>
+              </span>
+            </button>
+            <button class="im-row">
+              <span class="im-av group"><svg class="ico sm"><use href="#i-users"/></svg></span>
+              <span class="im-main">
+                <span class="im-l1"><span class="im-nm">Design Review</span><span class="im-tm">Mon</span></span>
+                <span class="im-l2"><span class="im-snip">Sophie: pushed v3 of the spec sheet</span></span>
+              </span>
+            </button>
+            <button class="im-row">
+              <span class="im-av ext" style="background-image:url('https://api.dicebear.com/9.x/bottts/svg?seed=OpenClaw&backgroundColor=f1ebfd')"></span>
+              <span class="im-main">
+                <span class="im-l1"><span class="im-nm">OpenClaw</span><span class="im-btag">ext</span><span class="im-tm">Mon</span></span>
+                <span class="im-l2"><span class="im-snip">Outsourced render batch delivered</span><span class="im-mute"><svg class="ico xs"><use href="#i-megaphone"/></svg></span></span>
+              </span>
+            </button>
+            <div class="im-sec">Earlier</div>
+            <button class="im-row">
+              <span class="im-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Sophie&backgroundColor=ffe9e9')"><span class="pres off"></span></span>
+              <span class="im-main">
+                <span class="im-l1"><span class="im-nm">Sophie Park</span><span class="im-tm">Sun</span></span>
+                <span class="im-l2"><span class="im-snip">Thanks! Closing this one out 🎉</span></span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Selected group chat -->
+        <div class="suite-detail" style="grid-template-rows:auto auto 1fr auto">
+          <div class="chat-head">
+            <span class="ch-av group"><svg class="ico sm"><use href="#i-building"/></svg></span>
+            <div class="crumb-wrap">
+              <span class="crumb-title">Q3 Launch · Team</span>
+              <span class="crumb-sub">Team thread · 5 members · 2 working now</span>
+            </div>
+            <div class="chat-tools">
+              <button class="iconbtn" title="Search in conversation"><svg class="ico sm"><use href="#i-search"/></svg></button>
+              <button class="iconbtn" title="Start a meeting"><svg class="ico sm"><use href="#i-video"/></svg></button>
+              <button class="iconbtn" title="Members"><svg class="ico sm"><use href="#i-users"/></svg></button>
+              <button class="iconbtn" title="More"><svg class="ico sm"><use href="#i-dots"/></svg></button>
+            </div>
+          </div>
+
+          <div class="conv-tabs" title="One conversation, several facets — Chat (messages) / Files (attachments shared here) / Docs (deliverables produced in this thread). This is how Messenger differs from the Office rail: Office inlines outputs in the message stream; Messenger files them under Files/Docs tabs.">
+            <button class="conv-tab active"><svg class="ico sm"><use href="#i-message"/></svg>Chat</button>
+            <button class="conv-tab"><svg class="ico sm"><use href="#i-paperclip"/></svg>Files<span class="ct">6</span></button>
+            <button class="conv-tab"><svg class="ico sm"><use href="#i-layers"/></svg>Docs<span class="ct">2</span></button>
+            <button class="conv-tab add" title="Add a tab (pin a doc / board)"><svg class="ico sm"><use href="#i-plus"/></svg></button>
+          </div>
+
+          <div class="conv-scroll">
+            <section class="messages">
+              <span class="day-sep">Today</span>
+
+              <div class="msg-row">
+                <div class="msg-from">
+                  <span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
+                  <span class="nm">You</span><span class="tm">14:05</span>
+                </div>
+                <div class="bubble me">Kick off the Q3 launch checklist — verify the doc-engine export flow and harden the attachment pipeline. Loop in whoever you need.</div>
+              </div>
+
+              <div class="msg-row">
+                <div class="msg-from">
+                  <span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Marcus&backgroundColor=eaf1ff')"></span>
+                  <span class="nm">Marcus Johnson</span><span class="rl">manager</span><span class="tm">14:06</span>
+                </div>
+                <div class="reasoning"><svg class="ico xs"><use href="#i-chev-right"/></svg>Reasoning</div>
+                <div class="bubble">Got it. Breaking this into a 7-step plan and assigning Maya (sandbox), Alex (edge cases) and Sophie (spec). I'll report back as steps land.</div>
+              </div>
+
+              <div class="msg-row">
+                <div class="msg-from">
+                  <span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+                  <span class="nm">Maya Lin</span><span class="rl">devops</span><span class="tm">14:24</span>
+                </div>
+                <div class="bubble">Provisioned the deterministic harness sandbox — green. Handing the parser off to Alex.</div>
+                <div class="attachment">
+                  <div class="file-icon"><svg class="ico sm"><use href="#i-file"/></svg></div>
+                  <div><div class="fname">sandbox-bootstrap.log</div><div class="meta">3.2 KB · Text · shared to Files</div></div>
+                  <div class="download"><svg class="ico sm"><use href="#i-download"/></svg></div>
+                </div>
+              </div>
+
+              <div class="msg-row">
+                <div class="msg-from">
+                  <span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Marcus&backgroundColor=eaf1ff')"></span>
+                  <span class="nm">Marcus Johnson</span><span class="rl">manager</span><span class="tm">14:32</span>
+                </div>
+                <div class="bubble">Fixture parser verified ✅ — wrote up the report. It's pinned under <code>Docs</code> for this thread.</div>
+                <!-- compact deliverable produced in-thread (lands under the Docs tab) -->
+                <div class="dlv" style="max-width:78%">
+                  <div class="dlv-head">
+                    <svg class="ico sm"><use href="#i-file"/></svg>
+                    <div class="main">
+                      <div class="dlv-titlerow"><span class="dlv-title">Fixture Verification Report</span><span class="dlv-meta">2.4 KB · 1m</span></div>
+                      <div class="dlv-stack">
+                        <span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Marcus&backgroundColor=eaf1ff')"></span>
+                        <span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="dlv-body">
+                    <div class="dlv-actions">
+                      <button class="dlv-btn">Open</button>
+                      <span class="dlv-fmt">DOCX<svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+                      <button class="dlv-btn">Export</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- The run that this conversation triggered, sedimented (same surface that broadcasts on the Office stage Live entry during the run) -->
+            <div class="run-record" title="Run record — the Plan + Activity that ran in this thread. Collapsed by default; click to expand. Same data the Office stage 'Live' entry broadcasts during the run.">
+              <div class="rr-head">
+                <svg class="ico sm"><use href="#i-pulse"/></svg>
+                <span class="rr-title">Run record</span>
+                <span class="rr-meta">5 / 7 steps · 1 blocked</span>
+                <span class="rr-cost">$0.06</span>
+                <span class="rr-caret"><svg class="ico xs"><use href="#i-chev-right"/></svg></span>
+              </div>
+              <div class="rr-body">
+                <div>
+                  <div class="rail-sec-head">Activity</div>
+                  <div class="actrail">
+                    <div class="act-pills">
+                      <span class="act-pill live"><svg class="ico xs"><use href="#i-pulse"/></svg>Employees executing plan</span>
+                      <span class="act-pill cost"><svg class="ico xs"><use href="#i-sparkle"/></svg>$0.06</span>
+                    </div>
+                    <div class="act-entries">
+                      <div class="act-entry success"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Maya completed "Provision sandbox"</span></div>
+                      <div class="act-entry info"><svg class="ico xs"><use href="#i-terminal"/></svg><span>Alex started "Edge case review"</span><span class="x">x3</span></div>
+                      <div class="act-entry warning"><svg class="ico xs"><use href="#i-alert"/></svg><span>Step 6 blocked — awaiting your approval (see Approvals)</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="composer">
+            <div class="composer-input">Message Q3 Launch · Team…</div>
+            <div class="composer-tools">
+              <button class="ibtn" title="Attach file"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
+              <button class="ibtn" title="Mention (@)"><svg class="ico sm"><use href="#i-at"/></svg></button>
+              <span class="divider"></span>
+              <button class="pill model-chip" title="Model — provider · model · think; reads configured ProviderConfig"><svg class="ico xs"><use href="#i-sparkle"/></svg>MiniMax · M2.7 · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
+              <button class="pill mode-chip mode-sop" title="SessionModeChip — SOP / Human-in-loop / Direct / YOLO"><span class="mode-dot"></span>SOP<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
+              <div class="grow"></div>
+              <button class="send">Send<svg class="ico sm"><use href="#i-send"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ════════════════ STATE SPECIMENS ════════════════ -->
+  <div class="spec-suite">
+    <div class="spec-suite-head">
+      <h2>Workspace — the company collaboration suite</h2>
+      The frame above is the resting Workspace: <b>Messenger</b> on a team group chat. <b>Office</b> = watch the AI company collaborate live in 3D; <b>Workspace</b> = the same company seen through familiar business software (Messenger / Approvals / Docs / Calendar / Meetings / Contacts / Workplace). Same projects, employees, conversations (<code>chat_threads</code>), approvals (<code>interaction.requested</code>) and deliverables — re-surfaced, not duplicated. These specimens are each app, expressed against real product concepts.
+    </div>
+    <!-- ── 1 · Messenger — direct chat with an AI employee ── -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">1</span><span class="t">Messenger · direct chat</span><span class="d">— 1:1 with an AI employee · Direct mode</span></div>
+      <div class="spec-frame">
+        <div class="suite">
+          <aside class="appbar">
+            <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
+            <button class="appbtn active"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
+            <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
+            <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
+            <span class="appbar-sp"></span>
+            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
+          </aside>
+          <section class="suite-body split">
+            <div class="suite-list">
+              <div class="lst-head">
+                <div class="lst-head-top"><span class="lst-title">Chats</span><button class="lst-add"><svg class="ico sm"><use href="#i-plus"/></svg></button></div>
+                <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search people, groups, messages</div>
+              </div>
+              <div class="lst-scroll">
+                <button class="im-row"><span class="im-av group"><svg class="ico sm"><use href="#i-building"/></svg></span><span class="im-main"><span class="im-l1"><span class="im-nm">Q3 Launch · Team</span><span class="im-tm">14:32</span></span><span class="im-l2"><span class="im-snip">Maya: Fixture parser verified ✅</span></span></span></button>
+                <button class="im-row active"><span class="im-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"><span class="pres busy"></span></span><span class="im-main"><span class="im-l1"><span class="im-nm">Alex Chen</span><span class="im-tm">14:30</span></span><span class="im-l2"><span class="im-snip">On it — reviewing the edge cases now</span></span></span></button>
+                <button class="im-row"><span class="im-av bot"><svg class="ico sm"><use href="#i-sparkle"/></svg></span><span class="im-main"><span class="im-l1"><span class="im-nm">System</span><span class="im-btag">bot</span><span class="im-tm">14:18</span></span><span class="im-l2"><span class="im-snip">HR assessment complete · 3 roles</span><span class="im-nb">2</span></span></span></button>
+                <button class="im-row"><span class="im-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"><span class="pres on"></span></span><span class="im-main"><span class="im-l1"><span class="im-nm">Maya Lin</span><span class="im-tm">13:55</span></span><span class="im-l2"><span class="im-snip">Sandbox is ready whenever you are</span><span class="im-rd"><svg class="ico xs"><use href="#i-check"/></svg></span></span></span></button>
+                <button class="im-row"><span class="im-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Sophie&backgroundColor=ffe9e9')"><span class="pres off"></span></span><span class="im-main"><span class="im-l1"><span class="im-nm">Sophie Park</span><span class="im-tm">Sun</span></span><span class="im-l2"><span class="im-snip">Thanks! Closing this one out 🎉</span></span></span></button>
+              </div>
+            </div>
+            <div class="suite-detail" style="grid-template-rows:auto auto 1fr auto">
+              <div class="chat-head">
+                <span class="ch-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+                <div class="crumb-wrap"><span class="crumb-title">Alex Chen</span><span class="crumb-sub">Direct · developer · Working now</span></div>
+                <div class="chat-tools">
+                  <button class="iconbtn" title="View in Personnel"><svg class="ico sm"><use href="#i-eye"/></svg></button>
+                  <button class="iconbtn" title="Search in conversation"><svg class="ico sm"><use href="#i-search"/></svg></button>
+                  <button class="iconbtn" title="More"><svg class="ico sm"><use href="#i-dots"/></svg></button>
+                </div>
+              </div>
+              <div class="conv-tabs">
+                <button class="conv-tab active"><svg class="ico sm"><use href="#i-message"/></svg>Chat</button>
+                <button class="conv-tab"><svg class="ico sm"><use href="#i-paperclip"/></svg>Files<span class="ct">2</span></button>
+                <button class="conv-tab"><svg class="ico sm"><use href="#i-layers"/></svg>Docs<span class="ct">1</span></button>
+              </div>
+              <div class="conv-scroll">
+                <section class="messages">
+                  <span class="day-sep">Today</span>
+                  <div class="msg-row">
+                    <div class="msg-from"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span><span class="nm">You</span><span class="tm">14:20</span></div>
+                    <div class="bubble me">Can you double-check the boundary cases on the markdown attachment parser before we ship?</div>
+                  </div>
+                  <div class="msg-row">
+                    <div class="msg-from"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span><span class="nm">Alex Chen</span><span class="rl">developer</span><span class="tm">14:22</span></div>
+                    <div class="reasoning"><svg class="ico xs"><use href="#i-chev-right"/></svg>Reasoning</div>
+                    <div class="bubble">On it. Running the parser against empty files, 8&nbsp;MB caps and non-UTF-8 input. Will flag anything that needs a tool I don't have.</div>
+                  </div>
+                  <div class="msg-row">
+                    <div class="msg-from"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span><span class="nm">Alex Chen</span><span class="rl">developer</span><span class="tm">14:30</span></div>
+                    <div class="bubble">Three pass, one needs your call: reading <code>./.cache</code> is outside the workspace root. I requested approval — it's in <b>Approvals</b>.</div>
+                  </div>
+                </section>
+                <div class="run-record">
+                  <div class="rr-head"><svg class="ico sm"><use href="#i-pulse"/></svg><span class="rr-title">Run record</span><span class="rr-meta">2 / 3 steps</span><span class="rr-cost">$0.02</span><span class="rr-caret"><svg class="ico xs"><use href="#i-chev-right"/></svg></span></div>
+                  <div class="rr-body"></div>
+                </div>
+              </div>
+              <div class="composer">
+                <div class="composer-input">Message Alex Chen…</div>
+                <div class="composer-tools">
+                  <button class="ibtn"><svg class="ico sm"><use href="#i-paperclip"/></svg></button>
+                  <span class="divider"></span>
+                  <button class="pill model-chip"><svg class="ico xs"><use href="#i-sparkle"/></svg>MiniMax · M2.7 · Med<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
+                  <button class="pill mode-chip mode-direct"><span class="mode-dot"></span>Direct<span class="mode-caret"><svg class="ico xs"><use href="#i-chev-down"/></svg></span></button>
+                  <div class="grow"></div>
+                  <button class="send">Send<svg class="ico sm"><use href="#i-send"/></svg></button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="ann-strip">Direct chat = <code>conversationKey &lt;projectId&gt;::&lt;threadId&gt;::&lt;employeeId&gt;</code> with the employee segment set. One product <code>chat_thread</code> fans out to a team <code>graph_thread</code> + one direct thread per employee. Header sub shows the employee's live <b>role + presence</b> (working / idle / blocked, from runtime state). Mode chip defaults to <b>Direct</b> here (work skips the boss → planner/employee loop). Avatars are DiceBear 2D from <code>persona.avatarSeed</code>.</div>
+    </div>
+
+    <!-- ── 2 · Messenger — System notifications channel ── -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">2</span><span class="t">Messenger · System channel</span><span class="d">— the NotificationCenter feed, re-surfaced as a bot channel</span></div>
+      <div class="spec-frame">
+        <div class="suite">
+          <aside class="appbar">
+            <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
+            <button class="appbtn active"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
+            <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
+            <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
+            <span class="appbar-sp"></span>
+            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
+          </aside>
+          <section class="suite-body split">
+            <div class="suite-list">
+              <div class="lst-head">
+                <div class="lst-head-top"><span class="lst-title">Chats</span><button class="lst-add"><svg class="ico sm"><use href="#i-plus"/></svg></button></div>
+                <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search people, groups, messages</div>
+              </div>
+              <div class="lst-scroll">
+                <button class="im-row"><span class="im-av group"><svg class="ico sm"><use href="#i-building"/></svg></span><span class="im-main"><span class="im-l1"><span class="im-nm">Q3 Launch · Team</span><span class="im-tm">14:32</span></span><span class="im-l2"><span class="im-snip">Maya: Fixture parser verified ✅</span></span></span></button>
+                <button class="im-row"><span class="im-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"><span class="pres busy"></span></span><span class="im-main"><span class="im-l1"><span class="im-nm">Alex Chen</span><span class="im-tm">14:30</span></span><span class="im-l2"><span class="im-snip">On it — reviewing the edge cases now</span></span></span></button>
+                <button class="im-row active"><span class="im-av bot"><svg class="ico sm"><use href="#i-sparkle"/></svg></span><span class="im-main"><span class="im-l1"><span class="im-nm">System</span><span class="im-btag">bot</span><span class="im-tm">14:18</span></span><span class="im-l2"><span class="im-snip">HR assessment complete · 3 roles</span></span></span></button>
+                <button class="im-row"><span class="im-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"><span class="pres on"></span></span><span class="im-main"><span class="im-l1"><span class="im-nm">Maya Lin</span><span class="im-tm">13:55</span></span><span class="im-l2"><span class="im-snip">Sandbox is ready whenever you are</span><span class="im-rd"><svg class="ico xs"><use href="#i-check"/></svg></span></span></span></button>
+              </div>
+            </div>
+            <div class="suite-detail" style="grid-template-rows:auto 1fr auto">
+              <div class="chat-head">
+                <span class="ch-av group" style="background:var(--violet-surface);color:var(--violet)"><svg class="ico sm"><use href="#i-sparkle"/></svg></span>
+                <div class="crumb-wrap"><span class="crumb-title">System</span><span class="crumb-sub">Notifications · runtime · hr · market · install</span></div>
+                <div class="chat-tools"><button class="iconbtn" title="Mark all read"><svg class="ico sm"><use href="#i-check"/></svg></button><button class="iconbtn" title="Open Activity Log"><svg class="ico sm"><use href="#i-activity"/></svg></button></div>
+              </div>
+              <div class="conv-scroll">
+                <section class="messages" style="gap:var(--sp-4)">
+                  <span class="day-sep">Today</span>
+                  <div class="sys-card success">
+                    <span class="sys-ic"><svg class="ico sm"><use href="#i-users"/></svg></span>
+                    <div>
+                      <div class="sys-l1"><span class="sys-src">HR</span><span class="sys-ttl">Assessment complete</span><span class="sys-tm">14:18</span></div>
+                      <div class="sys-msg">HR Bot finished assessing the Q3 Launch needs and recommends <b>3 roles</b>: QA Engineer, Tech Writer, Release Manager.</div>
+                      <div class="sys-act"><button class="sys-btn primary">Review roles</button><button class="sys-btn">Dismiss</button></div>
+                    </div>
+                  </div>
+                  <div class="sys-card info">
+                    <span class="sys-ic"><svg class="ico sm"><use href="#i-store"/></svg></span>
+                    <div>
+                      <div class="sys-l1"><span class="sys-src">Market</span><span class="sys-ttl">Skill installed</span><span class="sys-tm">13:40</span></div>
+                      <div class="sys-msg">“PDF Table Extractor” was installed and is now available to your employees' tool pool.</div>
+                      <div class="sys-act"><button class="sys-btn">Open in Market</button></div>
+                    </div>
+                  </div>
+                  <div class="sys-card warning">
+                    <span class="sys-ic"><svg class="ico sm"><use href="#i-alert"/></svg></span>
+                    <div>
+                      <div class="sys-l1"><span class="sys-src">Runtime</span><span class="sys-ttl">Vault sync failed</span><span class="sys-tm">12:02</span></div>
+                      <div class="sys-msg">Couldn't sync Sophie Park's employee markdown to the vault — retried twice. Her latest persona edits may be unsaved.</div>
+                      <div class="sys-act"><button class="sys-btn">Retry sync</button><button class="sys-btn">View employee</button></div>
+                    </div>
+                  </div>
+                  <div class="sys-card error">
+                    <span class="sys-ic"><svg class="ico sm"><use href="#i-x"/></svg></span>
+                    <div>
+                      <div class="sys-l1"><span class="sys-src">Runtime</span><span class="sys-ttl">Run halted</span><span class="sys-tm">11:31</span></div>
+                      <div class="sys-msg">A step in “Attachment pipeline” errored after 3 retries (provider timeout). The run is paused for your decision.</div>
+                      <div class="sys-act"><button class="sys-btn primary">Open run</button><button class="sys-btn">Retry</button></div>
+                    </div>
+                  </div>
+                  <div class="sys-card info">
+                    <span class="sys-ic"><svg class="ico sm"><use href="#i-plus"/></svg></span>
+                    <div>
+                      <div class="sys-l1"><span class="sys-src">Install</span><span class="sys-ttl">Employee onboarded</span><span class="sys-tm">Mon</span></div>
+                      <div class="sys-msg">Maya Lin (devops) finished onboarding and was seated in the DevOps zone.</div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="composer" style="padding:var(--sp-4) var(--sp-5)">
+                <div class="gw-annot" style="text-align:center;font-style:normal;color:var(--ink-4);font-size:var(--fs-meta)"><svg class="ico xs" style="display:inline;vertical-align:-2px"><use href="#i-shield"/></svg> System channel is read-only — actions live on each card</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="ann-strip">Backed by real <code>NotificationPayload</code> — <b>source</b> ∈ runtime / hr / market / install, <b>level</b> ∈ info / success / warning / error. This is the existing <b>NotificationCenter</b> feed re-cast as a chat channel (no bell + count badge — that chrome stays removed per V3). Each card's action routes to the owning surface (Personnel / Market / Activity / the run). HR results come from <code>hr.assessment.completed</code> + <code>hr.recommendation</code>.</div>
+    </div>
+
+    <!-- ── 3 · Approvals (OA) — the human-in-loop inbox ── -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">3</span><span class="t">Approvals · OA inbox</span><span class="d">— the 4 real approval gates in a familiar “待我审批” surface</span></div>
+      <div class="spec-frame">
+        <div class="suite">
+          <aside class="appbar">
+            <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
+            <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
+            <button class="appbtn active"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
+            <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
+            <span class="appbar-sp"></span>
+            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
+          </aside>
+          <section class="suite-body split">
+            <div class="suite-list">
+              <div class="lst-head">
+                <div class="lst-head-top"><span class="lst-title">Approvals</span></div>
+                <div class="seg oa-tabs">
+                  <button class="conv-tab active" style="height:24px;padding:0 9px">To do<span class="ct">3</span></button>
+                  <button class="conv-tab" style="height:24px;padding:0 9px">Done</button>
+                  <button class="conv-tab" style="height:24px;padding:0 9px">CC'd</button>
+                  <button class="conv-tab" style="height:24px;padding:0 9px">Announce</button>
+                </div>
+              </div>
+              <div class="lst-scroll" style="gap:4px;padding:var(--sp-4) var(--sp-3)">
+                <button class="oa-row active">
+                  <span class="oa-r1"><span class="oa-type perm">Permission</span><span class="oa-age">2m</span></span>
+                  <span class="oa-ttl">Run <code style="font-family:var(--mono);font-size:.85em">bash</code> outside workspace root</span>
+                  <span class="oa-from"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>Alex Chen · developer</span>
+                </button>
+                <button class="oa-row">
+                  <span class="oa-r1"><span class="oa-type plan">Plan review</span><span class="oa-age">8m</span></span>
+                  <span class="oa-ttl">Approve 7-step plan for “Attachment pipeline”</span>
+                  <span class="oa-from"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Marcus&backgroundColor=eaf1ff')"></span>Marcus Johnson · manager</span>
+                </button>
+                <button class="oa-row">
+                  <span class="oa-r1"><span class="oa-type ask">Question</span><span class="oa-age">15m</span></span>
+                  <span class="oa-ttl">Which export format should the report ship as?</span>
+                  <span class="oa-from"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Sophie&backgroundColor=ffe9e9')"></span>Sophie Park · writer</span>
+                </button>
+                <div class="im-sec" style="color:var(--ink-4)">Resolved today</div>
+                <button class="oa-row">
+                  <span class="oa-r1"><span class="oa-type install">Install</span><span class="oa-age">1h</span></span>
+                  <span class="oa-ttl">Install skill “PDF Table Extractor”</span>
+                  <span class="oa-from"><svg class="ico xs" style="color:var(--ok)"><use href="#i-check"/></svg>Approved · session scope</span>
+                </button>
+              </div>
+            </div>
+            <div class="suite-detail oa-detail">
+              <div class="oa-d-head">
+                <span class="oa-d-type"><span class="oa-type perm">Permission gate</span><span class="oa-age" style="margin:0">requested 2m ago · expires in 5m</span></span>
+                <div class="oa-d-ttl">Run <code style="font-family:var(--mono);font-size:.8em;background:var(--surface-sunken);padding:2px 7px;border-radius:5px">bash</code> outside the workspace root</div>
+                <div class="oa-d-sub"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>Alex Chen · developer · in <b>Q3 Launch · edge cases</b></div>
+              </div>
+              <div class="oa-d-body">
+                <div class="oa-card">
+                  <div class="oa-card-h">Request</div>
+                  <dl class="oa-kv">
+                    <dt>Tool</dt><dd><code>bash</code> · builtin sandbox</dd>
+                    <dt>Decision</dt><dd>policy = <b>ask</b> (source: runtime)</dd>
+                    <dt>Risk class</dt><dd>medium — writes outside the bound folder</dd>
+                    <dt>Employee</dt><dd>Alex Chen (developer)</dd>
+                    <dt>Thread</dt><dd>Q3 Launch · edge cases</dd>
+                  </dl>
+                </div>
+                <div class="oa-card">
+                  <div class="oa-card-h">Command</div>
+                  <pre class="oa-cmd">rm -rf ./.cache &amp;&amp; pnpm clean
+# clears turbo cache + node_modules in the project</pre>
+                </div>
+                <div class="oa-card">
+                  <div class="oa-card-h">Why it's asking</div>
+                  <p class="oa-reason" style="margin:0">The path <code style="font-family:var(--mono);font-size:.9em;background:var(--surface-sunken);padding:1px 5px;border-radius:4px">./.cache</code> resolves above the workspace root bound to this project, so the builtin sandbox cannot auto-allow it. Cache rebuild is cheap and the command is scoped to the project folder.</p>
+                </div>
+                <div>
+                  <div class="oa-scope-h">Grant scope</div>
+                  <div class="seg">
+                    <button>Once</button>
+                    <button class="active">This thread</button>
+                    <button>This session</button>
+                  </div>
+                </div>
+              </div>
+              <div class="oa-foot">
+                <div class="grow gw-annot" style="font-style:normal;color:var(--ink-3);font-size:var(--fs-meta)">Resolving emits <code style="font-family:var(--mono)">interaction.resolved</code> → the run unblocks in its thread.</div>
+                <button class="oa-deny">Deny</button>
+                <button class="oa-approve"><svg class="ico sm"><use href="#i-check"/></svg>Approve</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="ann-strip">The OA inbox is the home for <b>Human-in-loop</b> mode's gates. Four real approval kinds (<code>ToolPermissionEngine</code> allow / ask / deny): <b>Permission gate</b> (shown), <b>Plan review</b> (approve / reject / modify a plan), <b>Agent question</b> (templated options + freeform), <b>Skill install</b> (permissions + assets disclosure → Install / Fork / Edit). Each is an <code>interaction.requested</code>; resolving emits <code>interaction.resolved</code>. Grant scope = <code>once / thread / session</code>. The same gates also appear inline in chat — OA is the cross-thread queue so nothing waits unseen.</div>
+    </div>
+
+    <!-- ── 4 · Docs — the company deliverables library ── -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">4</span><span class="t">Docs · deliverables library</span><span class="d">— every artifact the company produced, with one-click export</span></div>
+      <div class="spec-frame">
+        <div class="suite">
+          <aside class="appbar">
+            <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
+            <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
+            <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
+            <button class="appbtn active"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
+            <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
+            <span class="appbar-sp"></span>
+            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
+          </aside>
+          <section class="suite-body split">
+            <div class="suite-list">
+              <div class="lst-head">
+                <div class="lst-head-top"><span class="lst-title">Docs</span></div>
+                <div class="seg">
+                  <button class="conv-tab active" style="height:24px;padding:0 9px">All<span class="ct">14</span></button>
+                  <button class="conv-tab" style="height:24px;padding:0 9px">Documents</button>
+                  <button class="conv-tab" style="height:24px;padding:0 9px">Files</button>
+                </div>
+                <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search title or contributor</div>
+              </div>
+              <div class="lst-scroll" style="gap:2px">
+                <div class="im-sec" style="color:var(--ink-4)">Q3 Launch</div>
+                <button class="doc-row active"><span class="doc-ic"><svg class="ico sm"><use href="#i-file"/></svg></span><span class="min0"><span class="doc-nm">Q3 Roadmap Outline</span><span class="doc-sub">Maya · Alex +2 · 2m ago</span></span><span class="doc-fmt">DOCX</span></button>
+                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-file"/></svg></span><span class="min0"><span class="doc-nm">Fixture Verification Report</span><span class="doc-sub">Marcus · Maya · 1h ago</span></span><span class="doc-fmt">MD</span></button>
+                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-grid"/></svg></span><span class="min0"><span class="doc-nm">Launch metrics</span><span class="doc-sub">Sophie · 3h ago</span></span><span class="doc-fmt">CSV</span></button>
+                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-layers"/></svg></span><span class="min0"><span class="doc-nm">Pitch deck v2</span><span class="doc-sub">Sophie · Marcus · Mon</span></span><span class="doc-fmt">PPTX</span></button>
+                <div class="im-sec" style="color:var(--ink-4)">Onboarding</div>
+                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-file"/></svg></span><span class="min0"><span class="doc-nm">DevOps runbook</span><span class="doc-sub">Maya · Tue</span></span><span class="doc-fmt">PDF</span></button>
+                <button class="doc-row"><span class="doc-ic"><svg class="ico sm"><use href="#i-file"/></svg></span><span class="min0"><span class="doc-nm">sandbox-bootstrap.log</span><span class="doc-sub">Maya · Tue</span></span><span class="doc-fmt">TXT</span></button>
+              </div>
+            </div>
+            <div class="doc-view">
+              <div class="doc-view-h">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-4)">
+                  <div>
+                    <div style="font-size:var(--fs-lg);font-weight:700;color:var(--ink-1);letter-spacing:-0.01em">Q3 Roadmap Outline</div>
+                    <div style="font-size:var(--fs-meta);color:var(--ink-3);margin-top:5px;display:flex;align-items:center;gap:7px">
+                      <span class="dlv-stack" style="margin:0">
+                        <span class="av" style="width:18px;height:18px;background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+                        <span class="av" style="width:18px;height:18px;background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+                        <span class="av" style="width:18px;height:18px;background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Sophie&backgroundColor=ffe9e9')"></span>
+                        <span class="more" style="width:18px;height:18px">+2</span>
+                      </span>
+                      <span>5 contributors · 8.1 KB · produced in <b>Q3 Launch · Team</b> · 2m ago</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--sp-1);flex:none">
+                    <button class="dlv-btn">Copy</button>
+                    <span class="dlv-fmt">DOCX<svg class="ico xs"><use href="#i-chev-down"/></svg></span>
+                    <button class="dlv-btn"><svg class="ico xs"><use href="#i-download"/></svg>Export</button>
+                    <button class="dlv-btn sop-promoted" title="Promoted when ≥2 contributors"><svg class="ico xs"><use href="#i-pulse"/></svg>Save as SOP</button>
+                  </div>
+                </div>
+              </div>
+              <div class="doc-view-body">
+                <div class="doc-paper">
+                  <h1>Q3 Roadmap</h1>
+                  <p>Goals for the quarter, distilled from the launch kickoff. Owners are AI employees; the boss approves scope changes.</p>
+                  <h2>Workstreams</h2>
+                  <ul>
+                    <li>Ship the doc-engine verify flow (owner: Maya)</li>
+                    <li>Harden the attachment pipeline — caps, MIME, non-UTF-8 (owner: Alex)</li>
+                    <li>Close the UX / IA debt batch (owner: Sophie)</li>
+                  </ul>
+                  <h2>Milestones</h2>
+                  <p>Week 1 — sandbox + parser verified. Week 2 — pipeline hardened. Week 3 — launch review &amp; sign-off.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="ann-strip">Re-surfaces the real <code>deliverables</code> table — <b>title</b>, <b>kind</b> (document / file), <b>contributors</b> (with DiceBear avatars + role), originating <b>chat_thread</b>, size, timestamp. Export reuses <b>doc-engine</b> (DOCX / PDF / PPTX / CSV / HTML / TXT). <b>Save as SOP</b> is promoted when a deliverable has ≥2 contributors. This is the same data the Office rail shows inline per-thread under Outputs — here it's the company-wide library.</div>
+    </div>
+
+    <!-- ── 5 · Contacts — the company directory ── -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">5</span><span class="t">Contacts · directory</span><span class="d">— employees by zone, internal + brand-outsourced, with presence</span></div>
+      <div class="spec-frame">
+        <div class="suite">
+          <aside class="appbar">
+            <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
+            <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
+            <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
+            <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
+            <button class="appbtn active"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
+            <span class="appbar-sp"></span>
+            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
+          </aside>
+          <section class="suite-body split">
+            <div class="suite-list">
+              <div class="lst-head">
+                <div class="lst-head-top"><span class="lst-title">Contacts</span><button class="lst-add" title="Hire (opens HR)"><svg class="ico sm"><use href="#i-plus"/></svg></button></div>
+                <div class="field"><svg class="ico sm"><use href="#i-search"/></svg>Search by name or role</div>
+              </div>
+              <div class="lst-scroll" style="gap:1px">
+                <div class="ct-grp">Engineering <span class="ct">2</span></div>
+                <button class="ct-row active"><span class="ct-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"><span class="pres busy"></span></span><span class="min0"><div class="ct-nm">Alex Chen</div><div class="ct-role">developer</div></span><span class="ct-st busy">Working</span></button>
+                <button class="ct-row"><span class="ct-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"><span class="pres on"></span></span><span class="min0"><div class="ct-nm">Maya Lin</div><div class="ct-role">devops</div></span><span class="ct-st on">Idle</span></button>
+                <div class="ct-grp">Design <span class="ct">1</span></div>
+                <button class="ct-row"><span class="ct-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Sophie&backgroundColor=ffe9e9')"><span class="pres off"></span></span><span class="min0"><div class="ct-nm">Sophie Park</div><div class="ct-role">writer</div></span><span class="ct-st off">Offline</span></button>
+                <div class="ct-grp">Management <span class="ct">1</span></div>
+                <button class="ct-row"><span class="ct-av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Marcus&backgroundColor=eaf1ff')"><span class="pres on"></span></span><span class="min0"><div class="ct-nm">Marcus Johnson</div><div class="ct-role">manager</div></span><span class="ct-st on">Idle</span></button>
+                <div class="ct-grp">External · brand <span class="ct">1</span></div>
+                <button class="ct-row"><span class="ct-av ext" style="background-image:url('https://api.dicebear.com/9.x/bottts/svg?seed=OpenClaw&backgroundColor=f1ebfd')"><span class="pres on"></span></span><span class="min0"><div class="ct-nm">OpenClaw</div><div class="ct-role">A2A · render</div></span><span class="ct-st on">Online</span></button>
+              </div>
+            </div>
+            <div class="ct-detail">
+              <div class="ct-prof">
+                <span class="big" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+                <div><div class="nm">Alex Chen</div><div class="rl">developer · Engineering zone</div></div>
+                <span class="ct-st busy" style="font-size:var(--fs-meta)">● Working now — “Edge case review”</span>
+                <div class="ct-cta">
+                  <button class="oa-approve" style="height:32px"><svg class="ico sm"><use href="#i-message"/></svg>Direct chat</button>
+                  <button class="oa-deny" style="height:32px"><svg class="ico sm"><use href="#i-building"/></svg>Find in Office</button>
+                  <button class="oa-deny" style="height:32px"><svg class="ico sm"><use href="#i-pen"/></svg>Edit in Personnel</button>
+                </div>
+              </div>
+              <dl class="ct-kv">
+                <dt>Role</dt><dd>developer</dd>
+                <dt>Zone</dt><dd>Engineering (workstation E-2)</dd>
+                <dt>Model</dt><dd>MiniMax · M2.7 · Med</dd>
+                <dt>Expertise</dt><dd>parsers · edge cases · TypeScript</dd>
+                <dt>Tools</dt><dd>read_file · write_file · bash <span style="color:var(--ink-4)">(ask for out-of-root)</span></dd>
+                <dt>Decision style</dt><dd>analytical · balanced risk</dd>
+                <dt>Open chats</dt><dd>1 direct · 2 group</dd>
+                <dt>Source</dt><dd>Internal employee</dd>
+              </dl>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="ann-strip">Re-surfaces the real <code>employees</code> roster as a directory — <b>name</b>, <b>role_slug</b>, <b>zone</b> (from <code>workstation_id</code>), live <b>presence</b> (working / idle / blocked / offline), <b>model</b> + <b>tool policy</b> from config, and <b>internal vs. external/brand</b> (A2A employees keep their brand avatar, e.g. OpenClaw). Detail CTAs reach the same employee everywhere: Direct chat (Messenger), Find in Office (3D scene), Edit in Personnel. Contacts <b>views</b> the roster; hiring/editing stays in HR + Personnel — no duplicate management UI.</div>
+    </div>
+
+    <!-- ── 6 · Calendar / Meetings — the company's time dimension ── -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">6</span><span class="t">Calendar &amp; Meetings</span><span class="d">— meetings, ceremonies, runs &amp; deadlines on one agenda</span></div>
+      <div class="spec-frame">
+        <div class="suite">
+          <aside class="appbar">
+            <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
+            <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
+            <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
+            <button class="appbtn active"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
+            <span class="appbar-sp"></span>
+            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
+          </aside>
+          <section class="suite-body single">
+            <div class="cal">
+              <div class="cal-head">
+                <span class="cal-ttl">This week</span>
+                <div class="seg">
+                  <button class="conv-tab active" style="height:24px;padding:0 10px">Agenda</button>
+                  <button class="conv-tab" style="height:24px;padding:0 10px">Week</button>
+                </div>
+                <button class="oa-deny" style="height:30px;padding:0 12px">Today</button>
+                <div class="grow"></div>
+                <button class="oa-approve" style="height:30px"><svg class="ico sm"><use href="#i-plus"/></svg>New meeting</button>
+              </div>
+              <div class="cal-body">
+                <div class="agenda">
+                  <div class="ag-day">
+                    <div class="ag-date today">Thu<span>May 23</span></div>
+                    <div class="ag-evts">
+                      <div class="evt meeting"><span class="bar"></span><div class="evt-main"><div class="evt-t">Q3 Launch standup</div><div class="evt-sub"><span class="evt-tm">09:30</span> · 4 attendees · daily ceremony</div></div></div>
+                      <div class="evt run"><span class="bar"></span><div class="evt-main"><div class="evt-t">Run · Attachment pipeline</div><div class="evt-sub"><span class="evt-tm">11:00</span> · 7 steps · live now</div></div></div>
+                      <div class="evt deadline"><span class="bar"></span><div class="evt-main"><div class="evt-t">Pitch deck due</div><div class="evt-sub"><span class="evt-tm">17:00</span> · owner Sophie</div></div></div>
+                    </div>
+                  </div>
+                  <div class="ag-day">
+                    <div class="ag-date">Fri<span>May 24</span></div>
+                    <div class="ag-evts">
+                      <div class="evt meeting"><span class="bar"></span><div class="evt-main"><div class="evt-t">Design review</div><div class="evt-sub"><span class="evt-tm">14:00</span> · Sophie, Marcus</div></div></div>
+                      <div class="evt ceremony"><span class="bar"></span><div class="evt-main"><div class="evt-t">Launch sign-off ceremony</div><div class="evt-sub"><span class="evt-tm">16:00</span> · boss + managers</div></div></div>
+                    </div>
+                  </div>
+                  <div class="ag-day">
+                    <div class="ag-date">Mon<span>May 27</span></div>
+                    <div class="ag-evts">
+                      <div class="evt run"><span class="bar"></span><div class="evt-main"><div class="evt-t">Weekly retro run</div><div class="evt-sub"><span class="evt-tm">10:00</span> · auto-scheduled SOP</div></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="meet">
+                  <div class="meet-h">
+                    <div class="t">Q3 Launch standup</div>
+                    <div class="s">Today 09:30 · 12 min · 4 attendees · ended</div>
+                  </div>
+                  <div class="meet-b">
+                    <div class="rail-sec-head" style="margin:0 0 2px">Action items <span class="ct">4</span></div>
+                    <div class="ai done"><span class="box"><svg class="ico xs"><use href="#i-check"/></svg></span><span class="tx">Provision the harness sandbox</span><span class="who"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span></span></div>
+                    <div class="ai"><span class="box"></span><span class="tx">Review parser boundary cases</span><span class="who"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span></span></div>
+                    <div class="ai"><span class="box"></span><span class="tx">Draft pitch deck v2</span><span class="who"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Sophie&backgroundColor=ffe9e9')"></span></span></div>
+                    <div class="ai"><span class="box"></span><span class="tx">Approve out-of-root bash for Alex</span><span class="who"><span class="av" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span></span></div>
+                    <button class="dlv-btn" style="margin-top:var(--sp-2)"><svg class="ico xs"><use href="#i-message"/></svg>Open meeting thread</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="ann-strip">The company's <b>time dimension</b>. <b>Meetings</b> + <b>action items</b> are real (<code>meeting.state</code>, <code>meeting.action.created</code> → <b>MeetingPanel</b> / <b>MeetingActionItems</b>); each meeting has a chat thread. <b>Ceremonies</b> = the 8-phase run ceremony as scheduled standups; <b>Runs</b> = run records placed on their start time; <b>Deadlines</b> = deliverable due dates. The month/week grid + manual scheduling is the lighter, partly net-new layer over these existing event streams.</div>
+    </div>
+
+    <!-- ── 7 · Workplace — the suite home / launcher ── -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">7</span><span class="t">Workplace · launcher</span><span class="d">— the company home: live counters + every app &amp; surface in one place</span></div>
+      <div class="spec-frame">
+        <div class="suite">
+          <aside class="appbar">
+            <span class="appbar-id" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=d7e3ff')"></span>
+            <button class="appbtn"><span class="nb">12</span><svg class="ico"><use href="#i-message"/></svg><span class="lab">Chats</span></button>
+            <button class="appbtn"><span class="nb">3</span><svg class="ico"><use href="#i-clipboard"/></svg><span class="lab">Approve</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-layers"/></svg><span class="lab">Docs</span></button>
+            <button class="appbtn"><span class="nb dot"></span><svg class="ico"><use href="#i-calendar"/></svg><span class="lab">Calendar</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-video"/></svg><span class="lab">Meetings</span></button>
+            <button class="appbtn"><svg class="ico"><use href="#i-users"/></svg><span class="lab">Contacts</span></button>
+            <button class="appbtn active"><svg class="ico"><use href="#i-grid"/></svg><span class="lab">Workplace</span></button>
+            <span class="appbar-sp"></span>
+            <button class="appbtn"><svg class="ico"><use href="#i-dots"/></svg><span class="lab">More</span></button>
+          </aside>
+          <section class="suite-body single">
+            <div class="wp">
+              <div class="wp-hero">
+                <div class="wp-hi">Good afternoon<span class="sub">Acme Robotics · Q3 Launch · 4 employees, 2 working now</span></div>
+                <div class="wp-stats">
+                  <div class="wp-stat alert"><div class="v">3</div><div class="k">To approve</div></div>
+                  <div class="wp-stat"><div class="v">1</div><div class="k">Live runs</div></div>
+                  <div class="wp-stat"><div class="v">14</div><div class="k">Docs</div></div>
+                  <div class="wp-stat"><div class="v">$0.42</div><div class="k">Spend today</div></div>
+                </div>
+              </div>
+
+              <div class="wp-sec-h">Suite apps</div>
+              <div class="wp-tiles">
+                <button class="wp-tile"><span class="ic b-accent"><svg class="ico"><use href="#i-message"/></svg></span><span class="nm">Messenger</span><span class="ds">Group &amp; direct chats with your team</span><span class="nb">12 unread</span></button>
+                <button class="wp-tile"><span class="ic b-warn"><svg class="ico"><use href="#i-clipboard"/></svg></span><span class="nm">Approvals</span><span class="ds">Human-in-loop gates waiting on you</span><span class="nb" style="background:var(--warn-surface);color:#8a5a0c">3 to do</span></button>
+                <button class="wp-tile"><span class="ic b-ok"><svg class="ico"><use href="#i-layers"/></svg></span><span class="nm">Docs</span><span class="ds">Every deliverable, exportable</span></button>
+                <button class="wp-tile"><span class="ic b-accent"><svg class="ico"><use href="#i-calendar"/></svg></span><span class="nm">Calendar</span><span class="ds">Meetings, ceremonies &amp; deadlines</span></button>
+                <button class="wp-tile"><span class="ic b-violet"><svg class="ico"><use href="#i-users"/></svg></span><span class="nm">Contacts</span><span class="ds">The company directory</span></button>
+              </div>
+
+              <div class="wp-sec-h">Workspaces</div>
+              <div class="wp-tiles">
+                <button class="wp-tile"><span class="ic b-accent"><svg class="ico"><use href="#i-building"/></svg></span><span class="nm">Office</span><span class="ds">Watch the team collaborate in 3D</span></button>
+                <button class="wp-tile"><span class="ic b-violet"><svg class="ico"><use href="#i-pulse"/></svg></span><span class="nm">SOPs</span><span class="ds">Reusable process DAGs</span></button>
+                <button class="wp-tile"><span class="ic b-ok"><svg class="ico"><use href="#i-store"/></svg></span><span class="nm">Market</span><span class="ds">Install skills, employees &amp; templates</span></button>
+                <button class="wp-tile"><span class="ic b-ink"><svg class="ico"><use href="#i-users"/></svg></span><span class="nm">Personnel</span><span class="ds">Hire, edit &amp; tune employees</span></button>
+                <button class="wp-tile"><span class="ic b-ink"><svg class="ico"><use href="#i-pen"/></svg></span><span class="nm">Studio</span><span class="ds">Edit the office layout</span></button>
+              </div>
+
+              <div class="wp-sec-h">Recent</div>
+              <div class="act-entries" style="margin-top:0">
+                <div class="act-entry success"><svg class="ico xs"><use href="#i-check"/></svg><span>Marcus produced “Fixture Verification Report” in Q3 Launch · Team</span><span class="x">1m</span></div>
+                <div class="act-entry warning"><svg class="ico xs"><use href="#i-clipboard"/></svg><span>Alex requested approval — bash outside workspace root</span><span class="x">2m</span></div>
+                <div class="act-entry info"><svg class="ico xs"><use href="#i-store"/></svg><span>Installed skill “PDF Table Extractor”</span><span class="x">13m</span></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="ann-strip">The suite <b>home</b>. Quick stats are <b>live counters</b> (pending <code>interaction.requested</code>, active runs, deliverable count, today's spend) — not a historical ledger; the cross-project <b>Boss Dashboard</b> stays v1-deferred (it is NOT resurrected here). Tiles launch both in-suite apps and the peer <b>workspaces</b> (Office / SOPs / Market / Personnel / Studio) — Workplace is the one place that ties the whole company OS together, mirroring the “mini-app launcher” of a real collaboration suite.</div>
+    </div>
+  </div>
+
+  <script>
+    // Lightweight prototype interactions: collapse/expand run records; switch tabs.
+    document.addEventListener('click', (e) => {
+      const rr = e.target.closest('.rr-head');
+      if (rr) { rr.parentElement.classList.toggle('open'); return; }
+      const tab = e.target.closest('.conv-tab:not(.add), .seg button, .oa-tabs .conv-tab');
+      if (tab && tab.parentElement) {
+        tab.parentElement.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+        tab.classList.add('active');
+      }
+    });
+  </script>
+</body>
+</html>

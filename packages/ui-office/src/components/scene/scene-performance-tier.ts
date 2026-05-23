@@ -1,12 +1,36 @@
 export type SceneLightingTier = 'high' | 'medium' | 'low' | 'off';
 
+export interface PostProcessingPreset {
+  multisampling: 0 | 2 | 4 | 8;
+  ssao: boolean;
+  bloom: boolean;
+  vignette: boolean;
+  smaa: boolean;
+  cinematicDof: boolean;
+  grade: boolean;
+  filmGrain: boolean;
+  chromaticAberration: boolean;
+}
+
 export interface LightingTierPreset {
   shadowMapSize: number;
   envMapPreset: 'apartment' | null;
   hemisphereIntensity: number;
   bounceSpotlightCount: 0 | 1 | 2;
-  postProcessing: 'dof+vignette' | 'vignette' | null;
+  postProcessing: PostProcessingPreset;
 }
+
+const POST_NONE: PostProcessingPreset = {
+  multisampling: 0,
+  ssao: false,
+  bloom: false,
+  vignette: false,
+  smaa: false,
+  cinematicDof: false,
+  grade: false,
+  filmGrain: false,
+  chromaticAberration: false,
+};
 
 export const LIGHTING_TIER_PRESETS: Record<SceneLightingTier, LightingTierPreset> = {
   high: {
@@ -14,28 +38,58 @@ export const LIGHTING_TIER_PRESETS: Record<SceneLightingTier, LightingTierPreset
     envMapPreset: 'apartment',
     hemisphereIntensity: 0.65,
     bounceSpotlightCount: 2,
-    postProcessing: 'dof+vignette',
+    postProcessing: {
+      multisampling: 0,
+      ssao: true,
+      bloom: true,
+      vignette: true,
+      smaa: true,
+      cinematicDof: false,
+      grade: true,
+      filmGrain: true,
+      chromaticAberration: true,
+    },
   },
   medium: {
     shadowMapSize: 1024,
     envMapPreset: 'apartment',
     hemisphereIntensity: 0.55,
     bounceSpotlightCount: 1,
-    postProcessing: 'vignette',
+    postProcessing: {
+      multisampling: 0,
+      ssao: false,
+      bloom: true,
+      vignette: true,
+      smaa: true,
+      cinematicDof: false,
+      grade: true,
+      filmGrain: false,
+      chromaticAberration: false,
+    },
   },
   low: {
     shadowMapSize: 512,
     envMapPreset: null,
     hemisphereIntensity: 0.35,
     bounceSpotlightCount: 0,
-    postProcessing: null,
+    postProcessing: {
+      multisampling: 0,
+      ssao: false,
+      bloom: false,
+      vignette: true,
+      smaa: false,
+      cinematicDof: false,
+      grade: false,
+      filmGrain: false,
+      chromaticAberration: false,
+    },
   },
   off: {
     shadowMapSize: 0,
     envMapPreset: null,
     hemisphereIntensity: 0.25,
     bounceSpotlightCount: 0,
-    postProcessing: null,
+    postProcessing: POST_NONE,
   },
 };
 
@@ -90,16 +144,4 @@ export function clearDevLightingOverrides(): void {
 export function emitDevLightingOverrideChange(): void {
   if (!import.meta.env.DEV || typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent('offisim.scene.devOverride.change'));
-}
-
-export function getRendererConfig(tier: SceneLightingTier): { dpr: [number, number] } {
-  switch (tier) {
-    case 'high':
-      return { dpr: [1, 1.5] };
-    case 'medium':
-      return { dpr: [1, 1.25] };
-    case 'low':
-    case 'off':
-      return { dpr: [1, 1] };
-  }
 }

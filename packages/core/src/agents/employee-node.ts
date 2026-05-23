@@ -22,6 +22,7 @@ import { assemblePrompt } from './employee-prompt-assembly.js';
 import { assembleToolKit } from './employee-tool-kit.js';
 import { runToolRound } from './employee-tool-round.js';
 import { buildTurnRunner } from './employee-turn-runner.js';
+import { resolveToolLoopMaxRounds } from './tool-loop-policy.js';
 
 export { extractUsedCitations } from './employee-completion.js';
 
@@ -141,9 +142,14 @@ export async function employeeNode(
       exposedToLlm: tool.exposedToLlm,
     })),
   });
-  const maxToolRounds = Math.max(
-    1,
-    runtimeCtx.runtimePolicy?.toolLoop?.maxRounds ?? MAX_TOOL_ROUNDS,
+  const maxToolRounds = resolveToolLoopMaxRounds(
+    runtimeCtx.runtimePolicy?.toolLoop,
+    {
+      roleSlug: employee.role_slug,
+      provider: resolved.provider,
+      model: resolved.model,
+    },
+    MAX_TOOL_ROUNDS,
   );
   runtimeCtx.conversationState.recordBudget({
     maxToolRounds,

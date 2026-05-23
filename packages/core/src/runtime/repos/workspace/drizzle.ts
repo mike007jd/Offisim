@@ -4,6 +4,8 @@ import { and, eq } from 'drizzle-orm';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { NewZone } from '../../../repos/zone-repository.js';
 import type {
+  CompanyTemplateAssetRow,
+  NewCompanyTemplateAsset,
   NewOfficeLayout,
   NewSopTemplate,
   OfficeLayoutRow,
@@ -19,6 +21,7 @@ function now(): string {
 
 export interface WorkspaceDrizzleRepos {
   sopTemplates: RuntimeRepositories['sopTemplates'];
+  companyTemplates: RuntimeRepositories['companyTemplates'];
   officeLayouts: RuntimeRepositories['officeLayouts'];
   prefabInstances: RuntimeRepositories['prefabInstances'];
   zones: RuntimeRepositories['zones'];
@@ -57,6 +60,35 @@ export function createWorkspaceDrizzleRepos(db: Db): WorkspaceDrizzleRepos {
     async delete(sopTemplateId) {
       db.delete(schema.sopTemplates)
         .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId))
+        .run();
+    },
+  };
+
+  const companyTemplates: RuntimeRepositories['companyTemplates'] = {
+    create(template: NewCompanyTemplateAsset) {
+      const ts = now();
+      const row: CompanyTemplateAssetRow = { ...template, created_at: ts, updated_at: ts };
+      db.insert(schema.companyTemplateAssets).values(row).run();
+      return Promise.resolve(row);
+    },
+    async findById(companyTemplateAssetId) {
+      const rows = db
+        .select()
+        .from(schema.companyTemplateAssets)
+        .where(eq(schema.companyTemplateAssets.company_template_asset_id, companyTemplateAssetId))
+        .all();
+      return (rows[0] as CompanyTemplateAssetRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return db
+        .select()
+        .from(schema.companyTemplateAssets)
+        .where(eq(schema.companyTemplateAssets.company_id, companyId))
+        .all() as CompanyTemplateAssetRow[];
+    },
+    async delete(companyTemplateAssetId) {
+      db.delete(schema.companyTemplateAssets)
+        .where(eq(schema.companyTemplateAssets.company_template_asset_id, companyTemplateAssetId))
         .run();
     },
   };
@@ -220,5 +252,5 @@ export function createWorkspaceDrizzleRepos(db: Db): WorkspaceDrizzleRepos {
     },
   };
 
-  return { sopTemplates, officeLayouts, prefabInstances, zones };
+  return { sopTemplates, companyTemplates, officeLayouts, prefabInstances, zones };
 }

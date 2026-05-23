@@ -50,6 +50,7 @@ export function HermesBody({ limbRefs }: BrandBodyProps) {
   const outfit = '#4f46e5'; // raw-hex-allowed
   const hair = '#312e81'; // raw-hex-allowed
   const emblem = '#c7d2fe'; // raw-hex-allowed
+  const wingFeather = '#e0e7ff'; // raw-hex-allowed
 
   return (
     <BlockCharacter
@@ -77,6 +78,31 @@ export function HermesBody({ limbRefs }: BrandBodyProps) {
           overrides={{ emissive: emblem, emissiveIntensity: 0.3 }}
         />
       </mesh>
+      {/* Brand silhouette: messenger satchel on right hip */}
+      <mesh position={[0.26, 0.6, 0.04]} rotation={[0, 0, -0.18]} castShadow>
+        <boxGeometry args={[0.18, 0.22, 0.09]} />
+        <SceneMaterial materialClass="leather" color={hair} overrides={{ roughness: 0.55 }} />
+      </mesh>
+      <mesh position={[0.18, 0.78, 0.06]} rotation={[0, 0, 0.45]} castShadow>
+        <boxGeometry args={[0.02, 0.32, 0.04]} />
+        <SceneMaterial materialClass="leather" color={hair} />
+      </mesh>
+      {/* Brand silhouette: messenger wings extending behind shoulders */}
+      {[-1, 1].map((side) => (
+        <mesh
+          key={`hermes-wing-${side}`}
+          position={[side * 0.18, 0.9, -0.18]}
+          rotation={[0.12, side * 0.45, side * 0.18]}
+          castShadow
+        >
+          <boxGeometry args={[0.34, 0.22, 0.03]} />
+          <SceneMaterial
+            materialClass="fabric"
+            color={wingFeather}
+            overrides={{ roughness: 0.78 }}
+          />
+        </mesh>
+      ))}
       <mesh ref={limbRefs?.leftArm} position={[-0.22, 0.75, 0]} castShadow>
         <boxGeometry args={[0.08, 0.45, 0.08]} />
         <SceneMaterial materialClass="plastic" color={skin} />
@@ -225,6 +251,30 @@ export function CodexBody({ limbRefs }: BrandBodyProps) {
           overrides={{ emissive: highlight, emissiveIntensity: 0.5 }}
         />
       </mesh>
+      {/* Brand silhouette: square-frame glasses */}
+      {[-1, 1].map((side) => (
+        <mesh key={`codex-glass-${side}`} position={[side * 0.07, 1.3, 0.16]} castShadow>
+          <boxGeometry args={[0.075, 0.06, 0.012]} />
+          <SceneMaterial
+            materialClass="metal-chrome"
+            color={highlight}
+            overrides={{ emissive: highlight, emissiveIntensity: 0.18 }}
+          />
+        </mesh>
+      ))}
+      <mesh position={[0, 1.3, 0.17]} castShadow>
+        <boxGeometry args={[0.045, 0.01, 0.012]} />
+        <SceneMaterial materialClass="metal-chrome" color={highlight} />
+      </mesh>
+      {/* Brand silhouette: academic robe lower hem (replaces straight leg silhouette) */}
+      <mesh position={[0, 0.32, 0]} castShadow>
+        <cylinderGeometry args={[0.18, 0.36, 0.46, 14, 1, true]} />
+        <SceneMaterial
+          materialClass="fabric"
+          color={pants}
+          overrides={{ roughness: 0.78, side: 2 }}
+        />
+      </mesh>
     </BlockCharacter>
   );
 }
@@ -273,6 +323,19 @@ export function CustomBody({ limbRefs }: BrandBodyProps) {
       <mesh position={[0, 1.25, 0]} castShadow>
         <boxGeometry args={[0.3, 0.3, 0.3]} />
         <SceneMaterial materialClass="plastic" color={skin} />
+      </mesh>
+      {/* Brand silhouette: neutral hooded silhouette (cowl behind/over head) */}
+      <mesh position={[0, 1.42, -0.04]} rotation={[0.18, 0, 0]} castShadow>
+        <coneGeometry args={[0.24, 0.4, 12, 1, true]} />
+        <SceneMaterial
+          materialClass="fabric"
+          color={outfit}
+          overrides={{ roughness: 0.85, side: 2 }}
+        />
+      </mesh>
+      <mesh position={[0, 1.16, -0.18]} castShadow>
+        <boxGeometry args={[0.36, 0.18, 0.18]} />
+        <SceneMaterial materialClass="fabric" color={outfit} overrides={{ roughness: 0.85 }} />
       </mesh>
     </BlockCharacter>
   );

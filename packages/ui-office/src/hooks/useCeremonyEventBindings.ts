@@ -10,6 +10,7 @@ import {
 } from '../lib/ceremony/ceremony-phase-actions';
 import { useCeremonySceneState } from '../lib/ceremony/ceremony-scene-state';
 import { useCeremonyScheduling } from '../lib/ceremony/ceremony-scheduling';
+import { subscribeCompanyStartup } from '../lib/ceremony/event-handlers/company-startup';
 import { subscribeEmployeeStalled } from '../lib/ceremony/event-handlers/employee-stalled';
 import { subscribeHandoff } from '../lib/ceremony/event-handlers/handoff';
 import { subscribeInteractionApproval } from '../lib/ceremony/event-handlers/interaction-approval';
@@ -124,6 +125,7 @@ export function useCeremonyEventBindings({
     };
 
     const unsubs: Array<() => void> = [];
+    unsubs.push(subscribeCompanyStartup(eventBus, ctx));
     unsubs.push(subscribeNodePhaseTransitions(eventBus, ctx));
     unsubs.push(subscribeTaskDispatch(eventBus, ctx));
     unsubs.push(subscribeLlmChunkStream(eventBus, ctx));

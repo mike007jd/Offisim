@@ -191,11 +191,10 @@ export function createTauriGitLocalFsAdapter(opts?: {
   return {
     async readTree(localPath) {
       if (opts?.projectRoot && opts.projectId) {
-        const tree = await readProjectTreeRecursive(localPath, {
+        return readProjectTreeRecursive(localPath, {
           projectRoot: opts.projectRoot,
           projectId: opts.projectId,
         });
-        if (tree.files.length > 0) return tree;
       }
       return readTreeRecursive(localPath);
     },

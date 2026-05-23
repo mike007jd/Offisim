@@ -790,6 +790,68 @@
       background: var(--accent);
       animation: pulse 1.4s ease-in-out infinite;
     }
+    /* Diegetic in-scene pipeline pill — floats above the worker zones.   */
+    /* One pill, no nesting (no card-inside-card). Inline: status dot +   */
+    /* current step + assignee + progress + stop. The pipeline reads as   */
+    /* part of the game content, hovering over the employees actually    */
+    /* working on the step.                                               */
+    .stage-pipe {
+      position: absolute;
+      left: 50%; transform: translateX(-50%);
+      top: 46px; z-index: 3;
+      display: inline-flex; align-items: center; gap: 10px;
+      height: 32px; padding: 0 6px 0 14px;
+      border: 1px solid var(--accent-ring);
+      border-radius: var(--r-pill);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(6px);
+      box-shadow: var(--elev-1);
+      font-size: var(--fs-meta); color: var(--ink-2);
+      white-space: nowrap;
+    }
+    .stage-pipe .sp-pulse {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent); flex: none;
+      position: relative;
+    }
+    .stage-pipe .sp-pulse::after {
+      content: ''; position: absolute; inset: -4px;
+      border-radius: 50%; border: 1.5px solid var(--accent-ring);
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .stage-pipe .sp-step {
+      color: var(--ink-1); font-weight: 660;
+    }
+    .stage-pipe .sp-who {
+      color: var(--ink-3);
+    }
+    .stage-pipe .sp-prog {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: var(--mono); font-size: var(--fs-micro);
+      color: var(--ink-3);
+    }
+    .stage-pipe .sp-bar {
+      width: 64px; height: 4px; border-radius: 2px;
+      background: var(--line); position: relative; overflow: hidden;
+    }
+    .stage-pipe .sp-bar > i {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 43%; background: var(--accent);
+    }
+    .stage-pipe .sp-div {
+      width: 1px; height: 14px; background: var(--line);
+    }
+    .stage-pipe .sp-stop {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 24px; padding: 0 10px;
+      border: 0; border-radius: var(--r-pill);
+      background: var(--danger-surface); color: var(--danger);
+      font-size: var(--fs-micro); font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      transition: background 0.14s ease;
+    }
+    .stage-pipe .sp-stop:hover { background: #fadad6; }
+    .stage-pipe .sp-stop .ico { color: var(--danger); }
     /* Diegetic scene-cost readout (V3 §9) */
     .scene-cost {
       position: absolute; right: 16px; bottom: 14px; z-index: 3;
@@ -970,6 +1032,413 @@
     .legend .li b { font-weight: 660; color: var(--ink-1); }
     .legend .li code { font-family: var(--mono); color: var(--ink-4); margin-left: auto; }
 
+    /* ════════ Extended-state specimens (7–26) ════════ */
+
+    /* Recovery / system banners reused: extend ResumeBar grammar in info skin */
+    .rb.info {
+      border-color: var(--accent-ring); background: var(--accent-surface);
+    }
+    .rb.info .ic { color: var(--accent); }
+    .rb.info .lbl { color: var(--accent); }
+    .rb.info .dis { color: var(--accent); }
+    .rb.info .dis:hover { background: rgba(47,107,255,0.14); color: var(--accent-press); }
+
+    /* Staleness strip — 4 status variants, dot + label + action */
+    .stale-strip {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .stale-row {
+      display: flex; align-items: center; gap: 8px;
+      height: 30px; padding: 0 11px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2);
+      font-size: var(--fs-meta);
+    }
+    .stale-row .sd {
+      width: 7px; height: 7px; border-radius: 50%;
+      flex: none;
+    }
+    .stale-row.ok .sd { background: var(--ok); }
+    .stale-row.warn .sd { background: var(--warn); }
+    .stale-row.block .sd { background: var(--danger); }
+    .stale-row.dim .sd { background: var(--ink-4); }
+    .stale-row.ok { color: #15824f; background: var(--ok-surface); border-color: rgba(26,164,106,0.28); }
+    .stale-row.warn { color: #8a5a0c; background: var(--warn-surface); border-color: rgba(201,132,16,0.28); }
+    .stale-row.block { color: #b8352e; background: var(--danger-surface); border-color: rgba(214,69,61,0.28); }
+    .stale-row.dim { color: var(--ink-3); }
+    .stale-row .lb { font-weight: 620; }
+    .stale-row .act {
+      margin-left: auto; flex: none;
+      height: 22px; padding: 0 9px;
+      border: 0; border-radius: var(--r-xs);
+      background: transparent; color: inherit;
+      font-size: var(--fs-micro); font-weight: 660;
+    }
+    .stale-row .act:hover { background: rgba(255,255,255,0.6); }
+
+    /* Engine-proposal chat bubble — extends .bub grammar with action row */
+    .bub.eng {
+      align-self: flex-start;
+      background: var(--violet-surface); color: var(--ink-1);
+      border-bottom-left-radius: var(--r-xs);
+      border: 1px solid rgba(124,77,219,0.28);
+    }
+    .bub.eng .who { color: var(--violet); }
+    .bub-acts {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 9px;
+    }
+    .bub-acts .btn { background: var(--surface-1); }
+
+    /* Tool-error inline bubble */
+    .bub.toolerr {
+      align-self: flex-start;
+      background: var(--danger-surface);
+      color: #b8352e;
+      border: 1px solid rgba(214,69,61,0.28);
+      border-bottom-left-radius: var(--r-xs);
+    }
+    .bub.toolerr .who { color: #b8352e; }
+    .bub.toolerr code {
+      font-family: var(--mono); font-size: var(--fs-micro);
+      background: rgba(214,69,61,0.12); padding: 1px 6px;
+      border-radius: var(--r-xs);
+    }
+
+    /* Toast banner row — system-wide stack */
+    .toast {
+      display: flex; align-items: center; gap: 10px;
+      border: 1px solid; border-radius: var(--r-md);
+      padding: 9px 12px;
+      background: var(--surface-1);
+      box-shadow: var(--elev-1);
+      font-size: var(--fs-sm);
+    }
+    .toast .ic { flex: none; }
+    .toast .msg {
+      flex: 1; min-width: 0;
+      color: var(--ink-1); font-weight: 580;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .toast .sub {
+      flex: none; color: var(--ink-3); font-size: var(--fs-micro);
+      font-family: var(--mono);
+    }
+    .toast .acts { flex: none; display: flex; gap: 4px; align-items: center; }
+    .toast.warn { border-color: rgba(201,132,16,0.32); background: var(--warn-surface); }
+    .toast.warn .ic, .toast.warn .msg { color: #8a5a0c; }
+    .toast.warn .sub { color: #8a5a0c; opacity: 0.75; }
+    .toast.danger { border-color: rgba(214,69,61,0.32); background: var(--danger-surface); }
+    .toast.danger .ic, .toast.danger .msg { color: #b8352e; }
+    .toast.danger .sub { color: #b8352e; opacity: 0.7; }
+    .toast.info { border-color: var(--accent-ring); background: var(--accent-surface); }
+    .toast.info .ic, .toast.info .msg { color: var(--accent); }
+    .toast + .toast { margin-top: 6px; }
+
+    /* Plan-review HIL modal — uses .dlg shell */
+    .plan-list {
+      display: flex; flex-direction: column; gap: 6px;
+      margin-top: 4px;
+    }
+    .plan-step {
+      display: grid; grid-template-columns: 26px 1fr auto auto;
+      align-items: center; gap: 10px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-2);
+      padding: 9px 11px;
+      font-size: var(--fs-sm);
+    }
+    .plan-step .ix {
+      width: 22px; height: 22px; border-radius: var(--r-xs);
+      background: var(--accent-surface); color: var(--accent);
+      display: grid; place-items: center;
+      font-size: var(--fs-micro); font-weight: 720;
+      font-variant-numeric: tabular-nums;
+    }
+    .plan-step .ds { color: var(--ink-1); font-weight: 580; }
+    .plan-step .role {
+      font-size: 9.5px; letter-spacing: var(--ls-caps);
+      text-transform: uppercase; font-weight: 700;
+      color: var(--ink-3);
+    }
+    .plan-step .who { color: var(--ink-2); font-weight: 620; font-size: var(--fs-meta); }
+    .plan-fb {
+      width: 100%; min-height: 64px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-2);
+      padding: 9px 11px; resize: vertical;
+      color: var(--ink-1); font-size: var(--fs-sm);
+      margin-top: 11px;
+    }
+    .plan-fb::placeholder { color: var(--ink-4); }
+    .plan-foot {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--line-soft);
+      background: var(--surface-2);
+    }
+    .sev-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 24px; padding: 0 10px;
+      border-radius: var(--r-pill);
+      border: 1px solid rgba(214,69,61,0.32);
+      background: var(--danger-surface);
+      color: #b8352e;
+      font-size: 9.5px; font-weight: 720;
+      letter-spacing: var(--ls-caps); text-transform: uppercase;
+    }
+    .sev-pill::before {
+      content: ""; width: 5px; height: 5px; border-radius: 50%;
+      background: var(--danger);
+    }
+
+    /* Clarification — answer slot */
+    .clarify-slot {
+      margin-top: 9px;
+      display: flex; align-items: stretch; gap: 6px;
+      padding: 8px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1);
+    }
+    .clarify-slot textarea {
+      flex: 1; min-height: 38px;
+      border: 0; resize: none; background: transparent;
+      color: var(--ink-1); font-size: var(--fs-sm);
+      outline: none;
+    }
+    .clarify-slot textarea::placeholder { color: var(--ink-4); }
+
+    /* Handoff visualization — activity row + scene mini */
+    .activity-rail {
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-1); overflow: hidden;
+    }
+    .arail-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: var(--fs-sm);
+    }
+    .arail-row:last-child { border-bottom: 0; }
+    .arail-ic {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: grid; place-items: center; flex: none;
+      background: var(--violet-surface); color: var(--violet);
+    }
+    .arail-row .who {
+      font-weight: 620; color: var(--ink-1);
+    }
+    .arail-row .arr { color: var(--ink-4); }
+    .arail-row .meta {
+      margin-left: auto;
+      font-size: var(--fs-meta); color: var(--ink-3);
+    }
+    .arail-row .reason {
+      font-size: var(--fs-meta); color: var(--ink-3);
+      font-style: italic;
+    }
+    .mini-scene {
+      position: relative; min-height: 220px;
+      background:
+        linear-gradient(rgba(244, 247, 251, 0.85), rgba(244, 247, 251, 0.85)),
+        linear-gradient(90deg, rgba(40, 60, 90, 0.045) 1px, transparent 1px),
+        linear-gradient(rgba(40, 60, 90, 0.045) 1px, transparent 1px);
+      background-size: auto, 24px 24px, 24px 24px;
+    }
+    .mini-scene .mz {
+      position: absolute; border-radius: var(--r-sm);
+      border: 1px solid;
+      padding: 4px 7px;
+      font-size: 9.5px; font-weight: 720;
+      letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .mini-seat {
+      position: absolute; width: 16px; height: 16px;
+      border-radius: 50%; border: 2px solid var(--surface-1);
+      box-shadow: var(--elev-1);
+    }
+    .handoff-chip {
+      position: absolute;
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 22px; padding: 0 9px;
+      border: 1px solid var(--violet);
+      background: var(--violet-surface); color: var(--violet);
+      border-radius: var(--r-pill);
+      font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      box-shadow: var(--elev-1);
+    }
+
+    /* Aborted post-state pill */
+    .stage-pipe.muted {
+      border-color: var(--line);
+      background: var(--surface-sunken);
+      color: var(--ink-3);
+    }
+    .stage-pipe.muted .sp-pulse { background: var(--ink-4); }
+    .stage-pipe.muted .sp-pulse::after { display: none; }
+    .stage-pipe.muted .sp-step { color: var(--ink-2); }
+
+    /* Scene fallback warning chip — sits over 2D scene */
+    .scene-fallback-warn {
+      position: absolute; right: 14px; top: 14px;
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 26px; padding: 0 11px;
+      border-radius: var(--r-pill);
+      border: 1px solid rgba(201,132,16,0.4);
+      background: var(--warn-surface);
+      color: #8a5a0c;
+      font-size: var(--fs-micro); font-weight: 660;
+      box-shadow: var(--elev-1);
+      z-index: 3;
+    }
+    .scene-fallback-warn button {
+      height: 18px; padding: 0 7px;
+      border: 1px solid currentColor; border-radius: var(--r-xs);
+      background: transparent; color: inherit;
+      font-size: 9.5px; font-weight: 720;
+      letter-spacing: 0.04em;
+    }
+
+    /* Perf tier downgrade chip */
+    .perf-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 28px; padding: 0 12px;
+      border-radius: var(--r-pill);
+      background: var(--surface-1);
+      border: 1px solid var(--line);
+      font-size: var(--fs-meta);
+      color: var(--ink-2);
+    }
+    .perf-chip .from { color: var(--ink-3); }
+    .perf-chip .to { color: var(--warn); font-weight: 660; }
+    .perf-chip .arr { color: var(--ink-4); }
+
+    /* MCP server row */
+    .mcp-row {
+      display: flex; align-items: center; gap: 10px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-2);
+      padding: 9px 12px; font-size: var(--fs-sm);
+    }
+    .mcp-row .stat {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex: none;
+    }
+    .mcp-row .stat.ok { background: var(--ok); }
+    .mcp-row .stat.err { background: var(--danger); }
+    .mcp-row .nm { font-weight: 620; color: var(--ink-1); }
+    .mcp-row .ds { color: var(--ink-3); font-size: var(--fs-meta); }
+    .mcp-row .acts { margin-left: auto; flex: none; display: flex; gap: 5px; }
+
+    /* Compact pill — quiet system message */
+    .compact-pill {
+      align-self: center;
+      display: inline-flex; align-items: center; gap: 7px;
+      max-width: 88%;
+      height: 24px; padding: 0 12px;
+      border-radius: var(--r-pill);
+      border: 1px solid var(--line);
+      background: var(--surface-2); color: var(--ink-3);
+      font-size: var(--fs-micro); font-weight: 580;
+    }
+    .compact-pill .ico { color: var(--ink-4); }
+    .compact-pill a {
+      color: var(--accent); text-decoration: none; font-weight: 640;
+      margin-left: 4px;
+    }
+
+    /* Engine-proposal grid */
+    .prop-grid {
+      display: grid; gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+    }
+    .prop-card {
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-2);
+      padding: 9px 11px;
+      display: flex; flex-direction: column; gap: 6px;
+      font-size: var(--fs-meta);
+    }
+    .prop-card .kind {
+      font-size: 9.5px; letter-spacing: var(--ls-caps);
+      font-weight: 720; text-transform: uppercase;
+      color: var(--violet);
+    }
+    .prop-card .body { color: var(--ink-2); line-height: 1.4; }
+    .prop-card .row { display: flex; gap: 4px; margin-top: 2px; }
+    .prop-card .row .btn { flex: 1; justify-content: center; }
+
+    /* Knowledge banner — top of tab area */
+    .know-banner {
+      display: flex; align-items: center; gap: 10px;
+      border: 1px solid rgba(214,69,61,0.32);
+      background: var(--danger-surface);
+      border-radius: var(--r-md);
+      padding: 9px 12px;
+      font-size: var(--fs-sm);
+      color: #b8352e;
+    }
+    .know-banner .ic { flex: none; }
+    .know-banner .msg { flex: 1; min-width: 0; font-weight: 580; }
+    .know-banner .acts { display: flex; gap: 4px; flex: none; }
+
+    /* Configure-key warning chat banner */
+    .api-warn {
+      display: flex; align-items: center; gap: 10px;
+      border: 1px solid rgba(201,132,16,0.4);
+      background: var(--warn-surface);
+      color: #8a5a0c;
+      border-radius: var(--r-md);
+      padding: 9px 11px;
+      font-size: var(--fs-sm);
+    }
+    .api-warn .ic { flex: none; }
+    .api-warn .msg { flex: 1; font-weight: 580; }
+
+    /* Evicted attachment chip */
+    .att-chip.evicted {
+      border-color: rgba(201,132,16,0.4);
+      background: var(--warn-surface);
+    }
+    .att-chip.evicted .ic-cell {
+      background: rgba(201,132,16,0.18); color: #8a5a0c;
+    }
+    .att-chip.evicted .fn { color: #8a5a0c; }
+    .att-chip.evicted .sm { color: #8a5a0c; }
+
+    /* Slash-command popover */
+    .sc-pop {
+      max-height: 360px; overflow: auto;
+      background: var(--surface-1);
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      box-shadow: var(--elev-2);
+      padding: 4px;
+    }
+    .sc-group {
+      padding: 6px 4px 2px;
+      font-size: 9.5px; letter-spacing: var(--ls-caps);
+      text-transform: uppercase; font-weight: 720;
+      color: var(--ink-3);
+    }
+    .sc-item {
+      display: grid;
+      grid-template-columns: minmax(90px, max-content) 1fr;
+      align-items: baseline; gap: 12px;
+      padding: 6px 10px; border-radius: var(--r-sm);
+      font-size: var(--fs-meta);
+    }
+    .sc-item:hover { background: var(--surface-sunken); }
+    .sc-item.on { background: var(--accent-surface); }
+    .sc-item .sc-cmd {
+      font-family: var(--mono); color: var(--accent); font-weight: 620;
+    }
+    .sc-item .sc-ds { color: var(--ink-2); }
+    .sc-item .sc-al {
+      font-family: var(--mono); color: var(--ink-4); font-size: 9.5px;
+      margin-left: 6px;
+    }
+
     ::-webkit-scrollbar { width: 7px; height: 7px; }
     ::-webkit-scrollbar-thumb {
       background: var(--line-strong); border-radius: var(--r-pill);
@@ -1024,6 +1493,19 @@
     <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 5V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M9 5h6M9 12h6M9 16h4"/></symbol>
     <symbol id="i-dollar" viewBox="0 0 24 24"><path d="M12 2v20M16 7a4 4 0 0 0-4-2c-2.5 0-4 1.4-4 3.2C8 13 16 11 16 15.5c0 1.9-1.7 3.5-4 3.5a4.5 4.5 0 0 1-4-2.3"/></symbol>
     <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10H9"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3.3-3.3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0L5 13.3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M5 12.5a13 13 0 0 1 4.5-2.6"/><path d="M2.5 8.5A18 18 0 0 1 9 5"/><path d="M14 5.2a18 18 0 0 1 7.5 3.3"/><path d="M19 12.5a13 13 0 0 0-3-2.1"/><path d="M9 16.5a8 8 0 0 1 6 0"/><circle cx="12" cy="20" r="0.8" fill="currentColor"/></symbol>
+    <symbol id="i-split" viewBox="0 0 24 24"><path d="M6 4v4a4 4 0 0 0 4 4h4a4 4 0 0 1 4 4v4"/><path d="M16 4l3 3-3 3"/><path d="M16 16l3 4 3-4"/></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="8" ry="2.5"/><path d="M4 5.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/><path d="M4 11.5v6c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-6"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6z"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 13l9-9M16 8l3 3"/></symbol>
+    <symbol id="i-bind" viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/><path d="M3 7v10M21 7v10M7 3h10M7 21h10"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M16 4l4 4-4 4M16 16l4 4-4-4"/><path d="M4 8h4l8 12h4M4 16h4l3-4.5"/></symbol>
+    <symbol id="i-2d" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h2v6H8z"/><path d="M13 9h3v3h-3v3h3"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="i-msg" viewBox="0 0 24 24"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></symbol>
+    <symbol id="i-compact" viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h16M18 12l3-3M18 12l3 3"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.2"/></symbol>
   </svg>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -1078,11 +1560,28 @@
           <button class="active" title="3D"><svg class="ico sm"><use href="#i-cube"/></svg></button>
           <button title="2D"><svg class="ico sm"><use href="#i-square2"/></svg></button>
         </div>
+        <!-- V3 stage run-axis: pure Board/Live entries. Run state details
+             belong on the stage (above the working employees), not in the
+             axis chip. -->
         <div class="stage-float stage-runaxis">
           <button class="stage-entry"><svg class="ico sm"><use href="#i-grid-board"/></svg>Board</button>
           <button class="stage-entry live-active">
             <svg class="ico sm"><use href="#i-pulse"/></svg>Live
             <span class="pulse-dot"></span>
+          </button>
+        </div>
+        <!-- Diegetic in-scene pipeline readout. Floats above the worker
+             zones so the live step + assignee + Stop sit visually attached
+             to the employees actually doing the work. One pill, no nesting. -->
+        <div class="stage-pipe" role="status" aria-label="Plan progress · current step">
+          <span class="sp-pulse"></span>
+          <span class="sp-step">#4 Edge case review</span>
+          <span class="sp-who">· Alex Chen</span>
+          <span class="sp-div"></span>
+          <span class="sp-prog"><span class="sp-bar"><i></i></span>3/7</span>
+          <span class="sp-div"></span>
+          <button class="sp-stop" title="Stop execution">
+            <svg class="ico xs fill"><use href="#i-square"/></svg>Stop
           </button>
         </div>
 
@@ -1132,24 +1631,9 @@
           </div>
         </div>
         <div class="chat-f">
-          <!-- PipelineProgress pinned above composer — executing stage -->
-          <div class="pp">
-            <div style="display:flex;align-items:center;gap:10px">
-              <div class="pp-flow" style="flex:1">
-                <div class="pp-node"><div class="pp-dot done"><svg class="ico xs"><use href="#i-check"/></svg></div><div class="pp-lbl c-ok">Boss</div></div>
-                <div class="pp-conn done"></div>
-                <div class="pp-node"><div class="pp-dot done"><svg class="ico xs"><use href="#i-check"/></svg></div><div class="pp-lbl c-ok">Manager</div></div>
-                <div class="pp-conn done"></div>
-                <div class="pp-node"><div class="pp-dot done"><svg class="ico xs"><use href="#i-check"/></svg></div><div class="pp-lbl c-ok">PM</div></div>
-                <div class="pp-conn done"></div>
-                <div class="pp-node"><div class="pp-dot active c-ok"><i></i></div><div class="pp-lbl c-ok">Employee</div></div>
-                <div class="pp-conn pending"></div>
-                <div class="pp-node"><div class="pp-dot pending"><i></i></div><div class="pp-lbl">Summary</div></div>
-              </div>
-              <button class="pp-stop" title="Stop execution"><svg class="ico xs fill"><use href="#i-square"/></svg>Stop</button>
-            </div>
-            <div class="pp-sub">Employees working</div>
-          </div>
+          <!-- PipelineProgress lives on stage (see .axis-pipe above).
+               chat-foot only carries the composer — V3 right rail is
+               one axis, no run-axis chrome stacked on it. -->
           <div class="pad">
             <div class="cmp">
               <div class="ph">Message the team…</div>
@@ -1174,8 +1658,9 @@
       are the first things dropped when a UI is rebuilt: <b>cross-session resume</b>,
       <b>chat failure recovery</b>, <b>running-pipeline control</b>, <b>meeting + action items</b>,
       <b>attachment staging/error</b>, <b>keyboard shortcuts</b>. The window above is the canonical
-      runtime state: Office mid-run, <code>PipelineProgress</code> pinned above the composer at the
-      <code>executing</code> stage with the live <code>Stop</code> control. Every specimen below is
+      runtime state: Office mid-run, <code>PipelineProgress</code> lives diegetically on the stage
+      run-axis (V3 §9 — game content area, not chrome) at the <code>executing</code> stage with the
+      inline <code>Stop</code> control. Every specimen below is
       built 1:1 with the real component and its controlling hook — no invented controls, no dropped
       states. Each pane is captioned with its source file.
       <br /><br />
@@ -1812,6 +2297,811 @@
               chip-grammar with mono <code>--fs-meta</code> keys.</p>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- 7 · interaction.restored -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">7</span><span class="t">interaction.restored — cross-reload pending recovery</span>
+        <span class="d"><code>useInteractionRestore()</code> + <code>InteractionRestoreBanner</code> · driven by <code>pendingInteractions</code> persisted to <code>chat_messages</code> on reload</span></div>
+      <div class="spec-frame">
+        <div class="spec-grid-2">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Top-of-office recovery banner — single pending interaction</div>
+              <div class="mini-bd sunken">
+                <div class="rb info">
+                  <span class="ic"><svg class="ico sm"><use href="#i-undo"/></svg></span>
+                  <span class="lbl">Pending approval restored</span>
+                  <span class="pjs"><button class="pj review" title="Plan review · Q3 Launch rollout"><svg class="ico xs"><use href="#i-arrow-right"/></svg>Show me · Plan review</button></span>
+                  <button class="dis" aria-label="Dismiss restored interaction">Dismiss</button>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Banner uses the same V3 status-pill grammar as <code>ResumeBar</code>
+              with an info skin (<code>--accent-ring</code> + <code>--accent-surface</code>). Detection
+              runs at mount: a previously-shown interaction bubble (plan_review, clarification, HIL
+              prompt, install confirm) that the user didn't resolve is matched against
+              <code>InteractionLifecycle.pending</code> and surfaced here. Action verb is always
+              <i>Show me</i> — it scrolls the bubble back into view and re-focuses it.</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">After Show me — original interaction bubble re-rendered in chat</div>
+              <div class="mini-bd">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div class="bub ai" style="max-width:100%">
+                    <div class="who">Boss · plan review</div>
+                    Here's the rollout plan I'm about to execute. 5 steps · 3 employees.
+                    <div class="bub-acts">
+                      <button class="btn primary sm"><svg class="ico xs"><use href="#i-check"/></svg>Start execution</button>
+                      <button class="btn sm"><svg class="ico xs"><use href="#i-pen"/></svg>Revise plan</button>
+                      <button class="btn ghost sm">Cancel</button>
+                    </div>
+                  </div>
+                  <p class="hint" style="margin:0">Bubble re-rendered with the same controller as the original — no new <code>runId</code>, no duplicate event.</p>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Recovery is idempotent: clicking <i>Show me</i> only scrolls + focuses;
+              the underlying interaction is still the same row in <code>interactions</code> with the
+              original <code>pendingApprovalId</code>. Resolving (Accept / Reject / Revise) marks
+              <code>resolvedAt</code> on the row and emits the same event the in-session control would
+              have. Dismiss clears the recovery banner without resolving the interaction —
+              re-detected on next reload.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8 · engine.proposal.created -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">8</span><span class="t">engine.proposal.created — engine-initiated proposal</span>
+        <span class="d"><code>events/engine-proposal.ts</code> · 5 proposal kinds: <code>split_step</code> · <code>handoff</code> · <code>replan</code> · <code>permission</code> · <code>publish_artifact</code></span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Chat bubble — split_step variant (canonical layout)</div>
+          <div class="mini-bd">
+            <div class="bub eng" style="max-width:100%">
+              <div class="who">Engine · proposal</div>
+              Engine proposes splitting Step #4 into two parts: <b>parser tests</b> + <b>integration smoke</b>. Splitting keeps the unit suite green while the smoke run boots a real worker.
+              <div class="bub-acts">
+                <button class="btn primary sm"><svg class="ico xs"><use href="#i-check"/></svg>Accept</button>
+                <button class="btn sm"><svg class="ico xs"><use href="#i-x"/></svg>Reject</button>
+                <button class="btn ghost sm"><svg class="ico xs"><use href="#i-code"/></svg>View detail</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mini-pane" style="margin-top:18px">
+          <div class="mini-cap">5 kinds — same bubble grammar, payload-specific summary</div>
+          <div class="mini-bd">
+            <div class="prop-grid">
+              <div class="prop-card">
+                <span class="kind"><svg class="ico xs" style="vertical-align:-2px"><use href="#i-split"/></svg> split_step</span>
+                <span class="body">Split #4 → parser tests + integration smoke.</span>
+                <div class="row"><button class="btn xs primary">Accept</button><button class="btn xs">Reject</button><button class="btn xs ghost">Detail</button></div>
+              </div>
+              <div class="prop-card">
+                <span class="kind"><svg class="ico xs" style="vertical-align:-2px"><use href="#i-shuffle"/></svg> handoff</span>
+                <span class="body">Hand #5 from Maya → Alex (frontend expertise).</span>
+                <div class="row"><button class="btn xs primary">Accept</button><button class="btn xs">Reject</button><button class="btn xs ghost">Detail</button></div>
+              </div>
+              <div class="prop-card">
+                <span class="kind"><svg class="ico xs" style="vertical-align:-2px"><use href="#i-refresh"/></svg> replan</span>
+                <span class="body">Replan from #3 — current path is blocked.</span>
+                <div class="row"><button class="btn xs primary">Accept</button><button class="btn xs">Reject</button><button class="btn xs ghost">Detail</button></div>
+              </div>
+              <div class="prop-card">
+                <span class="kind"><svg class="ico xs" style="vertical-align:-2px"><use href="#i-shield"/></svg> permission</span>
+                <span class="body">Grant <code>write_file</code> for <code>./src/api/</code>.</span>
+                <div class="row"><button class="btn xs primary">Accept</button><button class="btn xs">Reject</button><button class="btn xs ghost">Detail</button></div>
+              </div>
+              <div class="prop-card">
+                <span class="kind"><svg class="ico xs" style="vertical-align:-2px"><use href="#i-present"/></svg> publish_artifact</span>
+                <span class="body">Publish rollout-plan.md as deliverable.</span>
+                <div class="row"><button class="btn xs primary">Accept</button><button class="btn xs">Reject</button><button class="btn xs ghost">Detail</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Engine-proposed bubbles use violet skin to distinguish from user-routed
+          Boss bubbles. Buttons emit <code>engine.proposal.accepted</code> /
+          <code>engine.proposal.rejected</code> with <code>proposalId</code>; <i>View detail</i> expands
+          payload (diff for split_step, target employee card for handoff, scope path for permission).
+          Same bubble across all kinds — no kind-specific affordance other than the summary line.</p>
+      </div>
+    </div>
+
+    <!-- 9 · workspace.staleness.detected -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">9</span><span class="t">workspace.staleness.detected — 4-state strip</span>
+        <span class="d"><code>useWorkspaceStaleness()</code> · polled via <code>git_exec status --porcelain</code> + <code>rev-list --count HEAD..@{u}</code> · strip mounted below <code>.scope-bar</code></span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">4 status variants — clean / warn / block / unavailable</div>
+          <div class="mini-bd">
+            <div class="stale-strip">
+              <div class="stale-row ok"><span class="sd"></span><span class="lb">Workspace clean</span><span class="lb" style="font-weight:540;opacity:0.75">main · in sync with origin</span></div>
+              <div class="stale-row warn"><span class="sd"></span><span class="lb">12 uncommitted changes</span><button class="act">Review</button></div>
+              <div class="stale-row block"><span class="sd"></span><span class="lb">Workspace ahead of remote · resolve before run</span><button class="act">Resolve</button></div>
+              <div class="stale-row dim"><span class="sd"></span><span class="lb">Workspace check unavailable</span><span class="lb" style="font-weight:540;opacity:0.7">not a git repo</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Strip is a single horizontal lane below <code>.scope-bar</code>. State
+          map: <code>clean</code> = clean tree + up to date; <code>warn</code> = uncommitted but
+          executable (run proceeds, banner surfaces the count); <code>block</code> = run blocked
+          (ahead/behind requires resolution OR write tool requires clean tree); <code>unavailable</code>
+          = no git/no workspace_root, no check possible. Action verbs: Review (open VCS tab) /
+          Resolve (open commit dialog). No bell, no count badge.</p>
+      </div>
+    </div>
+
+    <!-- 10 · workspace-binding.unavailable -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">10</span><span class="t">workspace-binding.unavailable — chat-inline tool error</span>
+        <span class="d"><code>tool.error</code> event from builtin sandbox · surfaced as inline bot message when <code>error.code === 'no-workspace-root'</code></span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Chat-inline error bubble — read_file failed, no workspace bound</div>
+          <div class="mini-bd">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="bub me" style="align-self:flex-end">
+                <div class="who">You</div>
+                Show me the rollout config file.
+              </div>
+              <div class="bub toolerr" style="max-width:100%">
+                <div class="who">Boss · tool error</div>
+                I tried to run <code>read_file</code> but no workspace folder is bound to this project.
+                <div class="bub-acts">
+                  <button class="btn primary sm"><svg class="ico xs"><use href="#i-bind"/></svg>Bind workspace folder</button>
+                  <button class="btn ghost sm">Skip</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark"><i>Bind workspace folder</i> opens <code>ProjectCreateDialog</code> in
+          edit mode for the active project, scrolled to the workspace_root picker. On successful
+          bind, the bubble does not retry automatically — the user re-prompts. Distinct from
+          ErrorBanner (specimen 2): this is a per-message tool failure inside chat, not a top-of-chat
+          run-level banner. Same red surface family (<code>--danger-surface</code>) but no
+          recoverable-run controls.</p>
+      </div>
+    </div>
+
+    <!-- 11 · boss.employee-context.empty -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">11</span><span class="t">boss.employee-context.empty — roster context lost</span>
+        <span class="d"><code>diagnostics.roster-empty</code> · emitted when boss prompt assembly sees <code>roster.length===0</code> but DB has employees</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">System warning toast — roster context lost</div>
+          <div class="mini-bd">
+            <div class="toast warn">
+              <span class="ic"><svg class="ico sm"><use href="#i-alert-tri"/></svg></span>
+              <span class="msg">Roster context lost · Boss saw 0 employees despite 4 in DB</span>
+              <span class="sub">runtime-init</span>
+              <span class="acts">
+                <button class="btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>Reload runtime</button>
+                <button class="btn ghost sm"><svg class="ico xs"><use href="#i-chev-down"/></svg>Detail</button>
+              </span>
+            </div>
+            <div class="eb" style="margin-top:8px">
+              <div class="eb-det" style="border-top:0">
+                <div class="box">
+                  <div><span class="k">Symptom:</span> roster.length === 0 in boss prompt assembly</div>
+                  <div><span class="k">DB count:</span> 4 employees</div>
+                  <div><span class="k">companyId:</span> co_8af2</div>
+                  <div><span class="k">conversationKey:</span> proj_q3::thread_main::&lt;no-employee&gt;</div>
+                  <div><span class="k">Suspected:</span> runtime not attached to active company on session restore</div>
+                  <div><span class="k">Action:</span> reload runtime to re-bind</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Surfaced via NotificationCenter under <code>diagnostics</code> channel;
+          also mirrored to scene-cost notification (specimen 0 resting). Distinct from divergence
+          (specimen 12): this is the <i>empty</i> case — boss sees zero. Detail panel uses the same
+          <code>.eb-det</code> mono box grammar as ErrorBanner for diagnostic continuity.
+          <i>Reload runtime</i> calls <code>useRuntimeInit().reload()</code>.</p>
+      </div>
+    </div>
+
+    <!-- 12 · boss.roster-divergence -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">12</span><span class="t">boss.roster-divergence — boss vs DB mismatch</span>
+        <span class="d"><code>diagnostics.roster-divergence</code> · emitted when <code>boss.rosterCount !== db.employeeCount</code> for active company</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Diagnostic toast — partial mismatch</div>
+          <div class="mini-bd">
+            <div class="toast warn">
+              <span class="ic"><svg class="ico sm"><use href="#i-database"/></svg></span>
+              <span class="msg">Roster mismatch · Boss saw 3 employees, DB has 5</span>
+              <span class="sub">2 missing</span>
+              <span class="acts">
+                <button class="btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>Sync</button>
+                <button class="btn ghost sm"><svg class="ico xs"><use href="#i-info"/></svg>Diagnostics</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Mismatch is non-blocking but flagged because routing decisions made under
+          a partial view are silently wrong. <i>Sync</i> triggers
+          <code>repositories.employees.refreshForCompany(companyId)</code> + rebuilds the boss prompt
+          context pack. <i>Diagnostics</i> opens <code>activity-log</code> with the divergence event
+          highlighted. If 3+ identical divergence events fire in 60 s they collapse to <code>×N</code>
+          per the activity-feed rule.</p>
+      </div>
+    </div>
+
+    <!-- 13 · vault.sync.failed -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">13</span><span class="t">vault.sync.failed — 4 target variants in one stack</span>
+        <span class="d"><code>vault.sync.failed</code> · one toast row per failing target (write / import / delete / activate)</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Toast stack — 4 target rows, one for each failure mode</div>
+          <div class="mini-bd">
+            <div class="toast danger">
+              <span class="ic"><svg class="ico sm"><use href="#i-alert-circle"/></svg></span>
+              <span class="msg">Vault write failed · launch-hero.png</span>
+              <span class="sub">EIO · disk full</span>
+              <span class="acts"><button class="btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry</button></span>
+            </div>
+            <div class="toast danger">
+              <span class="ic"><svg class="ico sm"><use href="#i-alert-circle"/></svg></span>
+              <span class="msg">Vault import failed · q3-brief.pdf</span>
+              <span class="sub">parser-exception · invalid xref</span>
+              <span class="acts"><button class="btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry</button></span>
+            </div>
+            <div class="toast danger">
+              <span class="ic"><svg class="ico sm"><use href="#i-alert-circle"/></svg></span>
+              <span class="msg">Vault delete failed · stale-draft.docx</span>
+              <span class="sub">EBUSY · file open elsewhere</span>
+              <span class="acts"><button class="btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry</button></span>
+            </div>
+            <div class="toast danger">
+              <span class="ic"><svg class="ico sm"><use href="#i-alert-circle"/></svg></span>
+              <span class="msg">Vault activate failed · skill-rollout-runbook</span>
+              <span class="sub">missing-manifest</span>
+              <span class="acts"><button class="btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry</button></span>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Each row carries the failing target on the msg line and the error code in
+          the sub (mono <code>--fs-micro</code>). Stack ordering is event-time descending. Retry
+          re-emits the originating action with the same <code>vaultRef</code> /
+          <code>attachmentId</code> / <code>skillId</code>; if it fails again the row is replaced
+          (not duplicated). Background cascade does not delete the row on success — the toast
+          dismisses with a 2 s fade after the matching <code>.succeeded</code> event.</p>
+      </div>
+    </div>
+
+    <!-- 14 · knowledge.index.failed -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">14</span><span class="t">knowledge.index.failed — banner + inline chat notice</span>
+        <span class="d"><code>knowledge.index.failed</code> · <code>KnowledgeIndexBanner</code> in Knowledge tab · mirrored as inline chat notice when failure blocks an active run</span></div>
+      <div class="spec-frame">
+        <div class="spec-grid-2">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Knowledge tab — banner at top</div>
+              <div class="mini-bd">
+                <div class="know-banner">
+                  <span class="ic"><svg class="ico sm"><use href="#i-alert-circle"/></svg></span>
+                  <span class="msg">Knowledge index failed · 1.2 MB document timed out</span>
+                  <span class="acts">
+                    <button class="btn sm"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry</button>
+                    <button class="btn ghost sm">Skip</button>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Banner pins above the document list until the user takes action.
+              <i>Retry</i> re-runs <code>knowledge.index(documentId)</code> with the same chunker
+              config; <i>Skip</i> marks the doc as <code>indexStatus='skipped'</code> and removes the
+              banner. Filename is truncated at <code>max-w-[28ch]</code>; full path on hover via
+              <code>title</code>.</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Chat-inline notice — surfaced when active run depends on this doc</div>
+              <div class="mini-bd">
+                <div class="bub toolerr" style="max-width:100%">
+                  <div class="who">Boss · knowledge unavailable</div>
+                  I can't reference <b>q3-positioning.pdf</b> — the knowledge index failed (1.2 MB · timed out).
+                  <div class="bub-acts">
+                    <button class="btn primary sm"><svg class="ico xs"><use href="#i-refresh"/></svg>Retry index</button>
+                    <button class="btn sm">Continue without it</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Inline notice only appears when the failing doc is in the active
+              run's reference pack; standalone indexing failures live only in the Knowledge tab
+              banner. <i>Continue without it</i> emits <code>knowledge.skip(runId, docId)</code> and
+              the run proceeds without the reference.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 15 · plan_review modal · high-severity HIL -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">15</span><span class="t">plan_review · high-severity HIL modal</span>
+        <span class="d"><code>components/plan/PlanReviewModal.tsx</code> · <code>DialogShell size="lg"</code> · severity = <code>high</code> blocks execution until resolved</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Modal-level interaction — plan steps + freeform feedback (NOT a bubble)</div>
+          <div class="mini-bd" style="background:var(--surface-2)">
+            <div class="dlg">
+              <div class="dlg-head">
+                <div>
+                  <h2>Plan review · approve before execution</h2>
+                  <p>The PM has assembled a 5-step plan. Review it before the team starts working.</p>
+                </div>
+                <button class="dlg-x"><svg class="ico sm"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="dlg-body">
+                <div class="plan-list">
+                  <div class="plan-step">
+                    <span class="ix">1</span>
+                    <span class="ds">Draft the launch announcement copy v1</span>
+                    <span class="role">Content lead</span>
+                    <span class="who">Maya Chen</span>
+                  </div>
+                  <div class="plan-step">
+                    <span class="ix">2</span>
+                    <span class="ds">Sequence rollout phases by user tier</span>
+                    <span class="role">Project manager</span>
+                    <span class="who">Leo Park</span>
+                  </div>
+                  <div class="plan-step">
+                    <span class="ix">3</span>
+                    <span class="ds">Build parser tests for the new manifest field</span>
+                    <span class="role">Engineer</span>
+                    <span class="who">Sam Ortiz</span>
+                  </div>
+                  <div class="plan-step">
+                    <span class="ix">4</span>
+                    <span class="ds">Edge-case review of the migration path</span>
+                    <span class="role">Engineer</span>
+                    <span class="who">Alex Chen</span>
+                  </div>
+                  <div class="plan-step">
+                    <span class="ix">5</span>
+                    <span class="ds">Collect launch-metrics baseline + dashboard</span>
+                    <span class="role">Data analyst</span>
+                    <span class="who">Riya Bhatt</span>
+                  </div>
+                </div>
+                <textarea class="plan-fb" placeholder="Tell Offisim what to change… (free text — appended to the revise prompt)"></textarea>
+              </div>
+              <div class="plan-foot">
+                <span class="sev-pill">High · execution blocked until resolved</span>
+                <div style="flex:1"></div>
+                <button class="btn ghost">Cancel</button>
+                <button class="btn"><svg class="ico xs"><use href="#i-pen"/></svg>Revise plan</button>
+                <button class="btn primary"><svg class="ico xs"><use href="#i-check"/></svg>Start execution</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Steps render directly inside <code>.dlg-body</code> — no outer plan card
+          (anti-nesting). Each step is a single-layer row: <code>{index, description, role, assignee}</code>.
+          <i>Start execution</i> emits <code>plan.review.approved</code> with the (possibly-edited)
+          plan; <i>Revise plan</i> packages the textarea + steps and routes back to PM with
+          <code>plan.review.revised</code>; <i>Cancel</i> aborts the run (severity=high). Severity
+          pill uses danger surface to make the blocking nature explicit; modal cannot be closed by
+          backdrop click while severity=high.</p>
+      </div>
+    </div>
+
+    <!-- 16 · clarificationQuestion -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">16</span><span class="t">clarificationQuestion — Boss asks before routing</span>
+        <span class="d"><code>components/chat/ClarificationBubble.tsx</code> · emitted by boss when intent confidence below <code>CLARIFY_THRESHOLD</code></span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Inline clarification — one question, one answer slot</div>
+          <div class="mini-bd">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="bub me" style="align-self:flex-end">
+                <div class="who">You</div>
+                Add tests for the parser.
+              </div>
+              <div class="bub ai" style="max-width:100%">
+                <div class="who">Boss · clarification</div>
+                Before I route this, I need to confirm: are these tests for the <b>public API</b> or the <b>internal worker</b>?
+                <div class="clarify-slot">
+                  <textarea placeholder="Type your answer…"></textarea>
+                  <div style="display:flex;flex-direction:column;gap:4px;align-items:stretch">
+                    <button class="btn primary sm"><svg class="ico xs"><use href="#i-send"/></svg>Send</button>
+                    <button class="btn ghost sm">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Clarification is single-shot: one question per ambiguous turn, blocking
+          further routing until answered. <i>Send</i> appends the answer to the original user message
+          (not a new turn) and re-runs intent detection with the merged context; <i>Cancel</i> drops
+          the run. No suggestion chips — answer is freeform text. Bubble stays open in chat history
+          after resolution with the user's reply shown inline below the slot (collapsed state).</p>
+      </div>
+    </div>
+
+    <!-- 17 · Handoff visual -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">17</span><span class="t">Handoff — activity row + scene path</span>
+        <span class="d"><code>handoff.completed</code> event · activity feed row + 2D scene shows dotted arc from source seat → target seat</span></div>
+      <div class="spec-frame">
+        <div class="spec-grid-2">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Activity rail — handoff row</div>
+              <div class="mini-bd flush">
+                <div class="activity-rail">
+                  <div class="arail-row">
+                    <span class="arail-ic"><svg class="ico sm"><use href="#i-shuffle"/></svg></span>
+                    <span class="who">Maya</span>
+                    <span class="arr"><svg class="ico xs"><use href="#i-arrow-right"/></svg></span>
+                    <span class="who">Alex</span>
+                    <span class="reason">· subtask review · needs frontend expertise</span>
+                    <span class="meta">2:43 PM</span>
+                  </div>
+                  <div class="arail-row">
+                    <span class="arail-ic" style="background:var(--accent-surface);color:var(--accent)"><svg class="ico sm"><use href="#i-check"/></svg></span>
+                    <span class="who">Alex</span>
+                    <span class="reason">· accepted handoff</span>
+                    <span class="meta">2:43 PM</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Activity feed row uses <code>handoff</code> icon + source/target
+              employee names with arrow + reason string from the emitting node. Reasons render
+              italic <code>--ink-3</code>. Acceptance is the next row, not the same — keeps event
+              boundaries clean.</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Scene path — dotted Bezier with mid-path chip</div>
+              <div class="mini-bd flush">
+                <div class="mini-scene">
+                  <div class="mz" style="left:6%;top:14%;width:42%;height:38%;background:rgba(47,107,255,0.10);border-color:rgba(47,107,255,0.4);color:#1f54d8">Dev bay</div>
+                  <div class="mz" style="right:6%;top:14%;width:38%;height:38%;background:rgba(124,77,219,0.10);border-color:rgba(124,77,219,0.4);color:#6a3fc0">Product</div>
+                  <span class="mini-seat" style="left:22%;top:32%;background:var(--accent)" title="Maya"></span>
+                  <span class="mini-seat" style="right:18%;top:30%;background:var(--violet)" title="Alex"></span>
+                  <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <defs>
+                      <marker id="hand-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--violet)"/>
+                      </marker>
+                    </defs>
+                    <path d="M 25 34 C 45 12, 60 12, 78 32" fill="none" stroke="var(--violet)" stroke-width="0.6" stroke-dasharray="1.4 1.4" marker-end="url(#hand-arrow)" vector-effect="non-scaling-stroke"/>
+                  </svg>
+                  <span class="handoff-chip" style="left:38%;top:14%"><svg class="ico xs"><use href="#i-shuffle"/></svg>Handoff</span>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Path is a dotted Bezier from source seat to target seat in violet
+              (handoff color). Chip rides the path apex with the <code>Handoff</code> label. Arrow
+              head terminates at the target seat. Paths are non-blocking — they fade after 2 s; the
+              activity row is the durable record.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 18 · execution.aborted post-state -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">18</span><span class="t">execution.aborted — post-Stop state</span>
+        <span class="d"><code>execution.aborted</code> event · stage pill collapses to muted, banner appears below run-axis · Resume / Discard</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Muted stage pill — replaces the live diegetic pipeline pill</div>
+          <div class="mini-bd" style="position:relative;min-height:80px;background:var(--surface-sunken)">
+            <div class="stage-pipe muted" style="position:relative;top:0;left:auto;transform:none;display:inline-flex">
+              <span class="sp-pulse"></span>
+              <span class="sp-step">Stopped at step #4</span>
+              <span class="sp-div"></span>
+              <span class="sp-who">Resume?</span>
+            </div>
+          </div>
+        </div>
+        <div class="mini-pane" style="margin-top:14px">
+          <div class="mini-cap">Run-aborted banner — elapsed + steps completed + Resume / Discard</div>
+          <div class="mini-bd">
+            <div class="rb">
+              <span class="ic"><svg class="ico sm"><use href="#i-square"/></svg></span>
+              <span class="lbl">Run stopped · 12s elapsed · 3 / 7 steps completed</span>
+              <span class="pjs">
+                <button class="pj review" title="Resume from step 4"><svg class="ico xs"><use href="#i-arrow-right"/></svg>Resume from #4</button>
+                <button class="pj" title="Discard partial run"><svg class="ico xs"><use href="#i-x"/></svg>Discard</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark"><i>Stop</i> on the live diegetic pill emits
+          <code>execution.aborted({runId, stoppedAtStep, elapsedMs, completedCount})</code>; the
+          live pill is replaced in place by the muted variant (no layout shift). Banner sits below
+          run-axis until resolved. <i>Resume from #N</i> emits
+          <code>execution.resume({runId, fromStep})</code> reusing the same plan + checkpointed
+          state; <i>Discard</i> marks the run <code>aborted</code> and clears the banner. Completed
+          steps stay in the kanban Done column regardless of resume/discard.</p>
+      </div>
+    </div>
+
+    <!-- 19 · Scene 3D→2D fallback -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">19</span><span class="t">scene.fallback.3d-unavailable — 2D fallback active</span>
+        <span class="d"><code>useSceneRenderer()</code> · WebGL/Three.js init fails or runtime downgrades · scene swaps to 2D canvas + corner warning</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">2D fallback scene with corner warning badge</div>
+          <div class="mini-bd flush" style="position:relative">
+            <div class="mini-scene" style="min-height:280px">
+              <span class="scene-fallback-warn">
+                <svg class="ico xs"><use href="#i-alert-tri"/></svg>
+                3D unavailable · 2D fallback active
+                <button>Retry 3D</button>
+              </span>
+              <div class="mz" style="left:6%;top:14%;width:42%;height:34%;background:rgba(47,107,255,0.10);border-color:rgba(47,107,255,0.4);color:#1f54d8">Dev bay</div>
+              <div class="mz" style="right:6%;top:14%;width:38%;height:34%;background:rgba(124,77,219,0.10);border-color:rgba(124,77,219,0.4);color:#6a3fc0">Product</div>
+              <div class="mz" style="left:6%;bottom:14%;width:88%;height:30%;background:rgba(26,164,106,0.10);border-color:rgba(26,164,106,0.4);color:#15824f">Meeting</div>
+              <span class="mini-seat" style="left:22%;top:30%;background:var(--accent)"></span>
+              <span class="mini-seat" style="left:34%;top:36%;background:var(--violet)"></span>
+              <span class="mini-seat" style="right:22%;top:30%;background:var(--ok)"></span>
+              <span class="mini-seat" style="left:48%;bottom:24%;background:var(--warn)"></span>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Fallback triggers on WebGL context creation failure, lost-context event,
+          or explicit <code>useSceneRenderer().forceFallback()</code> from perf tier. 2D scene is
+          the same zone + seat geometry rendered via canvas — no functional loss, only visual.
+          <i>Retry 3D</i> calls <code>useSceneRenderer().retry()</code>; on success the badge
+          disappears and 3D mounts. Badge sits top-right of scene only (not chrome) so it doesn't
+          collide with the stage run-axis.</p>
+      </div>
+    </div>
+
+    <!-- 20 · perf tier downgrade -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">20</span><span class="t">scene.perf.tier-downgraded — soft auto-downgrade chip</span>
+        <span class="d"><code>scene-performance-tier.ts</code> · FPS soft-downgrade fires when median FPS &lt; <code>TIER_FPS_FLOOR</code> for 5 s · auto-applies new tier</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Tier downgrade chip — Medium → Low (auto)</div>
+          <div class="mini-bd" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+            <span class="perf-chip">
+              <svg class="ico xs"><use href="#i-gauge"/></svg>
+              <span class="from">Performance · Medium</span>
+              <span class="arr"><svg class="ico xs"><use href="#i-arrow-right"/></svg></span>
+              <span class="to">Low (auto)</span>
+            </span>
+            <span class="hint">Tooltip: <i>Reduced lighting + post-processing to maintain framerate.</i></span>
+          </div>
+        </div>
+        <p class="annot-dark">Chip sits in the scene corner near the cost readout, not in chrome.
+          Auto-downgrade reduces light tier (PCF shadows off → simple), disables post-processing,
+          and lowers prefab material quality. <i>(auto)</i> qualifier marks system-driven changes
+          versus user-driven tier selection. User can override in Settings → Runtime tier; their
+          choice wins unless FPS continues to fail at which point the auto-downgrade re-fires.</p>
+      </div>
+    </div>
+
+    <!-- 21 · mcp.server.disconnected -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">21</span><span class="t">mcp.server.disconnected — forward-looking</span>
+        <span class="d"><code>McpToolExecutor</code> connection lost · row in Settings → MCP tools list shows red dot + last-seen + reconnect</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">MCP tools list row — disconnected variant with inline detail</div>
+          <div class="mini-bd">
+            <div class="mcp-row">
+              <span class="stat err"></span>
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                <span class="nm">github-mcp · repository tools</span>
+                <span class="ds">stdio · last seen 2 min ago</span>
+              </div>
+              <span class="acts">
+                <button class="btn sm"><svg class="ico xs"><use href="#i-wifi-off"/></svg>Reconnect</button>
+                <button class="btn ghost sm"><svg class="ico xs"><use href="#i-info"/></svg>Detail</button>
+              </span>
+            </div>
+            <div class="eb" style="margin-top:8px">
+              <div class="eb-det" style="border-top:0">
+                <div class="box">
+                  <div><span class="k">Server:</span> github-mcp (stdio · @modelcontextprotocol/server-github)</div>
+                  <div><span class="k">Status:</span> disconnected</div>
+                  <div><span class="k">Last error:</span> EPIPE — child process exited (code 137)</div>
+                  <div><span class="k">Last seen:</span> 2:39:14 PM (2 min ago)</div>
+                  <div><span class="k">Affected tools:</span> get_repo, list_issues, create_issue, comment</div>
+                  <div><span class="k">Affected employees:</span> Sam Ortiz (engineer)</div>
+                </div>
+              </div>
+            </div>
+            <div class="mcp-row" style="margin-top:8px">
+              <span class="stat ok"></span>
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+                <span class="nm">postgres-mcp · production-db</span>
+                <span class="ds">sse · connected · 12 tools</span>
+              </div>
+              <span class="acts">
+                <button class="btn ghost sm">Configure</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Forward-looking surface — current truth-source is
+          <code>client ✓; UI surfacing pending</code> (see CLAUDE.md). Row layout: status dot + name +
+          transport + last-seen + actions. <i>Reconnect</i> calls
+          <code>McpToolExecutor.reconnect(serverId)</code>; tools that depend on the server fail
+          fast with the same red <code>.bub.toolerr</code> bubble (specimen 10) referencing the
+          server. Detail panel reuses the <code>.eb-det</code> mono box for consistency.</p>
+      </div>
+    </div>
+
+    <!-- 22 · conversation.compact.completed -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">22</span><span class="t">conversation.compact.completed — quiet pill in messages</span>
+        <span class="d"><code>conversation.compact.completed</code> event · pill inserted in chat history at the compaction boundary</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Quiet compact pill — between summarized turns and current turn</div>
+          <div class="mini-bd">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="bub ai">
+                <div class="who">Boss</div>
+                (earlier turn — to be summarized)
+              </div>
+              <span class="compact-pill">
+                <svg class="ico xs"><use href="#i-compact"/></svg>
+                Conversation compacted (12 messages summarized)
+                <a href="#">View synopsis</a>
+              </span>
+              <div class="bub me" style="align-self:flex-end">
+                <div class="who">You</div>
+                Now let's pick up where we left off — what's the rollout timing look like?
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Pill is a single-line center-aligned status marker; it's not a bubble.
+          <i>View synopsis</i> opens a side panel with the compacted summary (read-only, generated by
+          the compaction service). Click anywhere else on the pill = no-op. Pill is durable in chat
+          history — re-renders on reload at the same boundary. No "uncompact" affordance.</p>
+      </div>
+    </div>
+
+    <!-- 23 · Configure-an-API-key inline -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">23</span><span class="t">configure-api-key · chat-top warning</span>
+        <span class="d"><code>useProviderStatus()</code> · banner mounted above chat body when no provider configured for active company</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Chat-top warning — no provider configured</div>
+          <div class="mini-bd">
+            <div class="api-warn">
+              <span class="ic"><svg class="ico sm"><use href="#i-key"/></svg></span>
+              <span class="msg">No provider configured · runs will fail until you configure an API key</span>
+              <button class="btn sm primary"><svg class="ico xs"><use href="#i-settings"/></svg>Configure API key</button>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Banner pins above <code>.chat-b</code> (cross-references the Office
+          surface). <i>Configure API key</i> opens Settings → Provider with the active company
+          pre-selected. Banner suppresses Send (composer accepts text but Send shows tooltip
+          "Configure provider first"). Detection runs at mount + on
+          <code>provider.config.changed</code>; clears when at least one provider is enabled.</p>
+      </div>
+    </div>
+
+    <!-- 24 · Attachment 6-error variant set -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">24</span><span class="t">Attachment staging — 6 error variants in one tray</span>
+        <span class="d"><code>ChatAttachmentFailReason</code> enum · all 6 variants surfaced as adjacent rows for spec parity</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">6 staging-error rows — oversize (single / total) · duplicate · parser-exception · persist-failed · storage-unavailable</div>
+          <div class="mini-bd">
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">
+              <div class="att-err">huge-video.mov · exceeds the 8 MB per-file limit</div>
+              <div class="att-err">deck-final.pptx · exceeds the 32 MB total attachment limit</div>
+              <div class="att-err">q3-brief.pdf · already attached</div>
+              <div class="att-err">scan.tiff · parser failed</div>
+              <div class="att-err">report.pdf · failed to persist attachment</div>
+              <div class="att-err">notes.docx · storage unavailable in this browser window</div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Side-by-side layout aids QA — all six failure modes visible in one
+          glance. Specimen 5 shows the canonical vertical stack as the user actually sees it; this
+          specimen is the QA spread. Strings are normative: any change must update both this
+          specimen and the matching <code>ChatAttachmentFailReason</code> case.</p>
+      </div>
+    </div>
+
+    <!-- 25 · Attachment evicted variant -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">25</span><span class="t">Attachment evicted — vault ref missing on persisted message</span>
+        <span class="d"><code>vault.attachment.missing</code> · sent message references a vaultRef that no longer resolves (GC swept or manual delete)</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Sent message with evicted attachment chip</div>
+          <div class="mini-bd">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="bub me" style="align-self:flex-end;max-width:100%">
+                <div class="who">You · 2 hr ago</div>
+                Use this brief as the input for step #2.
+                <div class="att-grid" style="margin-top:8px">
+                  <div class="att-chip evicted">
+                    <span class="ic-cell"><svg class="ico sm"><use href="#i-file-text"/></svg></span>
+                    <div class="mid">
+                      <div class="fn">q3-brief.pdf</div>
+                      <div class="sm">[evicted] · The file is no longer in the vault</div>
+                    </div>
+                    <span class="rm" aria-label="Evicted" title="Attachment evicted from vault">
+                      <svg class="ico xs"><use href="#i-alert-tri"/></svg>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Persisted chat messages reference attachments by <code>vaultRef</code>;
+          when the vault GC sweeper or a manual delete removes the blob, the message remains but
+          the chip flips to <code>[evicted]</code>. Same chip grammar as staging chips, warn skin.
+          Click does nothing (no re-attach affordance — user must re-upload from source). Future
+          chats reusing this message see the same evicted chip; tool calls referencing it return
+          <code>attachment-evicted</code>.</p>
+      </div>
+    </div>
+
+    <!-- 26 · Slash command catalog popover -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">26</span><span class="t">Slash command catalog — composer popover</span>
+        <span class="d"><code>chat-commands.ts</code> registry · popover opens on <code>/</code> as the first character in composer · 15+ commands grouped by category</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Popover above composer — 5 categories, fuzzy filter on prefix</div>
+          <div class="mini-bd">
+            <div class="sc-pop">
+              <div class="sc-group">Team</div>
+              <div class="sc-item"><span><span class="sc-cmd">/hire</span></span><span class="sc-ds">Start HR hiring flow</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/assess</span></span><span class="sc-ds">Run team performance assessment</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/assign</span></span><span class="sc-ds">Assign a task to an employee</span></div>
+              <div class="sc-group">Workflow</div>
+              <div class="sc-item"><span><span class="sc-cmd">/meeting</span></span><span class="sc-ds">Start a team meeting</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/sop</span></span><span class="sc-ds">Execute a saved workflow</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/library</span></span><span class="sc-ds">Reference a library document</span></div>
+              <div class="sc-group">Navigate</div>
+              <div class="sc-item on"><span><span class="sc-cmd">/status</span><span class="sc-al">/s</span></span><span class="sc-ds">Open the dashboard</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/budget</span></span><span class="sc-ds">Show cost breakdown</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/dashboard</span><span class="sc-al">/dash</span></span><span class="sc-ds">Toggle dashboard overlay</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/kanban</span><span class="sc-al">/board /k</span></span><span class="sc-ds">Toggle project board</span></div>
+              <div class="sc-group">Config</div>
+              <div class="sc-item"><span><span class="sc-cmd">/settings</span></span><span class="sc-ds">Open provider settings</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/editor</span></span><span class="sc-ds">Open office layout editor</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/studio</span></span><span class="sc-ds">Open decoration studio</span></div>
+              <div class="sc-group">Chat</div>
+              <div class="sc-item"><span><span class="sc-cmd">/clear</span><span class="sc-al">/reset</span></span><span class="sc-ds">Clear chat history</span></div>
+              <div class="sc-item"><span><span class="sc-cmd">/help</span><span class="sc-al">/? /commands</span></span><span class="sc-ds">Show available commands</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Popover anchors to the composer top-left, max-height 360px with internal
+          scroll. Up/Down navigates rows (highlighted with <code>.on</code> = accent-surface);
+          Enter accepts; Esc closes. Rows show command + optional aliases (muted mono) + description.
+          Groups are caps labels per V3 grammar. Popover collapses as the user keeps typing past the
+          prefix match. Quick-reference variant — same registry as specimen 6, different surface.</p>
       </div>
     </div>
 

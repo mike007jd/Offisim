@@ -730,6 +730,129 @@
       background: rgba(201,132,16,0.18); color: #e0b15a; font-size: 9px; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.06em; font-style: normal; }
 
+    /* ══════════ Appended (specimens 10–21) ══════════ */
+    /* Keyboard shortcuts dialog */
+    .ks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 22px; }
+    .ks-group { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+    .ks-group-h { font-size: var(--fs-micro); letter-spacing: var(--ls-caps);
+      text-transform: uppercase; font-weight: 680; color: var(--ink-3);
+      padding-bottom: 6px; border-bottom: 1px solid var(--line-soft); }
+    .ks-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 4px 0; font-size: var(--fs-sm); color: var(--ink-2); }
+    .ks-row .lab { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ks-keys { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+    .kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px;
+      height: 22px; padding: 0 6px; border: 1px solid var(--line); border-bottom-width: 2px;
+      border-radius: var(--r-xs); background: var(--surface-2); color: var(--ink-2);
+      font-family: var(--mono); font-size: 10.5px; font-weight: 580; }
+    .kbd-plus { color: var(--ink-4); font-size: 10px; }
+
+    /* First-run guidance toast trail */
+    .toast-trail { display: flex; flex-direction: column; gap: 9px; padding: 14px;
+      background: var(--surface-1); align-items: flex-end; }
+    .toast {
+      width: 320px; border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--surface-1); box-shadow: var(--elev-2); padding: 11px 12px;
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .toast .tic { width: 22px; height: 22px; flex: none; border-radius: var(--r-xs);
+      background: var(--accent-surface); color: var(--accent); display: grid; place-items: center; }
+    .toast .tbody { min-width: 0; flex: 1; }
+    .toast .ttl { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    .toast .tcopy { margin-top: 2px; font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; }
+    .toast .tacts { margin-top: 7px; display: flex; align-items: center; gap: 12px; }
+    .toast .tact { background: transparent; border: 0; padding: 0; font: inherit;
+      font-size: var(--fs-meta); color: var(--accent); font-weight: 580; }
+    .toast .tact.muted { color: var(--ink-3); }
+    .toast .tx { border: 0; background: transparent; color: var(--ink-4);
+      padding: 2px; border-radius: var(--r-xs); display: grid; place-items: center; flex: none; }
+    .toast .tx:hover { background: var(--surface-sunken); color: var(--ink-1); }
+
+    /* Discard-confirm toast bar */
+    .discard-bar { display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 11px 14px; border-radius: var(--r-md);
+      background: #0c1019; color: #fff; border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: var(--elev-3); }
+    .discard-bar .msg { font-size: var(--fs-sm); font-weight: 580; color: #fff; }
+    .discard-bar .esc { font-family: var(--mono); font-size: 10px; color: #8b97ad; }
+    .discard-bar .acts { display: flex; align-items: center; gap: 8px; }
+    .discard-bar .btn-keep { height: 30px; padding: 0 12px; border-radius: var(--r-sm);
+      border: 1px solid rgba(255,255,255,0.12); background: transparent; color: #cdd6e6;
+      font-size: var(--fs-meta); font-weight: 580; }
+    .discard-bar .btn-keep:hover { background: rgba(255,255,255,0.06); color: #fff; }
+    .discard-bar .btn-discard { height: 30px; padding: 0 12px; border-radius: var(--r-sm);
+      border: 0; background: var(--danger); color: #fff; font-size: var(--fs-meta); font-weight: 620; }
+
+    /* Studio handoff sequence */
+    .handoff-row { display: grid; grid-template-columns: 1fr 28px 1fr; gap: 14px;
+      align-items: stretch; padding: 14px; background: var(--surface-1); }
+    .handoff-tile { border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-2); padding: 12px; display: flex; flex-direction: column; gap: 7px; }
+    .handoff-tile .ph { font-size: 9.5px; letter-spacing: var(--ls-caps);
+      text-transform: uppercase; font-weight: 700; color: var(--accent); }
+    .handoff-tile .ttl { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); }
+    .handoff-tile .desc { font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.55; }
+    .handoff-arrow { display: grid; place-items: center; color: var(--accent); }
+    .handoff-tile.dark { background: var(--wiz-bg); border-color: var(--wiz-line);
+      color: var(--wiz-ink-2); }
+    .handoff-tile.dark .ph { color: var(--wiz-emerald); }
+    .handoff-tile.dark .ttl { color: #fff; }
+    .handoff-tile.dark .desc { color: var(--wiz-ink-3); }
+
+    /* Tour completion panel */
+    .complete-panel { display: flex; flex-direction: column; align-items: center;
+      gap: 12px; padding: 24px 18px; text-align: center;
+      background: var(--surface-1); }
+    .complete-panel .burst { width: 56px; height: 56px; border-radius: 50%;
+      background: var(--ok-surface); color: var(--ok);
+      display: grid; place-items: center; box-shadow: 0 0 0 6px rgba(26,164,106,0.08); }
+    .complete-panel h3 { margin: 0; font-size: var(--fs-xl); font-weight: 700; color: var(--ink-1); }
+    .complete-panel p { margin: 0; font-size: var(--fs-sm); color: var(--ink-3); max-width: 36ch; line-height: 1.55; }
+
+    /* Onboarding-store flag table */
+    .flag-table { display: grid; grid-template-columns: 1fr auto; row-gap: 0;
+      background: var(--surface-1); }
+    .flag-row { display: contents; }
+    .flag-row .fk { padding: 8px 14px; font-family: var(--mono); font-size: var(--fs-meta);
+      color: var(--ink-2); border-bottom: 1px solid var(--line-soft); }
+    .flag-row .fv { padding: 8px 14px; font-size: var(--fs-meta);
+      color: var(--ink-3); border-bottom: 1px solid var(--line-soft);
+      display: flex; align-items: center; gap: 7px; justify-content: flex-end; }
+    .flag-row:last-child .fk, .flag-row:last-child .fv { border-bottom: 0; }
+    .flag-chip { display: inline-flex; align-items: center; height: 18px; padding: 0 7px;
+      border-radius: var(--r-pill); font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase; }
+    .flag-chip.t { background: var(--ok-surface); color: #15824f; }
+    .flag-chip.f { background: var(--surface-sunken); color: var(--ink-3); border: 1px solid var(--line); }
+    .flag-chip.p { background: var(--accent-surface); color: var(--accent); }
+    .flag-chip.w { background: var(--warn-surface); color: #8a5a0c; }
+
+    /* Narrow-tier welcome 390×844 */
+    .narrow-frame { width: 100%; display: flex; justify-content: center;
+      padding: 14px 0; background: var(--surface-sunken); }
+    .narrow-device { width: 390px; height: 644px; border-radius: 28px;
+      border: 1px solid rgba(255,255,255,0.08); background: var(--bg);
+      box-shadow: 0 18px 44px rgba(18,28,50,0.20), 0 4px 12px rgba(18,28,50,0.10);
+      overflow: hidden; position: relative; display: flex; flex-direction: column; }
+    .narrow-status { height: 28px; flex: none; background: linear-gradient(#fcfdfe,#eef2f7);
+      border-bottom: 1px solid var(--line); }
+    .narrow-body { flex: 1; min-height: 0; padding: 22px 20px;
+      display: flex; flex-direction: column; gap: 18px; background: var(--surface-1); }
+    .narrow-body h3 { margin: 0; font-size: var(--fs-xl); font-weight: 700; color: var(--ink-1);
+      letter-spacing: -0.01em; line-height: 1.2; }
+    .narrow-body .sub { font-size: var(--fs-sm); line-height: 1.55; color: var(--ink-2); margin: 0; }
+    .narrow-illus { flex: 1; min-height: 0; border: 1px solid var(--line-soft);
+      background: var(--surface-sunken); border-radius: var(--r-md); padding: 12px;
+      display: flex; flex-direction: column; justify-content: space-between; }
+    .narrow-illus .blk { height: 36px; width: 36px; border-radius: var(--r-sm); background: var(--accent-surface); }
+    .narrow-illus .l1 { margin-top: 14px; height: 8px; width: 110px; border-radius: 4px; background: var(--line-strong); }
+    .narrow-illus .l2 { margin-top: 8px; height: 6px; width: 160px; border-radius: 4px; background: var(--line); }
+    .narrow-illus .rows { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+    .narrow-illus .rows i { display: block; height: 24px; border-radius: var(--r-sm);
+      border: 1px solid var(--line-soft); background: var(--surface-1); }
+    .narrow-acts { display: flex; flex-direction: column; gap: 8px; }
+    .narrow-acts .btn { height: 44px; justify-content: center; font-size: var(--fs-sm); }
+
     ::-webkit-scrollbar { width: 7px; height: 7px; }
     ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill);
       border: 2px solid transparent; background-clip: content-box; }
@@ -779,6 +902,12 @@
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 4v4h-4M21 12a9 9 0 0 1-15 6.7L3 16M3 20v-4h4"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 13l4 4 10-11"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h0M10 10h0M14 10h0M18 10h0M6 14h12"/></symbol>
+    <symbol id="i-at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0c0-5.5-4.5-10-10-10S2 7.5 2 13s4.5 10 10 10c2.5 0 4.8-.9 6.5-2.4"/></symbol>
+    <symbol id="i-slash" viewBox="0 0 24 24"><path d="M16 4L8 20"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v13M6 9l6-6 6 6M5 21h14"/></symbol>
+    <symbol id="i-party" viewBox="0 0 24 24"><path d="M5 19l5-14 9 9zM5 19l5-1M5 19l1-5M14 9l4 4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h0M10.3 3.9l-8 14a2 2 0 0 0 1.7 3h16a2 2 0 0 0 1.7-3l-8-14a2 2 0 0 0-3.4 0z"/></symbol>
   </svg>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -1781,6 +1910,572 @@ Acme,usage,…</pre>
       </div>
     </div>
 
+    <!-- 10 · First-run guidance toast trail (useFirstRunGuidance) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">10</span><span class="t">useFirstRunGuidance — progressive toast trail (3 hints)</span>
+        <span class="d">stacked dismissible toasts queued after welcome; each writes its own "don't show again" flag</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Stack — Office workspace, post-welcome, before first message</div>
+          <div class="toast-trail">
+            <div class="toast">
+              <span class="tic"><svg class="ico sm"><use href="#i-at"/></svg></span>
+              <div class="tbody">
+                <div class="ttl">Try @mentioning an employee</div>
+                <div class="tcopy">Type <code style="font-family:var(--mono);font-size:10.5px">@</code> to direct a task at one teammate instead of the whole team.</div>
+                <div class="tacts"><button class="tact">Dismiss</button><button class="tact muted">Don't show again</button></div>
+              </div>
+              <button class="tx" aria-label="Close"><svg class="ico xs"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="toast">
+              <span class="tic"><svg class="ico sm"><use href="#i-slash"/></svg></span>
+              <div class="tbody">
+                <div class="ttl">Press / for commands</div>
+                <div class="tcopy">Slash commands cover SOP runs, deliverable exports, and workspace switches.</div>
+                <div class="tacts"><button class="tact">Dismiss</button><button class="tact muted">Don't show again</button></div>
+              </div>
+              <button class="tx" aria-label="Close"><svg class="ico xs"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="toast">
+              <span class="tic"><svg class="ico sm"><use href="#i-upload"/></svg></span>
+              <div class="tbody">
+                <div class="ttl">Drop a file to attach</div>
+                <div class="tcopy">Drag any file into the chat to share it as a vault attachment — the team can read it by reference.</div>
+                <div class="tacts"><button class="tact">Dismiss</button><button class="tact muted">Don't show again</button></div>
+              </div>
+              <button class="tx" aria-label="Close"><svg class="ico xs"><use href="#i-x"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark"><b>useFirstRunGuidance</b> = a queued cascade of contextual hints
+          read from <code>onboarding-store</code> account flags. Each hint id lives next to the
+          tour ledger but does not block the tour. <b>Dismiss</b> closes for this session only;
+          <b>Don't show again</b> writes <code>guidance_dismissed[]</code> so the toast is
+          permanently suppressed. The trail renders in the right-rail toast region (bottom-right
+          of Office), max 3 at once, oldest auto-fades after 12s. Stack order matches the
+          first-task progression — @ → / → drop-file.</p>
+      </div>
+    </div>
+
+    <!-- 11 · DiscardConfirmToast (unsaved-changes guard) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">11</span><span class="t">DiscardConfirmToast — unsaved-changes guard, Esc + dirty handler</span>
+        <span class="d">surfaces when wizard/overlay close attempted with dirty state; outside wizards it uses neutral surface</span></div>
+      <div class="spec-frame spec-grid-2">
+        <div>
+          <div class="mini-pane dark">
+            <div class="mini-cap dark">Wizard context (dark) — fired from EmployeeCreatorOverlay / CompanyCreationWizard</div>
+            <div style="padding:18px;background:var(--wiz-bg)">
+              <div class="discard-bar">
+                <div style="min-width:0">
+                  <div class="msg">Discard unsaved settings?</div>
+                  <div class="esc" style="margin-top:3px">esc · close attempt while name or seed is dirty</div>
+                </div>
+                <div class="acts">
+                  <button class="btn-keep">Keep editing</button>
+                  <button class="btn-discard">Discard</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="annot-dark"><b>Trigger</b> = Back arrow / Cancel / Escape while
+            <code>isDirty</code>. Dirty rules: CompanyCreationWizard = company name non-empty OR
+            template index ≠ default; EmployeeCreatorOverlay = name non-empty OR seed manually
+            overridden. <b>Discard</b> resets state then calls <code>onDismiss</code>.
+            <b>Keep editing</b> closes the toast only. <code>Esc</code> re-arms the toast if it is
+            already showing (no immediate force-close), preventing accidental data loss.</p>
+        </div>
+        <div>
+          <div class="mini-pane">
+            <div class="mini-cap">Non-wizard context (light) — settings / project edit</div>
+            <div style="padding:18px;background:var(--surface-1)">
+              <div class="discard-bar" style="background:var(--surface-1);color:var(--ink-1);border-color:var(--line)">
+                <div style="min-width:0">
+                  <div class="msg" style="color:var(--ink-1)">Discard unsaved settings?</div>
+                  <div class="esc" style="color:var(--ink-4);margin-top:3px">esc · close attempt while form is dirty</div>
+                </div>
+                <div class="acts">
+                  <button class="btn-keep" style="border-color:var(--line);color:var(--ink-2)">Keep editing</button>
+                  <button class="btn-discard">Discard</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="annot-dark">Same component, neutral surface — used by <b>ProjectCreateDialog</b>
+            (edit mode), Settings dialogs, and the right-rail editor where the surrounding chrome
+            is light. Discard button stays danger-red across both variants. Toast position is
+            bottom-center, above the in-context CTA bar; never inside the dialog body so dialog
+            scroll doesn't bury it.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12 · KeyboardShortcutsDialog (Cmd+/) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">12</span><span class="t">KeyboardShortcutsDialog — Cmd+/ surfaces the global shortcut sheet</span>
+        <span class="d"><code>DialogShell size="lg"</code>; grouped grid (Navigation · Editor · Run · Quick actions)</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Body — 4-group keyboard ledger</div>
+          <div class="dlg-inline">
+            <div class="dlg-head"><div><h2>Keyboard shortcuts</h2><p>Press <span class="kbd" style="height:18px;min-width:18px;font-size:10px">Esc</span> to close · <span class="kbd" style="height:18px;min-width:18px;font-size:10px">⌘</span><span class="kbd-plus">+</span><span class="kbd" style="height:18px;min-width:18px;font-size:10px">/</span> to reopen anywhere</p></div></div>
+            <div class="dlg-bodyish">
+              <div class="ks-grid">
+                <div class="ks-group">
+                  <div class="ks-group-h">Navigation</div>
+                  <div class="ks-row"><span class="lab">Switch to Office</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">1</span></span></div>
+                  <div class="ks-row"><span class="lab">Switch to SOPs</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">2</span></span></div>
+                  <div class="ks-row"><span class="lab">Switch to Market</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">3</span></span></div>
+                  <div class="ks-row"><span class="lab">Switch to Personnel</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">4</span></span></div>
+                  <div class="ks-row"><span class="lab">Command palette</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">K</span></span></div>
+                  <div class="ks-row"><span class="lab">Close overlay / clear selection</span><span class="ks-keys"><span class="kbd">Esc</span></span></div>
+                </div>
+                <div class="ks-group">
+                  <div class="ks-group-h">Editor</div>
+                  <div class="ks-row"><span class="lab">Edit selected employee</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">E</span></span></div>
+                  <div class="ks-row"><span class="lab">New thread</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">N</span></span></div>
+                  <div class="ks-row"><span class="lab">Send message</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">↵</span></span></div>
+                  <div class="ks-row"><span class="lab">Insert mention</span><span class="ks-keys"><span class="kbd">@</span></span></div>
+                  <div class="ks-row"><span class="lab">Slash command</span><span class="ks-keys"><span class="kbd">/</span></span></div>
+                  <div class="ks-row"><span class="lab">Attach file</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">U</span></span></div>
+                </div>
+                <div class="ks-group">
+                  <div class="ks-group-h">Run</div>
+                  <div class="ks-row"><span class="lab">Open Kanban board</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">J</span></span></div>
+                  <div class="ks-row"><span class="lab">Open Dashboard</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">D</span></span></div>
+                  <div class="ks-row"><span class="lab">Pause / resume run</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">.</span></span></div>
+                  <div class="ks-row"><span class="lab">Stop run</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">⇧</span><span class="kbd-plus">+</span><span class="kbd">.</span></span></div>
+                </div>
+                <div class="ks-group">
+                  <div class="ks-group-h">Quick actions</div>
+                  <div class="ks-row"><span class="lab">Keyboard shortcuts</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">/</span></span></div>
+                  <div class="ks-row"><span class="lab">Toggle theme</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">⇧</span><span class="kbd-plus">+</span><span class="kbd">T</span></span></div>
+                  <div class="ks-row"><span class="lab">Reveal workspace folder</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">⇧</span><span class="kbd-plus">+</span><span class="kbd">O</span></span></div>
+                  <div class="ks-row"><span class="lab">Copy last deliverable</span><span class="ks-keys"><span class="kbd">⌘</span><span class="kbd-plus">+</span><span class="kbd">⇧</span><span class="kbd-plus">+</span><span class="kbd">C</span></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="dlg-foot">
+              <button class="btn ghost">Close</button>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark"><b>Single source of truth</b> = <code>useKeyboardShortcuts</code>
+          registry; the dialog renders the same array that powers global key handlers, so a row
+          that exists here is guaranteed to work in app. <b>Modifier glyphs</b> use the platform
+          symbol (⌘ on macOS, <span class="kbd" style="height:18px;min-width:18px;font-size:10px">Ctrl</span>
+          on Windows/Linux) chosen by <code>navigator.platform</code> at mount. No native
+          <code>&lt;select&gt;</code> chrome on this dialog. Closing = Esc, backdrop, or the
+          footer Close — all symmetric. The dialog suppresses tour spotlight while open.</p>
+      </div>
+    </div>
+
+    <!-- 13 · CompanyCreationWizard — 8-phase linear walkthrough (revisit) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">13</span><span class="t">CompanyCreationWizard — 8 phases laid out linearly</span>
+        <span class="d">supplements specimens 3 / 3b: every step the user passes through, in order, including the Studio handoff branch at phase 8</span>
+        <span class="rev-flag">reverse-risk · hard-dark</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane dark">
+          <div class="mini-cap dark">Phase ledger — template → name → preview → team → workflows → creating → ready → CYO branch</div>
+          <div style="background:var(--wiz-bg);padding:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            <!-- 1 -->
+            <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 1 · Template</div>
+              <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Pick a template</div>
+              <div style="display:flex;align-items:center;gap:4px"><i style="display:block;height:5px;width:18px;border-radius:99px;background:#3b82f6"></i><i style="display:block;height:5px;width:5px;border-radius:99px;background:rgba(255,255,255,0.14)"></i><i style="display:block;height:5px;width:5px;border-radius:99px;background:rgba(255,255,255,0.14)"></i><i style="display:block;height:5px;width:5px;border-radius:99px;background:rgba(255,255,255,0.14)"></i><i style="display:block;height:5px;width:5px;border-radius:99px;background:rgba(255,255,255,0.14)"></i></div>
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">Carousel through 5 templates + Create Your Own. Active dot widens, accent color from template.</div>
+            </div>
+            <!-- 2 -->
+            <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 2 · Name</div>
+              <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Name + description</div>
+              <input class="wiz-name" style="display:block" type="text" value="My AI Company" disabled />
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">Footer name input only; description optional, lives in the same footer panel as a textarea expand-hint.</div>
+            </div>
+            <!-- 3 -->
+            <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 3 · Preview</div>
+              <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Office 2D preview</div>
+              <svg viewBox="0 0 180 80" style="width:100%;height:auto;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);border-radius:var(--r-xs)">
+                <rect x="6" y="6" width="78" height="32" rx="4" fill="#3b82f6" fill-opacity="0.18" stroke="#3b82f6" stroke-opacity="0.5"/>
+                <rect x="90" y="6" width="84" height="32" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)"/>
+                <rect x="6" y="44" width="168" height="30" rx="4" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)"/>
+                <circle cx="20" cy="22" r="2.5" fill="#3b82f6"/><circle cx="38" cy="26" r="2.5" fill="#3b82f6"/>
+              </svg>
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">Center stage = Office2DPreview; zones from template; highlightZones emphasized.</div>
+            </div>
+            <!-- 4 -->
+            <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 4 · Team</div>
+              <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Team tab</div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <div style="display:flex;align-items:center;gap:7px"><span style="width:18px;height:18px;border-radius:50%;background:#3b82f6"></span><span style="font-size:var(--fs-meta);color:#cdd6e6">Alex Chen · Lead Developer</span></div>
+                <div style="display:flex;align-items:center;gap:7px"><span style="width:18px;height:18px;border-radius:50%;background:#f59e0b"></span><span style="font-size:var(--fs-meta);color:#cdd6e6">Maya Lin · UI/UX</span></div>
+                <div style="display:flex;align-items:center;gap:7px"><span style="width:18px;height:18px;border-radius:50%;background:#10b981"></span><span style="font-size:var(--fs-meta);color:#cdd6e6">Marcus Johnson · Data</span></div>
+              </div>
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">Team · N tab — expandable cards (specimen 3 left pane).</div>
+            </div>
+            <!-- 5 -->
+            <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 5 · Workflows</div>
+              <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Workflows tab</div>
+              <div style="display:flex;flex-direction:column;gap:5px;font-size:var(--fs-meta);color:#cdd6e6">
+                <div style="border-left:3px solid #3b82f6;padding:2px 0 2px 7px">Phase 1 · scope brief</div>
+                <div style="border-left:3px solid #f59e0b;padding:2px 0 2px 7px">Phase 2 · design pass</div>
+                <div style="border-left:3px solid #10b981;padding:2px 0 2px 7px">Phase 3 · ship</div>
+              </div>
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">ProductionWorkflow — per-SOP phase dividers + step cards w/ role-color bars.</div>
+            </div>
+            <!-- 6 -->
+            <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 6 · Creating</div>
+              <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">step='creating'</div>
+              <div class="wiz-building" style="padding:4px 0">
+                <div class="ln" style="font-size:var(--fs-sm)"><svg class="ico sm spin" style="color:#3b82f6"><use href="#i-loader"/></svg>Building your office...</div>
+                <div class="sub">Setting up employees, workflows, layout</div>
+              </div>
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">BuildingAnimation replaces footer until <code>onComplete</code>.</div>
+            </div>
+            <!-- 7 -->
+            <div style="border:1px solid var(--wiz-line);background:var(--wiz-surface);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-emerald)">Phase 7 · Ready</div>
+              <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Ready → unmounts</div>
+              <div style="display:flex;align-items:center;gap:7px;font-size:var(--fs-sm);color:var(--wiz-emerald)"><svg class="ico sm" style="color:var(--wiz-emerald)"><use href="#i-check"/></svg>Ready</div>
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">step='ready' renders <code>null</code>; <code>onComplete(companyId)</code> fires once. Caller switches workspace + shows the new office.</div>
+            </div>
+            <!-- 8 -->
+            <div style="border:1px solid rgba(20,184,166,0.35);background:rgba(20,184,166,0.08);border-radius:var(--r-md);padding:11px;display:flex;flex-direction:column;gap:7px">
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:#5eead4">Phase 8 · Studio handoff</div>
+              <div style="font-size:var(--fs-sm);color:#fff;font-weight:660">Create Your Own branch</div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:#cdd6e6"><svg class="ico sm" style="color:var(--wiz-emerald)"><use href="#i-wrench"/></svg>Open Studio Editor<span style="color:var(--wiz-ink-4)"><svg class="ico xs"><use href="#i-arrow-right"/></svg></span><span style="font-family:var(--mono);font-size:9.5px;color:#5eead4">studio-edit</span></div>
+              <div style="font-size:var(--fs-meta);color:var(--wiz-ink-3);line-height:1.5">CYO replaces "Start Company" with "Open Studio Editor" (emerald gradient). Creates the empty custom company, then <code>sessionStorage[PENDING_VIEW_KEY]='studio-edit'</code> → Studio opens in edit mode.</div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Phases 1–5 share one footer (Back + name input + primary CTA);
+          phase 6 swaps the whole footer for BuildingAnimation; phase 7 unmounts; phase 8 is the
+          branch taken when the user picked Create Your Own at phase 1 — CTA gradient flips to
+          emerald and the destination is the Studio editor, not the office. <b>Hard-dark by
+          design</b> (see specimen 3); do not migrate to tokens silently.</p>
+      </div>
+    </div>
+
+    <!-- 14 · EmployeeCreatorOverlay — Identity step (focus) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">14</span><span class="t">EmployeeCreatorOverlay · step 01 IDENTITY — name + role + auto-seed</span>
+        <span class="d">isolates the seed-from-name + manual override + dice randomize behaviour (full overlay = specimen 8)</span>
+        <span class="rev-flag">reverse-risk · hard-dark</span></div>
+      <div class="spec-frame spec-grid-2">
+        <div>
+          <div class="mini-pane dark">
+            <div class="mini-cap dark">Identity fields — auto-seed derived from name</div>
+            <div style="padding:18px;background:var(--wiz-bg);display:flex;flex-direction:column;gap:16px">
+              <div class="ec-sec on">
+                <div class="sh"><span class="sn">01</span><span class="st">IDENTITY</span></div>
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <div><label class="ec-fl">EMPLOYEE NAME</label><input class="ec-in" value="Maya Lin" placeholder="Enter employee name..." /></div>
+                  <div><label class="ec-fl">ROLE ASSIGNMENT</label><select class="ec-in"><option>UI/UX Designer</option><option>Developer</option><option>Product Manager</option><option>QA Engineer</option></select></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                    <div style="min-width:0;flex:1">
+                      <label class="ec-fl">SEED (auto)</label>
+                      <div style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:var(--fs-sm);color:#9db8ff">Seed: '<span style="color:#fff">maya</span>'</div>
+                    </div>
+                    <button class="ec-rand"><svg class="ico sm"><use href="#i-dices"/></svg>Randomize</button>
+                  </div>
+                  <div><label class="ec-fl">MANUAL SEED OVERRIDE <span style="text-transform:none;color:var(--wiz-ink-4)">(optional)</span></label><input class="ec-in" placeholder="leave blank to inherit name slug" /></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="annot-dark"><b>Auto-seed</b>: derived as
+            <code>slugify(name).split('-')[0]</code> live as the user types — shown read-only
+            until they touch the override input. Once overridden, the chip swaps to
+            <code>Seed: '{manual}'</code> and a small "auto" badge disappears.
+            <b>Randomize</b> writes <code>agent-{rand}</code> into the manual override and locks
+            it (clearing override reverts to auto-from-name).</p>
+        </div>
+        <div>
+          <div class="mini-pane dark">
+            <div class="mini-cap dark">Live DicebearAvatar preview — left pane</div>
+            <div style="padding:18px;background:var(--wiz-bg);display:flex;flex-direction:column;align-items:center;gap:14px">
+              <div class="ec-ava"><div class="d" style="background:conic-gradient(from 120deg,#d6a06d,#6d8bd6,#6dd6b2)"></div></div>
+              <div><div class="ec-prev nm" style="font-size:var(--fs-xl)">Maya Lin</div></div>
+              <div style="text-align:center"><span class="rl">UI/UX Designer</span></div>
+              <div style="font-family:var(--mono);font-size:var(--fs-meta);color:var(--wiz-ink-4)">avatarSeed = 'maya'</div>
+            </div>
+          </div>
+          <p class="annot-dark">Preview re-renders on every name/seed/role change.
+            <b>DicebearAvatar</b> resolves <code>top</code> from
+            <code>HAIR_STYLE_TO_AVATAARS_TOP</code> v9; bald → <code>topProbability:0</code>.
+            Outfit/skin/hair/accent colors come from <code>resolveOutfitColor(seed)</code>
+            + sibling resolvers when <code>persona_json.appearance</code> is absent (creator
+            step does not write appearance — that's a later editor surface).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 15 · EmployeeCreatorOverlay — Visual step (focus) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">15</span><span class="t">EmployeeCreatorOverlay · step 02 VISUAL — style picker + seed override + deploy</span>
+        <span class="d">style cells write into a preset-identity slot; manual seed input wins over preset; Deploy enabled once <code>name.trim()</code></span>
+        <span class="rev-flag">reverse-risk · hard-dark</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane dark">
+          <div class="mini-cap dark">Visual step — live preview · 4 style cells · seed override · Deploy</div>
+          <div style="background:var(--wiz-bg);display:grid;grid-template-columns:280px 1fr;gap:0;height:380px">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;border-right:1px solid var(--wiz-line);padding:18px">
+              <div class="ec-ava"><div class="d" style="background:conic-gradient(from 200deg,#6dd6b2,#d66d8b,#6d8bd6)"></div></div>
+              <div class="ec-prev nm" style="font-size:var(--fs-lg)">Maya Lin</div>
+              <div><span class="rl">UI/UX Designer</span></div>
+              <button class="ec-rand"><svg class="ico sm"><use href="#i-dices"/></svg>Randomize</button>
+            </div>
+            <div style="padding:20px;display:flex;flex-direction:column;gap:16px;overflow:auto">
+              <div class="ec-sec on">
+                <div class="sh"><span class="sn">02</span><span class="st">VISUAL IDENTITY</span></div>
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <div>
+                    <label class="ec-fl">STYLE</label>
+                    <div class="ec-presets" style="grid-template-columns:repeat(4,1fr)">
+                      <div class="ec-pre on"><div class="av" style="background:conic-gradient(from 200deg,#6dd6b2,#d66d8b,#6d8bd6)"></div><span class="sd">soft</span></div>
+                      <div class="ec-pre"><div class="av" style="background:conic-gradient(from 40deg,#d6a06d,#6d8bd6)"></div><span class="sd">studio</span></div>
+                      <div class="ec-pre"><div class="av" style="background:conic-gradient(from 90deg,#6d8bd6,#b27fd6)"></div><span class="sd">noir</span></div>
+                      <div class="ec-pre"><div class="av" style="background:conic-gradient(from 280deg,#b27fd6,#6dd6b2)"></div><span class="sd">forge</span></div>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="ec-fl">SEED OVERRIDE</label>
+                    <input class="ec-in" value="maya" placeholder="leave blank to inherit name slug" />
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:flex-end">
+                <button class="ec-deploy"><svg class="ico sm"><use href="#i-rocket"/></svg>Add Employee</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark"><b>Style cell</b> writes the preset's canonical seed into the
+          override input (mutually exclusive with Randomize). <b>Seed override</b> typed manually
+          wins over preset selection — the picked cell visually deselects when the seed no
+          longer matches. <b>Deploy</b> path = <code>onDeploy({name, role, seed})</code> →
+          <code>employees.create()</code> with <code>persona_json.avatarSeed</code> →
+          toast "Deploying… / deployed successfully" → overlay closes. <code>Deploy</code> is
+          <code>.dis</code> until <code>name.trim()</code>.</p>
+      </div>
+    </div>
+
+    <!-- 16 · Studio handoff sequence -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">16</span><span class="t">Studio handoff — wizard "Create Your Own" → sessionStorage bridge → Studio edit mode</span>
+        <span class="d">phase 8 of specimen 13, expanded with the bridge contract</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Three-frame transition — wizard CTA · sessionStorage write · Studio edit mode</div>
+          <div class="handoff-row">
+            <div class="handoff-tile dark">
+              <div class="ph">Wizard · phase 8</div>
+              <div class="ttl">Open Studio Editor</div>
+              <div class="desc">CYO branch — primary CTA is emerald gradient, no name input required, no preview animation; clicking creates the empty custom company synchronously.</div>
+              <div style="margin-top:auto"><button class="wiz-cta cyo" style="height:36px;padding:0 18px;font-size:var(--fs-meta)"><svg class="ico sm"><use href="#i-wrench"/></svg>Open Studio Editor</button></div>
+            </div>
+            <div class="handoff-arrow"><svg class="ico lg"><use href="#i-arrow-right"/></svg></div>
+            <div class="handoff-tile">
+              <div class="ph">Bridge · sessionStorage</div>
+              <div class="ttl">offisim:pending-view='studio-edit'</div>
+              <div class="desc"><code style="font-family:var(--mono);font-size:var(--fs-meta)">PENDING_VIEW_KEY</code> is written immediately after <code style="font-family:var(--mono);font-size:var(--fs-meta)">createCustomCompany()</code> resolves and before <code style="font-family:var(--mono);font-size:var(--fs-meta)">onCreateYourOwn(id)</code> calls <code style="font-family:var(--mono);font-size:var(--fs-meta)">switchCompany</code>. App.tsx mount-time effect drains it and routes.</div>
+              <div style="margin-top:auto;font-family:var(--mono);font-size:10px;color:var(--ink-4)">consumed once, cleared on read</div>
+            </div>
+            <div class="handoff-arrow"><svg class="ico lg"><use href="#i-arrow-right"/></svg></div>
+            <div class="handoff-tile">
+              <div class="ph">Studio · edit mode</div>
+              <div class="ttl">Studio opens for the new company</div>
+              <div class="desc">Studio editor mounts in edit mode (not the read-only viewer), focused on the empty custom plot. User can place prefabs immediately; closing Studio returns to Office for the same company.</div>
+              <div style="margin-top:auto;display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-meta);color:var(--accent)"><svg class="ico xs"><use href="#i-arrow-right"/></svg>workspace = studio-edit</div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">No double-mount risk: the wizard unmounts on success
+          (<code>step='ready'</code>) before Studio mounts because the pending-view drain runs
+          in the same tick as <code>switchCompany</code>. If the user reloads between the bridge
+          write and Studio mount, the next boot still picks up <code>studio-edit</code> and
+          opens Studio for that company — the only invariant is that the company actually
+          exists (which the wizard guarantees before the write).</p>
+      </div>
+    </div>
+
+    <!-- 17 · Tour completion panel -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">17</span><span class="t">Tour completion — final panel, "You're all set!" + tour_dismissed=true</span>
+        <span class="d">terminal state of OnboardingTour (specimen 4); replaces step card after last step's complete</span></div>
+      <div class="spec-frame spec-grid-2">
+        <div>
+          <div class="mini-pane">
+            <div class="mini-cap">Final panel — centered, no spotlight ring</div>
+            <div class="tour-stage" style="height:280px">
+              <div class="ghost-shell"></div>
+              <div class="tour-card center" style="width:328px">
+                <div class="complete-panel">
+                  <div class="burst"><svg class="ico xl" style="color:var(--ok)"><use href="#i-party"/></svg></div>
+                  <h3>You're all set!</h3>
+                  <p>The team is ready. Drop in a task whenever you want — your office picks up exactly where you left off.</p>
+                  <button class="tour-btn primary" style="height:32px;padding:0 18px">Start exploring</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="annot-dark">Renders when <code>activeIndex</code> falls off the end of
+            <code>TOUR_STEPS</code> AND <code>!tour_dismissed</code>. Completing the last step
+            also calls <code>dismissTour()</code>, so this panel is the visible artifact of the
+            same write — only ever shown for one mount cycle, then suppressed forever (unless
+            "Reset onboarding" — specimen 18).</p>
+        </div>
+        <div>
+          <div class="mini-pane">
+            <div class="mini-cap">Persisted side-effect — onboarding-store delta</div>
+            <div style="background:var(--surface-1);padding:14px">
+              <div class="flag-table" style="border:1px solid var(--line-soft);border-radius:var(--r-sm);overflow:hidden">
+                <div class="flag-row"><span class="fk">welcome_seen</span><span class="fv"><span class="flag-chip t">true</span></span></div>
+                <div class="flag-row"><span class="fk">tour_completed[]</span><span class="fv"><span class="flag-chip p">6 / 6</span></span></div>
+                <div class="flag-row"><span class="fk">tour_dismissed</span><span class="fv"><span class="flag-chip t">true</span></span></div>
+                <div class="flag-row"><span class="fk">provider_configured</span><span class="fv"><span class="flag-chip t">true</span></span></div>
+              </div>
+              <p class="annot-dark" style="padding-top:8px"><b>Start exploring</b> is purely
+                visual — closing this panel has no extra side-effect beyond what
+                <code>dismissTour()</code> already wrote when the last step completed. Backdrop
+                / Esc behave identically. After this point the tour never reappears unless
+                "Reset onboarding" is fired.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 18 · Onboarding-store states (diagnostic) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">18</span><span class="t">Onboarding-store — persistent flag snapshot + reset CTA</span>
+        <span class="d">diagnostic surface: <code>localStorage["offisim.onboarding.v2"]</code> + per-company "company-startup" marker</span></div>
+      <div class="spec-frame spec-grid-2">
+        <div>
+          <div class="mini-pane">
+            <div class="mini-cap">Account flags — first-run user, mid-tour</div>
+            <div class="flag-table">
+              <div class="flag-row"><span class="fk">welcome_seen</span><span class="fv"><span class="flag-chip t">true</span></span></div>
+              <div class="flag-row"><span class="fk">provider_configured</span><span class="fv"><span class="flag-chip t">true</span></span></div>
+              <div class="flag-row"><span class="fk">tour_dismissed</span><span class="fv"><span class="flag-chip f">false</span></span></div>
+              <div class="flag-row"><span class="fk">tour_completed[]</span><span class="fv"><span class="flag-chip p">2 / 6</span></span></div>
+              <div class="flag-row"><span class="fk">first_employee_clicked</span><span class="fv"><span class="flag-chip f">false</span></span></div>
+              <div class="flag-row"><span class="fk">guidance_dismissed[]</span><span class="fv"><span class="flag-chip f">0</span></span></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="mini-pane">
+            <div class="mini-cap">Per-company flags — "company-startup" marker + reset</div>
+            <div class="flag-table">
+              <div class="flag-row"><span class="fk">company-startup · status</span><span class="fv"><span class="flag-chip p">in-progress</span></span></div>
+              <div class="flag-row"><span class="fk">first_task_sent</span><span class="fv"><span class="flag-chip f">false</span></span></div>
+              <div class="flag-row"><span class="fk">first_deliverable_seen</span><span class="fv"><span class="flag-chip f">false</span></span></div>
+              <div class="flag-row"><span class="fk">startup_failed_reason</span><span class="fv" style="font-family:var(--mono);font-size:10px;color:var(--ink-4)">—</span></div>
+            </div>
+            <div style="padding:12px 14px;border-top:1px solid var(--line-soft);display:flex;justify-content:flex-end">
+              <button class="btn danger"><svg class="ico xs"><use href="#i-refresh"/></svg>Reset onboarding</button>
+            </div>
+          </div>
+          <p class="annot-dark"><b>company-startup</b> marker is a per-company status
+            (<code>in-progress · completed · failed</code>) the desktop run-action writes during
+            first-boot company provisioning; failed surfaces <code>startup_failed_reason</code>
+            for the diagnostic. <b>Reset onboarding</b> wipes the v2 key (sets every account
+            flag back to default), clears <code>guidance_dismissed</code>, and clears all
+            per-company markers — the user is back to the canonical first-run state and the
+            welcome dialog reappears on next mount.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 19 · First-run welcome — narrow tier (390×844) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">19</span><span class="t">FirstRunWelcomeScreen · narrow tier (390×844)</span>
+        <span class="d">stacked single-column layout, buttons full-width, no horizontal overflow</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Narrow device frame — narrow renderer invariant</div>
+          <div class="narrow-frame">
+            <div class="narrow-device">
+              <div class="narrow-status"></div>
+              <div class="narrow-body">
+                <div>
+                  <h3>Welcome to Offisim</h3>
+                  <p class="sub" style="margin-top:8px">Your AI office — a team, a workspace, and a live office surface in one place.</p>
+                </div>
+                <div class="narrow-illus">
+                  <div>
+                    <div class="blk"></div>
+                    <div class="l1"></div>
+                    <div class="l2"></div>
+                  </div>
+                  <div class="rows"><i></i><i></i><i></i></div>
+                </div>
+                <div class="narrow-acts">
+                  <button class="btn primary">Get started</button>
+                  <button class="btn">Skip and explore</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark">Narrow tier (<code>useLayoutTier() === 'narrow'</code>) collapses
+          the <code>fr-grid</code> two-column layout into a single column, the decorative skeleton
+          shrinks to fill vertical slack, and both buttons span the full width with a 44px hit
+          target (mobile-safe). Title sits flush-left, no centered hero; CTA order reverses
+          (primary first — thumb-reachable bottom). <b>No horizontal overflow at 390 CSS px.</b>
+          Narrow is a renderer invariant only — Tauri desktop floor remains
+          <code>minWidth ≥ 1024</code>.</p>
+      </div>
+    </div>
+
+    <!-- 20 · Wizard back-stack guard (Esc with dirty state) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">20</span><span class="t">Wizard back-stack guard — Esc with partially filled wizard fires DiscardConfirmToast</span>
+        <span class="d">Esc / Back / backdrop while <code>isDirty</code> → toast (specimen 11); explicit Discard closes the wizard</span>
+        <span class="rev-flag">reverse-risk · hard-dark</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane dark">
+          <div class="mini-cap dark">Wizard surface w/ dirty input + Esc handler → discard toast</div>
+          <div style="background:var(--wiz-bg);padding:20px;display:flex;flex-direction:column;gap:14px">
+            <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--wiz-ink-4)">CompanyCreationWizard · phase 2 · isDirty=true</div>
+            <div class="wiz-foot-in" style="background:rgba(0,0,0,0.4);padding:14px;border-radius:var(--r-md);border:1px solid var(--wiz-line)">
+              <button class="wiz-back"><svg class="ico sm"><use href="#i-chev-left"/></svg>Back</button>
+              <div class="wiz-name">
+                <label for="wn-dirty">Company Name</label>
+                <input id="wn-dirty" value="Lab Twenty" />
+              </div>
+              <button class="wiz-cta ctapulse">Start Company</button>
+            </div>
+            <div class="discard-bar" style="margin-top:6px">
+              <div style="min-width:0">
+                <div class="msg">Discard unsaved settings?</div>
+                <div class="esc" style="margin-top:3px">esc · pressed while name "Lab Twenty" is dirty</div>
+              </div>
+              <div class="acts">
+                <button class="btn-keep">Keep editing</button>
+                <button class="btn-discard">Discard</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark"><b>Trigger surface</b>: any Esc / Back arrow / backdrop click while
+          <code>isDirty</code>. <b>Dirty</b> = name typed OR template-index touched OR (in
+          EmployeeCreatorOverlay) seed overridden OR style cell tapped. The toast is the only
+          path out of a dirty wizard — Escape on the toast itself re-arms the toast (won't bypass
+          it). <b>Keep editing</b> dismisses the toast only. <b>Discard</b> resets dirty state
+          then calls the wizard's <code>onDismiss</code> (CompanyCreationWizard in
+          <code>create-new</code> mode only — <code>populate-existing</code> has no dismiss
+          path, so the guard never arms). See specimen 11 for the cross-context (light) variant
+          used outside wizards.</p>
+      </div>
+    </div>
+
     <div class="spec-suite-head" style="padding-top:6px;border-top:1px solid rgba(255,255,255,0.06)">
       <b>Reverse-risk register (must surface to implementers).</b>
       (1) <b>CompanyCreationWizard</b> + <b>EmployeeCreatorOverlay</b> are hard-dark surfaces off the
@@ -1791,6 +2486,14 @@ Acme,usage,…</pre>
       is no "show again" toggle; don't invent one.
       (4) Onboarding tour <b>steps are derived</b> (first incomplete id), not a stored cursor;
       business events auto-complete steps independent of the Next button.
+      (5) <b>DiscardConfirmToast</b> (specimens 11 / 20) is the only path out of a dirty wizard
+      or dirty light dialog — Esc on the toast itself re-arms it, never bypasses.
+      (6) <b>Studio handoff</b> (specimen 16) writes <code>sessionStorage[PENDING_VIEW_KEY]
+      ='studio-edit'</code> AFTER <code>createCustomCompany()</code> resolves and BEFORE
+      <code>switchCompany</code>; the App-mount effect drains it once and clears.
+      (7) <b>Keyboard shortcuts</b> (specimen 12) — the dialog renders the same registry that
+      powers global key handlers; do not maintain two lists. Modifier glyph (⌘ / Ctrl) is
+      derived from <code>navigator.platform</code> at mount.
     </div>
   </div>
 </body>

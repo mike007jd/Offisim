@@ -1,5 +1,5 @@
 import { RoundedBox } from '@react-three/drei';
-import { SceneMaterial } from '../../../theme/scene-materials.js';
+import { EmissiveMaterial, SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
 
 export interface WhiteboardMesh3DProps {
@@ -46,22 +46,18 @@ export function WhiteboardMesh3D({
         <boxGeometry args={[1.75, 0.07, 0.16]} />
         <SceneMaterial materialClass="metal" color={sc.furnitureLight} />
       </mesh>
-      <mesh position={[-0.55, 0.56, 0.22]} rotation={[0, 0, 0.08]} castShadow>
+      <mesh position={[-0.55, 0.548, 0.22]} rotation={[0, 0, 0.08]} castShadow>
         <boxGeometry args={[0.32, 0.035, 0.035]} />
         <SceneMaterial materialClass="plastic" color={sc.whiteboardMarker[0]} />
       </mesh>
-      <mesh position={[-0.15, 0.56, 0.22]} rotation={[0, 0, -0.04]} castShadow>
+      <mesh position={[-0.15, 0.548, 0.22]} rotation={[0, 0, -0.04]} castShadow>
         <boxGeometry args={[0.32, 0.035, 0.035]} />
         <SceneMaterial materialClass="plastic" color={sc.whiteboardMarker[2]} />
       </mesh>
 
       <mesh position={[-0.55, 1.3, 0.05]}>
         <boxGeometry args={[0.32, 0.04, 0.02]} />
-        <SceneMaterial
-          materialClass="plastic"
-          color={sc.whiteboardMarker[0]}
-          overrides={{ emissive: sc.serverBody, emissiveIntensity: 0.12 }}
-        />
+        <EmissiveMaterial color={sc.whiteboardMarker[0]} tier="accent" intensity={0.6} />
       </mesh>
       <mesh position={[0.1, 1.15, 0.05]} rotation={[0, 0, -0.18]}>
         <boxGeometry args={[0.52, 0.03, 0.02]} />

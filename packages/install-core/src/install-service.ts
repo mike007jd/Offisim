@@ -281,6 +281,10 @@ export class InstallService {
           installedPackageId: existing.installed_package_id,
           installedAssetIds: [],
           employeeIds: [],
+          sopTemplateIds: [],
+          companyTemplateIds: [],
+          officeLayoutIds: [],
+          prefabInstanceIds: [],
           bindingIds: [],
         };
       }
@@ -323,6 +327,10 @@ export class InstallService {
           installedPackageId: existing.installed_package_id,
           installedAssetIds: [],
           employeeIds: [],
+          sopTemplateIds: [],
+          companyTemplateIds: [],
+          officeLayoutIds: [],
+          prefabInstanceIds: [],
           bindingIds: [],
         };
       }

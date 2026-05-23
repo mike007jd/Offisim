@@ -1,5 +1,8 @@
 import type { BuiltinTool, WebSearchFn } from './types.js';
 
+export const WEB_SEARCH_MAX_BODY_BYTES = 512 * 1024;
+export const WEB_SEARCH_TIMEOUT_MS = 10_000;
+
 /**
  * Default search implementation using DuckDuckGo Instant Answer API.
  * Note: This API only returns results for well-known topics. For
@@ -8,8 +11,24 @@ import type { BuiltinTool, WebSearchFn } from './types.js';
  */
 async function defaultDuckDuckGoSearch(query: string): Promise<string> {
   const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`;
-  const response = await fetch(url);
-  const data = (await response.json()) as {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), WEB_SEARCH_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      redirect: 'manual',
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error('Search provider redirect was blocked');
+  }
+  if (!response.ok) {
+    throw new Error(`Search provider failed: ${response.status} ${response.statusText}`);
+  }
+  const data = JSON.parse(await readWebSearchTextWithLimit(response)) as {
     Abstract?: string;
     RelatedTopics?: Array<{ Text?: string }>;
   };
@@ -22,6 +41,46 @@ async function defaultDuckDuckGoSearch(query: string): Promise<string> {
     }
   }
   return results.length > 0 ? results.join('\n\n') : `No results found for: ${query}`;
+}
+
+export async function readWebSearchTextWithLimit(
+  response: Response,
+  maxBytes = WEB_SEARCH_MAX_BODY_BYTES,
+): Promise<string> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength) {
+    const bytes = Number(contentLength);
+    if (Number.isFinite(bytes) && bytes > maxBytes) {
+      throw new Error(`Search provider response exceeds ${maxBytes} bytes`);
+    }
+  }
+  if (!response.body) {
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > maxBytes) {
+      throw new Error(`Search provider response exceeds ${maxBytes} bytes`);
+    }
+    return text;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel('search provider response too large');
+        throw new Error(`Search provider response exceeds ${maxBytes} bytes`);
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return text + decoder.decode();
 }
 
 /**

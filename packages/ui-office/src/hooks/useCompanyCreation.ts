@@ -1,9 +1,18 @@
-import { CompanyTemplateService, listTemplates } from '@offisim/core/browser';
+import {
+  CompanyTemplateService,
+  companyStartupCompleted,
+  companyStartupRequested,
+  companyStartupStarted,
+  listTemplates,
+} from '@offisim/core/browser';
 import type { CompanyTemplate } from '@offisim/core/browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useCompany } from '../components/company/CompanyContext.js';
-import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
+import {
+  useOffisimRuntimeExecution,
+  useOffisimRuntimeServices,
+} from '../runtime/offisim-runtime-context.js';
 
 export type CreationStep = 'checking' | 'first-run' | 'creating' | 'ready';
 export type CompanyCreationMode = 'create-new' | 'populate-existing';
@@ -33,6 +42,7 @@ export function useCompanyCreation({
   companyId: explicitCompanyId,
 }: UseCompanyCreationOptions = {}): UseCompanyCreationReturn {
   const { repos, eventBus } = useOffisimRuntimeServices();
+  const { isReady: providerReady } = useOffisimRuntimeExecution();
   const { activeCompanyId } = useCompany();
   const targetCompanyId = explicitCompanyId ?? activeCompanyId;
   const [step, setStep] = useState<CreationStep>('checking');
@@ -74,6 +84,38 @@ export function useCompanyCreation({
   // (e.g. CompanyCreationWizard's Back/Escape dismissal).
   const creatingRef = useRef(false);
   const [isCreating, setIsCreating] = useState(false);
+
+  const emitStartupLifecycle = useCallback(
+    (
+      companyId: string,
+      source: 'template' | 'custom',
+      template?: { id: string; name: string } | null,
+    ) => {
+      const startupId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? `startup-${crypto.randomUUID()}`
+          : `startup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const requestedAt = Date.now();
+      const eventOptions = {
+        startupId,
+        source,
+        providerReady,
+        replay: false,
+        requestedAt,
+        templateId: template?.id ?? null,
+        templateLabel: template?.name ?? null,
+      };
+      eventBus.emit(companyStartupRequested(companyId, eventOptions));
+      eventBus.emit(companyStartupStarted(companyId, eventOptions));
+      eventBus.emit(
+        companyStartupCompleted(companyId, {
+          ...eventOptions,
+          completedAt: Date.now(),
+        }),
+      );
+    },
+    [eventBus, providerReady],
+  );
 
   const createCompanyRecord = useCallback(
     async (template: CompanyTemplate | null, templateLabelOverride?: string) => {
@@ -153,6 +195,7 @@ export function useCompanyCreation({
             template_label: selectedTemplate.name,
           });
         }
+        emitStartupLifecycle(resolvedCompanyId, 'template', selectedTemplate);
         setStep('ready');
         return resolvedCompanyId;
       } catch (err) {
@@ -164,7 +207,16 @@ export function useCompanyCreation({
       creatingRef.current = false;
       setIsCreating(false);
     }
-  }, [repos, selectedTemplateId, eventBus, targetCompanyId, mode, templates, createCompanyRecord]);
+  }, [
+    repos,
+    selectedTemplateId,
+    eventBus,
+    targetCompanyId,
+    mode,
+    templates,
+    createCompanyRecord,
+    emitStartupLifecycle,
+  ]);
 
   const createCustomCompany = useCallback(async () => {
     if (creatingRef.current) return null;
@@ -176,12 +228,14 @@ export function useCompanyCreation({
     setIsCreating(true);
     setError(null);
     try {
-      return await createCompanyRecord(null, 'Custom');
+      const newCompanyId = await createCompanyRecord(null, 'Custom');
+      if (newCompanyId) emitStartupLifecycle(newCompanyId, 'custom', null);
+      return newCompanyId;
     } finally {
       creatingRef.current = false;
       setIsCreating(false);
     }
-  }, [companyName, createCompanyRecord]);
+  }, [companyName, createCompanyRecord, emitStartupLifecycle]);
 
   return {
     step,

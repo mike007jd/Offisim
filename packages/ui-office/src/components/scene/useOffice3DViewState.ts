@@ -1,5 +1,11 @@
 import type { EventBus } from '@offisim/core/browser';
-import type { RuntimeEvent, Zone } from '@offisim/shared-types';
+import type {
+  CompanyStartupPayload,
+  EmployeePerformanceStateMap,
+  RuntimeEvent,
+  Zone,
+} from '@offisim/shared-types';
+import { reduceEmployeePerformanceStates } from '@offisim/shared-types';
 import { UNASSIGNED_ZONE_ID } from '@offisim/shared-types';
 import type { OrbitControls } from '@react-three/drei';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -57,6 +63,7 @@ interface UseOffice3DViewStateResult {
   ceremony: CeremonyState;
   selectedEmployeeId: string | null;
   dragState: DragState3D | null;
+  performanceStates: EmployeePerformanceStateMap;
   hoveredZoneId: string | null;
   flowLines: FlowLineData[];
   setFlowLines: React.Dispatch<React.SetStateAction<FlowLineData[]>>;
@@ -125,6 +132,12 @@ export function useOffice3DViewState({
   const [dragState, setDragState] = useState<DragState3D | null>(null);
   const dragStateRef = useRef<DragState3D | null>(null);
   dragStateRef.current = dragState;
+  const [performanceStates, setPerformanceStates] = useState<EmployeePerformanceStateMap>(
+    () => new Map(),
+  );
+  const performanceStatesRef = useRef(performanceStates);
+  performanceStatesRef.current = performanceStates;
+  const performanceClearTimersRef = useRef(new Map<string, number>());
 
   const [hoveredZoneId, setHoveredZoneId] = useState<string | null>(null);
   const [flowLines, setFlowLines] = useState<FlowLineData[]>([]);
@@ -160,6 +173,80 @@ export function useOffice3DViewState({
 
   const agentsRef = useRef(agents);
   agentsRef.current = agents;
+
+  const setPerformance = useCallback(
+    (action: Parameters<typeof reduceEmployeePerformanceStates>[1]) => {
+      setPerformanceStates((prev) => reduceEmployeePerformanceStates(prev, action));
+    },
+    [],
+  );
+  const clearPendingPerformanceTimer = useCallback((employeeId: string) => {
+    const timer = performanceClearTimersRef.current.get(employeeId);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      performanceClearTimersRef.current.delete(employeeId);
+    }
+  }, []);
+  const schedulePerformanceClear = useCallback(
+    (employeeId: string) => {
+      clearPendingPerformanceTimer(employeeId);
+      const timer = window.setTimeout(() => {
+        performanceClearTimersRef.current.delete(employeeId);
+        setPerformance({ type: 'clear', employeeId });
+      }, 450);
+      performanceClearTimersRef.current.set(employeeId, timer);
+    },
+    [clearPendingPerformanceTimer, setPerformance],
+  );
+
+  useEffect(
+    () => () => {
+      for (const timer of performanceClearTimersRef.current.values()) {
+        window.clearTimeout(timer);
+      }
+      performanceClearTimersRef.current.clear();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    return eventBus.on('company.startup.', (event: RuntimeEvent<CompanyStartupPayload>) => {
+      const payload = event.payload;
+      if (payload.companyId !== activeCompanyId) return;
+      if (payload.status === 'requested') {
+        const at = Date.now();
+        setPerformance({
+          type: 'batch',
+          actions: [...agentsRef.current.keys()].map((employeeId) => ({
+            type: 'set',
+            employeeId,
+            kind: 'greet',
+            domain: 'startup',
+            startupId: payload.startupId,
+            at,
+          })),
+        });
+        return;
+      }
+      if (payload.status === 'started') {
+        const at = Date.now();
+        setPerformance({
+          type: 'batch',
+          actions: [...agentsRef.current.keys()].map((employeeId) => ({
+            type: 'set',
+            employeeId,
+            kind: 'celebrate',
+            domain: 'startup',
+            startupId: payload.startupId,
+            at,
+          })),
+        });
+        return;
+      }
+      setPerformance({ type: 'clear-domain', domain: 'startup' });
+    });
+  }, [activeCompanyId, eventBus, setPerformance]);
 
   const appendFlowLine = useCallback((line: FlowLineData | null) => {
     if (!line) {
@@ -439,6 +526,7 @@ export function useOffice3DViewState({
         return;
       }
       const zoneId = resolveEmployeeSceneZoneId(agent, zonesRef.current);
+      clearPendingPerformanceTimer(empId);
       setDragState({
         employeeId: empId,
         sourceZoneId: zoneId,
@@ -447,8 +535,15 @@ export function useOffice3DViewState({
         startScreenX: nativeEvent.clientX,
         startScreenY: nativeEvent.clientY,
       });
+      setPerformance({
+        type: 'set',
+        employeeId: empId,
+        kind: 'held',
+        domain: 'drag-drop',
+        zoneId,
+      });
     },
-    [],
+    [clearPendingPerformanceTimer, setPerformance],
   );
 
   const handleDragMove = useCallback(
@@ -469,8 +564,30 @@ export function useOffice3DViewState({
 
       const zone = hitTestZone3D(worldX, worldZ, dropTargetZones3DRef.current);
       setHoveredZoneId(zone?.zoneId ?? null);
+      const currentDragState = dragStateRef.current;
+      if (currentDragState?.active) {
+        const kind = zone ? 'drop-valid' : 'drop-invalid';
+        const targetZoneId = zone?.zoneId ?? null;
+        const currentPerformance = performanceStatesRef.current.get(currentDragState.employeeId);
+        if (
+          currentPerformance?.domain !== 'drag-drop' ||
+          currentPerformance?.kind !== kind ||
+          currentPerformance.zoneId !== currentDragState.sourceZoneId ||
+          currentPerformance.targetZoneId !== targetZoneId
+        ) {
+          clearPendingPerformanceTimer(currentDragState.employeeId);
+          setPerformance({
+            type: 'set',
+            employeeId: currentDragState.employeeId,
+            kind,
+            domain: 'drag-drop',
+            zoneId: currentDragState.sourceZoneId,
+            targetZoneId,
+          });
+        }
+      }
     },
-    [],
+    [clearPendingPerformanceTimer, setPerformance],
   );
 
   const handleDragEnd = useCallback(
@@ -483,6 +600,14 @@ export function useOffice3DViewState({
       if (currentDragState.active) {
         const targetZone = hitTestZone3D(worldX, worldZ, dropTargetZones3DRef.current);
         if (activeCompanyId && targetZone && targetZone.zoneId !== currentDragState.sourceZoneId) {
+          setPerformance({
+            type: 'set',
+            employeeId: currentDragState.employeeId,
+            kind: 'drop-accepted',
+            domain: 'drag-drop',
+            zoneId: currentDragState.sourceZoneId,
+            targetZoneId: targetZone.zoneId,
+          });
           eventBus.emit({
             type: 'employee.workstation.drop-requested',
             entityId: currentDragState.employeeId,
@@ -494,28 +619,57 @@ export function useOffice3DViewState({
               targetWorkstationId: targetZone.zoneId,
             },
           });
+        } else {
+          setPerformance({
+            type: 'set',
+            employeeId: currentDragState.employeeId,
+            kind: 'drop-rejected',
+            domain: 'drag-drop',
+            zoneId: currentDragState.sourceZoneId,
+            targetZoneId: targetZone?.zoneId ?? null,
+          });
         }
       } else {
+        setPerformance({
+          type: 'set',
+          employeeId: currentDragState.employeeId,
+          kind: 'settle',
+          domain: 'drag-drop',
+          zoneId: currentDragState.sourceZoneId,
+        });
         handleSelectEmployee(currentDragState.employeeId);
       }
 
       setDragState(null);
       setHoveredZoneId(null);
       document.body.style.cursor = 'default';
+      schedulePerformanceClear(currentDragState.employeeId);
     },
-    [activeCompanyId, eventBus, handleSelectEmployee],
+    [activeCompanyId, eventBus, handleSelectEmployee, schedulePerformanceClear, setPerformance],
   );
 
   const handleDragCancel = useCallback(() => {
+    const currentDragState = dragStateRef.current;
+    if (currentDragState) {
+      setPerformance({
+        type: 'set',
+        employeeId: currentDragState.employeeId,
+        kind: 'cancel',
+        domain: 'drag-drop',
+        zoneId: currentDragState.sourceZoneId,
+      });
+      schedulePerformanceClear(currentDragState.employeeId);
+    }
     setDragState(null);
     setHoveredZoneId(null);
     document.body.style.cursor = 'default';
-  }, []);
+  }, [schedulePerformanceClear, setPerformance]);
 
   return {
     ceremony,
     selectedEmployeeId,
     dragState,
+    performanceStates,
     hoveredZoneId,
     flowLines,
     setFlowLines,

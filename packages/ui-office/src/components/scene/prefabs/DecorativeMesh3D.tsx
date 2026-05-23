@@ -5,7 +5,7 @@
  * The `template` prop selects which decorative variant to render.
  */
 
-import { SceneMaterial } from '../../../theme/scene-materials.js';
+import { EmissiveMaterial, SceneMaterial } from '../../../theme/scene-materials.js';
 import { useSceneColors } from '../../../theme/use-scene-colors.js';
 import { OfficeChair } from './WorkstationMesh3D.js';
 
@@ -32,30 +32,53 @@ export function PlantMesh3D({
         <cylinderGeometry args={[0.2, 0.15, 0.5, 16]} />
         <SceneMaterial materialClass="plastic" color={sc.desk} overrides={{ roughness: 0.85 }} />
       </mesh>
-      <mesh position={[0, 0.6, 0]} castShadow>
-        <icosahedronGeometry args={[0.3, 1]} />
+      <mesh position={[0, 0.55, 0]} castShadow>
+        <icosahedronGeometry args={[0.32, 1]} />
         <SceneMaterial
           materialClass="plastic"
           color={sc.leafPrimary}
           overrides={{ roughness: 0.65 }}
         />
       </mesh>
-      <mesh position={[-0.15, 0.5, 0.1]} castShadow>
-        <icosahedronGeometry args={[0.2, 1]} />
+      <mesh position={[-0.12, 0.5, 0.08]} castShadow>
+        <icosahedronGeometry args={[0.22, 1]} />
         <SceneMaterial
           materialClass="plastic"
           color={sc.leafSecondary}
           overrides={{ roughness: 0.65 }}
         />
       </mesh>
-      <mesh position={[0.16, 0.48, -0.1]} castShadow>
-        <icosahedronGeometry args={[0.18, 1]} />
+      <mesh position={[0.14, 0.48, -0.08]} castShadow>
+        <icosahedronGeometry args={[0.2, 1]} />
         <SceneMaterial
           materialClass="plastic"
           color={sc.leafTertiary}
           overrides={{ roughness: 0.65 }}
         />
       </mesh>
+      {(
+        [
+          [-0.28, 0.52, 0.0, -0.4],
+          [0.3, 0.5, 0.1, 0.35],
+          [0.0, 0.62, 0.22, 0.0],
+          [-0.1, 0.56, -0.24, -0.2],
+          [0.22, 0.46, -0.18, 0.6],
+        ] as const
+      ).map(([lx, ly, lz, rot]) => (
+        <mesh
+          key={`plant-blade-${lx}-${lz}`}
+          position={[lx, ly, lz]}
+          rotation={[0.5, rot, 0.15]}
+          castShadow
+        >
+          <boxGeometry args={[0.04, 0.18, 0.012]} />
+          <SceneMaterial
+            materialClass="plastic"
+            color={sc.leafSecondary}
+            overrides={{ roughness: 0.7 }}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -89,11 +112,27 @@ export function CoffeeTableMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantM
           </mesh>
         )),
       )}
+      <mesh position={[-0.28, 0.396, 0.05]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.05, 0.11, 18]} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={sc.furnitureDark}
+          overrides={{ transparent: true, opacity: 0.32 }}
+        />
+      </mesh>
       <mesh position={[-0.28, 0.44, 0.05]} castShadow>
         <cylinderGeometry args={[0.08, 0.07, 0.08, 14]} />
-        <SceneMaterial materialClass="plastic" color={sc.whiteboardSurface} />
+        <SceneMaterial materialClass="ceramic" color={sc.whiteboardSurface} />
       </mesh>
-      <mesh position={[0.18, 0.43, -0.05]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0.18, 0.397, -0.05]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.42, 0.28]} />
+        <SceneMaterial
+          materialClass="plastic"
+          color={sc.furnitureDark}
+          overrides={{ transparent: true, opacity: 0.22 }}
+        />
+      </mesh>
+      <mesh position={[0.18, 0.4, -0.05]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.38, 0.24]} />
         <SceneMaterial
           materialClass="fabric"
@@ -111,9 +150,18 @@ export function VendingMachineMesh3D({ position = [0, 0, 0], rotation = 0 }: Pla
   const productColors = [sc.ledCyan, sc.ledGreen, sc.ledAmber, sc.accentWarm];
   return (
     <group position={position} rotation={[0, rotY, 0]}>
-      <mesh position={[0, 1.08, 0]} castShadow>
-        <boxGeometry args={[0.86, 2.16, 0.62]} />
+      <mesh position={[0, 1.12, 0]} castShadow>
+        <boxGeometry args={[0.86, 2.08, 0.62]} />
         <SceneMaterial materialClass="metal" color={sc.furniture} overrides={{ roughness: 0.32 }} />
+      </mesh>
+      {/* Toe-kick recess: darker narrower base reads as ground contact. */}
+      <mesh position={[0, 0.06, 0.02]} castShadow>
+        <boxGeometry args={[0.78, 0.12, 0.56]} />
+        <SceneMaterial
+          materialClass="rubber"
+          color={sc.furnitureDark}
+          overrides={{ roughness: 0.85 }}
+        />
       </mesh>
       <mesh position={[0, 1.08, 0.325]}>
         <planeGeometry args={[0.74, 1.94]} />
@@ -140,7 +188,7 @@ export function VendingMachineMesh3D({ position = [0, 0, 0], rotation = 0 }: Pla
       )}
       <mesh position={[0.29, 1.48, 0.34]}>
         <planeGeometry args={[0.2, 0.28]} />
-        <meshBasicMaterial color={sc.vendingScreen} />
+        <EmissiveMaterial color={sc.vendingScreen} tier="signage" />
       </mesh>
       <mesh position={[0.29, 0.8, 0.34]}>
         <boxGeometry args={[0.22, 0.08, 0.035]} />
@@ -196,21 +244,39 @@ export function StatusBoardMesh3D({ position = [0, 0, 0], rotation = 0 }: PlantM
       </mesh>
       <mesh position={[0, 1.22, 0.045]}>
         <planeGeometry args={[1.55, 0.82]} />
-        <meshBasicMaterial color={sc.screen} transparent opacity={0.86} />
+        <EmissiveMaterial color={sc.screen} tier="screen" />
       </mesh>
       {[-0.45, 0, 0.45].map((x, index) => (
         <mesh key={`status-bar-${x}`} position={[x, 1.08 + index * 0.11, 0.052]}>
           <planeGeometry args={[0.28, 0.05]} />
-          <meshBasicMaterial color={[sc.ledGreen, sc.ledAmber, sc.ledCyan][index] ?? sc.ledCyan} />
+          <EmissiveMaterial
+            color={[sc.ledGreen, sc.ledAmber, sc.ledCyan][index] ?? sc.ledCyan}
+            tier="led"
+          />
         </mesh>
       ))}
       <mesh position={[0, 0.44, 0]} castShadow>
-        <cylinderGeometry args={[0.035, 0.035, 0.88, 8]} />
-        <SceneMaterial materialClass="metal" color={sc.metal} />
+        <cylinderGeometry args={[0.06, 0.06, 0.88, 12]} />
+        <SceneMaterial materialClass="metal-brushed" color={sc.metal} />
       </mesh>
+      {[-1, 1].map((side) => (
+        <mesh
+          key={`statusboard-leg-${side}`}
+          position={[side * 0.22, 0.22, 0]}
+          rotation={[0, 0, side * 0.32]}
+          castShadow
+        >
+          <boxGeometry args={[0.04, 0.42, 0.05]} />
+          <SceneMaterial materialClass="metal-brushed" color={sc.metal} />
+        </mesh>
+      ))}
       <mesh position={[0, 0.05, 0]} castShadow>
-        <boxGeometry args={[0.7, 0.08, 0.38]} />
-        <SceneMaterial materialClass="metal" color={sc.metal} />
+        <boxGeometry args={[0.9, 0.08, 0.48]} />
+        <SceneMaterial materialClass="metal-brushed" color={sc.metal} />
+      </mesh>
+      <mesh position={[0, 0.11, 0]} castShadow>
+        <boxGeometry args={[0.7, 0.05, 0.38]} />
+        <SceneMaterial materialClass="metal-brushed" color={sc.furnitureDark} />
       </mesh>
     </group>
   );

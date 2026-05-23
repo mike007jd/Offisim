@@ -7,11 +7,15 @@
  * approach as Unity SmoothDamp) and Math.sin for cyclic loops.
  *
  * Five visual tiers:
- *   idle     — slow breathing, no ring
+ *   idle     — slow breathing + sway + weight-shift + occasional fidget
  *   working  — assigned/thinking/searching/executing/reporting/meeting
  *   blocked  — blocked/waiting
  *   success  — green flash + bounce
  *   failed   — red flash + shake
+ *
+ * Control hand-off: when an external movement handle reports isMoving(),
+ * this hook releases position.x/y/z and rotation.z back to the movement
+ * controller (walk bob + counter-rotate), keeping only scale/ring/lean.
  */
 
 import { useFrame } from '@react-three/fiber';
@@ -33,6 +37,10 @@ interface AnimPreset {
   headTilt: number;
   /** Z-axis lean (forward = positive) */
   lean: number;
+  /** Z-axis sway amplitude (idle "alive" weight shift) */
+  swayAmp: number;
+  /** Sway speed multiplier */
+  swaySpeed: number;
   /** Status ring color [r, g, b] */
   ringColor: [number, number, number];
   /** Ring opacity (0 = hidden) */
@@ -55,12 +63,14 @@ const GRAY: [number, number, number] = [0.39, 0.45, 0.55];
 const PRESETS: Record<string, AnimPreset> = {
   // ── Idle tier ──
   idle: {
-    breathAmp: 0.025,
-    breathSpeed: 2,
+    breathAmp: 0.06,
+    breathSpeed: 1.5,
     rockAmp: 0,
     rockSpeed: 0,
     headTilt: 0,
     lean: 0,
+    swayAmp: 0.04,
+    swaySpeed: 0.7,
     ringColor: GRAY,
     ringOpacity: 0,
     ringPulseSpeed: 0,
@@ -69,72 +79,84 @@ const PRESETS: Record<string, AnimPreset> = {
 
   // ── Working tier ──
   assigned: {
-    breathAmp: 0.03,
-    breathSpeed: 3,
+    breathAmp: 0.04,
+    breathSpeed: 2.4,
     rockAmp: 0,
     rockSpeed: 0,
     headTilt: 0,
     lean: 0,
+    swayAmp: 0.02,
+    swaySpeed: 0.8,
     ringColor: BLUE,
     ringOpacity: 0.5,
     ringPulseSpeed: 3,
-    scale: 1.06, // entrance bounce — damps back to 1.0 via the hook
+    scale: 1.06,
   },
   thinking: {
-    breathAmp: 0.04,
-    breathSpeed: 1.5,
+    breathAmp: 0.055,
+    breathSpeed: 1.4,
     rockAmp: 0,
     rockSpeed: 0,
     headTilt: 0.15,
     lean: 0.05,
+    swayAmp: 0.025,
+    swaySpeed: 0.55,
     ringColor: PURPLE,
     ringOpacity: 0.4,
     ringPulseSpeed: 1.5,
     scale: 1,
   },
   searching: {
-    breathAmp: 0.03,
-    breathSpeed: 2,
+    breathAmp: 0.04,
+    breathSpeed: 1.8,
     rockAmp: 0,
     rockSpeed: 0,
     headTilt: 0,
     lean: 0.08,
+    swayAmp: 0.03,
+    swaySpeed: 0.9,
     ringColor: PURPLE,
     ringOpacity: 0.45,
     ringPulseSpeed: 2.5,
     scale: 1,
   },
   executing: {
-    breathAmp: 0.02,
-    breathSpeed: 4,
+    breathAmp: 0.028,
+    breathSpeed: 3.5,
     rockAmp: 0.03,
     rockSpeed: 3,
     headTilt: -0.05,
     lean: 0.06,
+    swayAmp: 0.012,
+    swaySpeed: 1.2,
     ringColor: GREEN,
     ringOpacity: 0.5,
     ringPulseSpeed: 2,
     scale: 1,
   },
   reporting: {
-    breathAmp: 0.025,
+    breathAmp: 0.04,
     breathSpeed: 2,
     rockAmp: 0,
     rockSpeed: 0,
     headTilt: 0.05,
     lean: -0.04,
+    swayAmp: 0.02,
+    swaySpeed: 0.8,
     ringColor: CYAN,
     ringOpacity: 0.5,
     ringPulseSpeed: 2.5,
     scale: 1,
   },
   meeting: {
-    breathAmp: 0.03,
-    breathSpeed: 2,
+    breathAmp: 0.05,
+    breathSpeed: 1.8,
     rockAmp: 0,
     rockSpeed: 0,
     headTilt: 0,
     lean: 0,
+    swayAmp: 0.035,
+    swaySpeed: 0.6,
     ringColor: PURPLE,
     ringOpacity: 0.35,
     ringPulseSpeed: 1,
@@ -143,24 +165,28 @@ const PRESETS: Record<string, AnimPreset> = {
 
   // ── Blocked tier ──
   blocked: {
-    breathAmp: 0.035,
-    breathSpeed: 1,
+    breathAmp: 0.05,
+    breathSpeed: 0.9,
     rockAmp: 0,
     rockSpeed: 0,
     headTilt: -0.12,
     lean: -0.06,
+    swayAmp: 0.05,
+    swaySpeed: 0.5,
     ringColor: AMBER,
     ringOpacity: 0.55,
     ringPulseSpeed: 0.8,
     scale: 1,
   },
   waiting: {
-    breathAmp: 0.02,
-    breathSpeed: 1.5,
+    breathAmp: 0.04,
+    breathSpeed: 1.3,
     rockAmp: 0,
     rockSpeed: 0,
     headTilt: 0,
     lean: 0,
+    swayAmp: 0.045,
+    swaySpeed: 0.55,
     ringColor: AMBER,
     ringOpacity: 0.25,
     ringPulseSpeed: 0.5,
@@ -169,12 +195,14 @@ const PRESETS: Record<string, AnimPreset> = {
 
   // ── Success tier ──
   success: {
-    breathAmp: 0.05,
-    breathSpeed: 4,
+    breathAmp: 0.07,
+    breathSpeed: 3.5,
     rockAmp: 0,
     rockSpeed: 0,
     headTilt: 0.1,
     lean: 0,
+    swayAmp: 0.015,
+    swaySpeed: 2.0,
     ringColor: GREEN,
     ringOpacity: 0.7,
     ringPulseSpeed: 4,
@@ -183,12 +211,14 @@ const PRESETS: Record<string, AnimPreset> = {
 
   // ── Failed tier ──
   failed: {
-    breathAmp: 0.02,
+    breathAmp: 0.03,
     breathSpeed: 1,
     rockAmp: 0.04,
     rockSpeed: 12,
     headTilt: -0.15,
     lean: 0,
+    swayAmp: 0,
+    swaySpeed: 0,
     ringColor: RED,
     ringOpacity: 0.6,
     ringPulseSpeed: 0,
@@ -197,12 +227,14 @@ const PRESETS: Record<string, AnimPreset> = {
 };
 
 const DEFAULT_PRESET: AnimPreset = {
-  breathAmp: 0.025,
-  breathSpeed: 2,
+  breathAmp: 0.05,
+  breathSpeed: 1.6,
   rockAmp: 0,
   rockSpeed: 0,
   headTilt: 0,
   lean: 0,
+  swayAmp: 0.025,
+  swaySpeed: 0.7,
   ringColor: GRAY,
   ringOpacity: 0,
   ringPulseSpeed: 0,
@@ -225,23 +257,34 @@ export interface AgentAnimationRefs {
   ringMatRef: React.RefObject<THREE.MeshBasicMaterial | null>;
 }
 
+const WEIGHT_SHIFT_PERIOD_SEC = 6;
+const WEIGHT_SHIFT_AMP = 0.012;
+const FIDGET_PERIOD_SEC = 22;
+const FIDGET_AMP_HEAD = 0.18;
+const FIDGET_DURATION_SEC = 1.4;
+
 /**
  * Drives per-frame animation for one agent character.
  *
- * Call this ONCE per EmployeeMarker.  The hook subscribes to useFrame
+ * Call this ONCE per EmployeeMarker. The hook subscribes to useFrame
  * internally and mutates the provided refs directly — no state, no
  * re-renders.
  *
  * @param state - current agent state string (e.g. 'idle', 'executing')
  * @param refs  - Three.js object refs to mutate each frame
+ *
+ * Note: this hook mutates the LowPolyCharacter's *inner* group; the outer
+ * EmployeeMarker group (movement target) is animated by useCharacterMovement.
+ * The two transforms compose so idle bob/sway and walk bob/counter-rotate
+ * stack cleanly without fighting over a shared ref.
  */
 export function useAgentAnimation(state: string, refs: AgentAnimationRefs): void {
-  // Track current interpolated values in a plain object (not React state)
   const cur = useRef({
     posY: 0,
     posX: 0,
     rotY: 0,
     rotX: 0, // lean
+    rotZ: 0, // sway
     scale: 1,
     ringR: 0,
     ringG: 0,
@@ -249,8 +292,12 @@ export function useAgentAnimation(state: string, refs: AgentAnimationRefs): void
     ringOpacity: 0,
   });
 
-  // Track previous state for entrance effects
   const prevState = useRef(state);
+  const nextFidgetAtRef = useRef<number | null>(null);
+  const phaseRef = useRef<number | null>(null);
+  if (phaseRef.current === null) {
+    phaseRef.current = Math.random() * Math.PI * 2;
+  }
 
   useFrame((frameState, delta) => {
     const { groupRef, ringMatRef } = refs;
@@ -258,69 +305,85 @@ export function useAgentAnimation(state: string, refs: AgentAnimationRefs): void
 
     const t = frameState.clock.elapsedTime;
     const preset = getPreset(state);
+    const phase = phaseRef.current ?? 0;
 
-    // Detect state change for entrance effects
     const stateChanged = prevState.current !== state;
     if (stateChanged) {
       prevState.current = state;
-      // For "assigned", give an immediate scale bump that will damp down
       if (state === 'assigned' || state === 'success') {
         cur.current.scale = preset.scale;
       }
     }
 
-    // ── Target calculation ──
-    // Cyclic animations: breathing + typing rock
-    const breathCycle = Math.sin(t * preset.breathSpeed) * preset.breathAmp;
-    const rockCycle = preset.rockAmp > 0 ? Math.sin(t * preset.rockSpeed) * preset.rockAmp : 0;
+    // ── Sub-frame motion (double-frequency breath + secondary phase) ──
+    const breathPrimary = Math.sin(t * preset.breathSpeed + phase) * preset.breathAmp;
+    const breathSecondary =
+      Math.sin(t * preset.breathSpeed * 0.43 + phase * 1.3) * preset.breathAmp * 0.4;
+    const breathCycle = breathPrimary + breathSecondary;
 
-    // For failed state: rapid shake that decays
-    const targetPosX = rockCycle;
+    const rockCycle =
+      preset.rockAmp > 0 ? Math.sin(t * preset.rockSpeed + phase) * preset.rockAmp : 0;
+
+    // Weight-shift: 5-8s slow lateral lean (only meaningful when idle/still).
+    const weightShift =
+      Math.sin((t + phase) * ((Math.PI * 2) / WEIGHT_SHIFT_PERIOD_SEC)) * WEIGHT_SHIFT_AMP;
+
+    // Sway: z-axis lean lerped from preset.
+    const swayCycle =
+      preset.swayAmp > 0 ? Math.sin(t * preset.swaySpeed + phase * 1.7) * preset.swayAmp : 0;
+
+    // Fidget: occasional head tilt pulse every 20-30s while idle-like.
+    if (nextFidgetAtRef.current === null) {
+      nextFidgetAtRef.current = t + FIDGET_PERIOD_SEC * (0.7 + Math.random() * 0.6);
+    }
+    let fidgetTilt = 0;
+    if (state === 'idle' && t >= (nextFidgetAtRef.current ?? Number.POSITIVE_INFINITY)) {
+      const since = t - (nextFidgetAtRef.current ?? t);
+      if (since < FIDGET_DURATION_SEC) {
+        // Smooth pulse over the fidget window.
+        const norm = since / FIDGET_DURATION_SEC;
+        fidgetTilt = Math.sin(norm * Math.PI) * FIDGET_AMP_HEAD;
+      } else {
+        nextFidgetAtRef.current = t + FIDGET_PERIOD_SEC * (0.7 + Math.random() * 0.6);
+      }
+    }
+
+    const targetPosX = rockCycle + weightShift;
     const targetPosY = breathCycle;
     const targetRotY =
-      preset.headTilt +
-      (state === 'searching'
-        ? Math.sin(t * 1.2) * 0.12 // scanning left-right
-        : 0);
+      preset.headTilt + fidgetTilt + (state === 'searching' ? Math.sin(t * 1.2 + phase) * 0.12 : 0);
     const targetRotX = preset.lean;
+    const targetRotZ = swayCycle;
 
-    // Scale: damp back toward 1.0 after entrance bounce
     const targetScale = stateChanged ? preset.scale : 1;
 
-    // ── Smooth interpolation (frame-rate independent) ──
     const c = cur.current;
-    // Use maath damp for each property individually
-    // damp(current, target, smoothing, delta) returns void but mutates an array
-    // For single values we do manual exponential damp:
     const factor = 1 - Math.exp(-SMOOTH * delta);
 
     c.posX += (targetPosX - c.posX) * factor;
     c.posY += (targetPosY - c.posY) * factor;
     c.rotY += (targetRotY - c.rotY) * factor;
     c.rotX += (targetRotX - c.rotX) * factor;
+    c.rotZ += (targetRotZ - c.rotZ) * factor;
     c.scale += (targetScale - c.scale) * factor;
 
-    // Ring color/opacity
     c.ringR += (preset.ringColor[0] - c.ringR) * factor;
     c.ringG += (preset.ringColor[1] - c.ringG) * factor;
     c.ringB += (preset.ringColor[2] - c.ringB) * factor;
     c.ringOpacity += (preset.ringOpacity - c.ringOpacity) * factor;
 
-    // ── Apply to refs ──
     const g = groupRef.current;
     g.position.x = c.posX;
     g.position.y = c.posY;
+    g.rotation.z = c.rotZ;
     g.rotation.y = c.rotY;
     g.rotation.x = c.rotX;
     const s = c.scale;
     g.scale.set(s, s, s);
 
-    // Ring
     if (ringMatRef.current) {
       const rm = ringMatRef.current;
       rm.color.setRGB(c.ringR, c.ringG, c.ringB);
-
-      // Pulse modulation
       const pulse =
         preset.ringPulseSpeed > 0
           ? 0.5 + 0.5 * Math.sin(t * preset.ringPulseSpeed * Math.PI * 2)

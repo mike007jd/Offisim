@@ -10,6 +10,7 @@ export type GitHttpFetch = (
   ok: boolean;
   status: number;
   headers: { get(name: string): string | null };
+  body?: ReadableStream<Uint8Array> | null;
   arrayBuffer(): Promise<ArrayBuffer>;
 }>;
 
@@ -57,6 +58,8 @@ export interface GitResolverResult {
   /** Tmp directory path (desktop only); caller cleans up post-install. */
   tmpPath?: string | undefined;
 }
+
+export const GITHUB_TARBALL_MAX_BYTES = 25 * 1024 * 1024;
 
 function parseGithub(url: string): { owner: string; repo: string } | null {
   try {
@@ -206,9 +209,21 @@ export async function resolveGitSource(
     };
   }
 
+  const contentLength = resp.headers.get('content-length');
+  if (contentLength) {
+    const bytes = Number(contentLength);
+    if (Number.isFinite(bytes) && bytes > GITHUB_TARBALL_MAX_BYTES) {
+      return {
+        kind: 'git-fetch-failed',
+        message: `GitHub tarball exceeds ${GITHUB_TARBALL_MAX_BYTES} bytes.`,
+        sourceRef: input.url,
+      };
+    }
+  }
+
   let buf: Uint8Array;
   try {
-    buf = new Uint8Array(await resp.arrayBuffer());
+    buf = await readGitTarballBytesWithLimit(resp, GITHUB_TARBALL_MAX_BYTES);
   } catch (err) {
     return {
       kind: 'git-fetch-failed',
@@ -216,7 +231,6 @@ export async function resolveGitSource(
       sourceRef: input.url,
     };
   }
-
   let tar: Uint8Array;
   try {
     tar = gunzipSync(buf);
@@ -234,6 +248,42 @@ export async function resolveGitSource(
   const scan = scanSkillDir(scopedResult);
   if ('kind' in scan) return enrichAmbiguous(scan, scopedResult);
   return { tree: scopedResult, scan, sourceRef: sourceRefDescriptor };
+}
+
+async function readGitTarballBytesWithLimit(
+  resp: Awaited<ReturnType<GitHttpFetch>>,
+  maxBytes: number,
+): Promise<Uint8Array> {
+  if (!resp.body) {
+    throw new Error('GitHub tarball response did not expose a readable stream.');
+  }
+
+  const reader = resp.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel('GitHub tarball too large');
+        throw new Error(`GitHub tarball exceeds ${maxBytes} bytes.`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }
 
 function applySubpath(

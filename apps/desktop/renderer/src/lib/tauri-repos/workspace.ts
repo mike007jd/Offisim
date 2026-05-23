@@ -1,4 +1,6 @@
 import type {
+  CompanyTemplateAssetRow,
+  NewCompanyTemplateAsset,
   NewOfficeLayout,
   NewSopTemplate,
   OfficeLayoutRow,
@@ -15,6 +17,7 @@ function now(): string {
 
 export interface WorkspaceTauriRepos {
   sopTemplates: RuntimeRepositories['sopTemplates'];
+  companyTemplates: RuntimeRepositories['companyTemplates'];
   officeLayouts: RuntimeRepositories['officeLayouts'];
   prefabInstances: RuntimeRepositories['prefabInstances'];
   zones: RuntimeRepositories['zones'];
@@ -51,6 +54,33 @@ export function createWorkspaceTauriRepos(db: TauriDrizzleDb): WorkspaceTauriRep
       await db
         .delete(schema.sopTemplates)
         .where(eq(schema.sopTemplates.sop_template_id, sopTemplateId));
+    },
+  };
+
+  const companyTemplates: RuntimeRepositories['companyTemplates'] = {
+    async create(template: NewCompanyTemplateAsset) {
+      const ts = now();
+      const row: CompanyTemplateAssetRow = { ...template, created_at: ts, updated_at: ts };
+      await db.insert(schema.companyTemplateAssets).values(row);
+      return row;
+    },
+    async findById(companyTemplateAssetId) {
+      const rows = await db
+        .select()
+        .from(schema.companyTemplateAssets)
+        .where(eq(schema.companyTemplateAssets.company_template_asset_id, companyTemplateAssetId));
+      return (rows[0] as CompanyTemplateAssetRow | undefined) ?? null;
+    },
+    async findByCompany(companyId) {
+      return (await db
+        .select()
+        .from(schema.companyTemplateAssets)
+        .where(eq(schema.companyTemplateAssets.company_id, companyId))) as CompanyTemplateAssetRow[];
+    },
+    async delete(companyTemplateAssetId) {
+      await db
+        .delete(schema.companyTemplateAssets)
+        .where(eq(schema.companyTemplateAssets.company_template_asset_id, companyTemplateAssetId));
     },
   };
 
@@ -200,5 +230,5 @@ export function createWorkspaceTauriRepos(db: TauriDrizzleDb): WorkspaceTauriRep
     },
   };
 
-  return { sopTemplates, officeLayouts, prefabInstances, zones };
+  return { sopTemplates, companyTemplates, officeLayouts, prefabInstances, zones };
 }

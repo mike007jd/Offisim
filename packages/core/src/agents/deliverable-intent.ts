@@ -11,6 +11,18 @@ const EXPLICIT_ARTIFACT_TERM_RE =
 const EXPLICIT_CHINESE_ARTIFACT_RE =
   /(下载|导出|保存到|保存为|附件|写入\s*文件|(?:生成|创建|产出|输出|提供|返回|起草|草拟|给我)\s*(?:一份|一个)?\s*(?:markdown|md|html|json|csv|pdf|ppt|pptx|docx|文件|文档|产物))/i;
 
+const PRODUCTION_ARTIFACT_INTENT_RE =
+  /\b(?:write|draft|create|generate|produce|prepare|build|make|compose|author|design|return|provide)\s+(?:a\s+|an\s+|the\s+|one\s+)?(?:report|plan|brief|proposal|prd|product\s+requirements\s+document|job\s+description|jd|deck|slides?|checklist|analysis|table|csv|html\s+page|web\s+page|document|doc)\b/i;
+
+const STRONG_PRODUCTION_ARTIFACT_INTENT_RE =
+  /\b(?:write|draft|create|generate|produce|prepare|build|make|compose|author|design)\s+(?:a\s+|an\s+|the\s+|one\s+)?(?:report|plan|brief|proposal|prd|product\s+requirements\s+document|job\s+description|jd|deck|slides?|checklist|analysis|table|csv|html\s+page|web\s+page|document|doc)\b/i;
+
+const CHINESE_PRODUCTION_ARTIFACT_RE =
+  /(?:写|写一份|起草|草拟|创建|生成|产出|输出|准备|做一份|给我)\s*(?:一份|一个)?\s*(?:报告|计划|简报|提案|方案|PRD|产品需求文档|职位描述|JD|幻灯片|卡片|清单|分析|表格|CSV|HTML页面|网页|文档)/i;
+
+const STRONG_CHINESE_PRODUCTION_ARTIFACT_RE =
+  /(?:写|写一份|起草|草拟|创建|生成|产出|准备|做一份)\s*(?:一份|一个)?\s*(?:报告|计划|简报|提案|方案|PRD|产品需求文档|职位描述|JD|幻灯片|卡片|清单|分析|表格|CSV|HTML页面|网页|文档)/i;
+
 const READ_ONLY_LOCAL_OPERATION_RE =
   /\b(?:read|quote|inspect|open|summari[sz]e|explain|analy[sz]e|review|check)\b|(?:读取|阅读|查看|打开|总结|解释|分析|审计|检查)/i;
 const MUTATING_LOCAL_OPERATION_RE =
@@ -29,16 +41,28 @@ function hasLocalFileReference(value: string): boolean {
 }
 
 function hasExplicitArtifactCreationIntent(value: string): boolean {
-  return EXPLICIT_ARTIFACT_TERM_RE.test(value) || EXPLICIT_CHINESE_ARTIFACT_RE.test(value);
+  return (
+    EXPLICIT_ARTIFACT_TERM_RE.test(value) ||
+    EXPLICIT_CHINESE_ARTIFACT_RE.test(value) ||
+    PRODUCTION_ARTIFACT_INTENT_RE.test(value) ||
+    CHINESE_PRODUCTION_ARTIFACT_RE.test(value)
+  );
+}
+
+function hasStrongArtifactCreationIntent(value: string): boolean {
+  return (
+    EXPLICIT_ARTIFACT_TERM_RE.test(value) ||
+    EXPLICIT_CHINESE_ARTIFACT_RE.test(value) ||
+    STRONG_PRODUCTION_ARTIFACT_INTENT_RE.test(value) ||
+    STRONG_CHINESE_PRODUCTION_ARTIFACT_RE.test(value)
+  );
 }
 
 export function isLocalFileOperationIntent(taskDescription: string): boolean {
   const normalized = stripUrls(normalizeIntentText(taskDescription));
   if (!normalized || !hasLocalFileReference(normalized)) return false;
   if (MUTATING_LOCAL_OPERATION_RE.test(normalized)) return true;
-  return (
-    READ_ONLY_LOCAL_OPERATION_RE.test(normalized) && !hasExplicitArtifactCreationIntent(normalized)
-  );
+  return READ_ONLY_LOCAL_OPERATION_RE.test(normalized) && !hasStrongArtifactCreationIntent(normalized);
 }
 
 export function isUserRequestedDeliverableIntent(taskDescription: string): boolean {

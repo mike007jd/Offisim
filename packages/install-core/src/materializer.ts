@@ -1,16 +1,20 @@
 /**
  * Materializer — create runtime entities from an install plan.
  *
- * MVP scope: employee assets only.
- *
  * Materialization creates:
  * 1. installed_packages row
- * 2. For each employee asset: installed_assets + employees row
+ * 2. For each supported asset: installed_assets + kind-specific local entity rows
  * 3. asset_bindings rows (status: 'satisfied')
  *
  * Returns all created entity IDs for rollback tracking.
  */
 
+import type {
+  AssetKind,
+  ManifestAsset,
+  PackageManifest,
+} from '@offisim/asset-schema';
+import { MATERIALIZER_PAYLOADS_KEY } from '@offisim/asset-schema';
 import type {
   AssetBindingRow,
   BindingConfirmation,
@@ -19,7 +23,10 @@ import type {
   InstallRepositories,
   InstalledAssetRow,
   InstalledPackageRow,
+  NewInstalledCompanyTemplate,
   NewEmployee,
+  NewInstalledOfficeLayout,
+  NewInstalledSopTemplate,
 } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +38,10 @@ export interface MaterializeResult {
   readonly installedPackageId: string;
   readonly installedAssetIds: string[];
   readonly employeeIds: string[];
+  readonly sopTemplateIds: string[];
+  readonly companyTemplateIds: string[];
+  readonly officeLayoutIds: string[];
+  readonly prefabInstanceIds: string[];
   readonly bindingIds: string[];
 }
 
@@ -39,6 +50,17 @@ export interface MaterializeOptions {
   readonly transact?: <T>(fn: () => T) => T;
   readonly asyncTransact?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
+
+type MutableMaterializeResult = {
+  installedPackageId: string;
+  installedAssetIds: string[];
+  employeeIds: string[];
+  sopTemplateIds: string[];
+  companyTemplateIds: string[];
+  officeLayoutIds: string[];
+  prefabInstanceIds: string[];
+  bindingIds: string[];
+};
 
 // ---------------------------------------------------------------------------
 // ID generation
@@ -58,6 +80,204 @@ function buildInstalledEmployeePersona(plan: InstallPlan): string | undefined {
   return JSON.stringify({
     expertise: summary,
   });
+}
+
+const ASSET_MATERIALIZER_ORDER: readonly AssetKind[] = [
+  'employee',
+  'sop',
+  'company_template',
+  'office_layout',
+  'prefab',
+];
+
+const SUPPORTED_ASSET_KINDS = new Set<AssetKind>(ASSET_MATERIALIZER_ORDER);
+
+function assertSupportedAssetKind(kind: string): asserts kind is AssetKind {
+  if (!SUPPORTED_ASSET_KINDS.has(kind as AssetKind)) {
+    throw new Error(`Unsupported asset kind '${kind}'`);
+  }
+}
+
+function orderedAssets(assets: readonly ManifestAsset[]): ManifestAsset[] {
+  return [...assets].sort(
+    (a, b) =>
+      ASSET_MATERIALIZER_ORDER.indexOf(a.kind) - ASSET_MATERIALIZER_ORDER.indexOf(b.kind),
+  );
+}
+
+function customRecord(manifest: PackageManifest): Readonly<Record<string, unknown>> {
+  return manifest.custom ?? {};
+}
+
+function payloadForAsset(
+  manifest: PackageManifest,
+  asset: ManifestAsset,
+): Readonly<Record<string, unknown>> {
+  const payloads = customRecord(manifest)[MATERIALIZER_PAYLOADS_KEY];
+  if (!payloads || typeof payloads !== 'object') return {};
+  const payload = (payloads as Record<string, unknown>)[asset.asset_id];
+  return payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+}
+
+function stringField(payload: Readonly<Record<string, unknown>>, key: string): string | null {
+  const value = payload[key];
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function jsonField(payload: Readonly<Record<string, unknown>>, key: string): unknown {
+  return payload[key];
+}
+
+function stringifyJson(value: unknown, fallback: unknown): string {
+  return JSON.stringify(value ?? fallback);
+}
+
+function sourceMetadata(plan: InstallPlan, asset: ManifestAsset): Record<string, unknown> {
+  return {
+    sourcePackageId: plan.manifest.package.id,
+    sourceAssetId: asset.asset_id,
+    sourcePackageVersion: plan.manifest.package.version,
+    assetPath: asset.path,
+  };
+}
+
+function validateSopDefinitionPayload(definition: unknown, asset: ManifestAsset): void {
+  if (!definition || typeof definition !== 'object') {
+    throw new Error(`SOP asset '${asset.asset_id}' is missing a definition object`);
+  }
+  const record = definition as Record<string, unknown>;
+  if (
+    typeof record.sop_id !== 'string' ||
+    typeof record.name !== 'string' ||
+    typeof record.description !== 'string' ||
+    !Array.isArray(record.steps)
+  ) {
+    throw new Error(`SOP asset '${asset.asset_id}' has an invalid definition shape`);
+  }
+  for (const [index, step] of record.steps.entries()) {
+    if (!step || typeof step !== 'object') {
+      throw new Error(`SOP asset '${asset.asset_id}' step ${index} is not an object`);
+    }
+    const row = step as Record<string, unknown>;
+    if (
+      typeof row.step_id !== 'string' ||
+      typeof row.label !== 'string' ||
+      typeof row.role_slug !== 'string' ||
+      typeof row.instruction !== 'string' ||
+      !Array.isArray(row.dependencies) ||
+      typeof row.output_key !== 'string'
+    ) {
+      throw new Error(`SOP asset '${asset.asset_id}' step ${index} has an invalid shape`);
+    }
+  }
+}
+
+function validateCompanyTemplatePayload(
+  template: unknown,
+  asset: ManifestAsset,
+): asserts template is Readonly<Record<string, unknown>> {
+  if (!template || typeof template !== 'object') {
+    throw new Error(`Company template asset '${asset.asset_id}' is missing a template object`);
+  }
+  const record = template as Record<string, unknown>;
+  if (
+    typeof record.id !== 'string' ||
+    typeof record.name !== 'string' ||
+    typeof record.description !== 'string' ||
+    !Array.isArray(record.employees) ||
+    !Array.isArray(record.sops)
+  ) {
+    throw new Error(`Company template asset '${asset.asset_id}' has an invalid template shape`);
+  }
+}
+
+function companyTemplateFromPayload(
+  payload: Readonly<Record<string, unknown>>,
+  asset: ManifestAsset,
+): Readonly<Record<string, unknown>> {
+  const templateJson = stringField(payload, 'template_json');
+  const template = templateJson ? parseJsonPayload(templateJson, asset, 'template_json') : payload;
+  validateCompanyTemplatePayload(template, asset);
+  return template;
+}
+
+function parseJsonPayload(json: string, asset: ManifestAsset, field: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    throw new Error(`Asset '${asset.asset_id}' has invalid ${field}`);
+  }
+}
+
+function sopDefinitionFromPayload(payload: Readonly<Record<string, unknown>>, asset: ManifestAsset): unknown {
+  const definitionJson = stringField(payload, 'definition_json');
+  if (!definitionJson) return jsonField(payload, 'definition');
+  return parseJsonPayload(definitionJson, asset, 'definition_json');
+}
+
+function packagePrefabAssetIds(manifest: PackageManifest): Set<string> {
+  return new Set(
+    manifest.assets.filter((asset) => asset.kind === 'prefab').map((asset) => asset.asset_id),
+  );
+}
+
+function validateOfficeLayoutPayload(
+  packagePrefabs: ReadonlySet<string>,
+  payload: Readonly<Record<string, unknown>>,
+  asset: ManifestAsset,
+): void {
+  const layout = jsonField(payload, 'layout');
+  if (!layout || typeof layout !== 'object') {
+    throw new Error(`Office layout asset '${asset.asset_id}' is missing layout JSON`);
+  }
+  const prefabs = (layout as Record<string, unknown>).prefabs;
+  if (prefabs === undefined) return;
+  if (!Array.isArray(prefabs)) {
+    throw new Error(`Office layout asset '${asset.asset_id}' has invalid prefabs JSON`);
+  }
+  for (const [index, prefab] of prefabs.entries()) {
+    if (!prefab || typeof prefab !== 'object') {
+      throw new Error(`Office layout asset '${asset.asset_id}' prefab ${index} is not an object`);
+    }
+    const prefabId =
+      (prefab as Record<string, unknown>).prefab_id ?? (prefab as Record<string, unknown>).prefabId;
+    if (typeof prefabId !== 'string' || !prefabId.trim()) {
+      throw new Error(`Office layout asset '${asset.asset_id}' prefab ${index} is missing prefab id`);
+    }
+    const isPackagePrefab = packagePrefabs.has(prefabId);
+    const isBuiltinPrefab = !prefabId.startsWith('pkg:') && !prefabId.startsWith('package:');
+    if (!isPackagePrefab && !isBuiltinPrefab) {
+      throw new Error(
+        `Office layout asset '${asset.asset_id}' references unavailable prefab '${prefabId}'`,
+      );
+    }
+  }
+}
+
+function validatePrefabPayload(payload: Readonly<Record<string, unknown>>, asset: ManifestAsset): void {
+  const prefabId = stringField(payload, 'prefab_id') ?? asset.asset_id;
+  if (!prefabId.trim()) throw new Error(`Prefab asset '${asset.asset_id}' is missing prefab id`);
+  const category = stringField(payload, 'category');
+  if (category && !/^[a-z][a-z0-9_-]*$/u.test(category)) {
+    throw new Error(`Prefab asset '${asset.asset_id}' has invalid category '${category}'`);
+  }
+  const bindings = jsonField(payload, 'bindings');
+  if (bindings !== undefined && !Array.isArray(bindings)) {
+    throw new Error(`Prefab asset '${asset.asset_id}' has invalid bindings JSON`);
+  }
+}
+
+function finiteNumberField(
+  payload: Readonly<Record<string, unknown>>,
+  key: string,
+  asset: ManifestAsset,
+): number {
+  const raw = payload[key] ?? 0;
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(value)) {
+    throw new Error(`Prefab asset '${asset.asset_id}' has invalid ${key}`);
+  }
+  return value;
 }
 
 function buildInstalledPackageRow(
@@ -115,6 +335,7 @@ export async function materialize(
 ): Promise<MaterializeResult> {
   const now = nowIso();
   const manifest = plan.manifest;
+  const packagePrefabs = packagePrefabAssetIds(manifest);
   const { provenance, transact, asyncTransact } = options;
 
   if (transact) {
@@ -132,9 +353,15 @@ export async function materialize(
       // 2. Create assets and employees
       const installedAssetIds: string[] = [];
       const employeeIds: string[] = [];
+      const sopTemplateIds: string[] = [];
+      const companyTemplateIds: string[] = [];
+      const officeLayoutIds: string[] = [];
+      const prefabInstanceIds: string[] = [];
 
-      for (const asset of manifest.assets) {
+      for (const asset of orderedAssets(manifest.assets)) {
+        assertSupportedAssetKind(asset.kind);
         const installedAssetId = generateId();
+        const payload = payloadForAsset(manifest, asset);
         const assetRow: InstalledAssetRow = {
           installed_asset_id: installedAssetId,
           installed_package_id: installedPackageId,
@@ -143,7 +370,10 @@ export async function materialize(
           local_instance_id: null,
           entrypoint: asset.entrypoint ?? null,
           enabled: asset.default_enabled !== false ? 1 : 0,
-          override_json: null,
+          override_json: JSON.stringify({
+            ...sourceMetadata(plan, asset),
+            payload,
+          }),
           created_at: now,
           updated_at: now,
         };
@@ -163,6 +393,110 @@ export async function materialize(
           };
           void repos.employees.create(empData);
           employeeIds.push(employeeId);
+        }
+        if (asset.kind === 'sop') {
+          if (!repos.sopTemplates) throw new Error('SOP materializer repository is unavailable');
+          const sopTemplateId = `sop_${generateId()}`;
+          const definition = sopDefinitionFromPayload(payload, asset);
+          validateSopDefinitionPayload(definition, asset);
+          const definitionJson =
+            stringField(payload, 'definition_json') ??
+            stringifyJson(definition, {
+              name: manifest.package.title,
+              description: manifest.package.summary ?? '',
+              steps: [],
+              source: sourceMetadata(plan, asset),
+            });
+          const row: NewInstalledSopTemplate = {
+            sop_template_id: sopTemplateId,
+            company_id: companyId,
+            name: stringField(payload, 'name') ?? manifest.package.title,
+            description: stringField(payload, 'description') ?? manifest.package.summary ?? '',
+            definition_json: definitionJson,
+            source_thread_id: null,
+            source_url: `package:${manifest.package.id}:${asset.asset_id}`,
+            version: manifest.package.version,
+            last_synced_at: now,
+          };
+          void repos.sopTemplates.create(row);
+          sopTemplateIds.push(sopTemplateId);
+        }
+        if (asset.kind === 'company_template') {
+          if (!repos.companyTemplates) {
+            throw new Error('Company template materializer repository is unavailable');
+          }
+          const template = companyTemplateFromPayload(payload, asset);
+          const companyTemplateAssetId = `company_template_${generateId()}`;
+          const row: NewInstalledCompanyTemplate = {
+            company_template_asset_id: companyTemplateAssetId,
+            company_id: companyId,
+            template_id: stringField(template, 'id') ?? asset.asset_id,
+            name: stringField(template, 'name') ?? manifest.package.title,
+            description:
+              stringField(template, 'description') ?? manifest.package.summary ?? '',
+            template_json: stringifyJson(template, {
+              source: sourceMetadata(plan, asset),
+            }),
+            source_package_id: manifest.package.id,
+            source_asset_id: asset.asset_id,
+            version: manifest.package.version,
+          };
+          void repos.companyTemplates.create(row);
+          companyTemplateIds.push(companyTemplateAssetId);
+        }
+        if (asset.kind === 'office_layout') {
+          if (!repos.officeLayouts) throw new Error('Office layout materializer repository is unavailable');
+          validateOfficeLayoutPayload(packagePrefabs, payload, asset);
+          const layoutId = `layout_${generateId()}`;
+          const row: NewInstalledOfficeLayout = {
+            layout_id: layoutId,
+            company_id: companyId,
+            name: stringField(payload, 'name') ?? manifest.package.title,
+            layout_json: stringifyJson(jsonField(payload, 'layout'), {
+              source: sourceMetadata(plan, asset),
+              zones: [],
+              prefabs: [],
+            }),
+            is_active: 0,
+          };
+          void repos.officeLayouts.create(row);
+          officeLayoutIds.push(layoutId);
+        }
+        if (asset.kind === 'prefab') {
+          if (!repos.prefabInstances) throw new Error('Prefab materializer repository is unavailable');
+          validatePrefabPayload(payload, asset);
+          const zoneId = stringField(payload, 'zone_id');
+          if (!zoneId) throw new Error(`Prefab asset '${asset.asset_id}' is missing zone_id`);
+          const instanceId = `prefab_${generateId()}`;
+          const config = jsonField(payload, 'config');
+          const row = {
+            instance_id: instanceId,
+            company_id: companyId,
+            prefab_id: stringField(payload, 'prefab_id') ?? asset.asset_id,
+            zone_id: zoneId,
+            position_x: finiteNumberField(payload, 'position_x', asset),
+            position_y: finiteNumberField(payload, 'position_y', asset),
+            rotation: (payload.rotation === 90 ||
+            payload.rotation === 180 ||
+            payload.rotation === 270
+              ? payload.rotation
+              : 0) as 0 | 90 | 180 | 270,
+            bindings_json: stringifyJson(jsonField(payload, 'bindings'), []),
+            config_json: stringifyJson(
+              {
+                ...(config && typeof config === 'object'
+                  ? (config as Record<string, unknown>)
+                  : {}),
+                source: sourceMetadata(plan, asset),
+              },
+              { source: sourceMetadata(plan, asset) },
+            ),
+            enabled: asset.default_enabled !== false ? 1 : 0,
+            created_at: now,
+            updated_at: now,
+          };
+          void repos.prefabInstances.create(row);
+          prefabInstanceIds.push(instanceId);
         }
       }
 
@@ -188,7 +522,16 @@ export async function materialize(
         bindingIds.push(bindingId);
       }
 
-      return { installedPackageId, installedAssetIds, employeeIds, bindingIds };
+      return {
+        installedPackageId,
+        installedAssetIds,
+        employeeIds,
+        sopTemplateIds,
+        companyTemplateIds,
+        officeLayoutIds,
+        prefabInstanceIds,
+        bindingIds,
+      };
     });
   }
 
@@ -201,17 +544,36 @@ export async function materialize(
   // ── Memory-repos / fallback async path ──────────────────────────────────
   // Used in tests and browser environments where transact is not available.
 
+  const partial: MutableMaterializeResult = {
+    installedPackageId: '',
+    installedAssetIds: [],
+    employeeIds: [],
+    sopTemplateIds: [],
+    companyTemplateIds: [],
+    officeLayoutIds: [],
+    prefabInstanceIds: [],
+    bindingIds: [],
+  };
+
+  try {
   // 1. Create installed_packages row
   const installedPackageId = generateId();
+  partial.installedPackageId = installedPackageId;
   const pkgRow = buildInstalledPackageRow(plan, companyId, installedPackageId, now, provenance);
   await repos.installedPackages.create(pkgRow);
 
   // 2. Create assets and employees
   const installedAssetIds: string[] = [];
   const employeeIds: string[] = [];
+  const sopTemplateIds: string[] = [];
+  const companyTemplateIds: string[] = [];
+  const officeLayoutIds: string[] = [];
+  const prefabInstanceIds: string[] = [];
 
-  for (const asset of manifest.assets) {
+  for (const asset of orderedAssets(manifest.assets)) {
+    assertSupportedAssetKind(asset.kind);
     const installedAssetId = generateId();
+    const payload = payloadForAsset(manifest, asset);
 
     // Create installed_assets row
     const assetRow: InstalledAssetRow = {
@@ -222,14 +584,17 @@ export async function materialize(
       local_instance_id: null,
       entrypoint: asset.entrypoint ?? null,
       enabled: asset.default_enabled !== false ? 1 : 0,
-      override_json: null,
+      override_json: JSON.stringify({
+        ...sourceMetadata(plan, asset),
+        payload,
+      }),
       created_at: now,
       updated_at: now,
     };
     await repos.installedAssets.create(assetRow);
     installedAssetIds.push(installedAssetId);
+    partial.installedAssetIds.push(installedAssetId);
 
-    // MVP: Only create employees for employee-kind assets
     if (asset.kind === 'employee') {
       const empData: NewEmployee = {
         company_id: companyId,
@@ -241,6 +606,113 @@ export async function materialize(
       };
       const { employee_id } = await repos.employees.create(empData);
       employeeIds.push(employee_id);
+      partial.employeeIds.push(employee_id);
+    }
+
+    if (asset.kind === 'sop') {
+      if (!repos.sopTemplates) throw new Error('SOP materializer repository is unavailable');
+      const sopTemplateId = `sop_${generateId()}`;
+      const definition = sopDefinitionFromPayload(payload, asset);
+      validateSopDefinitionPayload(definition, asset);
+      const row: NewInstalledSopTemplate = {
+        sop_template_id: sopTemplateId,
+        company_id: companyId,
+        name: stringField(payload, 'name') ?? manifest.package.title,
+        description: stringField(payload, 'description') ?? manifest.package.summary ?? '',
+        definition_json:
+          stringField(payload, 'definition_json') ??
+          stringifyJson(definition, {
+            name: manifest.package.title,
+            description: manifest.package.summary ?? '',
+            steps: [],
+            source: sourceMetadata(plan, asset),
+          }),
+        source_thread_id: null,
+        source_url: `package:${manifest.package.id}:${asset.asset_id}`,
+        version: manifest.package.version,
+        last_synced_at: now,
+      };
+      await repos.sopTemplates.create(row);
+      sopTemplateIds.push(sopTemplateId);
+      partial.sopTemplateIds.push(sopTemplateId);
+    }
+
+    if (asset.kind === 'company_template') {
+      if (!repos.companyTemplates) {
+        throw new Error('Company template materializer repository is unavailable');
+      }
+      const template = companyTemplateFromPayload(payload, asset);
+      const companyTemplateAssetId = `company_template_${generateId()}`;
+      const row: NewInstalledCompanyTemplate = {
+        company_template_asset_id: companyTemplateAssetId,
+        company_id: companyId,
+        template_id: stringField(template, 'id') ?? asset.asset_id,
+        name: stringField(template, 'name') ?? manifest.package.title,
+        description: stringField(template, 'description') ?? manifest.package.summary ?? '',
+        template_json: stringifyJson(template, {
+          source: sourceMetadata(plan, asset),
+        }),
+        source_package_id: manifest.package.id,
+        source_asset_id: asset.asset_id,
+        version: manifest.package.version,
+      };
+      await repos.companyTemplates.create(row);
+      companyTemplateIds.push(companyTemplateAssetId);
+      partial.companyTemplateIds.push(companyTemplateAssetId);
+    }
+
+    if (asset.kind === 'office_layout') {
+      if (!repos.officeLayouts) throw new Error('Office layout materializer repository is unavailable');
+      validateOfficeLayoutPayload(packagePrefabs, payload, asset);
+      const layoutId = `layout_${generateId()}`;
+      const row: NewInstalledOfficeLayout = {
+        layout_id: layoutId,
+        company_id: companyId,
+        name: stringField(payload, 'name') ?? manifest.package.title,
+        layout_json: stringifyJson(jsonField(payload, 'layout'), {
+          source: sourceMetadata(plan, asset),
+          zones: [],
+          prefabs: [],
+        }),
+        is_active: 0,
+      };
+      await repos.officeLayouts.create(row);
+      officeLayoutIds.push(layoutId);
+      partial.officeLayoutIds.push(layoutId);
+    }
+
+    if (asset.kind === 'prefab') {
+      if (!repos.prefabInstances) throw new Error('Prefab materializer repository is unavailable');
+      validatePrefabPayload(payload, asset);
+      const zoneId = stringField(payload, 'zone_id');
+      if (!zoneId) throw new Error(`Prefab asset '${asset.asset_id}' is missing zone_id`);
+      const instanceId = `prefab_${generateId()}`;
+      const config = jsonField(payload, 'config');
+      const row = {
+        instance_id: instanceId,
+        company_id: companyId,
+        prefab_id: stringField(payload, 'prefab_id') ?? asset.asset_id,
+        zone_id: zoneId,
+        position_x: finiteNumberField(payload, 'position_x', asset),
+        position_y: finiteNumberField(payload, 'position_y', asset),
+        rotation: (payload.rotation === 90 || payload.rotation === 180 || payload.rotation === 270
+          ? payload.rotation
+          : 0) as 0 | 90 | 180 | 270,
+        bindings_json: stringifyJson(jsonField(payload, 'bindings'), []),
+        config_json: stringifyJson(
+          {
+            ...(config && typeof config === 'object' ? (config as Record<string, unknown>) : {}),
+            source: sourceMetadata(plan, asset),
+          },
+          { source: sourceMetadata(plan, asset) },
+        ),
+        enabled: asset.default_enabled !== false ? 1 : 0,
+        created_at: now,
+        updated_at: now,
+      };
+      await repos.prefabInstances.create(row);
+      prefabInstanceIds.push(instanceId);
+      partial.prefabInstanceIds.push(instanceId);
     }
   }
 
@@ -254,7 +726,7 @@ export async function materialize(
 
     const bindingRow: AssetBindingRow = {
       binding_id: bindingId,
-      installed_asset_id: installedAssetIds[0] ?? null, // MVP: associate with first asset
+      installed_asset_id: installedAssetIds[0] ?? null,
       install_txn_id: installTxnId,
       binding_type: req.bindingType,
       binding_key: req.bindingKey,
@@ -265,12 +737,22 @@ export async function materialize(
     };
     await repos.assetBindings.create(bindingRow);
     bindingIds.push(bindingId);
+    partial.bindingIds.push(bindingId);
   }
 
   return {
     installedPackageId,
     installedAssetIds,
     employeeIds,
+    sopTemplateIds,
+    companyTemplateIds,
+    officeLayoutIds,
+    prefabInstanceIds,
     bindingIds,
   };
+  } catch (err) {
+    const { rollback } = await import('./rollback.js');
+    await rollback(partial, repos);
+    throw err;
+  }
 }

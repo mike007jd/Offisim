@@ -18,7 +18,7 @@ creatorsRoute.get('/:handle', async (c) => {
   const creatorListings = await db
     .select()
     .from(listings)
-    .where(eq(listings.creator_id, creator.creator_id))
+    .where(and(eq(listings.creator_id, creator.creator_id), eq(listings.status, 'listed')))
     .orderBy(desc(listings.updated_at));
 
   // Batch fetch latest active versions for all listings

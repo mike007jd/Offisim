@@ -1,4 +1,4 @@
-import type { ProjectRow } from '@offisim/shared-types';
+import type { CompanyStartupPayload, ProjectRow, RuntimeEvent } from '@offisim/shared-types';
 import { ToastBanner, TooltipProvider, useToasts } from '@offisim/ui-core';
 import {
   EmployeeInspector,
@@ -34,8 +34,10 @@ import { useThreadBootstrap } from './hooks/useThreadBootstrap';
 import { getOnboardingCopy } from './lib/onboarding-prompts';
 import {
   dismissTour,
+  getCompanyOnboardingState,
   markAccount,
   markWelcomeSeen,
+  setCompanyStartupCeremony,
   useOnboardingState,
 } from './lib/onboarding-store';
 import { createRouteToPersonnel } from './lib/personnel-routing';
@@ -206,6 +208,68 @@ export function App({ onCompanySwitch }: AppProps) {
     addToast,
     onOpenTasks: officeBindings.bumpFocusOutputsToken,
   });
+
+  useEffect(() => {
+    return eventBus.on('company.startup.', (event: RuntimeEvent<CompanyStartupPayload>) => {
+      const payload = event.payload;
+      const existingStartup = getCompanyOnboardingState(payload.companyId).startup_ceremony;
+      const base = {
+        startup_id: payload.startupId,
+        source: payload.source,
+        provider_ready: payload.providerReady,
+        replay: payload.isReplay,
+        replay_count:
+          payload.isReplay && existingStartup.startup_id !== payload.startupId
+            ? existingStartup.replay_count + 1
+            : existingStartup.replay_count,
+      };
+      if (payload.status === 'requested') {
+        setCompanyStartupCeremony(payload.companyId, {
+          ...base,
+          requested: true,
+          completed: false,
+          skipped: false,
+          failed: false,
+          requested_at: payload.requestedAt,
+        });
+        return;
+      }
+      if (payload.status === 'started') {
+        setCompanyStartupCeremony(payload.companyId, {
+          ...base,
+          requested: true,
+          started: true,
+          started_at: payload.startedAt,
+        });
+        return;
+      }
+      if (payload.status === 'completed') {
+        setCompanyStartupCeremony(payload.companyId, {
+          ...base,
+          completed: true,
+          skipped: false,
+          failed: false,
+          completed_at: payload.completedAt,
+        });
+        return;
+      }
+      if (payload.status === 'skipped') {
+        setCompanyStartupCeremony(payload.companyId, {
+          ...base,
+          skipped: true,
+          failed: false,
+          skipped_at: payload.skippedAt,
+        });
+        return;
+      }
+      setCompanyStartupCeremony(payload.companyId, {
+        ...base,
+        failed: true,
+        failed_at: payload.failedAt,
+        failure_error: payload.error,
+      });
+    });
+  }, [eventBus]);
 
   const lifecycle = useCompanyLifecycle({
     repos,

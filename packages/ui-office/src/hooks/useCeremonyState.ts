@@ -1,4 +1,5 @@
 import type { InteractionRequest } from '@offisim/shared-types';
+import type { CompanyStartupSource } from '@offisim/shared-types';
 
 export type CeremonyPhase =
   | 'idle'
@@ -29,6 +30,12 @@ export interface CeremonyState {
   managerVisible: boolean;
   managerPosition: [number, number, number] | null;
   waitingRelationships: WaitingRelationship[];
+  startup: {
+    active: boolean;
+    startupId: string | null;
+    source: CompanyStartupSource | null;
+    replay: boolean;
+  };
 }
 
 export function createIdleCeremonyState(): CeremonyState {
@@ -40,6 +47,12 @@ export function createIdleCeremonyState(): CeremonyState {
     managerVisible: false,
     managerPosition: null,
     waitingRelationships: [],
+    startup: {
+      active: false,
+      startupId: null,
+      source: null,
+      replay: false,
+    },
   };
 }
 

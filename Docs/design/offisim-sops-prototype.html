@@ -560,6 +560,254 @@
 
     .annot { font-size: 9.5px; font-weight: 700; color: var(--ink-4); letter-spacing: var(--ls-caps); text-transform: uppercase; }
 
+    /* —— specimens 11–22 additions —— */
+    /* compact run strip variant + 3-second auto-fade ghost */
+    .run-strip.ghost { opacity: 0.35; }
+    .run-strip .rs-cancel {
+      margin-left: auto; height: 22px; padding: 0 9px;
+      border: 1px solid currentColor; border-radius: var(--r-pill);
+      background: transparent; color: inherit;
+      font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .run-strip .rs-cancel:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+    .run-strip .rs-step { font-weight: 700; }
+    .run-strip .rs-tally {
+      font-size: 9.5px; letter-spacing: var(--ls-caps); text-transform: uppercase; font-weight: 700;
+      padding: 2px 7px; border-radius: var(--r-pill);
+      background: color-mix(in srgb, currentColor 14%, transparent);
+    }
+
+    /* node-status row table */
+    .status-rows { display: flex; flex-direction: column; gap: 9px; }
+    .status-row { display: grid; grid-template-columns: 70px 1fr 1fr; align-items: center; gap: 12px; }
+    .status-row .lbl-state { font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--ink-3); }
+    .status-row .face {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-1);
+    }
+    .status-row .face .nm { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    .status-row .face .ro { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); margin-left: auto; }
+    .status-row .desc { font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; }
+    .status-rows .dn-status { position: relative; }
+    .status-rows .dn-status.cancelled { background: var(--ink-3); }
+    .status-rows .dn-status.cancelled::after {
+      content: ""; position: absolute; left: 1px; right: 1px; top: 50%;
+      height: 2px; background: var(--surface-1); transform: translateY(-50%);
+    }
+    .status-rows .dn-status.completed::after {
+      content: ""; position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><path d='M5 13l4 4L19 7'/></svg>");
+      background-size: 6px 6px; background-repeat: no-repeat; background-position: center;
+    }
+    .status-rows .dn-status.failed::after {
+      content: ""; position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 6l12 12M18 6L6 18'/></svg>");
+      background-size: 6px 6px; background-repeat: no-repeat; background-position: center;
+    }
+
+    /* cycle preview tooltip + node-relative warn chip */
+    .tip {
+      position: absolute; padding: 5px 9px;
+      border-radius: var(--r-sm);
+      font-size: 9.5px; font-weight: 660; letter-spacing: 0.02em;
+      box-shadow: var(--elev-2); pointer-events: none;
+      white-space: nowrap;
+    }
+    .tip.err { background: var(--danger-surface); color: #b8352e; border: 1px solid rgba(214,69,61,0.4); }
+    .tip.warn { background: var(--warn-surface); color: #8a5a0c; border: 1px solid rgba(201,132,16,0.4); }
+    .dn-chip.warn-role {
+      background: var(--warn-surface); color: #8a5a0c;
+      box-shadow: inset 0 0 0 1px rgba(201,132,16,0.4);
+      text-transform: none; letter-spacing: 0.02em;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .dn-chip.warn-role::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warn);
+    }
+
+    /* edit-mode affordance enumeration */
+    .aff-list { display: flex; flex-direction: column; gap: 10px; }
+    .aff-row {
+      display: grid; grid-template-columns: 28px 1fr 2fr; gap: 12px; align-items: center;
+      padding: 9px 11px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2);
+    }
+    .aff-row .aff-n { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); letter-spacing: 0.04em; }
+    .aff-row .aff-t { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); display: inline-flex; align-items: center; gap: 8px; }
+    .aff-row .aff-d { font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; }
+
+    /* drag-handle corner dots on a node */
+    .drag-dot {
+      position: absolute; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 0 2px var(--surface-1);
+    }
+
+    /* sync state chip vocab (3 variants) */
+    .sync-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 24px; padding: 0 10px; border-radius: var(--r-pill);
+      font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase;
+      border: 1px solid var(--line);
+      background: var(--surface-1); color: var(--ink-3);
+    }
+    .sync-chip::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--ink-4);
+    }
+    .sync-chip.ok { border-color: rgba(26,164,106,0.35); background: var(--ok-surface); color: #15824f; }
+    .sync-chip.ok::before { background: var(--ok); }
+    .sync-chip.stale { border-color: rgba(201,132,16,0.4); background: var(--warn-surface); color: #8a5a0c; }
+    .sync-chip.stale::before { background: var(--warn); animation: pulse 1.6s ease infinite; }
+    .sync-chip.fail { border-color: rgba(214,69,61,0.35); background: var(--danger-surface); color: #b8352e; }
+    .sync-chip.fail::before { background: var(--danger); animation: pulse 1.6s ease infinite; }
+    .sync-chip .sc-act {
+      margin-left: 4px; padding-left: 7px;
+      border-left: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+      font-weight: 700; text-decoration: underline; text-underline-offset: 2px;
+    }
+
+    /* dialog tabs (for import paste-JSON / paste-URL) */
+    .tabs {
+      display: inline-flex; padding: 3px;
+      border: 1px solid var(--line); border-radius: var(--r-md);
+      background: var(--surface-2);
+    }
+    .tabs button {
+      height: 26px; padding: 0 11px; border: 0; border-radius: var(--r-sm);
+      background: transparent; color: var(--ink-3);
+      font-size: var(--fs-sm); font-weight: 600;
+    }
+    .tabs button.active { background: var(--surface-1); color: var(--accent); box-shadow: var(--elev-1); }
+
+    /* json paste area */
+    .json-area {
+      min-height: 110px; padding: 10px 12px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-sunken); color: var(--ink-2);
+      font-family: var(--mono); font-size: 10.5px; line-height: 1.55;
+      white-space: pre; overflow: auto;
+    }
+
+    /* fetched-url preview + 10s timeout indicator */
+    .fetched {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm); background: var(--surface-2);
+      font-size: var(--fs-meta); color: var(--ink-2);
+    }
+    .fetched .fu { font-family: var(--mono); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+    .timeout-bar {
+      height: 4px; border-radius: var(--r-pill);
+      background: var(--line-soft); overflow: hidden;
+    }
+    .timeout-bar > i {
+      display: block; height: 100%; width: 68%;
+      background: var(--accent); border-radius: var(--r-pill);
+    }
+    .timeout-bar.expiring > i { background: var(--warn); width: 18%; }
+
+    /* template-validation: error banner above canvas + node tag */
+    .canvas-banner {
+      position: absolute; left: 14px; right: 14px; top: 14px;
+      display: flex; align-items: center; gap: 9px;
+      padding: 7px 11px;
+      border: 1px solid rgba(214,69,61,0.4); border-radius: var(--r-sm);
+      background: var(--danger-surface); color: #b8352e;
+      font-size: var(--fs-meta); font-weight: 620;
+      z-index: 3;
+    }
+    .canvas-banner .cb-c {
+      font-family: var(--mono); font-size: 9.5px; padding: 2px 7px;
+      border-radius: var(--r-pill); background: rgba(214,69,61,0.18);
+    }
+    .dag-node.error-ring { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(214,69,61,0.22); }
+    .dag-node.cycle-ring { border-color: var(--danger); box-shadow: 0 0 0 2px rgba(214,69,61,0.18), inset 0 0 0 1px rgba(214,69,61,0.4); }
+    .dep-dot {
+      position: absolute; width: 9px; height: 9px; border-radius: 50%;
+      background: var(--danger); box-shadow: 0 0 0 2px var(--surface-1);
+    }
+
+    /* completed-task → save-as-SOP entry strip */
+    .thread-block {
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-1); padding: 14px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .thread-block .tb-h {
+      display: flex; align-items: center; gap: 8px;
+      font-size: var(--fs-sm); color: var(--ink-1); font-weight: 620;
+    }
+    .thread-block .tb-h .av { width: 22px; height: 22px; border-radius: 50%; background: var(--violet-surface); color: var(--violet); display: grid; place-items: center; font-size: 10px; font-weight: 700; }
+    .thread-block .tb-msg { font-size: var(--fs-meta); color: var(--ink-2); line-height: 1.55; padding: 9px 11px; border-radius: var(--r-sm); background: var(--surface-sunken); }
+    .thread-block .tb-done {
+      font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase;
+      color: #15824f; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .thread-block .tb-foot {
+      display: flex; align-items: center; gap: 10px;
+      padding-top: 6px; border-top: 1px solid var(--line-soft);
+    }
+    .thread-block .tb-foot .lbl-h {
+      font-size: 9.5px; letter-spacing: var(--ls-caps); text-transform: uppercase; font-weight: 700; color: var(--ink-4);
+    }
+
+    /* NL command bar — analyzing pill + before/after diff */
+    .nl-input {
+      flex: 1; height: 40px;
+      display: flex; align-items: center; gap: 9px;
+      padding: 0 13px;
+      border: 1px solid var(--accent); border-radius: var(--r-md);
+      background: var(--surface-1); color: var(--ink-1);
+      box-shadow: 0 0 0 3px var(--accent-ring);
+      font-size: var(--fs-md);
+    }
+    .llm-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 4px 10px; border-radius: var(--r-pill);
+      background: var(--violet-surface); color: var(--violet);
+      font-size: 9.5px; font-weight: 700; letter-spacing: var(--ls-caps); text-transform: uppercase;
+    }
+    .llm-pill::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--violet); animation: pulse 1.4s ease infinite;
+    }
+    .dag-node.diff-add {
+      border-color: var(--ok);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--ok) 25%, transparent);
+      background: color-mix(in srgb, var(--ok-surface) 60%, var(--surface-1));
+    }
+    .dag-node.diff-anchor {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+    .diff-tag {
+      position: absolute; left: -6px; top: -8px; z-index: 1;
+      height: 18px; padding: 0 7px; border-radius: var(--r-pill);
+      font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .diff-tag.add { background: var(--ok); color: #fff; }
+    .diff-tag.anchor { background: var(--accent); color: var(--accent-fg); }
+
+    /* empty-state with 3 CTAs */
+    .empty-hero .eh-acts.three { flex-wrap: wrap; justify-content: center; }
+    .empty-hero .eh-acts.three .btn { flex: 0 0 auto; }
+
+    /* save-as-SOP dialog body — flat list, not nested cards */
+    .prefill-list { display: flex; flex-direction: column; gap: 8px; }
+    .prefill-row {
+      display: grid; grid-template-columns: 26px 1fr 80px; gap: 9px; align-items: center;
+      padding: 7px 10px; border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2);
+    }
+    .prefill-row .ix { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); letter-spacing: 0.04em; }
+    .prefill-row .nm { font-size: var(--fs-sm); font-weight: 580; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prefill-row .ro { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); text-align: right; }
+
     ::-webkit-scrollbar { width: 7px; height: 7px; }
     ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); border: 2px solid transparent; background-clip: content-box; }
 
@@ -1342,6 +1590,663 @@
         <div class="toast err"><svg class="ico sm"><use href="#i-alert"/></svg>Cannot create a cycle in the workflow</div>
         <div class="toast err"><svg class="ico sm"><use href="#i-alert"/></svg>Failed to update SOP</div>
         <div class="toast info"><svg class="ico sm" style="color:var(--warn)"><use href="#i-alert"/></svg>Discard unsaved changes?<span class="tact" style="color:var(--danger)">Discard</span><span class="tact" style="color:var(--ink-3)">Keep editing</span></div>
+      </div>
+    </div>
+
+    <!-- 11 · SopRunProgressStrip — live + 3s ghost auto-fade -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">11</span><span class="t">SopRunProgressStrip — live + 3-second ghost</span>
+        <span class="d">Mounted between library bar and DAG canvas during a run; persists 3s after completion in a <code>opacity 0.35</code> ghost variant before unmounting. Pulsing live dot · <code>step k of n</code> label · per-step <code>tasks done</code> tally · cancel chip on the right.</span>
+      </div>
+      <div class="spec-frame" style="display:flex;flex-direction:column;gap:12px">
+        <div class="mini-pane">
+          <div class="mini-pane-cap">live · t = 0s</div>
+          <div class="run-strip run" style="border-radius:0">
+            <span class="sd info pulse"></span>
+            <span class="rs-step">Step 4 of 7 · Implement feature</span>
+            <span class="rs-tally">3/4 tasks done</span>
+            <button class="rs-cancel"><svg class="ico xs"><use href="#i-x"/></svg>Cancel run</button>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-pane-cap">ghost · t = +1.5s after completion (fades fully at +3s)</div>
+          <div class="run-strip done ghost" style="border-radius:0">
+            <span class="sd ok"></span>
+            <span class="rs-step">Run completed · 7 of 7 steps</span>
+            <span class="rs-tally">21/21 tasks done</span>
+          </div>
+        </div>
+      </div>
+      <div class="spec-cap foot">
+        <span class="d">Cancel chip is colour-inherit from the strip (accent on run, success on done) — no separate red destructive treatment. After the 3s window the strip unmounts; do NOT keep a "last run" pill on the canvas.</span>
+      </div>
+    </div>
+
+    <!-- 12 · Node 5-state status palette (single row per state) -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">12</span><span class="t">SopDagNode — five status dots</span>
+        <span class="d">One face per state; the dot is the SSOT for node status (chip text just mirrors it). Colors map 1:1 with <code>--ink-4 / --accent / --ok / --danger / --ink-3</code>.</span>
+      </div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-pane-cap">node statuses</div>
+          <div class="mini-pane-body">
+            <div class="status-rows">
+              <div class="status-row">
+                <span class="lbl-state">Pending</span>
+                <div class="face"><span class="dn-status pending"></span><span class="nm">Draft requirements</span><span class="ro">pm</span></div>
+                <div class="desc">Neutral grey · waiting for upstream completion or run start.</div>
+              </div>
+              <div class="status-row">
+                <span class="lbl-state">Running</span>
+                <div class="face"><span class="dn-status active"></span><span class="nm">Implement feature</span><span class="ro">developer</span></div>
+                <div class="desc">Accent dot with a 1.6s pulse. Only one node should pulse per parallel branch.</div>
+              </div>
+              <div class="status-row">
+                <span class="lbl-state">Completed</span>
+                <div class="face"><span class="dn-status completed"></span><span class="nm">Design mockups</span><span class="ro">designer</span></div>
+                <div class="desc">Success-fill with a baked-in check glyph (no separate icon node).</div>
+              </div>
+              <div class="status-row">
+                <span class="lbl-state">Failed</span>
+                <div class="face"><span class="dn-status failed"></span><span class="nm">Deploy to staging</span><span class="ro">devops</span></div>
+                <div class="desc">Danger-fill with a baked-in × glyph. Downstream edges short-circuit to <code>--danger</code>.</div>
+              </div>
+              <div class="status-row">
+                <span class="lbl-state">Cancelled</span>
+                <div class="face"><span class="dn-status cancelled"></span><span class="nm">QA sign-off</span><span class="ro">qa</span></div>
+                <div class="desc">Mid-tone grey with a horizontal dash. Distinct from pending — explicitly skipped, not waiting.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 13 · Live cycle-preview during port drag -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">13</span><span class="t">SopDagCanvas — live cycle-preview during port drag</span>
+        <span class="d">While the user drags from an output port, the candidate edge previews in dashed warning. If the drop target would form a cycle, the preview snaps to <code>--danger</code> + a tooltip explains the rejection. Drop with cycle = silent abort (no toast spam mid-drag — the rejection is visible).</span>
+      </div>
+      <div class="spec-frame spec-grid-2">
+        <div class="mini-pane">
+          <div class="mini-pane-cap">valid · accepting drop on input port</div>
+          <div class="mini-pane-body stage-bg" style="position:relative;height:260px;padding:0">
+            <svg class="dag-svg" style="position:absolute;inset:0;pointer-events:none">
+              <path d="M260,82 C310,82 318,82 380,82" fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+            </svg>
+            <div class="dag-node" style="position:absolute;left:18px;top:24px">
+              <div class="bar" style="background:var(--role-pm)"></div>
+              <div class="body">
+                <div class="dn-top"><span class="dn-status completed"></span><span class="dn-label">Step 1 · Draft</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-pm) 22%,transparent)">pm</span></div>
+                <div class="dn-instr">Capture goal + criteria.</div>
+                <div class="dn-out">→ requirements_doc</div>
+              </div>
+              <span class="port out hot" style="left:240px;top:58px"></span>
+            </div>
+            <div class="dag-node" style="position:absolute;left:380px;top:24px">
+              <div class="bar" style="background:var(--role-developer)"></div>
+              <div class="body">
+                <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Step 3 · Scaffold</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span></div>
+                <div class="dn-instr">Stand up endpoints.</div>
+                <div class="dn-out">→ api_scaffold</div>
+              </div>
+              <span class="port in accept" style="left:0;top:58px;border-color:var(--ok)"></span>
+            </div>
+            <span class="canvas-note" style="left:14px;bottom:12px">Dashed preview · drop here = create edge</span>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-pane-cap">cycle rejected · would loop back to step 2</div>
+          <div class="mini-pane-body stage-bg" style="position:relative;height:260px;padding:0">
+            <svg class="dag-svg" style="position:absolute;inset:0;pointer-events:none">
+              <path d="M260,82 C200,82 110,160 60,160" fill="none" stroke="var(--danger)" stroke-width="2.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+            </svg>
+            <div class="dag-node cycle-ring" style="position:absolute;left:18px;top:130px">
+              <div class="bar" style="background:var(--role-pm)"></div>
+              <div class="body">
+                <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Step 2 · Review</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-pm) 22%,transparent)">pm</span></div>
+                <div class="dn-instr">Already upstream of step 4.</div>
+                <div class="dn-out">→ review_notes</div>
+              </div>
+              <span class="port in reject" style="left:0;top:30px"></span>
+            </div>
+            <div class="dag-node" style="position:absolute;left:18px;top:24px">
+              <div class="bar" style="background:var(--role-developer)"></div>
+              <div class="body">
+                <div class="dn-top"><span class="dn-status active"></span><span class="dn-label">Step 4 · Implement</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span></div>
+                <div class="dn-instr">Live edge drop fails here.</div>
+                <div class="dn-out">→ feature_branch</div>
+              </div>
+              <span class="port out reject" style="left:240px;top:58px"></span>
+            </div>
+            <div class="tip err" style="left:96px;top:106px"><svg class="ico xs" style="vertical-align:-2px"><use href="#i-alert"/></svg> Cycle rejected · would loop back to step 2</div>
+          </div>
+        </div>
+      </div>
+      <div class="spec-cap foot">
+        <span class="d">Cycle detection runs every drag-move tick on the candidate graph. The rejection tooltip stays attached to the cursor while the cycle is in play; releasing the mouse just removes the dashed preview with no toast.</span>
+      </div>
+    </div>
+
+    <!-- 14 · Missing-role chip on a node (with hire affordance) -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">14</span><span class="t">Missing-role chip on a SopDagNode</span>
+        <span class="d">Surfaces when the step's <code>role</code> has zero filled employees in the active company. Sits next to the role badge, warning-tinted, click-through to Personnel hire flow. Tooltip explains the blocker; the node itself still runs (dispatcher falls back, see specimen 5 inspector warning).</span>
+      </div>
+      <div class="spec-frame" style="display:flex;justify-content:center;padding:42px 24px">
+        <div style="position:relative">
+          <div class="dag-node" style="position:relative;left:0;top:0;width:280px">
+            <div class="bar" style="background:var(--role-developer)"></div>
+            <div class="body">
+              <div class="dn-top">
+                <span class="dn-status pending"></span>
+                <span class="dn-label">Scaffold API</span>
+                <span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">backend-dev</span>
+                <span class="dn-chip warn-role" title="No employee in active company fills this role · Click to hire">missing role</span>
+              </div>
+              <div class="dn-instr">Stand up endpoints + schema against the requirements.</div>
+              <div class="dn-out">→ api_scaffold</div>
+            </div>
+          </div>
+          <div class="tip warn" style="position:absolute;left:20px;top:-44px;width:280px;white-space:normal">No employee in active company fills role <b>backend-dev</b> · Click to hire</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 15 · Edit-mode affordance enumeration -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">15</span><span class="t">Edit mode — full affordance enumeration</span>
+        <span class="d">When <code>editMode=true</code>, these affordances become available. Outside edit mode every one of them is hidden / no-op.</span>
+      </div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-pane-cap">toolbar additions + canvas gestures</div>
+          <div class="mini-pane-body">
+            <div class="aff-list">
+              <div class="aff-row">
+                <span class="aff-n">A1</span>
+                <span class="aff-t"><button class="tb-btn" style="background:var(--surface-2);border:1px solid var(--line)"><svg class="ico xs"><use href="#i-plus"/></svg>Add Step</button></span>
+                <span class="aff-d">Toolbar button · opens the Add-step popover anchored to the canvas centre.</span>
+              </div>
+              <div class="aff-row">
+                <span class="aff-n">A2</span>
+                <span class="aff-t"><button class="tb-btn" style="background:var(--surface-2);border:1px solid var(--line)"><svg class="ico xs"><use href="#i-grid"/></svg>Auto Layout</button></span>
+                <span class="aff-d">Toolbar button · re-runs the topological layout, animates nodes into place over ~300ms.</span>
+              </div>
+              <div class="aff-row">
+                <span class="aff-n">G1</span>
+                <span class="aff-t">Double-click <span style="color:var(--ink-4)">empty canvas</span></span>
+                <span class="aff-d">Spawns a "<svg class='ico xs' style='vertical-align:-2px;color:var(--accent)'><use href='#i-plus'/></svg> Step" floating prompt at the click point; type label → Enter to confirm.</span>
+              </div>
+              <div class="aff-row">
+                <span class="aff-n">G2</span>
+                <span class="aff-t">Double-click <span style="color:var(--ink-4)">node</span></span>
+                <span class="aff-d">Opens the Edit-step popover (specimen 16) prefilled with the node's fields.</span>
+              </div>
+              <div class="aff-row">
+                <span class="aff-n">G3</span>
+                <span class="aff-t">Right-click <span style="color:var(--ink-4)">node</span></span>
+                <span class="aff-d">Opens context menu: Edit · Duplicate · Delete (danger).</span>
+              </div>
+              <div class="aff-row">
+                <span class="aff-n">G4</span>
+                <span class="aff-t">Drag handle dots on node corners</span>
+                <span class="aff-d">Visible only on hover during edit mode; allow precise repositioning + show grid snap target.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mini-pane" style="margin-top:18px">
+          <div class="mini-pane-cap">drag-handle corner dots in situ</div>
+          <div class="mini-pane-body stage-bg" style="position:relative;height:170px;padding:0">
+            <div class="dag-node" style="position:absolute;left:36px;top:28px;width:260px">
+              <div class="bar" style="background:var(--role-developer)"></div>
+              <div class="body">
+                <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Implement feature</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span></div>
+                <div class="dn-instr">Hover during edit mode to reveal handles.</div>
+                <div class="dn-out">→ feature_branch</div>
+              </div>
+              <span class="drag-dot" style="left:-4px;top:-4px"></span>
+              <span class="drag-dot" style="right:-4px;top:-4px;left:auto"></span>
+              <span class="drag-dot" style="left:-4px;bottom:-4px"></span>
+              <span class="drag-dot" style="right:-4px;bottom:-4px;left:auto"></span>
+            </div>
+            <span class="annot" style="position:absolute;left:14px;bottom:10px;color:var(--ink-4)">Handles are accent · 2px white halo · only render when <code>editMode &amp;&amp; hover</code>.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 16 · SopAddStepPopover — full field set -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">16</span><span class="t">SopAddStepPopover / SopEditStepPopover — full field set</span>
+        <span class="d">Anchored at the click point. Label + role select (custom chev SVG, never native arrow) + instruction textarea + output key + dependencies multi-select. Submit reads "Add" or "Save" by mode.</span>
+      </div>
+      <div class="spec-frame" style="display:flex;justify-content:center;padding:36px 24px;background:radial-gradient(900px 500px at 50% 0,#1c2331,#0f1420)">
+        <div class="popover" style="width:340px">
+          <div class="fld">
+            <span class="fld-l">Label</span>
+            <div class="inp"><input style="border:0;background:transparent;outline:none;width:100%" value="Edge case review" /></div>
+          </div>
+          <div class="fld">
+            <span class="fld-l">Role</span>
+            <span class="sel" style="height:32px;width:100%;justify-content:flex-start">Developer</span>
+          </div>
+          <div class="fld">
+            <span class="fld-l">Instruction</span>
+            <div class="inp area" style="min-height:64px;line-height:1.5">Validate the empty / error / loading branches against the requirements doc. Capture every reproducible bug as a follow-up step.</div>
+          </div>
+          <div class="fld">
+            <span class="fld-l">Output key</span>
+            <div class="inp"><input style="border:0;background:transparent;outline:none;width:100%;font-family:var(--mono);font-size:var(--fs-meta);color:var(--accent)" value="edge_case_report" /></div>
+          </div>
+          <div class="fld">
+            <span class="fld-l">Dependencies</span>
+            <span class="sel" style="height:32px;width:100%;justify-content:flex-start">#3 Scaffold API · #4 Implement feature</span>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:1px solid var(--line-soft);margin-top:2px">
+            <button class="btn outline" style="height:28px">Cancel</button>
+            <button class="btn primary" style="height:28px">Save</button>
+          </div>
+        </div>
+      </div>
+      <div class="spec-cap foot">
+        <span class="d">Both selects use <code>appearance:none</code> + custom chev background (see <code>.step-card .sel::after</code>). Dependencies select is multi — comma-separated step references. Submit disabled until label is non-empty and output key matches <code>/^[a-z][a-z0-9_]*$/</code>.</span>
+      </div>
+    </div>
+
+    <!-- 17 · SopEditorDialog (create) + SopImportDialog (paste JSON + paste URL) -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">17</span><span class="t">SopEditorDialog (create) + SopImportDialog (tabs · paste JSON / paste URL)</span>
+        <span class="d">Two dialogs side by side. The import dialog gains a tabs row so paste-JSON and paste-URL share one surface; URL tab shows the fetched preview + a 10-second timeout indicator.</span>
+      </div>
+      <div class="spec-frame spec-grid-2" style="background:radial-gradient(900px 500px at 50% 0,#1c2331,#0f1420)">
+        <div class="dlg sm">
+          <div class="dlg-h">
+            <div class="dt"><svg class="ico sm" style="color:var(--accent)"><use href="#i-plus"/></svg>Create SOP</div>
+            <div class="dd">Quick start · steps can be added on the canvas later.</div>
+          </div>
+          <div class="dlg-b">
+            <div class="fld">
+              <span class="fld-l">Name</span>
+              <div class="inp"><input style="border:0;background:transparent;outline:none;width:100%" value="Customer Onboarding Flow" /></div>
+            </div>
+            <div class="fld">
+              <span class="fld-l">Description</span>
+              <div class="inp area" style="min-height:56px">Walks a new customer from contract signature to first-value moment.</div>
+            </div>
+            <div class="fld">
+              <span class="fld-l">Tags</span>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <span class="dep-chip on">onboarding</span>
+                <span class="dep-chip on">cs</span>
+                <span class="dep-chip">+ Add tag</span>
+              </div>
+            </div>
+          </div>
+          <div class="dlg-f">
+            <button class="btn outline">Cancel</button>
+            <button class="btn primary"><svg class="ico xs"><use href="#i-plus"/></svg>Create</button>
+          </div>
+        </div>
+        <div class="dlg sm">
+          <div class="dlg-h">
+            <div class="dt"><svg class="ico sm" style="color:var(--accent)"><use href="#i-download"/></svg>Import SOP</div>
+            <div class="dd">Paste a JSON definition or fetch one from a URL.</div>
+          </div>
+          <div class="dlg-b">
+            <div class="tabs">
+              <button>Paste JSON</button>
+              <button class="active">Paste URL</button>
+            </div>
+            <div class="inp"><svg class="ico xs"><use href="#i-link"/></svg><span style="color:var(--ink-1);font-family:var(--mono);font-size:var(--fs-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">https://raw.githubusercontent.com/acme/sops/main/onboarding.json</span></div>
+            <div class="fetched">
+              <svg class="ico xs"><use href="#i-check"/></svg>
+              <span class="fu">Fetched from https://raw.githubusercontent.com/acme/sops/main/onboarding.json</span>
+            </div>
+            <div class="preview-card">
+              <div class="pn">Customer Onboarding Flow</div>
+              <div class="pdsc">5 steps · pm + cs roles · synced from URL</div>
+              <div class="pst">5 STEPS</div>
+            </div>
+            <div>
+              <div class="annot" style="color:var(--ink-4);margin-bottom:5px">Fetch timeout</div>
+              <div class="timeout-bar"><i></i></div>
+              <div class="annot" style="color:var(--ink-4);margin-top:4px">6.8s of 10s remaining</div>
+            </div>
+          </div>
+          <div class="dlg-f">
+            <button class="btn outline">Cancel</button>
+            <button class="btn outline">Validate</button>
+            <button class="btn primary"><svg class="ico xs"><use href="#i-download"/></svg>Import</button>
+          </div>
+        </div>
+      </div>
+      <div class="spec-cap foot">
+        <span class="d">Paste JSON tab swaps the URL row for a monospace textarea. Validate runs the schema check inline; Import is disabled until both fetch + validate succeed. After 10s with no response, the timeout bar turns warning + the URL input shows a retry chip.</span>
+      </div>
+    </div>
+
+    <!-- 18 · SOP sync-from-sourceUrl indicator -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">18</span><span class="t">SOP sync indicator — 3 states</span>
+        <span class="d">Mounted near the toolbar Sync button (or in the SOP row meta). One source-of-truth chip, three states: <code>in-sync</code>, <code>out-of-sync</code> (action: Sync now), <code>sync-failed</code> (actions: Retry · View error).</span>
+      </div>
+      <div class="spec-frame" style="display:flex;flex-direction:column;gap:14px">
+        <div class="mini-pane">
+          <div class="mini-pane-cap">in-sync</div>
+          <div class="mini-pane-body" style="display:flex;align-items:center;gap:14px">
+            <span class="sync-chip ok">Synced from URL · 2 min ago</span>
+            <span class="annot" style="color:var(--ink-4)">No action. Tooltip exposes the source URL on hover.</span>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-pane-cap">out-of-sync</div>
+          <div class="mini-pane-body" style="display:flex;align-items:center;gap:14px">
+            <span class="sync-chip stale">Source updated<span class="sc-act">Sync now</span></span>
+            <span class="annot" style="color:var(--ink-4)">Inline action triggers the fetch; chip flips to in-sync on success.</span>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-pane-cap">sync-failed</div>
+          <div class="mini-pane-body" style="display:flex;align-items:center;gap:14px">
+            <span class="sync-chip fail">Sync failed<span class="sc-act">Retry</span><span class="sc-act">View error</span></span>
+            <span class="annot" style="color:var(--ink-4)">View error opens the inspector Last-error box (specimen 5).</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 19 · SOP template validation errors -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">19</span><span class="t">Template validation — inline errors on the canvas</span>
+        <span class="d">Run is blocked while any validation error is unresolved. Errors surface inline (not in a modal): a top-of-canvas error banner + per-node tagging.</span>
+      </div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-pane-cap">canvas with 4 concurrent validation failures</div>
+          <div class="mini-pane-body" style="padding:0">
+            <div class="dag-canvas stage-bg" style="height:360px">
+              <div class="canvas-banner">
+                <svg class="ico xs"><use href="#i-alert"/></svg>
+                <span><b>4 errors</b> · duplicate step_ids · empty label · unknown dep · dependency cycle</span>
+                <span class="cb-c">step_ids · 2</span>
+                <span class="cb-c">empty · 1</span>
+                <span class="cb-c">unknown · 1</span>
+                <span class="cb-c">cycle · 3</span>
+              </div>
+              <div class="dag-stage" style="transform:translate(20px,72px) scale(0.78);transform-origin:0 0">
+                <svg class="dag-svg">
+                  <!-- cycle highlight chain: a -> b -> c -> a -->
+                  <path d="M270,90 C310,90 330,90 380,90" fill="none" stroke="var(--danger)" stroke-width="2.5" stroke-linecap="round"/>
+                  <path d="M620,90 C660,90 680,230 720,230" fill="none" stroke="var(--danger)" stroke-width="2.5" stroke-linecap="round"/>
+                  <path d="M720,230 C600,230 380,230 230,180 C180,160 200,118 230,108" fill="none" stroke="var(--danger)" stroke-width="2.5" stroke-dasharray="5 4" stroke-linecap="round"/>
+                </svg>
+
+                <!-- duplicate step_ids: two nodes share step_id "s2" -->
+                <div class="dag-node error-ring" style="left:30px;top:32px">
+                  <div class="bar" style="background:var(--role-pm)"></div>
+                  <div class="body">
+                    <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Review (a)</span><span class="dn-chip failed">dup id · s2</span></div>
+                    <div class="dn-instr">step_id collision with node below.</div>
+                    <div class="dn-out">→ review_a</div>
+                  </div>
+                </div>
+                <div class="dag-node error-ring" style="left:380px;top:32px">
+                  <div class="bar" style="background:var(--role-pm)"></div>
+                  <div class="body">
+                    <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Review (b)</span><span class="dn-chip failed">dup id · s2</span></div>
+                    <div class="dn-instr">Same step_id as the node on the left.</div>
+                    <div class="dn-out">→ review_b</div>
+                  </div>
+                </div>
+
+                <!-- empty label node -->
+                <div class="dag-node error-ring" style="left:730px;top:32px">
+                  <div class="bar" style="background:var(--role-default)"></div>
+                  <div class="body">
+                    <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label" style="color:var(--ink-4);font-style:italic">(empty label)</span><span class="dn-chip failed">label</span></div>
+                    <div class="dn-instr" style="color:var(--ink-4);font-style:italic">Label is required.</div>
+                    <div class="dn-out">→ s3</div>
+                  </div>
+                </div>
+
+                <!-- unknown dep node -->
+                <div class="dag-node error-ring" style="left:30px;top:172px">
+                  <div class="bar" style="background:var(--role-developer)"></div>
+                  <div class="body">
+                    <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Implement</span><span class="dn-chip failed">unknown dep</span></div>
+                    <div class="dn-instr">Depends on step_id <code>s7</code> which does not exist.</div>
+                    <div class="dn-out">→ feature_branch</div>
+                  </div>
+                  <span class="dep-dot" style="right:-4px;top:42px"></span>
+                  <div class="tip err" style="left:240px;top:30px">Unknown dep · s7 not in this SOP</div>
+                </div>
+              </div>
+              <span class="canvas-note">Run button disabled · clicking the banner pill scrolls + selects the offending node.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="spec-cap foot">
+        <span class="d">Cycle highlight strokes every edge in the cycle in <code>--danger</code>; the closing back-edge renders dashed to distinguish it. Each error chip on a node also scrolls the inspector to a matching Last-error block (specimen 5).</span>
+      </div>
+    </div>
+
+    <!-- 20 · Save status indicator — 4 states -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">20</span><span class="t">Save status pill — four states</span>
+        <span class="d">Floats at the top-right of the canvas (<code>top:56px;right:16px</code>). Renders nothing while idle; spinner + label during write; success auto-fades after 1.5s; failure persists with a Retry action.</span>
+      </div>
+      <div class="spec-frame" style="display:flex;flex-direction:column;gap:14px">
+        <div class="mini-pane">
+          <div class="mini-pane-cap">idle · no pill mounted</div>
+          <div class="mini-pane-body" style="position:relative;height:56px;background:var(--bg)">
+            <span class="annot" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ink-4)">Nothing rendered. The pill mounts only on a mutation.</span>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-pane-cap">saving</div>
+          <div class="mini-pane-body" style="position:relative;height:56px;background:var(--bg)">
+            <span class="save-pill saving" style="position:absolute;top:16px;right:16px">Saving…</span>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-pane-cap">saved · auto-fades 1.5s</div>
+          <div class="mini-pane-body" style="position:relative;height:56px;background:var(--bg)">
+            <span class="save-pill saved" style="position:absolute;top:16px;right:16px">All changes saved</span>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-pane-cap">failed · persistent</div>
+          <div class="mini-pane-body" style="position:relative;height:56px;background:var(--bg)">
+            <span class="save-pill error" style="position:absolute;top:16px;right:16px">Save failed · Retry</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 21 · Save successful task path as SOP -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">21</span><span class="t">Save a successful task thread as a SOP</span>
+        <span class="d">Entry point from the Office chat thread surface. When a thread completes, the bottom of the thread reveals "Save as SOP template"; clicking opens the SOP create dialog pre-filled with the thread's plan.</span>
+      </div>
+      <div class="spec-frame spec-grid-2" style="background:radial-gradient(900px 500px at 50% 0,#1c2331,#0f1420)">
+        <div class="mini-pane">
+          <div class="mini-pane-cap">completed thread · entry CTA</div>
+          <div class="mini-pane-body" style="background:var(--bg)">
+            <div class="thread-block">
+              <div class="tb-h"><span class="av">A</span>Alex Chen · pm</div>
+              <div class="tb-msg">Plan the v0.9 release: draft requirements → design mockups → scaffold API → implement → QA sign-off.</div>
+              <div class="tb-h"><span class="av" style="background:var(--ok-surface);color:#15824f">B</span>Boss · summary</div>
+              <div class="tb-msg">5 steps executed across 3 roles; all deliverables landed. Ready to template?</div>
+              <div class="tb-done"><svg class="ico xs"><use href="#i-check"/></svg>Task completed · 5 of 5 steps</div>
+              <div class="tb-foot">
+                <span class="lbl-h">Reuse this run</span>
+                <span class="tb-spacer" style="flex:1"></span>
+                <button class="btn primary"><svg class="ico xs"><use href="#i-clipboard"/></svg>Save as SOP template</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="dlg sm" style="align-self:start">
+          <div class="dlg-h">
+            <div class="dt"><svg class="ico sm" style="color:var(--accent)"><use href="#i-plus"/></svg>Save thread as SOP</div>
+            <div class="dd">Prefilled from "Plan the v0.9 release" · review before creating.</div>
+          </div>
+          <div class="dlg-b">
+            <div class="fld">
+              <span class="fld-l">Name</span>
+              <div class="inp"><input style="border:0;background:transparent;outline:none;width:100%" value="v0.9 release pipeline" /></div>
+            </div>
+            <div class="fld">
+              <span class="fld-l">Description</span>
+              <div class="inp area" style="min-height:48px">Derived from the v0.9 release thread on 2026-05-21.</div>
+            </div>
+            <div class="fld">
+              <span class="fld-l">Steps (5 · from thread)</span>
+              <div class="prefill-list">
+                <div class="prefill-row"><span class="ix">#1</span><span class="nm">Draft requirements</span><span class="ro">pm</span></div>
+                <div class="prefill-row"><span class="ix">#2</span><span class="nm">Design mockups</span><span class="ro">designer</span></div>
+                <div class="prefill-row"><span class="ix">#3</span><span class="nm">Scaffold API</span><span class="ro">developer</span></div>
+                <div class="prefill-row"><span class="ix">#4</span><span class="nm">Implement feature</span><span class="ro">developer</span></div>
+                <div class="prefill-row"><span class="ix">#5</span><span class="nm">QA sign-off</span><span class="ro">qa</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="dlg-f">
+            <button class="btn outline">Cancel</button>
+            <button class="btn primary">Create SOP</button>
+          </div>
+        </div>
+      </div>
+      <div class="spec-cap foot">
+        <span class="d">Step rows preserve the original assignee roles (not the specific employees); dependencies are derived from the thread's task-graph edges. Users can still edit steps individually before confirming.</span>
+      </div>
+    </div>
+
+    <!-- 22 · NL command bar — live LLM mutation with diff preview -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">22</span><span class="t">SopNlCommandBar — live LLM mutation</span>
+        <span class="d">The bar feeds NL commands to the LLM, which proposes a diff against the current SOP. While the LLM thinks, the input shows an "Analyzing intent…" pill; on response, the canvas highlights inserted / anchored nodes before the user accepts.</span>
+      </div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-pane-cap">canvas · before / after diff preview</div>
+          <div class="mini-pane-body" style="padding:0">
+            <div class="dag-canvas stage-bg" style="height:300px">
+              <div class="dag-stage" style="transform:translate(28px,50px) scale(0.84);transform-origin:0 0">
+                <svg class="dag-svg">
+                  <path d="M250,80 C300,80 312,80 360,80" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round"/>
+                  <path d="M600,80 C660,80 680,80 740,80" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="6 4" stroke-linecap="round"/>
+                  <path d="M980,80 C1020,80 1040,80 1080,80" fill="none" stroke="var(--line-strong)" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+
+                <div class="dag-node" style="left:10px;top:21px">
+                  <div class="bar" style="background:var(--role-pm)"></div>
+                  <div class="body">
+                    <div class="dn-top"><span class="dn-status completed"></span><span class="dn-label">Draft requirements</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-pm) 22%,transparent)">pm</span></div>
+                    <div class="dn-instr">Existing step · unchanged.</div>
+                    <div class="dn-out">→ requirements_doc</div>
+                  </div>
+                </div>
+
+                <div class="dag-node diff-anchor" style="left:360px;top:21px">
+                  <span class="diff-tag anchor">Anchor</span>
+                  <div class="bar" style="background:var(--role-developer)"></div>
+                  <div class="body">
+                    <div class="dn-top"><span class="dn-status completed"></span><span class="dn-label">Edge case review</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span></div>
+                    <div class="dn-instr">LLM identified this as the anchor for the new step.</div>
+                    <div class="dn-out">→ edge_case_report</div>
+                  </div>
+                </div>
+
+                <div class="dag-node diff-add" style="left:740px;top:21px">
+                  <span class="diff-tag add">+ Added</span>
+                  <div class="bar" style="background:var(--role-qa)"></div>
+                  <div class="body">
+                    <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Verification pass</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-qa) 22%,transparent)">qa</span></div>
+                    <div class="dn-instr">Verify each edge case against acceptance criteria.</div>
+                    <div class="dn-out">→ verification_log</div>
+                  </div>
+                </div>
+
+                <div class="dag-node" style="left:1080px;top:21px">
+                  <div class="bar" style="background:var(--role-developer)"></div>
+                  <div class="body">
+                    <div class="dn-top"><span class="dn-status pending"></span><span class="dn-label">Implement feature</span><span class="dn-chip deps">deps 2</span><span class="dn-chip role" style="background:color-mix(in srgb,var(--role-developer) 22%,transparent)">developer</span></div>
+                    <div class="dn-instr">Downstream · re-pointed to new step.</div>
+                    <div class="dn-out">→ feature_branch</div>
+                  </div>
+                </div>
+              </div>
+              <span class="canvas-note">Diff is non-destructive · accept / discard via the command bar below.</span>
+            </div>
+          </div>
+        </div>
+        <div class="sop-cmd" style="margin-top:14px;border-radius:var(--r-md);border:1px solid var(--line)">
+          <div class="nl-input">
+            <svg class="ico sm" style="color:var(--accent)"><use href="#i-zap"/></svg>
+            <span style="flex:1">add a verification step after edge case review</span>
+            <span class="llm-pill">Analyzing intent…</span>
+          </div>
+          <button class="send" aria-label="Send command"><svg class="ico sm"><use href="#i-send"/></svg></button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:0 4px">
+          <span class="annot" style="color:var(--ink-4)">After response · review actions</span>
+          <span class="tb-spacer" style="flex:1"></span>
+          <button class="btn outline">Discard diff</button>
+          <button class="btn primary"><svg class="ico xs"><use href="#i-check"/></svg>Apply changes</button>
+        </div>
+      </div>
+      <div class="spec-cap foot">
+        <span class="d">LLM-status pill is violet (analysis lane), not accent — accent stays reserved for the canvas / save / sync vocabulary. Edges between anchor and added node render dashed accent until the user accepts; on accept they solidify per the standard status palette.</span>
+      </div>
+    </div>
+
+    <!-- 23 · SOP empty state with 3 entry CTAs -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">23</span><span class="t">SopEmptyState — three explicit entry CTAs</span>
+        <span class="d">Replaces specimen 3's two-CTA shape when there are zero SOPs <i>and</i> no inflight import. Surfaces all three onboarding paths at the same level: pick a template, build from scratch, or import a definition.</span>
+      </div>
+      <div class="spec-frame stage-bg">
+        <div class="empty-hero">
+          <div class="eh-ic"><svg class="ico lg"><use href="#i-clipboard"/></svg></div>
+          <div class="eh-t">Start with a SOP</div>
+          <div class="eh-d">Standard Operating Procedures capture reusable team workflows. Pick a template to start fast, build your own from a blank canvas, or import an existing definition.</div>
+          <div class="eh-acts three">
+            <button class="btn primary"><svg class="ico xs"><use href="#i-grid"/></svg>Browse templates</button>
+            <button class="btn outline"><svg class="ico xs"><use href="#i-plus"/></svg>Create from scratch</button>
+            <button class="btn outline"><svg class="ico xs"><use href="#i-download"/></svg>Import</button>
+          </div>
+          <div class="eh-foot">Templates open the Market workspace filtered to SOP listings.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 24 · Deleted-SOP recovery toast -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">24</span><span class="t">Deleted-SOP recovery toast (Undo)</span>
+        <span class="d">Surfaces immediately after a Delete action; persists 5 seconds; Undo restores the SOP and re-selects it.</span>
+      </div>
+      <div class="spec-frame" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+        <div class="toast info" style="min-width:340px"><svg class="ico sm" style="color:var(--ink-3)"><use href="#i-trash"/></svg>SOP "Onboarding Flow" deleted<span class="tb-spacer" style="flex:1"></span><span class="tact" style="color:var(--accent)">Undo</span></div>
+        <span class="annot" style="color:var(--ink-4)">After the 5s window, Undo becomes unavailable and the toast unmounts. The library list animates the row collapse on confirm-Delete; soft-restoring on Undo replays the animation in reverse.</span>
       </div>
     </div>
   </div>

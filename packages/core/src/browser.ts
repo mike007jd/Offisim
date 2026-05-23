@@ -103,6 +103,8 @@ export type {
   LibraryDocumentRow,
   NewLibraryDocument,
   LibraryDocumentRepository,
+  CompanyTemplateAssetRow,
+  NewCompanyTemplateAsset,
   OfficeLayoutRow,
   NewOfficeLayout,
   OfficeLayoutRepository,
@@ -200,6 +202,11 @@ export type { WorkstationToolResolverDeps } from './services/workstation-tool-re
 export { InMemoryEventBus } from './events/event-bus.js';
 export {
   employeeStateChanged,
+  companyStartupRequested,
+  companyStartupStarted,
+  companyStartupCompleted,
+  companyStartupSkipped,
+  companyStartupFailed,
   taskStateChanged,
   taskAssignmentChanged,
   taskAssignmentRerouted,

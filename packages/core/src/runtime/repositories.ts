@@ -802,6 +802,32 @@ export interface SopTemplateRepository {
   delete(sopTemplateId: string): Promise<void>;
 }
 
+export interface CompanyTemplateAssetRow {
+  company_template_asset_id: string;
+  company_id: string;
+  template_id: string;
+  name: string;
+  description: string;
+  template_json: string;
+  source_package_id: string;
+  source_asset_id: string;
+  version: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewCompanyTemplateAsset = Omit<
+  CompanyTemplateAssetRow,
+  'created_at' | 'updated_at'
+>;
+
+export interface CompanyTemplateAssetRepository {
+  create(template: NewCompanyTemplateAsset): Promise<CompanyTemplateAssetRow>;
+  findById(companyTemplateAssetId: string): Promise<CompanyTemplateAssetRow | null>;
+  findByCompany(companyId: string): Promise<CompanyTemplateAssetRow[]>;
+  delete(companyTemplateAssetId: string): Promise<void>;
+}
+
 // ---------------------------------------------------------------------------
 // Rack / Slot (MCP permissions)
 // ---------------------------------------------------------------------------
@@ -1201,6 +1227,7 @@ export interface RuntimeRepositories {
   employeeVersions: EmployeeVersionRepository;
   costRates: ModelCostRateRepository;
   sopTemplates: SopTemplateRepository;
+  companyTemplates: CompanyTemplateAssetRepository;
   racks: RackRepository;
   slots: SlotRepository;
   workstationRacks: WorkstationRackRepository;

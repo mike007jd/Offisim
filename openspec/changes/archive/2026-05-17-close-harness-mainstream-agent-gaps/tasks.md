@@ -20,7 +20,7 @@
 - [x] 2.1 Add a command-classification gate in front of `shellExec` in `packages/core/src/tools/builtin/bash-tool.ts` (TS side, before the Tauri boundary).
 - [x] 2.2 Parse the command into segments (`;` `&&` `||` pipes) and classify the first token per segment (borrow `bash_validation.rs:103-274` posture).
 - [x] 2.3 Catastrophic denylist → fail closed; destructive list → route through `interactionService` ask-flow (non-interactive fails closed).
-- [ ] 2.4 Add a per-run read-only mode that blocks write commands, `>`/`>>`, `sed -i`, mutating `git` subcommands. DEFERRED 2026-05-17 (audit): the classifier MECHANISM exists and is correct (`classifyShellCommand(cmd,{readOnly:true})`), but there is no product activation path — no plan/read-only run-mode policy field and no caller passes `readOnly`. Building a new plan-mode policy was judged over-engineering with no current product consumer; left honestly unchecked rather than fake-green. Follow-up: introduce a run-scoped read-only/plan policy and pass it from the auditing executor.
+- [x] 2.4 Add a per-run read-only mode that blocks write commands, `>`/`>>`, `sed -i`, mutating `git` subcommands. DEFERRED 2026-05-17 (audit): the classifier MECHANISM existed and was correct (`classifyShellCommand(cmd,{readOnly:true})`), but there was no product activation path — no plan/read-only run-mode policy field and no caller passed `readOnly`. REMEDIATED 2026-05-23 (P1 continuation audit): `RunScope.toolPolicy.readOnly` now activates per-run read-only mode; `/readonly` and `/inspect` create a read-only run from chat; `bash`, `write_file`, and `edit_file` fail closed from run scope as well as global config; `mainstream-agent-gap-boundary` now proves shell redirection and file mutation tools do not execute under a read-only run.
 - [x] 2.5 Confirm the Rust path-containment layer in `apps/desktop/src-tauri/src/builtin_tools.rs` is unchanged and still in force.
 - [x] 2.6 Deterministic scenarios: catastrophic denied, destructive-approved, destructive-denied, read-only-blocked. REMEDIATED 2026-05-17 (audit): original gate avoided the broken paths (no fork bomb / no `sudo`). Classifier fixed — robust fork-bomb regex (classic + named-fn), `sudo`/`doas` unwrap (`stripPrivilegeEscalation`), `wipefs` + `chmod -R 000` catastrophic, `shred` destructive. `assertShellClassification` now asserts `:(){ :|:& };:`, `bomb(){...}`, `sudo rm -rf /`, `sudo -u root rm -rf /`, `doas rm -rf /`, `wipefs`, `chmod -R 000`, `shred` — all green on fresh dist.
 
@@ -35,7 +35,7 @@
 
 ## 4. Soft Loop Cap + stop_reason + Abort Reconciliation (G04 — HIGH)
 
-- [ ] 4.1 Raise/parametrize `MAX_TOOL_ROUNDS` (`employee-node-constants.ts:12`) by role/model. PARTIAL/DEFERRED 2026-05-17 (audit): the constant was raised and a single global `runtimePolicy.toolLoop.maxRounds` override exists, but there is NO per-role or per-model resolution. "by role/model" is not implemented; left honestly unchecked. Follow-up: add role/model lookup to the cap resolver if product needs differentiated budgets.
+- [x] 4.1 Raise/parametrize `MAX_TOOL_ROUNDS` (`employee-node-constants.ts:12`) by role/model. PARTIAL/DEFERRED 2026-05-17 (audit): the constant was raised and a single global `runtimePolicy.toolLoop.maxRounds` override existed, but there was NO per-role or per-model resolution. REMEDIATED 2026-05-23 (P1 continuation audit): `RuntimeToolLoopPolicy` now supports `roleMaxRounds` and `modelMaxRounds`; `employeeNode` resolves caps by model > role > global > default via `resolveToolLoopMaxRounds`; `mainstream-agent-gap-boundary` includes `tool-loop-role-model-policy` coverage for global, role, model, and clamp behavior.
 - [x] 4.2 On exhaustion, synthesize a typed partial completion instead of `finalizeEmployeeFailure` (`employee-node.ts:235-246`).
 - [x] 4.3 Thread `stopReason` through `LlmResponse`/`TeeResult` (`employee-turn-runner.ts:209-214`); detect output truncation. PASS 2026-05-17: `stopReason` is plumbed and `loop-truncation-abort-checkpoint` proves `max_tokens` is surfaced as `[OUTPUT_TRUNCATED]`.
 - [x] 4.4 On mid-round abort, append synthetic error tool-results for in-flight calls before finalizing (`employee-tool-round.ts`). REMEDIATED 2026-05-17 (audit): original change only deleted a `throwIfAborted` and left the real production cancel path (`recordCancellation`) unreconciled → persisted snapshot kept unmatched `tool_use` (breaks checkpoint resume); the cited gate self-proved with `signal:undefined` + always-throw executor. Fixed: reconciliation centralized in `RunConversationState.recordCancellation` (SSOT) — synthesizes failed tool-results for every unmatched pending call across ALL cancel paths. New assertion drives `recordPendingToolCalls` + `recordToolResults` (one done) + `recordCancellation` and proves no unmatched `tool_use` remains.
@@ -53,10 +53,10 @@
 
 - [x] 6.1 Classify SDK connection/timeout errors as recoverable in `errors.ts` (status `undefined` today → never retried).
 - [x] 6.2 Honor `Retry-After` in `llm/retry.ts:computeDelay` (overrides backoff cap).
-- [x] 6.3 Detect mid-stream overloaded body in `anthropic-adapter.ts` stream-path `mapError`. REMEDIATED 2026-05-17 (audit): original detection was dead code on the real SDK path (overloaded regex ran after the `instanceof APIError` branch; SDK wraps overloaded as `APIConnectionError` with the body in `.cause`). Fixed: `mapError` now scans the full surface (`extractAnthropicErrorText`: message + cause chain + body) and forces status 529 so `isCapacityError`/capacity-fallback fires; also added `x-should-retry` directive support (`errors.ts` `shouldRetry` option, server directive overrides) and fixed the `timed out` regex gap. NOTE: in-place mid-stream retry-boundary restructure (stream consumed via `yield*` outside `withRetry`) remains DEFERRED — classification is now correct so turn-level recovery/model-fallback can act; full mid-stream replay is a separate structural change.
+- [x] 6.3 Detect mid-stream overloaded body in `anthropic-adapter.ts` stream-path `mapError`. REMEDIATED 2026-05-17 (audit): original detection was dead code on the real SDK path (overloaded regex ran after the `instanceof APIError` branch; SDK wraps overloaded as `APIConnectionError` with the body in `.cause`). Fixed: `mapError` now scans the full surface (`extractAnthropicErrorText`: message + cause chain + body) and forces status 529 so `isCapacityError`/capacity-fallback fires; also added `x-should-retry` directive support (`errors.ts` `shouldRetry` option, server directive overrides) and fixed the `timed out` regex gap. CLOSED 2026-05-23 P1 continuation: `recordedLlmStream` now buffers per-attempt chunks when capacity fallback is available, discards failed mid-stream partial output, and emits only the successful attempt's chunks, so the fallback boundary no longer leaks stale partial UI/event content.
 - [x] 6.4 Add a stream inactivity watchdog (reset on each event; abort after the idle window).
 - [x] 6.5 Expose a deterministic registry fallback model + downgrade after N consecutive capacity errors (`model-registry.ts:91-114`).
-- [x] 6.6 Deterministic scenarios: connection-error retry, Retry-After honored, stalled-stream abort, unknown-model fallback. PASS 2026-05-17: `mainstream-agent-gap-boundary` covers Retry-After, stopReason, unknown-model fallback, and repeated capacity downgrade; idle watchdog remains covered by adapter code path, not a timed soak.
+- [x] 6.6 Deterministic scenarios: connection-error retry, Retry-After honored, stalled-stream abort, unknown-model fallback. PASS 2026-05-17: `mainstream-agent-gap-boundary` covers Retry-After, stopReason, unknown-model fallback, and repeated capacity downgrade; idle watchdog remains covered by adapter code path, not a timed soak. PASS 2026-05-23 P1 continuation: same scenario now simulates a mid-stream capacity error after stale partial output and asserts only fallback stream chunks are emitted/recorded.
 
 ## 7. Veto Hook + Argument-Aware Permission (G08 — HIGH)
 
@@ -83,7 +83,7 @@
 - [x] 10.1 Spec / tasks / docs three-check (per root `CLAUDE.md` OpenSpec Archive Gate). PASS 2026-05-17: `openspec validate close-harness-mainstream-agent-gaps --strict`.
 - [x] 10.2 Sync `openspec/protocols-ledger.md` for any protocol/SDK rows this change touches (MCP, Anthropic transport).
 - [x] 10.3 Each completed `G`-row has its required gate evidence (deterministic + live where the row demands live). CORRECTED 2026-05-17 (audit): the prior "release `.app` launch/load passes" claim was FABRICATED — no release `.app` evidence exists and a release `.app` gate was never in this change's scope (design.md only required deterministic harness gates for these G-rows). Honest state: `harness:contract` + `harness:replay` both `ok:true` on fresh dist after remediation; Anthropic live cache-token smoke is product-descoped per explicit user direction ("Anthropic 不需要 smoke test"); no fake live evidence recorded.
-- [x] 10.4 No row marked complete with a missing gate or unresolved source anchor. CORRECTED 2026-05-17 (audit): tasks 2.4 (per-run read-only activation) and 4.1 (role/model cap) are now honestly UNCHECKED with deferral reasons rather than fake-green; the G07 mid-stream retry-boundary restructure is noted DEFERRED on 6.3. All other rows have real deterministic evidence on fresh dist.
+- [x] 10.4 No row marked complete with a missing gate or unresolved source anchor. CORRECTED 2026-05-17 (audit): tasks 2.4 (per-run read-only activation) and 4.1 (role/model cap) were honestly UNCHECKED with deferral reasons rather than fake-green; the G07 mid-stream retry-boundary restructure was noted deferred on 6.3. CLOSED 2026-05-23 P1 continuation: G02 read-only activation, G04 role/model cap, and G07 mid-stream fallback boundary now have deterministic evidence.
 
 ## Post-Archive Audit Remediation (2026-05-17)
 
@@ -103,13 +103,18 @@ or shallow items elsewhere. Remediation (no Codex; done in-session):
 - G04 — abort reconciliation centralized in `recordCancellation` SSOT; covers all
   cancel paths; non-self-proving assertion added.
 - G07 — `mapError` full-surface overloaded detection (forces 529 → capacity fallback
-  works); `x-should-retry` directive honored; `timed out` regex fixed.
+  works); `x-should-retry` directive honored; `timed out` regex fixed; mid-stream
+  failed-attempt partial output is discarded before fallback chunks are emitted.
 
-Honestly NOT done (left unchecked / deferred, not fake-green): per-run read-only
-activation (2.4), role/model cap (4.1), G07 in-place mid-stream retry-boundary
-restructure (6.3 note). No release `.app` gate (never in scope; prior claim was
+Honestly NOT done (left unchecked / deferred, not fake-green): none in G01-G10 after
+the 2026-05-23 P1 continuation audit. G02 read-only activation (2.4), G04
+role/model cap (4.1), and G07 mid-stream retry-boundary restructure are closed.
+No release `.app` gate (never in this archived change scope; prior claim was
 fabricated and corrected). Anthropic live smoke product-descoped per user.
 
 Verification: core/ui-office/apps-web typecheck exit 0 on fresh dist;
-`pnpm harness:contract` + `pnpm harness:replay` both `ok:true` (12 gap cases) on
-freshly rebuilt core dist, including the strengthened assertions.
+`pnpm harness:contract` + `pnpm harness:replay` both `ok:true` on freshly rebuilt
+core dist, including the strengthened assertions. 2026-05-23 P1 continuation:
+`pnpm --filter @offisim/core typecheck`, explicit core dist rebuild,
+`pnpm harness:contract` (100 scenarios, 13 mainstream gap cases),
+`pnpm harness:replay`, and `pnpm validate` passed.

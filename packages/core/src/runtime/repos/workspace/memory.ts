@@ -4,6 +4,9 @@ import { createMemoryPrefabRepository } from '../../memory-prefab-repository.js'
 export { MemoryPrefabInstanceRepository } from '../../memory-prefab-repository.js';
 import type { MemoryPrefabInstanceRepository } from '../../memory-prefab-repository.js';
 import type {
+  CompanyTemplateAssetRepository,
+  CompanyTemplateAssetRow,
+  NewCompanyTemplateAsset,
   NewOfficeLayout,
   NewSopTemplate,
   OfficeLayoutRepository,
@@ -128,6 +131,43 @@ export class MemoryOfficeLayoutRepository implements OfficeLayoutRepository {
   }
 }
 
+export class MemoryCompanyTemplateAssetRepository implements CompanyTemplateAssetRepository {
+  private readonly store = new Map<string, CompanyTemplateAssetRow>();
+
+  constructor(initialRows?: Iterable<CompanyTemplateAssetRow>) {
+    if (!initialRows) return;
+    for (const row of initialRows) {
+      this.store.set(row.company_template_asset_id, { ...row });
+    }
+  }
+
+  async create(template: NewCompanyTemplateAsset): Promise<CompanyTemplateAssetRow> {
+    const row: CompanyTemplateAssetRow = {
+      ...template,
+      created_at: now(),
+      updated_at: now(),
+    };
+    this.store.set(row.company_template_asset_id, row);
+    return row;
+  }
+
+  async findById(companyTemplateAssetId: string): Promise<CompanyTemplateAssetRow | null> {
+    return this.store.get(companyTemplateAssetId) ?? null;
+  }
+
+  async findByCompany(companyId: string): Promise<CompanyTemplateAssetRow[]> {
+    return [...this.store.values()].filter((row) => row.company_id === companyId);
+  }
+
+  async delete(companyTemplateAssetId: string): Promise<void> {
+    this.store.delete(companyTemplateAssetId);
+  }
+
+  snapshot(): CompanyTemplateAssetRow[] {
+    return cloneRows(this.store.values());
+  }
+}
+
 export class MemoryZoneRepository implements ZoneRepository {
   private readonly store = new Map<string, ZoneRow>();
 
@@ -189,6 +229,7 @@ export class MemoryZoneRepository implements ZoneRepository {
 
 export interface WorkspaceMemoryRepos {
   sopTemplates: MemorySopTemplateRepository;
+  companyTemplates: MemoryCompanyTemplateAssetRepository;
   officeLayouts: MemoryOfficeLayoutRepository;
   prefabInstances: MemoryPrefabInstanceRepository;
   zones: MemoryZoneRepository;
@@ -198,8 +239,9 @@ export function createWorkspaceMemoryRepos(
   snapshot?: Partial<MemoryRepositoriesSnapshot>,
 ): WorkspaceMemoryRepos {
   const sopTemplates = new MemorySopTemplateRepository(snapshot?.sopTemplates);
+  const companyTemplates = new MemoryCompanyTemplateAssetRepository(snapshot?.companyTemplates);
   const officeLayouts = new MemoryOfficeLayoutRepository(snapshot?.officeLayouts);
   const prefabInstances = createMemoryPrefabRepository(snapshot?.prefabInstances);
   const zones = new MemoryZoneRepository(snapshot?.zones);
-  return { sopTemplates, officeLayouts, prefabInstances, zones };
+  return { sopTemplates, companyTemplates, officeLayouts, prefabInstances, zones };
 }

@@ -14,7 +14,8 @@ export const csvExporter: Exporter = {
       contributors: contributorText,
     });
 
-    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const safeRows = rows.map((row) => row.map(neutralizeCsvFormulaCell));
+    const worksheet = XLSX.utils.aoa_to_sheet(safeRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Document');
 
@@ -67,4 +68,11 @@ function extractStructuredData(
   flushSection();
 
   return rows;
+}
+
+function neutralizeCsvFormulaCell(value: string): string {
+  if (/^[\s]*[=+\-@]/u.test(value)) {
+    return `'${value}`;
+  }
+  return value;
 }

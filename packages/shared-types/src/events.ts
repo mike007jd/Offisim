@@ -8,6 +8,7 @@
 export * from './events/boss-route.js';
 export * from './events/chat-attachment-events.js';
 export * from './events/chat-thread.js';
+export * from './events/company-startup.js';
 export * from './events/conversation.js';
 export * from './events/core.js';
 export * from './events/cost.js';

@@ -244,13 +244,14 @@
 
     .mkt-body { flex: 1; min-height: 0; overflow-y: auto; }
 
-    /* ══════════ MarketListingCard — DENSE INVENTORY CHIP (≤ 180px) ══════════
-       Grid: auto-fill minmax(244px, 1fr) · gap-6 (14px) · padding sp-7 (16px).
-       Card: r-md (9px) · line-soft border · elev-1 · 60px icon-cover band.
-       NO image hero by default. Optional 96×64 thumb for curated/featured only. */
-    .mkt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(244px, 1fr)); gap: 14px; padding: var(--sp-7); }
+    /* ══════════ MarketListingCard — GAME INVENTORY TILE (200px) ══════════
+       Grid: auto-fill minmax(252px, 1fr) · gap-6 (14px) · padding sp-7 (16px).
+       Card: r-md (9px) · line-soft border · elev-1 + inset top highlight.
+       Cover band = 88px tall, per-kind mini-visualization (see .kv-*).
+       NO photo image hero. Featured cards span 2 cols. */
+    .mkt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(252px, 1fr)); gap: 14px; padding: var(--sp-7); }
     .mkt-card {
-      height: 174px; display: flex; flex-direction: column; overflow: hidden;
+      height: 200px; display: flex; flex-direction: column; overflow: hidden;
       border: 1px solid var(--line-soft); border-radius: var(--r-md);
       background: var(--surface-1); box-shadow: var(--elev-1);
       text-align: left; position: relative;
@@ -258,96 +259,223 @@
     }
     .mkt-card:hover { border-color: var(--line-strong); box-shadow: var(--elev-2); transform: translateY(-1px); }
     .mkt-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring), var(--elev-2); }
+    .mkt-card.featured { grid-column: span 2; }
 
-    /* Rarity is a thin top-edge tint (3px stripe) + tinted kind badge — not a heavy border */
+    /* Rarity = 3px top stripe + inner highlight */
     .mkt-card::before {
       content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: var(--rc, var(--ink-3)); opacity: 0.85; pointer-events: none;
+      background: var(--rc, var(--ink-3)); opacity: 0.9; pointer-events: none;
       border-top-left-radius: var(--r-md); border-top-right-radius: var(--r-md);
+      z-index: 2;
+    }
+    .mkt-card::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      border-radius: var(--r-md);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
     }
 
-    /* Icon-only cover band — 60px tall, rarity-tinted surface */
-    .mc-cover { position: relative; height: 60px; flex: none; overflow: hidden; }
+    /* Cover band — 88px tall with rarity-tinted gradient and bottom hairline */
+    .mc-cover {
+      position: relative; height: 88px; flex: none;
+      border-bottom: 1px solid var(--line-soft);
+      overflow: hidden;
+    }
     .mc-cover.icon {
-      display: grid; place-items: center;
-      background: var(--rcs, var(--surface-sunken));
-      border-bottom: 1px solid var(--line-soft);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--rcs, var(--surface-sunken)) 55%, white) 0%, var(--rcs, var(--surface-sunken)) 100%);
     }
-    .mc-cover.icon .mc-iconwrap {
-      width: 44px; height: 44px; border-radius: var(--r-sm);
-      display: grid; place-items: center;
-      background: var(--surface-1);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6), 0 1px 2px rgba(18, 28, 50, 0.08);
-      color: var(--rc, var(--ink-3));
+    .mkt-card.featured .mc-cover.icon {
+      background:
+        radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--rc) 18%, white) 0%, var(--rcs) 60%, var(--rcs) 100%);
     }
-    .mc-cover.icon .mc-iconwrap .ico { width: 22px; height: 22px; }
 
-    /* Optional curated thumb cover — 96×64 right-aligned, not full-bleed */
-    .mc-cover.thumb {
-      display: flex; align-items: stretch; gap: 10px;
-      padding: 8px 10px 8px 12px;
-      background: var(--rcs, var(--surface-sunken));
-      border-bottom: 1px solid var(--line-soft);
-    }
-    .mc-cover.thumb .mc-iconwrap {
-      width: 44px; height: 44px; border-radius: var(--r-sm);
-      display: grid; place-items: center;
-      background: var(--surface-1);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6), 0 1px 2px rgba(18, 28, 50, 0.08);
-      color: var(--rc, var(--ink-3));
-    }
-    .mc-cover.thumb .mc-iconwrap .ico { width: 22px; height: 22px; }
-    .mc-cover.thumb .mc-thumb {
-      margin-left: auto; width: 96px; height: 44px; border-radius: var(--r-sm);
-      overflow: hidden; background: #c9d3e4;
-    }
-    .mc-cover.thumb .mc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-    /* kind badge — top-right of cover, caps grammar */
+    /* kind badge — top-right, caps grammar */
     .mc-badge {
-      position: absolute; right: 8px; top: 8px;
+      position: absolute; right: 9px; top: 9px; z-index: 3;
       display: inline-flex; align-items: center; gap: 4px;
-      height: 18px; padding: 0 7px;
+      height: 19px; padding: 0 8px;
       border-radius: var(--r-pill);
-      background: var(--surface-1);
-      box-shadow: inset 0 0 0 1px var(--rc, var(--line)), 0 1px 2px rgba(18,28,50,0.06);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc, var(--ink-3)) 55%, transparent), 0 1px 2px rgba(18, 28, 50, 0.06);
       color: var(--rc, var(--ink-3));
-      font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      font-size: 9.5px; font-weight: 720;
+      letter-spacing: 0.06em; text-transform: uppercase;
     }
     .mc-badge .ico { width: 10px; height: 10px; }
 
-    /* installed marker — discreet ok-tinted pip top-left */
+    /* installed pip — top-left */
     .mc-installed {
-      position: absolute; left: 8px; top: 8px;
+      position: absolute; left: 9px; top: 9px; z-index: 3;
       display: inline-flex; align-items: center; gap: 4px;
-      height: 18px; padding: 0 7px;
+      height: 19px; padding: 0 8px;
       border-radius: var(--r-pill);
       background: var(--ok-surface); color: #15824f;
-      box-shadow: inset 0 0 0 1px rgba(26, 164, 106, 0.4);
-      font-size: 9.5px; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase;
+      box-shadow: inset 0 0 0 1px rgba(26, 164, 106, 0.45);
+      font-size: 9.5px; font-weight: 720;
+      letter-spacing: 0.06em; text-transform: uppercase;
     }
 
-    .mc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 12px 10px; }
-    .mc-handle { display: flex; align-items: center; gap: 5px; font-size: var(--fs-meta); color: var(--ink-4); font-family: var(--mono); }
-    .mc-handle .h { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .mc-vdot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
-    .mc-title { margin: 3px 0 0; font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -0.005em; }
-    .mc-summary { margin: 3px 0 0; flex: 1; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .mc-stats { margin-top: auto; padding-top: 6px; display: flex; align-items: center; gap: 10px; font-size: var(--fs-meta); color: var(--ink-3); }
-    .mc-stats .st { display: inline-flex; align-items: center; gap: 4px; }
-    .mc-stars { color: var(--warn); font-weight: 660; }
-    .mc-stars .ico { width: 10px; height: 10px; }
-    .mc-installs { font-family: var(--mono); color: var(--ink-2); }
+    /* ── Kind-specific cover viz (mini-illustrations) ───────────
+       Each listing kind tells a different visual story so the grid
+       feels like a game inventory, not a SaaS settings list. */
+    .kv { position: absolute; inset: 10px 12px 10px 12px; display: flex; align-items: center; gap: 10px; }
+
+    /* Compatibility: spec-state cards still use the older .mc-iconwrap pattern (a 44×44 icon centered in the cover). Re-center it inside the new gradient cover band so legacy specimens keep rendering. */
+    .mc-cover.icon .mc-iconwrap {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 48px; height: 48px; border-radius: var(--r-sm);
+      display: grid; place-items: center;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 1px 3px rgba(18, 28, 50, 0.1);
+      color: var(--rc, var(--ink-3));
+    }
+    .mc-cover.icon .mc-iconwrap .ico { width: 24px; height: 24px; }
+
+    /* kv-employee: round gradient avatar (initials) + skill tag column */
+    .kv-employee .kv-avatar {
+      width: 60px; height: 60px; border-radius: 50%; flex: none;
+      background: linear-gradient(135deg, var(--av-a, #6a8dff), var(--av-b, #3a5fd0));
+      color: #fff; display: grid; place-items: center;
+      font-size: 19px; font-weight: 720; letter-spacing: -0.02em;
+      box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18), 0 2px 5px rgba(20, 32, 56, 0.18);
+    }
+    .kv-employee .kv-tags { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; align-content: center; max-height: 60px; overflow: hidden; }
+    .kv-employee .kv-tag {
+      display: inline-flex; align-items: center;
+      height: 18px; padding: 0 8px; border-radius: var(--r-xs);
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: inset 0 0 0 1px var(--line-soft);
+      color: var(--ink-2);
+      font-size: 9.5px; font-weight: 600; font-family: var(--mono);
+      white-space: nowrap;
+    }
+
+    /* kv-skill: permission risk strip (NET/FS/SEC) + capability glyph row */
+    .kv-skill { flex-direction: column; align-items: stretch; justify-content: center; gap: 7px; }
+    .kv-skill .kv-perm-row { display: flex; gap: 5px; }
+    .kv-skill .kv-perm {
+      flex: 1; display: flex; align-items: center; gap: 5px;
+      height: 22px; padding: 0 8px; border-radius: var(--r-xs);
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: inset 0 0 0 1px var(--line-soft);
+      font-size: 9px; font-weight: 700; color: var(--ink-4);
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .kv-skill .kv-perm .pd { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-4); flex: none; }
+    .kv-skill .kv-perm.on { color: var(--rc); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc) 42%, transparent); }
+    .kv-skill .kv-perm.on .pd { background: var(--rc); }
+    .kv-skill .kv-perm.warn { color: #8a5a0c; box-shadow: inset 0 0 0 1px rgba(201, 132, 16, 0.4); }
+    .kv-skill .kv-perm.warn .pd { background: var(--warn); }
+    .kv-skill .kv-caps {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-size: 9px; color: var(--ink-3); font-family: var(--mono);
+      letter-spacing: 0.04em;
+    }
+    .kv-skill .kv-caps span { display: inline-flex; align-items: center; gap: 3px; }
+    .kv-skill .kv-caps b { color: var(--rc); font-weight: 700; }
+    .kv-skill .kv-caps i { font-style: normal; color: var(--ink-4); }
+
+    /* kv-sop: DAG progress pip strip + role sequence */
+    .kv-sop { flex-direction: column; align-items: stretch; justify-content: center; gap: 9px; padding: 0 4px; }
+    .kv-sop .kv-pips { display: flex; align-items: center; gap: 0; height: 13px; }
+    .kv-sop .kv-pip {
+      width: 12px; height: 12px; border-radius: 50%; flex: none;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: inset 0 0 0 2px var(--line-strong);
+    }
+    .kv-sop .kv-pip.done { background: var(--ok); box-shadow: inset 0 0 0 1px rgba(26, 164, 106, 0.45); }
+    .kv-sop .kv-pip.cur {
+      background: var(--rc);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--rc) 22%, transparent), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+    }
+    .kv-sop .kv-line { flex: 1; height: 2px; background: var(--line-strong); }
+    .kv-sop .kv-line.done { background: var(--ok); }
+    .kv-sop .kv-roles {
+      display: flex; align-items: center; justify-content: center; gap: 3px;
+      font-size: 9px; color: var(--ink-3); font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      font-family: var(--mono);
+    }
+    .kv-sop .kv-roles em { font-style: normal; color: var(--rc); font-weight: 720; }
+    .kv-sop .kv-roles i { font-style: normal; color: var(--ink-4); margin: 0 1px; }
+
+    /* kv-template: role color ribbon (mini team strip) */
+    .kv-template { align-items: center; justify-content: center; }
+    .kv-template .kv-ribbon { display: flex; gap: 4px; }
+    .kv-template .kv-role {
+      width: 34px; height: 56px; border-radius: var(--r-xs);
+      display: grid; place-items: center;
+      font-size: 12px; font-weight: 720;
+      color: rgba(255, 255, 255, 0.96);
+      box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18), 0 1px 2px rgba(18, 28, 50, 0.12);
+      letter-spacing: -0.01em;
+    }
+
+    /* kv-layout: tiny office floor-plan sketch */
+    .kv-layout { align-items: center; justify-content: center; padding: 4px 0; }
+    .kv-layout svg { width: 100%; max-width: 228px; height: 64px; display: block; }
+    .kv-layout .rm { fill: none; stroke: var(--rc); stroke-width: 1.5; opacity: 0.75; }
+    .kv-layout .wall { stroke: var(--rc); stroke-width: 1; opacity: 0.45; }
+    .kv-layout .seat { fill: var(--rc); opacity: 0.55; }
+    .kv-layout .seat.hi { opacity: 0.9; }
+    .kv-layout .lbl { fill: var(--rc); font-size: 7.5px; font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+
+    /* kv-prefab: isometric line drawing of the prefab geometry */
+    .kv-prefab { align-items: center; justify-content: center; padding: 4px 0; }
+    .kv-prefab svg { width: 100%; max-width: 228px; height: 64px; display: block; }
+    .kv-prefab .ln { fill: none; stroke: var(--rc); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; opacity: 0.85; }
+    .kv-prefab .fill { fill: color-mix(in srgb, var(--rc) 16%, white); stroke: var(--rc); stroke-width: 1.2; opacity: 0.95; stroke-linejoin: round; }
+    .kv-prefab .hi { fill: var(--rc); opacity: 0.6; }
+
+    /* kv-bundle: overlapping contents (employee + skill + sop stack) */
+    .kv-bundle { align-items: center; justify-content: center; gap: 0; }
+    .kv-bundle .kv-stack { display: flex; }
+    .kv-bundle .kv-stack-item {
+      width: 46px; height: 46px; border-radius: var(--r-sm);
+      margin-left: -10px; display: grid; place-items: center;
+      background: rgba(255, 255, 255, 0.97);
+      box-shadow: inset 0 0 0 1px var(--line), 0 2px 5px rgba(20, 32, 56, 0.12);
+    }
+    .kv-bundle .kv-stack-item:first-child { margin-left: 0; }
+    .kv-bundle .kv-stack-item .ico { width: 22px; height: 22px; }
+    .kv-bundle .kv-stack-item.e { color: var(--accent); }
+    .kv-bundle .kv-stack-item.s { color: var(--violet); }
+    .kv-bundle .kv-stack-item.o { color: var(--warn); }
+    .kv-bundle .kv-stack-item.l { color: var(--danger); }
+
+    /* Body — title + summary + chip-stack stats */
+    .mc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 9px 12px 9px; gap: 2px; }
+    .mc-title { margin: 0; font-size: var(--fs-md); font-weight: 700; color: var(--ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -0.005em; line-height: 1.2; }
+    .mc-summary { margin: 2px 0 0; flex: 1; font-size: var(--fs-sm); line-height: 1.4; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .mc-vdot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; display: inline-block; }
+
+    /* Stats row → 3-chip stack with top hairline (★ rating · ▼ installs · @handle) */
+    .mc-stats {
+      margin-top: auto; padding-top: 7px;
+      border-top: 1px solid var(--line-soft);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .mc-stat-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      height: 20px; padding: 0 7px; border-radius: var(--r-xs);
+      background: var(--surface-sunken); color: var(--ink-2);
+      font-size: 10px; font-weight: 680;
+      font-variant-numeric: tabular-nums;
+    }
+    .mc-stat-chip.stars { background: var(--warn-surface); color: #8a5a0c; box-shadow: inset 0 0 0 1px rgba(201, 132, 16, 0.3); }
+    .mc-stat-chip.stars .ico { color: var(--warn); width: 10px; height: 10px; }
+    .mc-stat-chip.installs { font-family: var(--mono); }
+    .mc-stat-chip.installs .ico { color: var(--ink-4); width: 9px; height: 9px; }
+    .mc-stat-chip.creator { margin-left: auto; background: transparent; color: var(--ink-4); font-family: var(--mono); padding: 0 0 0 4px; font-weight: 600; gap: 4px; }
+    .mc-stat-chip.creator .mc-vdot { width: 5px; height: 5px; }
 
     /* skeleton card — same footprint as real card */
     .mkt-skel {
-      height: 174px; display: flex; flex-direction: column;
+      height: 200px; display: flex; flex-direction: column;
       border: 1px solid var(--line-soft); border-radius: var(--r-md);
       background: var(--surface-1); overflow: hidden; box-shadow: var(--elev-1);
     }
-    .mkt-skel .sk-cover { height: 60px; background: var(--surface-sunken); border-bottom: 1px solid var(--line-soft); }
+    .mkt-skel .sk-cover { height: 88px; background: var(--surface-sunken); border-bottom: 1px solid var(--line-soft); }
     .mkt-skel .sk-body { flex: 1; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
     .sk { background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line-soft) 37%, var(--surface-sunken) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: var(--r-xs); }
     @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
@@ -662,6 +790,262 @@
     ::-webkit-scrollbar { width: 7px; height: 7px; }
     ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); border: 2px solid transparent; background-clip: content-box; }
 
+    /* ── Sideload drop zone (FileImportTrigger) ── */
+    .dropzone {
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--r-md);
+      background: var(--surface-2);
+      padding: 22px 18px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      text-align: center;
+      transition: background 0.14s ease, border-color 0.14s ease;
+    }
+    .dropzone.active { background: var(--accent-surface); border-color: var(--accent); }
+    .dropzone .dz-i {
+      width: 38px; height: 38px; border-radius: var(--r-md);
+      background: var(--surface-1); border: 1px solid var(--line);
+      display: grid; place-items: center; color: var(--ink-3);
+      box-shadow: var(--elev-1);
+    }
+    .dropzone .dz-t { font-size: var(--fs-md); font-weight: 660; color: var(--ink-1); }
+    .dropzone .dz-d { font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.5; }
+    .dropzone .dz-ext {
+      display: inline-flex; gap: 4px; margin-top: 3px;
+      font-size: 9.5px; font-family: var(--mono); color: var(--ink-4);
+      letter-spacing: 0.04em;
+    }
+    .dropzone .dz-ext span {
+      padding: 2px 6px; border-radius: var(--r-xs);
+      background: var(--surface-sunken);
+      box-shadow: inset 0 0 0 1px var(--line-soft);
+    }
+    .dropzone .dz-row { display: flex; gap: 7px; align-items: center; margin-top: 3px; }
+
+    /* ── Changelog block ── */
+    .cl { display: flex; flex-direction: column; gap: 10px; }
+    .cl-ver { display: flex; flex-direction: column; gap: 4px; }
+    .cl-ver .cl-h {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1);
+    }
+    .cl-ver .cl-h .v { font-family: var(--mono); color: var(--ink-1); }
+    .cl-ver .cl-h .d { font-family: var(--mono); color: var(--ink-4); font-weight: 560; margin-left: auto; font-size: var(--fs-meta); }
+    .cl-ver ul {
+      margin: 0; padding: 0 0 0 16px; list-style: none;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .cl-ver li {
+      position: relative; font-size: var(--fs-sm); line-height: 1.55; color: var(--ink-2);
+    }
+    .cl-ver li::before {
+      content: ''; position: absolute; left: -10px; top: 7px;
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--ink-4);
+    }
+    .cl-ver li.added::before { background: var(--ok); }
+    .cl-ver li.fixed::before { background: var(--accent); }
+    .cl-ver li.breaking::before { background: var(--danger); }
+
+    /* ── Caps icon row (perm icons + caps labels) ── */
+    .caprow { display: flex; flex-wrap: wrap; gap: 6px; }
+    .capchip {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 22px; padding: 0 8px;
+      border-radius: var(--r-xs);
+      background: var(--surface-sunken);
+      box-shadow: inset 0 0 0 1px var(--line-soft);
+      color: var(--ink-3);
+      font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+    }
+    .capchip .ico { width: 11px; height: 11px; color: var(--ink-4); }
+    .capchip.on { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); background: var(--accent-surface); }
+    .capchip.on .ico { color: var(--accent); }
+    .capchip.warn { color: #8a5a0c; background: var(--warn-surface); box-shadow: inset 0 0 0 1px rgba(201,132,16,0.4); }
+    .capchip.warn .ico { color: var(--warn); }
+    .capchip.danger { color: #b8352e; background: var(--danger-surface); box-shadow: inset 0 0 0 1px rgba(214,69,61,0.4); }
+    .capchip.danger .ico { color: var(--danger); }
+
+    /* ── Version selector chip (detail banner) ── */
+    .vsel {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 26px; padding: 0 26px 0 10px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23647186' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center;
+      color: var(--ink-1); font-size: var(--fs-meta); font-weight: 620;
+      font-family: var(--mono);
+    }
+    .vsel:hover { background-color: var(--surface-sunken); }
+
+    /* ── Fork provenance card (compact, single-layer) ── */
+    .fork-card {
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-2);
+      padding: var(--sp-5);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .fork-card .fc-h {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 9.5px; font-weight: 680; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ink-3);
+    }
+    .fork-card .fc-h .ico { width: 11px; height: 11px; color: var(--violet); }
+    .fork-card .fc-name { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); font-family: var(--mono); }
+    .fork-card .fc-row {
+      display: flex; flex-wrap: wrap; gap: 5px;
+      font-size: var(--fs-meta); color: var(--ink-3);
+    }
+    .fork-card .fc-row .at { font-family: var(--mono); color: var(--ink-4); }
+    .fork-card .fc-url {
+      font-family: var(--mono); font-size: 9.5px; color: var(--accent);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .fork-card .fc-url .ico { width: 10px; height: 10px; }
+
+    /* ── Compare panes (company A vs B switch) ── */
+    .cmp-wrap { display: grid; grid-template-columns: 1fr 28px 1fr; gap: 12px; align-items: stretch; }
+    .cmp-arrow {
+      display: grid; place-items: center;
+      color: var(--ink-3);
+    }
+    .cmp-arrow .ico { width: 18px; height: 18px; }
+    .cmp-head {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--line-soft);
+      background: var(--surface-2);
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--ink-3);
+    }
+    .cmp-head .swatch {
+      width: 14px; height: 14px; border-radius: var(--r-xs);
+      background: var(--accent-surface); color: var(--accent);
+      display: grid; place-items: center; flex: none;
+      box-shadow: inset 0 0 0 1px var(--accent-ring);
+    }
+    .cmp-head .swatch .ico { width: 9px; height: 9px; }
+
+    /* ── Disabled CTA grammar (Rate / Report placeholders) ── */
+    .stub-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .stub-btn {
+      height: 26px; padding: 0 10px;
+      border-radius: var(--r-sm);
+      border: 1px dashed var(--line-strong);
+      background: var(--surface-2);
+      color: var(--ink-4);
+      font-size: var(--fs-meta); font-weight: 600;
+      display: inline-flex; align-items: center; gap: 5px;
+      cursor: not-allowed;
+    }
+    .stub-btn .ico { width: 11px; height: 11px; color: var(--ink-4); }
+    .stub-btn .soon {
+      font-family: var(--mono); font-size: 9px;
+      color: var(--ink-4); letter-spacing: 0.04em;
+      margin-left: 2px;
+    }
+
+    /* ── Deep-link system notice (one mini-pane) ── */
+    .dl-notice {
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      background: var(--surface-2);
+      padding: var(--sp-5);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .dl-notice .dn-i {
+      width: 32px; height: 32px; flex: none;
+      border-radius: var(--r-sm);
+      background: var(--accent-surface); color: var(--accent);
+      display: grid; place-items: center;
+      box-shadow: inset 0 0 0 1px var(--accent-ring);
+    }
+    .dl-notice .dn-c { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .dl-notice .dn-t { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    .dl-notice .dn-u {
+      font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .dl-notice .dn-a {
+      height: 26px; padding: 0 10px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--line);
+      background: var(--surface-1); color: var(--ink-1);
+      font-size: var(--fs-meta); font-weight: 620;
+    }
+
+    /* ── Boot-seed verified-by-offisim chip ── */
+    .seed-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      height: 18px; padding: 0 8px;
+      border-radius: var(--r-pill);
+      background: var(--accent-surface); color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent-ring);
+      font-size: 9.5px; font-weight: 720;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .seed-chip .ico { width: 10px; height: 10px; }
+
+    /* ── Tag chip input (publish form) ── */
+    .taginput {
+      min-height: 30px; padding: 4px 6px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1);
+      display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+    }
+    .taginput .tg {
+      display: inline-flex; align-items: center; gap: 4px;
+      height: 20px; padding: 0 6px 0 8px;
+      border-radius: var(--r-pill);
+      background: var(--accent-surface); color: var(--accent);
+      font-size: var(--fs-meta); font-weight: 600;
+      box-shadow: inset 0 0 0 1px var(--accent-ring);
+    }
+    .taginput .tg .ico { width: 10px; height: 10px; cursor: pointer; }
+    .taginput input {
+      flex: 1; min-width: 80px; height: 22px;
+      border: 0; background: transparent; outline: none;
+      font-size: var(--fs-sm); color: var(--ink-1);
+    }
+    .taginput input::placeholder { color: var(--ink-4); }
+
+    /* ── Source picker (segmented switch over Employee / Skill) ── */
+    .src-picker { display: flex; gap: 8px; }
+    .src-opt {
+      flex: 1; min-width: 0;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-1);
+      padding: 9px 10px;
+      display: flex; align-items: center; gap: 9px;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+    .src-opt:hover { background: var(--surface-sunken); }
+    .src-opt.active {
+      border-color: var(--accent);
+      background: var(--accent-surface);
+      box-shadow: 0 0 0 1px var(--accent-ring) inset;
+    }
+    .src-opt .si {
+      width: 30px; height: 30px; flex: none;
+      border-radius: var(--r-sm);
+      background: var(--surface-2); color: var(--ink-3);
+      display: grid; place-items: center;
+      box-shadow: inset 0 0 0 1px var(--line-soft);
+    }
+    .src-opt.active .si { background: var(--surface-1); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+    .src-opt .sc { min-width: 0; display: flex; flex-direction: column; gap: 1px; flex: 1; }
+    .src-opt .sn { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    .src-opt .sd { font-size: 9.5px; color: var(--ink-4); font-family: var(--mono); }
+
+    /* ── Manage actions grouping (Updates / Drafts header note) ── */
+    .mng-tab-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px 0;
+      gap: 8px;
+    }
+    .mng-tab-head .mh-l { font-size: 9.5px; font-weight: 680; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+    .mng-tab-head .mh-r { font-size: var(--fs-meta); color: var(--ink-4); font-family: var(--mono); }
+
     @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
     .reveal { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
     .reveal.d1 { animation-delay: 0.05s; }
@@ -707,6 +1091,18 @@
     <symbol id="i-loader" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M3 12h4M17 12h4M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
     <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18M16.7 13.7a6 6 0 0 0-8.4 0M19.9 10.5a10 10 0 0 0-3.4-2.4M4.1 10.5a10 10 0 0 1 5.4-2.8M12 19h.01"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v7M14 11v7"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M14 4l6 6-11 11H3v-6z"/><path d="M13 5l6 6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
+    <symbol id="i-package" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9M8 5.5l8 4.5"/></symbol>
+    <symbol id="i-fork" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7M12 12v5"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2 4 2 4H5"/></symbol>
+    <symbol id="i-key-round" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4"/><path d="M10.3 12.7 20 3l-3 3 2 2-3 3-2-2"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6L11 7"/><path d="M14 10a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6L13 17"/></symbol>
+    <symbol id="i-arrow-lr" viewBox="0 0 24 24"><path d="M3 7h14l-3-3M21 17H7l3 3"/></symbol>
+    <symbol id="i-verified" viewBox="0 0 24 24"><path d="M12 2l2.2 2.1 3 .3.5 3 2.3 2-1.3 2.7.7 3-2.8 1.2-1.4 2.7-3-.5L12 21l-2.2-1.5-3 .5-1.4-2.7L2.6 16l.7-3L2 10.4l2.3-2 .5-3 3-.3z"/><path d="M8.5 12l2.5 2.5L16 9.5"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M21 11.5 12 20a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10 18a2 2 0 0 1-3-3l7.5-7.5"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="8" cy="9" r="1.5"/></symbol>
   </svg>
 
   <!-- ═══════════════ RESTING VIEW · Explore card grid (desktop) ═══════════════ -->
@@ -772,174 +1168,280 @@
 
       <div class="mkt-body">
         <div class="mkt-grid reveal d1">
-          <!-- employee · verified · installed -->
+          <!-- employee · verified · installed — kv-employee: gradient avatar + skill chips -->
           <button class="mkt-card" style="--rc:var(--r-employee);--rcs:var(--r-employee-s)">
             <div class="mc-cover icon">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-user-plus"/></svg></span>
+              <div class="kv kv-employee">
+                <div class="kv-avatar" style="--av-a:#6a8dff;--av-b:#3a5fd0">SF</div>
+                <div class="kv-tags">
+                  <span class="kv-tag">react·19</span>
+                  <span class="kv-tag">a11y</span>
+                  <span class="kv-tag">design-sys</span>
+                </div>
+              </div>
               <span class="mc-installed">Installed</span>
               <span class="mc-badge"><svg class="ico"><use href="#i-user-plus"/></svg>employee</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@offisim-labs</span><span class="mc-vdot" title="Verified creator"></span></div>
               <div class="mc-title">Senior Frontend Engineer</div>
               <p class="mc-summary">React 19 specialist tuned for design-system work and accessibility passes.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.8</span>
-                <span class="st mc-installs">3.2k</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.8</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>3.2k</span>
+                <span class="mc-stat-chip creator"><span class="mc-vdot" title="Verified"></span>@offisim-labs</span>
               </div>
             </div>
           </button>
 
-          <!-- skill · curated thumb -->
+          <!-- skill · kv-skill: permission risk strip + capability glyphs -->
           <button class="mkt-card" style="--rc:var(--r-skill);--rcs:var(--r-skill-s)">
-            <div class="mc-cover thumb">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-zap"/></svg></span>
-              <span class="mc-thumb"><img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=192&q=70" alt="" /></span>
+            <div class="mc-cover icon">
+              <div class="kv kv-skill">
+                <div class="kv-perm-row">
+                  <span class="kv-perm on"><span class="pd"></span>NET</span>
+                  <span class="kv-perm"><span class="pd"></span>FS</span>
+                  <span class="kv-perm"><span class="pd"></span>SEC</span>
+                </div>
+                <div class="kv-caps">
+                  <span>cap·<b>web.search</b></span><i>·</i><span>mcp·<b>context7</b></span>
+                </div>
+              </div>
               <span class="mc-badge"><svg class="ico"><use href="#i-zap"/></svg>skill</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@growth-tools</span></div>
               <div class="mc-title">Competitive Teardown</div>
               <p class="mc-summary">Structured market + competitor analysis, graded teardown report.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.6</span>
-                <span class="st mc-installs">980</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.6</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>980</span>
+                <span class="mc-stat-chip creator">@growth-tools</span>
               </div>
             </div>
           </button>
 
-          <!-- sop -->
+          <!-- sop · kv-sop: DAG progress pip strip -->
           <button class="mkt-card" style="--rc:var(--r-sop);--rcs:var(--r-sop-s)">
             <div class="mc-cover icon">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-book"/></svg></span>
+              <div class="kv kv-sop">
+                <div class="kv-pips">
+                  <span class="kv-pip done"></span><span class="kv-line done"></span>
+                  <span class="kv-pip done"></span><span class="kv-line done"></span>
+                  <span class="kv-pip cur"></span><span class="kv-line"></span>
+                  <span class="kv-pip"></span><span class="kv-line"></span>
+                  <span class="kv-pip"></span>
+                </div>
+                <div class="kv-roles">
+                  <em>PM</em><i>→</i><em>DSGN</em><i>→</i><em>DEV</em><i>→</i><em>QA</em><i>→</i><em>SHIP</em>
+                </div>
+              </div>
               <span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>sop</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@ops-collective</span><span class="mc-vdot" title="Trusted creator"></span></div>
               <div class="mc-title">Feature Delivery Pipeline</div>
-              <p class="mc-summary">5-step DAG: requirements → design → build → QA → release.</p>
+              <p class="mc-summary">5-step DAG covering requirements → design → build → QA → release sign-off.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.9</span>
-                <span class="st mc-installs">12k</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.9</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>12k</span>
+                <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@ops-collective</span>
               </div>
             </div>
           </button>
 
-          <!-- company_template -->
+          <!-- company_template · kv-template: role color ribbon -->
           <button class="mkt-card" style="--rc:var(--r-template);--rcs:var(--r-template-s)">
             <div class="mc-cover icon">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-building"/></svg></span>
+              <div class="kv kv-template">
+                <div class="kv-ribbon">
+                  <div class="kv-role" style="background:#6a8dff">PM</div>
+                  <div class="kv-role" style="background:#7c4ddb">UX</div>
+                  <div class="kv-role" style="background:#2f9f6a">DEV</div>
+                  <div class="kv-role" style="background:#e0763f">QA</div>
+                  <div class="kv-role" style="background:#647186">OPS</div>
+                </div>
+              </div>
               <span class="mc-badge"><svg class="ico"><use href="#i-building"/></svg>template</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@offisim-labs</span><span class="mc-vdot"></span></div>
               <div class="mc-title">Lean Product Studio</div>
-              <p class="mc-summary">6-role studio blueprint with pre-wired zones and delivery SOPs.</p>
+              <p class="mc-summary">6-role studio blueprint with pre-wired zones and a delivery SOP bundle.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.7</span>
-                <span class="st mc-installs">5.4k</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.7</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>5.4k</span>
+                <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim-labs</span>
               </div>
             </div>
           </button>
 
-          <!-- office_layout -->
+          <!-- office_layout · kv-layout: floor-plan sketch with pitch hall hi -->
           <button class="mkt-card" style="--rc:var(--r-layout);--rcs:var(--r-layout-s)">
             <div class="mc-cover icon">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-grid"/></svg></span>
+              <div class="kv kv-layout">
+                <svg viewBox="0 0 228 64" preserveAspectRatio="xMidYMid meet">
+                  <rect class="rm" x="4" y="5" width="220" height="54" rx="3"/>
+                  <path class="wall" d="M82 5 L82 32"/>
+                  <path class="wall" d="M150 32 L150 59"/>
+                  <path class="wall" d="M82 32 L224 32"/>
+                  <circle class="seat" cx="20" cy="18" r="2.5"/>
+                  <circle class="seat" cx="34" cy="18" r="2.5"/>
+                  <circle class="seat" cx="48" cy="18" r="2.5"/>
+                  <circle class="seat" cx="62" cy="18" r="2.5"/>
+                  <circle class="seat" cx="20" cy="46" r="2.5"/>
+                  <circle class="seat" cx="34" cy="46" r="2.5"/>
+                  <circle class="seat" cx="48" cy="46" r="2.5"/>
+                  <circle class="seat" cx="62" cy="46" r="2.5"/>
+                  <rect class="seat hi" x="100" y="12" width="42" height="14" rx="2"/>
+                  <text class="lbl" x="105" y="22">Pitch</text>
+                  <rect class="seat" x="158" y="10" width="58" height="5" rx="1.5"/>
+                  <rect class="seat" x="158" y="20" width="58" height="5" rx="1.5"/>
+                  <rect class="seat" x="158" y="42" width="58" height="11" rx="2"/>
+                </svg>
+              </div>
               <span class="mc-badge"><svg class="ico"><use href="#i-grid"/></svg>layout</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@studio-kits</span></div>
               <div class="mc-title">Open Loft 24</div>
-              <p class="mc-summary">Warehouse-style floor plan with breakout zones and a pitch hall.</p>
+              <p class="mc-summary">Warehouse-style floor plan with breakout zones and a central pitch hall.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.3</span>
-                <span class="st mc-installs">760</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.3</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>760</span>
+                <span class="mc-stat-chip creator">@studio-kits</span>
               </div>
             </div>
           </button>
 
-          <!-- prefab -->
+          <!-- prefab · kv-prefab: iso standing desk cluster -->
           <button class="mkt-card" style="--rc:var(--r-prefab);--rcs:var(--r-prefab-s)">
             <div class="mc-cover icon">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-box"/></svg></span>
+              <div class="kv kv-prefab">
+                <svg viewBox="0 0 228 64" preserveAspectRatio="xMidYMid meet">
+                  <g transform="translate(114 32)">
+                    <circle class="ln" cx="0" cy="0" r="4"/>
+                    <path class="fill" d="M -58 -16 L -22 -16 L -16 -8 L -52 -8 Z"/>
+                    <path class="fill" d="M 22 -16 L 58 -16 L 52 -8 L 16 -8 Z"/>
+                    <path class="fill" d="M -58 16 L -22 16 L -16 8 L -52 8 Z"/>
+                    <path class="fill" d="M 22 16 L 58 16 L 52 8 L 16 8 Z"/>
+                    <rect class="ln" x="-50" y="-23" width="6" height="6"/>
+                    <rect class="ln" x="44" y="-23" width="6" height="6"/>
+                    <rect class="ln" x="-50" y="17" width="6" height="6"/>
+                    <rect class="ln" x="44" y="17" width="6" height="6"/>
+                  </g>
+                </svg>
+              </div>
               <span class="mc-badge"><svg class="ico"><use href="#i-box"/></svg>prefab</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@props-bay</span></div>
               <div class="mc-title">Standing Desk Cluster</div>
-              <p class="mc-summary">4-seat standing desk pod with anchor + footprint spatial spec.</p>
+              <p class="mc-summary">4-seat standing desk pod prefab with anchor + footprint spatial spec.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.1</span>
-                <span class="st mc-installs">410</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.1</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>410</span>
+                <span class="mc-stat-chip creator">@props-bay</span>
               </div>
             </div>
           </button>
 
-          <!-- bundle (neutral) -->
+          <!-- bundle · kv-bundle: stacked contents (employee + skill + sop) -->
           <button class="mkt-card" style="--rc:var(--r-bundle);--rcs:var(--r-bundle-s)">
             <div class="mc-cover icon">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-box"/></svg></span>
-              <span class="mc-badge"><svg class="ico"><use href="#i-box"/></svg>bundle</span>
+              <div class="kv kv-bundle">
+                <div class="kv-stack">
+                  <div class="kv-stack-item e"><svg class="ico"><use href="#i-user-plus"/></svg></div>
+                  <div class="kv-stack-item s"><svg class="ico"><use href="#i-zap"/></svg></div>
+                  <div class="kv-stack-item o"><svg class="ico"><use href="#i-book"/></svg></div>
+                </div>
+              </div>
+              <span class="mc-badge">bundle</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@indie-maker</span></div>
               <div class="mc-title">Indie Launch Kit</div>
-              <p class="mc-summary">Bundle pairing a growth employee with a launch-checklist SOP.</p>
+              <p class="mc-summary">Bundle pairing a growth employee with a launch-checklist SOP for solo founders.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>3.9</span>
-                <span class="st mc-installs">120</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>3.9</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>120</span>
+                <span class="mc-stat-chip creator">@indie-maker</span>
               </div>
             </div>
           </button>
 
-          <!-- second employee -->
+          <!-- second employee · kv-employee -->
           <button class="mkt-card" style="--rc:var(--r-employee);--rcs:var(--r-employee-s)">
             <div class="mc-cover icon">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-user-plus"/></svg></span>
+              <div class="kv kv-employee">
+                <div class="kv-avatar" style="--av-a:#2f9f6a;--av-b:#1c7a4c">QA</div>
+                <div class="kv-tags">
+                  <span class="kv-tag">regression</span>
+                  <span class="kv-tag">char-tests</span>
+                  <span class="kv-tag">a11y-audit</span>
+                </div>
+              </div>
               <span class="mc-badge"><svg class="ico"><use href="#i-user-plus"/></svg>employee</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@offisim-labs</span><span class="mc-vdot"></span></div>
               <div class="mc-title">QA Automation Lead</div>
               <p class="mc-summary">Regression-first QA persona — writes characterization tests before sign-off.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.5</span>
-                <span class="st mc-installs">2.1k</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.5</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>2.1k</span>
+                <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim-labs</span>
               </div>
             </div>
           </button>
 
-          <!-- second skill -->
+          <!-- second skill · kv-skill (FS + NET active) -->
           <button class="mkt-card" style="--rc:var(--r-skill);--rcs:var(--r-skill-s)">
             <div class="mc-cover icon">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-zap"/></svg></span>
+              <div class="kv kv-skill">
+                <div class="kv-perm-row">
+                  <span class="kv-perm on"><span class="pd"></span>NET</span>
+                  <span class="kv-perm on"><span class="pd"></span>FS</span>
+                  <span class="kv-perm"><span class="pd"></span>SEC</span>
+                </div>
+                <div class="kv-caps">
+                  <span>cap·<b>code.read</b></span><i>·</i><span>diff·<b>severity</b></span>
+                </div>
+              </div>
               <span class="mc-badge"><svg class="ico"><use href="#i-zap"/></svg>skill</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@dx-labs</span><span class="mc-vdot"></span></div>
               <div class="mc-title">PR Review Pass</div>
-              <p class="mc-summary">Senior-developer-style review with severity tags and dedup pass.</p>
+              <p class="mc-summary">Senior-developer-style review with severity tags and a dedup pass.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.4</span>
-                <span class="st mc-installs">540</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.4</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>540</span>
+                <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@dx-labs</span>
               </div>
             </div>
           </button>
 
-          <!-- second prefab -->
+          <!-- second prefab · kv-prefab: iso pitch hall stage + AV rack -->
           <button class="mkt-card" style="--rc:var(--r-prefab);--rcs:var(--r-prefab-s)">
             <div class="mc-cover icon">
-              <span class="mc-iconwrap"><svg class="ico"><use href="#i-box"/></svg></span>
+              <div class="kv kv-prefab">
+                <svg viewBox="0 0 228 64" preserveAspectRatio="xMidYMid meet">
+                  <g transform="translate(114 36)">
+                    <path class="fill" d="M -66 -10 L 22 -10 L 30 -2 L -58 -2 Z"/>
+                    <path class="ln" d="M -58 -2 L -58 12 L 30 12 L 30 -2"/>
+                    <rect class="ln" x="40" y="-22" width="22" height="40"/>
+                    <line class="ln" x1="40" y1="-14" x2="62" y2="-14"/>
+                    <line class="ln" x1="40" y1="-6" x2="62" y2="-6"/>
+                    <line class="ln" x1="40" y1="2" x2="62" y2="2"/>
+                    <line class="ln" x1="40" y1="10" x2="62" y2="10"/>
+                    <circle class="hi" cx="-58" cy="20" r="3"/>
+                    <circle class="hi" cx="-42" cy="20" r="3"/>
+                    <circle class="hi" cx="-26" cy="20" r="3"/>
+                    <circle class="hi" cx="-10" cy="20" r="3"/>
+                  </g>
+                </svg>
+              </div>
               <span class="mc-badge"><svg class="ico"><use href="#i-box"/></svg>prefab</span>
             </div>
             <div class="mc-body">
-              <div class="mc-handle"><span class="h">@props-bay</span></div>
               <div class="mc-title">Pitch Hall Stage</div>
-              <p class="mc-summary">Floor-mounted stage + AV rack, 4-seat front row.</p>
+              <p class="mc-summary">Floor-mounted stage + AV rack with a 4-seat front row.</p>
               <div class="mc-stats">
-                <span class="st mc-stars"><svg class="ico fill"><use href="#i-star"/></svg>4.0</span>
-                <span class="st mc-installs">230</span>
+                <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.0</span>
+                <span class="mc-stat-chip installs"><svg class="ico"><use href="#i-download"/></svg>230</span>
+                <span class="mc-stat-chip creator">@props-bay</span>
               </div>
             </div>
           </button>
@@ -1650,6 +2152,721 @@
           </div>
           <p class="annot-dark" style="text-align:center">Narrow detail = full-page drill-in (no filter bar; <code>layout="narrow"</code>)</p>
         </div>
+      </div>
+    </div>
+
+    <!-- 13 · Manage — three sub-tabs (Installed / Updates / Published drafts) -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">13</span><span class="t">Manage view — three sub-tabs with manage actions row</span>
+        <span class="d">Installed (per-package version chip + Open / Reveal / Uninstall / Disable) · Updates (per row Update / Skip with available-version chip) · Published drafts (author tools Edit / Submit / Delete). Sub-tabs share the §3 seg sub-row grammar; each item is single-layer (no card-in-card).</span>
+      </div>
+      <div class="spec-frame spec-grid-3">
+        <div class="mini-pane">
+          <div class="mini-cap">Installed · per-package manage actions</div>
+          <div style="background:var(--surface-1)">
+            <div class="mkt-fbar" style="border-top:0">
+              <div class="mkt-fbar-sub" style="border-top:0">
+                <span class="lbl">View</span>
+                <div class="seg"><button class="active">Installed</button><button>Updates</button><button>Drafts</button></div>
+              </div>
+            </div>
+            <div class="mng-wrap">
+              <div class="mng-item">
+                <div class="top">
+                  <div>
+                    <div class="name">offisim-labs/frontend-engineer</div>
+                    <div class="ver">v1.2.0 · employee</div>
+                  </div>
+                  <span class="badge sec">5/12/26</span>
+                </div>
+                <div class="mng-acts">
+                  <button class="mbtn"><svg class="ico"><use href="#i-arrow-right"/></svg>Open</button>
+                  <button class="mbtn"><svg class="ico"><use href="#i-folder"/></svg>Reveal</button>
+                  <button class="mbtn"><svg class="ico"><use href="#i-x-c"/></svg>Disable</button>
+                  <button class="mbtn"><svg class="ico"><use href="#i-trash"/></svg>Uninstall</button>
+                </div>
+              </div>
+              <div class="mng-item">
+                <div class="top">
+                  <div>
+                    <div class="name">growth-tools/teardown</div>
+                    <div class="ver">v0.4.0 · skill</div>
+                  </div>
+                  <span class="badge sec">3/20/26</span>
+                </div>
+                <div class="mng-acts">
+                  <button class="mbtn"><svg class="ico"><use href="#i-arrow-right"/></svg>Open</button>
+                  <button class="mbtn"><svg class="ico"><use href="#i-folder"/></svg>Reveal</button>
+                  <button class="mbtn"><svg class="ico"><use href="#i-trash"/></svg>Uninstall</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-cap">Updates · per-row Update / Skip</div>
+          <div style="background:var(--surface-1)">
+            <div class="mng-tab-head"><span class="mh-l">2 updates available</span><span class="mh-r">Last checked 14:02</span></div>
+            <div class="mng-wrap">
+              <div class="mng-item">
+                <div class="top">
+                  <div>
+                    <div class="name">offisim-labs/frontend-engineer</div>
+                    <div class="ver">v1.1.0 → <b style="color:var(--ink-1)">v1.2.0</b></div>
+                  </div>
+                  <span class="mng-badge">Update</span>
+                </div>
+                <div class="latest">a11y pass · 1 breaking permission change</div>
+                <div class="mng-acts">
+                  <button class="mbtn primary"><svg class="ico"><use href="#i-upload-cloud"/></svg>Update</button>
+                  <button class="mbtn">Skip</button>
+                  <button class="mbtn"><svg class="ico"><use href="#i-info"/></svg>View diff</button>
+                </div>
+              </div>
+              <div class="mng-item">
+                <div class="top">
+                  <div>
+                    <div class="name">ops-collective/launch-kit</div>
+                    <div class="ver">v2.0.0 → <b style="color:var(--ink-1)">v2.1.0</b></div>
+                  </div>
+                  <span class="mng-badge">Update</span>
+                </div>
+                <div class="latest">3 new SOP nodes · 0 breaking</div>
+                <div class="mng-acts">
+                  <button class="mbtn primary"><svg class="ico"><use href="#i-upload-cloud"/></svg>Update</button>
+                  <button class="mbtn">Skip</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-cap">Published drafts · author tools</div>
+          <div style="background:var(--surface-1)">
+            <div class="mng-tab-head"><span class="mh-l">Signed in</span><span class="mh-r">@offisim-labs</span></div>
+            <div class="pub-wrap">
+              <div class="pub-item">
+                <div class="top">
+                  <div>
+                    <div class="pt">Senior Frontend Engineer</div>
+                    <div class="ps">React 19 specialist employee package</div>
+                    <div class="pmeta"><span class="chip">employee</span><span>v1.2.0</span><span>·</span><span>Updated 5/12/26</span></div>
+                  </div>
+                  <span class="pub-status pst-ok">Approved</span>
+                </div>
+                <div class="mng-acts" style="margin-top:8px">
+                  <button class="mbtn"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="mbtn"><svg class="ico"><use href="#i-cloud-up"/></svg>Submit</button>
+                  <button class="mbtn"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </div>
+              <div class="pub-item">
+                <div class="top">
+                  <div>
+                    <div class="pt">Untitled draft</div>
+                    <div class="pmeta"><span class="chip">employee</span><span>Updated 5/14/26</span></div>
+                  </div>
+                  <span class="pub-status pst-draft">Draft</span>
+                </div>
+                <div class="mng-acts" style="margin-top:8px">
+                  <button class="mbtn"><svg class="ico"><use href="#i-edit"/></svg>Edit</button>
+                  <button class="mbtn" disabled><svg class="ico"><use href="#i-cloud-up"/></svg>Submit</button>
+                  <button class="mbtn"><svg class="ico"><use href="#i-trash"/></svg>Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 14 · Publish dialog — full form with source picker + auth token -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">14</span><span class="t">PublishDialog — full form (source picker · semver hint · tag input · license · risk · auth token · submit / download)</span>
+        <span class="d">Extends §6 with explicit <b>Source picker</b> (Employee or Skill option cards), <b>tag chip input</b>, <b>Register Auth Token</b> row with KeyRound icon + masked input, <b>License</b> + <b>Risk-class</b> custom-chev selects, and the two-button footer (Download .offisimpkg + Submit draft). No native &lt;select&gt; arrow anywhere.</span>
+      </div>
+      <div class="spec-frame">
+        <div class="dlg xl">
+          <div class="dlg-h">
+            <div class="dt">Publish To Market</div>
+            <div class="dd">Build a registry package from one of your assets, validate it locally, then submit it as a draft.</div>
+          </div>
+          <div class="dlg-b" style="display:flex;flex-direction:column;gap:14px">
+            <div class="fld">
+              <span class="fld-l"><svg class="ico" style="color:var(--ink-3)"><use href="#i-layers"/></svg>Source</span>
+              <div class="src-picker">
+                <button class="src-opt active">
+                  <span class="si"><svg class="ico"><use href="#i-user-plus"/></svg></span>
+                  <span class="sc"><span class="sn">Employee</span><span class="sd">Senior Frontend Engineer</span></span>
+                </button>
+                <button class="src-opt">
+                  <span class="si"><svg class="ico"><use href="#i-zap"/></svg></span>
+                  <span class="sc"><span class="sn">Skill</span><span class="sd">Competitive Teardown</span></span>
+                </button>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px">
+              <div class="fld"><span class="fld-l">Title</span><div class="inp">Senior Frontend Engineer</div></div>
+              <div class="fld">
+                <span class="fld-l">Version <span style="color:var(--ink-4);letter-spacing:0;text-transform:none;font-weight:560">semver</span></span>
+                <div class="inp">0.1.0</div>
+                <span class="fld-hint">MAJOR.MINOR.PATCH · publish increments PATCH</span>
+              </div>
+            </div>
+            <div class="fld"><span class="fld-l">Summary</span><div class="inp"><span class="ph">One-line marketplace summary</span></div></div>
+            <div class="fld"><span class="fld-l">Description / README</span><div class="inp area"><span class="ph">What this package includes, who it is for, and setup notes.</span></div></div>
+            <div class="fld">
+              <span class="fld-l"><svg class="ico" style="color:var(--ink-3)"><use href="#i-tag"/></svg>Tags</span>
+              <div class="taginput">
+                <span class="tg">frontend<svg class="ico"><use href="#i-x"/></svg></span>
+                <span class="tg">react<svg class="ico"><use href="#i-x"/></svg></span>
+                <span class="tg">a11y<svg class="ico"><use href="#i-x"/></svg></span>
+                <input value="" placeholder="Add tag…" />
+              </div>
+              <span class="fld-hint">Enter to add · backspace removes last</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="fld"><span class="fld-l">License</span><div class="selbox">MIT</div><span class="fld-hint">Choices: MIT · Apache-2.0 · Custom</span></div>
+              <div class="fld"><span class="fld-l">Risk class</span><div class="selbox">Data asset</div><span class="fld-hint">data · logic · tool</span></div>
+            </div>
+            <div class="fld">
+              <span class="fld-l"><svg class="ico" style="color:var(--accent)"><use href="#i-key-round"/></svg>Register Auth Token</span>
+              <div class="inp" style="font-family:var(--mono);color:var(--ink-2)">offisim_•••••••••••••••••3a21</div>
+              <span class="fld-hint ok">Token verified · publishing as @offisim-labs</span>
+            </div>
+          </div>
+          <div class="dlg-f">
+            <button class="btn outline">Cancel</button>
+            <button class="btn outline"><svg class="ico"><use href="#i-download"/></svg>Download .offisimpkg</button>
+            <button class="btn primary"><svg class="ico"><use href="#i-cloud-up"/></svg>Submit draft</button>
+          </div>
+        </div>
+        <p class="annot-dark">Source picker collapses to a single Employee or Skill card when the active company has only one kind. Auth token row maps to <code>RegistryClient.hasAuthToken</code> · masked except last 4 chars · clearing it disables Submit (Download remains).</p>
+      </div>
+    </div>
+
+    <!-- 15 · Detail panel — full content (banner · screenshots · permissions · changelog · requirements · lineage) -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">15</span><span class="t">MarketDetailView — full content specimen (single 440px panel)</span>
+        <span class="d">Banner with kind chip + version selector + Install · 3-frame screenshots carousel with chev prev/next + 3-dot indicator · Permissions caps row · Changelog (versioned bullets, added/fixed/breaking tones) · Requirements (compatible-since chip + dependencies) · Lineage (Fork-of chip + parent package link). Single-layer sections separated by hairline only.</span>
+      </div>
+      <div class="spec-frame" style="display:flex;justify-content:center">
+        <div class="mini-pane" style="width:440px;max-width:100%">
+          <aside class="mkt-detail" style="--rc:var(--r-employee);--rcs:var(--r-employee-s);height:760px">
+            <div class="md-head">
+              <button class="md-back"><svg class="ico sm"><use href="#i-arrow-left"/></svg>Back</button>
+              <span class="md-kind"><svg class="ico"><use href="#i-user-plus"/></svg>employee</span>
+              <button class="md-close" aria-label="Close"><svg class="ico sm"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="md-body">
+              <div>
+                <h1 class="md-title">Senior Frontend Engineer</h1>
+                <p class="md-sum">React 19 design-system specialist tuned for accessibility passes and tight UI diffs.</p>
+                <div class="md-handle-row"><span class="h">@offisim-labs</span><span>·</span><span>Offisim Labs</span><span class="mc-vdot"></span><span>verified</span></div>
+              </div>
+              <div style="display:flex;gap:7px;align-items:center">
+                <button class="vsel">v1.2.0</button>
+                <span style="font-size:9.5px;color:var(--ink-4);font-family:var(--mono);letter-spacing:0.04em">latest · 5 versions</span>
+              </div>
+              <button class="md-install"><svg class="ico"><use href="#i-download"/></svg>Install</button>
+              <div class="md-shots">
+                <div class="frame">
+                  <img src="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=720&q=70" alt="" />
+                  <button class="navb l"><svg class="ico sm"><use href="#i-chev-left"/></svg></button>
+                  <button class="navb r"><svg class="ico sm"><use href="#i-chev-right"/></svg></button>
+                  <div class="dots"><i class="on"></i><i></i><i></i></div>
+                </div>
+              </div>
+              <div class="md-tags">
+                <span class="chip">frontend</span><span class="chip">react</span><span class="chip">a11y</span>
+              </div>
+              <div class="md-sec">
+                <h3>Permissions</h3>
+                <div class="caprow">
+                  <span class="capchip on"><svg class="ico"><use href="#i-hard-drive"/></svg>FS · workspace</span>
+                  <span class="capchip"><svg class="ico"><use href="#i-globe"/></svg>NET · none</span>
+                  <span class="capchip warn"><svg class="ico"><use href="#i-server"/></svg>EXEC · sandboxed</span>
+                  <span class="capchip"><svg class="ico"><use href="#i-key"/></svg>SECRETS · declared</span>
+                </div>
+              </div>
+              <div class="md-sec">
+                <h3>Changelog</h3>
+                <div class="cl">
+                  <div class="cl-ver">
+                    <div class="cl-h"><span class="v">v1.2.0</span><span class="d">5/12/26</span></div>
+                    <ul>
+                      <li class="added">Added: design-system context pack v2</li>
+                      <li class="fixed">Fixed: stale diff after rebase</li>
+                      <li class="breaking">Breaking: filesystem_scope widened to workspace</li>
+                    </ul>
+                  </div>
+                  <div class="cl-ver">
+                    <div class="cl-h"><span class="v">v1.1.0</span><span class="d">4/02/26</span></div>
+                    <ul>
+                      <li class="added">Added: tailwind class lint pass</li>
+                      <li>Tuned diff-strictness preset</li>
+                    </ul>
+                  </div>
+                  <div class="cl-ver">
+                    <div class="cl-h"><span class="v">v1.0.0</span><span class="d">2/14/26</span></div>
+                    <ul>
+                      <li>Initial release</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <div class="md-sec">
+                <h3>Requirements</h3>
+                <div class="md-req-row"><span class="k">Compatible since</span><span class="v"><span class="chip mono">runtime &gt;=0.7.0</span></span></div>
+                <div class="md-req-row"><span class="k">Schema</span><span class="v"><span class="chip mono">1</span></span></div>
+                <div class="md-req-row"><span class="k">Dependencies</span><span class="v"><span class="chip mono">context7</span><span class="chip mono">@offisim/ui-office</span></span></div>
+              </div>
+              <div class="md-sec">
+                <h3>Lineage</h3>
+                <div class="md-line"><span class="lbl">Fork of</span><span class="chip mono">offisim-labs/fe-base</span></div>
+                <div class="md-line"><span class="lbl">Parent</span><span class="mono">offisim-labs/fe-base@0.9.2</span></div>
+              </div>
+              <div class="md-runtime"><span>Runtime</span><span class="v">&gt;=0.7.0</span></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <!-- 16 · InstallDialog — 6 states (loading · manifest review · awaiting bindings · progress · done · error) -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">16</span><span class="t">InstallDialog — six states</span>
+        <span class="d">Skeleton (manifest fetch) · Manifest review (signature + risk + permissions + version diff) · Awaiting bindings (BindingForm) · Progress (5-step + Abort) · Done (Open in Personnel CTA) · Error (Retry / Cancel). All six are DialogShell md.</span>
+      </div>
+      <div class="spec-frame spec-grid-3">
+        <div>
+          <div class="dlg md">
+            <div class="dlg-h"><div class="dt">Loading</div><div class="dd">Fetching package manifest…</div></div>
+            <div class="dlg-b" style="display:flex;flex-direction:column;gap:11px">
+              <div style="display:flex;align-items:center;gap:9px"><div class="sk" style="width:40px;height:40px;border-radius:var(--r-sm)"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="sk" style="height:13px;width:60%"></div><div class="sk" style="height:11px;width:40%"></div></div></div>
+              <div class="sk" style="height:11px;width:100%"></div>
+              <div class="sk" style="height:11px;width:84%"></div>
+              <div class="sk" style="height:74px;border-radius:var(--r-md)"></div>
+              <div class="sk" style="height:30px;border-radius:var(--r-md)"></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="dlg md">
+            <div class="dlg-h"><div class="dt">Manifest Review</div><div class="dd">Signed package · v1.1.0 → v1.2.0</div></div>
+            <div class="dlg-b" style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                <div style="min-width:0">
+                  <div style="font-size:var(--fs-md);font-weight:700;color:var(--ink-1)">Senior Frontend Engineer</div>
+                  <div style="font-size:var(--fs-meta);color:var(--ink-3);font-family:var(--mono)">offisim-labs.fe-engineer</div>
+                </div>
+                <span class="badge ok"><svg class="ico" style="margin-right:3px"><use href="#i-shield"/></svg>Signed</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:var(--fs-meta)">
+                <span style="color:var(--ink-4)">v1.1.0</span>
+                <svg class="ico xs" style="color:var(--ink-4)"><use href="#i-arrow-right"/></svg>
+                <span style="color:var(--ink-1);font-weight:660">v1.2.0</span>
+                <span class="badge warn" style="margin-left:auto">Upgrade</span>
+              </div>
+              <div class="caprow">
+                <span class="capchip on"><svg class="ico"><use href="#i-hard-drive"/></svg>FS</span>
+                <span class="capchip"><svg class="ico"><use href="#i-globe"/></svg>NET</span>
+                <span class="capchip warn"><svg class="ico"><use href="#i-shield"/></svg>RISK · logic</span>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:7px;padding-top:6px;border-top:1px solid var(--line-soft)"><button class="btn outline">Cancel</button><button class="btn primary">Approve</button></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="dlg md">
+            <div class="dlg-h"><div class="dt">Awaiting Bindings</div><div class="dd">Choose a model profile for each required role. Optional bindings can be skipped.</div></div>
+            <div class="dlg-b" style="display:flex;flex-direction:column;gap:10px">
+              <div class="fld">
+                <span class="fld-l">analyst <span class="badge ok" style="margin-left:5px">required</span></span>
+                <div class="selbox">openai/gpt-4o</div>
+              </div>
+              <div class="fld">
+                <span class="fld-l">summarizer <span class="badge sec" style="margin-left:5px">optional</span></span>
+                <div class="selbox">— skip —</div>
+                <span class="fld-hint">Optional bindings default to the active company's primary profile.</span>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:7px;padding-top:6px;border-top:1px solid var(--line-soft)"><button class="btn outline">Back</button><button class="btn primary">Continue</button></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="dlg md">
+            <div class="dlg-h"><div class="dt">Installing</div><div class="dd" style="font-family:var(--mono);color:var(--ink-4)">step 3 / 5 · 42%</div></div>
+            <div class="dlg-b" style="display:flex;flex-direction:column;gap:11px">
+              <div class="progress"><i style="width:42%"></i></div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <div class="step-row done"><span class="si"><svg class="ico"><use href="#i-check-c"/></svg></span>Loading package</div>
+                <div class="step-row done"><span class="si"><svg class="ico"><use href="#i-check-c"/></svg></span>Reviewing manifest</div>
+                <div class="step-row active"><span class="si"><svg class="ico spin"><use href="#i-loader"/></svg></span>Configuring bindings</div>
+                <div class="step-row pending"><span class="si"><svg class="ico"><use href="#i-circle"/></svg></span>Installing assets</div>
+                <div class="step-row pending"><span class="si"><svg class="ico"><use href="#i-circle"/></svg></span>Complete</div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:7px;padding-top:6px;border-top:1px solid var(--line-soft)"><button class="btn danger"><svg class="ico"><use href="#i-x"/></svg>Abort</button></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="dlg md">
+            <div class="dlg-h"><div class="dt">Done</div></div>
+            <div class="dlg-b" style="display:flex;flex-direction:column;gap:9px;align-items:center;text-align:center;padding-top:18px;padding-bottom:18px">
+              <svg class="ico lg" style="width:30px;height:30px;color:var(--ok)"><use href="#i-check-c"/></svg>
+              <div style="font-size:var(--fs-md);font-weight:660;color:var(--ink-1)">Senior Frontend Engineer installed</div>
+              <div style="font-size:var(--fs-sm);color:var(--ink-3)">Now available in your Personnel roster.</div>
+              <div style="display:flex;gap:7px;margin-top:5px">
+                <button class="btn outline">Close</button>
+                <button class="btn primary"><svg class="ico"><use href="#i-user-plus"/></svg>Open in Personnel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="dlg md">
+            <div class="dlg-h"><div class="dt">Failed</div><div class="dd" style="color:#b8352e">Artifact hash mismatch — refusing to write.</div></div>
+            <div class="dlg-b" style="display:flex;flex-direction:column;gap:10px">
+              <div class="alert err"><svg class="ico"><use href="#i-octagon"/></svg><span>Expected <span style="font-family:var(--mono)">sha256:a4f2…</span> — got <span style="font-family:var(--mono)">sha256:c91b…</span>. Local cache cleared.</span></div>
+              <details style="font-size:var(--fs-meta);color:var(--ink-3)"><summary style="cursor:pointer">Technical detail</summary><pre style="margin:6px 0 0;font-family:var(--mono);color:var(--ink-3);font-size:9.5px;background:var(--surface-sunken);padding:7px 9px;border-radius:var(--r-xs);overflow-x:auto">InstallError: hash_mismatch
+  at materializer.ts:142
+  package = offisim-labs/fe-eng@1.2.0</pre></details>
+              <div style="display:flex;justify-content:flex-end;gap:7px;padding-top:6px;border-top:1px solid var(--line-soft)"><button class="btn outline">Cancel</button><button class="btn primary"><svg class="ico"><use href="#i-refresh"/></svg>Retry</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 17 · FileImportTrigger — sideload drop zone -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">17</span><span class="t">FileImportTrigger — sideload drop zone (.offisimpkg / .zip)</span>
+        <span class="d">Drag-drop zone with file size hint, Browse button, and supported-extension chip row. Active state (file held over the zone) tints accent. Errors (wrong ext / too large) surface as red alert under the zone.</span>
+      </div>
+      <div class="spec-frame spec-grid-2">
+        <div class="mini-pane">
+          <div class="mini-cap">Resting · drop or browse</div>
+          <div style="padding:18px;background:var(--surface-1)">
+            <div class="dropzone">
+              <div class="dz-i"><svg class="ico"><use href="#i-package"/></svg></div>
+              <div class="dz-t">Drop .offisimpkg or .zip</div>
+              <div class="dz-d">50 MB max · sideloaded packages skip registry verification.</div>
+              <div class="dz-ext"><span>.offisimpkg</span><span>.zip</span></div>
+              <div class="dz-row">
+                <button class="btn outline"><svg class="ico"><use href="#i-paperclip"/></svg>Browse…</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-cap">Active drag-over · then rejected (wrong ext)</div>
+          <div style="padding:18px;background:var(--surface-1);display:flex;flex-direction:column;gap:10px">
+            <div class="dropzone active">
+              <div class="dz-i" style="background:var(--accent-surface);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-ring)"><svg class="ico"><use href="#i-upload-cloud"/></svg></div>
+              <div class="dz-t" style="color:var(--accent)">Drop to import</div>
+              <div class="dz-d">launch-kit.zip · 12.4 MB</div>
+            </div>
+            <div class="alert err"><svg class="ico"><use href="#i-octagon"/></svg><span>Unsupported file type. Accepted: <span style="font-family:var(--mono)">.offisimpkg</span>, <span style="font-family:var(--mono)">.zip</span>.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 18 · Deep-link install — system notice (offisim://install) -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">18</span><span class="t">Deep-link install — system notice (offisim://install URL handler)</span>
+        <span class="d">When the OS URL handler triggers <code>offisim://install?listing_id=X</code>, the active window surfaces a single-line system notice. Open routes to MarketplaceDetailOverlay (§11). Single-layer: no card-in-card around the notice.</span>
+      </div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">System notice · OS URL handler trigger</div>
+          <div style="padding:18px;background:var(--surface-1);display:flex;flex-direction:column;gap:10px">
+            <div class="dl-notice">
+              <span class="dn-i"><svg class="ico"><use href="#i-link"/></svg></span>
+              <div class="dn-c">
+                <div class="dn-t">Install from deep link</div>
+                <div class="dn-u">offisim://install?listing_id=fe-eng&amp;version=1.2.0</div>
+              </div>
+              <button class="dn-a">Open</button>
+            </div>
+            <p class="annot-dark" style="padding-top:0">Source = registered URL handler (macOS LaunchServices · Linux xdg-mime · Windows ProgIDs). Decline collapses the notice; Open routes to the overlay (§11) so the user still confirms before install.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 19 · Fork provenance card -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">19</span><span class="t">Fork provenance card (compact specimen)</span>
+        <span class="d">Single-layer card surfacing the source asset · version · URL · parent author handle. Rendered inside the detail body's Lineage section, or attached to forked items in Personnel / SOP. No nested card grammar.</span>
+      </div>
+      <div class="spec-frame spec-grid-2">
+        <div class="mini-pane">
+          <div class="mini-cap">Inline · detail Lineage section</div>
+          <div style="padding:14px;background:var(--surface-1)">
+            <div class="fork-card">
+              <div class="fc-h"><svg class="ico"><use href="#i-fork"/></svg>Forked from</div>
+              <div class="fc-name">offisim-labs/fe-base</div>
+              <div class="fc-row"><span class="chip mono">v0.9.2</span><span>·</span><span>by Offisim Labs</span><span class="at">@offisim-labs</span></div>
+              <a class="fc-url" href="#"><svg class="ico"><use href="#i-link"/></svg>offisim.market/packages/offisim-labs/fe-base@0.9.2</a>
+            </div>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-cap">Standalone · attached to a forked roster row</div>
+          <div style="padding:14px;background:var(--surface-1)">
+            <div class="fork-card">
+              <div class="fc-h"><svg class="ico"><use href="#i-fork"/></svg>Forked from</div>
+              <div class="fc-name">growth-tools/teardown</div>
+              <div class="fc-row"><span class="chip mono">v0.4.0</span><span>·</span><span>by Growth Tools</span><span class="at">@growth-tools</span></div>
+              <a class="fc-url" href="#"><svg class="ico"><use href="#i-link"/></svg>offisim.market/packages/growth-tools/teardown@0.4.0</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 20 · Rating / Report — deferred placeholders -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">20</span><span class="t">Rating &amp; Report — deferred placeholders</span>
+        <span class="d">Slot is acknowledged in detail panel + card overflow. CTAs render as disabled stub buttons with "coming soon" annotation so implementing agent does NOT build the moderation pipeline yet. Single-row, single-layer.</span>
+      </div>
+      <div class="spec-frame spec-grid-2">
+        <div class="mini-pane">
+          <div class="mini-cap">Detail · below Lineage</div>
+          <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:8px">
+            <span class="label">Community</span>
+            <div class="stub-row">
+              <button class="stub-btn"><svg class="ico"><use href="#i-star"/></svg>Rate<span class="soon">· coming soon</span></button>
+              <button class="stub-btn"><svg class="ico"><use href="#i-flag"/></svg>Report<span class="soon">· coming soon</span></button>
+            </div>
+            <p style="margin:0;font-size:9.5px;color:var(--ink-4);line-height:1.5">Moderation pipeline + report-queue endpoint deferred until v1 hosted registry lands. Until then, ratings are read-only aggregate counts.</p>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mini-cap">Card overflow · context menu (placeholder rows)</div>
+          <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r-xs);color:var(--ink-1);font-size:var(--fs-sm)">
+              <svg class="ico"><use href="#i-arrow-right"/></svg>Open detail
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r-xs);color:var(--ink-1);font-size:var(--fs-sm)">
+              <svg class="ico"><use href="#i-download"/></svg>Install
+            </div>
+            <div style="border-top:1px solid var(--line-soft);margin:2px 0"></div>
+            <div style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r-xs);color:var(--ink-4);font-size:var(--fs-sm);cursor:not-allowed">
+              <svg class="ico"><use href="#i-star"/></svg>Rate <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.04em;margin-left:auto">soon</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r-xs);color:var(--ink-4);font-size:var(--fs-sm);cursor:not-allowed">
+              <svg class="ico"><use href="#i-flag"/></svg>Report <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.04em;margin-left:auto">soon</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 21 · Boot seed — one listing per kind under creators.handle='offisim' -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">21</span><span class="t">Boot seed — first launch · one listing per kind (creators.handle='offisim')</span>
+        <span class="d">First-launch state where the local registry mirror has exactly 1 listing per kind, all under <code>creators.handle='offisim'</code>. Each card carries a "Verified by Offisim" chip in the empty-after-boot grid. Uses the existing <code>kv-*</code> per-kind visualization — visual character stays consistent with the live market grid.</span>
+      </div>
+      <div class="spec-frame">
+        <div class="mini-pane">
+          <div class="mini-cap">Empty-after-boot grid · 7 seed listings</div>
+          <div class="mkt-grid" style="grid-template-columns:repeat(4,1fr);background:var(--surface-1)">
+            <button class="mkt-card" style="--rc:var(--r-employee);--rcs:var(--r-employee-s)">
+              <div class="mc-cover icon">
+                <div class="kv kv-employee"><div class="kv-avatar" style="--av-a:#6a8dff;--av-b:#3a5fd0">FE</div><div class="kv-tags"><span class="kv-tag">react</span><span class="kv-tag">a11y</span><span class="kv-tag">design-sys</span></div></div>
+                <span class="mc-badge"><svg class="ico"><use href="#i-user-plus"/></svg>employee</span>
+              </div>
+              <div class="mc-body">
+                <h3 class="mc-title">Senior Frontend Engineer</h3>
+                <p class="mc-summary">React 19 design-system specialist seeded for first-run.</p>
+                <div class="mc-stats">
+                  <span class="seed-chip"><svg class="ico"><use href="#i-verified"/></svg>Verified by Offisim</span>
+                  <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim</span>
+                </div>
+              </div>
+            </button>
+            <button class="mkt-card" style="--rc:var(--r-skill);--rcs:var(--r-skill-s)">
+              <div class="mc-cover icon">
+                <div class="kv kv-skill">
+                  <div class="kv-perm-row"><span class="kv-perm on"><span class="pd"></span>NET</span><span class="kv-perm"><span class="pd"></span>FS</span><span class="kv-perm"><span class="pd"></span>SEC</span></div>
+                  <div class="kv-caps"><span><b>R</b><i>—</i></span><span>read · doc</span></div>
+                </div>
+                <span class="mc-badge"><svg class="ico"><use href="#i-zap"/></svg>skill</span>
+              </div>
+              <div class="mc-body">
+                <h3 class="mc-title">Competitive Teardown</h3>
+                <p class="mc-summary">Market + competitor analysis skill (seeded).</p>
+                <div class="mc-stats">
+                  <span class="seed-chip"><svg class="ico"><use href="#i-verified"/></svg>Verified by Offisim</span>
+                  <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim</span>
+                </div>
+              </div>
+            </button>
+            <button class="mkt-card" style="--rc:var(--r-sop);--rcs:var(--r-sop-s)">
+              <div class="mc-cover icon">
+                <div class="kv kv-sop">
+                  <div class="kv-pips"><span class="kv-pip done"></span><span class="kv-line done"></span><span class="kv-pip done"></span><span class="kv-line"></span><span class="kv-pip cur"></span><span class="kv-line"></span><span class="kv-pip"></span><span class="kv-line"></span><span class="kv-pip"></span></div>
+                  <div class="kv-roles"><em>PM</em><i>→</i>FE<i>→</i><em>QA</em><i>→</i>OPS<i>→</i>LD</div>
+                </div>
+                <span class="mc-badge"><svg class="ico"><use href="#i-book"/></svg>sop</span>
+              </div>
+              <div class="mc-body">
+                <h3 class="mc-title">Feature Delivery Pipeline</h3>
+                <p class="mc-summary">5-step DAG with PM → FE → QA → OPS handoffs (seeded).</p>
+                <div class="mc-stats">
+                  <span class="seed-chip"><svg class="ico"><use href="#i-verified"/></svg>Verified by Offisim</span>
+                  <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim</span>
+                </div>
+              </div>
+            </button>
+            <button class="mkt-card" style="--rc:var(--r-template);--rcs:var(--r-template-s)">
+              <div class="mc-cover icon">
+                <div class="kv kv-template"><div class="kv-ribbon"><span class="kv-role" style="background:#7c4ddb">PM</span><span class="kv-role" style="background:#2f6bff">FE</span><span class="kv-role" style="background:#c98410">QA</span><span class="kv-role" style="background:#1aa46a">OPS</span></div></div>
+                <span class="mc-badge"><svg class="ico"><use href="#i-building"/></svg>template</span>
+              </div>
+              <div class="mc-body">
+                <h3 class="mc-title">Lean Product Studio</h3>
+                <p class="mc-summary">4-role studio blueprint seeded for first-run.</p>
+                <div class="mc-stats">
+                  <span class="seed-chip"><svg class="ico"><use href="#i-verified"/></svg>Verified by Offisim</span>
+                  <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim</span>
+                </div>
+              </div>
+            </button>
+            <button class="mkt-card" style="--rc:var(--r-layout);--rcs:var(--r-layout-s)">
+              <div class="mc-cover icon">
+                <div class="kv kv-layout">
+                  <svg viewBox="0 0 240 70"><rect class="rm" x="3" y="3" width="234" height="64" rx="2"/><line class="wall" x1="80" y1="3" x2="80" y2="67"/><line class="wall" x1="160" y1="3" x2="160" y2="67"/><circle class="seat" cx="40" cy="22" r="4"/><circle class="seat" cx="40" cy="50" r="4"/><circle class="seat hi" cx="120" cy="36" r="5"/><circle class="seat" cx="200" cy="22" r="4"/><circle class="seat" cx="200" cy="50" r="4"/><text class="lbl" x="120" y="60" text-anchor="middle">PITCH HALL</text></svg>
+                </div>
+                <span class="mc-badge"><svg class="ico"><use href="#i-grid"/></svg>layout</span>
+              </div>
+              <div class="mc-body">
+                <h3 class="mc-title">Studio Floor v1</h3>
+                <p class="mc-summary">3-zone office layout with pitch hall (seeded).</p>
+                <div class="mc-stats">
+                  <span class="seed-chip"><svg class="ico"><use href="#i-verified"/></svg>Verified by Offisim</span>
+                  <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim</span>
+                </div>
+              </div>
+            </button>
+            <button class="mkt-card" style="--rc:var(--r-prefab);--rcs:var(--r-prefab-s)">
+              <div class="mc-cover icon">
+                <div class="kv kv-prefab">
+                  <svg viewBox="0 0 240 70"><path class="fill" d="M40 28 L80 16 L120 28 L80 40 Z"/><path class="ln" d="M40 28 L40 50 L80 62 L80 40"/><path class="ln" d="M80 40 L120 28 L120 50 L80 62"/><circle class="hi" cx="80" cy="40" r="2.5"/><path class="fill" d="M140 28 L180 16 L220 28 L180 40 Z"/><path class="ln" d="M140 28 L140 50 L180 62 L180 40"/><path class="ln" d="M180 40 L220 28 L220 50 L180 62"/></svg>
+                </div>
+                <span class="mc-badge"><svg class="ico"><use href="#i-box"/></svg>prefab</span>
+              </div>
+              <div class="mc-body">
+                <h3 class="mc-title">Standing Desk Cluster</h3>
+                <p class="mc-summary">2-seat standing-desk prefab (seeded).</p>
+                <div class="mc-stats">
+                  <span class="seed-chip"><svg class="ico"><use href="#i-verified"/></svg>Verified by Offisim</span>
+                  <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim</span>
+                </div>
+              </div>
+            </button>
+            <button class="mkt-card" style="--rc:var(--r-bundle);--rcs:var(--r-bundle-s)">
+              <div class="mc-cover icon">
+                <div class="kv kv-bundle">
+                  <div class="kv-stack">
+                    <span class="kv-stack-item e"><svg class="ico"><use href="#i-user-plus"/></svg></span>
+                    <span class="kv-stack-item s"><svg class="ico"><use href="#i-zap"/></svg></span>
+                    <span class="kv-stack-item o"><svg class="ico"><use href="#i-book"/></svg></span>
+                  </div>
+                </div>
+                <span class="mc-badge"><svg class="ico"><use href="#i-box"/></svg>bundle</span>
+              </div>
+              <div class="mc-body">
+                <h3 class="mc-title">Starter Studio Pack</h3>
+                <p class="mc-summary">Employee + skill + sop bundle (seeded).</p>
+                <div class="mc-stats">
+                  <span class="seed-chip"><svg class="ico"><use href="#i-verified"/></svg>Verified by Offisim</span>
+                  <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim</span>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+        <p class="annot-dark">Source of truth: <code>seed.json</code> ships with the desktop bundle · one row per kind · all <code>creators.handle='offisim'</code>. The "Verified by Offisim" chip is the only top-left affordance; the Installed pip never appears on seed rows until the user explicitly installs.</p>
+      </div>
+    </div>
+
+    <!-- 22 · Active company switch — installed-state re-derive -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">22</span><span class="t">Active company switch — installed-state re-derive (per-company)</span>
+        <span class="d">Same Market listing renders differently in two companies because <code>installedListingIds</code> ∪ <code>installedPackageKeys</code> is scoped per active company. Company A has the package installed → CTA + pip read "Installed"; Company B does not → CTA reads "Install". The arrow between the two panes is the active-company switch event.</span>
+      </div>
+      <div class="spec-frame">
+        <div class="cmp-wrap">
+          <div class="mini-pane">
+            <div class="cmp-head">
+              <span class="swatch"><svg class="ico"><use href="#i-building"/></svg></span>
+              Active company · Acme Studios
+              <span style="margin-left:auto;font-size:9.5px;color:var(--ok);font-weight:700;letter-spacing:0">installed</span>
+            </div>
+            <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:10px">
+              <button class="mkt-card" style="--rc:var(--r-employee);--rcs:var(--r-employee-s);height:auto;max-width:260px;margin:0 auto">
+                <div class="mc-cover icon">
+                  <div class="kv kv-employee"><div class="kv-avatar">FE</div><div class="kv-tags"><span class="kv-tag">react</span><span class="kv-tag">a11y</span></div></div>
+                  <span class="mc-installed">Installed</span>
+                  <span class="mc-badge"><svg class="ico"><use href="#i-user-plus"/></svg>employee</span>
+                </div>
+                <div class="mc-body">
+                  <h3 class="mc-title">Senior Frontend Engineer</h3>
+                  <p class="mc-summary">React 19 design-system specialist.</p>
+                  <div class="mc-stats">
+                    <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.8</span>
+                    <span class="mc-stat-chip installs">3.2k</span>
+                    <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim-labs</span>
+                  </div>
+                </div>
+              </button>
+              <button class="md-install installed" style="max-width:260px;margin:0 auto;width:100%">Installed</button>
+            </div>
+          </div>
+          <div class="cmp-arrow">
+            <svg class="ico"><use href="#i-arrow-lr"/></svg>
+          </div>
+          <div class="mini-pane">
+            <div class="cmp-head">
+              <span class="swatch" style="background:var(--violet-surface);color:var(--violet);box-shadow:inset 0 0 0 1px rgba(124,77,219,0.4)"><svg class="ico"><use href="#i-building"/></svg></span>
+              Active company · Boreal Labs
+              <span style="margin-left:auto;font-size:9.5px;color:var(--ink-4);font-weight:700;letter-spacing:0">not installed</span>
+            </div>
+            <div style="padding:14px;background:var(--surface-1);display:flex;flex-direction:column;gap:10px">
+              <button class="mkt-card" style="--rc:var(--r-employee);--rcs:var(--r-employee-s);height:auto;max-width:260px;margin:0 auto">
+                <div class="mc-cover icon">
+                  <div class="kv kv-employee"><div class="kv-avatar">FE</div><div class="kv-tags"><span class="kv-tag">react</span><span class="kv-tag">a11y</span></div></div>
+                  <span class="mc-badge"><svg class="ico"><use href="#i-user-plus"/></svg>employee</span>
+                </div>
+                <div class="mc-body">
+                  <h3 class="mc-title">Senior Frontend Engineer</h3>
+                  <p class="mc-summary">React 19 design-system specialist.</p>
+                  <div class="mc-stats">
+                    <span class="mc-stat-chip stars"><svg class="ico fill"><use href="#i-star"/></svg>4.8</span>
+                    <span class="mc-stat-chip installs">3.2k</span>
+                    <span class="mc-stat-chip creator"><span class="mc-vdot"></span>@offisim-labs</span>
+                  </div>
+                </div>
+              </button>
+              <button class="md-install" style="max-width:260px;margin:0 auto;width:100%"><svg class="ico"><use href="#i-download"/></svg>Install</button>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark" style="text-align:center">Switch event: <code>scope.active_company_id</code> changes → MarketPage re-runs <code>deriveInstalledKeys()</code> against the new company's <code>installations</code> rows → all <code>mkt-card</code> + <code>md-install</code> states re-derive in one tick. Nothing else (search / filter / sort / pagination) is reset.</p>
       </div>
     </div>
 

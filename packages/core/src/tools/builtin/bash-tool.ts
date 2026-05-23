@@ -1,5 +1,5 @@
 import { classifyShellCommand } from './shell-command-classifier.js';
-import type { BuiltinTool, BuiltinToolConfig } from './types.js';
+import { isBuiltinToolReadOnly, type BuiltinTool, type BuiltinToolConfig } from './types.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT = 100 * 1024; // 100KB
@@ -29,7 +29,9 @@ export function createBashTool(config: BuiltinToolConfig): BuiltinTool | null {
     async execute(args, context) {
       const command = args.command as string;
       const cwd = args.cwd as string | undefined;
-      const classification = classifyShellCommand(command, { readOnly: config.readOnly });
+      const classification = classifyShellCommand(command, {
+        readOnly: isBuiltinToolReadOnly(config, context),
+      });
       if (classification.decision === 'deny') {
         throw new Error(`[SHELL_COMMAND_DENIED] ${classification.reason}`);
       }

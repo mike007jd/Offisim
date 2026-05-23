@@ -7,7 +7,19 @@ import {
 } from '../lib/scene-procedural-textures.js';
 import { useSceneColors } from './use-scene-colors.js';
 
-export type MaterialClass = 'wood' | 'metal' | 'glass' | 'leather' | 'fabric' | 'plastic';
+export type MaterialClass =
+  | 'wood'
+  | 'metal'
+  | 'metal-brushed'
+  | 'metal-chrome'
+  | 'glass'
+  | 'leather'
+  | 'fabric'
+  | 'plastic'
+  | 'carpet'
+  | 'rubber'
+  | 'ceramic'
+  | 'screen';
 
 export interface MaterialPreset {
   component: 'standard' | 'physical';
@@ -18,6 +30,8 @@ export interface MaterialPreset {
   opacity?: number;
   clearcoat?: number;
   clearcoatRoughness?: number;
+  sheen?: number;
+  sheenColor?: string;
   envMapIntensity: number;
   useProceduralNormal?: 'dust' | 'wood';
   normalScale?: number;
@@ -25,14 +39,42 @@ export interface MaterialPreset {
 
 export const MATERIAL_PRESETS: Record<MaterialClass, MaterialPreset> = {
   wood: {
-    component: 'standard',
-    roughness: 0.42,
+    component: 'physical',
+    roughness: 0.45,
     metalness: 0,
-    envMapIntensity: 0.35,
+    envMapIntensity: 0.55,
+    clearcoat: 0.25,
+    clearcoatRoughness: 0.45,
     useProceduralNormal: 'wood',
-    normalScale: 0.05,
+    normalScale: 0.18,
   },
-  metal: { component: 'standard', roughness: 0.28, metalness: 0.72, envMapIntensity: 0.9 },
+  // 'metal' = anodized (most office furniture metal: server body, chair frame).
+  metal: {
+    component: 'standard',
+    roughness: 0.52,
+    metalness: 0.42,
+    envMapIntensity: 0.65,
+    useProceduralNormal: 'dust',
+    normalScale: 0.018,
+  },
+  'metal-brushed': {
+    component: 'physical',
+    roughness: 0.48,
+    metalness: 0.58,
+    envMapIntensity: 0.75,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.55,
+    useProceduralNormal: 'dust',
+    normalScale: 0.022,
+  },
+  'metal-chrome': {
+    component: 'physical',
+    roughness: 0.06,
+    metalness: 1.0,
+    envMapIntensity: 1.2,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.04,
+  },
   glass: {
     component: 'physical',
     roughness: 0.08,
@@ -45,13 +87,55 @@ export const MATERIAL_PRESETS: Record<MaterialClass, MaterialPreset> = {
     normalScale: 0.025,
   },
   leather: {
-    component: 'standard',
-    roughness: 0.34,
+    component: 'physical',
+    roughness: 0.36,
     metalness: 0,
-    envMapIntensity: 0.45,
+    envMapIntensity: 0.5,
+    clearcoat: 0.14,
+    clearcoatRoughness: 0.55,
+    useProceduralNormal: 'dust',
+    normalScale: 0.014,
   },
   fabric: { component: 'standard', roughness: 0.82, metalness: 0, envMapIntensity: 0.18 },
-  plastic: { component: 'standard', roughness: 0.58, metalness: 0, envMapIntensity: 0.35 },
+  plastic: {
+    component: 'standard',
+    roughness: 0.58,
+    metalness: 0,
+    envMapIntensity: 0.35,
+    useProceduralNormal: 'dust',
+    normalScale: 0.015,
+  },
+  carpet: {
+    component: 'physical',
+    roughness: 0.95,
+    metalness: 0,
+    envMapIntensity: 0.05,
+    sheen: 0.4,
+    sheenColor: '#3a2b1f', // raw-hex-allowed: physical sheen warm tone, intentionally not a token
+  },
+  rubber: {
+    component: 'standard',
+    roughness: 0.78,
+    metalness: 0,
+    envMapIntensity: 0.12,
+    useProceduralNormal: 'dust',
+    normalScale: 0.018,
+  },
+  ceramic: {
+    component: 'physical',
+    roughness: 0.18,
+    metalness: 0,
+    envMapIntensity: 0.7,
+    clearcoat: 0.8,
+    clearcoatRoughness: 0.08,
+  },
+  // Roughness 0.6 so screens still pick up envmap (matte=1 reads as sticker).
+  screen: {
+    component: 'standard',
+    roughness: 0.6,
+    metalness: 0,
+    envMapIntensity: 0.25,
+  },
 };
 
 type MaterialOverrides = Partial<
@@ -110,6 +194,8 @@ export function useMaterial(
     envMapIntensity,
     clearcoat,
     clearcoatRoughness,
+    sheen,
+    sheenColor,
     transmission,
     ior,
     opacity,
@@ -155,6 +241,8 @@ export function useMaterial(
         {...common}
         clearcoat={clearcoat ?? preset.clearcoat}
         clearcoatRoughness={clearcoatRoughness ?? preset.clearcoatRoughness}
+        sheen={sheen ?? preset.sheen}
+        sheenColor={sheenColor ?? preset.sheenColor}
         transmission={transmission ?? preset.transmission}
         ior={ior ?? preset.ior}
         opacity={opacity ?? preset.opacity}
@@ -178,4 +266,47 @@ export function SceneMaterial({
   overrides?: MaterialOverrides;
 }) {
   return useMaterial(materialClass, color, overrides);
+}
+
+/**
+ * Emissive tiers: each tier locks an intensity band so bloom luminance
+ * threshold lands consistently regardless of base color hue. Pair with
+ * EmissiveMaterial.
+ */
+export type EmissiveTier = 'led' | 'screen' | 'signage' | 'accent';
+
+const EMISSIVE_INTENSITY: Record<EmissiveTier, number> = {
+  led: 1.35,
+  screen: 0.75,
+  signage: 0.9,
+  accent: 0.6,
+};
+
+/**
+ * Bloom-friendly emissive material. Raw HDR output (toneMapped=false) so the
+ * post-processing Bloom pass can pick it up via luminance threshold. Screens
+ * keep roughness 0.6 to still receive a hint of envmap reflection (avoids the
+ * fully-matte "sticker" look); LEDs/signage stay roughness 1 for pure glow.
+ */
+export function EmissiveMaterial({
+  color,
+  intensity,
+  tier = 'screen',
+}: {
+  color: string;
+  intensity?: number;
+  tier?: EmissiveTier;
+}) {
+  const resolvedIntensity = intensity ?? EMISSIVE_INTENSITY[tier];
+  const surfaceRoughness = tier === 'screen' ? 0.6 : 1.0;
+  return (
+    <meshStandardMaterial
+      color="#000000"
+      emissive={color}
+      emissiveIntensity={resolvedIntensity}
+      roughness={surfaceRoughness}
+      metalness={0}
+      toneMapped={false}
+    />
+  );
 }

@@ -1,4 +1,4 @@
-import type { InteractionMode } from '@offisim/shared-types';
+import type { InteractionMode, RunScope } from '@offisim/shared-types';
 import type { ManagerDirective, OffisimGraphState } from '../graph/state.js';
 import type { EmployeeRow } from '../runtime/repositories.js';
 import type { RuntimeContext } from '../runtime/runtime-context.js';
@@ -40,6 +40,7 @@ export interface PmPreflightReady {
   reviewedPlan: LlmPlan | null;
   validEmployees: EmployeeRow[];
   allEnabled: EmployeeRow[];
+  runScope: RunScope | null;
   /**
    * Full company roster (enabled + disabled). Sanitize-rebind needs the
    * disabled rows so it can distinguish `employee-disabled` from

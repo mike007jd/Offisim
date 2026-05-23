@@ -642,6 +642,43 @@
       "invariants": ["kanban.transition_is_atomic_cas"]
     },
     {
+      "id": "company-startup-providerless-no-fake-work",
+      "category": "company-startup",
+      "invariants": [
+        "startup.events_are_ceremony_only",
+        "startup.providerless_does_not_create_fake_work"
+      ]
+    },
+    {
+      "id": "pm-planner-typed-sop-run-uses-selected-id",
+      "category": "sop-runtime",
+      "invariants": [
+        "sop.typed_run_scope_overrides_duplicate_name",
+        "sop.definition_ref_travels_with_run_scope"
+      ]
+    },
+    {
+      "id": "completion-natural-production-artifact-intent-emits-deliverable",
+      "category": "long-running-runtime",
+      "invariants": ["deliverable.natural_production_artifact_intent_emits"]
+    },
+    {
+      "id": "project-null-workspace-text-work-stays-productive",
+      "category": "projects",
+      "invariants": [
+        "project.null_workspace_persists",
+        "project.null_workspace_text_work_stays_productive"
+      ]
+    },
+    {
+      "id": "install-materialization-rolls-back-partial-production-assets",
+      "category": "install-runtime",
+      "invariants": [
+        "install.production_asset_materialization_is_atomic",
+        "install.partial_sop_prefab_rows_rollback"
+      ]
+    },
+    {
       "id": "yolo-80-turn-multi-file-refactor",
       "category": "long-running-soak",
       "invariants": [

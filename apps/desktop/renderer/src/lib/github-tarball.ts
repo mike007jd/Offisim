@@ -1,4 +1,5 @@
 const GITHUB_API_BASE_URL = 'https://api.github.com';
+const GITHUB_TARBALL_MAX_BYTES = 25 * 1024 * 1024;
 
 function buildGithubTarballPath(owner: string, repo: string, ref?: string): string {
   return ref
@@ -64,5 +65,30 @@ export async function fetchGithubTarball(
   if (!resp.ok) {
     throw new Error(`GitHub tarball fetch failed (${resp.status} ${resp.statusText})`);
   }
-  return new Uint8Array(await resp.arrayBuffer());
+  if (!resp.body) {
+    throw new Error('GitHub tarball fetch did not provide a readable stream');
+  }
+  const reader = resp.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > GITHUB_TARBALL_MAX_BYTES) {
+        throw new Error('GitHub tarball exceeds the 25 MB download limit');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }

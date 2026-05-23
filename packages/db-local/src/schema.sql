@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS installed_packages (
   installed_package_id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
   package_id TEXT NOT NULL,
-  package_kind TEXT NOT NULL CHECK (package_kind IN ('employee', 'skill', 'sop', 'company_template', 'office_layout', 'bundle')),
+  package_kind TEXT NOT NULL CHECK (package_kind IN ('employee', 'skill', 'sop', 'company_template', 'office_layout', 'prefab', 'bundle')),
   version TEXT NOT NULL,
   source_type TEXT NOT NULL CHECK (source_type IN ('registry', 'url', 'file')),
   source_ref TEXT,
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS installed_assets (
   installed_asset_id TEXT PRIMARY KEY,
   installed_package_id TEXT NOT NULL REFERENCES installed_packages(installed_package_id) ON DELETE CASCADE,
   asset_id TEXT NOT NULL,
-  asset_kind TEXT NOT NULL CHECK (asset_kind IN ('employee', 'skill', 'sop', 'company_template', 'office_layout', 'bundle_item')),
+  asset_kind TEXT NOT NULL CHECK (asset_kind IN ('employee', 'skill', 'sop', 'company_template', 'office_layout', 'prefab', 'bundle')),
   local_instance_id TEXT,
   entrypoint TEXT,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
@@ -263,6 +263,19 @@ CREATE TABLE IF NOT EXISTS sop_templates (
   created_at      TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
   , source_url TEXT, version TEXT, last_synced_at TEXT);
+CREATE TABLE IF NOT EXISTS company_template_assets (
+  company_template_asset_id TEXT PRIMARY KEY,
+  company_id      TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  template_id     TEXT NOT NULL,
+  name            TEXT NOT NULL,
+  description     TEXT NOT NULL DEFAULT '',
+  template_json   TEXT NOT NULL,
+  source_package_id TEXT NOT NULL,
+  source_asset_id TEXT NOT NULL,
+  version         TEXT,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS office_layouts (
   layout_id   TEXT PRIMARY KEY,
   company_id  TEXT NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -575,6 +588,7 @@ CREATE INDEX IF NOT EXISTS idx_emp_ver_emp ON employee_versions(employee_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cost_rates_provider_model
   ON model_cost_rates(provider, model_pattern, effective_from);
 CREATE INDEX IF NOT EXISTS idx_sop_templates_company ON sop_templates(company_id);
+CREATE INDEX IF NOT EXISTS idx_company_template_assets_company ON company_template_assets(company_id);
 CREATE INDEX IF NOT EXISTS idx_office_layouts_company ON office_layouts(company_id);
 CREATE INDEX IF NOT EXISTS idx_library_docs_company ON library_documents(company_id);
 CREATE INDEX IF NOT EXISTS idx_prefab_instances_company

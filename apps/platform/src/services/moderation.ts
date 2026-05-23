@@ -21,15 +21,26 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
   const [job] = await db
     .select()
     .from(moderationJobs)
-    .where(eq(moderationJobs.job_id, jobId))
+    .where(
+      and(
+        eq(moderationJobs.job_id, jobId),
+        eq(moderationJobs.status, 'pending'),
+        eq(moderationJobs.target_type, 'publish_draft'),
+        eq(moderationJobs.job_kind, 'publish_review'),
+      ),
+    )
     .limit(1);
 
-  if (!job || job.status !== 'pending') return;
+  if (!job) return;
+  const pendingJobPredicate = and(
+    eq(moderationJobs.job_id, jobId),
+    eq(moderationJobs.status, 'pending'),
+  );
 
   const [draft] = await db
     .select()
     .from(publishDrafts)
-    .where(eq(publishDrafts.draft_id, job.target_id))
+    .where(and(eq(publishDrafts.draft_id, job.target_id), eq(publishDrafts.status, 'submitted')))
     .limit(1);
 
   if (!draft) {
@@ -40,7 +51,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         result: { outcome: 'rejected', reason: 'Draft not found' },
         completed_at: new Date(),
       })
-      .where(eq(moderationJobs.job_id, jobId));
+      .where(pendingJobPredicate);
     return;
   }
 
@@ -53,12 +64,12 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         result: { outcome: 'rejected', reason: 'Manifest not valid' },
         completed_at: new Date(),
       })
-      .where(eq(moderationJobs.job_id, jobId));
+      .where(pendingJobPredicate);
 
     await db
       .update(publishDrafts)
       .set({ status: 'rejected', updated_at: new Date() })
-      .where(eq(publishDrafts.draft_id, draft.draft_id));
+      .where(and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')));
     return;
   }
 
@@ -72,11 +83,11 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         result: { outcome: 'rejected', reason: 'Artifact integrity metadata missing' },
         completed_at: new Date(),
       })
-      .where(eq(moderationJobs.job_id, jobId));
+      .where(pendingJobPredicate);
     await db
       .update(publishDrafts)
       .set({ status: 'rejected', updated_at: new Date() })
-      .where(eq(publishDrafts.draft_id, draft.draft_id));
+      .where(and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')));
     return;
   }
 
@@ -88,21 +99,21 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
     const [originListing] = await db
       .select({ listing_id: listings.listing_id })
       .from(listings)
-      .where(eq(listings.listing_id, lineage.origin_listing_id))
+      .where(and(eq(listings.listing_id, lineage.origin_listing_id), eq(listings.status, 'listed')))
       .limit(1);
     if (!originListing) {
       await db
         .update(moderationJobs)
         .set({
           status: 'completed',
-          result: { outcome: 'rejected', reason: 'Lineage origin_listing_id does not exist' },
+          result: { outcome: 'rejected', reason: 'Lineage origin_listing_id is not public' },
           completed_at: new Date(),
         })
-        .where(eq(moderationJobs.job_id, jobId));
+        .where(pendingJobPredicate);
       await db
         .update(publishDrafts)
         .set({ status: 'rejected', updated_at: new Date() })
-        .where(eq(publishDrafts.draft_id, draft.draft_id));
+        .where(and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')));
       return;
     }
   }
@@ -212,10 +223,20 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
       }
 
       // Mark draft as approved, job as completed
-      await tx
+      const approvedDraftRows = await tx
         .update(publishDrafts)
         .set({ status: 'approved', listing_id: listingId, updated_at: new Date() })
-        .where(eq(publishDrafts.draft_id, draft.draft_id));
+        .where(
+          and(
+            eq(publishDrafts.draft_id, draft.draft_id),
+            eq(publishDrafts.creator_id, draft.creator_id),
+            eq(publishDrafts.status, 'submitted'),
+          ),
+        )
+        .returning({ draft_id: publishDrafts.draft_id });
+      if (approvedDraftRows.length === 0) {
+        throw new Error('Draft state changed during moderation approval');
+      }
 
       await tx
         .update(moderationJobs)
@@ -224,7 +245,7 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
           result: { outcome: 'approved', listing_id: listingId },
           completed_at: new Date(),
         })
-        .where(eq(moderationJobs.job_id, jobId));
+        .where(pendingJobPredicate);
     });
   } catch (err) {
     if (!isDuplicatePackageVersionDbError(err)) {
@@ -241,11 +262,11 @@ export async function processModerationJob(db: PlatformDb, jobId: string): Promi
         },
         completed_at: new Date(),
       })
-      .where(eq(moderationJobs.job_id, jobId));
+      .where(pendingJobPredicate);
     await db
       .update(publishDrafts)
       .set({ status: 'draft', updated_at: new Date() })
-      .where(eq(publishDrafts.draft_id, draft.draft_id));
+      .where(and(eq(publishDrafts.draft_id, draft.draft_id), eq(publishDrafts.status, 'submitted')));
   }
 }
 

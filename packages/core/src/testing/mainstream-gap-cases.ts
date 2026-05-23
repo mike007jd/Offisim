@@ -4,15 +4,16 @@ import { executeHandoff } from '../agents/employee-handoff.js';
 import { PROMPT_CACHE_VOLATILE_MARKER } from '../agents/employee-prompt-assembly.js';
 import { runToolRound } from '../agents/employee-tool-round.js';
 import { buildTurnRunner } from '../agents/employee-turn-runner.js';
+import { resolveToolLoopMaxRounds } from '../agents/tool-loop-policy.js';
 import { LlmError } from '../errors.js';
 import { InMemoryEventBus } from '../events/event-bus.js';
 import { AnthropicAdapter } from '../llm/anthropic-adapter.js';
 import { createGateway } from '../llm/gateway-factory.js';
-import type { LlmGateway, LlmMessage, ToolDef } from '../llm/gateway.js';
+import type { LlmGateway, LlmMessage, LlmStreamChunk, ToolDef } from '../llm/gateway.js';
 import { ModelRegistry } from '../llm/model-registry.js';
 import { ModelResolver } from '../llm/model-resolver.js';
 import { OpenAiAdapter } from '../llm/openai-adapter.js';
-import { recordedLlmCall } from '../llm/recorded-call.js';
+import { recordedLlmCall, recordedLlmStream } from '../llm/recorded-call.js';
 import { computeDelay } from '../llm/retry.js';
 import { teeStream } from '../llm/stream-tee.js';
 import { AuditingToolExecutor } from '../mcp/auditing-tool-executor.js';
@@ -87,6 +88,8 @@ async function runCase(caseId: string): Promise<Record<string, unknown> | undefi
       return assertShellInteractionAskFlow();
     case 'context-budget-boundary':
       return assertContextBudgetBoundary();
+    case 'tool-loop-role-model-policy':
+      return assertToolLoopRoleModelPolicy();
     case 'context-overflow-recovery-and-tool-boundary':
       return assertContextOverflowRecoveryAndToolBoundary();
     case 'loop-truncation-abort-checkpoint':
@@ -336,6 +339,43 @@ async function assertShellInteractionAskFlow(): Promise<Record<string, unknown>>
   await expectReject(() => bash.execute({ command: 'rm -rf ./build' }), 'TOOL_PERMISSION_REQUIRED');
   await bash.execute({ command: 'rm -rf ./build', [BASH_DESTRUCTIVE_APPROVED_ARG]: true });
   assert(shellRan, 'Approved destructive bash command did not execute.');
+  shellRan = false;
+  const readOnlyRunScope = {
+    conversationKey: 'project::thread::',
+    runId: 'readonly-run',
+    threadId: 'thread',
+    toolPolicy: { readOnly: true },
+  };
+  await expectReject(
+    () => bash.execute({ command: 'echo hi > out.txt' }, { runScope: readOnlyRunScope }),
+    'SHELL_COMMAND_DENIED',
+  );
+  assert(!shellRan, 'Read-only bash command reached shell executor.');
+
+  const fs = createFixtureFs({ 'src/raw.txt': 'first\n' });
+  const write = createFileWriteTool({ executionMode: 'desktop-trusted', fs });
+  const edit = createEditFileTool({ executionMode: 'desktop-trusted', fs });
+  assert(write && edit, 'Expected write/edit tools for read-only run-scope regression.');
+  await expectReject(
+    () =>
+      write.execute(
+        { path: 'src/raw.txt', content: 'next\n', expectedPreviousContent: 'first\n' },
+        { runScope: readOnlyRunScope },
+      ),
+    'READ_ONLY_MODE',
+  );
+  await expectReject(
+    () =>
+      edit.execute(
+        { path: 'src/raw.txt', oldString: 'first', newString: 'next' },
+        { runScope: readOnlyRunScope },
+      ),
+    'READ_ONLY_MODE',
+  );
+  assert(
+    (await fs.readFile('src/raw.txt')) === 'first\n',
+    'Read-only file tools mutated fixture content.',
+  );
 
   const approvedInner = new RecordingInnerToolExecutor('approve');
   const approved = await createAuditedShellExecutor(approvedInner, 'approve_once').execute(
@@ -413,6 +453,38 @@ function assertContextBudgetBoundary(): Record<string, unknown> {
     `Window-derived trigger mismatch: ${options.fullCompactTriggerTokens}.`,
   );
   return { cjkTokens, fullCompactTriggerTokens: options.fullCompactTriggerTokens };
+}
+
+function assertToolLoopRoleModelPolicy(): Record<string, unknown> {
+  const base = resolveToolLoopMaxRounds(
+    { maxRounds: 9 },
+    { roleSlug: 'engineer', provider: 'openai-compat', model: 'default-model' },
+    32,
+  );
+  const role = resolveToolLoopMaxRounds(
+    { maxRounds: 9, roleMaxRounds: { engineer: 14 } },
+    { roleSlug: 'engineer', provider: 'openai-compat', model: 'default-model' },
+    32,
+  );
+  const model = resolveToolLoopMaxRounds(
+    {
+      maxRounds: 9,
+      roleMaxRounds: { engineer: 14 },
+      modelMaxRounds: { 'openai-compat/deep-tool-model': 21 },
+    },
+    { roleSlug: 'engineer', provider: 'openai-compat', model: 'deep-tool-model' },
+    32,
+  );
+  const normalized = resolveToolLoopMaxRounds(
+    { modelMaxRounds: { 'openai-compat/tiny': 0 } },
+    { roleSlug: 'engineer', provider: 'openai-compat', model: 'tiny' },
+    32,
+  );
+  assert(base === 9, `Global tool-loop cap mismatch: ${base}.`);
+  assert(role === 14, `Role tool-loop cap mismatch: ${role}.`);
+  assert(model === 21, `Model tool-loop cap mismatch: ${model}.`);
+  assert(normalized === 1, `Tool-loop cap did not clamp to at least 1: ${normalized}.`);
+  return { base, role, model, normalized };
 }
 
 async function assertContextOverflowRecoveryAndToolBoundary(): Promise<Record<string, unknown>> {
@@ -796,11 +868,220 @@ async function assertRetryStopReasonAndFallback(): Promise<Record<string, unknow
     'Persisted LLM call did not use actual fallback model.',
   );
   assert(usage?.model === 'fallback-model', 'Usage event did not use actual fallback model.');
+
+  const streamRepos = createMemoryRepositories();
+  const streamBus = new InMemoryEventBus();
+  const streamEvents: LlmStreamChunk[] = [];
+  const streamFallbackGateway = fakeGateway({
+    chatStream: async function* (request) {
+      assert(request.model === 'fallback-model', 'Stream fallback request did not use fallback model.');
+      yield { content: 'fallback ', done: false };
+      yield { content: 'stream', done: false };
+      yield {
+        done: true,
+        usage: { inputTokens: 11, outputTokens: 5 },
+        stopReason: 'end_turn',
+      };
+    },
+  });
+  const streamPrimaryGateway = fakeGateway({
+    chatStream: async function* () {
+      throw new LlmError('provider overloaded before stream', 'openai-compat', 529);
+    },
+  });
+  const streamRuntimeCtx = createRuntimeContext({
+    repos: streamRepos,
+    eventBus: streamBus,
+    llmGateway: streamPrimaryGateway,
+    modelResolver: new ModelResolver({
+      default: {
+        profileName: 'stream-fallback-telemetry',
+        provider: 'openai-compat',
+        model: 'primary-model',
+        temperature: 0,
+        maxTokens: 128,
+        contextWindow: 128_000,
+      },
+    }),
+    toolExecutor: new RecordingInnerToolExecutor('stream-fallback-telemetry'),
+    companyId: 'company-gap',
+    threadId: 'thread-gap-stream',
+    modelRegistry: {
+      getGateway: (modelId: string) =>
+        modelId === 'fallback-model' ? streamFallbackGateway : streamPrimaryGateway,
+      recordCapacityError: () => ({ id: 'fallback', model: 'fallback-model' }),
+      recordSuccess: () => {},
+      findById: (modelId: string) =>
+        modelId === 'fallback-model'
+          ? {
+              id: 'fallback',
+              displayName: 'Fallback',
+              provider: 'openai-compat',
+              model: 'fallback-model',
+              apiKey: 'test',
+            }
+          : null,
+    } as never,
+    determinism: {
+      nowMs: () => 0,
+      nowIso: () => '2026-05-17T00:00:00.000Z',
+      id: (prefix) => `${prefix}-stream-fallback`,
+      uuid: () => '00000000-0000-4000-8000-000000000001',
+    },
+  });
+  const streamRecorded = await recordedLlmStream(
+    streamRuntimeCtx,
+    { model: 'primary-model', messages: [{ role: 'user', content: 'stream fallback please' }] },
+    { nodeName: 'stream_fallback_case', provider: 'openai-compat', model: 'primary-model' },
+    (chunk) => streamEvents.push(chunk),
+  );
+  const emittedStreamContent = streamEvents.map((chunk) => chunk.content ?? '').join('');
+  assert(streamRecorded.fullContent === 'fallback stream', 'Stream fallback result was not returned.');
+  assert(
+    emittedStreamContent === 'fallback stream',
+    'Failed stream attempt leaked stale partial chunks before fallback.',
+  );
+  const streamDbRow = (await streamRepos.llmCalls.findByThread('thread-gap-stream'))[0];
+  assert(streamDbRow?.model === 'fallback-model', 'Stream persisted model did not use fallback.');
+
+  const partialRepos = createMemoryRepositories();
+  const partialBus = new InMemoryEventBus();
+  const partialEvents: LlmStreamChunk[] = [];
+  let partialFallbackCalled = false;
+  const partialFallbackGateway = fakeGateway({
+    chatStream: async function* () {
+      partialFallbackCalled = true;
+      yield { content: 'should not stream', done: false };
+    },
+  });
+  const partialPrimaryGateway = fakeGateway({
+    chatStream: async function* () {
+      yield { content: 'stale partial', done: false };
+      throw new LlmError('provider overloaded after partial', 'openai-compat', 529);
+    },
+  });
+  const partialRuntimeCtx = createRuntimeContext({
+    repos: partialRepos,
+    eventBus: partialBus,
+    llmGateway: partialPrimaryGateway,
+    modelResolver: new ModelResolver({
+      default: {
+        profileName: 'stream-partial-telemetry',
+        provider: 'openai-compat',
+        model: 'primary-model',
+        temperature: 0,
+        maxTokens: 128,
+        contextWindow: 128_000,
+      },
+    }),
+    toolExecutor: new RecordingInnerToolExecutor('stream-partial-telemetry'),
+    companyId: 'company-gap',
+    threadId: 'thread-gap-stream-partial',
+    modelRegistry: {
+      getGateway: (modelId: string) =>
+        modelId === 'fallback-model' ? partialFallbackGateway : partialPrimaryGateway,
+      recordCapacityError: () => ({ id: 'fallback', model: 'fallback-model' }),
+      recordSuccess: () => {},
+      findById: (modelId: string) =>
+        modelId === 'fallback-model'
+          ? {
+              id: 'fallback',
+              displayName: 'Fallback',
+              provider: 'openai-compat',
+              model: 'fallback-model',
+              apiKey: 'test',
+            }
+          : null,
+    } as never,
+    determinism: {
+      nowMs: () => 0,
+      nowIso: () => '2026-05-17T00:00:00.000Z',
+      id: (prefix) => `${prefix}-stream-partial`,
+      uuid: () => '00000000-0000-4000-8000-000000000002',
+    },
+  });
+  await expectReject(
+    () =>
+      recordedLlmStream(
+        partialRuntimeCtx,
+        { model: 'primary-model', messages: [{ role: 'user', content: 'stream partial fail' }] },
+        { nodeName: 'stream_partial_case', provider: 'openai-compat', model: 'primary-model' },
+        (chunk) => partialEvents.push(chunk),
+      ),
+    'provider overloaded after partial',
+  );
+  assert(!partialFallbackCalled, 'Stream fallback ran after visible primary chunks.');
+  assert(
+    partialEvents.map((chunk) => chunk.content ?? '').join('') === 'stale partial',
+    'Partial stream should expose only primary chunks and not append fallback content.',
+  );
+
+  const liveRepos = createMemoryRepositories();
+  const liveBus = new InMemoryEventBus();
+  const liveEvents: LlmStreamChunk[] = [];
+  let firstChunkObservedBeforeCompletion = false;
+  const livePrimaryGateway = fakeGateway({
+    chatStream: async function* () {
+      yield { content: 'live ', done: false };
+      firstChunkObservedBeforeCompletion =
+        liveEvents.map((chunk) => chunk.content ?? '').join('') === 'live ';
+      yield { content: 'stream', done: false };
+      yield {
+        done: true,
+        usage: { inputTokens: 13, outputTokens: 2 },
+        stopReason: 'end_turn',
+      };
+    },
+  });
+  const liveRuntimeCtx = createRuntimeContext({
+    repos: liveRepos,
+    eventBus: liveBus,
+    llmGateway: livePrimaryGateway,
+    modelResolver: new ModelResolver({
+      default: {
+        profileName: 'stream-live-telemetry',
+        provider: 'openai-compat',
+        model: 'primary-model',
+        temperature: 0,
+        maxTokens: 128,
+        contextWindow: 128_000,
+      },
+    }),
+    toolExecutor: new RecordingInnerToolExecutor('stream-live-telemetry'),
+    companyId: 'company-gap',
+    threadId: 'thread-gap-stream-live',
+    modelRegistry: {
+      getGateway: () => livePrimaryGateway,
+      recordCapacityError: () => ({ id: 'fallback', model: 'fallback-model' }),
+      recordSuccess: () => {},
+      findById: () => null,
+    } as never,
+    determinism: {
+      nowMs: () => 0,
+      nowIso: () => '2026-05-17T00:00:00.000Z',
+      id: (prefix) => `${prefix}-stream-live`,
+      uuid: () => '00000000-0000-4000-8000-000000000003',
+    },
+  });
+  const liveRecorded = await recordedLlmStream(
+    liveRuntimeCtx,
+    { model: 'primary-model', messages: [{ role: 'user', content: 'stream live please' }] },
+    { nodeName: 'stream_live_case', provider: 'openai-compat', model: 'primary-model' },
+    (chunk) => liveEvents.push(chunk),
+  );
+  assert(firstChunkObservedBeforeCompletion, 'Successful stream chunks were buffered until finish.');
+  assert(liveRecorded.fullContent === 'live stream', 'Successful stream content mismatch.');
+  assert(
+    liveEvents.map((chunk) => chunk.content ?? '').join('') === 'live stream',
+    'Successful stream events were not emitted in order.',
+  );
   return {
     retryAfter,
     stopReason: streamResult.stopReason,
     fallback: fallback.id,
     recordedModel: recorded.model,
+    streamModel: streamDbRow.model,
+    liveStreamContent: liveRecorded.fullContent,
   };
 }
 

@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LIGHTING_TIER_PRESETS } from './scene-performance-tier.js';
-import type { SceneLightingTier } from './scene-performance-tier.js';
+import type { PostProcessingPreset, SceneLightingTier } from './scene-performance-tier.js';
 
 type PostprocessingModule = typeof import('@react-three/postprocessing');
 
-// Module-singleton cache: subsequent ScenePostprocessing instances avoid both
-// the dynamic-import round-trip and the extra setState that comes with it.
 let cachedModule: PostprocessingModule | null = null;
 let pendingImport: Promise<PostprocessingModule> | null = null;
 
@@ -18,20 +16,32 @@ function loadPostprocessingModule(): Promise<PostprocessingModule> {
   return pendingImport;
 }
 
+function isPostActive(preset: PostProcessingPreset): boolean {
+  return (
+    preset.ssao ||
+    preset.bloom ||
+    preset.vignette ||
+    preset.cinematicDof ||
+    preset.smaa ||
+    preset.grade ||
+    preset.filmGrain ||
+    preset.chromaticAberration
+  );
+}
+
 export function ScenePostprocessing({
   tier,
   enabled = true,
-  cameraTarget: _cameraTarget = [0, 0, 2],
 }: {
   tier: SceneLightingTier;
   enabled?: boolean;
-  cameraTarget?: [number, number, number];
 }) {
-  const mode = enabled ? LIGHTING_TIER_PRESETS[tier].postProcessing : null;
+  const preset = enabled ? LIGHTING_TIER_PRESETS[tier].postProcessing : null;
+  const active = preset !== null && isPostActive(preset);
   const [module, setModule] = useState<PostprocessingModule | null>(cachedModule);
 
   useEffect(() => {
-    if (!mode || cachedModule) return;
+    if (!active || cachedModule) return;
     let mounted = true;
     loadPostprocessingModule().then((nextModule) => {
       if (mounted) setModule(nextModule);
@@ -39,22 +49,60 @@ export function ScenePostprocessing({
     return () => {
       mounted = false;
     };
-  }, [mode]);
+  }, [active]);
 
-  const post = useMemo(() => {
-    if (!mode || !module) return null;
-    const { DepthOfField, EffectComposer, Vignette } = module;
+  return useMemo(() => {
+    if (!active || !preset || !module) return null;
+    const {
+      Bloom,
+      BrightnessContrast,
+      ChromaticAberration,
+      DepthOfField,
+      EffectComposer,
+      HueSaturation,
+      N8AO,
+      Noise,
+      SMAA,
+      Vignette,
+    } = module;
+    const aoQuality = tier === 'off' ? 'low' : tier;
+    const empty = <></>;
     return (
-      <EffectComposer multisampling={0}>
-        {mode === 'dof+vignette' ? (
+      <EffectComposer multisampling={preset.multisampling}>
+        {preset.ssao ? (
+          <N8AO
+            quality={aoQuality}
+            aoRadius={1.2}
+            intensity={1.45}
+            distanceFalloff={0.72}
+            color="#273242"
+          />
+        ) : (
+          empty
+        )}
+        {preset.bloom ? (
+          <Bloom
+            mipmapBlur
+            intensity={0.16}
+            luminanceThreshold={1.15}
+            luminanceSmoothing={0.08}
+            radius={0.34}
+          />
+        ) : (
+          empty
+        )}
+        {preset.cinematicDof ? (
           <DepthOfField focusDistance={0.02} focalLength={0.05} bokehScale={2} />
         ) : (
-          <></>
+          empty
         )}
-        <Vignette offset={0.4} darkness={0.35} eskil={false} />
+        {preset.grade ? <HueSaturation hue={0} saturation={0.08} /> : empty}
+        {preset.grade ? <BrightnessContrast brightness={0.0} contrast={0.06} /> : empty}
+        {preset.chromaticAberration ? <ChromaticAberration offset={[0.0006, 0.0006]} /> : empty}
+        {preset.vignette ? <Vignette offset={0.32} darkness={0.42} eskil={false} /> : empty}
+        {preset.filmGrain ? <Noise opacity={0.03} premultiply /> : empty}
+        {preset.smaa ? <SMAA /> : empty}
       </EffectComposer>
     );
-  }, [mode, module]);
-
-  return post;
+  }, [active, preset, module, tier]);
 }

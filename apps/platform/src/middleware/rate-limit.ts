@@ -55,6 +55,7 @@ function ensureCleanup() {
  * (not append to) X-Forwarded-For, or set this to match the proxy chain depth.
  */
 const TRUSTED_PROXY_DEPTH = Number(process.env.TRUSTED_PROXY_DEPTH) || 1;
+const TRUST_PROXY_HEADERS = process.env.OFFISIM_TRUST_PROXY_HEADERS === '1';
 
 /**
  * Extract client identifier for rate limiting.
@@ -63,7 +64,7 @@ const TRUSTED_PROXY_DEPTH = Number(process.env.TRUSTED_PROXY_DEPTH) || 1;
  */
 function getClientKey(c: { req: { header: (name: string) => string | undefined } }): string {
   const forwarded = c.req.header('x-forwarded-for');
-  if (forwarded) {
+  if (TRUST_PROXY_HEADERS && forwarded) {
     const parts = forwarded.split(',').map((s) => s.trim());
     // Take the Nth-from-right entry (index = length - depth)
     const idx = Math.max(0, parts.length - TRUSTED_PROXY_DEPTH);

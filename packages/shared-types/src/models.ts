@@ -1,3 +1,5 @@
+import type { RoleSlug } from './roles.js';
+
 /**
  * Supported LLM provider transports.
  *
@@ -244,6 +246,8 @@ export interface RuntimeRecordingPolicy {
 
 export interface RuntimeToolLoopPolicy {
   readonly maxRounds?: number;
+  readonly roleMaxRounds?: Partial<Record<RoleSlug, number>>;
+  readonly modelMaxRounds?: Readonly<Record<string, number>>;
 }
 
 /** Unified runtime policy stored alongside the provider configuration. */

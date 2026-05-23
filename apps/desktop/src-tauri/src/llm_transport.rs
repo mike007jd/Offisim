@@ -73,6 +73,9 @@ pub enum TransportEvent {
 static IN_FLIGHT: Lazy<Mutex<HashMap<String, CancellationToken>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
+const MAX_PROVIDER_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
+const MAX_PROVIDER_CHUNK_BYTES: usize = 4 * 1024 * 1024;
+
 fn register_token(id: &str) -> CancellationToken {
     let token = CancellationToken::new();
     IN_FLIGHT
@@ -201,7 +204,7 @@ async fn do_fetch(
         other => {
             return Err(FetchError::Request(format!(
                 "unsupported auth scheme for provider profile: {other}"
-            )))
+            )));
         }
     };
 
@@ -269,6 +272,7 @@ async fn do_fetch(
         .map_err(|e| FetchError::Channel(format!("send headers: {e}")))?;
 
     let mut stream = response.bytes_stream();
+    let mut streamed_bytes: usize = 0;
     loop {
         tokio::select! {
             _ = token.cancelled() => return Err(FetchError::Aborted),
@@ -276,6 +280,7 @@ async fn do_fetch(
                 match next {
                     None => break,
                     Some(Ok(chunk)) => {
+                        streamed_bytes = checked_streamed_provider_bytes(streamed_bytes, chunk.len())?;
                         on_event
                             .send(TransportEvent::Chunk { bytes: chunk.to_vec() })
                             .map_err(|e| FetchError::Channel(format!("send chunk: {e}")))?;
@@ -290,6 +295,26 @@ async fn do_fetch(
         .send(TransportEvent::Done)
         .map_err(|e| FetchError::Channel(format!("send done: {e}")))?;
     Ok(())
+}
+
+fn checked_streamed_provider_bytes(
+    current_bytes: usize,
+    chunk_bytes: usize,
+) -> Result<usize, FetchError> {
+    if chunk_bytes > MAX_PROVIDER_CHUNK_BYTES {
+        return Err(FetchError::Stream(format!(
+            "provider response chunk exceeded {MAX_PROVIDER_CHUNK_BYTES} bytes"
+        )));
+    }
+    let total = current_bytes
+        .checked_add(chunk_bytes)
+        .ok_or_else(|| FetchError::Stream("provider response byte count overflowed".to_string()))?;
+    if total > MAX_PROVIDER_RESPONSE_BYTES {
+        return Err(FetchError::Stream(format!(
+            "provider response exceeded {MAX_PROVIDER_RESPONSE_BYTES} bytes"
+        )));
+    }
+    Ok(total)
 }
 
 fn read_secret(secret_ref: Option<&str>) -> Result<String, FetchError> {
@@ -454,5 +479,23 @@ mod tests {
         )
         .unwrap();
         assert_eq!(url.as_str(), "https://api.minimax.io/anthropic/v1/messages");
+    }
+
+    #[test]
+    fn provider_response_byte_counter_rejects_oversize_chunk() {
+        let err = checked_streamed_provider_bytes(0, MAX_PROVIDER_CHUNK_BYTES + 1).unwrap_err();
+        assert!(matches!(err, FetchError::Stream(_)));
+    }
+
+    #[test]
+    fn provider_response_byte_counter_rejects_oversize_total() {
+        let err = checked_streamed_provider_bytes(MAX_PROVIDER_RESPONSE_BYTES - 1, 2).unwrap_err();
+        assert!(matches!(err, FetchError::Stream(_)));
+    }
+
+    #[test]
+    fn provider_response_byte_counter_allows_bounded_total() {
+        let total = checked_streamed_provider_bytes(1024, 2048).unwrap();
+        assert_eq!(total, 3072);
     }
 }

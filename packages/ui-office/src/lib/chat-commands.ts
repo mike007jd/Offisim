@@ -7,6 +7,8 @@
 //   panel    — open UI panels/dialogs (like Claude Code's local-jsx commands)
 // ---------------------------------------------------------------------------
 
+import type { RunToolPolicy } from '@offisim/shared-types';
+
 export type CommandCategory = 'team' | 'workflow' | 'navigate' | 'config' | 'chat';
 
 export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; badgeClass: string }> = {
@@ -48,6 +50,7 @@ export interface RuntimeCommand extends ChatCommandBase {
   type: 'runtime';
   buildPrompt: (args: string) => string;
   entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
+  runToolPolicy?: RunToolPolicy;
 }
 
 export interface ClientCommand extends ChatCommandBase {
@@ -127,6 +130,17 @@ export const CHAT_COMMANDS: readonly ChatCommand[] = [
     description: 'Reference a library document',
     argumentHint: '<document-name>',
     buildPrompt: (args) => `Reference this library document in your work: ${args}`,
+  },
+  {
+    type: 'runtime',
+    name: 'readonly',
+    aliases: ['inspect'],
+    category: 'workflow',
+    description: 'Run without file or shell writes',
+    argumentHint: '<task>',
+    runToolPolicy: { readOnly: true },
+    buildPrompt: (args) =>
+      args || 'Inspect the current project and report findings without making changes.',
   },
 
   // ── Navigate ──

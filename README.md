@@ -41,6 +41,7 @@ Offisim does not keep a broad product unit-test suite. Release validation is a
 smaller set of retained gates that must match the risk of the change:
 
 - deterministic harness scenarios for graph/runtime/permission/planner/LLM replay invariants
+- aggregated security harnesses for P0/P1 platform, marketplace, local-tool, attachment, registry, provider-list, SOP sync, and web fetch/search boundaries
 - targeted Rust safety checks for desktop credential transport, sidecars, workspace containment, local shell/git/path commands, and install materialization
 - platform migration generation/drift checks for `apps/platform` / `packages/db-platform`
 - package builds for changed desktop UI surfaces before any desktop verification

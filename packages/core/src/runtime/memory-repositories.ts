@@ -156,6 +156,7 @@ export function createMemoryRepositories(
         fileHistory: filesFamily.fileHistory.snapshot(),
         libraryDocuments: filesFamily.libraryDocuments.snapshot(),
         sopTemplates: workspaceFamily.sopTemplates.snapshot(),
+        companyTemplates: workspaceFamily.companyTemplates.snapshot(),
         officeLayouts: workspaceFamily.officeLayouts.snapshot(),
         prefabInstances: workspaceFamily.prefabInstances.snapshot(),
         zones: workspaceFamily.zones.snapshot(),

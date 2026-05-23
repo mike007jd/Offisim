@@ -17,6 +17,14 @@
  */
 
 export {
+  companyStartupRequested,
+  companyStartupStarted,
+  companyStartupCompleted,
+  companyStartupSkipped,
+  companyStartupFailed,
+} from './company-startup-events.js';
+
+export {
   employeeStateChanged,
   employeeCreated,
   employeeUpdated,

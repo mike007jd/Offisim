@@ -84,6 +84,20 @@ function validateNoCycles(def: SopDefinition): boolean {
   }
 }
 
+function stableDefinitionHash(value: string): string {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 33) ^ value.charCodeAt(i);
+  }
+  return `sopdef-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function newSopRunId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? `run-${crypto.randomUUID()}`
+    : `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 // ---------------------------------------------------------------------------
 // SopViewSurface — entry component for the SOP workspace
 // ---------------------------------------------------------------------------
@@ -240,9 +254,18 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
 
   const handleRun = useCallback(() => {
     if (!selectedSop) return;
-    // SOP runs are unscoped until OfficeSessionState.selectedThreadId exists;
-    // deliverables land in the cross-thread bucket (chatThreadId=null).
-    void sendMessage(formatRunCommand(selectedSop.name));
+    const threadId = `sop:${selectedSop.sopTemplateId}`;
+    const runScope = {
+      conversationKey: `sop::${threadId}::`,
+      runId: newSopRunId(),
+      threadId,
+      sopTemplateId: selectedSop.sopTemplateId,
+      sopDefinitionRef: {
+        version: selectedSop.version,
+        definitionHash: stableDefinitionHash(selectedSop.definitionJson),
+      },
+    };
+    void sendMessage(formatRunCommand(selectedSop.name), { threadId, runScope });
   }, [selectedSop, sendMessage]);
 
   const handleDelete = useCallback(async () => {

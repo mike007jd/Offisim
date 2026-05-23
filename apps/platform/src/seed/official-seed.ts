@@ -45,6 +45,7 @@ function buildAll(): SeedBuildResult[] {
 async function populateArtifactCacheForExistingCreator(
   db: PlatformDb,
   creatorId: string,
+  baseUrl: string,
   built: readonly SeedBuildResult[],
 ): Promise<number> {
   let matched = 0;
@@ -70,6 +71,15 @@ async function populateArtifactCacheForExistingCreator(
     if (!versionRow) continue;
 
     setSeededArtifact(versionRow.package_version_id, entry.zipBytes);
+    await db
+      .update(packageVersions)
+      .set({
+        manifest_json: entry.manifest,
+        artifact_url: `${baseUrl}/v1/install/artifacts/${versionRow.package_version_id}`,
+        artifact_sha256: entry.packageSha256,
+        artifact_size_bytes: entry.sizeBytes,
+      })
+      .where(eq(packageVersions.package_version_id, versionRow.package_version_id));
     matched += 1;
   }
   return matched;
@@ -172,10 +182,11 @@ async function insertOneListing(
 }
 
 /**
- * Ensure the Offisim official creator exists and one listing per AssetKind
- * is visible in Market. Idempotent on `creators.handle = 'offisim'` — if the
- * creator already exists, no rows are written; the artifact cache is still
- * rebuilt from current payloads so installs work after a restart.
+ * Ensure the Offisim official creator exists and one listing per AssetKind is
+ * visible in Market. Idempotent on `creators.handle = 'offisim'` — if the
+ * creator already exists, the artifact cache and active version integrity
+ * metadata are reconciled from current payloads so installs work after a
+ * restart or payload rebuild.
  *
  * Fail-soft: any thrown error is logged and swallowed so platform startup
  * continues. The caller still sees successful startup even when the DB is
@@ -200,6 +211,7 @@ export async function seedOfficialResources(db: PlatformDb, options: SeedOptions
       const matched = await populateArtifactCacheForExistingCreator(
         db,
         existingCreator.creator_id,
+        baseUrl,
         built,
       );
       console.log(

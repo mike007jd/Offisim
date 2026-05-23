@@ -2,6 +2,25 @@ import { useSyncExternalStore } from 'react';
 
 export const ONBOARDING_STORAGE_KEY = 'offisim.onboarding.v2';
 
+export interface CompanyStartupCeremonyStoreState {
+  requested: boolean;
+  started: boolean;
+  completed: boolean;
+  skipped: boolean;
+  failed: boolean;
+  replay: boolean;
+  replay_count: number;
+  startup_id: string | null;
+  source: 'template' | 'custom' | 'replay' | 'system' | null;
+  provider_ready: boolean;
+  requested_at: number | null;
+  started_at: number | null;
+  completed_at: number | null;
+  skipped_at: number | null;
+  failed_at: number | null;
+  failure_error: string | null;
+}
+
 export interface AccountOnboardingState {
   provider_configured: boolean;
   first_employee_clicked: boolean;
@@ -14,6 +33,7 @@ export interface AccountOnboardingState {
 export interface CompanyOnboardingState {
   first_task_sent: boolean;
   first_deliverable_seen: boolean;
+  startup_ceremony: CompanyStartupCeremonyStoreState;
 }
 
 // Single source of truth for "business flag → tour step" mapping. migrateState,
@@ -49,7 +69,36 @@ const DEFAULT_ACCOUNT: AccountOnboardingState = {
 const EMPTY_COMPANY: CompanyOnboardingState = Object.freeze({
   first_task_sent: false,
   first_deliverable_seen: false,
+  startup_ceremony: Object.freeze({
+    requested: false,
+    started: false,
+    completed: false,
+    skipped: false,
+    failed: false,
+    replay: false,
+    replay_count: 0,
+    startup_id: null,
+    source: null,
+    provider_ready: false,
+    requested_at: null,
+    started_at: null,
+    completed_at: null,
+    skipped_at: null,
+    failed_at: null,
+    failure_error: null,
+  }),
 });
+
+function normalizeCompanyState(raw: Partial<CompanyOnboardingState> | undefined): CompanyOnboardingState {
+  return {
+    first_task_sent: raw?.first_task_sent ?? false,
+    first_deliverable_seen: raw?.first_deliverable_seen ?? false,
+    startup_ceremony: {
+      ...EMPTY_COMPANY.startup_ceremony,
+      ...(raw?.startup_ceremony ?? {}),
+    },
+  };
+}
 
 function createEmpty(): OnboardingState {
   return { account: { ...DEFAULT_ACCOUNT }, companies: {} };
@@ -64,7 +113,12 @@ function loadFromStorage(): OnboardingState {
     if (!parsed || typeof parsed !== 'object') return createEmpty();
     return {
       account: { ...DEFAULT_ACCOUNT, ...(parsed.account ?? {}) },
-      companies: parsed.companies ?? {},
+      companies: Object.fromEntries(
+        Object.entries(parsed.companies ?? {}).map(([companyId, company]) => [
+          companyId,
+          normalizeCompanyState(company),
+        ]),
+      ),
     };
   } catch {
     return createEmpty();
@@ -118,7 +172,7 @@ export function getOnboardingState(): OnboardingState {
 }
 
 export function getCompanyOnboardingState(companyId: string): CompanyOnboardingState {
-  return current.companies[companyId] ?? EMPTY_COMPANY;
+  return normalizeCompanyState(current.companies[companyId]);
 }
 
 export function markAccount(key: keyof AccountOnboardingState): void {
@@ -184,6 +238,7 @@ export function markWelcomeSeen(): void {
 }
 
 export function markCompany(companyId: string, key: keyof CompanyOnboardingState): void {
+  if (key === 'startup_ceremony') return;
   const existing = current.companies[companyId] ?? EMPTY_COMPANY;
   if (existing[key]) return;
   current = {
@@ -195,6 +250,29 @@ export function markCompany(companyId: string, key: keyof CompanyOnboardingState
     companies: {
       ...current.companies,
       [companyId]: { ...existing, [key]: true },
+    },
+  };
+  saveToStorage(current);
+  notify();
+}
+
+export function setCompanyStartupCeremony(
+  companyId: string,
+  patch: Partial<CompanyStartupCeremonyStoreState>,
+): void {
+  const existing = normalizeCompanyState(current.companies[companyId]);
+  const nextStartup = {
+    ...existing.startup_ceremony,
+    ...patch,
+  };
+  current = {
+    ...current,
+    companies: {
+      ...current.companies,
+      [companyId]: {
+        ...existing,
+        startup_ceremony: nextStartup,
+      },
     },
   };
   saveToStorage(current);

@@ -18,8 +18,9 @@ import { RegistryApiError } from '@offisim/registry-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompany } from '../components/company/CompanyContext.js';
 import { SKILL_MD_CONTENT_KEY } from '../lib/export-to-manifest.js';
+import { downloadRegistryArtifact } from '../lib/registry-artifact-download.js';
 import { useOffisimRuntimeServices } from '../runtime/offisim-runtime-context.js';
-import { useRegistryClient } from './useRegistryClient.js';
+import { getRegistryBaseUrl, useRegistryClient } from './useRegistryClient.js';
 
 export type InstallStep =
   | 'idle'
@@ -412,32 +413,13 @@ export function useInstallFlow(): InstallFlowState & InstallFlowActions {
           const downloadInfo = await registryClient.getArtifactDownloadInfo(packageVersionId);
           if (!mountedRef.current) return;
 
-          // 4. Validate artifact URL protocol before fetching
-          try {
-            const parsedUrl = new URL(downloadInfo.artifact_url);
-            if (!['https:', 'http:'].includes(parsedUrl.protocol)) {
-              setStep('error');
-              setError(`Unsafe artifact URL protocol: ${parsedUrl.protocol}`);
-              return;
-            }
-          } catch {
-            setStep('error');
-            setError('Invalid artifact URL');
-            return;
-          }
-
-          // 5. Download the actual artifact
-          const artifactRes = await fetch(downloadInfo.artifact_url);
-          if (!mountedRef.current) return;
-          if (!artifactRes.ok) {
-            setStep('error');
-            setError(`Failed to download package: ${artifactRes.statusText}`);
-            return;
-          }
-          const blob = await artifactRes.blob();
+          // 4. Download the actual artifact through the bounded registry path.
+          const blob = await downloadRegistryArtifact(downloadInfo, globalThis.fetch.bind(globalThis), {
+            trustedOrigins: [getRegistryBaseUrl()],
+          });
           if (!mountedRef.current) return;
 
-          // 6. Feed into standard file import flow
+          // 5. Feed into standard file import flow
           const file = new File([blob], `${detail.slug ?? listingId}.offisimpkg`, {
             type: 'application/octet-stream',
           });

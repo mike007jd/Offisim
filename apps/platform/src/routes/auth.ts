@@ -1,19 +1,25 @@
 import { apiTokens, creators, users } from '@offisim/db-platform';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { readPlatformJsonBody } from '../lib/body-limit.js';
 import { sha256 } from '../lib/crypto.js';
-import { requireAuth } from '../middleware/auth.js';
+import {
+  parseApiTokenExpiryDays,
+  parseApiTokenScopes,
+  requireAuth,
+  requireSessionAuth,
+} from '../middleware/auth.js';
 import { RegisterCreatorSchema } from '../schemas/index.js';
 import type { PlatformEnv } from '../types.js';
 
 const authRoute = new Hono<PlatformEnv>();
 
 // POST /v1/auth/register-creator
-// Requires authentication (Better Auth session or API token).
+// Requires an authenticated browser session.
 // Body: { handle: string; display_name: string; bio?: string }
-authRoute.post('/register-creator', requireAuth, async (c) => {
-  const body = RegisterCreatorSchema.parse(await c.req.json());
+authRoute.post('/register-creator', requireAuth, requireSessionAuth, async (c) => {
+  const body = RegisterCreatorSchema.parse(await readPlatformJsonBody(c));
   const handle = body.handle;
   const displayName = body.display_name;
   const bio = body.bio?.trim() ?? null;
@@ -89,13 +95,19 @@ function generateApiToken(): string {
 }
 
 // POST /v1/auth/tokens — Create a new API token
-authRoute.post('/tokens', requireAuth, async (c) => {
-  const body = await c.req.json<{ name?: string; scopes?: string[]; expires_in_days?: number }>();
-  const name = body.name?.trim();
+authRoute.post('/tokens', requireAuth, requireSessionAuth, async (c) => {
+  const body = (await readPlatformJsonBody(c)) as {
+    name?: unknown;
+    scopes?: unknown;
+    expires_in_days?: unknown;
+  };
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
 
   if (!name) {
     throw new HTTPException(400, { message: 'name is required' });
   }
+  const scopes = parseApiTokenScopes(body.scopes);
+  const expiresInDays = parseApiTokenExpiryDays(body.expires_in_days);
 
   const db = c.get('db');
   const userId = c.get('userId');
@@ -115,8 +127,8 @@ authRoute.post('/tokens', requireAuth, async (c) => {
   const hash = await sha256(rawToken);
   const prefix = rawToken.slice(0, 15); // "offisim_" + 7 chars
 
-  const expiresAt = body.expires_in_days
-    ? new Date(Date.now() + body.expires_in_days * 24 * 60 * 60 * 1000)
+  const expiresAt = expiresInDays
+    ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
     : null;
 
   const [created] = await db
@@ -126,7 +138,7 @@ authRoute.post('/tokens', requireAuth, async (c) => {
       name,
       token_hash: hash,
       token_prefix: prefix,
-      scopes: body.scopes ?? [],
+      scopes,
       expires_at: expiresAt,
     })
     .returning();
@@ -148,7 +160,7 @@ authRoute.post('/tokens', requireAuth, async (c) => {
 });
 
 // GET /v1/auth/tokens — List API tokens for current user (no raw tokens)
-authRoute.get('/tokens', requireAuth, async (c) => {
+authRoute.get('/tokens', requireAuth, requireSessionAuth, async (c) => {
   const db = c.get('db');
   const userId = c.get('userId');
 
@@ -186,7 +198,7 @@ authRoute.get('/tokens', requireAuth, async (c) => {
 });
 
 // DELETE /v1/auth/tokens/:tokenId — Revoke an API token
-authRoute.delete('/tokens/:tokenId', requireAuth, async (c) => {
+authRoute.delete('/tokens/:tokenId', requireAuth, requireSessionAuth, async (c) => {
   const tokenId = c.req.param('tokenId');
   const db = c.get('db');
   const userId = c.get('userId');
@@ -212,7 +224,14 @@ authRoute.delete('/tokens/:tokenId', requireAuth, async (c) => {
     throw new HTTPException(404, { message: 'Token not found' });
   }
 
-  await db.delete(apiTokens).where(eq(apiTokens.token_id, tokenId));
+  const deletedRows = await db
+    .delete(apiTokens)
+    .where(and(eq(apiTokens.token_id, tokenId), eq(apiTokens.user_id, offisimUser.ba_user_id)))
+    .returning({ token_id: apiTokens.token_id });
+
+  if (deletedRows.length === 0) {
+    throw new HTTPException(409, { message: 'Token state changed before deletion' });
+  }
 
   return c.json({ deleted: true });
 });

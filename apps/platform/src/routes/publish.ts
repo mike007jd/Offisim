@@ -10,6 +10,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { readJsonBodyWithLimit, readPlatformJsonBody } from '../lib/body-limit.js';
 import {
   getRequiredCreatorId,
   requireAuth,
@@ -18,12 +19,14 @@ import {
 } from '../middleware/auth.js';
 import { publishRateLimit } from '../middleware/rate-limit.js';
 import { DraftCreateSchema, ManifestUploadSchema, SubmitDraftSchema } from '../schemas/index.js';
+import { MAX_ARTIFACT_BYTES } from '../services/artifacts.js';
 import { processModerationJob } from '../services/moderation.js';
 import { assertListingOwnedByCreator } from '../services/publish-ownership.js';
 import { validateManifest } from '../services/validation.js';
 import type { PlatformEnv } from '../types.js';
 
 const publish = new Hono<PlatformEnv>();
+const MAX_PUBLISH_MANIFEST_BODY_BYTES = Math.ceil(MAX_ARTIFACT_BYTES / 3) * 4 + 1024 * 1024;
 
 // All publish routes require auth and are rate-limited
 publish.use('/*', publishRateLimit);
@@ -66,7 +69,7 @@ publish.use('/submit', requireCreator);
 publish.post('/drafts', async (c) => {
   const db = c.get('db');
   const creatorId = getRequiredCreatorId(c);
-  const body = DraftCreateSchema.parse(await c.req.json());
+  const body = DraftCreateSchema.parse(await readPlatformJsonBody(c));
   if (body.listing_id) {
     await assertListingOwnedByCreator(db, body.listing_id, creatorId);
   }
@@ -191,7 +194,20 @@ publish.delete('/drafts/:draftId', async (c) => {
     });
   }
 
-  await db.delete(publishDrafts).where(eq(publishDrafts.draft_id, draftId));
+  const deletedRows = await db
+    .delete(publishDrafts)
+    .where(
+      and(
+        eq(publishDrafts.draft_id, draftId),
+        eq(publishDrafts.creator_id, creatorId),
+        eq(publishDrafts.status, draft.status),
+      ),
+    )
+    .returning({ draft_id: publishDrafts.draft_id });
+
+  if (deletedRows.length === 0) {
+    throw new HTTPException(409, { message: 'Draft state changed before deletion' });
+  }
 
   return c.json({ deleted: true, draft_id: draftId });
 });
@@ -201,7 +217,9 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
   const db = c.get('db');
   const creatorId = getRequiredCreatorId(c);
   const draftId = c.req.param('draftId');
-  const body = ManifestUploadSchema.parse(await c.req.json());
+  const body = ManifestUploadSchema.parse(
+    await readJsonBodyWithLimit(c, MAX_PUBLISH_MANIFEST_BODY_BYTES),
+  );
 
   const [draft] = await db
     .select()
@@ -210,8 +228,11 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
     .limit(1);
 
   if (!draft) throw new HTTPException(404, { message: 'Draft not found' });
-  if (draft.status === 'submitted')
-    throw new HTTPException(400, { message: 'Draft already submitted' });
+  if (draft.status === 'submitted' || draft.status === 'approved') {
+    throw new HTTPException(400, {
+      message: `Cannot update a draft with status "${draft.status}". Only drafts in "draft", "validated", or "rejected" status can be updated.`,
+    });
+  }
   if (draft.listing_id) {
     await assertListingOwnedByCreator(db, draft.listing_id, creatorId);
   }
@@ -233,7 +254,13 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
       status: 'draft',
       updated_at: new Date(),
     })
-    .where(eq(publishDrafts.draft_id, draftId))
+    .where(
+      and(
+        eq(publishDrafts.draft_id, draftId),
+        eq(publishDrafts.creator_id, creatorId),
+        eq(publishDrafts.status, draft.status),
+      ),
+    )
     .returning();
   const [updated] = updateRows;
 
@@ -270,7 +297,7 @@ publish.put('/drafts/:draftId/manifest', async (c) => {
 publish.post('/submit', async (c) => {
   const db = c.get('db');
   const creatorId = getRequiredCreatorId(c);
-  const body = SubmitDraftSchema.parse(await c.req.json());
+  const body = SubmitDraftSchema.parse(await readPlatformJsonBody(c));
 
   const [draft] = await db
     .select()
@@ -304,10 +331,22 @@ publish.post('/submit', async (c) => {
   }
 
   // Update draft status
-  await db
+  const submittedRows = await db
     .update(publishDrafts)
     .set({ status: 'submitted', updated_at: new Date() })
-    .where(eq(publishDrafts.draft_id, draft.draft_id));
+    .where(
+      and(
+        eq(publishDrafts.draft_id, draft.draft_id),
+        eq(publishDrafts.creator_id, creatorId),
+        eq(publishDrafts.status, draft.status),
+        eq(publishDrafts.validation_state, 'valid'),
+      ),
+    )
+    .returning({ draft_id: publishDrafts.draft_id });
+
+  if (submittedRows.length === 0) {
+    throw new HTTPException(409, { message: 'Draft state changed before submission' });
+  }
 
   // Create moderation job
   const jobRows = await db

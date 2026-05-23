@@ -13,11 +13,13 @@ import { installReceipts, listings, packageVersions } from '@offisim/db-platform
 import { and, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { readPlatformJsonBody } from '../lib/body-limit.js';
 import { requireAuth, requireScope } from '../middleware/auth.js';
 import { installRateLimit } from '../middleware/rate-limit.js';
 import { InstallReceiptSchema } from '../schemas/index.js';
 import { getSeededArtifact } from '../seed/artifact-store.js';
 import { getRegistryArtifact } from '../services/artifacts.js';
+import type { PlatformDb } from '../db.js';
 import type { PlatformEnv } from '../types.js';
 
 const installRoute = new Hono<PlatformEnv>();
@@ -43,7 +45,7 @@ installRoute.post(
     if (!userId) {
       throw new HTTPException(401, { message: 'Unauthorized' });
     }
-    const body = InstallReceiptSchema.parse(await c.req.json());
+    const body = InstallReceiptSchema.parse(await readPlatformJsonBody(c));
 
     // Generate a receipt ID (deterministic for idempotency: user + listing + version)
     const receiptId = `rcpt_${userId}_${body.listing_id}_${body.package_version_id}`;
@@ -54,17 +56,20 @@ installRoute.post(
       const [validVersion] = await tx
         .select({ package_version_id: packageVersions.package_version_id })
         .from(packageVersions)
+        .innerJoin(listings, eq(packageVersions.listing_id, listings.listing_id))
         .where(
           and(
             eq(packageVersions.package_version_id, body.package_version_id),
             eq(packageVersions.listing_id, body.listing_id),
+            eq(packageVersions.status, 'active'),
+            eq(listings.status, 'listed'),
           ),
         )
         .limit(1);
 
       if (!validVersion) {
-        throw new HTTPException(400, {
-          message: 'package_version_id does not belong to listing_id',
+        throw new HTTPException(404, {
+          message: 'Package version is not available for install',
         });
       }
 
@@ -83,12 +88,17 @@ installRoute.post(
 
       if (inserted.length > 0) {
         // Receipt was actually inserted (not a duplicate) — increment count
-        await tx
+        const installCountRows = await tx
           .update(listings)
           .set({
             install_count: sql`COALESCE(${listings.install_count}, 0) + 1`,
           })
-          .where(eq(listings.listing_id, body.listing_id));
+          .where(and(eq(listings.listing_id, body.listing_id), eq(listings.status, 'listed')))
+          .returning({ listing_id: listings.listing_id });
+
+        if (installCountRows.length === 0) {
+          throw new HTTPException(409, { message: 'Listing state changed before receipt recording' });
+        }
 
         return 'recorded' as const;
       }
@@ -117,16 +127,7 @@ installRoute.get('/download/:versionId', async (c) => {
   const db = c.get('db');
   const versionId = c.req.param('versionId');
 
-  const [version] = await db
-    .select({
-      package_version_id: packageVersions.package_version_id,
-      artifact_url: packageVersions.artifact_url,
-      artifact_sha256: packageVersions.artifact_sha256,
-      artifact_size_bytes: packageVersions.artifact_size_bytes,
-    })
-    .from(packageVersions)
-    .where(eq(packageVersions.package_version_id, versionId))
-    .limit(1);
+  const version = await getVisiblePackageVersionById(db, versionId);
 
   if (!version) {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Package version not found' } }, 404);
@@ -158,7 +159,12 @@ installRoute.get('/download/:versionId', async (c) => {
  * `artifact_url`).
  */
 installRoute.get('/artifacts/:versionId', async (c) => {
+  const db = c.get('db');
   const versionId = c.req.param('versionId');
+  const version = await getVisiblePackageVersionById(db, versionId);
+  if (!version) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Package version not found' } }, 404);
+  }
   const artifact = getSeededArtifact(versionId) ?? (await getRegistryArtifact(versionId));
   if (!artifact) {
     return c.json(
@@ -179,5 +185,26 @@ installRoute.get('/artifacts/:versionId', async (c) => {
     },
   });
 });
+
+async function getVisiblePackageVersionById(db: PlatformDb, versionId: string) {
+  const [version] = await db
+    .select({
+      package_version_id: packageVersions.package_version_id,
+      artifact_url: packageVersions.artifact_url,
+      artifact_sha256: packageVersions.artifact_sha256,
+      artifact_size_bytes: packageVersions.artifact_size_bytes,
+    })
+    .from(packageVersions)
+    .innerJoin(listings, eq(packageVersions.listing_id, listings.listing_id))
+    .where(
+      and(
+        eq(packageVersions.package_version_id, versionId),
+        eq(packageVersions.status, 'active'),
+        eq(listings.status, 'listed'),
+      ),
+    )
+    .limit(1);
+  return version;
+}
 
 export { installRoute };

@@ -4,6 +4,7 @@ import type {
   KanbanState,
   RuntimeEvent,
 } from '@offisim/shared-types';
+import { materialize, type InstallPlan } from '@offisim/install-core';
 import type { OffisimGraphState } from '../graph/state.js';
 import type { RuntimeRepositories } from '../runtime/repositories.js';
 import type { RunConversationStateSnapshot } from '../runtime/run-conversation-state.js';
@@ -159,6 +160,14 @@ export type ScenarioAssertion =
       readonly discoveredTools?: readonly ConversationStateToolExpectation[];
     }
   | {
+      readonly kind: 'projectWorkspaceRootIs';
+      readonly projectId: string;
+      readonly workspaceRoot: string | null;
+    }
+  | {
+      readonly kind: 'installMaterializationRollback';
+    }
+  | {
       readonly kind: 'harnessGapCasePassed';
       readonly caseId: string;
     };
@@ -285,6 +294,10 @@ async function evaluateAssertion(
       return assertTaskToolIntentEquals(ctx.finalState, assertion.value);
     case 'conversationStateContains':
       return assertConversationStateContains(ctx.conversationState, assertion);
+    case 'projectWorkspaceRootIs':
+      return assertProjectWorkspaceRoot(ctx.repos, assertion);
+    case 'installMaterializationRollback':
+      return assertInstallMaterializationRollback(ctx);
     case 'harnessGapCasePassed':
       return assertHarnessGapCasePassed(ctx.events, assertion.caseId);
   }
@@ -466,6 +479,137 @@ function assertEventNotEmitted(events: readonly RuntimeEvent[], eventType: strin
   const found = events.some((event) => event.type === eventType);
   if (found) {
     throw new Error(`Expected no ${eventType} events; got at least one`);
+  }
+}
+
+async function assertProjectWorkspaceRoot(
+  repos: RuntimeRepositories,
+  assertion: Extract<ScenarioAssertion, { kind: 'projectWorkspaceRootIs' }>,
+): Promise<void> {
+  const project = await repos.projects.findById(assertion.projectId);
+  if (!project) throw new Error(`Missing project ${assertion.projectId}`);
+  if (project.workspace_root !== assertion.workspaceRoot) {
+    throw new Error(
+      `Expected project ${assertion.projectId} workspace_root=${String(
+        assertion.workspaceRoot,
+      )}, got ${String(project.workspace_root)}`,
+    );
+  }
+}
+
+async function assertInstallMaterializationRollback(
+  ctx: ScenarioAssertionContext,
+): Promise<void> {
+  const packageId = `rollback-${ctx.scenarioId}`;
+  const manifest: InstallPlan['manifest'] = {
+    spec_version: '1.0.0',
+    package: {
+      id: packageId,
+      kind: 'bundle',
+      version: '1.0.0',
+      title: 'Rollback Harness Bundle',
+      summary: 'Harness package for rollback validation.',
+      license: 'proprietary',
+    },
+    compatibility: {
+      runtime_range: '>=1.0.0',
+      schema_version: '2026-03',
+      supported_environments: ['desktop'],
+    },
+    requirements: {
+      required_capabilities: [],
+      required_mcps: [],
+    },
+    permissions: {
+      risk_class: 'data_asset',
+      declares_secrets: false,
+      filesystem_scope: 'none',
+      network_scope: 'none',
+    },
+    assets: [
+      { asset_id: 'sop.rollback', kind: 'sop', path: 'sop.json' },
+      { asset_id: 'template.rollback', kind: 'company_template', path: 'template.json' },
+      { asset_id: 'prefab.bad', kind: 'prefab', path: 'prefab.json' },
+    ],
+    integrity: { package_sha256: 'rollback-harness' },
+    custom: {
+      materializer_payloads: {
+        'sop.rollback': {
+          name: 'Rollback SOP',
+          definition: {
+            sop_id: 'rollback-sop',
+            name: 'Rollback SOP',
+            description: 'Rollback validation SOP',
+            created_at: '2026-01-01T00:00:00.000Z',
+            steps: [],
+          },
+        },
+        'template.rollback': {
+          id: 'template-rollback',
+          name: 'Rollback Template',
+          description: 'Rollback validation template',
+          icon: 'briefcase',
+          employees: [],
+          sops: [],
+          layoutPreset: 'default',
+        },
+        'prefab.bad': {
+          prefab_id: 'desk',
+        },
+      },
+    },
+  };
+  const plan: InstallPlan = {
+    manifest,
+    compatibility: { compatible: true, errors: [] },
+    bindings: [],
+    needsConfirmation: false,
+    confirmationReasons: [],
+    packageHash: 'rollback-package-hash',
+    manifestHash: 'rollback-manifest-hash',
+  };
+
+  let failed = false;
+  try {
+    await materialize(plan, [], ctx.repos, `company-${ctx.scenarioId}`, `txn-${ctx.scenarioId}`);
+  } catch (error) {
+    failed = String(error).includes('missing zone_id');
+  }
+  if (!failed) {
+    throw new Error('Expected materialization to fail on invalid prefab payload');
+  }
+
+  const installedPackages = await ctx.repos.installedPackages.findByPackageId(
+    `company-${ctx.scenarioId}`,
+    packageId,
+  );
+  if (installedPackages.length > 0) {
+    throw new Error(`Rollback left installed package rows for ${packageId}`);
+  }
+
+  const snapshot = ctx.repos.snapshot?.() as
+    | {
+        installedAssets?: unknown[];
+        sopTemplates?: unknown[];
+        companyTemplates?: unknown[];
+        prefabInstances?: unknown[];
+      }
+    | undefined;
+  assertNoSnapshotRows(snapshot?.installedAssets, packageId, 'installed assets');
+  assertNoSnapshotRows(snapshot?.sopTemplates, `company-${ctx.scenarioId}`, 'SOP templates');
+  assertNoSnapshotRows(
+    snapshot?.companyTemplates,
+    `company-${ctx.scenarioId}`,
+    'company templates',
+  );
+  assertNoSnapshotRows(snapshot?.prefabInstances, `company-${ctx.scenarioId}`, 'prefab instances');
+}
+
+function assertNoSnapshotRows(rows: unknown, needle: string, label: string): void {
+  if (!Array.isArray(rows)) return;
+  const found = rows.filter((row) => JSON.stringify(row).includes(needle));
+  if (found.length > 0) {
+    throw new Error(`Rollback left ${found.length} ${label} row(s) containing ${needle}`);
   }
 }
 

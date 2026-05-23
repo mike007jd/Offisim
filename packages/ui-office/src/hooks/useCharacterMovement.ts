@@ -49,8 +49,14 @@ const WALK_FREQ = 8;
 const LEG_SWING = 0.4;
 /** Arm swing amplitude (radians). */
 const ARM_SWING = 0.3;
+/** Body counter-rotate amplitude (radians) — torso reacts opposite to leg. */
+const BODY_COUNTER_ROTATE = 0.06;
+/** Walk bob vertical amplitude (m) — body lifts at mid-stride. */
+const WALK_BOB_AMP = 0.03;
 /** Squash duration after arrival (seconds). */
 const SQUASH_DURATION = 0.3;
+/** Anticipate duration on movement start (seconds). */
+const ANTICIPATE_DURATION = 0.12;
 
 // ── Hook ────────────────────────────────────────────────────────
 
@@ -80,10 +86,12 @@ export function useCharacterMovement(
   const targetRef = useRef<MovementTarget | null>(null);
   const walkTimeRef = useRef(0);
   const squashRef = useRef(0); // >0 means squash animation in progress
+  const anticipateRef = useRef(0); // >0 means anticipate-before-step in progress
 
   const moveTo = useCallback((dest: [number, number, number], speed = 4, onArrive?: () => void) => {
     targetRef.current = { dest, speed, onArrive };
     squashRef.current = 0;
+    anticipateRef.current = ANTICIPATE_DURATION;
   }, []);
 
   const teleportTo = useCallback(
@@ -132,12 +140,19 @@ export function useCharacterMovement(
       g.scale.y = squashY;
       if (squashRef.current <= 0) {
         g.scale.y = 1;
+        g.rotation.z = 0;
       }
       return;
     }
 
     const target = targetRef.current;
-    if (!target) return;
+    if (!target) {
+      // Hand control back: clear any walk-cycle body roll left over.
+      if (Math.abs(g.rotation.z) > 0.001) {
+        g.rotation.z += (0 - g.rotation.z) * Math.min(1, clampedDelta * 6);
+      }
+      return;
+    }
 
     const { dest, speed, onArrive } = target;
 
@@ -152,6 +167,8 @@ export function useCharacterMovement(
       g.position.z = dest[2];
       targetRef.current = null;
       walkTimeRef.current = 0;
+      anticipateRef.current = 0;
+      g.rotation.z = 0;
 
       // Reset limbs to neutral
       if (limbRefs) resetLimbs(limbRefs);
@@ -163,13 +180,20 @@ export function useCharacterMovement(
       return;
     }
 
+    // ── Anticipate (slight backwards lean on first 120ms) ──
+    let anticipateScale = 1;
+    if (anticipateRef.current > 0) {
+      anticipateRef.current = Math.max(0, anticipateRef.current - clampedDelta);
+      anticipateScale = 1 - anticipateRef.current / ANTICIPATE_DURATION;
+    }
+
     // ── Move toward destination ──
     const dirX = dx / dist;
     const dirZ = dz / dist;
 
     // Deceleration near arrival
     const speedMul = dist < DECEL_DISTANCE ? dist / DECEL_DISTANCE : 1;
-    const step = speed * speedMul * clampedDelta;
+    const step = speed * speedMul * clampedDelta * anticipateScale;
     const actualStep = Math.min(step, dist);
 
     g.position.x += dirX * actualStep;
@@ -182,10 +206,15 @@ export function useCharacterMovement(
     walkTimeRef.current += clampedDelta;
     const t = walkTimeRef.current;
 
-    // position.y is owned by useAgentAnimation; this hook only animates limbs.
+    // Walk bob: body lifts twice per stride, so frequency is 2× WALK_FREQ.
+    const walkBob = Math.abs(Math.sin(t * WALK_FREQ)) * WALK_BOB_AMP * anticipateScale;
+    g.position.y = walkBob;
+    // Torso counter-rotates opposite to leg swing.
+    g.rotation.z = -Math.sin(t * WALK_FREQ) * BODY_COUNTER_ROTATE * anticipateScale;
+
     if (limbRefs) {
-      const legAngle = Math.sin(t * WALK_FREQ) * LEG_SWING;
-      const armAngle = Math.sin(t * WALK_FREQ) * ARM_SWING;
+      const legAngle = Math.sin(t * WALK_FREQ) * LEG_SWING * anticipateScale;
+      const armAngle = Math.sin(t * WALK_FREQ) * ARM_SWING * anticipateScale;
 
       if (limbRefs.leftLeg.current) limbRefs.leftLeg.current.rotation.x = legAngle;
       if (limbRefs.rightLeg.current) limbRefs.rightLeg.current.rotation.x = -legAngle;

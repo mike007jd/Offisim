@@ -2,13 +2,13 @@ import { creators, listings, packageVersions, userLibrary } from '@offisim/db-pl
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireSessionAuth } from '../middleware/auth.js';
 import type { PlatformEnv } from '../types.js';
 
 const meRoute = new Hono<PlatformEnv>();
 
 // GET /v1/me/library — returns the authenticated user's saved/installed packages
-meRoute.get('/library', requireAuth, async (c) => {
+meRoute.get('/library', requireAuth, requireSessionAuth, async (c) => {
   const db = c.get('db');
   const userId = c.get('userId');
 

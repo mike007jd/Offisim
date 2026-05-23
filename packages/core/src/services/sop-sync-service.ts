@@ -1,6 +1,9 @@
 import type { SopDefinition } from '@offisim/shared-types';
 import type { SopTemplateRepository, SopTemplateRow } from '../runtime/repositories.js';
 
+export const SOP_SYNC_MAX_BODY_BYTES = 256 * 1024;
+export const SOP_SYNC_TIMEOUT_MS = 10_000;
+
 export interface SopSyncResult {
   updated: boolean;
   error?: string;
@@ -18,14 +21,21 @@ export class SopSyncService {
    * Validates basic structure (must have sop_id, name, steps array).
    */
   async fetchRemoteSop(url: string): Promise<SopDefinition> {
-    const response = await fetch(url, {
+    const safeUrl = validateSopSyncUrl(url);
+    const response = await fetch(safeUrl, {
       headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(10_000),
+      redirect: 'manual',
+      signal: AbortSignal.timeout(SOP_SYNC_TIMEOUT_MS),
     });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch SOP from ${url}: ${response.status} ${response.statusText}`);
+    if (response.status >= 300 && response.status < 400) {
+      throw new Error('SOP sync redirects are not followed; use the final HTTPS URL directly');
     }
-    const json = (await response.json()) as Record<string, unknown>;
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch SOP from ${safeUrl.toString()}: ${response.status} ${response.statusText}`,
+      );
+    }
+    const json = JSON.parse(await readSopSyncTextWithLimit(response)) as Record<string, unknown>;
     if (
       typeof json.sop_id !== 'string' ||
       typeof json.name !== 'string' ||
@@ -112,4 +122,102 @@ export class SopSyncService {
       last_synced_at: new Date().toISOString(),
     });
   }
+}
+
+export function validateSopSyncUrl(rawUrl: string): URL {
+  let url: URL;
+  try {
+    url = new URL(rawUrl.trim());
+  } catch (err) {
+    throw new Error(`SOP sync URL is invalid: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (url.protocol !== 'https:') {
+    throw new Error('SOP sync URL must use https');
+  }
+  if (isPrivateOrLocalHost(url.hostname)) {
+    throw new Error('SOP sync URL cannot target localhost or a private network');
+  }
+  return url;
+}
+
+export async function readSopSyncTextWithLimit(
+  response: Response,
+  maxBytes = SOP_SYNC_MAX_BODY_BYTES,
+): Promise<string> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength) {
+    const bytes = Number(contentLength);
+    if (Number.isFinite(bytes) && bytes > maxBytes) {
+      throw new Error(`SOP sync response exceeds ${maxBytes} bytes`);
+    }
+  }
+  if (!response.body) {
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > maxBytes) {
+      throw new Error(`SOP sync response exceeds ${maxBytes} bytes`);
+    }
+    return text;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel('sop sync response too large');
+        throw new Error(`SOP sync response exceeds ${maxBytes} bytes`);
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return text + decoder.decode();
+}
+
+function isPrivateOrLocalHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[/u, '').replace(/\]$/u, '').replace(/\.$/u, '');
+  if (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === '0.0.0.0' ||
+    host === '::' ||
+    host === '::1' ||
+    host === 'metadata.google.internal'
+  ) {
+    return true;
+  }
+  const ipv4 = parseIpv4(host);
+  if (ipv4) {
+    const [a, b] = ipv4;
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168)
+    );
+  }
+  if (host.startsWith('::ffff:')) {
+    const mapped = parseIpv4(host.slice('::ffff:'.length));
+    if (mapped) return isPrivateOrLocalHost(mapped.join('.'));
+  }
+  return host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:');
+}
+
+function parseIpv4(host: string): [number, number, number, number] | null {
+  const parts = host.split('.');
+  if (parts.length !== 4) return null;
+  const octets = parts.map((part) => {
+    if (!/^\d{1,3}$/u.test(part)) return Number.NaN;
+    return Number(part);
+  });
+  if (octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  return octets as [number, number, number, number];
 }

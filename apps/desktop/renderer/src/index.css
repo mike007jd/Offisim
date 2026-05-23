@@ -450,10 +450,10 @@
 }
 
 /* Scan monorepo packages for Tailwind classes in production builds */
-@source "../../../packages/ui-office/src/**/*.tsx";
-@source "../../../packages/ui-office/src/**/*.ts";
-@source "../../../packages/ui-core/src/**/*.tsx";
-@source "../../../packages/ui-core/src/**/*.ts";
+@source "../../../../packages/ui-office/src/**/*.tsx";
+@source "../../../../packages/ui-office/src/**/*.ts";
+@source "../../../../packages/ui-core/src/**/*.tsx";
+@source "../../../../packages/ui-core/src/**/*.ts";
 
 /*
  * Offisim Web Shell theme variables are generated from

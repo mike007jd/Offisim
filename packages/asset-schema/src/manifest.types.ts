@@ -18,6 +18,8 @@ export type NetworkScope = 'none' | 'limited' | 'unrestricted';
 
 export type MirrorPolicy = 'registry_only' | 'external_only' | 'registry_or_external';
 
+export const MATERIALIZER_PAYLOADS_KEY = 'materializer_payloads';
+
 export interface ManifestPackage {
   readonly id: string;
   readonly kind: AssetKind;

@@ -1,3 +1,5 @@
+import { CHAT_ATTACHMENT_MAX_BYTES } from '@offisim/shared-types';
+
 type TauriFsModule = {
   readFile: (path: string) => Promise<Uint8Array<ArrayBuffer>>;
   stat: (path: string) => Promise<{ isFile: boolean; isDirectory: boolean; size: number }>;
@@ -64,6 +66,13 @@ export async function readTauriDroppedFiles(
         errors.push({
           filename,
           message: `${filename}: folders cannot be attached here`,
+        });
+        continue;
+      }
+      if (info.size > CHAT_ATTACHMENT_MAX_BYTES) {
+        errors.push({
+          filename,
+          message: `${filename}: exceeds the 8 MB per-file limit`,
         });
         continue;
       }

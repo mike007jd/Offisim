@@ -74,9 +74,8 @@ export function ProjectCreateDialog({
   }, [open, mode, initial]);
 
   const trimmedName = name.trim();
-  const workspaceRequired = desktopMode && mode === 'create';
-  const canSubmit =
-    trimmedName.length > 0 && !submitting && (!workspaceRequired || !!workspaceRoot);
+  const workspaceRequired = false;
+  const canSubmit = trimmedName.length > 0 && !submitting;
 
   async function handleChooseFolder() {
     if (!desktopMode || picking) return;

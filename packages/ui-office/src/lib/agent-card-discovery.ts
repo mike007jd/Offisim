@@ -4,6 +4,7 @@ import type { ExternalBrandVariant } from './brand-registry';
 
 const AGENT_CARD_PATH = '/.well-known/agent-card.json';
 const MAX_BODY_BYTES = 20 * 1024;
+const DISCOVERY_TIMEOUT_MS = 10_000;
 
 export type AgentCardDiscoveryErrorClass =
   | 'network'
@@ -40,14 +41,15 @@ export async function discoverAgentCard(
   url: string,
   opts: DiscoverAgentCardOptions = {},
 ): Promise<A2AAgentCard> {
-  const base = url.trim().replace(/\/$/, '');
-  const cardUrl = `${base}${AGENT_CARD_PATH}`;
+  const baseUrl = validateExternalAgentBaseUrl(url);
+  const cardUrl = new URL(AGENT_CARD_PATH, baseUrl);
+  const signal = timeoutSignal(opts.signal, DISCOVERY_TIMEOUT_MS);
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
 
   let res: Response;
   try {
-    res = await fetch(cardUrl, { headers, signal: opts.signal });
+    res = await fetch(cardUrl, { headers, signal, redirect: 'manual' });
   } catch (err) {
     if ((err as { name?: string })?.name === 'AbortError') {
       throw err;
@@ -68,7 +70,7 @@ export async function discoverAgentCard(
     }
     let reachable = false;
     try {
-      await fetch(cardUrl, { method: 'GET', mode: 'no-cors', signal: opts.signal });
+      await fetch(cardUrl, { method: 'GET', mode: 'no-cors', signal });
       reachable = true;
     } catch (probeErr) {
       if ((probeErr as { name?: string })?.name === 'AbortError') {
@@ -86,6 +88,14 @@ export async function discoverAgentCard(
     throw new AgentCardDiscoveryError('network', `Network error: ${msg}`, { cause: err });
   }
 
+  if (res.status >= 300 && res.status < 400) {
+    throw new AgentCardDiscoveryError(
+      'network',
+      'Agent card redirects are not followed. Use the final HTTPS endpoint directly.',
+      { status: res.status },
+    );
+  }
+
   if (!res.ok) {
     throw new AgentCardDiscoveryError(
       'network',
@@ -94,11 +104,11 @@ export async function discoverAgentCard(
     );
   }
 
-  const text = await res.text();
-  if (text.length > MAX_BODY_BYTES) {
+  const text = await readResponseTextWithLimit(res, MAX_BODY_BYTES);
+  if (new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES) {
     throw new AgentCardDiscoveryError(
       'schema',
-      `Agent card body is too large (${text.length} bytes; limit ${MAX_BODY_BYTES}).`,
+      `Agent card body is too large (limit ${MAX_BODY_BYTES} bytes).`,
     );
   }
 
@@ -133,8 +143,149 @@ export async function discoverAgentCard(
       'Agent advertises no JSON-RPC binding. Offisim only speaks JSON-RPC over HTTP.',
     );
   }
+  for (const iface of card.supportedInterfaces) {
+    if (!iface || typeof iface !== 'object' || iface.protocolBinding !== 'JSONRPC') continue;
+    const endpoint = validateExternalAgentBaseUrl(iface.url);
+    if (endpoint.origin !== baseUrl.origin) {
+      throw new AgentCardDiscoveryError(
+        'schema',
+        'Agent card JSON-RPC endpoint must stay on the configured agent origin.',
+      );
+    }
+  }
 
   return card as A2AAgentCard;
+}
+
+export function validateExternalAgentBaseUrl(rawUrl: string): URL {
+  let url: URL;
+  try {
+    url = new URL(rawUrl.trim());
+  } catch (err) {
+    throw new AgentCardDiscoveryError('schema', 'Agent URL must be a valid URL.', { cause: err });
+  }
+  if (url.protocol !== 'https:') {
+    throw new AgentCardDiscoveryError('schema', 'Agent URL must use https.');
+  }
+  if (isPrivateOrLocalHost(url.hostname)) {
+    throw new AgentCardDiscoveryError(
+      'schema',
+      'Agent URL cannot target localhost or a private network.',
+    );
+  }
+  return url;
+}
+
+export async function readResponseTextWithLimit(
+  response: Response,
+  maxBytes: number,
+): Promise<string> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength) {
+    const bytes = Number(contentLength);
+    if (Number.isFinite(bytes) && bytes > maxBytes) {
+      throw new AgentCardDiscoveryError(
+        'schema',
+        `Agent card body is too large (limit ${maxBytes} bytes).`,
+      );
+    }
+  }
+  if (!response.body) {
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > maxBytes) {
+      throw new AgentCardDiscoveryError(
+        'schema',
+        `Agent card body is too large (limit ${maxBytes} bytes).`,
+      );
+    }
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel('agent card body too large');
+        throw new AgentCardDiscoveryError(
+          'schema',
+          `Agent card body is too large (limit ${maxBytes} bytes).`,
+        );
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return text + decoder.decode();
+}
+
+function timeoutSignal(parent: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const abort = () => {
+    window.clearTimeout(timeout);
+    controller.abort();
+  };
+  if (parent?.aborted) abort();
+  else parent?.addEventListener('abort', abort, { once: true });
+  controller.signal.addEventListener(
+    'abort',
+    () => {
+      window.clearTimeout(timeout);
+      parent?.removeEventListener('abort', abort);
+    },
+    { once: true },
+  );
+  return controller.signal;
+}
+
+function isPrivateOrLocalHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[/u, '').replace(/\]$/u, '').replace(/\.$/u, '');
+  if (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === '0.0.0.0' ||
+    host === '::' ||
+    host === '::1' ||
+    host === 'metadata.google.internal'
+  ) {
+    return true;
+  }
+  const ipv4 = parseIpv4(host);
+  if (ipv4) {
+    const [a, b] = ipv4;
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168)
+    );
+  }
+  if (host.startsWith('::ffff:')) {
+    const mapped = parseIpv4(host.slice('::ffff:'.length));
+    if (mapped) return isPrivateOrLocalHost(mapped.join('.'));
+  }
+  return host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:');
+}
+
+function parseIpv4(host: string): [number, number, number, number] | null {
+  const parts = host.split('.');
+  if (parts.length !== 4) return null;
+  const octets = parts.map((part) => {
+    if (!/^\d{1,3}$/u.test(part)) return Number.NaN;
+    return Number(part);
+  });
+  if (octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  return octets as [number, number, number, number];
 }
 
 const BRAND_ORDER: ReadonlyArray<Exclude<ExternalBrandVariant, 'custom'>> = [

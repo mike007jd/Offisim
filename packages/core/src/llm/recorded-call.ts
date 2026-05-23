@@ -105,6 +105,43 @@ function gatewayForRequest(ctx: RuntimeContext, request: LlmRequest) {
   return ctx.modelRegistry?.getGateway(request.model) ?? ctx.llmGateway;
 }
 
+function hasVisibleStreamChunk(chunk: LlmStreamChunk): boolean {
+  return Boolean(chunk.content || chunk.reasoning || (chunk.toolCalls?.length ?? 0) > 0);
+}
+
+async function callStreamWithCapacityFallback(
+  ctx: RuntimeContext,
+  request: LlmRequest,
+  onChunk: (chunk: LlmStreamChunk) => void,
+): Promise<{ request: LlmRequest; result: TeeResult }> {
+  const registry = ctx.modelRegistry as CapacityAwareRegistry | undefined;
+  let emittedVisibleChunk = false;
+
+  try {
+    const result = await teeStream(
+      gatewayForRequest(ctx, request).chatStream(request),
+      (chunk) => {
+        if (hasVisibleStreamChunk(chunk)) emittedVisibleChunk = true;
+        onChunk(chunk);
+      },
+    );
+    registry?.recordSuccess?.(request.model);
+    return { request, result };
+  } catch (error) {
+    if (!isCapacityError(error)) throw error;
+    const fallback = registry?.recordCapacityError?.(request.model);
+    if (!fallback || fallback.model === request.model || emittedVisibleChunk) throw error;
+    const fallbackRequest = { ...request, model: fallback.model };
+    const result = await teeStream(
+      gatewayForRequest(ctx, fallbackRequest).chatStream(fallbackRequest),
+      onChunk,
+    );
+    registry?.recordSuccess?.(request.model);
+    registry?.recordSuccess?.(fallback.id ?? fallback.model);
+    return { request: fallbackRequest, result };
+  }
+}
+
 function actualCallIdentity(
   ctx: RuntimeContext,
   request: LlmRequest,
@@ -344,9 +381,7 @@ export async function recordedLlmStream(
 
     let result: TeeResult;
     try {
-      const attempt = await callWithCapacityFallback(ctx, effectiveRequest, (attemptRequest) =>
-        teeStream(gatewayForRequest(ctx, attemptRequest).chatStream(attemptRequest), onChunk),
-      );
+      const attempt = await callStreamWithCapacityFallback(ctx, effectiveRequest, onChunk);
       effectiveRequest = attempt.request;
       result = attempt.result;
     } catch (error) {
@@ -361,9 +396,7 @@ export async function recordedLlmStream(
         ctx,
         await withExecutionContext(ctx, callCtx.request, meta),
       );
-      const attempt = await callWithCapacityFallback(ctx, effectiveRequest, (attemptRequest) =>
-        teeStream(gatewayForRequest(ctx, attemptRequest).chatStream(attemptRequest), onChunk),
-      );
+      const attempt = await callStreamWithCapacityFallback(ctx, effectiveRequest, onChunk);
       effectiveRequest = attempt.request;
       result = attempt.result;
     }

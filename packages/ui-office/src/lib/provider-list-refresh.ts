@@ -10,6 +10,11 @@ const HERMES_PROVIDER_DOC_URL =
 const OPENCLAW_PROVIDER_DOC_URL =
   'https://raw.githubusercontent.com/openclaw/openclaw/main/docs/concepts/model-providers.md';
 
+export const PROVIDER_LIST_REFRESH_MAX_BODY_BYTES = 10 * 1024 * 1024;
+export const PROVIDER_LIST_REFRESH_TIMEOUT_MS = 15_000;
+
+const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
+
 const PROVIDER_ALIAS_TO_PRODUCTS: Readonly<Record<string, readonly ProviderProductId[]>> = {
   alibaba: ['qwen-model-studio'],
   'alibaba-coding-plan': ['qwen-model-studio'],
@@ -128,19 +133,73 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 async function fetchJson<T>(fetchImpl: FetchLike, url: string): Promise<T> {
-  const response = await fetchImpl(url, { cache: 'no-store' });
-  if (!response.ok) {
-    throw new Error(`${url} returned ${response.status}`);
-  }
-  return response.json() as Promise<T>;
+  return JSON.parse(await fetchText(fetchImpl, url)) as T;
 }
 
 async function fetchText(fetchImpl: FetchLike, url: string): Promise<string> {
-  const response = await fetchImpl(url, { cache: 'no-store' });
+  const response = await fetchProviderListSource(fetchImpl, url);
   if (!response.ok) {
     throw new Error(`${url} returned ${response.status}`);
   }
-  return response.text();
+  return readTextWithLimit(response, PROVIDER_LIST_REFRESH_MAX_BODY_BYTES);
+}
+
+async function fetchProviderListSource(fetchImpl: FetchLike, url: string): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PROVIDER_LIST_REFRESH_TIMEOUT_MS);
+  try {
+    const response = await fetchImpl(url, {
+      cache: 'no-store',
+      redirect: 'manual',
+      signal: controller.signal,
+    });
+    if (REDIRECT_STATUS_CODES.has(response.status)) {
+      throw new Error(`${url} redirected; provider metadata redirects are not allowed`);
+    }
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function readTextWithLimit(response: Response, maxBytes: number): Promise<string> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength) {
+    const parsed = Number.parseInt(contentLength, 10);
+    if (Number.isFinite(parsed) && parsed > maxBytes) {
+      throw new Error(`Provider metadata response exceeded ${maxBytes} bytes`);
+    }
+  }
+
+  if (!response.body) {
+    throw new Error('Provider metadata response did not expose a readable stream');
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        throw new Error(`Provider metadata response exceeded ${maxBytes} bytes`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
 }
 
 function addModel(

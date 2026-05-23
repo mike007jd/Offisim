@@ -30,6 +30,14 @@ export type {
 export type {
   RuntimeEvent,
   EventFamily,
+  CompanyStartupBasePayload,
+  CompanyStartupSource,
+  CompanyStartupPayload,
+  CompanyStartupRequestedPayload,
+  CompanyStartupStartedPayload,
+  CompanyStartupCompletedPayload,
+  CompanyStartupSkippedPayload,
+  CompanyStartupFailedPayload,
   EmployeeStatePayload,
   TaskStatePayload,
   TaskAssignmentPayload,
@@ -169,8 +177,16 @@ export {
   chatAttachmentEvent,
 } from './events/chat-attachment-events.js';
 
-export type { RunScope } from './run-scope.js';
+export type { RunScope, RunToolPolicy } from './run-scope.js';
 export { chatScopeFields } from './run-scope.js';
+export type {
+  EmployeePerformanceAction,
+  EmployeePerformanceDomain,
+  EmployeePerformanceKind,
+  EmployeePerformanceState,
+  EmployeePerformanceStateMap,
+} from './employee-performance-state.js';
+export { reduceEmployeePerformanceStates } from './employee-performance-state.js';
 export type {
   ToolExecutionTelemetryPayload,
   VaultSyncFailedPayload,
@@ -259,6 +275,7 @@ export type {
   RuntimeRecordingPolicy,
   ResolvedModel,
   RuntimeSummarizationPolicy,
+  RuntimeToolLoopPolicy,
   RuntimeToolPermissionBehavior,
   RuntimeToolPermissionRule,
   RuntimeToolPermissionsPolicy,

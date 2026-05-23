@@ -58,6 +58,12 @@ export function createGatherAll(deps: CeremonyPhaseActionsDeps): (version: numbe
       managerVisible: false,
       managerPosition: null,
       waitingRelationships: [],
+      startup: {
+        active: false,
+        startupId: null,
+        source: null,
+        replay: false,
+      },
     });
     clearAssignedSceneState();
 

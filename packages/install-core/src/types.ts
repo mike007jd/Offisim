@@ -17,6 +17,7 @@ import type {
   BindingType,
   InstallSourceType,
   InstallState,
+  PrefabInstanceRow,
 } from '@offisim/shared-types';
 
 // ---------------------------------------------------------------------------
@@ -244,6 +245,38 @@ export interface NewEmployee {
   readonly agent_card_json?: string | null;
 }
 
+export interface NewInstalledSopTemplate {
+  readonly sop_template_id: string;
+  readonly company_id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly definition_json: string;
+  readonly source_thread_id: string | null;
+  readonly source_url: string | null;
+  readonly version: string | null;
+  readonly last_synced_at: string | null;
+}
+
+export interface NewInstalledCompanyTemplate {
+  readonly company_template_asset_id: string;
+  readonly company_id: string;
+  readonly template_id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly template_json: string;
+  readonly source_package_id: string;
+  readonly source_asset_id: string;
+  readonly version: string | null;
+}
+
+export interface NewInstalledOfficeLayout {
+  readonly layout_id: string;
+  readonly company_id: string;
+  readonly name: string;
+  readonly layout_json: string;
+  readonly is_active: number;
+}
+
 // ---------------------------------------------------------------------------
 // Dependency Injection Interfaces (avoids @offisim/core import)
 // ---------------------------------------------------------------------------
@@ -290,6 +323,22 @@ export interface InstallRepositories {
   readonly employees: {
     create(emp: NewEmployee): Promise<{ employee_id: string }>;
     /** Delete an employee by ID. Used during rollback. */
+    delete(id: string): Promise<void>;
+  };
+  readonly sopTemplates?: {
+    create(template: NewInstalledSopTemplate): Promise<{ sop_template_id: string }>;
+    delete(id: string): Promise<void>;
+  };
+  readonly companyTemplates?: {
+    create(template: NewInstalledCompanyTemplate): Promise<{ company_template_asset_id: string }>;
+    delete(id: string): Promise<void>;
+  };
+  readonly officeLayouts?: {
+    create(layout: NewInstalledOfficeLayout): Promise<{ layout_id: string }>;
+    delete(id: string): Promise<void>;
+  };
+  readonly prefabInstances?: {
+    create(instance: PrefabInstanceRow): Promise<{ instance_id: string }>;
     delete(id: string): Promise<void>;
   };
 }

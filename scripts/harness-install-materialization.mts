@@ -411,6 +411,25 @@ function assertMarketplaceDoesNotInvokeMcpRegistration() {
   }
 }
 
+function assertTauriGitInstallUsesProjectBoundReads() {
+  const source = readFileSync(
+    new URL('../apps/desktop/renderer/src/lib/tauri-skill-install-adapters.ts', import.meta.url),
+    'utf8',
+  );
+  const readTreeStart = source.indexOf('async readTree(localPath)');
+  assert.notEqual(readTreeStart, -1, 'missing Tauri git local fs readTree implementation');
+  const readTreeBody = source.slice(
+    readTreeStart,
+    source.indexOf('async cleanup(localPath)', readTreeStart),
+  );
+  assert.match(readTreeBody, /return readProjectTreeRecursive\(localPath,/u);
+  assert.equal(
+    readTreeBody.includes('tree.files.length > 0'),
+    false,
+    'project-bound git install reads must not fall back to plugin-fs when project command returns an empty tree',
+  );
+}
+
 function walkFiles(dir: string): string[] {
   const result: string[] = [];
   for (const entry of readdirSync(dir)) {
@@ -870,4 +889,5 @@ await assertSkillInstallToolRoundStopsForConfirmation();
 assertReleaseDesktopUsesNativeInstallTransaction();
 assertMcpStdioPolicyCoverage();
 assertMarketplaceDoesNotInvokeMcpRegistration();
+assertTauriGitInstallUsesProjectBoundReads();
 console.log('Install materialization harness passed');

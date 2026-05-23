@@ -60,7 +60,7 @@ export function CableTrayMesh3D({
     <group position={position} rotation={[0, rotY, 0]}>
       <mesh position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.34, 3.4]} />
-        <SceneMaterial materialClass="plastic" color={sc.cableChannel} />
+        <meshBasicMaterial color={sc.cableChannel} transparent opacity={0.82} />
       </mesh>
       {[-0.08, 0.08].map((x) => (
         <mesh key={`cable-run-${x}`} position={[x, 0.055, 0]} rotation={[-Math.PI / 2, 0, 0]}>

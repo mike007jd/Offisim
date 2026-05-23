@@ -85,6 +85,9 @@ expectRedirectToMetadataFailClosed();
 expectPrivateIpArtifactBlocked();
 expectSizeCapBlocked();
 expectDuplicatePackageVersionSubmitGuard();
+expectLineageVisibilityGuards();
+expectPublishDraftMutationGuards();
+expectModerationSubmittedDraftBoundary();
 
 const ownershipSource = readFileSync(
   new URL('../apps/platform/src/services/publish-ownership.ts', import.meta.url),
@@ -108,6 +111,7 @@ if (!seedBuilderSource.includes("seed: { source: 'offisim-official' }")) {
 if (!officialSeedSource.includes('setSeededArtifact(')) {
   throw new Error('official seeded artifacts are not pinned to platform-owned storage');
 }
+expectOfficialSeedExistingRowsReconcileArtifactMetadata(officialSeedSource);
 
 const migrationSource = readFileSync(
   new URL(
@@ -411,6 +415,169 @@ function expectDuplicatePackageVersionSubmitGuard() {
   for (const phrase of requiredModerationPhrases) {
     if (!moderationSource.includes(phrase)) {
       throw new Error(`duplicate package version moderation guard missing "${phrase}"`);
+    }
+  }
+}
+
+function expectLineageVisibilityGuards() {
+  const moderationSource = readFileSync(
+    new URL('../apps/platform/src/services/moderation.ts', import.meta.url),
+    'utf8',
+  );
+  const marketSource = readFileSync(
+    new URL('../apps/platform/src/routes/market.ts', import.meta.url),
+    'utf8',
+  );
+  const lineageLookupStart = moderationSource.indexOf('const [originListing] = await db');
+  if (lineageLookupStart < 0) {
+    throw new Error('moderation lineage origin lookup is missing');
+  }
+  const lineageLookup = moderationSource.slice(
+    lineageLookupStart,
+    moderationSource.indexOf('if (!originListing)', lineageLookupStart),
+  );
+  if (
+    !lineageLookup.includes('eq(listings.listing_id, lineage.origin_listing_id)') ||
+    !lineageLookup.includes("eq(listings.status, 'listed')")
+  ) {
+    throw new Error('moderation lineage origin lookup does not require a public listed origin');
+  }
+  if (marketSource.includes('lineage: manifest?.lineage')) {
+    throw new Error('marketplace detail returns raw manifest lineage');
+  }
+  if (!marketSource.includes('lineage: publicLineage(manifest?.lineage)')) {
+    throw new Error('marketplace detail does not sanitize public lineage');
+  }
+  const publicLineageStart = marketSource.indexOf('function publicLineage');
+  if (publicLineageStart < 0) {
+    throw new Error('public lineage sanitizer is missing');
+  }
+  const publicLineageBody = marketSource.slice(
+    publicLineageStart,
+    marketSource.indexOf('// ── Allowed status transitions', publicLineageStart),
+  );
+  if (publicLineageBody.includes('origin_listing_id')) {
+    throw new Error('public lineage sanitizer exposes origin_listing_id');
+  }
+}
+
+function expectPublishDraftMutationGuards() {
+  const publishSource = readFileSync(
+    new URL('../apps/platform/src/routes/publish.ts', import.meta.url),
+    'utf8',
+  );
+  const deleteStart = publishSource.indexOf("publish.delete('/drafts/:draftId'");
+  const manifestStart = publishSource.indexOf("publish.put('/drafts/:draftId/manifest'");
+  const submitStart = publishSource.indexOf("publish.post('/submit'");
+  if (deleteStart < 0 || manifestStart < 0 || submitStart < 0) {
+    throw new Error('publish draft mutation routes are missing');
+  }
+
+  const deleteRoute = publishSource.slice(deleteStart, manifestStart);
+  const manifestRoute = publishSource.slice(manifestStart, submitStart);
+  const submitRoute = publishSource.slice(
+    submitStart,
+    publishSource.indexOf('function duplicatePackageVersionResponse', submitStart),
+  );
+
+  const requiredDeletePhrases = [
+    'const deletedRows = await db',
+    'eq(publishDrafts.draft_id, draftId)',
+    'eq(publishDrafts.creator_id, creatorId)',
+    'eq(publishDrafts.status, draft.status)',
+    'Draft state changed before deletion',
+  ];
+  for (const phrase of requiredDeletePhrases) {
+    if (!deleteRoute.includes(phrase)) {
+      throw new Error(`publish draft delete guard missing "${phrase}"`);
+    }
+  }
+
+  const requiredManifestPhrases = [
+    "draft.status === 'submitted' || draft.status === 'approved'",
+    'eq(publishDrafts.draft_id, draftId)',
+    'eq(publishDrafts.creator_id, creatorId)',
+    'eq(publishDrafts.status, draft.status)',
+  ];
+  for (const phrase of requiredManifestPhrases) {
+    if (!manifestRoute.includes(phrase)) {
+      throw new Error(`publish draft manifest guard missing "${phrase}"`);
+    }
+  }
+
+  const requiredSubmitPhrases = [
+    'const submittedRows = await db',
+    'eq(publishDrafts.draft_id, draft.draft_id)',
+    'eq(publishDrafts.creator_id, creatorId)',
+    'eq(publishDrafts.status, draft.status)',
+    "eq(publishDrafts.validation_state, 'valid')",
+    'Draft state changed before submission',
+  ];
+  for (const phrase of requiredSubmitPhrases) {
+    if (!submitRoute.includes(phrase)) {
+      throw new Error(`publish draft submit guard missing "${phrase}"`);
+    }
+  }
+}
+
+function expectModerationSubmittedDraftBoundary() {
+  const moderationSource = readFileSync(
+    new URL('../apps/platform/src/services/moderation.ts', import.meta.url),
+    'utf8',
+  );
+  const jobLookupStart = moderationSource.indexOf('const [job] = await db');
+  const draftLookupStart = moderationSource.indexOf('const [draft] = await db');
+  if (jobLookupStart < 0 || draftLookupStart < 0) {
+    throw new Error('moderation job/draft lookup is missing');
+  }
+  const jobLookup = moderationSource.slice(jobLookupStart, draftLookupStart);
+  for (const phrase of [
+    "eq(moderationJobs.status, 'pending')",
+    "eq(moderationJobs.target_type, 'publish_draft')",
+    "eq(moderationJobs.job_kind, 'publish_review')",
+    'const pendingJobPredicate = and',
+    '.where(pendingJobPredicate)',
+  ]) {
+    if (!moderationSource.includes(phrase)) {
+      throw new Error(`moderation job lookup boundary missing "${phrase}"`);
+    }
+  }
+  const approvalStart = moderationSource.indexOf('const approvedDraftRows = await tx');
+  if (approvalStart < 0) {
+    throw new Error('moderation approval draft update is missing');
+  }
+  const approvalBoundary = moderationSource.slice(
+    draftLookupStart,
+    moderationSource.indexOf('await tx\n        .update(moderationJobs)', approvalStart),
+  );
+  for (const phrase of [
+    "eq(publishDrafts.status, 'submitted')",
+    'eq(publishDrafts.creator_id, draft.creator_id)',
+    'Draft state changed during moderation approval',
+  ]) {
+    if (!approvalBoundary.includes(phrase)) {
+      throw new Error(`moderation submitted-draft boundary missing "${phrase}"`);
+    }
+  }
+}
+
+function expectOfficialSeedExistingRowsReconcileArtifactMetadata(source: string) {
+  const start = source.indexOf('async function populateArtifactCacheForExistingCreator');
+  const end = source.indexOf('async function ensureOfficialUserId');
+  if (start < 0 || end < 0 || end <= start) {
+    throw new Error('official seed existing-creator reconciliation function is missing');
+  }
+  const reconciliation = source.slice(start, end);
+  for (const phrase of [
+    '.update(packageVersions)',
+    'manifest_json: entry.manifest',
+    'artifact_url: `${baseUrl}/v1/install/artifacts/${versionRow.package_version_id}`',
+    'artifact_sha256: entry.packageSha256',
+    'artifact_size_bytes: entry.sizeBytes',
+    'eq(packageVersions.package_version_id, versionRow.package_version_id)',
+  ]) {
+    if (!reconciliation.includes(phrase)) {
+      throw new Error(`official seed existing rows do not reconcile "${phrase}"`);
     }
   }
 }

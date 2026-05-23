@@ -1,4 +1,12 @@
-export { A2AClient } from './a2a-client.js';
+export {
+  A2A_AGENT_CARD_MAX_BYTES,
+  A2A_FETCH_TIMEOUT_MS,
+  A2A_RPC_MAX_BYTES,
+  A2AClient,
+  assertJsonRpcInterfacesStayOnPeer,
+  readResponseTextWithLimit,
+  validateA2AExternalUrl,
+} from './a2a-client.js';
 export { forkSubContext } from './fork-sub-context.js';
 export type { ForkSubContextInput, ForkSubContextResult } from './fork-sub-context.js';
 export { A2ARequestHandler } from './a2a-server.js';

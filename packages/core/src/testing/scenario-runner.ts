@@ -6,6 +6,7 @@ import type {
   LlmProvider,
   ProjectStatus,
   RoleSlug,
+  RuntimeEvent,
   RuntimePolicyConfig,
 } from '@offisim/shared-types';
 import { isSkillInstallTool } from '../agents/skill-install-tools.js';
@@ -86,6 +87,8 @@ export interface DeterministicScenario {
     readonly thread?: Partial<SeedThread>;
     readonly projects?: readonly SeedProject[];
     readonly employees?: readonly SeedEmployee[];
+    readonly sopTemplates?: readonly SeedSopTemplate[];
+    readonly events?: readonly SeedRuntimeEvent[];
     readonly taskRuns?: readonly SeedTaskRun[];
     readonly kanbanCards?: readonly SeedKanbanCard[];
   };
@@ -134,6 +137,23 @@ interface SeedEmployee {
   readonly a2aAgentId?: string | null;
   readonly brandKey?: string | null;
   readonly agentCardJson?: string | null;
+}
+
+interface SeedSopTemplate {
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly definition: unknown;
+  readonly version?: string | null;
+}
+
+interface SeedRuntimeEvent {
+  readonly type: string;
+  readonly entityId: string;
+  readonly entityType: RuntimeEvent['entityType'];
+  readonly companyId?: string;
+  readonly threadId?: string;
+  readonly payload?: unknown;
 }
 
 interface SeedTaskRun {
@@ -206,6 +226,8 @@ interface ScenarioRunScope {
   readonly conversationKey?: string;
   readonly runId?: string;
   readonly threadId?: string;
+  readonly sopTemplateId?: string;
+  readonly sopDefinitionRef?: RunScope['sopDefinitionRef'];
   readonly pendingAttachments?: readonly (Omit<ChatAttachmentRef, 'vaultRef'> & {
     readonly vaultRef: string;
   })[];
@@ -283,7 +305,7 @@ export async function runDeterministicScenario(
   });
   const determinism = createScenarioDeterminism(scenario.id);
 
-  await seedScenario({ scenario, repos, companyId, threadId });
+  await seedScenario({ scenario, repos, eventBus, companyId, threadId });
 
   let finalState: Partial<OffisimGraphState> = buildInitialState(scenario, companyId, threadId);
   let conversationStateSnapshot: RunConversationStateSnapshot | undefined;
@@ -1025,6 +1047,7 @@ function createInteractionService(params: {
 async function seedScenario(params: {
   readonly scenario: DeterministicScenario;
   readonly repos: RuntimeRepositories;
+  readonly eventBus: EventBus;
   readonly companyId: string;
   readonly threadId: string;
 }): Promise<void> {
@@ -1080,6 +1103,30 @@ async function seedScenario(params: {
     if (employee.enabled === false) {
       await params.repos.employees.update(employee.id, { enabled: 0 });
     }
+  }
+  for (const sop of params.scenario.seed.sopTemplates ?? []) {
+    await params.repos.sopTemplates.create({
+      sop_template_id: sop.id,
+      company_id: params.companyId,
+      name: sop.name,
+      description: sop.description ?? '',
+      definition_json: JSON.stringify(sop.definition),
+      source_thread_id: null,
+      source_url: null,
+      version: sop.version ?? null,
+      last_synced_at: null,
+    });
+  }
+  for (const event of params.scenario.seed.events ?? []) {
+    params.eventBus.emit({
+      type: event.type,
+      companyId: event.companyId ?? params.companyId,
+      threadId: event.threadId === undefined ? params.threadId : event.threadId,
+      entityId: event.entityId,
+      entityType: event.entityType,
+      payload: event.payload,
+      timestamp: Date.parse(now),
+    });
   }
   for (const taskRun of params.scenario.seed.taskRuns ?? []) {
     await params.repos.taskRuns.create({
@@ -1209,6 +1256,8 @@ function buildScenarioRunScope(
     ...(scope.availableAttachments
       ? { availableAttachments: scope.availableAttachments as readonly ChatAttachmentRef[] }
       : {}),
+    ...(scope.sopTemplateId ? { sopTemplateId: scope.sopTemplateId } : {}),
+    ...(scope.sopDefinitionRef ? { sopDefinitionRef: scope.sopDefinitionRef } : {}),
   };
 }
 

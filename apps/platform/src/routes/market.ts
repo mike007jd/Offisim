@@ -12,7 +12,14 @@ import { type SQL, and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { PlatformDb } from '../db.js';
-import { getRequiredCreatorId, requireAuth, requireCreator } from '../middleware/auth.js';
+import { readPlatformJsonBody } from '../lib/body-limit.js';
+import {
+  getRequiredCreatorId,
+  requireAuth,
+  requireCreator,
+  requireScope,
+  requireSessionAuth,
+} from '../middleware/auth.js';
 import {
   ListingStatusPatchSchema,
   ReportCreateSchema,
@@ -116,7 +123,7 @@ async function buildListingDetail(db: PlatformDb, listing: ListingRow, creator: 
         (manifest?.permissions as Record<string, unknown>)?.filesystem_scope ?? 'none',
       network_scope: (manifest?.permissions as Record<string, unknown>)?.network_scope ?? 'none',
     },
-    lineage: manifest?.lineage ?? undefined,
+    lineage: publicLineage(manifest?.lineage),
     previews: previews.map((p) => ({
       kind: normalizePreviewKind(p.kind),
       url: p.url,
@@ -130,6 +137,24 @@ function normalizePreviewKind(kind: string): 'icon' | 'image' | 'video' | 'readm
     return kind;
   }
   return 'image';
+}
+
+function publicLineage(lineage: unknown) {
+  if (!lineage || typeof lineage !== 'object') return undefined;
+  const raw = lineage as Record<string, unknown>;
+  const visible: Record<string, unknown> = {};
+  if (typeof raw.origin_package_id === 'string' && raw.origin_package_id.trim()) {
+    visible.origin_package_id = raw.origin_package_id;
+  }
+  if (typeof raw.forked_from_version === 'string' && raw.forked_from_version.trim()) {
+    visible.forked_from_version = raw.forked_from_version;
+  }
+  if (Array.isArray(raw.derivative_of)) {
+    visible.derivative_of = raw.derivative_of.filter(
+      (value): value is string => typeof value === 'string' && value.trim().length > 0,
+    );
+  }
+  return Object.keys(visible).length > 0 ? visible : undefined;
 }
 
 // ── Allowed status transitions for creators ──
@@ -331,7 +356,7 @@ market.get('/listings/:listingId/reviews', async (c) => {
 });
 
 // POST /v1/market/listings/:listingId/reports — report a listing
-market.post('/listings/:listingId/reports', requireAuth, async (c) => {
+market.post('/listings/:listingId/reports', requireAuth, requireSessionAuth, async (c) => {
   const db = c.get('db');
   const userId = c.get('userId');
 
@@ -339,16 +364,9 @@ market.post('/listings/:listingId/reports', requireAuth, async (c) => {
     throw new HTTPException(401, { message: 'Unauthorized' });
   }
   const listingId = c.req.param('listingId');
-  const body = ReportCreateSchema.parse(await c.req.json());
+  const body = ReportCreateSchema.parse(await readPlatformJsonBody(c));
 
-  // Verify listing exists
-  const [listing] = await db
-    .select({ listing_id: listings.listing_id })
-    .from(listings)
-    .where(eq(listings.listing_id, listingId))
-    .limit(1);
-
-  if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
+  await requireVisibleListingById(db, listingId);
 
   // Check for existing report from this user on this listing (rate limit: 1 per user per listing)
   const [existing] = await db
@@ -401,14 +419,7 @@ market.get('/listings/:listingId/forks', async (c) => {
   const db = c.get('db');
   const listingId = c.req.param('listingId');
 
-  // Verify listing exists
-  const [listing] = await db
-    .select({ listing_id: listings.listing_id })
-    .from(listings)
-    .where(eq(listings.listing_id, listingId))
-    .limit(1);
-
-  if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
+  await requireVisibleListingById(db, listingId);
 
   // Find all package versions whose lineage points to this listing
   const lineageRows = await db
@@ -431,7 +442,13 @@ market.get('/listings/:listingId/forks', async (c) => {
     .from(packageVersions)
     .innerJoin(listings, eq(packageVersions.listing_id, listings.listing_id))
     .innerJoin(creators, eq(listings.creator_id, creators.creator_id))
-    .where(inArray(packageVersions.package_version_id, versionIds));
+    .where(
+      and(
+        inArray(packageVersions.package_version_id, versionIds),
+        eq(packageVersions.status, 'active'),
+        eq(listings.status, 'listed'),
+      ),
+    );
 
   const forks = forkVersions.map((row) => ({
     listingId: row.listings.listing_id,
@@ -450,14 +467,7 @@ market.get('/listings/:listingId/lineage', async (c) => {
   const db = c.get('db');
   const listingId = c.req.param('listingId');
 
-  // Verify listing exists
-  const [listing] = await db
-    .select({ listing_id: listings.listing_id })
-    .from(listings)
-    .where(eq(listings.listing_id, listingId))
-    .limit(1);
-
-  if (!listing) throw new HTTPException(404, { message: 'Listing not found' });
+  await requireVisibleListingById(db, listingId);
 
   // Ancestors: recursive CTE walks origin_listing_id chain upward (max 10 levels)
   const ancestorRows = await db.execute<{
@@ -484,7 +494,7 @@ market.get('/listings/:listingId/lineage', async (c) => {
     SELECT l.listing_id, l.title, l.slug, lc.depth
     FROM lineage_chain lc
     INNER JOIN ${listings} l ON l.listing_id = lc.origin_listing_id
-    WHERE lc.origin_listing_id IS NOT NULL
+    WHERE lc.origin_listing_id IS NOT NULL AND l.status = 'listed'
     ORDER BY lc.depth
   `);
 
@@ -532,7 +542,13 @@ market.get('/listings/:listingId/lineage', async (c) => {
       .select()
       .from(packageVersions)
       .innerJoin(listings, eq(packageVersions.listing_id, listings.listing_id))
-      .where(inArray(packageVersions.package_version_id, versionIds));
+      .where(
+        and(
+          inArray(packageVersions.package_version_id, versionIds),
+          eq(packageVersions.status, 'active'),
+          eq(listings.status, 'listed'),
+        ),
+      );
 
     for (const row of descRows) {
       descendants.push({
@@ -548,45 +564,62 @@ market.get('/listings/:listingId/lineage', async (c) => {
 });
 
 // PATCH /v1/market/listings/:listingId/status — creator status management
-market.patch('/listings/:listingId/status', requireAuth, requireCreator, async (c) => {
-  const db = c.get('db');
-  const creatorId = getRequiredCreatorId(c);
-  const { listingId } = c.req.param();
-  const body = ListingStatusPatchSchema.parse(await c.req.json());
+market.patch(
+  '/listings/:listingId/status',
+  requireAuth,
+  requireScope('publish:write'),
+  requireCreator,
+  async (c) => {
+    const db = c.get('db');
+    const creatorId = getRequiredCreatorId(c);
+    const { listingId } = c.req.param();
+    const body = ListingStatusPatchSchema.parse(await readPlatformJsonBody(c));
 
-  // Verify ownership: listing must belong to this creator
-  const [listing] = await db
-    .select({
-      listing_id: listings.listing_id,
-      creator_id: listings.creator_id,
-      status: listings.status,
-    })
-    .from(listings)
-    .where(eq(listings.listing_id, listingId))
-    .limit(1);
+    // Verify ownership: listing must belong to this creator
+    const [listing] = await db
+      .select({
+        listing_id: listings.listing_id,
+        creator_id: listings.creator_id,
+        status: listings.status,
+      })
+      .from(listings)
+      .where(eq(listings.listing_id, listingId))
+      .limit(1);
 
-  if (!listing) {
-    throw new HTTPException(404, { message: 'Listing not found' });
-  }
+    if (!listing) {
+      throw new HTTPException(404, { message: 'Listing not found' });
+    }
 
-  if (creatorId !== listing.creator_id) {
-    throw new HTTPException(403, { message: 'Only the listing creator can change listing status' });
-  }
+    if (creatorId !== listing.creator_id) {
+      throw new HTTPException(403, { message: 'Only the listing creator can change listing status' });
+    }
 
-  // Validate state transition
-  const allowed = ALLOWED_TRANSITIONS[listing.status];
-  if (!allowed || !allowed.includes(body.status)) {
-    throw new HTTPException(400, {
-      message: `Cannot transition from '${listing.status}' to '${body.status}'. Allowed: ${allowed?.join(', ') ?? 'none'}`,
-    });
-  }
+    // Validate state transition
+    const allowed = ALLOWED_TRANSITIONS[listing.status];
+    if (!allowed || !allowed.includes(body.status)) {
+      throw new HTTPException(400, {
+        message: `Cannot transition from '${listing.status}' to '${body.status}'. Allowed: ${allowed?.join(', ') ?? 'none'}`,
+      });
+    }
 
-  await db
-    .update(listings)
-    .set({ status: body.status, updated_at: new Date() })
-    .where(eq(listings.listing_id, listingId));
+    const updatedRows = await db
+      .update(listings)
+      .set({ status: body.status, updated_at: new Date() })
+      .where(
+        and(
+          eq(listings.listing_id, listingId),
+          eq(listings.creator_id, creatorId),
+          eq(listings.status, listing.status),
+        ),
+      )
+      .returning({ listing_id: listings.listing_id });
 
-  return c.json({ ok: true, listing_id: listingId, status: body.status });
-});
+    if (updatedRows.length === 0) {
+      throw new HTTPException(409, { message: 'Listing state changed before status update' });
+    }
+
+    return c.json({ ok: true, listing_id: listingId, status: body.status });
+  },
+);
 
 export { market };

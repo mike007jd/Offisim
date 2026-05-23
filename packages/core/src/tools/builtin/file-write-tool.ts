@@ -1,4 +1,4 @@
-import type { BuiltinTool, BuiltinToolConfig } from './types.js';
+import { isBuiltinToolReadOnly, type BuiltinTool, type BuiltinToolConfig } from './types.js';
 
 export function createFileWriteTool(config: BuiltinToolConfig): BuiltinTool | null {
   if (config.executionMode === 'browser-limited' || !config.fs) return null;
@@ -25,7 +25,7 @@ export function createFileWriteTool(config: BuiltinToolConfig): BuiltinTool | nu
       },
     },
     async execute(args, context) {
-      if (config.readOnly) {
+      if (isBuiltinToolReadOnly(config, context)) {
         throw new Error('[READ_ONLY_MODE] write_file is disabled for this run.');
       }
       const path = args.path as string;

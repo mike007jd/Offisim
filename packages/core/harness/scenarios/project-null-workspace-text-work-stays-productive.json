@@ -1,0 +1,70 @@
+{
+  "id": "project-null-workspace-text-work-stays-productive",
+  "category": "projects",
+  "entryMode": "boss_chat",
+  "interactionMode": "direct_to_employee",
+  "seed": {
+    "company": { "companyId": "company-null-workspace", "name": "Null Workspace Co" },
+    "thread": {
+      "threadId": "thread-null-workspace",
+      "status": "running",
+      "projectId": "project-null-workspace"
+    },
+    "projects": [
+      {
+        "id": "project-null-workspace",
+        "name": "Text Only Project",
+        "description": "Project created before folder binding",
+        "workspaceRoot": null
+      }
+    ],
+    "employees": [{ "id": "emp-null-workspace", "name": "Analyst", "role": "analyst" }],
+    "taskRuns": [
+      {
+        "id": "task-null-workspace",
+        "employeeId": "emp-null-workspace",
+        "taskType": "analysis",
+        "input": { "description": "Write a short launch risk brief." }
+      }
+    ]
+  },
+  "initialState": {
+    "projectId": "project-null-workspace",
+    "pendingAssignments": [
+      {
+        "taskType": "analysis",
+        "employeeId": "emp-null-workspace",
+        "assigneeKind": "employee",
+        "assigneeName": "Analyst",
+        "taskRunId": "task-null-workspace",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Write a short launch risk brief.",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0],
+    "recentToolResults": []
+  },
+  "llmTurns": [
+    {
+      "id": "employee-null-workspace-text",
+      "match": { "contains": "Write a short launch risk brief." },
+      "content": "Launch risk brief: keep provider setup explicit, keep startup ceremony non-executing, and require user intent before AI work."
+    }
+  ],
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    {
+      "kind": "projectWorkspaceRootIs",
+      "projectId": "project-null-workspace",
+      "workspaceRoot": null
+    },
+    { "kind": "taskRunStatusIs", "taskRunId": "task-null-workspace", "status": "completed" },
+    { "kind": "llmCalls", "count": 1 },
+    { "kind": "toolExecutions", "count": 0 },
+    { "kind": "eventNotEmitted", "eventType": "workspace-binding.unavailable" },
+    { "kind": "finalOutputContains", "contains": "Launch risk brief" }
+  ]
+}

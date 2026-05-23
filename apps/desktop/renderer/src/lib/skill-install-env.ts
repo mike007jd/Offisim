@@ -87,6 +87,7 @@ const httpFetch: GitHttpFetch = async (url, init) => {
     ok: resp.ok,
     status: resp.status,
     headers: resp.headers,
+    body: resp.body,
     arrayBuffer: () => resp.arrayBuffer(),
   };
 };

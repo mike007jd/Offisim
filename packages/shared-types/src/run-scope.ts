@@ -16,10 +16,20 @@
  */
 import type { ChatAttachmentRef } from './chat-attachments.js';
 
+export interface RunToolPolicy {
+  readonly readOnly?: boolean;
+}
+
 export interface RunScope {
   readonly conversationKey: string;
   readonly runId: string;
   readonly threadId: string;
+  readonly toolPolicy?: RunToolPolicy;
+  readonly sopTemplateId?: string;
+  readonly sopDefinitionRef?: {
+    readonly version: string | null;
+    readonly definitionHash: string;
+  };
   /**
    * Chat attachment refs persisted at user-submit time. Boss / manager /
    * employee nodes inherit these on dispatch and rebuild their gateway-lane

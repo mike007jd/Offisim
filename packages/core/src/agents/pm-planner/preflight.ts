@@ -124,5 +124,6 @@ export async function runPmPreflight(
     validEmployees,
     allEnabled,
     allEmployees,
+    runScope,
   };
 }

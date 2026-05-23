@@ -70,3 +70,10 @@ export interface BuiltinToolConfig {
   /** Optional event bus for tools that emit telemetry (`read_attachment`). */
   eventBus?: EventBus;
 }
+
+export function isBuiltinToolReadOnly(
+  config: Pick<BuiltinToolConfig, 'readOnly'>,
+  context?: BuiltinToolExecutionContext,
+): boolean {
+  return config.readOnly === true || context?.runScope?.toolPolicy?.readOnly === true;
+}

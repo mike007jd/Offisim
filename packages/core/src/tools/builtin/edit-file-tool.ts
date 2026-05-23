@@ -1,4 +1,4 @@
-import type { BuiltinTool, BuiltinToolConfig } from './types.js';
+import { isBuiltinToolReadOnly, type BuiltinTool, type BuiltinToolConfig } from './types.js';
 
 export function createEditFileTool(config: BuiltinToolConfig): BuiltinTool | null {
   if (config.executionMode === 'browser-limited' || !config.fs) return null;
@@ -20,7 +20,9 @@ export function createEditFileTool(config: BuiltinToolConfig): BuiltinTool | nul
       },
     },
     async execute(args, context) {
-      if (config.readOnly) throw new Error('[READ_ONLY_MODE] edit_file is disabled for this run.');
+      if (isBuiltinToolReadOnly(config, context)) {
+        throw new Error('[READ_ONLY_MODE] edit_file is disabled for this run.');
+      }
       const path = args.path as string;
       const oldString = args.oldString as string;
       const newString = args.newString as string;

@@ -1,6 +1,10 @@
-import type { PackageManifest, RiskClass } from '@offisim/asset-schema';
-import type { EmployeeRow } from '@offisim/core/browser';
-import type { SkillMetadata } from '@offisim/shared-types';
+import {
+  MATERIALIZER_PAYLOADS_KEY,
+  type PackageManifest,
+  type RiskClass,
+} from '@offisim/asset-schema';
+import type { CompanyTemplate, EmployeeRow, OfficeLayoutRow } from '@offisim/core/browser';
+import type { PrefabInstanceRow, SkillMetadata } from '@offisim/shared-types';
 import { zipSync } from 'fflate';
 
 export interface PublishMeta {
@@ -234,6 +238,167 @@ export async function buildEmployeePackage(
       },
     ],
     { marketplace_export_kind: 'employee', employee_role_slug: employee.role_slug },
+    integrityFiles,
+  );
+  return finalizeRegistryBundle(`${slug}-${manifest.package.version}.offisimpkg`, manifest, files);
+}
+
+export interface SopPackageSource {
+  readonly sopTemplateId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly definitionJson: string;
+  readonly version?: string | null;
+}
+
+export async function buildSopPackage(
+  source: SopPackageSource,
+  meta: PublishMeta,
+): Promise<PackageExportBundle> {
+  const slug = slugify(`${source.name}-${source.sopTemplateId}`);
+  const assetPath = `assets/sops/${slug}.json`;
+  const files: ExportedFiles = {
+    [assetPath]: encodeJson(source),
+    'README.md': encodeText(buildReadme(meta)),
+  };
+  const integrityFiles = await buildIntegrityFiles(files);
+  const manifest = buildBaseManifest(
+    'sop',
+    `offisim.sop.${slug}`,
+    meta,
+    [{ asset_id: slug, kind: 'sop', path: assetPath, default_enabled: true }],
+    {
+      marketplace_export_kind: 'sop',
+      [MATERIALIZER_PAYLOADS_KEY]: {
+        [slug]: {
+          name: source.name,
+          description: source.description,
+          definition_json: source.definitionJson,
+          version: source.version ?? meta.version,
+        },
+      },
+    },
+    integrityFiles,
+  );
+  return finalizeRegistryBundle(`${slug}-${manifest.package.version}.offisimpkg`, manifest, files);
+}
+
+export async function buildCompanyTemplatePackage(
+  template: CompanyTemplate,
+  meta: PublishMeta,
+): Promise<PackageExportBundle> {
+  const slug = slugify(template.id || template.name);
+  const assetPath = `assets/company-templates/${slug}.json`;
+  const files: ExportedFiles = {
+    [assetPath]: encodeJson(template),
+    'README.md': encodeText(buildReadme(meta)),
+  };
+  const integrityFiles = await buildIntegrityFiles(files);
+  const manifest = buildBaseManifest(
+    'company_template',
+    `offisim.company-template.${slug}`,
+    meta,
+    [{ asset_id: slug, kind: 'company_template', path: assetPath, default_enabled: true }],
+    {
+      marketplace_export_kind: 'company_template',
+      [MATERIALIZER_PAYLOADS_KEY]: { [slug]: template },
+    },
+    integrityFiles,
+  );
+  return finalizeRegistryBundle(`${slug}-${manifest.package.version}.offisimpkg`, manifest, files);
+}
+
+export async function buildOfficeLayoutPackage(
+  layout: OfficeLayoutRow,
+  meta: PublishMeta,
+): Promise<PackageExportBundle> {
+  const slug = slugify(`${layout.name}-${layout.layout_id}`);
+  const assetPath = `assets/layouts/${slug}.json`;
+  const files: ExportedFiles = {
+    [assetPath]: encodeJson(layout),
+    'README.md': encodeText(buildReadme(meta)),
+  };
+  const integrityFiles = await buildIntegrityFiles(files);
+  const manifest = buildBaseManifest(
+    'office_layout',
+    `offisim.office-layout.${slug}`,
+    meta,
+    [{ asset_id: slug, kind: 'office_layout', path: assetPath, default_enabled: false }],
+    {
+      marketplace_export_kind: 'office_layout',
+      [MATERIALIZER_PAYLOADS_KEY]: {
+        [slug]: {
+          name: layout.name,
+          layout: JSON.parse(layout.layout_json),
+        },
+      },
+    },
+    integrityFiles,
+  );
+  return finalizeRegistryBundle(`${slug}-${manifest.package.version}.offisimpkg`, manifest, files);
+}
+
+export async function buildPrefabPackage(
+  prefab: PrefabInstanceRow,
+  meta: PublishMeta,
+): Promise<PackageExportBundle> {
+  const slug = slugify(`${prefab.prefab_id}-${prefab.instance_id}`);
+  const assetPath = `assets/prefabs/${slug}.json`;
+  const files: ExportedFiles = {
+    [assetPath]: encodeJson(prefab),
+    'README.md': encodeText(buildReadme(meta)),
+  };
+  const integrityFiles = await buildIntegrityFiles(files);
+  const manifest = buildBaseManifest(
+    'prefab',
+    `offisim.prefab.${slug}`,
+    meta,
+    [{ asset_id: slug, kind: 'prefab', path: assetPath, default_enabled: prefab.enabled !== 0 }],
+    {
+      marketplace_export_kind: 'prefab',
+      [MATERIALIZER_PAYLOADS_KEY]: {
+        [slug]: {
+          prefab_id: prefab.prefab_id,
+          zone_id: prefab.zone_id,
+          position_x: prefab.position_x,
+          position_y: prefab.position_y,
+          rotation: prefab.rotation,
+          bindings: prefab.bindings_json ? JSON.parse(prefab.bindings_json) : [],
+          config: prefab.config_json ? JSON.parse(prefab.config_json) : {},
+        },
+      },
+    },
+    integrityFiles,
+  );
+  return finalizeRegistryBundle(`${slug}-${manifest.package.version}.offisimpkg`, manifest, files);
+}
+
+export interface BundlePackageSource {
+  readonly slug: string;
+  readonly assets: PackageManifest['assets'];
+  readonly payloads?: Record<string, unknown>;
+  readonly files?: ExportedFiles;
+}
+
+export async function buildBundlePackage(
+  source: BundlePackageSource,
+  meta: PublishMeta,
+): Promise<PackageExportBundle> {
+  const slug = slugify(source.slug);
+  const files: ExportedFiles = {
+    ...(source.files ?? {}),
+    'README.md': encodeText(buildReadme(meta)),
+  };
+  const integrityFiles = await buildIntegrityFiles(files);
+  const manifest = buildBaseManifest(
+    'bundle',
+    `offisim.bundle.${slug}`,
+    meta,
+    source.assets,
+    {
+      marketplace_export_kind: 'bundle',
+      [MATERIALIZER_PAYLOADS_KEY]: source.payloads ?? {},
+    },
     integrityFiles,
   );
   return finalizeRegistryBundle(`${slug}-${manifest.package.version}.offisimpkg`, manifest, files);

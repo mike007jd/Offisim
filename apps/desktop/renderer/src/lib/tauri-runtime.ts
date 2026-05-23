@@ -645,6 +645,10 @@ function createInstallReposAdapter(repos: RuntimeRepositories): InstallRepositor
     installedAssets: repos.installedAssets,
     assetBindings: repos.assetBindings,
     employees: repos.employees,
+    sopTemplates: repos.sopTemplates,
+    companyTemplates: repos.companyTemplates,
+    officeLayouts: repos.officeLayouts,
+    prefabInstances: repos.prefabInstances,
   };
 }
 

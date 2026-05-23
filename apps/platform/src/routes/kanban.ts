@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
+import { readPlatformJsonBody } from '../lib/body-limit.js';
 import { requireLocalRuntimeAccess } from '../middleware/auth.js';
 import type { PlatformEnv, PlatformKanbanEvent } from '../types.js';
 
@@ -61,7 +62,7 @@ kanbanRoute.get('/api/projects/:projectId/kanban', async (c) => {
 
 kanbanRoute.post('/api/projects/:projectId/kanban', async (c) => {
   const store = requireKanbanStore(c);
-  const body = CreateCardSchema.parse(await c.req.json());
+  const body = CreateCardSchema.parse(await readPlatformJsonBody(c));
   const card = await store.create(c.req.param('projectId'), body);
   return c.json({ card }, 201);
 });
@@ -69,7 +70,7 @@ kanbanRoute.post('/api/projects/:projectId/kanban', async (c) => {
 kanbanRoute.patch('/api/kanban/:id', async (c) => {
   const store = requireKanbanStore(c);
   const id = c.req.param('id');
-  const body = PatchCardSchema.parse(await c.req.json());
+  const body = PatchCardSchema.parse(await readPlatformJsonBody(c));
   const hasMetadataPatch =
     body.title !== undefined ||
     body.note !== undefined ||

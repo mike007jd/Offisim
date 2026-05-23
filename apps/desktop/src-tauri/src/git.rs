@@ -22,6 +22,7 @@ const ALLOWED_SUBCOMMANDS: &[&str] = &[
 const BLOCKED_FLAGS: &[&str] = &["--no-verify", "--force", "-f", "--hard", "--amend"];
 const CLONE_USAGE: &str =
     "git clone is restricted to: clone --depth 1 [--branch ref] <url> <destination>";
+const MAX_GIT_OUTPUT_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Serialize)]
 pub struct GitResult {
@@ -98,15 +99,100 @@ pub async fn git_exec<R: Runtime>(
     let output = Command::new("git")
         .args(&args)
         .current_dir(&cwd_path)
+        .env_clear()
+        .envs(scrubbed_git_env())
         .output()
         .await
         .map_err(|e| format!("Failed to execute git: {}", e))?;
 
     Ok(GitResult {
         ok: output.status.success(),
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        stdout: redacted_git_output(&output.stdout),
+        stderr: redacted_git_output(&output.stderr),
     })
+}
+
+fn scrubbed_git_env() -> Vec<(String, String)> {
+    const ALLOW: &[&str] = &[
+        "PATH",
+        "HOME",
+        "USER",
+        "LANG",
+        "TERM",
+        "TMPDIR",
+        "LC_ALL",
+        "LC_CTYPE",
+        "SSH_AUTH_SOCK",
+    ];
+    let mut env = ALLOW
+        .iter()
+        .filter_map(|key| {
+            std::env::var(key)
+                .ok()
+                .map(|value| ((*key).to_string(), value))
+        })
+        .collect::<Vec<_>>();
+    env.push(("GIT_TERMINAL_PROMPT".into(), "0".into()));
+    env
+}
+
+fn truncate_git_output(bytes: &[u8]) -> String {
+    let capped = if bytes.len() > MAX_GIT_OUTPUT_BYTES {
+        &bytes[..MAX_GIT_OUTPUT_BYTES]
+    } else {
+        bytes
+    };
+    let mut text = String::from_utf8_lossy(capped).to_string();
+    if bytes.len() > MAX_GIT_OUTPUT_BYTES {
+        text.push_str("\n[OUTPUT TRUNCATED]");
+    }
+    text
+}
+
+fn redact_url_credentials(token: &str) -> String {
+    let Some(scheme_idx) = token.find("://") else {
+        return token.to_string();
+    };
+    let credential_start = scheme_idx + 3;
+    let Some(relative_at) = token[credential_start..].find('@') else {
+        return token.to_string();
+    };
+    let at_idx = credential_start + relative_at;
+    let first_path_idx = token[credential_start..]
+        .find('/')
+        .map(|idx| credential_start + idx)
+        .unwrap_or(token.len());
+    if at_idx > first_path_idx {
+        return token.to_string();
+    }
+    format!(
+        "{}[REDACTED]{}",
+        &token[..credential_start],
+        &token[at_idx..]
+    )
+}
+
+fn redacted_git_output(bytes: &[u8]) -> String {
+    let text = truncate_git_output(bytes);
+    let mut redacted = String::new();
+    for token in text.split_inclusive(char::is_whitespace) {
+        let credential_redacted = redact_url_credentials(token);
+        let bare = credential_redacted
+            .trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_' && ch != '-');
+        let lower = bare.to_ascii_lowercase();
+        let looks_secret = bare.len() >= 24
+            && (bare.starts_with("sk-")
+                || bare.starts_with("offisim_")
+                || lower.contains("api_key")
+                || lower.contains("token")
+                || lower.contains("secret"));
+        if looks_secret {
+            redacted.push_str(credential_redacted.replace(bare, "[REDACTED]").as_str());
+        } else {
+            redacted.push_str(&credential_redacted);
+        }
+    }
+    redacted
 }
 
 fn validate_status(args: &[String]) -> Result<(), String> {
@@ -665,5 +751,33 @@ mod tests {
         let err = prepare_clone_destination(&root, &args).unwrap_err();
         assert!(err.contains("--reference"));
         cleanup_root(root);
+    }
+
+    #[test]
+    fn scrubbed_git_env_excludes_provider_secrets() {
+        std::env::set_var("OPENAI_API_KEY", "sk-test-secret");
+        std::env::set_var("ANTHROPIC_API_KEY", "sk-test-secret");
+        let env = scrubbed_git_env();
+        let keys = env.into_iter().map(|(key, _)| key).collect::<Vec<_>>();
+        assert!(!keys.contains(&"OPENAI_API_KEY".to_string()));
+        assert!(!keys.contains(&"ANTHROPIC_API_KEY".to_string()));
+        assert!(keys.contains(&"GIT_TERMINAL_PROMPT".to_string()));
+    }
+
+    #[test]
+    fn redacted_git_output_removes_url_credentials_and_secret_tokens() {
+        let output = redacted_git_output(
+            b"remote https://ghp_abcdefghijklmnopqrstuvwxyz123456@github.com/acme/repo.git\nsk-abcdefghijklmnopqrstuvwxyz123456\n",
+        );
+        assert!(!output.contains("ghp_abcdefghijklmnopqrstuvwxyz123456"));
+        assert!(!output.contains("sk-abcdefghijklmnopqrstuvwxyz123456"));
+        assert!(output.contains("https://[REDACTED]@github.com/acme/repo.git"));
+    }
+
+    #[test]
+    fn redacted_git_output_truncates_large_output() {
+        let bytes = vec![b'a'; MAX_GIT_OUTPUT_BYTES + 1];
+        let output = redacted_git_output(&bytes);
+        assert!(output.ends_with("[OUTPUT TRUNCATED]"));
     }
 }

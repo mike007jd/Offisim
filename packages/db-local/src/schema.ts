@@ -639,6 +639,26 @@ export const sopTemplates = sqliteTable('sop_templates', {
   updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
 });
 
+export const companyTemplateAssets = sqliteTable(
+  'company_template_assets',
+  {
+    company_template_asset_id: text('company_template_asset_id').primaryKey(),
+    company_id: text('company_id')
+      .notNull()
+      .references(() => companies.company_id, { onDelete: 'cascade' }),
+    template_id: text('template_id').notNull(),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    template_json: text('template_json').notNull(),
+    source_package_id: text('source_package_id').notNull(),
+    source_asset_id: text('source_asset_id').notNull(),
+    version: text('version'),
+    created_at: text('created_at').notNull().default(sql`(datetime('now'))`),
+    updated_at: text('updated_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [index('idx_company_template_assets_company').on(table.company_id)],
+);
+
 // ---------------------------------------------------------------------------
 // 007 — MCP audit log
 // ---------------------------------------------------------------------------

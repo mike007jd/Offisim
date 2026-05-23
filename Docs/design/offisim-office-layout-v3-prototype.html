@@ -1810,6 +1810,392 @@
     .dock-strip::-webkit-scrollbar-track,
     .messages::-webkit-scrollbar-track { background: transparent; }
 
+    /* ── Spec-suite extras (specimens 8+) ──────────────── */
+    .spec-grid-2 {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+      padding: 18px;
+    }
+    .spec-grid-3 {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+      padding: 18px;
+    }
+    .mini-pane {
+      background: var(--surface-1);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      box-shadow: var(--elev-1);
+      padding: 12px 13px;
+      display: flex; flex-direction: column; gap: 9px;
+      min-width: 0;
+    }
+    .mini-pane .mp-l {
+      font-size: 9.5px; font-weight: 760; letter-spacing: var(--ls-caps);
+      text-transform: uppercase; color: var(--ink-3);
+    }
+    .mini-pane .mp-t { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); }
+    .mini-pane .mp-d { font-size: var(--fs-micro); color: var(--ink-3); line-height: 1.5; }
+    .mini-pane .mp-row {
+      display: flex; align-items: center; gap: var(--sp-3); min-width: 0;
+    }
+    .mini-pane .mp-row.between { justify-content: space-between; }
+
+    /* chip primitives reused across specimens */
+    .chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 22px; padding: 0 8px;
+      border-radius: var(--r-pill);
+      font-size: var(--fs-micro); font-weight: 640;
+      border: 1px solid var(--line);
+      background: var(--surface-sunken); color: var(--ink-2);
+    }
+    .chip.accent { border-color: var(--accent-ring); background: var(--accent-surface); color: var(--accent); }
+    .chip.ok { border-color: rgba(26,164,106,0.3); background: var(--ok-surface); color: var(--ok); }
+    .chip.warn { border-color: rgba(201,132,16,0.32); background: var(--warn-surface); color: var(--warn); }
+    .chip.danger { border-color: rgba(214,69,61,0.32); background: var(--danger-surface); color: #b8352e; }
+    .chip.violet { border-color: rgba(124,77,219,0.32); background: var(--violet-surface); color: var(--violet); }
+    .chip.dot::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none;
+    }
+
+    /* tiny avatar (reuses kb-asg .av sizing convention) */
+    .av-sm {
+      width: 18px; height: 18px; border-radius: 50%;
+      background-size: cover; background-position: center;
+      box-shadow: 0 0 0 1px var(--line);
+      flex: none;
+    }
+    .av-xs {
+      width: 14px; height: 14px; border-radius: 50%;
+      background-size: cover; background-position: center;
+      box-shadow: 0 0 0 1px var(--line);
+      flex: none;
+    }
+    .av-init {
+      width: 18px; height: 18px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 9px; font-weight: 720; color: #fff;
+      flex: none;
+    }
+
+    /* toast pill (notification.created surfaced) */
+    .toast-pill {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 8px 12px 8px 9px;
+      background: var(--surface-1); border: 1px solid var(--line);
+      border-left: 3px solid var(--ok);
+      border-radius: var(--r-md); box-shadow: var(--elev-2);
+      font-size: var(--fs-sm); color: var(--ink-1);
+    }
+    .toast-pill .tp-d { color: var(--ink-3); font-weight: 540; font-size: var(--fs-micro); }
+    .toast-pill .tp-dismiss {
+      margin-left: 6px; background: transparent; border: 0;
+      color: var(--ink-3); display: grid; place-items: center; padding: 2px;
+    }
+
+    /* scene transient chip (employee gained skill) */
+    .scene-stage {
+      position: relative;
+      min-height: 200px;
+      border-radius: var(--r-md);
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, #f3f7ff 0%, #e6ecf7 100%);
+      overflow: hidden;
+    }
+    .scene-seat {
+      position: absolute;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .scene-seat .av-sm { width: 30px; height: 30px; }
+    .scene-seat .seat-name { font-size: var(--fs-micro); color: var(--ink-2); font-weight: 600; }
+    .scene-floor {
+      position: absolute; left: 24px; right: 24px; bottom: 18px;
+      height: 1px; background: rgba(20,32,56,0.08);
+    }
+    .scene-overlay-chip {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      background: rgba(26,164,106,0.96); color: #fff;
+      padding: 5px 10px; border-radius: var(--r-pill);
+      font-size: var(--fs-micro); font-weight: 700;
+      box-shadow: 0 6px 18px rgba(26,164,106,0.4);
+      animation: ovpulse 1.8s ease-in-out infinite;
+    }
+    .scene-overlay-chip::after {
+      content: ""; position: absolute; left: 50%; bottom: -4px;
+      transform: translateX(-50%);
+      border-width: 4px 4px 0 4px; border-style: solid;
+      border-color: rgba(26,164,106,0.96) transparent transparent transparent;
+    }
+    .scene-handoff-path {
+      position: absolute; left: 80px; top: 56px;
+      width: 200px; height: 1px; pointer-events: none;
+    }
+    @keyframes ovpulse {
+      0%, 100% { transform: translate(-50%, -100%) scale(1); }
+      50% { transform: translate(-50%, -110%) scale(1.05); }
+    }
+
+    /* simple section list (skills before/after, recommendations) */
+    .listrow {
+      display: flex; align-items: center; gap: 9px;
+      padding: 7px 9px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2);
+    }
+    .listrow + .listrow { margin-top: 5px; }
+    .listrow .nm { font-size: var(--fs-sm); color: var(--ink-1); font-weight: 560; flex: 1; min-width: 0; }
+    .listrow .nm small { color: var(--ink-3); font-weight: 500; margin-left: 6px; }
+
+    /* small button (mini-pane embedded) */
+    .mp-btn {
+      height: 26px; padding: 0 10px;
+      border-radius: var(--r-sm);
+      font-size: var(--fs-micro); font-weight: 620;
+      border: 1px solid var(--line);
+      background: var(--surface-1); color: var(--ink-2);
+    }
+    .mp-btn.primary { background: var(--ink-1); color: #fff; border-color: var(--ink-1); }
+    .mp-btn.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .mp-btn.danger-o { color: #b8352e; border-color: rgba(214,69,61,0.35); }
+    .mp-btn.outline { background: var(--surface-1); color: var(--ink-2); }
+    .mp-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* freeform textarea reuse */
+    .mp-textarea {
+      width: 100%;
+      min-height: 56px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-sm);
+      background: var(--surface-1);
+      padding: 8px 10px;
+      font: inherit; font-size: var(--fs-sm); color: var(--ink-2);
+      resize: vertical;
+    }
+
+    /* simple chat bubble for specimen variants */
+    .b-bubble {
+      max-width: 92%;
+      border-radius: var(--r-md);
+      padding: 10px 12px;
+      background: var(--surface-1);
+      border: 1px solid var(--line);
+      box-shadow: var(--elev-1);
+      font-size: var(--fs-sm);
+      color: var(--ink-1);
+      line-height: 1.5;
+    }
+    .b-bubble.from-me {
+      background: var(--accent-surface);
+      border-color: var(--accent-ring);
+      color: var(--ink-1);
+    }
+    .b-bubble .from {
+      display: flex; align-items: center; gap: 6px;
+      font-size: var(--fs-micro); color: var(--ink-3); font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .b-bubble .cite {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; border-radius: var(--r-xs);
+      background: var(--accent-surface); color: var(--accent);
+      font-size: 9px; font-weight: 760;
+      margin: 0 2px; vertical-align: 1px; cursor: pointer;
+    }
+    .b-citations {
+      margin-top: 8px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .b-cite-row {
+      display: flex; align-items: flex-start; gap: 7px;
+      padding: 6px 8px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-sunken);
+      font-size: var(--fs-micro); color: var(--ink-2); line-height: 1.5;
+    }
+    .b-cite-row .ix {
+      width: 16px; height: 16px; border-radius: var(--r-xs);
+      background: var(--accent-surface); color: var(--accent);
+      display: grid; place-items: center;
+      font-size: 9px; font-weight: 760; flex: none;
+    }
+    .b-cite-row .ci-src { font-weight: 640; color: var(--ink-1); }
+    .b-cite-row .ci-snip { color: var(--ink-3); }
+
+    /* resume bar */
+    .resume-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px;
+      background: linear-gradient(#fff7e6, #fdf2dd);
+      border: 1px solid rgba(201,132,16,0.32);
+      border-radius: var(--r-md);
+      font-size: var(--fs-sm); color: var(--ink-1);
+    }
+    .resume-bar .rb-i { color: var(--warn); display: grid; place-items: center; }
+    .resume-bar .rb-meta { color: var(--ink-3); font-size: var(--fs-micro); }
+    .resume-bar .rb-actions { margin-left: auto; display: inline-flex; gap: 6px; }
+
+    /* inline warning banner */
+    .inline-warn {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 12px;
+      background: var(--danger-surface);
+      border: 1px solid rgba(214,69,61,0.32);
+      border-radius: var(--r-md);
+      font-size: var(--fs-sm); color: #b8352e;
+    }
+    .inline-warn .iw-link { margin-left: auto; font-weight: 660; color: #b8352e; text-decoration: underline; cursor: pointer; }
+
+    /* quiet system pill */
+    .sys-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 4px 10px;
+      background: var(--surface-sunken); color: var(--ink-3);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-pill);
+      font-size: var(--fs-micro); font-weight: 560;
+    }
+    .sys-pill.compact::before {
+      content: ""; width: 24px; height: 1px; background: var(--line-strong);
+      margin-right: 4px;
+    }
+
+    /* slash command catalog rows */
+    .slash-row {
+      display: flex; align-items: center; gap: 9px;
+      padding: 6px 9px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2);
+      font-size: var(--fs-sm);
+    }
+    .slash-row + .slash-row { margin-top: 4px; }
+    .slash-row .cmd { font-family: var(--mono); font-size: var(--fs-meta); color: var(--accent); font-weight: 660; }
+    .slash-row .alias { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); }
+    .slash-row .ds { color: var(--ink-2); flex: 1; min-width: 0; }
+
+    /* @mention menu rows */
+    .mention-pop {
+      width: 320px; padding: 8px;
+      background: var(--surface-1);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-md);
+      box-shadow: var(--elev-3);
+    }
+    .mention-pop .mp-filter {
+      height: 28px; padding: 0 9px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-2); color: var(--ink-3);
+      font-size: var(--fs-sm); display: flex; align-items: center; gap: 6px;
+      margin-bottom: 7px;
+    }
+    .mention-row {
+      display: flex; align-items: center; gap: 9px;
+      padding: 6px 8px; border-radius: var(--r-sm);
+      cursor: pointer;
+    }
+    .mention-row:hover, .mention-row.active { background: var(--accent-surface); }
+    .mention-row .role-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+    .mention-row .nm { font-size: var(--fs-sm); color: var(--ink-1); font-weight: 580; flex: 1; }
+    .mention-row .ro { font-size: var(--fs-micro); color: var(--ink-3); }
+
+    /* hr-bot routing badge */
+    .route-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      background: var(--violet-surface); color: var(--violet);
+      border: 1px solid rgba(124,77,219,0.3);
+      border-radius: var(--r-pill);
+      font-size: var(--fs-micro); font-weight: 660;
+    }
+
+    /* fallback corner badge for scene 2D fallback */
+    .corner-badge {
+      position: absolute; right: 10px; top: 10px;
+      padding: 4px 8px;
+      background: rgba(15,20,32,0.78); color: #ffd9a8;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--r-pill);
+      font-size: 9.5px; font-weight: 660; letter-spacing: 0.04em;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+
+    /* index status pill (knowledge.index.*) */
+    .idx-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-pill);
+      font-size: var(--fs-micro); font-weight: 620;
+      background: var(--surface-2); color: var(--ink-2);
+    }
+    .idx-pill .bar {
+      width: 50px; height: 4px; border-radius: var(--r-pill);
+      background: var(--line); position: relative; overflow: hidden;
+    }
+    .idx-pill .bar i {
+      position: absolute; inset: 0; transform-origin: left;
+      background: var(--accent);
+    }
+    .idx-pill.ok { background: var(--ok-surface); border-color: rgba(26,164,106,0.3); color: var(--ok); }
+    .idx-pill.fail { background: var(--danger-surface); border-color: rgba(214,69,61,0.32); color: #b8352e; }
+
+    /* error history list */
+    .err-history { display: flex; flex-direction: column; gap: 5px; }
+    .err-history .er {
+      display: flex; gap: 7px; align-items: center;
+      padding: 5px 8px;
+      background: var(--surface-sunken);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm);
+      font-size: var(--fs-micro); color: var(--ink-2);
+    }
+    .err-history .er .tm { margin-left: auto; color: var(--ink-3); font-family: var(--mono); }
+    .err-history .er .lab { font-family: var(--mono); color: var(--ink-3); }
+
+    /* meeting transcript bubble */
+    .mt-line {
+      display: flex; gap: 8px; align-items: flex-start;
+      padding: 5px 0;
+      font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.5;
+    }
+    .mt-line .who { font-weight: 660; color: var(--ink-1); flex: none; min-width: 70px; }
+
+    /* action item row */
+    .ai-row {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px;
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2);
+    }
+    .ai-row + .ai-row { margin-top: 5px; }
+    .ai-row .ai-pri {
+      width: 4px; align-self: stretch; border-radius: var(--r-pill);
+      flex: none;
+    }
+    .ai-row .ai-pri.high { background: var(--danger); }
+    .ai-row .ai-pri.med { background: var(--warn); }
+    .ai-row .ai-pri.low { background: var(--ok); }
+    .ai-row .ai-t { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--ink-1); }
+    .ai-row .ai-meta { font-size: var(--fs-micro); color: var(--ink-3); }
+
+    /* chat-head (direct chat) */
+    .chathead {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px;
+      background: var(--surface-1);
+      border-bottom: 1px solid var(--line);
+      border-radius: var(--r-md) var(--r-md) 0 0;
+    }
+    .chathead .back {
+      width: 26px; height: 26px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--line);
+      background: var(--surface-2); color: var(--ink-2);
+      display: grid; place-items: center;
+    }
+    .chathead .nm { font-size: var(--fs-sm); font-weight: 660; color: var(--ink-1); }
+    .chathead .ro { font-size: var(--fs-micro); color: var(--ink-3); }
+
     /* ── Entrance ──────────────────────────────────────── */
     @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
     .reveal { animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
@@ -1877,6 +2263,7 @@
     <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10c.7.7 1 1.4 1 2h6c0-.6.3-1.3 1-2a6 6 0 0 0-4-10z"/></symbol>
     <symbol id="i-queue" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
   </svg>
 
   <div class="app">
@@ -3190,6 +3577,776 @@ Run the verify script against the deliverable set…</div>
       </div>
       <div class="spec-cap" style="border-top:1px solid rgba(255,255,255,0.06);border-bottom:0">
         <span class="d">Chip label = <code style="color:#aab6cc">provider · model · think</code> compact form. Closed-state click in the resting frame above cycles think level (lightweight demo). Selecting a disabled provider is blocked inline; "Manage providers &amp; keys" navigates to the Settings workspace (same altitude relationship as SessionModeChip ↔ SOP management — quick switch here, full config there).</span>
+      </div>
+    </div>
+
+    <!-- 8 · Skill install confirm — 4 variants -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">8</span><span class="t">SkillInstallConfirmBubble — 4 variants</span>
+        <span class="d">Same shell as specimen 5's 3c, four <code style="color:#aab6cc">source</code> kinds: marketplace install / forked-from-X / inline edit (body diff) / self-authored-by-LLM create. Wide-scope tools (bash:* / network / fs / exec) chip red. Assets / scripts / references partition. Confirm + Cancel; Retry only on error.</span>
+      </div>
+      <div class="spec-frame spec-grid-2">
+        <div class="mini-pane">
+          <div class="mp-l">8a · install (marketplace)</div>
+          <div class="b-bubble">
+            <div class="mp-row between">
+              <span class="mp-t">Install · Competitive Teardown</span>
+              <span class="chip accent">marketplace</span>
+            </div>
+            <div class="mp-d">Compares competitor offerings and surfaces gaps, with an opinionated scoring rubric.</div>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-top:9px">
+              <div>
+                <div class="sk-sec-l">Source</div>
+                <div class="sk-line">Marketplace · offisim/skill/competitive-teardown@1.4.2</div>
+              </div>
+              <div>
+                <div class="sk-sec-l">Permissions</div>
+                <div class="sk-perms">
+                  <span class="sk-perm">read_file</span>
+                  <span class="sk-perm">grep</span>
+                  <span class="sk-perm">web_fetch</span>
+                </div>
+              </div>
+              <div>
+                <div class="sk-sec-l">Assets / scripts / references</div>
+                <div class="sk-line" style="font-size:var(--fs-micro);color:var(--ink-3)">assets/rubric.md · references/competitor-set.md</div>
+              </div>
+              <div class="ic-opts">
+                <button class="ic-opt secondary">Confirm</button>
+                <button class="ic-opt outline">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mini-pane">
+          <div class="mp-l">8b · fork (forked-from-X)</div>
+          <div class="b-bubble">
+            <div class="mp-row between">
+              <span class="mp-t">Fork · Doc Verifier → Doc Verifier (Maya)</span>
+              <span class="chip violet">forked</span>
+            </div>
+            <div class="mp-d">Forking <b>offisim/skill/doc-verifier</b> into Maya's personal scope; edits stay private until re-published.</div>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-top:9px">
+              <div>
+                <div class="sk-sec-l">Source</div>
+                <div class="sk-line">Forked-from · offisim/skill/doc-verifier@2.1.0</div>
+              </div>
+              <div>
+                <div class="sk-sec-l">Permissions (inherited)</div>
+                <div class="sk-perms">
+                  <span class="sk-perm">read_file</span>
+                  <span class="sk-perm wide">bash:*</span>
+                  <span class="sk-perm">grep</span>
+                </div>
+              </div>
+              <div>
+                <div class="sk-sec-l">Scope</div>
+                <div class="sk-line">Employee: Maya Lin (personal)</div>
+              </div>
+              <div class="ic-opts">
+                <button class="ic-opt secondary">Confirm fork</button>
+                <button class="ic-opt outline">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mini-pane">
+          <div class="mp-l">8c · edit (inline body diff)</div>
+          <div class="b-bubble">
+            <div class="mp-row between">
+              <span class="mp-t">Edit · Release Checklist</span>
+              <span class="chip warn">edit</span>
+            </div>
+            <div class="mp-d">Body diff is the diff between the current SKILL.md and the LLM-proposed body. No new permissions requested.</div>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-top:9px">
+              <div>
+                <div class="sk-sec-l">Diff preview</div>
+                <div class="sk-preview" style="max-height:74px">- Run smoke on develop
++ Run smoke on develop **and** the active release branch
++ Capture screenshots of every prompt-review modal</div>
+              </div>
+              <div>
+                <div class="sk-sec-l">Permissions</div>
+                <div class="sk-perms">
+                  <span class="sk-perm">read_file</span>
+                  <span class="sk-perm">grep</span>
+                </div>
+              </div>
+              <div class="ic-opts">
+                <button class="ic-opt secondary">Confirm edit</button>
+                <button class="ic-opt outline">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mini-pane">
+          <div class="mp-l">8d · create (self-authored, retry on error)</div>
+          <div class="b-bubble">
+            <div class="mp-row between">
+              <span class="mp-t">Create · Sales Tear-down (proposed by Alex)</span>
+              <span class="chip danger">create · error</span>
+            </div>
+            <div class="mp-d">Self-authored by LLM. Frontmatter parse failed; reason surfaces inline — Confirm disabled until Retry succeeds.</div>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-top:9px">
+              <div>
+                <div class="sk-sec-l">Source</div>
+                <div class="sk-line">self-authored-by-LLM · Alex Chen → create_skill_from_scratch</div>
+              </div>
+              <div class="sk-err">
+                <div class="e1">Frontmatter error</div>
+                <div class="e2">missing required field: <code style="font-family:var(--mono)">name</code></div>
+                <div class="e3">SKILL.md:1 — yaml: line 1: cannot unmarshal !!str into struct</div>
+              </div>
+              <div>
+                <div class="sk-sec-l">Permissions (proposed)</div>
+                <div class="sk-perms">
+                  <span class="sk-perm">read_file</span>
+                  <span class="sk-perm wide">network:*</span>
+                </div>
+              </div>
+              <div class="ic-opts">
+                <button class="ic-opt secondary" disabled>Confirm</button>
+                <button class="ic-opt secondary">Retry</button>
+                <button class="ic-opt outline">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9 · Notification toast — employee gained skill -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">9</span><span class="t">Notification toast — employee gained skill</span>
+        <span class="d">System emits <code style="color:#aab6cc">notification.created</code> with <code style="color:#aab6cc">kind=skill.install.outcome</code>, <code style="color:#aab6cc">level=success</code>. One toast pill, avatar + body + Dismiss. No bell, no count badge — toast is its own surface and self-dismisses on a timer.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:30px;display:flex;justify-content:center">
+        <div class="toast-pill">
+          <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+          <div>
+            <div><b>Maya</b> gained skill <b>Competitive Teardown</b></div>
+            <div class="tp-d">Personal scope · installed from marketplace</div>
+          </div>
+          <button class="tp-dismiss" title="Dismiss"><svg class="ico xs"><use href="#i-x"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10 · Scene chip — employee just gained a skill -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">10</span><span class="t">Scene chip — employee just gained a skill</span>
+        <span class="d">Transient overlay anchored above the employee's seat for ~3s, then fades. Single layer (no card-inside-card) — the chip is a direct sibling of the seat avatar.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:20px;display:flex;justify-content:center">
+        <div class="scene-stage" style="width:540px;height:220px;position:relative">
+          <div class="scene-floor"></div>
+          <div class="scene-seat" style="left:96px;bottom:36px">
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+            <span class="seat-name">Maya</span>
+          </div>
+          <div class="scene-seat" style="left:240px;bottom:36px">
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+            <span class="seat-name">Alex</span>
+          </div>
+          <div class="scene-seat" style="left:384px;bottom:36px">
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Kai&backgroundColor=f4eaff')"></span>
+            <span class="seat-name">Kai</span>
+          </div>
+          <div class="scene-overlay-chip" style="left:106px;top:96px">+ Competitive Teardown</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 11 · Personnel sync (before/after) -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">11</span><span class="t">Personnel Skills tab — cross-surface coherence</span>
+        <span class="d">After the install, Personnel inspector's Skills tab gains the row instantly. Same row appears with a <code style="color:#aab6cc">personal</code> / <code style="color:#aab6cc">global</code> pill so the user understands scope at a glance.</span>
+      </div>
+      <div class="spec-frame spec-grid-2">
+        <div class="mini-pane">
+          <div class="mp-l">before</div>
+          <div class="mp-row"><span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span><span class="mp-t">Maya · Skills</span></div>
+          <div>
+            <div class="listrow"><svg class="ico xs" style="color:var(--ink-3)"><use href="#i-bulb"/></svg><span class="nm">Doc Verifier <small>v2.1.0</small></span><span class="chip">global</span></div>
+            <div class="listrow"><svg class="ico xs" style="color:var(--ink-3)"><use href="#i-bulb"/></svg><span class="nm">Release Checklist <small>v1.0</small></span><span class="chip">global</span></div>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mp-l">after install</div>
+          <div class="mp-row"><span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span><span class="mp-t">Maya · Skills</span></div>
+          <div>
+            <div class="listrow"><svg class="ico xs" style="color:var(--ink-3)"><use href="#i-bulb"/></svg><span class="nm">Doc Verifier <small>v2.1.0</small></span><span class="chip">global</span></div>
+            <div class="listrow"><svg class="ico xs" style="color:var(--ink-3)"><use href="#i-bulb"/></svg><span class="nm">Release Checklist <small>v1.0</small></span><span class="chip">global</span></div>
+            <div class="listrow" style="background:var(--accent-surface);border-color:var(--accent-ring)"><svg class="ico xs" style="color:var(--accent)"><use href="#i-sparkle"/></svg><span class="nm">Competitive Teardown <small>v1.4.2 · just now</small></span><span class="chip accent">personal</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12 · HR Bot 招聘流 -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">12</span><span class="t">HR Bot — hire_or_assess routing</span>
+        <span class="d">Boss decides hire_or_assess → "Routing to HR Bot" badge in the boss bubble → HR runs assessment → HR returns role recommendations with a per-row Hire button. The Personnel workspace receives the new employee on confirm.</span>
+      </div>
+      <div class="spec-frame spec-grid-3">
+        <div class="mini-pane">
+          <div class="mp-l">12a · boss decision</div>
+          <div class="b-bubble">
+            <div class="from"><span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=cdd6e6')"></span>Boss</div>
+            We don't have anyone for competitive analysis on this project — I'll route to HR Bot to assess and propose hires.
+            <div style="margin-top:8px"><span class="route-badge"><svg class="ico xs"><use href="#i-users"/></svg>Routing to HR Bot · hire_or_assess</span></div>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mp-l">12b · assessment in progress</div>
+          <div class="b-bubble">
+            <div class="from"><span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=HRBot&backgroundColor=f1ebfd')"></span>HR Bot</div>
+            Assessing requirements — analyzing project scope, current team gaps, and skill coverage.
+            <div style="margin-top:8px;display:flex;align-items:center;gap:7px">
+              <span class="idx-pill"><span class="bar"><i style="transform:scaleX(0.62)"></i></span>62%</span>
+              <span class="chip violet dot">running</span>
+            </div>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mp-l">12c · recommendation result</div>
+          <div class="b-bubble">
+            <div class="from"><span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=HRBot&backgroundColor=f1ebfd')"></span>HR Bot</div>
+            Recommended roles:
+            <div style="margin-top:8px">
+              <div class="listrow"><span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Riley&backgroundColor=e4f5ec')"></span><span class="nm">Riley · Competitive Analyst <small>fit 92%</small></span><button class="mp-btn primary">Hire</button></div>
+              <div class="listrow"><span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Sam&backgroundColor=ecf2ff')"></span><span class="nm">Sam · Market Researcher <small>fit 84%</small></span><button class="mp-btn">Hire</button></div>
+              <div class="listrow"><span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Jess&backgroundColor=fdf2dd')"></span><span class="nm">Jess · Sales Engineer <small>fit 71%</small></span><button class="mp-btn">Hire</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 13 · Plan-review HIL (high severity modal) -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">13</span><span class="t">Plan-review HIL — high-severity modal</span>
+        <span class="d">DialogShell modal (no backdrop close). Three options — Start execution / Revise plan / Cancel. Freeform note required for "Revise plan". Second pass shows a "Plan revised 2 of 3" replanCount note above the new plan.</span>
+      </div>
+      <div class="modal-stack">
+        <div class="spec-cap" style="background:#0c0f16"><span class="d"><b style="color:#cdd6e6">13a</b> · first-pass plan, three options</span></div>
+        <div class="modal-frame dim spec-stage-bg">
+          <div class="icard" style="width:520px">
+            <div class="dialogshell-bar"><svg class="ico sm" style="color:var(--accent)"><use href="#i-clipboard"/></svg>Plan ready — review before execution<span class="lock">no backdrop / ⎋ close</span></div>
+            <div class="ic-head">
+              <div class="ic-titlerow">
+                <span class="ic-title">Fixture Parser Verification — 5-step plan</span>
+                <span class="ic-badge sec">Plan-review</span>
+              </div>
+              <span class="ic-from">From: PM Planner</span>
+            </div>
+            <div class="ic-body">
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <div class="listrow"><span class="chip accent">#1</span><span class="nm">Inventory fixture set</span><span class="chip">Maya</span></div>
+                <div class="listrow"><span class="chip accent">#2</span><span class="nm">Generate diff vs golden</span><span class="chip">Alex</span></div>
+                <div class="listrow"><span class="chip accent">#3</span><span class="nm">Triage drift entries</span><span class="chip">Maya</span></div>
+                <div class="listrow"><span class="chip accent">#4</span><span class="nm">Patch parser edge cases</span><span class="chip">Alex</span></div>
+                <div class="listrow"><span class="chip accent">#5</span><span class="nm">Re-run verifier suite</span><span class="chip">Maya</span></div>
+              </div>
+              <textarea class="mp-textarea" placeholder="Tell Offisim what to change"></textarea>
+              <div class="ic-opts">
+                <button class="ic-opt secondary">Start execution</button>
+                <button class="ic-opt secondary">Revise plan</button>
+                <button class="ic-opt outline">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec-cap" style="background:#0c0f16"><span class="d"><b style="color:#cdd6e6">13b</b> · second-pass plan, replanCount note</span></div>
+        <div class="modal-frame dim spec-stage-bg">
+          <div class="icard" style="width:520px">
+            <div class="dialogshell-bar"><svg class="ico sm" style="color:var(--accent)"><use href="#i-clipboard"/></svg>Plan revised<span class="lock">2 of 3 revisions</span></div>
+            <div class="ic-head">
+              <div class="ic-titlerow">
+                <span class="ic-title">Fixture Parser Verification — 6-step plan</span>
+                <span class="ic-badge sec">Plan-review · v2</span>
+              </div>
+              <span class="ic-from">From: PM Planner · Plan revised 2 of 3</span>
+              <p class="ic-prompt">The updated plan reflects your requested changes: added explicit step #2 (capture golden snapshot) and reassigned step #5 to Maya.</p>
+            </div>
+            <div class="ic-body">
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <div class="listrow"><span class="chip accent">#1</span><span class="nm">Inventory fixture set</span><span class="chip">Maya</span></div>
+                <div class="listrow" style="background:var(--accent-surface);border-color:var(--accent-ring)"><span class="chip accent">#2</span><span class="nm">Capture golden snapshot · added</span><span class="chip">Alex</span></div>
+                <div class="listrow"><span class="chip accent">#3</span><span class="nm">Generate diff vs golden</span><span class="chip">Alex</span></div>
+                <div class="listrow"><span class="chip accent">#4</span><span class="nm">Triage drift entries</span><span class="chip">Maya</span></div>
+                <div class="listrow"><span class="chip accent">#5</span><span class="nm">Patch parser edge cases</span><span class="chip">Alex</span></div>
+                <div class="listrow" style="background:var(--accent-surface);border-color:var(--accent-ring)"><span class="chip accent">#6</span><span class="nm">Re-run verifier suite · reassigned</span><span class="chip">Maya</span></div>
+              </div>
+              <div class="ic-opts">
+                <button class="ic-opt secondary">Start execution</button>
+                <button class="ic-opt secondary">Revise plan</button>
+                <button class="ic-opt outline">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 14 · Boss clarificationQuestion -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">14</span><span class="t">Boss clarificationQuestion bubble</span>
+        <span class="d">Boss asks one targeted question before routing — inline answer slot keeps the dialog in the message stream (not a modal). Reply submits to <code style="color:#aab6cc">boss.clarify</code> and the Boss continues planning.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
+        <div style="width:520px;display:flex;flex-direction:column;gap:10px">
+          <div class="b-bubble">
+            <div class="from"><span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=cdd6e6')"></span>Boss · clarify before routing</div>
+            Quick check — should the verifier compare against the <b>checked-in golden</b> or the <b>most-recent CI artifact</b>? Either is fine, but the choice changes who I assign.
+            <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap">
+              <button class="mp-btn primary">Checked-in golden</button>
+              <button class="mp-btn">Most-recent CI artifact</button>
+              <button class="mp-btn outline">Tell me more…</button>
+            </div>
+          </div>
+          <div class="b-bubble from-me" style="align-self:flex-end">
+            <div class="from">You</div>
+            Checked-in golden.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 15 · Direct chat mode header -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">15</span><span class="t">Direct chat — chathead</span>
+        <span class="d">When the conversation is a direct chat (employee target), the right rail gains a chathead row with a back-chevron and the employee's identity. Back chevron returns to team chat for the same thread.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
+        <div style="width:480px;background:var(--surface-1);border:1px solid var(--line-strong);border-radius:var(--r-md);box-shadow:var(--elev-2);overflow:hidden">
+          <div class="chathead">
+            <button class="back" title="Back to team"><svg class="ico sm"><use href="#i-chev-left"/></svg></button>
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+            <div>
+              <div class="nm">Alex Chen</div>
+              <div class="ro">developer · direct chat</div>
+            </div>
+            <span class="chip" style="margin-left:auto">direct</span>
+          </div>
+          <div style="padding:14px;display:flex;flex-direction:column;gap:9px">
+            <div class="b-bubble">Quick check before I patch — should the new branch land on <code style="font-family:var(--mono)">main</code> or the release branch?</div>
+            <div class="b-bubble from-me" style="align-self:flex-end">Release branch — ship as a hotfix.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 16 · Meeting panel — active -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">16</span><span class="t">MeetingPanel — active</span>
+        <span class="d">Live participants dots + transcript + duration timer + end / pause / resume / inject buttons. Inject opens a side composer that drops a Boss interjection mid-meeting (used during HIL pauses).</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
+        <div class="mini-pane" style="width:560px;max-width:100%">
+          <div class="mp-row between">
+            <div class="mp-row" style="gap:7px">
+              <span class="chip ok dot">live</span>
+              <span class="mp-t">Roadmap sync</span>
+            </div>
+            <span style="font-family:var(--mono);font-size:var(--fs-meta);color:var(--ink-3)">12:34</span>
+          </div>
+          <div class="mp-row" style="gap:5px">
+            <span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+            <span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+            <span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Kai&backgroundColor=f4eaff')"></span>
+            <span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Boss&backgroundColor=cdd6e6')"></span>
+            <span class="mp-d">4 participants</span>
+          </div>
+          <div style="border-top:1px solid var(--line-soft);padding-top:9px;max-height:140px;overflow-y:auto">
+            <div class="mt-line"><span class="who">Maya</span>Drift count went up after we patched the parser; might need a snapshot refresh.</div>
+            <div class="mt-line"><span class="who">Alex</span>I can take the refresh — should land before EOD.</div>
+            <div class="mt-line"><span class="who">Kai</span>If we refresh, we should re-run the doc verifier or we'll re-emit yesterday's drift.</div>
+            <div class="mt-line"><span class="who">Boss</span>Good — gate the refresh on the verifier pass.</div>
+          </div>
+          <div class="mp-row" style="border-top:1px solid var(--line-soft);padding-top:9px">
+            <button class="mp-btn danger-o"><svg class="ico xs" style="margin-right:5px"><use href="#i-x"/></svg>End</button>
+            <button class="mp-btn"><svg class="ico xs" style="margin-right:5px"><use href="#i-minus"/></svg>Pause</button>
+            <button class="mp-btn outline" disabled>Resume</button>
+            <button class="mp-btn accent" style="margin-left:auto"><svg class="ico xs" style="margin-right:5px"><use href="#i-send"/></svg>Inject</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 17 · MeetingActionItems panel -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">17</span><span class="t">MeetingActionItems</span>
+        <span class="d">Action items extracted post-meeting · priority colors high / med / low · per-row "Delegate to chat" routes the action into a thread message addressed to the assignee.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
+        <div class="mini-pane" style="width:560px;max-width:100%">
+          <div class="mp-row between">
+            <span class="mp-t">Action items · Roadmap sync</span>
+            <span class="mp-d">3 items · meeting ended 2m ago</span>
+          </div>
+          <div>
+            <div class="ai-row">
+              <span class="ai-pri high"></span>
+              <div class="ai-t">Refresh golden snapshot, gated on verifier pass</div>
+              <div class="ai-meta"><span class="chip danger">high</span></div>
+              <span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+              <button class="mp-btn">Delegate to chat</button>
+            </div>
+            <div class="ai-row">
+              <span class="ai-pri med"></span>
+              <div class="ai-t">Document the new drift-triage rubric in references/</div>
+              <div class="ai-meta"><span class="chip warn">med</span></div>
+              <span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+              <button class="mp-btn">Delegate to chat</button>
+            </div>
+            <div class="ai-row">
+              <span class="ai-pri low"></span>
+              <div class="ai-t">Mention the change in the next release-note draft</div>
+              <div class="ai-meta"><span class="chip ok">low</span></div>
+              <span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Kai&backgroundColor=f4eaff')"></span>
+              <button class="mp-btn">Delegate to chat</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 18 · Solo meeting warning -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">18</span><span class="t">Solo meeting warning</span>
+        <span class="d">When a meeting starts with only one enabled employee, a quiet warning chip surfaces — meetings are designed for cross-talk, so single-participant meetings degrade into a regular direct chat instead.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
+        <div class="mini-pane" style="width:520px;max-width:100%">
+          <div class="mp-row between">
+            <span class="mp-t">Roadmap sync</span>
+            <span class="chip warn dot">solo meeting · only 1 enabled employee</span>
+          </div>
+          <div class="mp-d">Continue as a direct chat with <b>Maya</b>, or enable more employees from Personnel before re-starting.</div>
+          <div class="mp-row">
+            <button class="mp-btn primary">Continue as direct chat</button>
+            <button class="mp-btn">Open Personnel</button>
+            <button class="mp-btn outline" style="margin-left:auto">Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 19 · Handoff visual -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">19</span><span class="t">Handoff visual — activity rail + scene path</span>
+        <span class="d">Activity rail row shows the handoff line; in the scene, a faint dotted path from source seat to target seat carries the same subtask label. Both surfaces co-render so the user sees who's about to pick up the work.</span>
+      </div>
+      <div class="spec-frame spec-grid-2">
+        <div class="mini-pane">
+          <div class="mp-l">19a · activity rail row</div>
+          <div class="actrail" style="background:transparent;border:0;padding:0">
+            <div class="act-entries">
+              <div class="act-entry info">
+                <svg class="ico xs"><use href="#i-corner-up"/></svg>
+                <span><b>Maya</b> → <b>Alex</b> · subtask review</span>
+                <span class="x" style="margin-left:auto;font-family:var(--mono);color:var(--ink-3)">now</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mini-pane">
+          <div class="mp-l">19b · scene path</div>
+          <div class="scene-stage" style="height:160px;position:relative">
+            <div class="scene-floor"></div>
+            <div class="scene-seat" style="left:60px;bottom:24px">
+              <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+              <span class="seat-name">Maya</span>
+            </div>
+            <div class="scene-seat" style="right:60px;bottom:24px">
+              <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+              <span class="seat-name">Alex</span>
+            </div>
+            <svg viewBox="0 0 320 100" style="position:absolute;left:0;right:0;top:18px;width:100%;height:60px;pointer-events:none">
+              <path d="M 60 72 Q 160 18 260 72" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="2 5" opacity="0.85"/>
+              <text x="160" y="20" text-anchor="middle" font-size="10" fill="var(--accent)" font-weight="700">subtask review</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 20 · Library / RAG citation -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">20</span><span class="t">Library upload + RAG citation in chat</span>
+        <span class="d">Composer's library chip surfaces uploaded docs. Assistant bubble cites them inline as <code style="color:#aab6cc">[1]</code> <code style="color:#aab6cc">[2]</code> linking to a citation row with source title + snippet preview.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
+        <div style="width:560px;display:flex;flex-direction:column;gap:10px">
+          <div class="mp-row" style="gap:7px">
+            <span class="chip accent"><svg class="ico xs"><use href="#i-paperclip"/></svg>Library · 3 docs indexed</span>
+            <span class="chip ok dot">RAG ready</span>
+          </div>
+          <div class="b-bubble">
+            <div class="from"><span class="av-xs" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>Alex Chen</div>
+            The drift comes from the upstream golden snapshot rotation policy<span class="cite">1</span> — we used to refresh weekly but the new policy moves it to per-release<span class="cite">2</span>. That's why the verifier surfaces yesterday's drift as new.
+            <div class="b-citations">
+              <div class="b-cite-row"><span class="ix">1</span><div><span class="ci-src">golden-rotation-policy.md</span><div class="ci-snip">"Refresh the golden snapshot on every tagged release (was: weekly)."</div></div></div>
+              <div class="b-cite-row"><span class="ix">2</span><div><span class="ci-src">2026-05-04 release notes</span><div class="ci-snip">"…cadence changed to per-release effective 2026-04-18."</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 21 · Knowledge index status -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">21</span><span class="t">Knowledge index status</span>
+        <span class="d">After library upload, <code style="color:#aab6cc">knowledge.index.started</code> → <code style="color:#aab6cc">.completed</code> | <code style="color:#aab6cc">.failed</code> surfaces as one inline pill, in-thread, replacing itself in place.</span>
+      </div>
+      <div class="spec-frame spec-grid-3">
+        <div class="mini-pane">
+          <div class="mp-l">started</div>
+          <div><span class="idx-pill"><svg class="ico xs"><use href="#i-pulse"/></svg>Indexing 3 docs<span class="bar"><i style="transform:scaleX(0.34)"></i></span>34%</span></div>
+        </div>
+        <div class="mini-pane">
+          <div class="mp-l">completed</div>
+          <div><span class="idx-pill ok"><svg class="ico xs"><use href="#i-check"/></svg>Indexed 3 docs · 24s</span></div>
+        </div>
+        <div class="mini-pane">
+          <div class="mp-l">failed</div>
+          <div><span class="idx-pill fail"><svg class="ico xs"><use href="#i-alert"/></svg>Index failed · 2 of 3 (pdf parse)</span></div>
+          <div class="mp-d">User can retry per-doc or remove the failing file.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 22 · engine.proposal.created -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">22</span><span class="t">engine.proposal.created — proposal bubble</span>
+        <span class="d">Engine surfaces a suggestion (split a step, reorder, swap assignee). User Accept / Reject / View detail. Reject collapses the bubble; View detail opens an inline diff sub-pane (not a modal).</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:26px;display:flex;justify-content:center">
+        <div class="b-bubble" style="width:520px">
+          <div class="from"><svg class="ico xs" style="color:var(--violet)"><use href="#i-bulb"/></svg>Engine proposal</div>
+          Engine proposes splitting step <b>#4 (Patch parser edge cases)</b> into two parts: <b>4a</b> capture failing fixtures, <b>4b</b> patch + re-run verifier. The split unblocks parallel work for Alex and Kai.
+          <div class="mp-row" style="margin-top:10px">
+            <button class="mp-btn accent">Accept</button>
+            <button class="mp-btn">View detail</button>
+            <button class="mp-btn outline" style="margin-left:auto">Reject</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 23 · ErrorBanner — full variants -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">23</span><span class="t">ErrorBanner — Retry / Swap Person / Swap Model / Details</span>
+        <span class="d">Surfaced above the composer when a run fails. Retry replays the failed turn; Swap Person opens an employee dropdown; Swap Model routes to Settings; Details expands the error history list.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:24px;display:flex;justify-content:center">
+        <div style="width:600px;display:flex;flex-direction:column;gap:10px">
+          <div class="inline-warn">
+            <svg class="ico sm"><use href="#i-alert"/></svg>
+            <div>
+              <div><b>Provider returned 429</b> · MiniMax-M2.7 rate-limited</div>
+              <div style="font-size:var(--fs-micro);font-weight:540">Last turn: "Generate diff vs golden" — Alex Chen</div>
+            </div>
+            <div style="margin-left:auto;display:inline-flex;gap:6px">
+              <button class="mp-btn">Retry</button>
+              <button class="mp-btn">Swap Person ▾</button>
+              <button class="mp-btn">Swap Model ▾</button>
+              <button class="mp-btn outline">Details</button>
+            </div>
+          </div>
+          <div class="mini-pane">
+            <div class="mp-l">expanded · error history</div>
+            <div class="err-history">
+              <div class="er"><span class="lab">429</span>MiniMax rate-limit · retry-after 8s<span class="tm">now</span></div>
+              <div class="er"><span class="lab">429</span>MiniMax rate-limit · retry-after 4s<span class="tm">2m</span></div>
+              <div class="er"><span class="lab">503</span>MiniMax upstream busy<span class="tm">9m</span></div>
+              <div class="er"><span class="lab">timeout</span>provider stream stalled &gt;60s<span class="tm">14m</span></div>
+            </div>
+          </div>
+          <div class="mini-pane">
+            <div class="mp-l">swap person · dropdown</div>
+            <div>
+              <div class="listrow"><span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span><span class="nm">Maya Lin <small>developer</small></span><button class="mp-btn">Reassign</button></div>
+              <div class="listrow"><span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Kai&backgroundColor=f4eaff')"></span><span class="nm">Kai Nakamura <small>devops</small></span><button class="mp-btn">Reassign</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 24 · ResumeBar -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">24</span><span class="t">ResumeBar — unfinished projects</span>
+        <span class="d">On first paint of the Office, any project with an unfinished run from the previous session surfaces here. Pills: Resume (re-attach to the live run) / Review (open the sedimented run record) / Dismiss (drop the bar, do not cancel the run).</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:24px;display:flex;justify-content:center">
+        <div class="resume-bar" style="width:640px;max-width:100%">
+          <span class="rb-i"><svg class="ico sm"><use href="#i-clock"/></svg></span>
+          <div>
+            <div><b>2 unfinished projects</b></div>
+            <div class="rb-meta">Fixture Parser Verification · paused 2h ago · Q3 Roadmap Draft · awaiting plan-review</div>
+          </div>
+          <div class="rb-actions">
+            <button class="mp-btn primary">Resume</button>
+            <button class="mp-btn">Review</button>
+            <button class="mp-btn outline">Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 25 · Configure-an-API-key inline warning -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">25</span><span class="t">Configure-an-API-key — chat banner</span>
+        <span class="d">When no ProviderConfig is selected, every chat send is blocked. Banner sits above the composer with one clear action — open Settings · Providers (NOT a modal; the user can still scroll the conversation).</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:24px;display:flex;justify-content:center">
+        <div class="inline-warn" style="width:560px;max-width:100%">
+          <svg class="ico sm"><use href="#i-alert"/></svg>
+          <div>
+            <div><b>No provider configured</b></div>
+            <div style="font-size:var(--fs-micro);font-weight:540">Pick a provider and paste a key to start sending — current selection: <code style="font-family:var(--mono)">none</code></div>
+          </div>
+          <span class="iw-link">Configure ›</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 26 · Conversation compacted indicator -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">26</span><span class="t">Conversation compacted · quiet pill</span>
+        <span class="d">When the model auto-compacts the thread (or the user runs <code style="color:#aab6cc">/compact</code>), a quiet pill drops in-place at the compact point. Click → open a side pane with the summarized turns; never a modal.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:24px;display:flex;justify-content:center">
+        <div style="width:560px;display:flex;flex-direction:column;gap:8px">
+          <div class="b-bubble"><div class="from">Maya · 12 turns ago</div>Initial scope drafted.</div>
+          <div style="display:flex;justify-content:center"><span class="sys-pill compact">Conversation compacted (12 messages summarized) · open summary</span></div>
+          <div class="b-bubble from-me" style="align-self:flex-end">Pick up where we left off — re-run the verifier and report drift.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 27 · Scene 3D→2D fallback -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">27</span><span class="t">Scene 3D→2D fallback</span>
+        <span class="d">If GPU init fails (WebKit, low-tier device, soft-downgrade), scene auto-falls back to the canvas 2D renderer. A corner badge surfaces the downgrade — clicking opens Settings · Rendering. No modal, no toast spam.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:18px;display:flex;justify-content:center">
+        <div class="scene-stage" style="width:560px;height:220px;position:relative;background:linear-gradient(180deg,#eaf1f9,#dde6f1)">
+          <div class="scene-floor"></div>
+          <div class="scene-seat" style="left:96px;bottom:36px">
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+            <span class="seat-name">Maya</span>
+          </div>
+          <div class="scene-seat" style="left:236px;bottom:36px">
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+            <span class="seat-name">Alex</span>
+          </div>
+          <div class="scene-seat" style="left:376px;bottom:36px">
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Kai&backgroundColor=f4eaff')"></span>
+            <span class="seat-name">Kai</span>
+          </div>
+          <span class="corner-badge"><svg class="ico xs"><use href="#i-alert"/></svg>3D unavailable · 2D fallback</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 28 · Slash command catalog -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">28</span><span class="t">Slash command catalog</span>
+        <span class="d">Triggered by <code style="font-family:var(--mono)">/</code> in the composer; rendered as a single-pane popover above the composer. Each row: <code style="color:#aab6cc">/cmd</code> · aliases · short description. Filters as the user types.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:24px;display:flex;justify-content:center">
+        <div class="mini-pane" style="width:580px;max-width:100%;max-height:340px;overflow-y:auto">
+          <div class="mp-l">/ commands · filter: empty</div>
+          <div class="slash-row"><span class="cmd">/plan</span><span class="alias">alias: /p</span><span class="ds">Generate a fresh plan from the current scope</span></div>
+          <div class="slash-row"><span class="cmd">/replan</span><span class="alias">alias: /rp</span><span class="ds">Revise the active plan from a freeform note</span></div>
+          <div class="slash-row"><span class="cmd">/route</span><span class="alias">—</span><span class="ds">Re-route the active task to a specific employee</span></div>
+          <div class="slash-row"><span class="cmd">/swap-model</span><span class="alias">/sm</span><span class="ds">Open the model cascade</span></div>
+          <div class="slash-row"><span class="cmd">/mode</span><span class="alias">—</span><span class="ds">Cycle SOP / HIL / Direct / YOLO</span></div>
+          <div class="slash-row"><span class="cmd">/board</span><span class="alias">/k · /kanban</span><span class="ds">Open the persistent kanban board</span></div>
+          <div class="slash-row"><span class="cmd">/live</span><span class="alias">—</span><span class="ds">Open the live run overlay</span></div>
+          <div class="slash-row"><span class="cmd">/skill install</span><span class="alias">—</span><span class="ds">Install a skill from marketplace or git URL</span></div>
+          <div class="slash-row"><span class="cmd">/skill create</span><span class="alias">—</span><span class="ds">Self-author a new skill from a brief</span></div>
+          <div class="slash-row"><span class="cmd">/hire</span><span class="alias">—</span><span class="ds">Open HR Bot to assess and propose hires</span></div>
+          <div class="slash-row"><span class="cmd">/meeting</span><span class="alias">/mtg</span><span class="ds">Start a meeting with selected participants</span></div>
+          <div class="slash-row"><span class="cmd">/compact</span><span class="alias">—</span><span class="ds">Compact the conversation in place</span></div>
+          <div class="slash-row"><span class="cmd">/clear</span><span class="alias">—</span><span class="ds">Clear the conversation (keeps thread)</span></div>
+          <div class="slash-row"><span class="cmd">/attach</span><span class="alias">/a</span><span class="ds">Insert a library reference into this turn</span></div>
+          <div class="slash-row"><span class="cmd">/sop</span><span class="alias">—</span><span class="ds">Run an installed SOP</span></div>
+          <div class="slash-row"><span class="cmd">/settings</span><span class="alias">—</span><span class="ds">Open the Settings workspace</span></div>
+          <div class="slash-row"><span class="cmd">/help</span><span class="alias">/?</span><span class="ds">Show this catalog inline</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 29 · @mention agent menu -->
+    <div class="spec-state">
+      <div class="spec-cap">
+        <span class="n">29</span><span class="t">@mention agent menu</span>
+        <span class="d">Triggered by <code style="font-family:var(--mono)">@</code>. Rows: initials avatar (or photo) + role color dot + name + role. A virtual <code style="color:#aab6cc">@Team</code> mention at the top targets all enabled employees. Filter input narrows results inline.</span>
+      </div>
+      <div class="spec-frame spec-stage-bg" style="padding:24px;display:flex;justify-content:center">
+        <div class="mention-pop">
+          <div class="mp-filter"><svg class="ico xs"><use href="#i-search"/></svg>Filter…</div>
+          <div class="mention-row active">
+            <span class="av-init" style="background:linear-gradient(135deg,#2f6bff,#7c4ddb)">T</span>
+            <span class="role-dot" style="background:var(--violet)"></span>
+            <span class="nm">@Team</span>
+            <span class="ro">virtual · all enabled</span>
+          </div>
+          <div style="height:1px;background:var(--line-soft);margin:6px 0"></div>
+          <div class="mention-row">
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Maya&backgroundColor=fff7e6')"></span>
+            <span class="role-dot" style="background:var(--accent)"></span>
+            <span class="nm">Maya Lin</span>
+            <span class="ro">developer</span>
+          </div>
+          <div class="mention-row">
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&backgroundColor=eaf1ff')"></span>
+            <span class="role-dot" style="background:var(--accent)"></span>
+            <span class="nm">Alex Chen</span>
+            <span class="ro">developer</span>
+          </div>
+          <div class="mention-row">
+            <span class="av-sm" style="background-image:url('https://api.dicebear.com/9.x/avataaars/svg?seed=Kai&backgroundColor=f4eaff')"></span>
+            <span class="role-dot" style="background:var(--warn)"></span>
+            <span class="nm">Kai Nakamura</span>
+            <span class="ro">devops</span>
+          </div>
+          <div class="mention-row">
+            <span class="av-init" style="background:var(--ink-2)">HR</span>
+            <span class="role-dot" style="background:var(--violet)"></span>
+            <span class="nm">HR Bot</span>
+            <span class="ro">system · hiring</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>

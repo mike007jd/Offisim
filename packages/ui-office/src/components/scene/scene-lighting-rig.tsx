@@ -9,6 +9,7 @@ import { AmbientStateLight } from './office3d-scene-primitives.js';
 import { LIGHTING_TIER_PRESETS } from './scene-performance-tier.js';
 import type { getDevLightingOverrides } from './scene-performance-tier.js';
 import type { SceneLightingTier } from './scene-performance-tier.js';
+import { SHADOW_NORMAL_BIAS, SHADOW_RADIUS } from './scene-renderer-config.js';
 import { useProceduralRoomEnvironment } from './use-procedural-room-environment.js';
 
 const LIGHT_COLORS = {
@@ -61,13 +62,13 @@ export function SceneLightingRig({
   const hemisphereIntensity =
     devOverrides?.hemi ??
     (resolvedTheme === 'light'
-      ? Math.max(0.35, preset.hemisphereIntensity * 0.68)
-      : preset.hemisphereIntensity);
-  const keyIntensity = resolvedTheme === 'light' ? 1.08 : 1.6;
-  const fillIntensity = resolvedTheme === 'light' ? 0.28 : 0.45;
-  const rimIntensity = resolvedTheme === 'light' ? 0.18 : 0.35;
-  const fogNear = resolvedTheme === 'light' ? 42 : 20;
-  const fogFar = resolvedTheme === 'light' ? 150 : 120;
+      ? Math.max(0.32, preset.hemisphereIntensity * 0.58)
+      : preset.hemisphereIntensity * 0.9);
+  const keyIntensity = resolvedTheme === 'light' ? 1.35 : 2.2;
+  const fillIntensity = resolvedTheme === 'light' ? 0.24 : 0.48;
+  const rimIntensity = resolvedTheme === 'light' ? 0.18 : 0.46;
+  const fogNear = resolvedTheme === 'light' ? 48 : 24;
+  const fogFar = resolvedTheme === 'light' ? 160 : 130;
   const environmentEnabled =
     devOverrides?.env ?? (resolvedTheme === 'dark' && preset.envMapPreset != null);
 
@@ -86,6 +87,10 @@ export function SceneLightingRig({
         color={LIGHT_COLORS.key}
         shadow-mapSize={[preset.shadowMapSize, preset.shadowMapSize]}
         shadow-bias={computeShadowBias({ lightDistance: 28, sceneScale: 1 })}
+        shadow-normalBias={SHADOW_NORMAL_BIAS}
+        shadow-radius={SHADOW_RADIUS}
+        shadow-camera-near={0.5}
+        shadow-camera-far={80}
         shadow-camera-left={-25}
         shadow-camera-right={25}
         shadow-camera-top={20}
@@ -102,7 +107,7 @@ export function SceneLightingRig({
           position={[0, 6, 14]}
           angle={0.45}
           penumbra={0.6}
-          intensity={0.4}
+          intensity={resolvedTheme === 'light' ? 0.18 : 0.32}
           color={LIGHT_COLORS.bounceFront}
           decay={1.5}
         />
@@ -112,7 +117,7 @@ export function SceneLightingRig({
           position={[0, 6, -14]}
           angle={0.4}
           penumbra={0.7}
-          intensity={0.3}
+          intensity={resolvedTheme === 'light' ? 0.12 : 0.24}
           color={LIGHT_COLORS.bounceBack}
           decay={1.5}
         />

@@ -72,8 +72,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      display: grid;
-      place-items: center;
+      display: flex; flex-direction: column; align-items: center; gap: 28px;
       padding: 28px;
       background: radial-gradient(1200px 700px at 50% -10%, #1f2738 0%, #0f1420 60%, #0b0f17 100%);
       color: var(--ink-1);
@@ -86,6 +85,7 @@
     .app {
       width: min(1600px, 100%);
       height: min(1000px, calc(100vh - 56px));
+      flex: none;
       background: var(--bg);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 14px;
@@ -676,6 +676,238 @@
     .reveal { animation: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
     .reveal.d1 { animation-delay: 0.04s; }
     @media (prefers-reduced-motion: reduce) { .reveal, .spin, .pill.running::before { animation: none; } * { transition: none !important; } }
+
+    /* ════════ Specimen-suite scaffolding ════════ */
+    .spec-suite {
+      width: min(1600px, 100%);
+      display: flex; flex-direction: column; gap: 22px;
+      flex: none;
+    }
+    .spec-suite-head { color: #cdd6e6; font-size: var(--fs-sm); line-height: 1.6; padding: 0 4px; }
+    .spec-suite-head h2 { margin: 0 0 4px; font-size: var(--fs-lg); font-weight: 680; color: #fff; letter-spacing: -0.01em; }
+    .spec-suite-head b { color: #aebfff; font-weight: 640; }
+    .spec-suite-head code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
+    .spec-state {
+      border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.45);
+      background: var(--bg);
+    }
+    .spec-cap {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: 9px 14px;
+      background: linear-gradient(#11161f, #0c0f16);
+      color: #d6deec; font-size: var(--fs-sm);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-wrap: wrap;
+    }
+    .spec-cap .n {
+      display: grid; place-items: center;
+      width: 20px; height: 20px; border-radius: var(--r-xs);
+      background: rgba(47, 107, 255, 0.22); color: #9db8ff;
+      font-size: var(--fs-micro); font-weight: 760; flex: none;
+    }
+    .spec-cap .t { font-weight: 640; color: #fff; }
+    .spec-cap .d { color: #8b97ad; }
+    .spec-cap code { color: #aab6cc; font-family: var(--mono); font-size: var(--fs-meta); }
+    .spec-frame { position: relative; background: var(--bg); padding: 22px; }
+    .spec-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .spec-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .mini-pane {
+      border: 1px solid var(--line-soft); border-radius: var(--r-md);
+      background: var(--surface-1); overflow: hidden; box-shadow: var(--elev-1);
+    }
+    .mini-cap {
+      padding: 7px 12px;
+      font-size: var(--fs-micro); font-weight: 700;
+      letter-spacing: var(--ls-caps); text-transform: uppercase;
+      color: var(--ink-3); background: var(--surface-2);
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .mini-bd { padding: 14px; }
+    .mini-bd.sunken { background: var(--surface-sunken); }
+    .mini-bd.flush { padding: 0; }
+    .annot-dark {
+      font-size: var(--fs-micro); font-style: italic;
+      color: #8b97ad;
+      padding: 6px 4px 0; line-height: 1.65;
+    }
+    .annot-dark code { font-family: var(--mono); color: #aab6cc; font-style: normal; }
+    .annot-dark b { color: #aebfff; font-style: normal; font-weight: 640; }
+
+    /* ──── Specimen-only: switch row, key reveal, vault row, install wizard ──── */
+    .ext-empty {
+      border: 1px dashed var(--line-strong); border-radius: var(--r-md);
+      padding: 28px var(--sp-7); text-align: center; background: var(--surface-2);
+    }
+    .ext-empty .ee-i {
+      width: 36px; height: 36px; margin: 0 auto var(--sp-3);
+      border-radius: var(--r-md); background: var(--accent-surface); color: var(--accent);
+      display: grid; place-items: center;
+    }
+    .ext-empty .ee-t { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); }
+    .ext-empty .ee-d { font-size: var(--fs-meta); color: var(--ink-3); margin-top: 4px; line-height: 1.5; }
+    .ext-empty .ee-cta {
+      margin-top: var(--sp-5); height: 32px; padding: 0 14px;
+      border: 0; border-radius: var(--r-sm);
+      background: var(--accent); color: var(--accent-fg);
+      font-size: var(--fs-sm); font-weight: 640;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+
+    .ext-list-row {
+      display: grid; grid-template-columns: 32px 1fr auto;
+      gap: var(--sp-4); align-items: center;
+      padding: 9px var(--sp-3); border-radius: var(--r-sm);
+    }
+    .ext-list-row + .ext-list-row { border-top: 1px solid var(--line-soft); }
+    .ext-list-row:hover { background: var(--surface-sunken); }
+    .ext-list-row .lr-logo {
+      width: 32px; height: 32px; border-radius: var(--r-sm);
+      display: grid; place-items: center; color: #fff;
+      font-weight: 720; font-size: var(--fs-sm);
+    }
+    .ext-list-row .lr-name { font-size: var(--fs-sm); font-weight: 620; color: var(--ink-1); }
+    .ext-list-row .lr-meta { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-3); margin-top: 1px; }
+    .ext-list-row .lr-acts { display: flex; gap: 4px; }
+    .ext-list-row .lr-acts .micro {
+      width: 26px; height: 26px;
+      border: 1px solid var(--line); border-radius: var(--r-xs);
+      background: var(--surface-1); color: var(--ink-3);
+      display: grid; place-items: center;
+    }
+    .ext-list-row .lr-acts .micro:hover { background: var(--accent-surface); color: var(--accent); border-color: var(--accent-ring); }
+    .ext-list-row .lr-acts .micro.danger:hover { background: var(--danger-surface); color: #b8352e; border-color: rgba(214,69,61,0.4); }
+
+    /* Install wizard (light surface — Settings is not a wizard chrome) */
+    .iw-stepper {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-4) 0 var(--sp-5);
+      border-bottom: 1px solid var(--line-soft);
+      margin-bottom: var(--sp-5);
+    }
+    .iw-stepper .st {
+      display: flex; align-items: center; gap: 7px;
+      font-size: var(--fs-meta); color: var(--ink-4); font-weight: 580;
+    }
+    .iw-stepper .st .num {
+      width: 20px; height: 20px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: var(--surface-sunken); color: var(--ink-3);
+      font-size: 10px; font-weight: 720;
+    }
+    .iw-stepper .st.active .num { background: var(--accent); color: #fff; }
+    .iw-stepper .st.active { color: var(--ink-1); }
+    .iw-stepper .st.done .num { background: var(--ok); color: #fff; }
+    .iw-stepper .st.done { color: var(--ink-2); }
+    .iw-stepper .div { flex: 1; height: 1px; background: var(--line-soft); }
+
+    .iw-pv {
+      border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+      background: var(--surface-2); padding: var(--sp-5);
+    }
+    .iw-pv-row { display: grid; grid-template-columns: 110px 1fr; gap: 4px var(--sp-5); }
+    .iw-pv-row dt { font-size: var(--fs-meta); color: var(--ink-3); font-weight: 540; padding-top: 2px; }
+    .iw-pv-row dd { margin: 0; font-size: var(--fs-sm); color: var(--ink-1); }
+    .iw-pv-row dd.mono { font-family: var(--mono); font-size: var(--fs-meta); color: var(--ink-2); }
+    .iw-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; margin-top: var(--sp-5); }
+
+    .iw-progress {
+      display: flex; flex-direction: column; gap: var(--sp-3);
+      padding: var(--sp-4); border: 1px solid var(--line-soft);
+      border-radius: var(--r-sm); background: var(--surface-2);
+    }
+    .iw-step-line {
+      display: flex; align-items: center; gap: var(--sp-3);
+      font-size: var(--fs-meta); color: var(--ink-2);
+    }
+    .iw-step-line .ic-ok { color: var(--ok); }
+    .iw-step-line .ic-run { color: var(--accent); }
+    .iw-step-line .ic-pend { color: var(--ink-4); }
+    .iw-step-line.done { color: var(--ink-2); }
+    .iw-step-line.pend { color: var(--ink-4); }
+
+    /* Key reveal field already exists (reveal-key handler). Vault row + binding control */
+    .rbc {
+      display: flex; flex-direction: column; gap: var(--sp-3);
+    }
+    .rbc-seg {
+      display: inline-flex; padding: 3px; gap: 2px;
+      border: 1px solid var(--line); border-radius: var(--r-sm);
+      background: var(--surface-2); box-shadow: var(--elev-1); align-self: flex-start;
+      max-width: 100%; flex-wrap: wrap;
+    }
+    .rbc-seg button {
+      height: 26px; padding: 0 12px; border: 0; border-radius: var(--r-xs);
+      background: transparent; color: var(--ink-3); font-size: var(--fs-sm); font-weight: 580;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .rbc-seg button:hover { color: var(--ink-1); background: var(--surface-sunken); }
+    .rbc-seg button.active { background: var(--accent-surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-ring); font-weight: 640; }
+    .rbc-resolved {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: var(--fs-meta); color: var(--ink-3);
+    }
+    .rbc-resolved b { color: var(--ink-1); font-weight: 620; }
+
+    /* Provider mini-card grid (rarity row) */
+    .pv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+    .pv-mini {
+      display: grid; grid-template-columns: 28px 1fr auto;
+      gap: var(--sp-4); align-items: center;
+      padding: 9px var(--sp-4); border-radius: var(--r-sm);
+      border: 1px solid var(--line-soft); background: var(--surface-2);
+    }
+    .pv-mini.active { border-color: var(--accent-ring); background: var(--accent-surface); }
+    .pv-mini .pm-logo {
+      width: 28px; height: 28px; border-radius: var(--r-xs);
+      display: grid; place-items: center; color: #fff;
+      font-weight: 720; font-size: var(--fs-meta);
+    }
+    .pv-mini .pm-name { font-size: var(--fs-sm); font-weight: 640; color: var(--ink-1); }
+    .pv-mini .pm-sub { font-size: 10px; color: var(--ink-3); margin-top: 1px; font-family: var(--mono); }
+
+    /* Save bar — multi-state */
+    .save-bar.dirty .btn-save-full { background: var(--accent); color: var(--accent-fg); }
+    .save-bar.idle .btn-save-full { background: var(--surface-sunken); color: var(--ink-4); border: 1px solid var(--line); cursor: not-allowed; }
+    .save-bar.busy .btn-save-full { background: var(--accent); color: var(--accent-fg); opacity: 0.86; cursor: progress; }
+    .save-bar.error .btn-save-full { background: var(--danger); color: #fff; }
+    .save-bar .save-tip.err { color: #b8352e; }
+    .save-bar .save-tip.warn { color: #8a5a0c; }
+    .save-bar .spin-inline {
+      width: 12px; height: 12px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+
+    /* Discard toast */
+    .toast {
+      display: inline-flex; align-items: center; gap: var(--sp-4);
+      padding: 10px 14px; border-radius: var(--r-md);
+      background: #1a2231; color: #f1f4f9;
+      box-shadow: var(--elev-3);
+      font-size: var(--fs-sm); font-weight: 540;
+    }
+    .toast .tst-msg { color: #fff; font-weight: 600; }
+    .toast .tst-acts { display: flex; gap: 4px; margin-left: var(--sp-3); }
+    .toast .tst-acts .tbtn {
+      height: 26px; padding: 0 11px;
+      border: 0; border-radius: var(--r-xs);
+      font-size: var(--fs-meta); font-weight: 620;
+      background: rgba(255,255,255,0.10); color: #e6eaf2;
+    }
+    .toast .tst-acts .tbtn:hover { background: rgba(255,255,255,0.18); }
+    .toast .tst-acts .tbtn.danger { background: rgba(214,69,61,0.20); color: #ffb1ac; }
+    .toast .tst-acts .tbtn.danger:hover { background: rgba(214,69,61,0.32); color: #fff; }
+
+    /* Validation field highlight */
+    .ctl.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(214,69,61,0.18); }
+    .field-err { font-size: var(--fs-meta); color: #b8352e; display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; }
+
+    /* Disabled vault row (web) */
+    .vault-card.disabled { opacity: 0.7; }
+    .vault-card.disabled .vault-ico { background: var(--surface-sunken); color: var(--ink-4); }
+    .vault-card.disabled .ctl-btn { background: var(--surface-sunken); color: var(--ink-4); cursor: not-allowed; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -707,6 +939,15 @@
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
     <symbol id="i-unlink" viewBox="0 0 24 24"><path d="M9 14a4 4 0 0 0 6 .5M15 10a4 4 0 0 0-6-.5l-3 3a4 4 0 0 0 .5 6M18 8l3-3M3 3l3 3"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14a8 8 0 0 1-10-10 8 8 0 1 0 10 10z"/></symbol>
+    <symbol id="i-loader" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M5.6 5.6L7.8 7.8M16.2 16.2l2.2 2.2M3 12h3M18 12h3M5.6 18.4l2.2-2.2M16.2 7.8l2.2-2.2"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 .5l3-3a4 4 0 0 0-5.5-5.5l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-3 3a4 4 0 0 0 5.5 5.5l1-1"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></symbol>
   </svg>
 
   <div class="app">
@@ -1200,6 +1441,790 @@
             <div class="save-tip">Tooltip carries state: "Save provider + runtime changes" / "No changes to save" / "Resolve validation issues before saving" / "Save failed — retry". On error, a banner with Retry appears above content; label → "Saving…" while saving; button disabled when no changes / validation fails.</div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ SETTINGS SPECIMENS ════════════════════════════ -->
+  <div class="spec-suite">
+    <div class="spec-suite-head">
+      <h2>Settings · functional specimens</h2>
+      The window above is the canonical resting Settings (Provider tab, MiniMax connected, no dirty
+      state). Every specimen below is built 1:1 with the real React surface and its controlling hook —
+      no invented controls, no dropped states. Settings is <b>not a wizard</b>, so every pane stays on
+      the light surface; only Wizards may use <code>--wiz-*</code>. Specimens cover gaps the resting
+      window cannot show: <b>External Employees</b> (empty + populated + install wizard), <b>MCP</b>
+      (grouped list + add form + stdio confirm), <b>Runtime</b> (density/theme/switches/binding/
+      diagnostics), <b>Provider</b> (multi-config picker, key reveal, vault row), <b>save bar</b>
+      transitions, <b>discard toast</b>, <b>validation reject</b>, and the <b>disabled vault</b> on web.
+    </div>
+
+    <!-- 1 · External Employees — empty + populated -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">1</span><span class="t">External Employees — empty + populated</span>
+        <span class="d"><code>components/settings/ExternalEmployeesPane.tsx</code> · driven by <code>useExternalEmployees(companyId)</code></span></div>
+      <div class="spec-frame">
+        <div class="spec-grid-2">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Empty state — primary CTA "Install external employee"</div>
+              <div class="mini-bd sunken">
+                <div class="ext-empty">
+                  <div class="ee-i"><svg class="ico lg"><use href="#i-users"/></svg></div>
+                  <div class="ee-t">No external employees connected</div>
+                  <div class="ee-d">Paste an A2A agent card URL to add a branded external employee.<br/>OpenClaw, Hermes, Codex and custom A2A endpoints are supported.</div>
+                  <button class="ee-cta"><svg class="ico sm"><use href="#i-plus"/></svg>Install external employee</button>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Empty state is shown when <code>employees.filter(e =&gt; e.kind === 'external').length === 0</code>.
+              CTA opens the 3-step install dialog (specimen 2). No "Connect agent" button hides in the
+              page header — empty card carries the only entry point so first-time discovery is obvious.</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Populated list — row with all 4 actions</div>
+              <div class="mini-bd">
+                <div class="ext-list-row">
+                  <div class="lr-logo" style="background:linear-gradient(135deg,#ff6b35,#ff3d81)">O</div>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span class="lr-name">Otto Reeves</span>
+                      <span class="ext-brand">OpenClaw</span>
+                    </div>
+                    <div class="lr-meta">role: research-analyst · agent.openclaw.ai/a2a</div>
+                  </div>
+                  <div class="lr-acts">
+                    <button class="micro" title="Edit"><svg class="ico xs"><use href="#i-pencil"/></svg></button>
+                    <button class="micro" title="Refresh agent card"><svg class="ico xs"><use href="#i-refresh"/></svg></button>
+                    <button class="micro" title="Unplug (disconnect, keep config)"><svg class="ico xs"><use href="#i-plug"/></svg></button>
+                    <button class="micro danger" title="Delete external employee"><svg class="ico xs"><use href="#i-trash"/></svg></button>
+                  </div>
+                </div>
+                <div class="ext-list-row">
+                  <div class="lr-logo" style="background:linear-gradient(135deg,#7c4ddb,#4d6bff)">H</div>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span class="lr-name">Hermes Ops</span>
+                      <span class="ext-brand">Hermes</span>
+                    </div>
+                    <div class="lr-meta">role: ops-runner · hermes.run/v1/a2a</div>
+                  </div>
+                  <div class="lr-acts">
+                    <button class="micro" title="Edit"><svg class="ico xs"><use href="#i-pencil"/></svg></button>
+                    <button class="micro" title="Refresh agent card"><svg class="ico xs"><use href="#i-refresh"/></svg></button>
+                    <button class="micro" title="Unplug (disconnect, keep config)"><svg class="ico xs"><use href="#i-plug"/></svg></button>
+                    <button class="micro danger" title="Delete"><svg class="ico xs"><use href="#i-trash"/></svg></button>
+                  </div>
+                </div>
+                <div class="ext-list-row">
+                  <div class="lr-logo" style="background:linear-gradient(135deg,#1aa46a,#15824f)">C</div>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span class="lr-name">Codex Worker</span>
+                      <span class="ext-brand">Codex</span>
+                    </div>
+                    <div class="lr-meta">role: code-writer · custom · a2a.local:7878</div>
+                  </div>
+                  <div class="lr-acts">
+                    <button class="micro" title="Edit"><svg class="ico xs"><use href="#i-pencil"/></svg></button>
+                    <button class="micro" title="Refresh agent card"><svg class="ico xs"><use href="#i-refresh"/></svg></button>
+                    <button class="micro" title="Unplug"><svg class="ico xs"><use href="#i-plug"/></svg></button>
+                    <button class="micro danger" title="Delete"><svg class="ico xs"><use href="#i-trash"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">List groups by install time DESC. Brand badge is derived from
+              <code>agentCard.provider.brandKey</code> (falls back to <code>'custom'</code> when no
+              match). <b>Pencil</b> opens inline edit (URL + role override). <b>Refresh</b> re-fetches
+              the card and writes back to <code>external_employees</code>. <b>Plug</b> disconnects but
+              preserves config (re-enabled by re-clicking). <b>Trash</b> deletes the row + token from
+              vault — confirms via destructive toast (not specimen'd here).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 · External employee install dialog — 3 steps -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">2</span><span class="t">External employee install dialog — 3 steps</span>
+        <span class="d"><code>components/settings/ExternalEmployeeInstallDialog.tsx</code> · stepper machine <code>'discover' → 'preview' → 'installing'</code></span></div>
+      <div class="spec-frame">
+        <div class="spec-grid-3">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Step 1 — paste card URL + Discover</div>
+              <div class="mini-bd">
+                <div class="iw-stepper">
+                  <span class="st active"><span class="num">1</span>Discover</span>
+                  <span class="div"></span>
+                  <span class="st"><span class="num">2</span>Preview</span>
+                  <span class="div"></span>
+                  <span class="st"><span class="num">3</span>Install</span>
+                </div>
+                <div class="field">
+                  <span class="field-label">Agent card URL</span>
+                  <div class="ctl mono"><span class="lead"><svg class="ico sm"><use href="#i-globe"/></svg></span><input placeholder="https://agent.openclaw.ai/.well-known/agent.json" /></div>
+                  <span class="field-note">Paste any <code>.well-known/agent.json</code> or <code>/a2a/card</code> URL. Offisim fetches the card, infers brand, and shows a preview.</span>
+                </div>
+                <div class="iw-actions">
+                  <button class="ctl-btn">Cancel</button>
+                  <button class="btn-save-inline"><svg class="ico sm"><use href="#i-search"/></svg>Discover</button>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark"><code>onDiscover()</code> calls
+              <code>a2aClient.fetchCard(url)</code>; result → Step 2. Network failure surfaces inline
+              <code>field-err</code> ("Could not reach agent card · check URL"). Loading spinner replaces Discover
+              icon while in-flight.</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Step 2 — preview discovered card</div>
+              <div class="mini-bd">
+                <div class="iw-stepper">
+                  <span class="st done"><span class="num"><svg class="ico xs"><use href="#i-check"/></svg></span></span>
+                  <span class="div"></span>
+                  <span class="st active"><span class="num">2</span>Preview</span>
+                  <span class="div"></span>
+                  <span class="st"><span class="num">3</span>Install</span>
+                </div>
+                <div class="iw-pv">
+                  <dl class="iw-pv-row">
+                    <dt>Name</dt><dd>Otto Reeves</dd>
+                    <dt>Description</dt><dd style="font-size:var(--fs-meta);color:var(--ink-2)">Research analyst that synthesizes web sources into citation-ranked briefs.</dd>
+                    <dt>Brand</dt><dd><span class="ext-brand">OpenClaw</span> <span class="annot" style="margin:0">(inferred from card)</span></dd>
+                    <dt>Interfaces</dt><dd class="mono">a2a/jsonrpc · streaming · cancel</dd>
+                    <dt>Role default</dt><dd class="mono">research-analyst</dd>
+                    <dt>Endpoint</dt><dd class="mono">https://agent.openclaw.ai/a2a</dd>
+                  </dl>
+                </div>
+                <div class="iw-actions">
+                  <button class="ctl-btn">Back</button>
+                  <button class="btn-save-inline"><svg class="ico sm"><use href="#i-check"/></svg>Confirm &amp; install</button>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Preview is read-only — operator may not edit name/description here
+              (use row Pencil after install). <code>supportedInterfaces</code> shown as mono comma
+              list. <code>brand</code> falls back to <b>"custom"</b> badge when the card does not match
+              a known brandKey.</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Step 3 — install progress → installed</div>
+              <div class="mini-bd">
+                <div class="iw-stepper">
+                  <span class="st done"><span class="num"><svg class="ico xs"><use href="#i-check"/></svg></span></span>
+                  <span class="div"></span>
+                  <span class="st done"><span class="num"><svg class="ico xs"><use href="#i-check"/></svg></span></span>
+                  <span class="div"></span>
+                  <span class="st active"><span class="num">3</span>Install</span>
+                </div>
+                <div class="iw-progress">
+                  <div class="iw-step-line done"><span class="ic-ok"><svg class="ico sm"><use href="#i-check"/></svg></span>Validate agent card schema</div>
+                  <div class="iw-step-line done"><span class="ic-ok"><svg class="ico sm"><use href="#i-check"/></svg></span>Resolve brand assets</div>
+                  <div class="iw-step-line"><span class="ic-run"><span class="spin"></span></span>Write to <code style="font-family:var(--mono)">external_employees</code></div>
+                  <div class="iw-step-line pend"><span class="ic-pend"><svg class="ico sm"><use href="#i-check"/></svg></span>Seat in Office scene</div>
+                </div>
+                <div class="iw-actions">
+                  <button class="ctl-btn" disabled style="opacity:.4;cursor:not-allowed">Close</button>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Atomic install — all four steps must succeed; partial failure rolls
+              back. On success, dialog auto-dismisses after 600ms and the new row appears in the
+              External list with a one-shot pulse highlight. Failure → red banner with
+              <b>Retry</b>/<b>Cancel</b>; rollback restores <code>external_employees</code> to pre-install state.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 · MCP — grouped list + add form -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">3</span><span class="t">MCP — grouped list + add form</span>
+        <span class="d"><code>components/settings/McpServersPane.tsx</code> · <code>useMcpServers()</code> · transport grouping is purely visual</span></div>
+      <div class="spec-frame">
+        <div class="spec-grid-2">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Add Server form — segmented transport switch</div>
+              <div class="mini-bd">
+                <div class="field" style="margin-bottom:var(--sp-4)">
+                  <span class="field-label">Transport</span>
+                  <div class="seg"><button class="active"><svg class="ico xs"><use href="#i-terminal"/></svg>stdio</button><button><svg class="ico xs"><use href="#i-globe"/></svg>sse</button></div>
+                </div>
+                <div class="grid-2" style="margin-bottom:var(--sp-3)">
+                  <div class="field">
+                    <span class="field-label">Server name <span class="req">*</span></span>
+                    <div class="ctl"><input placeholder="serena" /></div>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Approval ID <span class="opt">· optional</span></span>
+                    <div class="ctl mono"><input placeholder="mcp.serena.ide-assistant" /></div>
+                  </div>
+                  <div class="field span-2">
+                    <span class="field-label">Command <span class="annot" style="margin:0">(stdio mode)</span></span>
+                    <div class="ctl mono"><input placeholder="uvx --from serena serena-mcp-server" /></div>
+                  </div>
+                  <div class="field span-2">
+                    <span class="field-label">Arguments <span class="opt">· one per line</span></span>
+                    <div class="ctl area mono"><textarea placeholder="--context&#10;ide-assistant"></textarea></div>
+                  </div>
+                </div>
+                <div class="iw-actions">
+                  <button class="ctl-btn">Cancel</button>
+                  <button class="add-btn"><svg class="ico sm"><use href="#i-plus"/></svg>Add server</button>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Transport segment swaps the form body: <b>stdio</b> shows Command +
+              Args; <b>sse</b> swaps Command for a single URL field and hides Args. Approval ID is the
+              SSOT key for permission rules in <code>tool-permission-engine</code> — when omitted,
+              defaults to <code>mcp.&lt;name&gt;.&lt;approvalContext&gt;</code>.</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Configured servers — grouped by transport with count</div>
+              <div class="mini-bd">
+                <div class="mcp-group">
+                  <div class="mcp-group-head"><svg class="ico xs"><use href="#i-terminal"/></svg>Stdio · 2</div>
+                  <div class="mcp-row">
+                    <div class="mcp-info">
+                      <div class="mcp-name-row">
+                        <span class="mcp-name">serena</span>
+                        <span class="pill ok">Connected</span>
+                        <span class="chip-mini" style="font-size:9px">user-config</span>
+                      </div>
+                      <div class="mcp-cmd">uvx --from serena serena-mcp-server --context ide-assistant</div>
+                    </div>
+                    <span></span>
+                    <div class="row-actions">
+                      <button class="micro" title="Refresh tool list"><svg class="ico xs"><use href="#i-refresh"/></svg></button>
+                      <button class="micro danger" title="Delete"><svg class="ico xs"><use href="#i-trash"/></svg></button>
+                    </div>
+                  </div>
+                  <div class="mcp-row">
+                    <div class="mcp-info">
+                      <div class="mcp-name-row">
+                        <span class="mcp-name">gitnexus</span>
+                        <span class="pill muted">Disconnected</span>
+                        <span class="chip-mini" style="font-size:9px">user-config</span>
+                      </div>
+                      <div class="mcp-cmd">npx -y gitnexus mcp --repo .</div>
+                    </div>
+                    <span></span>
+                    <div class="row-actions">
+                      <button class="micro" title="Reconnect"><svg class="ico xs"><use href="#i-refresh"/></svg></button>
+                      <button class="micro danger" title="Delete"><svg class="ico xs"><use href="#i-trash"/></svg></button>
+                    </div>
+                  </div>
+                </div>
+                <div class="mcp-group">
+                  <div class="mcp-group-head"><svg class="ico xs"><use href="#i-globe"/></svg>SSE · 1</div>
+                  <div class="mcp-row">
+                    <div class="mcp-info">
+                      <div class="mcp-name-row">
+                        <span class="mcp-name">context7</span>
+                        <span class="pill info running">Connecting…</span>
+                        <span class="chip-mini" style="font-size:9px">workspace</span>
+                      </div>
+                      <div class="mcp-cmd">https://mcp.context7.com/sse</div>
+                    </div>
+                    <span></span>
+                    <div class="row-actions">
+                      <button class="micro" title="Refresh"><svg class="ico xs"><use href="#i-refresh"/></svg></button>
+                      <button class="micro danger" title="Delete"><svg class="ico xs"><use href="#i-trash"/></svg></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Groups: <b>stdio</b> (terminal icon) above <b>sse</b> (globe icon),
+              each with a count chip. Source label (<b>user-config</b> / <b>workspace</b> /
+              <b>defaults</b>) is the third item in the name row, indicates where the registration
+              comes from. Refresh and Trash are the only row-level affordances; expand-for-tools is
+              deferred to the per-row inspector (not Settings scope).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 · Stdio confirmation modal -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">4</span><span class="t">MCP stdio confirmation modal — requested tools + risk class</span>
+        <span class="d"><code>components/settings/McpStdioConfirmDialog.tsx</code> · gates first connection to any stdio server</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane" style="max-width:520px;margin:0 auto">
+          <div class="mini-cap">Modal body — risk class WARN, tool list, Confirm / Cancel</div>
+          <div class="mini-bd">
+            <div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-4)">
+              <span style="width:32px;height:32px;border-radius:var(--r-sm);background:var(--warn-surface);color:#8a5a0c;display:grid;place-items:center;flex:none"><svg class="ico sm"><use href="#i-shield"/></svg></span>
+              <div>
+                <div style="font-size:var(--fs-sm);font-weight:660;color:var(--ink-1)">Confirm stdio MCP server</div>
+                <div style="font-size:var(--fs-meta);color:var(--ink-3);margin-top:2px">Stdio servers run arbitrary local processes. Confirm the command and requested tools before connecting.</div>
+              </div>
+              <span class="pill warn" style="margin-left:auto">High risk</span>
+            </div>
+            <dl class="confirm-dl" style="margin-bottom:var(--sp-4)">
+              <dt>Server</dt><dd>serena</dd>
+              <dt>Command</dt><dd>uvx --from serena serena-mcp-server</dd>
+              <dt>Args</dt><dd>--context ide-assistant</dd>
+              <dt>Source</dt><dd>user-config</dd>
+              <dt>Approval</dt><dd>mcp.serena.ide-assistant</dd>
+            </dl>
+            <div class="subhead" style="margin:0 0 var(--sp-3)">Requested tools · 6</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:var(--fs-meta);font-family:var(--mono);color:var(--ink-2);margin-bottom:var(--sp-4)">
+              <div>find_symbol</div>
+              <div>find_referencing_symbols</div>
+              <div>get_symbols_overview</div>
+              <div>insert_after_symbol</div>
+              <div>replace_symbol_body</div>
+              <div>execute_shell_command <span class="rev-flag" style="font-size:8.5px">risk</span></div>
+            </div>
+            <div class="callout warn"><svg class="ico xs"><use href="#i-alert"/></svg>This server can read &amp; modify your workspace and execute shell commands. Only confirm sources you trust.</div>
+            <div class="iw-actions" style="margin-top:var(--sp-5)">
+              <button class="ctl-btn">Cancel</button>
+              <button class="ctl-btn ok"><svg class="ico sm"><use href="#i-check"/></svg>Confirm &amp; connect</button>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark" style="max-width:520px;margin:0 auto">Modal only fires the <i>first</i>
+          time a stdio server is brought online for this company; the decision is recorded against
+          <code>approvalId</code>. <b>Risk class</b> chip resolves from the tool surface:
+          <code>execute_shell_command</code>, <code>edit_file</code>, <code>write_file</code> flip to
+          <b>High</b>; pure read tools to <b>Medium</b>. SSE servers skip this dialog (remote, no
+          process spawn).</p>
+      </div>
+    </div>
+
+    <!-- 5 · Runtime tab — full -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">5</span><span class="t">Runtime tab — full</span>
+        <span class="d"><code>components/settings/RuntimePane.tsx</code> · density / theme / streaming / auto-debug / RuntimeBindingControl / SceneDiagnostics</span></div>
+      <div class="spec-frame">
+        <div class="spec-grid-2">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Density + Theme toggles</div>
+              <div class="mini-bd">
+                <div class="field" style="margin-bottom:var(--sp-5)">
+                  <span class="field-label">Display density</span>
+                  <div class="seg"><button>Compact</button><button class="active">Normal</button><button>Spacious</button></div>
+                  <span class="field-note">Compact tightens row padding 2px and shrinks list-row icons; Spacious does the inverse. Applied via <code>data-density</code> on <code>&lt;html&gt;</code>.</span>
+                </div>
+                <div class="field">
+                  <span class="field-label">Theme</span>
+                  <div class="seg">
+                    <button class="active"><svg class="ico xs"><use href="#i-monitor"/></svg>System</button>
+                    <button><svg class="ico xs"><use href="#i-sun"/></svg>Light</button>
+                    <button><svg class="ico xs"><use href="#i-moon"/></svg>Dark</button>
+                  </div>
+                  <span class="field-note">Following OS preference: Light. Wizards keep their dark surface regardless (<code>--wiz-*</code> tokens).</span>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Density + Theme persist in <code>local_settings.appearance</code>;
+              changes are reactive (no Save bar needed for these two — they autosave on click).</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Streaming + Auto-debug switches</div>
+              <div class="mini-bd">
+                <div class="toggle-row">
+                  <div>
+                    <div class="tr-title">Stream LLM responses</div>
+                    <div class="tr-desc">Show partial chunks in chat bubbles as they arrive from the provider. Disable if you suspect a flicker bug.</div>
+                  </div>
+                  <button class="switch on" aria-pressed="true" aria-label="Streaming on"></button>
+                </div>
+                <div class="toggle-row">
+                  <div>
+                    <div class="tr-title">Auto-debug on failure</div>
+                    <div class="tr-desc">When a run fails, automatically capture stack trace, last 50 events, and the failing node's prompt to <code>~/Library/.../debug/</code>.</div>
+                  </div>
+                  <button class="switch on" aria-pressed="true" aria-label="Auto-debug on"></button>
+                </div>
+                <div class="toggle-row">
+                  <div>
+                    <div class="tr-title">Show ceremony bubbles in 3D</div>
+                    <div class="tr-desc">Optional in narrow tier — when disabled, ceremony shows only as agent halos.</div>
+                  </div>
+                  <button class="switch" aria-pressed="false" aria-label="Bubbles off"></button>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Switch is the canonical bool control across Settings. Track is
+              <code>--line-strong</code> off, <code>--accent</code> on; thumb is 16px white circle with
+              <code>--elev-1</code>. 36×20 px, 18px transform travel.</p>
+          </div>
+        </div>
+
+        <div class="spec-grid-2" style="margin-top:18px">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">RuntimeBindingControl — company scope</div>
+              <div class="mini-bd">
+                <div class="rbc">
+                  <div class="rbc-seg">
+                    <button>Inherit</button>
+                    <button class="active"><svg class="ico xs"><use href="#i-zap"/></svg>Provider gateway</button>
+                    <button>Claude engine</button>
+                    <button>Codex engine</button>
+                  </div>
+                  <div class="rbc-resolved">
+                    Resolved: <b>Provider gateway (Offisim core)</b>
+                    <span style="color:var(--ink-4);font-family:var(--mono);font-size:var(--fs-meta)">· source: company override</span>
+                  </div>
+                  <div class="callout muted" style="margin-top:6px">
+                    <svg class="ico xs"><use href="#i-info"/></svg>
+                    Inherit falls back to user-default. Claude/Codex engines require a verified driver profile (Runtime &gt; Main harness control).
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark"><code>RuntimeBindingControl</code> is the company-scoped binding
+              picker. <b>Resolved source label</b> (<code>company override</code> /
+              <code>user default</code> / <code>workspace fallback</code>) shows where the active value
+              comes from. <b>Inherit</b> is the default and points back to the user profile; the other
+              three are explicit overrides. Disabled lanes (no verified profile) appear with reduced
+              opacity and a tooltip — not shown here.</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">SceneDiagnosticsSection</div>
+              <div class="mini-bd">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-5)">
+                  <div>
+                    <div style="font-size:var(--fs-sm);font-weight:620;color:var(--ink-1)">2D drop diagnostic</div>
+                    <div style="font-size:var(--fs-meta);color:var(--ink-3);margin-top:2px;line-height:1.5">Capture the last 10 employee→zone drag attempts (PointerEvent stream, hit results, drop decision) as JSON. Use this when reporting a drop-target bug.</div>
+                  </div>
+                  <button class="ctl-btn"><svg class="ico sm"><use href="#i-download"/></svg>Export</button>
+                </div>
+                <div style="margin-top:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--line-soft);font-size:var(--fs-meta);color:var(--ink-3);display:flex;align-items:center;gap:var(--sp-3)">
+                  <svg class="ico xs"><use href="#i-check"/></svg>
+                  Last export: <b style="color:var(--ink-1);font-weight:620">2026-05-20 14:32</b> · <span style="font-family:var(--mono)">scene-drop-diagnostic-1747752720.json</span>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Section is a thin diagnostic surface — no live preview, no
+              configuration. Export writes via <code>scene-drop-diagnostic-exporter.ts</code> to the
+              vault Downloads folder. Timestamp persists in <code>local_settings</code> so the user
+              can confirm a fresh capture before pasting evidence into a handoff.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 · Provider tab — multi-config -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">6</span><span class="t">Provider tab — multi-config, key reveal, vault row</span>
+        <span class="d"><code>components/settings/ProviderPane.tsx</code> · <code>useProviderConfigs()</code> · key field uses <code>useReveal()</code></span></div>
+      <div class="spec-frame">
+        <div class="spec-grid-2">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Multiple provider configs — rarity-row picker</div>
+              <div class="mini-bd">
+                <div class="pv-grid">
+                  <div class="pv-mini active">
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#2f6bff,#6b4dff)">M</span>
+                    <div><div class="pm-name">MiniMax Global</div><div class="pm-sub">MiniMax-M2.7 · default</div></div>
+                    <span class="pill ok">Active</span>
+                  </div>
+                  <div class="pv-mini">
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#1aa46a,#15824f)">O</span>
+                    <div><div class="pm-name">OpenAI</div><div class="pm-sub">gpt-4o-mini · backup</div></div>
+                    <span class="pill muted">Stale key</span>
+                  </div>
+                  <div class="pv-mini">
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#c98410,#8a5a0c)">R</span>
+                    <div><div class="pm-name">OpenRouter</div><div class="pm-sub">anthropic/claude-sonnet</div></div>
+                    <span class="pill muted">Unused</span>
+                  </div>
+                  <div class="pv-mini">
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#7c4ddb,#4d6bff)">A</span>
+                    <div><div class="pm-name">Anthropic</div><div class="pm-sub">claude-opus-4 · direct</div></div>
+                    <span class="pill muted">No key</span>
+                  </div>
+                  <div class="pv-mini">
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#d6453d,#b8352e)">G</span>
+                    <div><div class="pm-name">Google</div><div class="pm-sub">gemini-2.5-flash</div></div>
+                    <span class="pill muted">No key</span>
+                  </div>
+                  <div class="pv-mini">
+                    <span class="pm-logo" style="background:linear-gradient(135deg,#647186,#3c4a60)">L</span>
+                    <div><div class="pm-name">Ollama</div><div class="pm-sub">qwen2.5:14b · local</div></div>
+                    <span class="pill ok">Reachable</span>
+                  </div>
+                </div>
+                <button class="ctl-btn" style="margin-top:var(--sp-4)"><svg class="ico sm"><use href="#i-plus"/></svg>Add provider config</button>
+              </div>
+            </div>
+            <p class="annot-dark">Active config is the company default — clicking another card
+              promotes it. Pill encodes credential health: <b>Active</b> (in use), <b>Reachable</b>
+              (Ollama-style local probe), <b>Stale key</b> (older than 90d, soft warn),
+              <b>No key</b> (config present but unfunded).</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">Unified model dropdown — custom chev, no native arrow</div>
+              <div class="mini-bd">
+                <div class="field" style="margin-bottom:var(--sp-4)">
+                  <span class="field-label">Model</span>
+                  <button class="sel" type="button"><span class="sv">MiniMax-M2.7</span></button>
+                  <span class="field-note">Custom select trigger. Native <code>&lt;select&gt;</code> arrow chrome is suppressed via inline background-image — DNA §11.</span>
+                </div>
+                <div class="field" style="margin-bottom:var(--sp-4)">
+                  <span class="field-label">Secure API key</span>
+                  <div class="ctl mono">
+                    <span class="lead"><svg class="ico sm"><use href="#i-key"/></svg></span>
+                    <input type="password" value="sk-cp-9f2b7d4a1c8e3056ab47ee01" />
+                    <span class="trail reveal-key" style="cursor:pointer" title="Reveal"><svg class="ico sm"><use href="#i-eye"/></svg></span>
+                  </div>
+                  <span class="field-note">Mask on (eye reveals plaintext). Leave empty to keep stored credential. Credential destination: <b>https://api.minimax.io</b></span>
+                </div>
+                <div class="field">
+                  <span class="field-label">Preset hint</span>
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <span class="chip-mini">MiniMax Global · openai-compat</span>
+                    <span style="font-size:var(--fs-meta);color:var(--ink-3)">prefilled endpoint, headers, model list</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Eye trigger flips <code>input.type</code> between <code>password</code>
+              and <code>text</code>. Native select arrow is suppressed via the <code>.sel</code> class
+              (background SVG chev). Preset hint chip is informational only — clicking it does not
+              mutate (preset is set via product dropdown elsewhere).</p>
+          </div>
+        </div>
+
+        <div style="margin-top:18px">
+          <div class="mini-pane">
+            <div class="mini-cap">VaultDirectorySection — desktop only</div>
+            <div class="mini-bd">
+              <div style="display:grid;grid-template-columns:32px 1fr auto;gap:var(--sp-4);align-items:center">
+                <span class="vault-ico" style="width:32px;height:32px"><svg class="ico sm"><use href="#i-folder-open"/></svg></span>
+                <div>
+                  <div style="font-size:var(--fs-sm);font-weight:640;color:var(--ink-1);display:flex;align-items:center;gap:7px">Local vault location <span class="mode-tag">Desktop only</span></div>
+                  <div style="font-family:var(--mono);font-size:var(--fs-meta);color:var(--ink-3);margin-top:3px">~/Library/Application Support/com.offisim.desktop/vault</div>
+                  <div style="font-size:var(--fs-meta);color:var(--ink-3);margin-top:3px">12 employees · 184 markdown files · 8.4 MB</div>
+                </div>
+                <button class="ctl-btn"><svg class="ico sm"><use href="#i-folder-open"/></svg>Open in Finder</button>
+              </div>
+            </div>
+          </div>
+          <p class="annot-dark">Vault row is informational + one CTA — no editable path field. "Open in
+            Finder" goes through <code>opener</code> Tauri plugin
+            (<code>reveal-item-in-dir</code>). On Linux/Windows the label reads <b>"Open in file manager"</b>;
+            web variant in specimen 9.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7 · Sticky save bar — 5 states -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">7</span><span class="t">Sticky save bar — 5 states</span>
+        <span class="d"><code>components/settings/SettingsSaveBar.tsx</code> · derives state from <code>useSettingsFormStore()</code></span></div>
+      <div class="spec-frame">
+        <div class="spec-grid-2">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">a · Idle — "No changes to save" (disabled)</div>
+              <div class="mini-bd flush">
+                <div class="save-bar idle" style="position:relative">
+                  <div class="save-bar-inner">
+                    <button class="btn-save-full" disabled><svg class="ico sm"><use href="#i-check"/></svg>Save changes</button>
+                    <div class="save-tip">No changes to save</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark"><code>dirty === false &amp;&amp; status === 'idle'</code>. Button is
+              disabled, tip is muted gray.</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">b · Dirty — primary, scope listed</div>
+              <div class="mini-bd flush">
+                <div class="save-bar dirty" style="position:relative">
+                  <div class="save-bar-inner">
+                    <button class="btn-save-full"><svg class="ico sm"><use href="#i-check"/></svg>Save provider + runtime changes</button>
+                    <div class="save-tip">2 sections have unsaved changes · ⌘S to save</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Label reflects which panes are dirty: <code>"Save provider changes"</code>,
+              <code>"Save runtime changes"</code>, or both joined.</p>
+          </div>
+        </div>
+        <div class="spec-grid-2" style="margin-top:18px">
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">c · Saving — spinner</div>
+              <div class="mini-bd flush">
+                <div class="save-bar busy" style="position:relative">
+                  <div class="save-bar-inner">
+                    <button class="btn-save-full"><span class="spin-inline"></span>Saving…</button>
+                    <div class="save-tip">Persisting to local_settings</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark"><code>status === 'saving'</code>. Cursor changes to
+              <code>progress</code>; button is still clickable so a second click cancels (debounced).</p>
+          </div>
+          <div>
+            <div class="mini-pane">
+              <div class="mini-cap">d · Post-save — reinitializing runtime</div>
+              <div class="mini-bd flush">
+                <div class="save-bar busy" style="position:relative">
+                  <div class="save-bar-inner">
+                    <button class="btn-save-full"><span class="spin-inline"></span>Saving… · Reinitializing runtime</button>
+                    <div class="save-tip">Reloading provider transport for in-flight threads</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="annot-dark">Only fires when the dirty diff touches Provider or Runtime defaults.
+              Engine re-initialization can stall briefly while open threads quiesce.</p>
+          </div>
+        </div>
+        <div style="margin-top:18px">
+          <div class="mini-pane">
+            <div class="mini-cap">e · Error — inline retry</div>
+            <div class="mini-bd flush">
+              <div class="err-banner" style="margin: 0">
+                <svg class="ico sm"><use href="#i-alert"/></svg>
+                <div>
+                  <div class="eb-t">Save failed</div>
+                  <div class="eb-m">SQLITE_BUSY: database is locked — another desktop instance may be writing. Wait a moment and retry.</div>
+                </div>
+                <button class="ctl-btn eb-retry"><svg class="ico sm"><use href="#i-refresh"/></svg>Retry</button>
+              </div>
+              <div class="save-bar error" style="position:relative">
+                <div class="save-bar-inner">
+                  <button class="btn-save-full"><svg class="ico sm"><use href="#i-refresh"/></svg>Save failed — retry</button>
+                  <div class="save-tip err">Last attempt failed at 14:32:08 · 2 retries remaining</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="annot-dark">Error pairs a top-of-pane banner (specifies what failed) with a
+            red-tinted save bar (the actionable retry). Three retries before the bar disables and
+            surface escalates to "Contact support" — not specimen'd here.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8 · DiscardConfirmToast -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">8</span><span class="t">DiscardConfirmToast — Esc with unsaved changes</span>
+        <span class="d"><code>components/settings/DiscardConfirmToast.tsx</code> · global Esc handler · keydown short-circuits when toast is mounted</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane" style="max-width:560px;margin:0 auto">
+          <div class="mini-cap">Toast — anchored bottom-right of Settings shell</div>
+          <div class="mini-bd sunken" style="display:grid;place-items:center;min-height:120px">
+            <div class="toast">
+              <span style="color:#aebfff"><svg class="ico sm"><use href="#i-alert"/></svg></span>
+              <div>
+                <div class="tst-msg">Discard changes?</div>
+                <div style="font-size:var(--fs-meta);color:#9aa6b8;margin-top:2px">You have 2 unsaved sections · provider + runtime</div>
+              </div>
+              <div class="tst-acts">
+                <button class="tbtn">Keep editing</button>
+                <button class="tbtn danger">Discard</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark" style="max-width:560px;margin:0 auto">Toast appears when Esc is pressed
+          while <code>dirty === true</code>. First Esc opens the toast; second Esc within 4s confirms
+          discard. Clicking <b>Keep editing</b> dismisses the toast and returns focus to the last
+          edited field. <b>Discard</b> rolls the form store back to the last persisted snapshot and
+          closes Settings if it was opened as a dialog.</p>
+      </div>
+    </div>
+
+    <!-- 9 · VaultDirectorySection on web (disabled) -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">9</span><span class="t">VaultDirectorySection — web (disabled stub)</span>
+        <span class="d"><code>components/settings/VaultDirectorySection.tsx</code> · renders disabled variant when <code>!isTauri()</code></span></div>
+      <div class="spec-frame">
+        <div class="mini-pane" style="max-width:560px;margin:0 auto">
+          <div class="mini-cap">Web — Desktop-only stub</div>
+          <div class="mini-bd">
+            <div class="card-block vault-card disabled" style="margin:0">
+              <div class="vault-head">
+                <span class="vault-ico"><svg class="ico sm"><use href="#i-folder-open"/></svg></span>
+                <div>
+                  <div class="vault-title">Local vault location <span class="mode-tag">Desktop only</span></div>
+                  <div class="vault-sub">Vault management lives in the desktop app. The web build cannot mount a local directory.</div>
+                </div>
+              </div>
+              <div class="vault-status">
+                Open the desktop app to manage your vault, see file counts, and reveal the folder in Finder.
+              </div>
+              <div class="vault-actions">
+                <button class="ctl-btn" disabled><svg class="ico sm"><use href="#i-folder-open"/></svg>Open in Finder</button>
+                <a href="#" style="font-size:var(--fs-meta);color:var(--accent);font-weight:620;align-self:center;text-decoration:none">Download desktop app →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark" style="max-width:560px;margin:0 auto">Disabled variant keeps the same
+          shell so the user understands the feature exists. Action button is non-interactive
+          (<code>disabled</code> attribute + dimmed). The "Download desktop app" link is the only live
+          affordance and points to the release page.</p>
+      </div>
+    </div>
+
+    <!-- 10 · Provider validation half-record reject -->
+    <div class="spec-state">
+      <div class="spec-cap"><span class="n">10</span><span class="t">Provider validation — half-record reject</span>
+        <span class="d"><code>components/settings/ProviderPane.tsx</code> · <code>useProviderValidation()</code> · save bar blocks until resolved</span></div>
+      <div class="spec-frame">
+        <div class="mini-pane" style="max-width:620px;margin:0 auto">
+          <div class="mini-cap">Inline validation — missing apiKey, field highlight</div>
+          <div class="mini-bd">
+            <div class="err-banner" style="margin-bottom:var(--sp-5)">
+              <svg class="ico sm"><use href="#i-alert"/></svg>
+              <div>
+                <div class="eb-t">Provider config incomplete</div>
+                <div class="eb-m">Missing required field: <b>apiKey</b>. Save is blocked until all required fields are present.</div>
+              </div>
+            </div>
+            <div class="field" style="margin-bottom:var(--sp-4)">
+              <span class="field-label">Product</span>
+              <button class="sel" type="button"><span class="sv">OpenAI</span></button>
+            </div>
+            <div class="field" style="margin-bottom:var(--sp-4)">
+              <span class="field-label">Model</span>
+              <div class="ctl mono"><input value="gpt-4o-mini" /></div>
+            </div>
+            <div class="field">
+              <span class="field-label">Secure API key <span class="req">*</span></span>
+              <div class="ctl mono invalid">
+                <span class="lead" style="color:#b8352e"><svg class="ico sm"><use href="#i-key"/></svg></span>
+                <input type="password" value="" placeholder="sk-…" />
+              </div>
+              <span class="field-err"><svg class="ico xs"><use href="#i-alert"/></svg>API key is required for this product. Either paste a key or remove this provider config.</span>
+            </div>
+            <div class="iw-actions">
+              <button class="ctl-btn">Remove config</button>
+              <button class="btn-save-inline" disabled style="opacity:.4;cursor:not-allowed">Save (1 issue)</button>
+            </div>
+          </div>
+        </div>
+        <p class="annot-dark" style="max-width:620px;margin:0 auto">Half-record reject — a provider
+          config that is partially edited but missing required fields cannot be persisted. The save
+          bar also reflects this state with tip <code>"Resolve validation issues before saving"</code>
+          (specimen 7a variant). Removing the config dismisses the error; pasting the key clears the
+          field highlight reactively.</p>
       </div>
     </div>
   </div>

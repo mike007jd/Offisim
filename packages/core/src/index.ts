@@ -310,6 +310,11 @@ export { InMemoryEventBus } from './events/event-bus.js';
 export { InMemoryMemoryRepository } from './repositories/memory-memory-repository.js';
 export {
   employeeStateChanged,
+  companyStartupRequested,
+  companyStartupStarted,
+  companyStartupCompleted,
+  companyStartupSkipped,
+  companyStartupFailed,
   taskStateChanged,
   taskAssignmentChanged,
   taskAssignmentRerouted,
