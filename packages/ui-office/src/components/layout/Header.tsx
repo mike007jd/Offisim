@@ -76,7 +76,6 @@ const DRAWER_STACK_ID = 'header:workspace-drawer';
 
 interface HeaderSlots {
   title: string;
-  showTitle: boolean;
   viewMode: ReactNode;
   company: ReactNode;
   project: ReactNode;
@@ -85,7 +84,7 @@ interface HeaderSlots {
   apiSettings: ReactNode;
   mode: ReactNode;
   officeTools: ReactNode;
-  fileImport: ReactNode;
+  marketActions: ReactNode;
 }
 
 /** Peers that render as centered nav pills (vs. the Activity/Settings iconbar). */
@@ -133,7 +132,6 @@ export function Header({
 
   const slots: HeaderSlots = {
     title: isOffice ? companyName || 'Office' : workspaceTitle || 'Workspace',
-    showTitle: !isOffice,
     viewMode:
       isOffice && viewMode && onViewModeChange ? (
         <ViewModeToggle
@@ -183,7 +181,10 @@ export function Header({
       isOffice && officeTools && officeTools.length > 0 ? (
         <OfficeToolBar items={officeTools} />
       ) : null,
-    fileImport: <FileImportTrigger onFileSelect={onFileImport} compact />,
+    marketActions:
+      activeWorkspace === 'market' ? (
+        <FileImportTrigger onFileSelect={onFileImport} compact />
+      ) : null,
   };
 
   if (isNarrow) {
@@ -224,11 +225,6 @@ function DesktopHeader({ slots }: { slots: HeaderSlots }) {
   return (
     <header className="relative flex h-14 items-center gap-sp-5 px-sp-5 text-ink-1">
       <div className="flex min-w-0 basis-80 items-center gap-2 overflow-hidden">
-        {slots.showTitle && (
-          <h1 className="truncate text-sm font-semibold tracking-wide text-text-primary">
-            {slots.title}
-          </h1>
-        )}
         {slots.viewMode}
         {slots.company}
         {slots.project}
@@ -242,7 +238,7 @@ function DesktopHeader({ slots }: { slots: HeaderSlots }) {
       <div className="ml-auto flex min-w-0 items-center justify-end gap-2 overflow-hidden">
         {slots.apiSettings}
         {slots.mode}
-        {slots.fileImport}
+        {slots.marketActions}
         {slots.iconbar}
       </div>
     </header>
@@ -353,7 +349,7 @@ function NarrowHeader({
               {isOffice && slots.officeTools ? (
                 <div className="rounded-lg p-1">{slots.officeTools}</div>
               ) : null}
-              {slots.fileImport}
+              {slots.marketActions}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
