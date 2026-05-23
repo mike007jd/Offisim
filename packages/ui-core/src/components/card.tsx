@@ -33,6 +33,13 @@ const CardTitle = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 );
 CardTitle.displayName = 'CardTitle';
 
+const CardDescription = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn('text-sm text-text-muted', className)} {...props} />
+  ),
+);
+CardDescription.displayName = 'CardDescription';
+
 const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div ref={ref} className={cn('p-4 pt-0', className)} {...props} />
@@ -54,4 +61,4 @@ const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 );
 CardFooter.displayName = 'CardFooter';
 
-export { Card, CardHeader, CardTitle, CardContent, CardFooter };
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };

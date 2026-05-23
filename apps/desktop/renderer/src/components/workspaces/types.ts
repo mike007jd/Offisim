@@ -168,6 +168,9 @@ export interface WorkspaceRouterProps {
   marketPageProps?: {
     onStartInstall?: (listingId: string, version: string) => void;
   };
+  sopsPageProps?: {
+    onOpenTemplates?: () => void;
+  };
   activityLogPageProps?: {
     onBackToOffice?: () => void;
   };

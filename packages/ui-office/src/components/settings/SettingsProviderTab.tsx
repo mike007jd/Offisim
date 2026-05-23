@@ -187,103 +187,104 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   );
 
   return (
-    <div className="grid min-h-0 gap-6 xl:grid-settings-provider">
-      <div className="flex flex-col gap-3">
-        <SectionLabel htmlFor="settings-provider-product">Product</SectionLabel>
-        <Select value={productId} onValueChange={handleProductChange}>
-          <SelectTrigger id="settings-provider-product" className={surfaceInputProps()}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.values(availableProducts).map((product) => (
-              <SelectItem key={product.productId} value={product.productId}>
-                {product.displayName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div ref={providerTargetRef} className="flex min-h-0 flex-col gap-sp-4">
+      <SettingsSection title="Product and access" description={routingDescription}>
+        {resolvedSummary}
+        <div className="grid gap-sp-4 md:grid-cols-2">
+          <div>
+            <SectionLabel htmlFor="settings-provider-product">Product</SectionLabel>
+            <Select value={productId} onValueChange={handleProductChange}>
+              <SelectTrigger id="settings-provider-product" className={surfaceInputProps()}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(availableProducts).map((product) => (
+                  <SelectItem key={product.productId} value={product.productId}>
+                    {product.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <SectionLabel htmlFor="settings-provider-access">Access mode</SectionLabel>
-        <Select
-          value={accessMode}
-          onValueChange={(value) => handleAccessModeChange(value as typeof accessMode)}
-        >
-          <SelectTrigger id="settings-provider-access" className={surfaceInputProps()}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {availableAccessModes.map((mode) => (
-              <SelectItem key={mode.accessMode} value={mode.accessMode}>
-                {mode.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <div>
+            <SectionLabel htmlFor="settings-provider-access">Access mode</SectionLabel>
+            <Select
+              value={accessMode}
+              onValueChange={(value) => handleAccessModeChange(value as typeof accessMode)}
+            >
+              <SelectTrigger id="settings-provider-access" className={surfaceInputProps()}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableAccessModes.map((mode) => (
+                  <SelectItem key={mode.accessMode} value={mode.accessMode}>
+                    {mode.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <p className="text-xs text-text-muted" title={selectedCapabilities}>
           {selectedAccess?.description || selectedCapabilities}
         </p>
+      </SettingsSection>
 
-        <div className="xl:hidden">{resolvedSummary}</div>
-      </div>
+      <SettingsSection title="Model and credentials" description={laneHelp}>
+        <div>
+          <SectionLabel htmlFor="settings-model">Model</SectionLabel>
+          <Input
+            id="settings-model"
+            value={model}
+            list={modelOptions.length > 0 ? 'settings-provider-model-options' : undefined}
+            onChange={(event) => {
+              const nextModel = event.target.value;
+              setModel(nextModel);
+              setRuntimeModelDefault((prev) => ({
+                ...prev,
+                provider:
+                  resolvedSelection?.provider ?? selectedVariant?.provider ?? 'openai-compat',
+                model: nextModel,
+              }));
+            }}
+            placeholder="model-name"
+            className={surfaceInputProps('font-mono text-sm')}
+          />
+          {modelOptions.length > 0 ? (
+            <datalist id="settings-provider-model-options">
+              {modelOptions.map((modelId) => (
+                <option key={modelId} value={modelId} />
+              ))}
+            </datalist>
+          ) : null}
+        </div>
 
-      <div ref={providerTargetRef} className="flex flex-col gap-4">
-        <div className="hidden xl:block">{resolvedSummary}</div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="lg:col-span-2">
-            <SectionLabel htmlFor="settings-model">Model</SectionLabel>
+        {showApiKeyField ? (
+          <div>
+            <SectionLabel htmlFor="settings-api-key">Secure API key</SectionLabel>
             <Input
-              id="settings-model"
-              value={model}
-              list={modelOptions.length > 0 ? 'settings-provider-model-options' : undefined}
-              onChange={(event) => {
-                const nextModel = event.target.value;
-                setModel(nextModel);
-                setRuntimeModelDefault((prev) => ({
-                  ...prev,
-                  provider:
-                    resolvedSelection?.provider ?? selectedVariant?.provider ?? 'openai-compat',
-                  model: nextModel,
-                }));
-              }}
-              placeholder="model-name"
-              className={surfaceInputProps('font-mono text-sm')}
+              id="settings-api-key"
+              type="password"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder={apiKeyPlaceholder}
+              className={surfaceInputProps()}
             />
-            {modelOptions.length > 0 ? (
-              <datalist id="settings-provider-model-options">
-                {modelOptions.map((modelId) => (
-                  <option key={modelId} value={modelId} />
-                ))}
-              </datalist>
+            {IS_DESKTOP && hasStoredSecret ? (
+              <p className="mt-2 text-xs text-text-muted">
+                Leave empty to keep the stored credential.
+              </p>
+            ) : null}
+            {IS_DESKTOP ? (
+              <p className="mt-2 break-all text-xs text-text-muted">
+                Credential destination: {credentialDestination}
+              </p>
             ) : null}
           </div>
-
-          {showApiKeyField ? (
-            <div className="lg:col-span-2">
-              <SectionLabel htmlFor="settings-api-key">Secure API key</SectionLabel>
-              <Input
-                id="settings-api-key"
-                type="password"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder={apiKeyPlaceholder}
-                className={surfaceInputProps()}
-              />
-              {IS_DESKTOP && hasStoredSecret ? (
-                <p className="mt-2 text-xs text-text-muted">
-                  Leave empty to keep the stored credential.
-                </p>
-              ) : null}
-              {IS_DESKTOP ? (
-                <p className="mt-2 break-all text-xs text-text-muted">
-                  Credential destination: {credentialDestination}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="lg:col-span-2 text-xs text-text-muted">Credentials managed by host.</p>
-          )}
-        </div>
+        ) : (
+          <p className="text-xs text-text-muted">Credentials managed by host.</p>
+        )}
 
         {isThinkingProvider ? (
           <p className="text-xs text-warning">Thinking model — keep max tokens at 1024+.</p>
@@ -293,157 +294,143 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             Runtime binding activates only when a trusted host resolver is available.
           </p>
         ) : null}
+      </SettingsSection>
 
-        <details className="rounded-lg border border-border-default bg-surface-muted px-3 py-2">
-          <summary className="cursor-pointer text-sm font-semibold text-text-primary">
-            Advanced model catalog
-          </summary>
-          <div className="mt-3 flex flex-col gap-3">
-            <header className="flex items-baseline justify-between gap-3">
-              <div>
-                <h4 className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
-                  Model catalog refresh
-                </h4>
-                <p className="mt-1 text-xs text-text-muted">{providerListPullSummary}</p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                disabled={isPullingProviderList}
-                aria-busy={isPullingProviderList || undefined}
-                onClick={handleProviderListPull}
+      <SettingsSection
+        title="Model catalog"
+        description={providerListPullSummary}
+        action={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={isPullingProviderList}
+            aria-busy={isPullingProviderList || undefined}
+            onClick={handleProviderListPull}
+          >
+            {isPullingProviderList ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <RefreshCw className="size-3.5" aria-hidden="true" />
+            )}
+            Refresh
+          </Button>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+          <Badge className="text-caption uppercase tracking-wide">Agent scoped</Badge>
+          <span>
+            {providerListPull
+              ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
+              : 'Refresh updates model suggestions without changing saved credentials.'}
+          </span>
+        </div>
+        {providerListPull ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {providerListPull.sources.map((source) => (
+              <div
+                key={source.sourceId}
+                className="rounded-md border border-border-default bg-surface px-2 py-1.5"
               >
-                {isPullingProviderList ? (
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-                ) : (
-                  <RefreshCw className="size-3.5" aria-hidden="true" />
-                )}
-                Refresh catalog
-              </Button>
-            </header>
-            <div className="flex flex-col gap-2 text-xs text-text-muted">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="text-caption uppercase tracking-wide">Agent scoped</Badge>
-                <span>
-                  {providerListPull
-                    ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
-                    : 'Refresh updates model suggestions without changing saved credentials.'}
-                </span>
+                <p className="font-medium text-text-secondary">{source.label}</p>
+                <p className="mt-0.5 text-xs text-text-muted">{formatSourceSummary(source)}</p>
               </div>
-              {providerListPull ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {providerListPull.sources.map((source) => (
-                    <div
-                      key={source.sourceId}
-                      className="rounded-md border border-border-default bg-surface px-2 py-1.5"
-                    >
-                      <p className="font-medium text-text-secondary">{source.label}</p>
-                      <p className="mt-0.5 text-text-muted">{formatSourceSummary(source)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              {providerListPullError ? (
-                <p className="rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-warning">
-                  Last refresh failed: {providerListPullError}
-                </p>
-              ) : null}
-            </div>
+            ))}
           </div>
-        </details>
+        ) : null}
+        {providerListPullError ? (
+          <p className="rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-warning">
+            Last refresh failed: {providerListPullError}
+          </p>
+        ) : null}
+      </SettingsSection>
 
-        <SettingsSection title="Advanced routing" description={routingDescription}>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {showVariantSelector ? (
-              <div className="lg:col-span-2">
-                <SectionLabel htmlFor="settings-provider-variant">Provider variant</SectionLabel>
-                <Select value={providerVariantId} onValueChange={handleVariantChange}>
-                  <SelectTrigger id="settings-provider-variant" className={surfaceInputProps()}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableProviderVariants.map((variant) => (
-                      <SelectItem key={variant.providerVariantId} value={variant.providerVariantId}>
-                        {variant.displayName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
-
-            {showEndpointOverride ? (
-              <div className="lg:col-span-2">
-                <SectionLabel htmlFor="settings-endpoint-override">Endpoint override</SectionLabel>
-                <Input
-                  id="settings-endpoint-override"
-                  value={endpointOverride}
-                  onChange={(event) => setEndpointOverride(event.target.value)}
-                  placeholder={selectedVariant?.baseURL ?? 'https://api.example.com/v1'}
-                  className={surfaceInputProps('font-mono text-sm')}
-                />
-                <p className="mt-2 text-xs text-text-muted">
-                  Leave empty to use the product default.
-                </p>
-              </div>
-            ) : null}
-
-            <div className="lg:col-span-2">
-              <SectionLabel htmlFor="settings-execution-lane">Execution lane</SectionLabel>
-              <Select
-                value={executionLane}
-                onValueChange={(value) => {
-                  if (isLlmExecutionLane(value)) {
-                    setExecutionLane(value);
-                  }
-                }}
-              >
-                <SelectTrigger id="settings-execution-lane" className={surfaceInputProps()}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {supportedExecutionLanes.map((lane) => (
-                    <SelectItem key={lane} value={lane}>
-                      {EXECUTION_LANE_LABELS[lane]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="mt-2 text-xs text-text-muted">
-                {verifiedExecutionLanes.length > supportedExecutionLanes.length
-                  ? 'Other lanes exist in metadata but cannot run on this host.'
-                  : laneHelp}
-              </p>
-            </div>
-
-            <div className="lg:col-span-2">
-              <SectionLabel htmlFor="settings-default-headers">Default headers</SectionLabel>
-              <Textarea
-                id="settings-default-headers"
-                value={defaultHeaders}
-                onChange={(event) => setDefaultHeaders(event.target.value)}
-                placeholder='{"HTTP-Referer":"https://example.com"}'
-                className={surfaceInputProps('min-h-provider-headers font-mono text-sm')}
-              />
-              <p className="mt-2 text-xs text-text-muted">JSON merged into transport headers.</p>
-            </div>
-
-            <div className="lg:col-span-2 text-xs text-text-muted">
-              <span className="font-semibold uppercase tracking-wide text-text-secondary">
-                Effective endpoint
-              </span>
-              <p className="mt-1 break-all font-mono text-sm text-text-primary">
-                {effectiveEndpoint || 'Resolved at runtime'}
-              </p>
-              {selectedVariant?.notes ? (
-                <p className="mt-2 text-xs text-text-muted">{selectedVariant.notes}</p>
-              ) : null}
-            </div>
+      <SettingsSection title="Advanced routing" description={routingDescription}>
+        {showVariantSelector ? (
+          <div>
+            <SectionLabel htmlFor="settings-provider-variant">Provider variant</SectionLabel>
+            <Select value={providerVariantId} onValueChange={handleVariantChange}>
+              <SelectTrigger id="settings-provider-variant" className={surfaceInputProps()}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableProviderVariants.map((variant) => (
+                  <SelectItem key={variant.providerVariantId} value={variant.providerVariantId}>
+                    {variant.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </SettingsSection>
-      </div>
+        ) : null}
+
+        {showEndpointOverride ? (
+          <div>
+            <SectionLabel htmlFor="settings-endpoint-override">Endpoint override</SectionLabel>
+            <Input
+              id="settings-endpoint-override"
+              value={endpointOverride}
+              onChange={(event) => setEndpointOverride(event.target.value)}
+              placeholder={selectedVariant?.baseURL ?? 'https://api.example.com/v1'}
+              className={surfaceInputProps('font-mono text-sm')}
+            />
+            <p className="mt-2 text-xs text-text-muted">Leave empty to use the product default.</p>
+          </div>
+        ) : null}
+
+        <div>
+          <SectionLabel htmlFor="settings-execution-lane">Execution lane</SectionLabel>
+          <Select
+            value={executionLane}
+            onValueChange={(value) => {
+              if (isLlmExecutionLane(value)) {
+                setExecutionLane(value);
+              }
+            }}
+          >
+            <SelectTrigger id="settings-execution-lane" className={surfaceInputProps()}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {supportedExecutionLanes.map((lane) => (
+                <SelectItem key={lane} value={lane}>
+                  {EXECUTION_LANE_LABELS[lane]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-2 text-xs text-text-muted">
+            {verifiedExecutionLanes.length > supportedExecutionLanes.length
+              ? 'Other lanes exist in metadata but cannot run on this host.'
+              : laneHelp}
+          </p>
+        </div>
+
+        <div>
+          <SectionLabel htmlFor="settings-default-headers">Default headers</SectionLabel>
+          <Textarea
+            id="settings-default-headers"
+            value={defaultHeaders}
+            onChange={(event) => setDefaultHeaders(event.target.value)}
+            placeholder='{"HTTP-Referer":"https://example.com"}'
+            className={surfaceInputProps('min-h-provider-headers font-mono text-sm')}
+          />
+          <p className="mt-2 text-xs text-text-muted">JSON merged into transport headers.</p>
+        </div>
+
+        <div className="text-xs text-text-muted">
+          <span className="font-semibold uppercase tracking-wide text-text-secondary">
+            Effective endpoint
+          </span>
+          <p className="mt-1 break-all font-mono text-sm text-text-primary">
+            {effectiveEndpoint || 'Resolved at runtime'}
+          </p>
+          {selectedVariant?.notes ? (
+            <p className="mt-2 text-xs text-text-muted">{selectedVariant.notes}</p>
+          ) : null}
+        </div>
+      </SettingsSection>
     </div>
   );
 }

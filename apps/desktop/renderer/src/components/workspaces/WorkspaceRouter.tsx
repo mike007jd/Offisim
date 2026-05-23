@@ -91,6 +91,7 @@ export function WorkspaceRouter({
   sessionState,
   updateWorkspaceState,
   marketPageProps,
+  sopsPageProps,
   activityLogPageProps,
   settingsPageProps,
   personnelPageProps,
@@ -186,6 +187,7 @@ export function WorkspaceRouter({
           <SopViewSurface
             sessionState={sessionState.sops}
             onSessionStateChange={handleSopsChange}
+            onOpenTemplates={sopsPageProps?.onOpenTemplates}
           />
         )}
 

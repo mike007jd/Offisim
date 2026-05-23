@@ -1,3 +1,4 @@
+import { Card, CardContent } from '@offisim/ui-core';
 import type { ReactNode } from 'react';
 
 export function SettingsSection({
@@ -12,19 +13,21 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-sp-3">
+    <section className="flex flex-col gap-sp-3">
       <header className="flex items-baseline justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h3 className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
             {title}
           </h3>
-          {description ? <p className="mt-1 text-xs text-text-muted">{description}</p> : null}
+          {description ? (
+            <p className="mt-1 text-fs-sm leading-relaxed text-ink-3">{description}</p>
+          ) : null}
         </div>
         {action}
       </header>
-      <div className="flex flex-col gap-3 rounded-r-md border border-line-soft bg-surface-1 p-4 shadow-elev-1">
-        {children}
-      </div>
+      <Card className="rounded-r-md border-line-soft bg-surface-1 shadow-elev-1">
+        <CardContent className="flex flex-col gap-3 p-4">{children}</CardContent>
+      </Card>
     </section>
   );
 }

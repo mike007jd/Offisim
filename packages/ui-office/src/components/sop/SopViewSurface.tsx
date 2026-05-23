@@ -46,6 +46,7 @@ export type SopSessionState = {
 export interface SopViewSurfaceProps {
   sessionState: SopSessionState;
   onSessionStateChange: (updater: (prev: SopSessionState) => SopSessionState) => void;
+  onOpenTemplates?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,7 +103,11 @@ function newSopRunId(): string {
 // SopViewSurface — entry component for the SOP workspace
 // ---------------------------------------------------------------------------
 
-export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSurfaceProps) {
+export function SopViewSurface({
+  sessionState,
+  onSessionStateChange,
+  onOpenTemplates,
+}: SopViewSurfaceProps) {
   const { tier } = useLayoutTier();
   const [persistedSidebar, setPersistedSidebar] = useSidebarCollapse('sops');
   const { sops, loading, error, deleteSop, refreshSops } = useSops();
@@ -657,6 +662,7 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             hasNoSops={sops.length === 0}
             onCreateClick={() => setEditorOpen(true)}
             onImportClick={() => setImportOpen(true)}
+            onTemplateClick={onOpenTemplates}
           />
         ) : (
           <SopDagCanvas

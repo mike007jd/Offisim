@@ -161,6 +161,16 @@ export function AppMainShell(props: AppMainShellProps) {
     },
     [onSelectWorkspace, updateWorkspaceState],
   );
+  const handleOpenSopTemplates = useCallback(() => {
+    updateWorkspaceState('market', (prev) => ({
+      ...prev,
+      mode: 'explore',
+      selectedListingId: null,
+      search: '',
+      kind: 'sop',
+    }));
+    onSelectWorkspace('market');
+  }, [onSelectWorkspace, updateWorkspaceState]);
   const projectSelectorProps = useMemo(
     () => ({
       projects,
@@ -272,6 +282,7 @@ export function AppMainShell(props: AppMainShellProps) {
             sessionState={workspaceSessionState}
             updateWorkspaceState={updateWorkspaceState}
             marketPageProps={{ onStartInstall: onStartMarketInstall }}
+            sopsPageProps={{ onOpenTemplates: handleOpenSopTemplates }}
             activityLogPageProps={{ onBackToOffice: handleBackToOffice }}
             personnelPageProps={{
               onOpenCreator: onOpenEmployeeCreator,
