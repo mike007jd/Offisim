@@ -1,28 +1,17 @@
 ## MODIFIED Requirements
 
-### Requirement: Market listing card surfaces a cover hero, kind chip, install state, and creator identity
+### Requirement: Market listing card surfaces dense inventory metadata without decorative cover art
 
-The Market Explore card SHALL be a dense V3 inventory chip (height `h-market-listing-card`, `--r-md` radius, `--line-soft` border, `--elev-1`). Its cover SHALL be an **88px band** that renders a kind-specific cover visualization keyed off `listing.kind` (always present) — `kv-employee` (gradient avatar + skill tags), `kv-skill` (permission risk strip + capability glyphs), `kv-sop` (DAG progress pips + role sequence), `kv-template` / `company_template` (role color ribbon), `kv-layout` / `office_layout` (floor-plan sketch), `kv-prefab` (isometric geometry line drawing), `kv-bundle` (overlapping contents stack). The band SHALL be tinted by the rarity surface alias (`--rcs`); the featured variant SHALL use a rarity radial-gradient cover. The card SHALL NOT render a full-bleed 16:9 SaaS image hero. When no kind visualization applies (legacy / spec-thumbnail state), the cover SHALL fall back to the icon-only tile (`48×48` kind icon on an `--accent-surface` / `--rcs` tile centered in the band) — never empty space and never a broken-image marker. A curated/featured listing whose preview is content-fit MAY additionally render a small thumb (`≤ 96×64`, not full-bleed) alongside the icon tile.
+The Market Explore card SHALL be a dense V3 inventory chip (height `h-market-listing-card`, `--r-md` radius, `--line-soft` border, `--elev-1`). The card SHALL NOT render a full-bleed 16:9 SaaS image hero and SHALL NOT render a decorative per-kind SVG / illustration cover. Its header SHALL render a compact kind icon tile, creator handle, title, kind chip, and `Installed` badge when applicable. Its body SHALL render summary and tags. Its footer SHALL render stats (stars in `--warn`, install count in mono, verification state). A rarity accent (per the rarity CSS-var aliases, `var(--rc)`) SHALL render as a top stripe.
 
-The card SHALL overlay the kind chip on the cover, and SHALL overlay an `Installed` badge when the active company has the listing installed (matched by either `listing_id` or `package_id::version`). The card SHALL show the creator handle + a verification dot when the creator is `verified` or `trusted`, and a stats row (stars in `--warn`, install count in mono, creator handle). A rarity accent (per the rarity CSS-var aliases, `var(--rc)`) SHALL render as a top stripe.
+The `Installed` badge SHALL render when the active company has the listing installed (matched by either `listing_id` or `package_id::version`). The card SHALL show the creator handle and verification state when the creator is `verified` or `trusted`.
 
-#### Scenario: Card renders a kind-specific cover visualization by default
+#### Scenario: Card renders dense metadata without cover art
 
 - **WHEN** a listing is rendered in the Explore grid
-- **THEN** the card cover SHALL render the per-kind cover visualization (`kv-<kind>`) keyed off `listing.kind` in an 88px band, tinted by the rarity surface alias
-- **AND** the kind chip SHALL overlay the cover
-- **AND** the card SHALL NOT render a full-bleed 16:9 image hero
-
-#### Scenario: Cover falls back to icon-only tile when no kind visualization applies
-
-- **WHEN** a listing has no applicable kind visualization (legacy / spec-thumbnail state)
-- **THEN** the card SHALL render the icon-only fallback (`48×48` kind icon on an `--rcs` / `--accent-surface` tile centered in the 88px band)
-- **AND** SHALL NOT show empty space or a broken-image marker
-
-#### Scenario: Curated listing may show a small thumb
-
-- **WHEN** a listing is curated/featured with a content-fit preview
-- **THEN** the card MAY render an optional `≤ 96×64` thumb (not full-bleed) alongside the icon tile
+- **THEN** the card SHALL render a compact header with kind icon tile, title, creator, Installed badge, and kind chip
+- **AND** the body SHALL render summary/tags and the footer SHALL render stats
+- **AND** the card SHALL NOT render a full-bleed 16:9 image hero or decorative SVG/illustration cover
 
 #### Scenario: Installed badge survives catalog re-seed
 
@@ -34,7 +23,7 @@ The card SHALL overlay the kind chip on the cover, and SHALL overlay an `Install
 
 ### Requirement: Market card grid SHALL use the V3 dense density
 
-The card grid SHALL use `grid-template-columns: repeat(auto-fill, minmax(252px, 1fr))` with `14px` gap and `--sp-7` (16px) padding. A featured listing SHALL span two columns (`grid-column: span 2`) and its cover band SHALL use the rarity radial-gradient treatment. There SHALL be no full-bleed image hero strip ≥ 80px tall on routine cards (the 88px cover band carries the per-kind visualization, not a SaaS image hero).
+The card grid SHALL use `grid-template-columns: repeat(auto-fill, minmax(252px, 1fr))` with `14px` gap and `--sp-7` (16px) padding. A featured listing SHALL span two columns (`grid-column: span 2`). There SHALL be no full-bleed image hero strip or decorative SVG cover on routine cards.
 
 #### Scenario: Grid is dense auto-fill
 
@@ -44,7 +33,7 @@ The card grid SHALL use `grid-template-columns: repeat(auto-fill, minmax(252px, 
 #### Scenario: Featured card spans two columns
 
 - **WHEN** a listing is marked featured
-- **THEN** its card SHALL span two grid columns and render the rarity radial-gradient cover
+- **THEN** its card SHALL span two grid columns while keeping the same dense inventory grammar
 
 ### Requirement: Market filter bar SHALL use segmented chip-grammar without native select chrome
 
@@ -72,13 +61,13 @@ In the desktop/tablet tier, selecting a listing SHALL open `MarketDetailView` as
 
 ### Requirement: Market rarity SHALL be expressed via CSS-var aliases
 
-Rarity SHALL be expressed via CSS-var aliases keyed by kind: employee → accent, skill → violet, sop/prefab → warn, company_template → violet, office_layout → danger, bundle → ink-3 (fallback ink-3). Each alias SHALL carry a paired surface alias (`--r-<kind>-s` → the kind's surface token, e.g. `--accent-surface`, `--violet-surface`, fallback `--surface-sunken`). The card SHALL consume the resolved rarity color (`var(--rc)`) for its top stripe and badge, and the rarity surface (`var(--rcs)`) for the cover-band tint.
+Rarity SHALL be expressed via CSS-var aliases keyed by kind: employee → accent, skill → violet, sop/prefab → warn, company_template → violet, office_layout → danger, bundle → ink-3 (fallback ink-3). Each alias SHALL carry a paired surface alias (`--r-<kind>-s` → the kind's surface token, e.g. `--accent-surface`, `--violet-surface`, fallback `--surface-sunken`). The card SHALL consume the resolved rarity color (`var(--rc)`) for its top stripe and badge.
 
 #### Scenario: Rarity color maps by kind
 
 - **WHEN** a card of a given kind renders
 - **THEN** its rarity stripe/badge color SHALL resolve through the `--r-<kind>` alias (e.g. employee → accent, skill → violet, bundle → ink-3)
-- **AND** its cover-band tint SHALL resolve through the paired `--r-<kind>-s` surface alias
+- **AND** any rarity surface accent SHALL resolve through the paired `--r-<kind>-s` surface alias
 
 ### Requirement: V3 Market redo SHALL preserve install singularity and dual installed-identity matching
 

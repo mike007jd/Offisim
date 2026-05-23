@@ -1,9 +1,15 @@
 import type { ListingSummary } from '@offisim/registry-client';
 import { Badge, Card, CardButton, cn } from '@offisim/ui-core';
 import { Download, Star } from 'lucide-react';
-import { CoverIconTile, MarketCoverViz, hasCoverViz } from './MarketCoverViz.js';
 import { getRarityClasses } from './market-rarity.js';
-import { INSTALLABLE_KINDS, KIND_ICON, formatInstallCount } from './marketplace-meta.js';
+import {
+  INSTALLABLE_KINDS,
+  KIND_ICON,
+  formatCreatorVerificationLabel,
+  formatInstallCount,
+  formatMarketKindLabel,
+  isVerifiedCreator,
+} from './marketplace-meta.js';
 
 export interface MarketListingCardProps {
   readonly listing: ListingSummary;
@@ -23,8 +29,9 @@ export function MarketListingCard({
   const Icon = KIND_ICON[listing.kind];
   const showInstalled = installed === true && INSTALLABLE_KINDS.has(listing.kind);
   const verification = listing.creator.verification_state;
-  const verified = verification === 'verified' || verification === 'trusted';
+  const verified = isVerifiedCreator(verification);
   const rarity = getRarityClasses(listing.kind);
+  const kindLabel = formatMarketKindLabel(listing.kind);
 
   return (
     <Card
@@ -49,49 +56,68 @@ export function MarketListingCard({
           aria-hidden="true"
         />
 
-        <div
-          className={cn(
-            'relative h-24 flex-none overflow-hidden border-b border-line-soft',
-            rarity.cover,
-          )}
-        >
-          {hasCoverViz(listing.kind) ? (
-            <MarketCoverViz listing={listing} />
-          ) : (
-            <CoverIconTile kind={listing.kind} />
-          )}
-
-          {showInstalled && (
-            <Badge
-              variant="success"
-              size="xs"
-              className="absolute left-2 top-2 z-elevated h-5 shrink-0 rounded-r-pill px-2 font-bold uppercase tracking-wide"
-            >
-              Installed
-            </Badge>
-          )}
-
-          <Badge
-            variant="outline"
-            size="xs"
+        <div className="flex min-w-0 items-start gap-2 border-b border-line-soft px-3 pb-2 pt-3">
+          <span
             className={cn(
-              'absolute right-2 top-2 z-elevated h-5 shrink-0 gap-1 rounded-r-pill bg-surface-1 px-2 font-bold uppercase tracking-wide shadow-elev-1',
+              'grid size-8 flex-none place-items-center rounded-r-sm border bg-surface-2',
               rarity.accent,
               rarity.accentBorder,
             )}
+            aria-hidden="true"
           >
-            {Icon && <Icon className="size-3" aria-hidden="true" />}
-            {listing.kind}
-          </Badge>
+            {Icon && <Icon className="size-4" />}
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1.5">
+                {showInstalled && (
+                  <Badge variant="success" size="xs" className="h-5 shrink-0 rounded-r-pill px-2">
+                    Installed
+                  </Badge>
+                )}
+                <span className="truncate font-mono text-fs-meta font-semibold text-ink-4">
+                  @{listing.creator.handle}
+                </span>
+              </div>
+              <Badge
+                variant="outline"
+                size="xs"
+                className={cn(
+                  'h-5 max-w-28 shrink-0 gap-1 truncate rounded-r-pill bg-surface-1 px-2 font-bold uppercase tracking-wide',
+                  rarity.accent,
+                  rarity.accentBorder,
+                )}
+                title={kindLabel}
+              >
+                {Icon && <Icon className="size-3" aria-hidden="true" />}
+                {kindLabel}
+              </Badge>
+            </div>
+            <div
+              className="truncate text-fs-md font-bold leading-tight text-ink-1"
+              title={listing.title}
+            >
+              {listing.title}
+            </div>
+          </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-1 px-3 py-2.5">
-          <div className="truncate text-fs-md font-bold leading-tight text-ink-1">
-            {listing.title}
-          </div>
-          <p className="line-clamp-2 flex-1 text-fs-sm leading-snug text-ink-3">
-            {listing.summary}
-          </p>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 py-2.5">
+          <p className="line-clamp-2 text-fs-sm leading-snug text-ink-3">{listing.summary}</p>
+          {listing.tags && listing.tags.length > 0 ? (
+            <div className="flex min-w-0 flex-wrap gap-1">
+              {listing.tags.slice(0, 4).map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  size="xs"
+                  className="h-5 max-w-full truncate rounded-r-xs border-transparent bg-surface-sunken px-1.5 font-mono text-fs-meta text-ink-3"
+                >
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
 
           <div className="mt-auto flex items-center gap-1.5 border-t border-line-soft pt-2">
             <Badge
@@ -114,10 +140,14 @@ export function MarketListingCard({
               {verified && (
                 <span
                   className="inline-block size-1.5 flex-none rounded-full bg-accent"
-                  title={verification === 'trusted' ? 'Trusted creator' : 'Verified creator'}
+                  title={formatCreatorVerificationLabel(verification)}
                 />
               )}
-              <span className="truncate">@{listing.creator.handle}</span>
+              <span className="truncate">
+                {verified
+                  ? formatCreatorVerificationLabel(verification)
+                  : `@${listing.creator.handle}`}
+              </span>
             </span>
           </div>
         </div>

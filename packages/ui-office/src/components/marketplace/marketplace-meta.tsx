@@ -2,6 +2,8 @@ import type { AssetKind, RiskClass } from '@offisim/asset-schema';
 import type { LucideIcon } from 'lucide-react';
 import { BookTemplate, Box, Building2, LayoutGrid, Package, UserPlus, Zap } from 'lucide-react';
 
+export type CreatorVerificationState = 'unverified' | 'verified' | 'trusted';
+
 export const KIND_ICON: Record<AssetKind, LucideIcon> = {
   employee: UserPlus,
   skill: Zap,
@@ -24,6 +26,20 @@ export const KIND_FILTERS: Array<{ value: AssetKind | 'all'; label: string }> = 
   { value: 'prefab', label: 'Prefabs' },
 ];
 
+export const KIND_LABELS: Record<AssetKind, string> = {
+  employee: 'Employee',
+  skill: 'Skill',
+  sop: 'SOP',
+  company_template: 'Template',
+  office_layout: 'Layout',
+  prefab: 'Prefab',
+  bundle: 'Bundle',
+};
+
+export function formatMarketKindLabel(kind: AssetKind): string {
+  return KIND_LABELS[kind];
+}
+
 export const SORT_OPTIONS = ['relevance', 'newest', 'rating', 'installs'] as const;
 export type MarketSortOption = (typeof SORT_OPTIONS)[number];
 
@@ -45,4 +61,14 @@ export function formatRiskLabel(riskClass?: RiskClass): string {
     default:
       return 'Unknown';
   }
+}
+
+export function isVerifiedCreator(state: CreatorVerificationState): boolean {
+  return state === 'verified' || state === 'trusted';
+}
+
+export function formatCreatorVerificationLabel(state: CreatorVerificationState): string {
+  if (state === 'trusted') return 'Trusted creator';
+  if (state === 'verified') return 'Verified creator';
+  return 'Unverified creator';
 }

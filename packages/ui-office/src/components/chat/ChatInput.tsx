@@ -1,6 +1,5 @@
 import {
   ComposerPrimitive,
-  type CreateAttachment,
   type Unstable_DirectiveFormatter,
   type Unstable_TriggerItem,
   unstable_useMentionAdapter,
@@ -103,6 +102,7 @@ function resizeTextarea(element: HTMLTextAreaElement | null, currentText: string
 
 export interface ChatInputProps {
   onCommand: (command: ChatCommand, args: string) => void;
+  onSendMessage: (text: string, attachments?: ChatInputAttachmentPayload) => void | Promise<void>;
   disabled?: boolean;
   placeholder?: string;
   agents?: Map<string, AgentState>;
@@ -116,6 +116,7 @@ export interface ChatInputProps {
 
 export function ChatInput({
   onCommand,
+  onSendMessage,
   disabled,
   placeholder = 'Message your team...',
   agents,
@@ -211,30 +212,10 @@ export function ChatInput({
           ),
         }
       : undefined;
-    const composer = aui.composer();
-    const runConfig: OffisimComposerRunConfig = attachmentPayload
-      ? { custom: { offisim: { attachments: attachmentPayload } } }
-      : {};
-    composer.setRunConfig(runConfig);
-    if (attachmentPayload) {
-      await composer.clearAttachments();
-      await Promise.all(
-        attachmentPayload.staged.map((attachment) => {
-          const assistantAttachment: CreateAttachment = {
-            id: attachment.attachmentId,
-            type: attachment.kind === 'image' ? 'image' : 'file',
-            name: attachment.filename,
-            contentType: attachment.mimeType,
-            content: [],
-          };
-          return composer.addAttachment(assistantAttachment);
-        }),
-      );
-    }
-    composer.send();
-    composer.setRunConfig({});
+    await onSendMessage(trimmed ? messageText : '', attachmentPayload);
     latestTextRef.current = '';
     setText('');
+    aui.composer().setText('');
     staging.clear();
   }
 
@@ -529,10 +510,10 @@ export function ChatInput({
         )}
         {staging.staged.length > 0 && (
           <div className="chat-composer-attachments">
-            {staging.staged.map((s) => (
+            {staging.staged.map((attachment) => (
               <StagedAttachmentChip
-                key={s.attachmentId}
-                attachment={s}
+                key={attachment.attachmentId}
+                attachment={attachment}
                 onRemove={staging.removeStaged}
               />
             ))}

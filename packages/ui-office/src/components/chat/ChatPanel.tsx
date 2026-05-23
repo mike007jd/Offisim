@@ -30,6 +30,7 @@ import { useCompany } from '../company/CompanyContext.js';
 import { ErrorBanner } from '../error/ErrorBanner';
 import { PitchHall } from '../pitch/PitchHall';
 import { ActivityRail } from './ActivityRail';
+import { AssistantThreadRail } from './AssistantThreadRail';
 import { ChatInput } from './ChatInput';
 import type { ChatInputAttachmentPayload, OffisimComposerRunConfig } from './ChatInput.js';
 import { InteractionPrompt } from './InteractionPrompt';
@@ -290,8 +291,7 @@ export function ChatPanel({
   );
 
   // assistant-ui thread-list adapter (backed by chat_threads). Switching routes
-  // through the SSOT writer when provided; otherwise switching is inert (the
-  // visible ThreadList still owns selection).
+  // through the SSOT writer when provided; otherwise switching is inert.
   const noopSelectThread = useRef((_: string) => {}).current;
   const threadListAdapter = useOffisimThreadListAdapter({
     projectId: activeProjectId,
@@ -748,6 +748,9 @@ export function ChatPanel({
         threadId={activeThreadId ?? ''}
         attachmentStore={attachmentStore}
         eventBus={eventBus}
+        onSendMessage={(messageText, attachments) =>
+          handleSend(messageText, attachments ? { attachments } : undefined)
+        }
         modeChip={
           setInteractionMode ? (
             <SessionModeChip
@@ -786,6 +789,8 @@ export function ChatPanel({
             </Button>
           </div>
         )}
+
+        {!compact && !isDirectChat && activeProject ? <AssistantThreadRail /> : null}
 
         {/* Direct chat header — single compact line */}
         {isDirectChat && (

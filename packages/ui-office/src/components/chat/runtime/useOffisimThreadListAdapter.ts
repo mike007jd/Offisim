@@ -1,7 +1,7 @@
 import type { ExternalStoreThreadListAdapter } from '@assistant-ui/react';
 import { chatThreadUpdated, generateId } from '@offisim/core/browser';
 import type { ChatThread, ChatThreadUpdatedPayload, RuntimeEvent } from '@offisim/shared-types';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOffisimRuntimeServices } from '../../../runtime/offisim-runtime-context';
 
 export interface UseOffisimThreadListAdapterOptions {
@@ -15,8 +15,8 @@ export interface UseOffisimThreadListAdapterOptions {
  * Builds an assistant-ui `ExternalStoreThreadListAdapter` backed by the existing
  * `chat_threads` product table (via `repos.chatThreads`). Thread switching flows
  * through `onSelectThread` (the SSOT writer), and rename/archive/delete emit the
- * `chat_thread.updated` event so sibling surfaces (ThreadList / WorkspaceSearch)
- * stay in sync — preserving the auto-title pipeline.
+ * `chat_thread.updated` event so sibling surfaces (assistant-ui thread rail /
+ * WorkspaceSearch) stay in sync — preserving the auto-title pipeline.
  */
 export function useOffisimThreadListAdapter({
   projectId,
@@ -26,18 +26,19 @@ export function useOffisimThreadListAdapter({
   const { repos, eventBus } = useOffisimRuntimeServices();
   const [regular, setRegular] = useState<ChatThread[]>([]);
   const [archived, setArchived] = useState<ChatThread[]>([]);
+  const refreshSeqRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    refreshSeqRef.current += 1;
+    const seq = refreshSeqRef.current;
     if (!repos?.chatThreads || !projectId) {
       setRegular([]);
       setArchived([]);
       return;
     }
-    const [active, all] = await Promise.all([
-      repos.chatThreads.listByProject(projectId),
-      repos.chatThreads.listAllByProject(projectId),
-    ]);
-    setRegular(active);
+    const all = await repos.chatThreads.listAllByProject(projectId);
+    if (seq !== refreshSeqRef.current) return;
+    setRegular(all.filter((t) => t.archived_at === null));
     setArchived(all.filter((t) => t.archived_at !== null));
   }, [repos, projectId]);
 

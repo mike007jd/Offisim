@@ -212,7 +212,7 @@ export function AppMainShell(props: AppMainShellProps) {
         />
       }
       taskTray={
-        isOffice ? (
+        isOffice && officeState.kanbanOpen ? (
           <KanbanTray
             expanded={officeState.kanbanOpen}
             requestText={lastUserRequest ?? undefined}

@@ -1132,6 +1132,30 @@
     pointer-events: auto;
   }
 
+  .kanban-tray-expanded {
+    animation: offisim-kanban-drawer-down var(--duration-normal) var(--ease-standard) both;
+    background: color-mix(in srgb, var(--surface-1) 98%, transparent);
+    border: var(--border-width-thin) solid var(--line-soft);
+    border-block-start: 0;
+    border-radius: 0 0 var(--r-xl) var(--r-xl);
+    box-shadow: var(--shadow-overlay);
+    height: min(72vh, calc(100vh - var(--sp-10) - var(--sp-8)));
+    inline-size: 100%;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  @keyframes offisim-kanban-drawer-down {
+    from {
+      opacity: 0;
+      transform: translateY(calc(var(--sp-4) * -1)) scaleY(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scaleY(1);
+    }
+  }
+
   .stage-team-summary {
     border-inline-end: var(--border-width-thin) solid var(--line-soft);
     display: flex;
@@ -1313,20 +1337,19 @@
 
   .office-scene-team-dock-host {
     bottom: 0;
-    display: flex;
     inset-inline: 0;
-    justify-content: center;
-    padding: 0 var(--spacing-4) var(--spacing-4);
     pointer-events: none;
     position: absolute;
     z-index: var(--z-elevated);
   }
 
   .office-scene-team-dock-frame {
+    backdrop-filter: blur(calc(var(--sp-1) * 2));
     border: var(--border-width-thin) solid var(--line);
-    border-radius: var(--r-lg);
+    border-block-end: 0;
+    border-inline: 0;
+    border-radius: 0;
     box-shadow: var(--elev-2);
-    max-width: calc(var(--spacing-16) * 20);
     overflow: hidden;
     pointer-events: auto;
     width: 100%;
@@ -2246,16 +2269,6 @@
 
   .text-markdown-code {
     font-size: 0.92em;
-  }
-
-  .kanban-tray-expanded-size {
-    height: min(29.375rem, 58vh);
-    min-height: 21.25rem;
-  }
-
-  .kanban-tray-collapsed-position {
-    top: 4.5rem;
-    width: 11.875rem;
   }
 
   .max-w-status-headline {

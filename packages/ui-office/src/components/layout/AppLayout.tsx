@@ -148,7 +148,13 @@ export function AppLayout({
   const rightWidth = rightOpen ? RIGHT_PANEL_WIDTH : COLLAPSED_PANEL_WIDTH;
 
   const layoutMetrics = useMemo(
-    () => ({ isNarrow, leftOpen, rightOpen, leftPanelWidth: leftWidth, rightPanelWidth: rightWidth }),
+    () => ({
+      isNarrow,
+      leftOpen,
+      rightOpen,
+      leftPanelWidth: leftWidth,
+      rightPanelWidth: rightWidth,
+    }),
     [isNarrow, leftOpen, rightOpen, leftWidth, rightWidth],
   );
 
@@ -161,20 +167,11 @@ export function AppLayout({
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-bg text-ink-1">
-      <div className="flex h-10 shrink-0 items-center border-b border-line bg-surface-2 px-sp-5">
-        <div className="flex items-center gap-2">
-          <span aria-hidden="true" className="size-3 rounded-full bg-danger" />
-          <span aria-hidden="true" className="size-3 rounded-full bg-warn" />
-          <span aria-hidden="true" className="size-3 rounded-full bg-ok" />
-        </div>
-        <div className="ml-4 font-mono text-fs-meta font-semibold text-ink-3">Offisim v0.8.0</div>
-      </div>
-
       <div className="relative z-30 shrink-0 border-b border-line bg-surface-1">
         {header}
         {taskTray ? (
-          <div className="pointer-events-none absolute left-0 right-0 top-full z-40 flex justify-center">
-            <div className="pointer-events-auto">{taskTray}</div>
+          <div className="pointer-events-none absolute inset-x-0 top-full z-40 px-sp-4">
+            <div className="pointer-events-auto w-full">{taskTray}</div>
           </div>
         ) : null}
       </div>
@@ -233,7 +230,9 @@ export function AppLayout({
 
       {/* Narrow tier: chat as a bottom drawer (no room for a solid right column) */}
       {chatDrawer && (chatDrawerMode === 'always' || isNarrow) && isNarrow ? (
-        <div className="pointer-events-auto absolute bottom-4 left-4 right-4 z-30">{chatDrawer}</div>
+        <div className="pointer-events-auto absolute bottom-4 left-4 right-4 z-30">
+          {chatDrawer}
+        </div>
       ) : null}
     </div>
   );

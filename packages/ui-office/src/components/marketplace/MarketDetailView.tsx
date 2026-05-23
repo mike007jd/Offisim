@@ -6,7 +6,14 @@ import { useState } from 'react';
 import { packageInstallKey } from '../../hooks/useInstalledListings.js';
 import { PermissionsBlock } from './PermissionsBlock.js';
 import { getRarityClasses } from './market-rarity.js';
-import { INSTALLABLE_KINDS, KIND_ICON, formatInstallCount } from './marketplace-meta.js';
+import {
+  INSTALLABLE_KINDS,
+  KIND_ICON,
+  formatCreatorVerificationLabel,
+  formatInstallCount,
+  formatMarketKindLabel,
+  isVerifiedCreator,
+} from './marketplace-meta.js';
 
 export interface MarketDetailViewProps {
   readonly detail: ListingDetail | null;
@@ -91,7 +98,7 @@ export function MarketDetailView({
     : false;
   const isInstalled =
     isInstallable && ((installedListingIds?.has(detail.listing_id) ?? false) || installedByPackage);
-  const verified = detail.creator.verification_state !== 'unverified';
+  const verified = isVerifiedCreator(detail.creator.verification_state);
   const rarity = getRarityClasses(detail.kind);
 
   return (
@@ -108,7 +115,7 @@ export function MarketDetailView({
             )}
           >
             {Icon && <Icon className="size-3" aria-hidden="true" />}
-            {detail.kind}
+            {formatMarketKindLabel(detail.kind)}
           </span>
         }
       />
@@ -121,11 +128,7 @@ export function MarketDetailView({
             {verified && (
               <span
                 className="inline-block size-1.5 rounded-full bg-accent"
-                title={
-                  detail.creator.verification_state === 'trusted'
-                    ? 'Trusted creator'
-                    : 'Verified creator'
-                }
+                title={formatCreatorVerificationLabel(detail.creator.verification_state)}
               />
             )}
             <span className="text-ink-3">@{detail.creator.handle}</span>

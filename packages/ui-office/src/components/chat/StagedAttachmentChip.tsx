@@ -51,7 +51,7 @@ export function StagedAttachmentChip({ attachment, onRemove }: StagedAttachmentC
         <Icon className="h-4 w-4 shrink-0 text-text-secondary" />
       )}
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-text-primary">{attachment.filename}</div>
+        <span className="block truncate font-medium text-text-primary">{attachment.filename}</span>
         <div className="truncate text-caption text-text-muted">
           {formatAttachmentBytes(attachment.byteLength)} · {summary}
         </div>
