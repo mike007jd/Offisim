@@ -713,6 +713,117 @@
     width: min(calc(var(--sp-8) * 12), 55%);
   }
 
+  .chat-drawer-surface {
+    background: color-mix(in srgb, var(--color-surface-elevated) 95%, transparent);
+    border: var(--border-width-thin) solid var(--color-border-default);
+    border-radius: var(--r-xl);
+    box-shadow: var(--elev-3);
+    color: var(--color-text-primary);
+    height: var(--chat-drawer-height);
+    overflow: hidden;
+    transition-duration: var(--duration-normal);
+    transition-property: height, opacity;
+  }
+
+  .chat-drawer-surface-closed {
+    height: var(--chat-drawer-closed-height);
+  }
+
+  .chat-drawer-resize-handle {
+    align-items: center;
+    cursor: ns-resize;
+    display: flex;
+    height: var(--sp-2);
+    justify-content: center;
+  }
+
+  .chat-drawer-resize-thumb {
+    background: var(--color-border-strong);
+    border-radius: var(--radius-pill);
+    height: var(--sp-1);
+    width: var(--sp-8);
+  }
+
+  .chat-drawer-toggle {
+    border-radius: 0;
+    color: var(--color-text-secondary);
+    gap: var(--sp-2);
+    height: var(--chat-drawer-toggle-height);
+    justify-content: space-between;
+    padding-inline: var(--sp-5);
+    width: 100%;
+  }
+
+  .chat-drawer-toggle:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text-primary);
+  }
+
+  .chat-drawer-toggle-label {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+  }
+
+  .chat-drawer-toggle-chevron {
+    transition-duration: var(--duration-normal);
+    transition-property: transform;
+  }
+
+  .chat-drawer-toggle-chevron-open {
+    transform: rotate(180deg);
+  }
+
+  .chat-drawer-content {
+    display: flex;
+    flex-direction: column;
+    height: calc(
+      var(--chat-drawer-height) -
+      var(--chat-drawer-toggle-height) -
+      var(--chat-drawer-resize-height)
+    );
+    min-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    pointer-events: auto;
+    transition-duration: var(--duration-normal);
+    transition-property: opacity;
+  }
+
+  .chat-drawer-content-closed {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .attachment-drop-overlay {
+    align-items: center;
+    background: color-mix(in srgb, var(--color-surface-elevated) 85%, transparent);
+    border: var(--border-width-thick) dashed var(--color-accent);
+    border-radius: var(--r-lg);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    pointer-events: none;
+    position: absolute;
+    transition-duration: var(--duration-normal);
+    transition-property: opacity;
+    z-index: var(--z-overlay);
+  }
+
+  .attachment-drop-overlay-open {
+    opacity: 1;
+  }
+
+  .attachment-drop-overlay-closed {
+    opacity: 0;
+  }
+
+  .attachment-drop-overlay-label {
+    color: var(--color-text-primary);
+    font-size: var(--text-fs-sm);
+    font-weight: var(--text-caption--font-weight);
+  }
+
   .min-h-interaction-note {
     min-height: 5.5rem;
   }

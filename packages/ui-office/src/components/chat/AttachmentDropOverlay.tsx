@@ -1,3 +1,4 @@
+import { cn } from '@offisim/ui-core';
 import type { ReactNode } from 'react';
 
 export interface AttachmentDropOverlayProps {
@@ -17,11 +18,14 @@ export function AttachmentDropOverlay({ visible, message }: AttachmentDropOverla
   return (
     <div
       aria-hidden={!visible}
-      className={`pointer-events-none absolute inset-0 z-40 flex items-center justify-center rounded-lg border-2 border-dashed border-accent bg-surface-elevated/85 transition-opacity ${
-        visible ? 'opacity-100' : 'opacity-0'
-      }`}
+      data-slot="attachment-drop-overlay"
+      data-state={visible ? 'open' : 'closed'}
+      className={cn(
+        'attachment-drop-overlay',
+        visible ? 'attachment-drop-overlay-open' : 'attachment-drop-overlay-closed',
+      )}
     >
-      <span className="text-xs font-medium text-text-primary">{message ?? 'Drop to attach'}</span>
+      <span className="attachment-drop-overlay-label">{message ?? 'Drop to attach'}</span>
     </div>
   );
 }

@@ -1,6 +1,13 @@
-import { Button, cn } from '@offisim/ui-core';
 import { ChevronUp, MessageSquare, Minimize2 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ChatDrawerContent,
+  ChatDrawerResizeHandle,
+  ChatDrawerSurface,
+  ChatDrawerToggle,
+  ChatDrawerToggleChevron,
+  ChatDrawerToggleLabel,
+} from './chat-drawer-surfaces.js';
 
 const STORAGE_KEY = 'offisim-chat-open';
 const STORAGE_KEY_HEIGHT = 'offisim-chat-height';
@@ -193,23 +200,18 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
     document.body.style.userSelect = '';
   }, []);
 
-  const drawerHeightStyle = {
-    height: open ? `${compact ? COMPACT_HEIGHT : heightPx}px` : `${TOGGLE_BAR_HEIGHT}px`,
-  };
-  const contentStyle = {
-    height: Math.max((compact ? COMPACT_HEIGHT : heightPx) - TOGGLE_BAR_HEIGHT, 0),
-  };
+  const drawerState = open ? 'open' : 'closed';
 
   return (
-    <div
-      className="overflow-hidden rounded-2xl border border-border-default bg-surface-elevated/95 text-text-primary shadow-overlay backdrop-blur-3xl transition-all duration-300"
-      // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
-      style={drawerHeightStyle}
+    <ChatDrawerSurface
+      state={drawerState}
+      heightPx={compact ? COMPACT_HEIGHT : heightPx}
+      closedHeightPx={TOGGLE_BAR_HEIGHT}
+      toggleHeightPx={TOGGLE_BAR_HEIGHT}
     >
       {open && (
-        <div
+        <ChatDrawerResizeHandle
           data-testid="chat-resize-handle"
-          className="flex h-1.5 cursor-ns-resize items-center justify-center"
           onDoubleClick={(event) => {
             event.stopPropagation();
             toggleCompact();
@@ -218,39 +220,33 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           title="Drag to resize. Double-click to toggle compact mode."
-        >
-          <div className="h-1 w-8 rounded-full bg-border-strong" />
-        </div>
+        />
       )}
 
-      {/* Toggle bar */}
-      <Button
+      <ChatDrawerToggle
         type="button"
-        variant="ghost"
         onClick={toggle}
-        className="h-10 w-full justify-between gap-2 rounded-none px-sp-5 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+        aria-expanded={open}
+        aria-controls="offisim-chat-drawer-content"
       >
-        <div className="flex items-center gap-sp-2">
+        <ChatDrawerToggleLabel>
           <MessageSquare className="size-3.5 text-accent" />
           <span className="text-xs font-medium text-text-primary">Chat</span>
           {compact && <Minimize2 className="size-3 text-text-muted" />}
-        </div>
-        <div className={cn('transition-transform duration-300', open ? 'rotate-180' : '')}>
+        </ChatDrawerToggleLabel>
+        <ChatDrawerToggleChevron open={open}>
           <ChevronUp className="size-3.5" />
-        </div>
-      </Button>
+        </ChatDrawerToggleChevron>
+      </ChatDrawerToggle>
 
-      {/* Content area — always rendered to preserve state */}
-      <div
-        className={cn(
-          'flex min-h-0 flex-col overflow-hidden transition-opacity duration-300',
-          open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
-        )}
-        // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
-        style={contentStyle}
+      <ChatDrawerContent
+        id="offisim-chat-drawer-content"
+        state={drawerState}
+        aria-hidden={!open}
+        inert={!open}
       >
         {typeof children === 'function' ? children({ compact }) : children}
-      </div>
-    </div>
+      </ChatDrawerContent>
+    </ChatDrawerSurface>
   );
 }
