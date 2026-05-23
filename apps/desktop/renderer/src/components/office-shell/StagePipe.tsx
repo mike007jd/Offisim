@@ -1,4 +1,3 @@
-import { Button, cn } from '@offisim/ui-core';
 import {
   type PipelineStage,
   STAGE_META,
@@ -10,6 +9,18 @@ import {
 } from '@offisim/ui-office/web';
 import { ArrowRight, Square, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import {
+  StagePipeActionButton,
+  StagePipeActionRow,
+  StagePipeBadge,
+  StagePipeDivider,
+  StagePipeInlineGroup,
+  StagePipePill,
+  StagePipeProgress,
+  StagePipeStoppedPill,
+  StagePipeStoppedStack,
+  StageRunStatusDot,
+} from './StageRunSurfaces';
 
 interface StagePipeProps {
   /** Active product thread id — the resume target after an abort. */
@@ -66,97 +77,80 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
     const completed = stats.completed;
     const ratio = total > 0 ? Math.min(1, completed / total) : 0;
     return (
-      <output
-        aria-label="Plan progress · current step"
-        className="pointer-events-auto absolute left-1/2 top-12 z-elevated inline-flex h-8 -translate-x-1/2 items-center gap-2.5 whitespace-nowrap rounded-r-pill border border-accent-ring bg-surface-1/[0.92] py-0 pl-3.5 pr-1.5 text-fs-meta text-ink-2 shadow-elev-1 backdrop-blur-sm"
-      >
-        <span
-          aria-hidden="true"
-          className="relative size-2 shrink-0 rounded-full bg-accent before:absolute before:-inset-1 before:animate-pulse before:rounded-full before:border before:border-accent-ring"
-        />
+      <StagePipePill aria-label="Plan progress · current step">
+        <StageRunStatusDot state="running" />
         <span className="max-w-56 truncate font-semibold text-ink-1" title={stepLabel}>
           {stepLabel}
         </span>
         {assigneeName ? <span className="text-ink-3">· {assigneeName}</span> : null}
         {total > 0 ? (
           <>
-            <span aria-hidden="true" className="h-3.5 w-px bg-line" />
-            <span className="inline-flex items-center gap-1 font-mono text-fs-micro text-ink-3">
-              <span className="relative h-1 w-16 overflow-hidden rounded-sm bg-line">
-                <i
-                  className="absolute inset-y-0 left-0 block bg-accent"
-                  style={{ width: `${Math.round(ratio * 100)}%` }} // ui-hardcode-allowed: runtime progress width.
-                />
-              </span>
-              {completed}/{total}
-            </span>
+            <StagePipeDivider />
+            <StagePipeInlineGroup className="font-mono text-fs-micro text-ink-3">
+              <StagePipeProgress ratio={ratio} />
+              <output aria-label="Completed plan steps">
+                {completed}/{total}
+              </output>
+            </StagePipeInlineGroup>
           </>
         ) : null}
         {pendingInteraction ? (
           <>
-            <span aria-hidden="true" className="h-3.5 w-px bg-line" />
-            <span className="rounded-r-pill bg-warn-surface px-2 py-0.5 text-fs-micro font-bold uppercase text-warn">
-              Needs input
-            </span>
+            <StagePipeDivider />
+            <StagePipeBadge>Needs input</StagePipeBadge>
           </>
         ) : null}
-        <span aria-hidden="true" className="h-3.5 w-px bg-line" />
-        <Button
+        <StagePipeDivider />
+        <StagePipeActionButton
           type="button"
-          variant="ghost"
+          tone="danger"
           title="Stop execution"
           onClick={() => {
             pendingAbortRef.current = { stepLabel, threadId: activeThreadId };
             abortExecution();
           }}
-          className={cn(
-            'inline-flex h-6 items-center gap-1.5 rounded-r-pill bg-danger-surface px-2.5',
-            'text-fs-micro font-bold uppercase tracking-wide text-danger transition-colors hover:bg-danger/15',
-          )}
         >
           <Square className="size-3 fill-current" aria-hidden="true" />
           Stop
-        </Button>
-      </output>
+        </StagePipeActionButton>
+      </StagePipePill>
     );
   }
 
   if (aborted) {
     return (
-      <div className="pointer-events-auto absolute left-1/2 top-24 z-elevated flex -translate-x-1/2 flex-col items-center gap-2">
-        <div className="inline-flex h-8 items-center gap-2 whitespace-nowrap rounded-r-pill border border-line bg-surface-1/[0.92] px-3.5 text-fs-meta text-ink-2 shadow-elev-1 backdrop-blur-sm">
-          <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-ink-4" />
+      <StagePipeStoppedStack>
+        <StagePipeStoppedPill>
+          <StageRunStatusDot state="idle" />
           <span className="font-semibold text-ink-2">Stopped at {aborted.stepLabel}</span>
-        </div>
-        <div className="inline-flex items-center gap-1.5">
+        </StagePipeStoppedPill>
+        <StagePipeActionRow>
           {aborted.threadId ? (
-            <Button
+            <StagePipeActionButton
               type="button"
-              variant="outline"
+              tone="accent"
               title="Resume this run"
               onClick={() => {
                 const target = aborted.threadId;
                 setAborted(null);
                 if (target) void resumeThread(target);
               }}
-              className="inline-flex h-7 items-center gap-1.5 rounded-r-pill border border-accent-ring bg-accent-surface px-3 text-fs-meta font-semibold text-accent transition-colors hover:bg-accent/10"
             >
               <ArrowRight className="size-3.5" aria-hidden="true" />
               Resume
-            </Button>
+            </StagePipeActionButton>
           ) : null}
-          <Button
+          <StagePipeActionButton
             type="button"
-            variant="outline"
+            tone="neutral"
             title="Discard the stopped run"
             onClick={() => setAborted(null)}
-            className="inline-flex h-7 items-center gap-1.5 rounded-r-pill border border-line bg-surface-1 px-3 text-fs-meta font-semibold text-ink-3 transition-colors hover:border-line-strong hover:text-ink-2"
           >
             <X className="size-3.5" aria-hidden="true" />
             Discard
-          </Button>
-        </div>
-      </div>
+          </StagePipeActionButton>
+        </StagePipeActionRow>
+      </StagePipeStoppedStack>
     );
   }
 

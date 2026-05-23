@@ -1,22 +1,30 @@
+import { Button } from '@offisim/ui-core';
 import {
   ActivityRail,
   useDashboardMetrics,
   useOffisimRuntimeStatus,
   usePlanStepStore,
 } from '@offisim/ui-office/web';
-import { Button } from '@offisim/ui-core';
 import { X } from 'lucide-react';
+import {
+  StageRunHeader,
+  StageRunPanel,
+  StageRunScrollArea,
+  StageRunSection,
+  StageRunStatusDot,
+  StageRunStepItem,
+} from './StageRunSurfaces';
 
 interface LiveRunOverlayProps {
   onClose: () => void;
 }
 
-const STEP_DOT: Record<string, string> = {
-  active: 'bg-accent',
-  completed: 'bg-ok',
-  failed: 'bg-danger',
-  pending: 'bg-line-strong',
-};
+type StageDotState = 'active' | 'completed' | 'failed' | 'pending';
+
+function stageDotState(status: string): StageDotState {
+  if (status === 'active' || status === 'completed' || status === 'failed') return status;
+  return 'pending';
+}
 
 function formatCost(costUsd: number): string {
   if (costUsd <= 0) return '$0.00';
@@ -38,13 +46,10 @@ export function LiveRunOverlay({ onClose }: LiveRunOverlayProps) {
     metrics.elapsedMs != null ? `${(metrics.elapsedMs / 1000).toFixed(1)}s latency` : null;
 
   return (
-    <div className="pointer-events-auto absolute left-1/2 top-10 z-dropdown w-full max-w-md -translate-x-1/2 overflow-hidden rounded-r-lg border border-line-strong bg-surface-1 shadow-elev-3">
-      <header className="flex items-center justify-between gap-2 border-b border-line-soft px-3.5 py-2.5">
+    <StageRunPanel>
+      <StageRunHeader>
         <div className="flex min-w-0 items-center gap-2">
-          <span
-            aria-hidden="true"
-            className={`size-2 shrink-0 rounded-full ${isRunning ? 'animate-pulse bg-accent' : 'bg-ink-4'}`}
-          />
+          <StageRunStatusDot state={isRunning ? 'running' : 'idle'} />
           <span className="text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
             Live run
           </span>
@@ -63,10 +68,10 @@ export function LiveRunOverlay({ onClose }: LiveRunOverlayProps) {
         >
           <X className="size-3.5" />
         </Button>
-      </header>
+      </StageRunHeader>
 
-      <div className="max-h-dvh overflow-y-auto">
-        <section className="border-b border-line-soft px-3.5 py-3">
+      <StageRunScrollArea>
+        <StageRunSection>
           <div className="mb-2 flex items-center gap-2 text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
             <span>Plan</span>
             {stats.total > 0 ? (
@@ -87,18 +92,8 @@ export function LiveRunOverlay({ onClose }: LiveRunOverlayProps) {
                   null;
                 const isCurrent = step.stepIndex === currentStepIndex;
                 return (
-                  <li
-                    key={step.stepIndex}
-                    className={`flex items-start gap-2 rounded-r-sm border px-2.5 py-1.5 ${
-                      isCurrent
-                        ? 'border-accent-ring bg-accent-surface'
-                        : 'border-line-soft bg-surface-2'
-                    }`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`mt-1 size-2 shrink-0 rounded-full ${STEP_DOT[step.status] ?? 'bg-line-strong'}`}
-                    />
+                  <StageRunStepItem key={step.stepIndex} state={isCurrent ? 'current' : 'idle'}>
+                    <StageRunStatusDot state={stageDotState(step.status)} className="mt-1" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-fs-meta font-medium text-ink-1">
                         #{step.stepIndex + 1} {step.description}
@@ -107,20 +102,20 @@ export function LiveRunOverlay({ onClose }: LiveRunOverlayProps) {
                         <p className="mt-0.5 truncate text-fs-micro text-ink-3">{assignee}</p>
                       ) : null}
                     </div>
-                  </li>
+                  </StageRunStepItem>
                 );
               })}
             </ol>
           )}
-        </section>
+        </StageRunSection>
 
-        <section className="px-3.5 py-3">
+        <StageRunSection boundary="last">
           <div className="mb-2 text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
             Activity
           </div>
           <ActivityRail variant="full" />
-        </section>
-      </div>
-    </div>
+        </StageRunSection>
+      </StageRunScrollArea>
+    </StageRunPanel>
   );
 }
