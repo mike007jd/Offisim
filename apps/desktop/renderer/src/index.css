@@ -248,7 +248,7 @@
   }
 
   .activity-row-icon {
-    height: var(--sp-8);
+    height: var(--spacing-8);
     width: var(--sp-8);
   }
 
@@ -920,6 +920,244 @@
 
   .stage-run-step-item-idle {
     background: var(--surface-2);
+  }
+
+  .stage-axis-bar {
+    align-items: center;
+    backdrop-filter: blur(calc(var(--sp-1) * 2));
+    background: color-mix(in srgb, var(--surface-1) 96%, transparent);
+    border: var(--border-width-thin) solid var(--line);
+    border-block-start: 0;
+    border-radius: 0 0 var(--r-md) var(--r-md);
+    box-shadow: var(--elev-2);
+    display: flex;
+    height: var(--spacing-8);
+    left: 50%;
+    overflow: hidden;
+    pointer-events: auto;
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    z-index: var(--z-elevated);
+  }
+
+  .stage-axis-button {
+    align-items: center;
+    display: inline-flex;
+    font-size: var(--text-fs-sm);
+    font-weight: var(--text-body--font-weight);
+    gap: var(--sp-2);
+    height: var(--sp-8);
+    padding-inline: var(--sp-5);
+    transition-duration: var(--duration-normal);
+    transition-property: background-color, color;
+  }
+
+  .stage-axis-button:hover {
+    background: var(--surface-1);
+    color: var(--ink-1);
+  }
+
+  .stage-axis-button-active {
+    background: var(--accent-surface);
+    color: var(--accent);
+  }
+
+  .stage-axis-button-idle {
+    color: var(--ink-2);
+  }
+
+  .stage-axis-button-muted {
+    color: var(--ink-4);
+  }
+
+  .stage-axis-button [data-icon] {
+    flex-shrink: 0;
+    height: var(--spacing-4);
+    width: var(--spacing-4);
+  }
+
+  .stage-axis-divider {
+    align-self: stretch;
+    background: var(--line);
+    width: var(--border-width-thin);
+  }
+
+  .stage-axis-live-indicator {
+    animation: pulse var(--duration-slow) var(--ease-standard) infinite;
+    background: var(--accent);
+    border-radius: var(--radius-pill);
+    height: calc(var(--spacing-1) + (var(--spacing-1) / 2));
+    width: calc(var(--spacing-1) + (var(--spacing-1) / 2));
+  }
+
+  .stage-team-dock {
+    align-items: center;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--surface-1) 97%, transparent),
+      color-mix(in srgb, var(--surface-2) 97%, transparent)
+    );
+    border-block-start: var(--border-width-thin) solid var(--line);
+    display: flex;
+    gap: var(--sp-4);
+    height: calc(var(--spacing-8) * 3);
+    padding-inline: var(--sp-5);
+    pointer-events: auto;
+  }
+
+  .stage-team-summary {
+    border-inline-end: var(--border-width-thin) solid var(--line-soft);
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: var(--sp-1);
+    height: calc(var(--spacing-8) + var(--spacing-6));
+    justify-content: center;
+    padding-inline-end: var(--sp-6);
+  }
+
+  .stage-team-label {
+    color: var(--ink-3);
+    font-size: var(--text-fs-micro);
+    font-weight: var(--text-caption--font-weight);
+    letter-spacing: var(--tracking-ls-caps);
+    text-transform: uppercase;
+  }
+
+  .stage-team-count-badge {
+    align-self: flex-start;
+    background: var(--surface-sunken);
+    border: var(--border-width-thin) solid var(--line-soft);
+    border-radius: var(--radius-pill);
+    color: var(--ink-3);
+    font-size: var(--text-fs-micro);
+    font-weight: var(--text-body--font-weight);
+    padding: 0 var(--sp-2);
+  }
+
+  .stage-team-roster {
+    align-items: center;
+    display: flex;
+    flex: 1 1 auto;
+    gap: var(--sp-4);
+    height: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    padding-inline: var(--sp-1);
+  }
+
+  .stage-team-employee-button,
+  .stage-team-add-button {
+    border-radius: var(--r-lg);
+    flex-shrink: 0;
+    height: calc(var(--spacing-16) + var(--spacing-4));
+    width: var(--spacing-16);
+  }
+
+  .stage-team-employee-button {
+    align-items: center;
+    border: var(--border-width-thin) solid transparent;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    padding: var(--sp-1) var(--sp-1) var(--sp-2);
+    position: relative;
+    transition-duration: var(--duration-normal);
+    transition-property: background-color, border-color, box-shadow, transform;
+  }
+
+  .stage-team-employee-button-selected {
+    background: var(--surface-1);
+    border-color: var(--accent-ring);
+    box-shadow: var(--elev-2);
+    outline: var(--border-width-thin) solid var(--accent-ring);
+  }
+
+  .stage-team-employee-button-idle:hover {
+    background: var(--surface-1);
+    border-color: var(--line-soft);
+    box-shadow: var(--elev-2);
+    transform: translateY(calc((var(--sp-1) / 2) * -1));
+  }
+
+  .stage-team-avatar {
+    display: inline-flex;
+    box-shadow: var(--elev-1);
+    outline: calc(var(--border-width-thin) * 2) solid var(--surface-1);
+  }
+
+  .stage-team-employee-name {
+    color: var(--ink-1);
+    font-size: var(--text-fs-micro);
+    font-weight: var(--text-body--font-weight);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stage-team-status-dot {
+    border-radius: var(--radius-pill);
+    height: calc(var(--spacing-2) + (var(--spacing-1) / 2));
+    outline: calc(var(--border-width-thin) * 2) solid var(--surface-1);
+    position: absolute;
+    right: var(--sp-2);
+    top: var(--sp-1);
+    width: calc(var(--spacing-2) + (var(--spacing-1) / 2));
+  }
+
+  .stage-team-status-dot-idle {
+    background: var(--color-text-muted);
+  }
+
+  .stage-team-status-dot-info {
+    background: var(--color-info);
+  }
+
+  .stage-team-status-dot-success {
+    background: var(--color-success);
+  }
+
+  .stage-team-status-dot-accent {
+    background: var(--accent);
+  }
+
+  .stage-team-status-dot-error {
+    background: var(--color-error);
+  }
+
+  .stage-team-status-dot-warning {
+    background: var(--color-warning);
+  }
+
+  .stage-team-add-button {
+    align-items: center;
+    border: var(--border-width-thin) dashed var(--line-strong);
+    color: var(--ink-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    justify-content: center;
+    transition-duration: var(--duration-normal);
+    transition-property: background-color, border-color, color;
+  }
+
+  .stage-team-add-button:hover {
+    background: var(--accent-surface);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .stage-team-add-button [data-icon] {
+    flex-shrink: 0;
+    height: var(--spacing-5);
+    width: var(--spacing-5);
+  }
+
+  .stage-team-add-label {
+    font-size: var(--text-fs-meta);
+    font-weight: var(--text-body--font-weight);
   }
 
   .stage-pipe-divider {

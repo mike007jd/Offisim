@@ -85,6 +85,43 @@ const pipeActionButtonVariants = cva('stage-pipe-action-button', {
   defaultVariants: { tone: 'neutral' },
 });
 
+const axisButtonVariants = cva('stage-axis-button', {
+  variants: {
+    state: {
+      active: 'stage-axis-button-active',
+      idle: 'stage-axis-button-idle',
+      muted: 'stage-axis-button-muted',
+    },
+  },
+  defaultVariants: { state: 'idle' },
+});
+
+const teamEmployeeButtonVariants = cva('stage-team-employee-button', {
+  variants: {
+    state: {
+      selected: 'stage-team-employee-button-selected',
+      idle: 'stage-team-employee-button-idle',
+    },
+  },
+  defaultVariants: { state: 'idle' },
+});
+
+const teamStatusDotVariants = cva('stage-team-status-dot', {
+  variants: {
+    state: {
+      idle: 'stage-team-status-dot-idle',
+      assigned: 'stage-team-status-dot-info',
+      thinking: 'stage-team-status-dot-info',
+      executing: 'stage-team-status-dot-success',
+      meeting: 'stage-team-status-dot-accent',
+      blocked: 'stage-team-status-dot-error',
+      failed: 'stage-team-status-dot-error',
+      waiting: 'stage-team-status-dot-warning',
+    },
+  },
+  defaultVariants: { state: 'idle' },
+});
+
 export function StageRunSection({
   className,
   boundary,
@@ -115,6 +152,53 @@ export function StageRunStepItem({
   );
 }
 
+export function StageAxisBar({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div data-slot="stage-axis-bar" className={cn('stage-axis-bar', className)} {...props} />;
+}
+
+export function StageAxisButton({
+  className,
+  state,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'variant'> & VariantProps<typeof axisButtonVariants>) {
+  return (
+    <Button
+      data-slot="stage-axis-button"
+      variant="ghost"
+      className={cn(axisButtonVariants({ state }), className)}
+      {...props}
+    />
+  );
+}
+
+export function StageAxisDivider({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      aria-hidden="true"
+      data-slot="stage-axis-divider"
+      className={cn('stage-axis-divider', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageAxisLiveIndicator({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      aria-hidden="true"
+      data-slot="stage-axis-live-indicator"
+      className={cn('stage-axis-live-indicator', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamLabel({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span data-slot="stage-team-label" className={cn('stage-team-label', className)} {...props} />
+  );
+}
+
 export function StagePipePill({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div data-slot="stage-pipe-pill" className={cn('stage-pipe-pill', className)} {...props} />
@@ -136,6 +220,114 @@ export function StagePipeStoppedPill({ className, ...props }: HTMLAttributes<HTM
     <div
       data-slot="stage-pipe-stopped-pill"
       className={cn('stage-pipe-stopped-pill', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamDockShell({ className, ...props }: HTMLAttributes<HTMLElement>) {
+  return (
+    <section data-slot="stage-team-dock" className={cn('stage-team-dock', className)} {...props} />
+  );
+}
+
+export function StageTeamSummary({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="stage-team-summary"
+      className={cn('stage-team-summary', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamCountBadge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      data-slot="stage-team-count-badge"
+      className={cn('stage-team-count-badge', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamRoster({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="stage-team-roster"
+      className={cn('stage-team-roster custom-scrollbar', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamEmployeeButton({
+  className,
+  state,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'variant'> &
+  VariantProps<typeof teamEmployeeButtonVariants>) {
+  return (
+    <Button
+      data-slot="stage-team-employee-button"
+      variant="ghost"
+      className={cn(teamEmployeeButtonVariants({ state }), className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamAvatarSlot({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span data-slot="stage-team-avatar" className={cn('stage-team-avatar', className)} {...props} />
+  );
+}
+
+export function StageTeamEmployeeName({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      data-slot="stage-team-employee-name"
+      className={cn('stage-team-employee-name', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamStatusDot({
+  className,
+  state,
+  ...props
+}: HTMLAttributes<HTMLSpanElement> & VariantProps<typeof teamStatusDotVariants>) {
+  return (
+    <span
+      aria-hidden="true"
+      data-slot="stage-team-status-dot"
+      data-state={state ?? 'idle'}
+      className={cn(teamStatusDotVariants({ state }), className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamAddLabel({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      data-slot="stage-team-add-label"
+      className={cn('stage-team-add-label', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamAddButton({
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'variant'>) {
+  return (
+    <Button
+      data-slot="stage-team-add-button"
+      variant="ghost"
+      className={cn('stage-team-add-button', className)}
       {...props}
     />
   );
