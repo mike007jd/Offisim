@@ -16,6 +16,7 @@ import {
 } from '../../lib/workspace-navigation';
 import { useKanbanStream } from '../../runtime/useKanbanStream';
 import { OfficeLeftRail } from '../office-shell/OfficeLeftRail';
+import { OfficeSceneCanvasFallback } from '../office-shell/OfficeShellSurfaces';
 import { StageTeamDock } from '../office-shell/StageTeamDock';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
 import type {
@@ -230,7 +231,7 @@ export function AppMainShell(props: AppMainShellProps) {
       }
       sceneCanvas={
         isOffice ? (
-          <Suspense fallback={<div className="h-full w-full animate-pulse bg-surface-muted" />}>
+          <Suspense fallback={<OfficeSceneCanvasFallback />}>
             <OfficeSceneSurface
               leftPanelWidth={officeState.leftPanelWidth}
               onSceneFallbackTo2D={onSceneFallbackTo2D}

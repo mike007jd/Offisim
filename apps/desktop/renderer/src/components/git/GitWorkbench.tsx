@@ -1,5 +1,4 @@
 import type { ProjectRow } from '@offisim/shared-types';
-import { Button, Checkbox, Textarea, cn } from '@offisim/ui-core';
 import { isTauri } from '@offisim/ui-office/web';
 import {
   AlertCircle,
@@ -14,6 +13,55 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  GitActionPanel,
+  GitActionStack,
+  GitActionTitle,
+  GitBranchLine,
+  GitBranchName,
+  GitCheckbox,
+  GitCommitTextarea,
+  GitDiffEmpty,
+  GitDiffLoading,
+  GitDiffPane,
+  GitDiffPath,
+  GitDiffPre,
+  GitDiffSection,
+  GitEmptyPanel,
+  GitErrorBanner,
+  GitFileNameLine,
+  GitFilePath,
+  GitFileRowShell,
+  GitFileSelectButton,
+  GitFileStatusBadge,
+  GitFileTextStack,
+  GitIconSlot,
+  GitInlineMeta,
+  GitMetricCard,
+  GitMetricGrid,
+  GitMetricLabel,
+  GitMetricValue,
+  GitMutedLabel,
+  GitNotice,
+  GitNoticeStrong,
+  GitPanelText,
+  GitPrimaryButton,
+  GitRefreshButton,
+  GitScrollArea,
+  GitSecondaryButton,
+  GitSection,
+  GitSectionHeader,
+  GitStatLine,
+  GitStatStack,
+  GitUnavailableShell,
+  GitUnavailableText,
+  GitUnavailableTitle,
+  GitWorkbenchBody,
+  GitWorkbenchHeader,
+  GitWorkbenchHeaderRow,
+  GitWorkbenchKicker,
+  GitWorkbenchShell,
+} from './GitWorkbenchSurfaces';
 
 interface GitExecResult {
   ok: boolean;
@@ -296,72 +344,60 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-surface text-text-primary">
-      <div className="border-b border-border-default px-3 py-3">
-        <div className="flex items-start justify-between gap-3">
+    <GitWorkbenchShell>
+      <GitWorkbenchHeader>
+        <GitWorkbenchHeaderRow>
           <div className="min-w-0">
-            <p className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
-              Git Workbench
-            </p>
-            <div className="mt-1 flex min-w-0 items-center gap-2">
-              <GitBranch className="h-4 w-4 shrink-0 text-accent" />
-              <span className="truncate font-mono text-xs text-text-primary">
-                {snapshot.branch ?? 'No branch'}
-              </span>
-            </div>
+            <GitWorkbenchKicker>Git Workbench</GitWorkbenchKicker>
+            <GitBranchLine>
+              <GitIconSlot>
+                <GitBranch />
+              </GitIconSlot>
+              <GitBranchName>{snapshot.branch ?? 'No branch'}</GitBranchName>
+            </GitBranchLine>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="h-8 gap-1 px-2 text-caption"
-            onClick={() => void refresh()}
-            disabled={loading}
-          >
+          <GitRefreshButton type="button" onClick={() => void refresh()} disabled={loading}>
             {loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <GitIconSlot state="loading">
+                <Loader2 />
+              </GitIconSlot>
             ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
+              <GitIconSlot>
+                <RefreshCw />
+              </GitIconSlot>
             )}
             Refresh
-          </Button>
-        </div>
+          </GitRefreshButton>
+        </GitWorkbenchHeaderRow>
 
-        <div className="mt-3 grid grid-cols-3 gap-2 text-caption">
+        <GitMetricGrid>
           <GitMetric label="Files" value={String(snapshot.files.length)} />
           <GitMetric label="Ahead" value={String(snapshot.ahead)} />
           <GitMetric label="Behind" value={String(snapshot.behind)} />
-        </div>
+        </GitMetricGrid>
 
-        <div className="mt-2 rounded-lg border border-border-subtle bg-surface-muted px-2 py-2 text-caption text-text-muted">
-          <span className="font-semibold text-text-secondary">Local commit:</span> selected files
-          only; no push or remote state is created here.
-        </div>
-      </div>
+        <GitNotice>
+          <GitNoticeStrong>Local commit:</GitNoticeStrong> selected files only; no push or remote
+          state is created here.
+        </GitNotice>
+      </GitWorkbenchHeader>
 
-      {error ? (
-        <div
-          role="alert"
-          className="border-b border-error/30 bg-error-muted px-3 py-2 text-xs font-medium text-error"
-        >
-          {error}
-        </div>
-      ) : null}
+      {error ? <GitErrorBanner>{error}</GitErrorBanner> : null}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <section className="border-b border-border-default">
-          <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <div className="inline-flex items-center gap-2 text-caption text-text-secondary">
-              <Checkbox
+      <GitWorkbenchBody>
+        <GitSection>
+          <GitSectionHeader>
+            <GitInlineMeta>
+              <GitCheckbox
                 checked={snapshot.files.length > 0 && selectedCount === snapshot.files.length}
                 onCheckedChange={(checked) => setAllSelected(checked === true, snapshot.files)}
                 aria-label="Select all changed files"
               />
-              {selectedCount} selected
-            </div>
-            <span className="text-caption uppercase tracking-wide text-text-muted">Status</span>
-          </div>
-          <div className="custom-scrollbar max-h-44 overflow-y-auto px-2 pb-2">
+              <span>{selectedCount} selected</span>
+            </GitInlineMeta>
+            <GitMutedLabel>Status</GitMutedLabel>
+          </GitSectionHeader>
+          <GitScrollArea>
             {snapshot.files.length > 0 ? (
               snapshot.files.map((file) => (
                 <GitFileRow
@@ -374,123 +410,123 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
                 />
               ))
             ) : (
-              <div className="rounded-lg border border-border-subtle bg-surface-muted px-3 py-4 text-center text-xs text-text-muted">
-                Working tree clean
-              </div>
+              <GitEmptyPanel>Working tree clean</GitEmptyPanel>
             )}
-          </div>
-        </section>
+          </GitScrollArea>
+        </GitSection>
 
-        <section className="flex min-h-0 flex-1 flex-col border-b border-border-default">
-          <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <span className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
-              Diff preview
-            </span>
-            {selectedFile ? (
-              <span className="truncate font-mono text-caption text-text-muted">
-                {selectedFile.path}
-              </span>
-            ) : null}
-          </div>
-          <div className="custom-scrollbar min-h-0 flex-1 overflow-auto bg-surface-muted p-3">
+        <GitDiffSection>
+          <GitSectionHeader>
+            <GitWorkbenchKicker>Diff preview</GitWorkbenchKicker>
+            {selectedFile ? <GitDiffPath>{selectedFile.path}</GitDiffPath> : null}
+          </GitSectionHeader>
+          <GitDiffPane>
             {diffLoading ? (
-              <div className="flex h-full items-center justify-center text-xs text-text-secondary">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <GitDiffLoading>
+                <GitIconSlot state="loading">
+                  <Loader2 />
+                </GitIconSlot>
                 Loading diff
-              </div>
+              </GitDiffLoading>
             ) : diff ? (
-              <pre className="whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-text-primary">
-                {diff}
-              </pre>
+              <GitDiffPre>{diff}</GitDiffPre>
             ) : (
-              <div className="flex h-full items-center justify-center text-center text-xs text-text-secondary">
-                {diffMessage ?? 'No diff selected'}
-              </div>
+              <GitDiffEmpty>{diffMessage ?? 'No diff selected'}</GitDiffEmpty>
             )}
-          </div>
-        </section>
+          </GitDiffPane>
+        </GitDiffSection>
 
-        <section className="flex flex-col gap-3 px-3 py-3">
-          <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-            <div className="mb-2 flex items-center gap-2 text-caption font-semibold uppercase tracking-wide text-text-secondary">
-              <GitCommit className="h-3.5 w-3.5" />
+        <GitActionStack>
+          <GitActionPanel>
+            <GitActionTitle>
+              <GitIconSlot>
+                <GitCommit />
+              </GitIconSlot>
               Commit
-            </div>
-            <Textarea
+            </GitActionTitle>
+            <GitCommitTextarea
               value={commitMessage}
               onChange={(event) => setCommitMessage(event.target.value)}
               rows={2}
               placeholder="Commit message"
-              className="resize-none border-border-subtle px-2 py-2 text-xs"
             />
-            <Button
+            <GitPrimaryButton
               type="button"
-              className="mt-2 h-8 w-full gap-2 px-3 text-xs"
               disabled={!canCommit}
               onClick={() => void handleCommit()}
             >
               {committing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <GitIconSlot state="loading">
+                  <Loader2 />
+                </GitIconSlot>
               ) : (
-                <GitCommit className="h-3.5 w-3.5" />
+                <GitIconSlot>
+                  <GitCommit />
+                </GitIconSlot>
               )}
               Commit selected files
-            </Button>
-          </div>
+            </GitPrimaryButton>
+          </GitActionPanel>
 
-          <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-            <div className="mb-1 flex items-center gap-2 text-caption font-semibold uppercase tracking-wide text-text-secondary">
-              <GitPullRequest className="h-3.5 w-3.5" />
+          <GitActionPanel>
+            <GitActionTitle>
+              <GitIconSlot>
+                <GitPullRequest />
+              </GitIconSlot>
               PR-ready
-            </div>
-            <p className="text-caption leading-relaxed text-text-muted">{prStatus.message}</p>
-            <Button
+            </GitActionTitle>
+            <GitPanelText>{prStatus.message}</GitPanelText>
+            <GitSecondaryButton
               type="button"
-              variant="outline"
-              className="mt-2 h-8 w-full gap-2 px-3 text-xs"
               disabled={!prStatus.url}
               onClick={() => {
                 if (prStatus.url) window.open(prStatus.url, '_blank', 'noopener,noreferrer');
               }}
             >
-              <GitPullRequest className="h-3.5 w-3.5" />
+              <GitIconSlot>
+                <GitPullRequest />
+              </GitIconSlot>
               Open compare
-            </Button>
-          </div>
+            </GitSecondaryButton>
+          </GitActionPanel>
 
-          <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-            <div className="mb-1 flex items-center gap-2 text-caption font-semibold uppercase tracking-wide text-text-secondary">
-              <CheckCircle2 className="h-3.5 w-3.5" />
+          <GitActionPanel>
+            <GitActionTitle>
+              <GitIconSlot>
+                <CheckCircle2 />
+              </GitIconSlot>
               Checks
-            </div>
-            <p className="text-caption text-text-muted">
+            </GitActionTitle>
+            <GitPanelText>
               Unavailable. No real checks source is connected to this local workspace.
-            </p>
-          </div>
-        </section>
-      </div>
-    </div>
+            </GitPanelText>
+          </GitActionPanel>
+        </GitActionStack>
+      </GitWorkbenchBody>
+    </GitWorkbenchShell>
   );
 }
 
 function GitUnavailable({ title, message }: { title: string; message: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-5 text-center">
-      <AlertCircle className="h-8 w-8 text-text-muted" />
+    <GitUnavailableShell>
+      <GitIconSlot>
+        <AlertCircle />
+      </GitIconSlot>
       <div>
-        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-        <p className="mt-1 text-xs leading-relaxed text-text-muted">{message}</p>
+        <GitUnavailableTitle>{title}</GitUnavailableTitle>
+        <GitUnavailableText>{message}</GitUnavailableText>
       </div>
-    </div>
+    </GitUnavailableShell>
   );
 }
 
 function GitMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface-muted px-2 py-2">
-      <div className="text-caption uppercase tracking-wide text-text-muted">{label}</div>
-      <div className="mt-1 font-mono text-sm font-semibold text-text-primary">{value}</div>
-    </div>
+    <GitMetricCard>
+      <GitMetricLabel>{label}</GitMetricLabel>
+      <GitMetricValue>{value}</GitMetricValue>
+    </GitMetricCard>
   );
 }
 
@@ -508,42 +544,34 @@ function GitFileRow({
   onToggle: () => void;
 }) {
   return (
-    <div
-      className={cn(
-        'mb-1 flex items-center gap-2 rounded-lg border px-2 py-2 text-left transition',
-        selected
-          ? 'border-border-focus bg-accent-muted'
-          : 'border-border-subtle bg-surface-muted hover:border-border-default',
-      )}
-    >
-      <Checkbox checked={checked} onCheckedChange={onToggle} />
-      <Button
-        type="button"
-        variant="ghost"
-        className="h-auto min-w-0 flex-1 justify-start p-0 text-left hover:bg-transparent"
-        onClick={onSelect}
-      >
-        <span className="flex min-w-0 flex-col items-start">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-            <span className="truncate font-mono text-caption text-text-primary">{file.path}</span>
-          </span>
-          <span className="mt-1 inline-flex rounded border border-border-subtle px-1.5 py-0.5 text-caption text-text-muted">
-            {file.label}
-          </span>
-        </span>
-      </Button>
-      <div className="flex flex-col items-end gap-1 font-mono text-caption">
-        <span className="inline-flex items-center gap-1 text-success">
-          <Plus className="h-3 w-3" />
+    <GitFileRowShell state={selected ? 'selected' : 'idle'}>
+      <GitCheckbox checked={checked} onCheckedChange={onToggle} />
+      <GitFileSelectButton type="button" onClick={onSelect}>
+        <GitFileTextStack>
+          <GitFileNameLine>
+            <GitIconSlot>
+              <FileText />
+            </GitIconSlot>
+            <GitFilePath>{file.path}</GitFilePath>
+          </GitFileNameLine>
+          <GitFileStatusBadge>{file.label}</GitFileStatusBadge>
+        </GitFileTextStack>
+      </GitFileSelectButton>
+      <GitStatStack>
+        <GitStatLine tone="added">
+          <GitIconSlot>
+            <Plus />
+          </GitIconSlot>
           {formatStat(file.added)}
-        </span>
-        <span className="inline-flex items-center gap-1 text-error">
-          <Minus className="h-3 w-3" />
+        </GitStatLine>
+        <GitStatLine tone="deleted">
+          <GitIconSlot>
+            <Minus />
+          </GitIconSlot>
           {formatStat(file.deleted)}
-        </span>
-      </div>
-    </div>
+        </GitStatLine>
+      </GitStatStack>
+    </GitFileRowShell>
   );
 }
 
