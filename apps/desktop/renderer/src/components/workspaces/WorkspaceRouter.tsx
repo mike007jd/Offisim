@@ -2,6 +2,7 @@ import { WorkspacePageSkeleton } from '@offisim/ui-core';
 import { WorkspaceSuite, useSuiteEscape } from '@offisim/ui-office/web';
 import React, { Suspense, useCallback } from 'react';
 
+import { WorkspaceOfficeSceneHost } from './WorkspaceRouterSurfaces';
 import type {
   ActivityLogSessionState,
   MarketSessionState,
@@ -172,13 +173,9 @@ export function WorkspaceRouter({
     <>
       {/* Office scene: conditionally mounted, frozen when not active */}
       {mountOffice && (
-        <div
-          className={officeInteractive ? 'pointer-events-auto' : 'pointer-events-none'}
-          aria-hidden={!officeInteractive}
-          data-workspace="office"
-        >
+        <WorkspaceOfficeSceneHost interactive={officeInteractive} data-workspace="office">
           {children}
-        </div>
+        </WorkspaceOfficeSceneHost>
       )}
 
       {/* Non-office workspaces: mutually exclusive */}

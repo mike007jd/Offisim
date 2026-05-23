@@ -1019,6 +1019,14 @@
     white-space: nowrap;
   }
 
+  .workspace-office-scene-host {
+    pointer-events: none;
+  }
+
+  .workspace-office-scene-host[data-interactive="true"] {
+    pointer-events: auto;
+  }
+
   .stage-axis-bar {
     align-items: center;
     backdrop-filter: blur(calc(var(--sp-1) * 2));
@@ -1477,7 +1485,8 @@
 
   .git-error-banner {
     background: var(--color-error-muted);
-    border-block-end: var(--border-width-thin) solid color-mix(in srgb, var(--color-error) 30%, transparent);
+    border-block-end: var(--border-width-thin) solid
+      color-mix(in srgb, var(--color-error) 30%, transparent);
     color: var(--color-error);
     font-size: var(--text-body-sm);
     font-weight: var(--text-body--font-weight);
@@ -1799,7 +1808,6 @@
   }
 
   .office-rail-tab-badge {
-    align-items: center;
     border-radius: var(--radius-pill);
     display: grid;
     font-size: var(--text-fs-micro);
