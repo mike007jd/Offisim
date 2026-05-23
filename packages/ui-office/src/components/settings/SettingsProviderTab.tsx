@@ -1,6 +1,8 @@
 import {
   Badge,
   Button,
+  Card,
+  CardContent,
   Input,
   Select,
   SelectContent,
@@ -9,7 +11,7 @@ import {
   SelectValue,
   Textarea,
 } from '@offisim/ui-core';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { CheckCircle2, KeyRound, Loader2, RefreshCw, Route } from 'lucide-react';
 import { useState } from 'react';
 import { isTauri } from '../../lib/env';
 import { isLlmExecutionLane } from '../../lib/provider-config';
@@ -156,6 +158,9 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   const providerListPullSummary = providerListPull
     ? `Last refreshed ${formatFetchedAt(providerListPull.fetchedAt)}`
     : 'Hermes Agent / OpenClaw scope, filled with LiteLLM + OpenRouter model metadata';
+  const isProviderReady =
+    model.trim().length > 0 && (!showApiKeyField || hasStoredSecret || apiKey.trim().length > 0);
+  const statusLabel = isProviderReady ? 'Configured' : 'Needs setup';
 
   async function handleProviderListPull() {
     setIsPullingProviderList(true);
@@ -188,6 +193,40 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
 
   return (
     <div ref={providerTargetRef} className="flex min-h-0 flex-col gap-sp-4">
+      <Card className="rounded-r-md border-line-soft bg-surface-1 shadow-elev-1">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-r-md bg-accent text-accent-foreground shadow-elev-1">
+              <KeyRound className="size-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="truncate text-fs-md font-semibold text-ink-1">
+                  {selectedVariant?.displayName ?? selectedProduct?.displayName ?? 'Manual'}
+                </h3>
+                <Badge variant={isProviderReady ? 'success' : 'warning'} size="xs">
+                  {statusLabel}
+                </Badge>
+              </div>
+              <p className="mt-1 truncate font-mono text-fs-sm text-ink-3">
+                {model || 'No model selected'} · {EXECUTION_LANE_LABELS[executionLane]} ·{' '}
+                {selectedRegion}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Badge variant="outline" size="xs" className="gap-1">
+              <Route className="size-3" aria-hidden="true" />
+              {selectedCompatibility}
+            </Badge>
+            <Badge variant="outline" size="xs" className="gap-1">
+              <CheckCircle2 className="size-3" aria-hidden="true" />
+              {selectedSurface}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
       <SettingsSection title="Product and access" description={routingDescription}>
         {resolvedSummary}
         <div className="grid gap-sp-4 md:grid-cols-2">
