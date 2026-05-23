@@ -4,7 +4,7 @@ import type { ChatAttachmentRef } from '@offisim/shared-types';
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { Button } from '@offisim/ui-core';
 import { ArrowLeft, BriefcaseBusiness, Paperclip } from 'lucide-react';
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 import { useDeliverables } from '../../hooks/useDeliverables';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { useMeeting } from '../../hooks/useMeeting.js';
@@ -257,9 +257,8 @@ export function ChatPanel({
   const startRun = useChatSessionStore((state) => state.startRun);
   const finalizeActiveRun = useChatSessionStore((state) => state.finalizeActiveRun);
   const clearActiveRun = useChatSessionStore((state) => state.clearActiveRun);
-  const clearAllConversations = useChatSessionStore((state) => state.clearAllConversations);
+  const clearConversation = useChatSessionStore((state) => state.clearConversation);
   const getMessages = useChatSessionStore((state) => state.getMessages);
-  const conversations = useChatSessionStore((state) => state.conversations);
 
   const interactionTargetRef = useRef<string | null>(null);
 
@@ -285,9 +284,11 @@ export function ChatPanel({
       [conversationKey],
     ),
   );
-  const availableThreadAttachments = useMemo(
-    () => collectThreadAttachmentRefs(conversations, activeThreadId),
-    [activeThreadId, conversations],
+  const availableThreadAttachments = useChatSessionStore(
+    useCallback(
+      (state) => collectThreadAttachmentRefs(state.conversations, activeThreadId),
+      [activeThreadId],
+    ),
   );
 
   // assistant-ui thread-list adapter (backed by chat_threads). Switching routes
@@ -582,7 +583,7 @@ export function ChatPanel({
       }
       if (command.type === 'client') {
         const ctx: ClientCommandContext = {
-          clearMessages: () => clearAllConversations(),
+          clearMessages: () => clearConversation(conversationKey),
           showHelp: () => {
             const helpText = buildHelpText();
             addMessage(targetKey, { id: genMsgId(), role: 'system', content: helpText });
@@ -607,7 +608,8 @@ export function ChatPanel({
       onOpenSettings,
       onOpenEditor,
       onOpenStudio,
-      clearAllConversations,
+      clearConversation,
+      conversationKey,
       addMessage,
       handleSend,
     ],

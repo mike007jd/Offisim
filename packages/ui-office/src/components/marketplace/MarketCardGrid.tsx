@@ -30,14 +30,22 @@ export interface MarketCardGridProps {
   readonly selectedListingId?: string | null;
 }
 
-const GRID_CLASS = 'grid grid-market-card-list gap-4 p-sp-7';
+const GRID_CLASS = 'grid grid-market-card-list p-sp-7';
 
 function SkeletonCard() {
   return (
     <div className="flex h-market-grid-card flex-col overflow-hidden rounded-r-md border border-line-soft bg-surface-1 shadow-elev-1">
-      <div className="h-24 flex-none border-b border-line-soft bg-surface-sunken" />
+      <div className="flex flex-none items-start gap-2 border-b border-line-soft px-3 pb-2 pt-3">
+        <Skeleton className="size-8 rounded-r-sm" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <Skeleton className="h-4 w-20 rounded-r-xs" />
+            <Skeleton className="h-5 w-16 rounded-r-pill" />
+          </div>
+          <Skeleton className="h-5 w-3/4 rounded-r-xs" />
+        </div>
+      </div>
       <div className="flex flex-1 flex-col gap-1.5 px-3 py-2.5">
-        <Skeleton className="h-4 w-3/4 rounded-r-xs" />
         <Skeleton className="h-3 w-full rounded-r-xs" />
         <Skeleton className="h-3 w-2/3 rounded-r-xs" />
         <div className="mt-auto flex gap-1.5 pt-2">

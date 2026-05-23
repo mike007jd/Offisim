@@ -180,7 +180,7 @@ export const CHAT_COMMANDS: readonly ChatCommand[] = [
     name: 'clear',
     aliases: ['reset'],
     category: 'chat',
-    description: 'Clear chat history',
+    description: 'Clear current conversation',
     execute: (_args, ctx) => ctx.clearMessages(),
   },
   {

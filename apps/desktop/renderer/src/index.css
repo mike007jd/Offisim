@@ -80,6 +80,14 @@
     width: 2.75rem;
   }
 
+  .w-office-left-rail {
+    width: 18rem;
+  }
+
+  .w-office-right-rail {
+    width: 28rem;
+  }
+
   .max-w-employee-inspector {
     max-width: min(22rem, calc(100vw - 2rem));
   }
@@ -195,7 +203,57 @@
   }
 
   .grid-market-card-list {
+    gap: 14px;
     grid-template-columns: repeat(auto-fill, minmax(15.75rem, 1fr));
+  }
+
+  .market-rarity-employee {
+    --rc: var(--accent);
+    --rcs: var(--accent-surface);
+  }
+
+  .market-rarity-skill,
+  .market-rarity-template {
+    --rc: var(--violet);
+    --rcs: var(--violet-surface);
+  }
+
+  .market-rarity-sop,
+  .market-rarity-prefab {
+    --rc: var(--warn);
+    --rcs: var(--warn-surface);
+  }
+
+  .market-rarity-layout {
+    --rc: var(--danger);
+    --rcs: var(--danger-surface);
+  }
+
+  .market-rarity-bundle,
+  .market-rarity-default {
+    --rc: var(--ink-3);
+    --rcs: var(--surface-sunken);
+  }
+
+  .market-rarity-border,
+  .market-rarity-tile,
+  .market-rarity-chip {
+    border-color: var(--rc);
+  }
+
+  .market-rarity-tile,
+  .market-rarity-chip {
+    color: var(--rc);
+  }
+
+  .market-rarity-chip {
+    background: var(--rcs);
+    border-width: var(--border-width-thin);
+  }
+
+  .market-rarity-stripe,
+  .market-rarity-cta {
+    background: var(--rc);
   }
 
   /* V3 detail open: retained listing grid (left) + fixed 440px right panel. */

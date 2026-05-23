@@ -160,11 +160,6 @@ export function ChatInput({
     return new Map(visibleCommands.map((command) => [command.name, command]));
   }, [visibleCommands]);
 
-  // ── Auto-resize textarea ────────────────────────────────────────
-  useEffect(() => {
-    resizeTextarea(textareaRef.current, text);
-  }, [text]);
-
   // ── Input change handler ────────────────────────────────────────
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;

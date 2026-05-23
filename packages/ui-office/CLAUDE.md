@@ -63,7 +63,7 @@ Office UI 组件 (React 19), 依赖 core + shared-types。
 - Tabs surfaces that preserve state or host heavy content declare a fixed min-height and use `forceMount + TABS_RETAIN_STATE_CLASS`.
 - `WorkspacePageShell` loading skeletons reserve `--workspace-min-content-height` per workspace before ready content mounts.
 - Canvas / 3D / iframe slots reserve size with `aspect-ratio` or explicit min-height before the embedded runtime mounts.
-- `StreamingBubble` bounds streamed content with `max-h-[60vh]`, inner scroll, and `overscroll-contain`.
+- Chat message rendering is assistant-ui-owned (`OffisimThread` + `MarkdownTextPrimitive`). Do not re-export or revive legacy `MessageBubble` / `StreamingBubble` / regex Markdown renderers.
 
 ## Onboarding tour
 

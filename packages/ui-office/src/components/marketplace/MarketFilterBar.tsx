@@ -186,7 +186,7 @@ export function MarketFilterBar({
 
   return (
     <div className="shrink-0 border-b border-line bg-surface-1">
-      <div className="flex min-h-14 flex-wrap items-center gap-3 px-sp-7 py-2">
+      <div className="flex min-h-12 flex-wrap items-center gap-3 px-sp-7 py-2">
         <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-4" />
           <Input

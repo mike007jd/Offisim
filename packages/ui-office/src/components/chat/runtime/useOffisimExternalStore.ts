@@ -108,8 +108,7 @@ export function convertOffisimMessage(message: OffisimAdapterMessage): ThreadMes
 
 /**
  * Selects the message list for a `conversationKey` and appends the in-flight
- * streaming segment as a synthetic running assistant message — mirroring the
- * legacy `messages.map(MessageBubble) + StreamingBubble` composition so the SSOT
+ * streaming segment as a synthetic running assistant-ui message so the SSOT
  * (zustand store + event-driven streaming reducer) stays unchanged.
  */
 export function useOffisimAdapterMessages(

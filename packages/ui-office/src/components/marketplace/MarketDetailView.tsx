@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { packageInstallKey } from '../../hooks/useInstalledListings.js';
 import { PermissionsBlock } from './PermissionsBlock.js';
-import { getRarityClasses } from './market-rarity.js';
+import { rarityClassName } from './market-rarity.js';
 import {
   INSTALLABLE_KINDS,
   KIND_ICON,
@@ -99,21 +99,19 @@ export function MarketDetailView({
   const isInstalled =
     isInstallable && ((installedListingIds?.has(detail.listing_id) ?? false) || installedByPackage);
   const verified = isVerifiedCreator(detail.creator.verification_state);
-  const rarity = getRarityClasses(detail.kind);
 
   return (
-    <div className={`flex h-full min-h-0 flex-col bg-surface-1 text-ink-1 ${panelBorder}`}>
+    <div
+      className={cn(
+        'flex h-full min-h-0 flex-col bg-surface-1 text-ink-1',
+        panelBorder,
+        rarityClassName(detail.kind),
+      )}
+    >
       <DetailHead
         onBack={onBack}
         kindChip={
-          <span
-            className={cn(
-              'inline-flex h-5 items-center gap-1.5 rounded-r-pill border px-2 text-fs-meta font-bold uppercase tracking-wide',
-              rarity.accent,
-              rarity.accentBorder,
-              rarity.surface,
-            )}
-          >
+          <span className="market-rarity-chip inline-flex h-5 items-center gap-1.5 rounded-r-pill px-2 text-fs-meta font-bold uppercase tracking-wide">
             {Icon && <Icon className="size-3" aria-hidden="true" />}
             {formatMarketKindLabel(detail.kind)}
           </span>
@@ -182,10 +180,7 @@ export function MarketDetailView({
             <Button
               type="button"
               onClick={() => onInstall(detail.listing_id, version)}
-              className={cn(
-                'w-full gap-1.5 rounded-r-md border-0 text-fs-sm font-semibold text-accent-fg',
-                rarity.accentBg,
-              )}
+              className="market-rarity-cta w-full gap-1.5 rounded-r-md border-0 text-fs-sm font-semibold text-accent-fg"
             >
               Install
             </Button>

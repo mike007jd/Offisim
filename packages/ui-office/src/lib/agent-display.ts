@@ -51,7 +51,7 @@ export const NODE_PLACEHOLDERS: Record<string, string> = {
 
 export const DEFAULT_PLACEHOLDER = 'Thinking';
 
-/** Resolve badge color for a display name (used by MessageBubble). */
+/** Resolve badge color for legacy display surfaces that still need name-derived badges. */
 const DISPLAY_NAME_BADGE_COLORS: Record<string, string> = {
   Boss: 'bg-warning-muted text-warning',
   PM: 'bg-accent-muted text-accent-text',

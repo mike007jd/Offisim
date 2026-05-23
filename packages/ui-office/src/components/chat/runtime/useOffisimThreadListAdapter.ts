@@ -27,6 +27,7 @@ export function useOffisimThreadListAdapter({
   const [regular, setRegular] = useState<ChatThread[]>([]);
   const [archived, setArchived] = useState<ChatThread[]>([]);
   const refreshSeqRef = useRef(0);
+  const ignoredEventKeysRef = useRef(new Set<string>());
 
   const refresh = useCallback(async () => {
     refreshSeqRef.current += 1;
@@ -50,6 +51,8 @@ export function useOffisimThreadListAdapter({
     if (!projectId) return;
     return eventBus.on('chat_thread.updated', (event: RuntimeEvent<ChatThreadUpdatedPayload>) => {
       if (event.payload.projectId !== projectId) return;
+      const eventKey = `${event.payload.chatThreadId}:${event.payload.reason}`;
+      if (ignoredEventKeysRef.current.delete(eventKey)) return;
       void refresh();
     });
   }, [eventBus, projectId, refresh]);
@@ -57,6 +60,7 @@ export function useOffisimThreadListAdapter({
   const emitUpdated = useCallback(
     (threadId: string, reason: ChatThreadUpdatedPayload['reason']) => {
       if (!projectId) return;
+      ignoredEventKeysRef.current.add(`${threadId}:${reason}`);
       eventBus.emit(chatThreadUpdated('', { chatThreadId: threadId, projectId, reason }));
     },
     [eventBus, projectId],
@@ -99,22 +103,37 @@ export function useOffisimThreadListAdapter({
       onArchive: async (threadId) => {
         if (!repos?.chatThreads) return;
         await repos.chatThreads.archive(threadId);
-        await refresh();
+        const archivedAt = new Date().toISOString();
+        setRegular((prev) => {
+          const target = prev.find((t) => t.thread_id === threadId);
+          if (target)
+            setArchived((archivedPrev) => [
+              { ...target, archived_at: archivedAt },
+              ...archivedPrev,
+            ]);
+          return prev.filter((t) => t.thread_id !== threadId);
+        });
         emitUpdated(threadId, 'archived');
       },
       onUnarchive: async (threadId) => {
         if (!repos?.chatThreads) return;
         await repos.chatThreads.unarchive(threadId);
-        await refresh();
+        setArchived((prev) => {
+          const target = prev.find((t) => t.thread_id === threadId);
+          if (target)
+            setRegular((regularPrev) => [{ ...target, archived_at: null }, ...regularPrev]);
+          return prev.filter((t) => t.thread_id !== threadId);
+        });
         emitUpdated(threadId, 'unarchived');
       },
       onDelete: async (threadId) => {
         if (!repos?.chatThreads) return;
         await repos.chatThreads.delete(threadId);
-        await refresh();
+        setRegular((prev) => prev.filter((t) => t.thread_id !== threadId));
+        setArchived((prev) => prev.filter((t) => t.thread_id !== threadId));
         emitUpdated(threadId, 'deleted');
       },
     }),
-    [selectedThreadId, regular, archived, onSelectThread, repos, projectId, emitUpdated, refresh],
+    [selectedThreadId, regular, archived, onSelectThread, repos, projectId, emitUpdated],
   );
 }

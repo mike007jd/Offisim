@@ -68,10 +68,25 @@ function CollapsedBar({
   );
 }
 
-const LEFT_PANEL_WIDTH = 288;
-const RIGHT_PANEL_WIDTH = 448;
-const COLLAPSED_PANEL_WIDTH = 44;
 const RIGHT_RAIL_STORAGE_KEY = 'offisim-rightrail-open';
+
+function readShellWidth(className: string): number {
+  if (typeof document === 'undefined') return 0;
+  const probe = document.createElement('div');
+  probe.className = `${className} pointer-events-none invisible absolute`;
+  document.body.appendChild(probe);
+  const width = probe.getBoundingClientRect().width;
+  probe.remove();
+  return width;
+}
+
+function readRailWidths() {
+  return {
+    left: readShellWidth('w-office-left-rail'),
+    right: readShellWidth('w-office-right-rail'),
+    collapsed: readShellWidth('w-office-rail-collapsed'),
+  };
+}
 
 function readStoredRightOpen(): boolean | null {
   try {
@@ -144,8 +159,9 @@ export function AppLayout({
     }
   }, [requestRightExpandToken, isNarrow, rightOpen, commitRightOpen]);
 
-  const leftWidth = leftOpen ? LEFT_PANEL_WIDTH : COLLAPSED_PANEL_WIDTH;
-  const rightWidth = rightOpen ? RIGHT_PANEL_WIDTH : COLLAPSED_PANEL_WIDTH;
+  const railWidths = useMemo(readRailWidths, []);
+  const leftWidth = leftOpen ? railWidths.left : railWidths.collapsed;
+  const rightWidth = rightOpen ? railWidths.right : railWidths.collapsed;
 
   const layoutMetrics = useMemo(
     () => ({
@@ -181,7 +197,7 @@ export function AppLayout({
           <aside
             className={cn(
               'flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-line bg-surface-1',
-              leftOpen ? 'w-72' : 'w-11',
+              leftOpen ? 'w-office-left-rail' : 'w-office-rail-collapsed',
             )}
           >
             {leftOpen ? (
@@ -208,7 +224,7 @@ export function AppLayout({
           <aside
             className={cn(
               'flex min-h-0 shrink-0 flex-col overflow-hidden border-l border-line bg-surface-1',
-              rightOpen ? 'w-112' : 'w-11',
+              rightOpen ? 'w-office-right-rail' : 'w-office-rail-collapsed',
             )}
           >
             {rightOpen ? (

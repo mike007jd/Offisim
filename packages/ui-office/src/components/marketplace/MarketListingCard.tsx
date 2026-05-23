@@ -1,7 +1,7 @@
 import type { ListingSummary } from '@offisim/registry-client';
 import { Badge, Card, CardButton, cn } from '@offisim/ui-core';
 import { Download, Star } from 'lucide-react';
-import { getRarityClasses } from './market-rarity.js';
+import { rarityClassName } from './market-rarity.js';
 import {
   INSTALLABLE_KINDS,
   KIND_ICON,
@@ -30,15 +30,15 @@ export function MarketListingCard({
   const showInstalled = installed === true && INSTALLABLE_KINDS.has(listing.kind);
   const verification = listing.creator.verification_state;
   const verified = isVerifiedCreator(verification);
-  const rarity = getRarityClasses(listing.kind);
   const kindLabel = formatMarketKindLabel(listing.kind);
 
   return (
     <Card
       className={cn(
         'group relative h-market-listing-card overflow-hidden rounded-r-md bg-surface-1 p-0 shadow-elev-1 transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-line-strong hover:shadow-elev-2',
+        rarityClassName(listing.kind),
         featured && 'col-span-2',
-        selected ? rarity.accentBorder : 'border-line-soft',
+        selected ? 'market-rarity-border' : 'border-line-soft',
       )}
     >
       <CardButton
@@ -49,20 +49,13 @@ export function MarketListingCard({
 
       <div className="pointer-events-none flex h-full flex-col overflow-hidden">
         <span
-          className={cn(
-            'pointer-events-none absolute inset-x-0 top-0 z-elevated h-1 opacity-90',
-            rarity.accentBg,
-          )}
+          className="market-rarity-stripe pointer-events-none absolute inset-x-0 top-0 z-elevated h-1 opacity-90"
           aria-hidden="true"
         />
 
         <div className="flex min-w-0 items-start gap-2 border-b border-line-soft px-3 pb-2 pt-3">
           <span
-            className={cn(
-              'grid size-8 flex-none place-items-center rounded-r-sm border bg-surface-2',
-              rarity.accent,
-              rarity.accentBorder,
-            )}
+            className="market-rarity-tile grid size-8 flex-none place-items-center rounded-r-sm border bg-surface-2"
             aria-hidden="true"
           >
             {Icon && <Icon className="size-4" />}
@@ -82,11 +75,7 @@ export function MarketListingCard({
               <Badge
                 variant="outline"
                 size="xs"
-                className={cn(
-                  'h-5 max-w-28 shrink-0 gap-1 truncate rounded-r-pill bg-surface-1 px-2 font-bold uppercase tracking-wide',
-                  rarity.accent,
-                  rarity.accentBorder,
-                )}
+                className="market-rarity-chip h-5 max-w-28 shrink-0 gap-1 truncate rounded-r-pill px-2 font-bold uppercase tracking-wide"
                 title={kindLabel}
               >
                 {Icon && <Icon className="size-3" aria-hidden="true" />}
