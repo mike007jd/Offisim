@@ -3,7 +3,7 @@ import { LIGHT_SEMANTIC_COLORS, V3_COLORS } from './colors-semantic.js';
 import { MOTION_DURATION, MOTION_EASING } from './motion.js';
 import { RADIUS_SCALE } from './radius.js';
 import { ELEVATION, SHADOW_SCALE } from './shadow.js';
-import { SP_DENSITY, SPACING_SCALE } from './spacing.js';
+import { SPACING_SCALE, SP_DENSITY } from './spacing.js';
 import type { DensityMode } from './spacing.js';
 import { FONT_FAMILY, FONT_SIZE_V3, LETTER_SPACING, TYPOGRAPHY_SCALE } from './typography.js';
 import { Z_INDEX_SCALE } from './z-index.js';
@@ -240,6 +240,7 @@ function rootAliases() {
     '  --info-val: var(--color-info-val);',
     '  --glass-bg: var(--color-glass-bg-val);',
     '  --glass-border: var(--color-glass-border-val);',
+    '  --bottom-sheet-shell-max-height: min(80vh, 32rem);',
     '  --scrollbar-thumb: color-mix(in srgb, var(--color-text-secondary-val) 22%, transparent);',
     '  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-text-secondary-val) 42%, transparent);',
     '  --shimmer-duration: 1600ms;',

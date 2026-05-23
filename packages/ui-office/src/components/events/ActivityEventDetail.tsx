@@ -1,5 +1,5 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
-import { Badge, Button } from '@offisim/ui-core';
+import { Badge, Button, cn } from '@offisim/ui-core';
 import { X } from 'lucide-react';
 import { formatFullTimestamp } from '../../lib/format-time';
 import { ActivityPayloadView } from './ActivityPayloadView';
@@ -18,61 +18,78 @@ const LEVEL_BADGE: Record<EventDisplayLevel, string> = {
   Error: 'bg-error-muted text-error border-error',
 };
 
+const ACTIVITY_DETAIL_HEADER_CLASS =
+  'flex shrink-0 items-center justify-between border-b border-border-subtle px-sp-4 py-sp-3';
+const ACTIVITY_DETAIL_TITLE_CLASS = 'text-fs-sm font-medium text-text-primary';
+const ACTIVITY_DETAIL_BODY_CLASS = 'min-h-0 flex-1 overflow-y-auto p-sp-4';
+const ACTIVITY_DETAIL_BODY_STACK_CLASS = 'flex flex-col gap-sp-4';
+const ACTIVITY_DETAIL_CLOSE_ICON_CLASS = 'activity-detail-icon';
+const ACTIVITY_DETAIL_SECTION_LABEL_CLASS =
+  'mb-sp-1 text-caption uppercase tracking-ls-caps text-text-muted';
+const ACTIVITY_DETAIL_TEXT_CLASS = 'text-fs-sm text-text-secondary';
+const ACTIVITY_DETAIL_MONO_TEXT_CLASS = 'font-mono text-fs-sm text-text-primary';
+const ACTIVITY_DETAIL_META_CLASS = 'mt-sp-1 text-caption text-text-muted';
+const ACTIVITY_DETAIL_META_ID_CLASS = 'break-all font-mono';
+
 export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps) {
   const level = getEventLevel(event);
   const payload = event.payload as Record<string, unknown>;
   const entityLabel = getDisplayLabel(event);
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-surface-elevated text-text-primary">
+    <div className="flex h-full flex-col overflow-hidden bg-surface-elevated text-text-primary">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
-        <h2 className="text-sm font-medium text-text-primary">Event Detail</h2>
+      <div className={ACTIVITY_DETAIL_HEADER_CLASS}>
+        <h2 className={ACTIVITY_DETAIL_TITLE_CLASS}>Event Detail</h2>
         <Button
           type="button"
           variant="ghost"
-          size="icon"
+          size="iconSm"
           onClick={onClose}
           aria-label="Close detail panel"
-          className="size-7 text-text-secondary hover:text-text-primary"
+          className="text-text-secondary hover:text-text-primary"
         >
-          <X className="size-4" />
+          <X className={ACTIVITY_DETAIL_CLOSE_ICON_CLASS} />
         </Button>
       </div>
 
-      <div className="flex flex-col gap-4 p-4">
-        {/* Event Type */}
-        <Section label="Event Type">
-          <p className="font-mono text-sm text-text-primary">{event.type.replaceAll('.', ' / ')}</p>
-        </Section>
+      <div className={ACTIVITY_DETAIL_BODY_CLASS}>
+        <div className={ACTIVITY_DETAIL_BODY_STACK_CLASS}>
+          {/* Event Type */}
+          <Section label="Event Type">
+            <p className={ACTIVITY_DETAIL_MONO_TEXT_CLASS}>{event.type.replaceAll('.', ' / ')}</p>
+          </Section>
 
-        {/* Level */}
-        <Section label="Level">
-          <Badge variant="outline" size="xs" className={LEVEL_BADGE[level]}>
-            {level}
-          </Badge>
-        </Section>
+          {/* Level */}
+          <Section label="Level">
+            <Badge variant="outline" size="xs" className={LEVEL_BADGE[level]}>
+              {level}
+            </Badge>
+          </Section>
 
-        {/* Timestamp */}
-        <Section label="Timestamp">
-          <p className="text-xs text-text-secondary">{formatFullTimestamp(event.timestamp)}</p>
-        </Section>
+          {/* Timestamp */}
+          <Section label="Timestamp">
+            <p className={ACTIVITY_DETAIL_TEXT_CLASS}>{formatFullTimestamp(event.timestamp)}</p>
+          </Section>
 
-        {/* Entity */}
-        <Section label="Entity">
-          <p className="text-xs text-text-secondary">{entityLabel}</p>
-          {event.entityType && (
-            <p className="mt-0.5 text-caption text-text-muted">Type: {event.entityType}</p>
-          )}
-          {event.entityId && (
-            <p className="mt-0.5 font-mono text-caption text-text-muted">ID: {event.entityId}</p>
-          )}
-        </Section>
+          {/* Entity */}
+          <Section label="Entity">
+            <p className={ACTIVITY_DETAIL_TEXT_CLASS}>{entityLabel}</p>
+            {event.entityType && (
+              <p className={ACTIVITY_DETAIL_META_CLASS}>Type: {event.entityType}</p>
+            )}
+            {event.entityId && (
+              <p className={cn(ACTIVITY_DETAIL_META_CLASS, ACTIVITY_DETAIL_META_ID_CLASS)}>
+                ID: {event.entityId}
+              </p>
+            )}
+          </Section>
 
-        {/* Payload */}
-        <Section label="Payload">
-          <ActivityPayloadView payload={payload} />
-        </Section>
+          {/* Payload */}
+          <Section label="Payload">
+            <ActivityPayloadView payload={payload} />
+          </Section>
+        </div>
       </div>
     </div>
   );
@@ -87,7 +104,7 @@ function Section({
 }) {
   return (
     <div>
-      <p className="mb-1 text-caption uppercase tracking-wider text-text-muted">{label}</p>
+      <p className={ACTIVITY_DETAIL_SECTION_LABEL_CLASS}>{label}</p>
       {children}
     </div>
   );

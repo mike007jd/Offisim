@@ -1,5 +1,5 @@
 import { type RuntimeEvent, TASK_ASSIGNMENT_REROUTED } from '@offisim/shared-types';
-import { Button } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { Activity } from 'lucide-react';
 import { formatTimestamp } from '../../lib/format-time';
 import {
@@ -36,6 +36,16 @@ const LEVEL_BAR_COLOR: Record<EventDisplayLevel, string> = {
   Info: 'bg-transparent',
 };
 
+const ACTIVITY_ROW_CLASS =
+  'h-activity-row w-full justify-start gap-sp-3 rounded-none px-sp-4 text-left hover:bg-surface-hover';
+const ACTIVITY_ROW_ICON_CLASS = 'activity-row-icon shrink-0';
+const ACTIVITY_ROW_LABEL_CLASS = 'min-w-0 flex-1 truncate text-fs-sm text-text-primary';
+const ACTIVITY_ROW_COUNT_CLASS =
+  'activity-row-count shrink-0 bg-surface-sunken text-caption font-medium text-text-secondary';
+const ACTIVITY_ROW_TIME_CLASS =
+  'w-activity-row-time shrink-0 text-right text-caption text-text-muted';
+const ACTIVITY_ROW_LEVEL_BAR_CLASS = 'activity-row-level-marker shrink-0 rounded-r-pill';
+
 export function ActivityEventRow({
   event,
   level,
@@ -60,19 +70,15 @@ export function ActivityEventRow({
       type="button"
       variant="ghost"
       onClick={onClick}
-      className={`h-12 w-full justify-start gap-3 rounded-none px-4 text-left hover:bg-surface-hover ${selectedStyle} ${levelBorder}`}
+      className={cn(ACTIVITY_ROW_CLASS, selectedStyle, levelBorder)}
     >
-      <Icon className={`size-5 shrink-0 ${iconColor}`} />
-      <span className="flex-1 truncate text-sm text-text-primary">{label}</span>
+      <Icon className={cn(ACTIVITY_ROW_ICON_CLASS, iconColor)} />
+      <span className={ACTIVITY_ROW_LABEL_CLASS}>{label}</span>
       {collapsedCount && collapsedCount > 1 && (
-        <span className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-caption font-medium text-text-secondary">
-          ×{collapsedCount}
-        </span>
+        <span className={ACTIVITY_ROW_COUNT_CLASS}>×{collapsedCount}</span>
       )}
-      <span className="w-20 shrink-0 text-right text-xs text-text-muted">
-        {formatTimestamp(event.timestamp)}
-      </span>
-      <span className={`h-6 w-1 shrink-0 rounded-full ${LEVEL_BAR_COLOR[level]}`} />
+      <span className={ACTIVITY_ROW_TIME_CLASS}>{formatTimestamp(event.timestamp)}</span>
+      <span className={cn(ACTIVITY_ROW_LEVEL_BAR_CLASS, LEVEL_BAR_COLOR[level])} />
     </Button>
   );
 }

@@ -1,4 +1,4 @@
-/* AUTO-GENERATED — DO NOT EDIT — source: packages/ui-core/src/tokens — commit: a1c11107 */
+/* AUTO-GENERATED — DO NOT EDIT — source: packages/ui-core/src/tokens — commit: 0bae65b5 */
 
 @theme inline {
   --color-surface: var(--color-surface-val);
@@ -256,6 +256,7 @@
   --info-val: var(--color-info-val);
   --glass-bg: var(--color-glass-bg-val);
   --glass-border: var(--color-glass-border-val);
+  --bottom-sheet-shell-max-height: min(80vh, 32rem);
   --scrollbar-thumb: color-mix(in srgb, var(--color-text-secondary-val) 22%, transparent);
   --scrollbar-thumb-hover: color-mix(in srgb, var(--color-text-secondary-val) 42%, transparent);
   --shimmer-duration: 1600ms;

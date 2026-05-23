@@ -1,5 +1,5 @@
 import {
-  Button,
+  BottomSheetShell,
   Input,
   Select,
   SelectContent,
@@ -7,12 +7,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  useFocusTrap,
-  useRegisterModal,
-  useTopmostEscape,
+  ToolbarIconButton,
 } from '@offisim/ui-core';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Search, SlidersHorizontal } from 'lucide-react';
+import { useState } from 'react';
 import { ALL_EVENT_TYPES } from './EventFilters';
 import type { DatePreset } from './workspace/activity-log-utils';
 
@@ -36,6 +34,19 @@ const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'custom', label: 'All time' },
 ];
 
+const ACTIVITY_FILTER_BAR_CLASS =
+  'grid h-activity-filter-bar shrink-0 grid-activity-filter items-center gap-sp-3 border-b border-line bg-surface-1 px-sp-6';
+const ACTIVITY_FILTER_NARROW_CLASS =
+  'flex h-activity-filter-bar shrink-0 items-center gap-sp-2 border-b border-line bg-surface-1 px-sp-3';
+const ACTIVITY_FILTER_CONTROL_CLASS =
+  'h-activity-filter-control min-w-0 flex-1 border-line bg-surface-2 text-fs-sm';
+const ACTIVITY_FILTER_SEARCH_CLASS =
+  'h-activity-filter-control w-full border-line bg-surface-2 pl-activity-search text-fs-sm text-ink-1 placeholder:text-ink-4 focus:border-accent';
+const ACTIVITY_FILTER_SEARCH_ICON_CLASS =
+  'activity-search-icon activity-search-icon-position absolute text-ink-4';
+const ACTIVITY_FILTER_ICON_CLASS = 'activity-filter-icon';
+const ACTIVITY_FILTER_SHEET_CONTROLS_CLASS = 'grid gap-sp-3';
+
 export function ActivityFilterBar({
   datePreset,
   eventTypes,
@@ -49,15 +60,8 @@ export function ActivityFilterBar({
   onSearchChange,
 }: ActivityFilterBarProps) {
   const sheetStackId = 'activity-filter-sheet';
-  const sheetRef = useRef<HTMLDivElement>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const narrowSheetOpen = variant === 'narrow' && sheetOpen;
-
-  useRegisterModal(narrowSheetOpen ? sheetStackId : null, 'overlay');
-  useTopmostEscape(narrowSheetOpen ? sheetStackId : null, () => setSheetOpen(false), {
-    enabled: narrowSheetOpen,
-  });
-  useFocusTrap(sheetRef, narrowSheetOpen);
 
   function handleTypeChange(selected: string) {
     onEventTypesChange(selected === 'all' ? [] : [selected]);
@@ -69,15 +73,15 @@ export function ActivityFilterBar({
 
   const eventTypeValue = eventTypes[0] ?? 'all';
   const actorValue = actorFilters[0] ?? 'all';
-  const controlClass = 'h-9 min-w-0 flex-1';
+  const inNarrowSheet = variant === 'narrow';
 
   const controls = (
     <>
       <Select value={datePreset} onValueChange={(value) => onDatePresetChange(value as DatePreset)}>
-        <SelectTrigger className={controlClass}>
+        <SelectTrigger className={ACTIVITY_FILTER_CONTROL_CLASS}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent layer={inNarrowSheet ? 'top' : 'default'}>
           <SelectGroup>
             {DATE_PRESETS.map((p) => (
               <SelectItem key={p.value} value={p.value}>
@@ -89,10 +93,10 @@ export function ActivityFilterBar({
       </Select>
 
       <Select value={eventTypeValue} onValueChange={handleTypeChange}>
-        <SelectTrigger className={controlClass} title="Event types">
+        <SelectTrigger className={ACTIVITY_FILTER_CONTROL_CLASS} title="Event types">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent layer={inNarrowSheet ? 'top' : 'default'}>
           <SelectGroup>
             <SelectItem value="all">All events</SelectItem>
             {ALL_EVENT_TYPES.filter((t) => t !== 'All').map((type) => (
@@ -105,10 +109,10 @@ export function ActivityFilterBar({
       </Select>
 
       <Select value={actorValue} onValueChange={handleActorChange}>
-        <SelectTrigger className={controlClass} title="Actors">
+        <SelectTrigger className={ACTIVITY_FILTER_CONTROL_CLASS} title="Actors">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent layer={inNarrowSheet ? 'top' : 'default'}>
           <SelectGroup>
             <SelectItem value="all">All actors</SelectItem>
             {actorOptions.map((actor) => (
@@ -124,73 +128,45 @@ export function ActivityFilterBar({
 
   if (variant === 'narrow') {
     return (
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border-default bg-surface-elevated px-3">
-        <Button
-          type="button"
-          aria-label="Open activity filters"
-          onClick={() => setSheetOpen(true)}
-          variant="secondary"
-          size="icon"
-          className="size-9 shrink-0 text-text-secondary"
-        >
-          <SlidersHorizontal className="size-4" />
-        </Button>
+      <div className={ACTIVITY_FILTER_NARROW_CLASS}>
+        <ToolbarIconButton aria-label="Open activity filters" onClick={() => setSheetOpen(true)}>
+          <SlidersHorizontal className={ACTIVITY_FILTER_ICON_CLASS} />
+        </ToolbarIconButton>
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
+          <Search className={ACTIVITY_FILTER_SEARCH_ICON_CLASS} />
           <Input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search events..."
-            className="h-9 w-full border-border-default bg-surface pl-8 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus"
+            className={ACTIVITY_FILTER_SEARCH_CLASS}
           />
         </div>
-        {sheetOpen && (
-          <div className="fixed inset-0 z-modal">
-            <Button
-              type="button"
-              aria-label="Close activity filters"
-              variant="ghost"
-              className="absolute inset-0 h-auto rounded-none bg-surface/70"
-              onClick={() => setSheetOpen(false)}
-            />
-            <div
-              ref={sheetRef}
-              className="absolute inset-x-0 bottom-0 rounded-t-2xl border border-border-default bg-surface-elevated p-4 shadow-modal"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-text-primary">Filters</h2>
-                <Button
-                  type="button"
-                  aria-label="Close filters"
-                  onClick={() => setSheetOpen(false)}
-                  variant="secondary"
-                  size="icon"
-                  className="size-8 text-text-secondary"
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
-              <div className="mt-4 grid gap-3">{controls}</div>
-            </div>
-          </div>
-        )}
+        <BottomSheetShell
+          open={narrowSheetOpen}
+          onOpenChange={setSheetOpen}
+          stackId={sheetStackId}
+          title="Filters"
+          closeLabel="Close activity filters"
+        >
+          <div className={ACTIVITY_FILTER_SHEET_CONTROLS_CLASS}>{controls}</div>
+        </BottomSheetShell>
       </div>
     );
   }
 
   return (
-    <div className="grid h-14 shrink-0 grid-activity-filter items-center gap-3 border-b border-border-default bg-surface-elevated px-6">
+    <div className={ACTIVITY_FILTER_BAR_CLASS}>
       {controls}
 
       <div className="relative min-w-0">
-        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
+        <Search className={ACTIVITY_FILTER_SEARCH_ICON_CLASS} />
         <Input
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search events..."
-          className="h-9 w-full border-border-default bg-surface pl-8 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus"
+          className={ACTIVITY_FILTER_SEARCH_CLASS}
         />
       </div>
     </div>

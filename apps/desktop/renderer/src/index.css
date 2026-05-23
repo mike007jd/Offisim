@@ -211,6 +211,62 @@
     grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(10rem, 2fr);
   }
 
+  .h-activity-filter-bar {
+    height: var(--toolbar);
+  }
+
+  .h-activity-filter-control {
+    height: calc(var(--sp-8) + var(--sp-7));
+  }
+
+  .pl-activity-search {
+    padding-left: calc(var(--sp-8) + var(--sp-5));
+  }
+
+  .activity-search-icon-position {
+    left: var(--sp-3);
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .h-activity-row {
+    height: calc(var(--sp-8) + var(--sp-8) + var(--sp-3));
+  }
+
+  .w-activity-row-time {
+    width: calc(var(--sp-8) * 4);
+  }
+
+  .activity-row-level-marker {
+    height: calc(var(--sp-8) + var(--sp-1));
+    width: var(--sp-1);
+  }
+
+  .activity-row-count {
+    border-radius: var(--r-pill);
+    padding: calc(var(--sp-1) / 2) var(--sp-2);
+  }
+
+  .activity-row-icon {
+    height: var(--sp-8);
+    width: var(--sp-8);
+  }
+
+  .activity-detail-icon {
+    height: var(--sp-7);
+    width: var(--sp-7);
+  }
+
+  .activity-search-icon {
+    height: var(--sp-6);
+    width: var(--sp-6);
+  }
+
+  .activity-filter-icon {
+    height: var(--sp-7);
+    width: var(--sp-7);
+  }
+
   .min-w-notification-badge {
     min-width: 0.875rem;
   }

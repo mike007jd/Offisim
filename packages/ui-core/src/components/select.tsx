@@ -92,10 +92,15 @@ const SelectTrigger = forwardRef<
 );
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
+export interface SelectContentProps
+  extends ComponentPropsWithoutRef<typeof SelectPrimitive.Content> {
+  layer?: 'default' | 'top';
+}
+
 const SelectContent = forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Content>,
-  ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = 'popper', ...props }, ref) => {
+  SelectContentProps
+>(({ className, children, position = 'popper', layer = 'default', ...props }, ref) => {
   const open = useContext(SelectOpenContext);
   const id = useId();
   useRegisterModal(open ? id : null, 'popover');
@@ -105,6 +110,7 @@ const SelectContent = forwardRef<
         ref={ref}
         className={cn(
           'relative z-50 max-h-96 min-w-32 overflow-hidden rounded-lg border border-border-default bg-surface-elevated text-text-primary shadow-xl',
+          layer === 'top' && 'z-top',
           position === 'popper' && 'translate-y-1',
           className,
         )}

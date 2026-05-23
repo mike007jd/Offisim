@@ -22,6 +22,10 @@ const SIZE_CLASS: Record<DialogSize, string> = {
   full: 'max-w-5xl',
 };
 
+const BOTTOM_SHEET_CONTENT_CLASS =
+  'fixed inset-x-0 bottom-0 z-modal flex flex-col rounded-t-r-lg border border-line bg-surface-1 text-ink-1 shadow-elev-3 outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-2 data-[state=open]:slide-in-from-bottom-2 data-[state=open]:duration-150 data-[state=closed]:duration-250';
+const BOTTOM_SHEET_CLOSE_ICON_CLASS = 'size-sp-4';
+
 /**
  * Canonical sizing for modal dialogs. Apply to the inner flex column so the
  * dialog's outer height never collapses below a readable floor and never
@@ -77,6 +81,25 @@ export interface DialogShellProps {
   className?: string;
   /** Body content. */
   children?: ReactNode;
+}
+
+export interface BottomSheetShellProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  stackId?: string;
+  title: ReactNode;
+  description?: ReactNode;
+  footer?: ReactNode;
+  closeLabel?: string;
+  closeOnBackdrop?: boolean;
+  closeOnEscape?: boolean;
+  onRequestClose?: () => boolean | undefined;
+  showCloseButton?: boolean;
+  backdropClassName?: string;
+  headerClassName?: string;
+  bodyClassName?: string;
+  children: ReactNode;
+  className?: string;
 }
 
 /**
@@ -207,6 +230,130 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
   },
 );
 DialogShell.displayName = 'DialogShell';
+
+export const BottomSheetShell = forwardRef<HTMLDivElement, BottomSheetShellProps>(
+  (
+    {
+      open,
+      onOpenChange,
+      stackId,
+      title,
+      description,
+      footer,
+      closeLabel = 'Close',
+      closeOnBackdrop = true,
+      closeOnEscape = true,
+      onRequestClose,
+      showCloseButton = true,
+      backdropClassName,
+      headerClassName,
+      bodyClassName,
+      children,
+      className,
+    },
+    ref,
+  ) => {
+    const generatedId = useId();
+    const id = stackId ?? generatedId;
+    useRegisterModal(open ? id : null, 'dialog');
+
+    const requestClose = useCallback(() => {
+      if (!onRequestClose) {
+        onOpenChange(false);
+        return;
+      }
+      const result = onRequestClose();
+      if (result !== false) onOpenChange(false);
+    }, [onRequestClose, onOpenChange]);
+
+    const handleOpenChange = useCallback(
+      (nextOpen: boolean) => {
+        if (nextOpen) {
+          onOpenChange(true);
+          return;
+        }
+        requestClose();
+      },
+      [onOpenChange, requestClose],
+    );
+
+    return (
+      <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay
+            className={cn(
+              'fixed inset-0 z-modal bg-glass-bg backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:duration-150 data-[state=closed]:duration-250',
+              backdropClassName,
+            )}
+          />
+          <DialogPrimitive.Content
+            ref={ref}
+            onEscapeKeyDown={(event) => {
+              if (!closeOnEscape) {
+                event.preventDefault();
+                return;
+              }
+              event.preventDefault();
+              requestClose();
+            }}
+            onPointerDownOutside={(event) => {
+              if (!closeOnBackdrop) {
+                event.preventDefault();
+                return;
+              }
+            }}
+            onInteractOutside={(event) => {
+              if (!closeOnBackdrop) event.preventDefault();
+            }}
+            className={cn(
+              BOTTOM_SHEET_CONTENT_CLASS,
+              // ui-hardcode-allowed: bottom sheet viewport cap uses ui-core token emitted into generated theme CSS.
+              'max-h-[var(--bottom-sheet-shell-max-height)]',
+              className,
+            )}
+          >
+            <div
+              className={cn(
+                'flex items-start justify-between gap-sp-4 border-b border-line-soft px-sp-4 py-sp-3',
+                headerClassName,
+              )}
+            >
+              <div className="min-w-0 flex-1">
+                <DialogPrimitive.Title className="text-fs-sm font-semibold text-ink-1">
+                  {title}
+                </DialogPrimitive.Title>
+                {description && (
+                  <DialogPrimitive.Description className="mt-sp-1 text-caption text-ink-3">
+                    {description}
+                  </DialogPrimitive.Description>
+                )}
+              </div>
+              {showCloseButton && (
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  onClick={requestClose}
+                  aria-label={closeLabel}
+                >
+                  <X className={BOTTOM_SHEET_CLOSE_ICON_CLASS} />
+                </Button>
+              )}
+            </div>
+            <div className={cn('min-h-0 flex-1 overflow-y-auto p-sp-4', bodyClassName)}>
+              {children}
+            </div>
+            {footer && (
+              <div className="flex flex-wrap items-center justify-end gap-sp-3 border-t border-line-soft bg-surface-2 px-sp-4 py-sp-3">
+                {footer}
+              </div>
+            )}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    );
+  },
+);
+BottomSheetShell.displayName = 'BottomSheetShell';
 
 export type DialogShellCloseProps = ComponentPropsWithoutRef<typeof DialogPrimitive.Close>;
 export const DialogShellClose = DialogPrimitive.Close;
