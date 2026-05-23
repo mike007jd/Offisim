@@ -124,18 +124,18 @@ function ToolFallbackTrigger({
       <span
         data-slot="tool-fallback-trigger-label"
         className={cn(
-          'aui-tool-fallback-trigger-label-wrapper relative inline-block grow text-start leading-none',
+          'aui-tool-fallback-trigger-label-wrapper relative min-w-0 grow text-start leading-none',
           isCancelled && 'text-ink-3 line-through',
         )}
       >
-        <span>
+        <span className="aui-tool-fallback-trigger-label-text block max-w-full break-words">
           {label}: <b>{toolName}</b>
         </span>
         {isRunning && (
           <span
             aria-hidden
             data-slot="tool-fallback-trigger-shimmer"
-            className="aui-tool-fallback-trigger-shimmer shimmer pointer-events-none absolute inset-0 motion-reduce:animate-none"
+            className="aui-tool-fallback-trigger-shimmer shimmer pointer-events-none absolute inset-0 max-w-full break-words motion-reduce:animate-none"
           >
             {label}: <b>{toolName}</b>
           </span>
@@ -195,7 +195,9 @@ function ToolFallbackArgs({
       className={cn('aui-tool-fallback-args px-4', className)}
       {...props}
     >
-      <pre className="aui-tool-fallback-args-value whitespace-pre-wrap">{argsText}</pre>
+      <pre className="aui-tool-fallback-args-value block max-h-64 max-w-full overflow-auto whitespace-pre-wrap break-words">
+        {argsText}
+      </pre>
     </div>
   );
 }
@@ -216,7 +218,7 @@ function ToolFallbackResult({
       {...props}
     >
       <p className="aui-tool-fallback-result-header font-semibold">Result:</p>
-      <pre className="aui-tool-fallback-result-content whitespace-pre-wrap">
+      <pre className="aui-tool-fallback-result-content block max-h-64 max-w-full overflow-auto whitespace-pre-wrap break-words">
         {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
       </pre>
     </div>
@@ -247,7 +249,9 @@ function ToolFallbackError({
       {...props}
     >
       <p className="aui-tool-fallback-error-header font-semibold text-ink-3">{headerText}</p>
-      <p className="aui-tool-fallback-error-reason text-ink-3">{errorText}</p>
+      <p className="aui-tool-fallback-error-reason max-w-full break-words text-ink-3">
+        {errorText}
+      </p>
     </div>
   );
 }
@@ -256,9 +260,7 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({ toolName, argsText, re
   const isCancelled = status?.type === 'incomplete' && status.reason === 'cancelled';
 
   return (
-    <ToolFallbackRoot
-      className={cn(isCancelled && 'border-line/30 bg-surface-sunken/30')}
-    >
+    <ToolFallbackRoot className={cn(isCancelled && 'border-line/30 bg-surface-sunken/30')}>
       <ToolFallbackTrigger toolName={toolName} status={status} />
       <ToolFallbackContent>
         <ToolFallbackError status={status} />

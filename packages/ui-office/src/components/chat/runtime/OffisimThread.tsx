@@ -5,12 +5,21 @@ import {
   ThreadPrimitive,
   useAuiState,
 } from '@assistant-ui/react';
-import { cn } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
+import { ArrowDownToLine } from 'lucide-react';
 import { type ReactNode, useMemo } from 'react';
 import type { AttachmentStore } from '../../../lib/attachment-store';
 import { SentAttachmentChip } from '../SentAttachmentChip';
 import { MarkdownText } from './markdown-text';
-import { Reasoning, ReasoningGroup } from './reasoning';
+import { Reasoning } from './reasoning';
+import {
+  ThreadAttachmentFrame,
+  ThreadMessageContent,
+  ThreadSpeakerBadge,
+  ThreadStatusFrame,
+  ThreadSystemBubble,
+  ThreadUserBubble,
+} from './thread-surfaces';
 import { ToolFallback } from './tool-fallback';
 import { ToolGroup } from './tool-group';
 import type { OffisimMessageCustom } from './useOffisimExternalStore';
@@ -35,12 +44,7 @@ function SpeakerBadge() {
   const custom = useMessageCustom();
   const nodeName = custom?.nodeName;
   if (!nodeName) return null;
-  return (
-    <div className="mb-1 inline-flex items-center gap-1.5 text-fs-meta font-medium uppercase tracking-wide text-ink-3">
-      <span className="size-1.5 rounded-pill bg-violet" aria-hidden />
-      {nodeName}
-    </div>
-  );
+  return <ThreadSpeakerBadge>{nodeName}</ThreadSpeakerBadge>;
 }
 
 function AttachmentList({ attachmentStore }: { attachmentStore: AttachmentStore | null }) {
@@ -53,43 +57,124 @@ function AttachmentList({ attachmentStore }: { attachmentStore: AttachmentStore 
         const ref = attachments.find((item) => item.attachmentId === attachment.id);
         if (!ref) {
           return (
-            <AttachmentPrimitive.Root className="mt-1 rounded-md border border-line px-2.5 py-1.5 text-fs-sm text-ink-2">
+            <AttachmentPrimitive.Root className="offisim-thread-attachment-fallback">
               <AttachmentPrimitive.Name />
             </AttachmentPrimitive.Root>
           );
         }
         return (
-          <div className="mt-1 min-w-0">
+          <ThreadAttachmentFrame>
             <SentAttachmentChip attachment={ref} attachmentStore={attachmentStore} />
-          </div>
+          </ThreadAttachmentFrame>
         );
       }}
     </MessagePrimitive.Attachments>
   );
 }
 
+function TerminalStatusLine() {
+  const custom = useMessageCustom();
+  if (custom?.status === 'failed') {
+    return (
+      <ThreadStatusFrame tone="error" role="alert">
+        Failed
+      </ThreadStatusFrame>
+    );
+  }
+  if (custom?.status === 'interrupted') {
+    return <ThreadStatusFrame tone="warning">Interrupted</ThreadStatusFrame>;
+  }
+  return null;
+}
+
+const groupOffisimMessagePart = (part: { type: string }) => {
+  if (part.type === 'reasoning') return ['group-reasoning'] as const;
+  if (part.type === 'tool-call') return ['group-tool'] as const;
+  return null;
+};
+
+function ReasoningGroupSurface({
+  indices,
+  children,
+}: {
+  indices: readonly number[];
+  children: ReactNode;
+}) {
+  const startIndex = indices[0] ?? 0;
+  const endIndex = indices.at(-1) ?? startIndex;
+  const isReasoningStreaming = useAuiState((s) => {
+    if (s.message.status?.type !== 'running') return false;
+    const lastIndex = s.message.parts.length - 1;
+    if (lastIndex < 0) return false;
+    const lastType = s.message.parts[lastIndex]?.type;
+    if (lastType !== 'reasoning') return false;
+    return lastIndex >= startIndex && lastIndex <= endIndex;
+  });
+
+  return (
+    <Reasoning.Root defaultOpen={isReasoningStreaming}>
+      <Reasoning.Trigger active={isReasoningStreaming} />
+      <Reasoning.Content aria-busy={isReasoningStreaming}>
+        <Reasoning.Text>{children}</Reasoning.Text>
+      </Reasoning.Content>
+    </Reasoning.Root>
+  );
+}
+
+function ToolGroupSurface({
+  indices,
+  children,
+}: {
+  indices: readonly number[];
+  children: ReactNode;
+}) {
+  return (
+    <ToolGroup.Root>
+      <ToolGroup.Trigger count={indices.length} />
+      <ToolGroup.Content>{children}</ToolGroup.Content>
+    </ToolGroup.Root>
+  );
+}
+
+function AssistantGroupedParts() {
+  return (
+    <MessagePrimitive.GroupedParts groupBy={groupOffisimMessagePart}>
+      {({ part, children }) => {
+        switch (part.type) {
+          case 'group-reasoning':
+            return <ReasoningGroupSurface indices={part.indices}>{children}</ReasoningGroupSurface>;
+          case 'group-tool':
+            return <ToolGroupSurface indices={part.indices}>{children}</ToolGroupSurface>;
+          case 'text':
+            return <MarkdownText />;
+          case 'reasoning':
+            return <Reasoning {...part} />;
+          case 'tool-call':
+            return part.toolUI ?? <ToolFallback {...part} />;
+          default:
+            return (
+              <ThreadStatusFrame tone="warning">
+                Unsupported message part: {part.type}
+              </ThreadStatusFrame>
+            );
+        }
+      }}
+    </MessagePrimitive.GroupedParts>
+  );
+}
+
 const createAssistantMessage = (attachmentStore: AttachmentStore | null) => {
   const AssistantMessage = () => {
     return (
-      <MessagePrimitive.Root
-        data-role="assistant"
-        className="group/message flex w-full flex-col gap-1 py-2"
-      >
+      <MessagePrimitive.Root data-role="assistant" className="offisim-thread-assistant-root">
         <SpeakerBadge />
-        <div className="min-w-0 text-fs-base leading-relaxed text-ink-1 [&_.aui-md]:min-w-0">
-          <MessagePrimitive.Parts
-            components={{
-              Text: MarkdownText,
-              Reasoning,
-              ReasoningGroup,
-              ToolGroup,
-              tools: { Fallback: ToolFallback },
-            }}
-          />
-        </div>
+        <ThreadMessageContent>
+          <AssistantGroupedParts />
+        </ThreadMessageContent>
         <MessagePrimitive.Error>
           <ErrorLine />
         </MessagePrimitive.Error>
+        <TerminalStatusLine />
         <AttachmentList attachmentStore={attachmentStore} />
       </MessagePrimitive.Root>
     );
@@ -99,38 +184,57 @@ const createAssistantMessage = (attachmentStore: AttachmentStore | null) => {
 
 function ErrorLine() {
   return (
-    <ErrorPrimitive.Root className="mt-1 rounded-md border border-danger/30 bg-danger-surface px-2.5 py-1.5 text-fs-sm text-danger">
+    <ErrorPrimitive.Root className="offisim-thread-error">
       <ErrorPrimitive.Message />
     </ErrorPrimitive.Root>
+  );
+}
+
+function ScrollToLatestButton() {
+  return (
+    <ThreadPrimitive.ScrollToBottom
+      behavior="smooth"
+      render={
+        <Button variant="secondary" size="icon" className="offisim-thread-scroll-bottom-button">
+          <ArrowDownToLine className="offisim-thread-scroll-bottom-icon" aria-hidden />
+        </Button>
+      }
+      className="offisim-thread-scroll-bottom"
+      aria-label="Scroll to latest message"
+    />
   );
 }
 
 const createUserMessage = (attachmentStore: AttachmentStore | null) => {
   const UserMessage = () => {
     return (
-      <MessagePrimitive.Root data-role="user" className="flex w-full justify-end py-2">
-        <div className="max-w-prose rounded-lg rounded-br-xs bg-accent-surface px-3 py-2 text-fs-base text-ink-1">
+      <MessagePrimitive.Root data-role="user" className="offisim-thread-user-root">
+        <ThreadUserBubble>
           <MessagePrimitive.Parts />
           <AttachmentList attachmentStore={attachmentStore} />
-        </div>
+        </ThreadUserBubble>
       </MessagePrimitive.Root>
     );
   };
   return UserMessage;
 };
 
-function SystemMessage() {
-  return (
-    <MessagePrimitive.Root data-role="system" className="flex w-full justify-center py-1.5">
-      <div className="max-w-prose rounded-md border border-line-soft bg-surface-sunken px-2.5 py-1.5 text-center text-fs-sm leading-relaxed text-ink-3">
-        <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
-        <MessagePrimitive.Error>
-          <ErrorLine />
-        </MessagePrimitive.Error>
-      </div>
-    </MessagePrimitive.Root>
-  );
-}
+const createSystemMessage = (attachmentStore: AttachmentStore | null) => {
+  const SystemMessage = () => {
+    return (
+      <MessagePrimitive.Root data-role="system" className="offisim-thread-system-root">
+        <ThreadSystemBubble>
+          <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
+          <MessagePrimitive.Error>
+            <ErrorLine />
+          </MessagePrimitive.Error>
+          <AttachmentList attachmentStore={attachmentStore} />
+        </ThreadSystemBubble>
+      </MessagePrimitive.Root>
+    );
+  };
+  return SystemMessage;
+};
 
 export interface OffisimThreadProps {
   /** Rendered by `ThreadPrimitive.Empty` when the conversation has no messages. */
@@ -158,22 +262,28 @@ export function OffisimThread({
     () => createAssistantMessage(attachmentStore),
     [attachmentStore],
   );
+  const SystemMessage = useMemo(() => createSystemMessage(attachmentStore), [attachmentStore]);
   const components = useMemo(
     () => ({ UserMessage, AssistantMessage, SystemMessage }),
-    [AssistantMessage, UserMessage],
+    [AssistantMessage, SystemMessage, UserMessage],
   );
   return (
-    <ThreadPrimitive.Root className={cn('flex min-h-0 flex-1 flex-col', className)}>
-      <ThreadPrimitive.Viewport className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-3 py-2">
+    <ThreadPrimitive.Root className={cn('offisim-thread-root', className)}>
+      <ThreadPrimitive.Viewport className="offisim-thread-viewport">
         {beforeMessages}
         <ThreadPrimitive.Empty>{emptyState ?? null}</ThreadPrimitive.Empty>
         <ThreadPrimitive.Messages components={components} />
-        {afterMessages}
+        {afterMessages ? (
+          <div className="offisim-thread-after-messages">{afterMessages}</div>
+        ) : null}
         {footer ? (
-          <ThreadPrimitive.ViewportFooter className="sticky bottom-0 z-sticky -mx-3 -mb-2 bg-surface-elevated">
+          <ThreadPrimitive.ViewportFooter className="offisim-thread-footer">
+            <ScrollToLatestButton />
             {footer}
           </ThreadPrimitive.ViewportFooter>
-        ) : null}
+        ) : (
+          <ScrollToLatestButton />
+        )}
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
   );

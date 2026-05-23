@@ -1,6 +1,8 @@
 import type { ChatAttachmentRef } from '@offisim/shared-types';
+import { Button, cn } from '@offisim/ui-core';
+import { cva } from 'class-variance-authority';
 import { Download, Paperclip } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import type { AttachmentStore } from '../../lib/attachment-store.js';
 import { ATTACHMENT_KIND_ICONS, formatAttachmentBytes } from './attachment-chip-display.js';
 
@@ -48,6 +50,28 @@ export interface SentAttachmentChipProps {
   attachmentStore: AttachmentStore | null;
 }
 
+const sentAttachmentChipVariants = cva(
+  'flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-md border px-2 py-1 text-xs',
+  {
+    variants: {
+      state: {
+        default: 'border-border-default bg-surface text-text-primary',
+        evicted: 'cursor-default border-border-default bg-surface-muted text-text-muted',
+        parseError: 'border-warning/60 bg-warning-muted text-text-primary',
+      },
+    },
+    defaultVariants: { state: 'default' },
+  },
+);
+
+function SentAttachmentImageFrame({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return <span className="sent-attachment-image-frame">{children}</span>;
+}
+
 /**
  * Bubble-side chip for an already-persisted user attachment. No remove
  * affordance (delete-message semantics only). Renders three variants:
@@ -66,18 +90,13 @@ export function SentAttachmentChip({ attachment, attachmentStore }: SentAttachme
   const summary = isEvicted
     ? 'No longer available locally — re-attach to recover.'
     : (attachment.summary ?? '');
-
-  const baseClass =
-    'flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-md border px-2 py-1 text-xs';
-  const variantClass = isEvicted
-    ? 'border-border-default bg-surface-muted text-text-muted'
-    : isParseError
-      ? 'border-warning/60 bg-warning-muted text-text-primary'
-      : 'border-border-default bg-surface text-text-primary';
+  const state = isEvicted ? 'evicted' : isParseError ? 'parseError' : 'default';
 
   return (
     <div
-      className={`${baseClass} ${variantClass} ${isEvicted ? 'cursor-default' : ''}`}
+      data-slot="sent-attachment-chip"
+      data-state={state}
+      className={sentAttachmentChipVariants({ state })}
       title={
         isEvicted
           ? 'No longer available locally. Re-attach to recover.'
@@ -86,12 +105,18 @@ export function SentAttachmentChip({ attachment, attachmentStore }: SentAttachme
             : undefined
       }
     >
-      {attachment.kind === 'image' && status.kind === 'ready' && status.objectUrl ? (
-        <img
-          src={status.objectUrl}
-          alt={attachment.filename}
-          className="sent-attachment-image min-w-0 shrink rounded object-contain"
-        />
+      {attachment.kind === 'image' ? (
+        <SentAttachmentImageFrame>
+          {status.kind === 'ready' && status.objectUrl ? (
+            <img
+              src={status.objectUrl}
+              alt={attachment.filename}
+              className="sent-attachment-image"
+            />
+          ) : (
+            <Icon className="h-4 w-4 shrink-0 text-text-secondary" />
+          )}
+        </SentAttachmentImageFrame>
       ) : (
         <Icon className="h-4 w-4 shrink-0 text-text-secondary" />
       )}
@@ -103,15 +128,21 @@ export function SentAttachmentChip({ attachment, attachmentStore }: SentAttachme
         </div>
       </div>
       {status.kind === 'ready' && status.objectUrl ? (
-        <a
-          href={status.objectUrl}
-          download={attachment.filename}
-          aria-label={`Download ${attachment.filename}`}
-          title={`Download ${attachment.filename}`}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted transition hover:bg-surface-hover hover:text-text-primary"
+        <Button
+          asChild
+          variant="ghost"
+          size="iconSm"
+          className={cn('shrink-0 text-text-muted', !isEvicted && 'hover:text-text-primary')}
         >
-          <Download className="h-3.5 w-3.5" />
-        </a>
+          <a
+            href={status.objectUrl}
+            download={attachment.filename}
+            aria-label={`Download ${attachment.filename}`}
+            title={`Download ${attachment.filename}`}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </a>
+        </Button>
       ) : null}
     </div>
   );

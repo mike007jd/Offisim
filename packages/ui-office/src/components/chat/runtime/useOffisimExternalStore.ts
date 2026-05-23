@@ -61,7 +61,7 @@ function resolveMessageStatus(message: OffisimAdapterMessage): ThreadMessageLike
   if (message.isRunning) return { type: 'running' };
   switch (message.status) {
     case 'failed':
-      return { type: 'incomplete', reason: 'error' };
+      return { type: 'incomplete', reason: 'error', error: 'Run failed.' };
     case 'interrupted':
       return { type: 'incomplete', reason: 'cancelled' };
     default:
@@ -97,7 +97,7 @@ export function convertOffisimMessage(message: OffisimAdapterMessage): ThreadMes
     role: message.role,
     content,
     id: message.id,
-    ...(message.role === 'user' && message.attachments && message.attachments.length > 0
+    ...(message.attachments && message.attachments.length > 0
       ? { attachments: message.attachments.map(toAssistantAttachment) }
       : {}),
     ...(typeof message.createdAt === 'number' ? { createdAt: new Date(message.createdAt) } : {}),
