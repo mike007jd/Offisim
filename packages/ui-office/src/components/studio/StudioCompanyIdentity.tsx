@@ -1,14 +1,10 @@
 import type { RuntimeRepositories } from '@offisim/core/browser';
-import { Input, Textarea } from '@offisim/ui-core';
+import { Input, Textarea, cn } from '@offisim/ui-core';
 import { useEffect, useRef, useState } from 'react';
 import { parseCompanyDescription, updateCompanyIdentity } from '../../lib/company-identity.js';
 import {
-  FONT,
-  LAYOUT,
-  SP,
-  STUDIO_COLORS,
-  STUDIO_Z_INDEX,
-  inputStyle,
+  STUDIO_LABEL_CLASS,
+  studioInputClass,
 } from './studio-style-helpers.js';
 
 export const STUDIO_IDENTITY_HEIGHT = 56;
@@ -18,53 +14,6 @@ interface StudioCompanyIdentityProps {
   companyId: string | undefined;
   repos: RuntimeRepositories | null;
   onError: (message: string) => void;
-}
-
-const CONTAINER_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  top: LAYOUT.toolbarHeight,
-  left: LAYOUT.paletteWidth,
-  right: LAYOUT.propertiesWidth,
-  height: STUDIO_IDENTITY_HEIGHT,
-  display: 'flex',
-  alignItems: 'center',
-  gap: SP.md,
-  padding: `0 ${SP.md}px`,
-  background: STUDIO_COLORS.surface0,
-  borderBottom: `1px solid ${STUDIO_COLORS.border}`,
-  fontFamily: FONT.family,
-  zIndex: STUDIO_Z_INDEX.sticky,
-};
-
-const FIELD_LABEL_STYLE: React.CSSProperties = {
-  fontSize: FONT.xs,
-  fontWeight: FONT.semibold,
-  letterSpacing: 0,
-  textTransform: 'uppercase' as const,
-  color: STUDIO_COLORS.textTertiary,
-  flexShrink: 0,
-};
-
-function descriptionStyle(focused: boolean): React.CSSProperties {
-  const base = inputStyle(focused);
-  if (!focused) {
-    return { ...base, width: '100%', height: 32, resize: 'none', lineHeight: 1.4 };
-  }
-  return {
-    ...base,
-    width: '100%',
-    height: 100,
-    resize: 'none',
-    lineHeight: 1.4,
-    paddingTop: SP.xs,
-    paddingBottom: SP.xs,
-    position: 'absolute',
-    top: 8,
-    left: 0,
-    right: 0,
-    zIndex: STUDIO_Z_INDEX.elevated,
-    boxShadow: `0 6px 18px color-mix(in srgb, ${STUDIO_COLORS.borderSubtle} 70%, transparent)`,
-  };
 }
 
 export function StudioCompanyIdentity({
@@ -137,9 +86,9 @@ export function StudioCompanyIdentity({
   const isCreate = mode === 'create';
 
   return (
-    <div style={CONTAINER_STYLE}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, flexShrink: 0 }}>
-        <span style={FIELD_LABEL_STYLE}>Company</span>
+    <div className="absolute left-60 right-60 top-11 z-sticky flex h-14 items-center gap-sp-3 border-b border-line bg-surface-elevated px-sp-3">
+      <div className="flex shrink-0 items-center gap-sp-2">
+        <span className={STUDIO_LABEL_CLASS}>Company</span>
         <Input
           type="text"
           value={name}
@@ -156,33 +105,15 @@ export function StudioCompanyIdentity({
           }}
           placeholder={isCreate ? 'Untitled company' : 'Company name'}
           aria-label="Company name"
-          style={{ ...inputStyle(nameFocused), width: 240 }}
+          className={`${studioInputClass(nameFocused)} w-60`}
         />
       </div>
 
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: SP.sm,
-          minWidth: 0,
-          position: 'relative',
-        }}
-      >
-        <span style={FIELD_LABEL_STYLE}>Description</span>
+      <div className="relative flex min-w-0 flex-1 items-center gap-sp-2">
+        <span className={STUDIO_LABEL_CLASS}>Description</span>
         {isCreate ? (
           <span
-            style={{
-              ...inputStyle(false),
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              color: STUDIO_COLORS.textDisabled,
-              fontStyle: 'italic',
-              cursor: 'not-allowed',
-              userSelect: 'none',
-            }}
+            className={`${studioInputClass(false)} flex flex-1 cursor-not-allowed select-none items-center italic text-ink-4`}
             aria-label="Company description (set after first save)"
           >
             Set after first save
@@ -203,7 +134,11 @@ export function StudioCompanyIdentity({
             }}
             placeholder="Describe the operating style, audience, and outcome this company is here to produce."
             aria-label="Company description"
-            style={{ ...descriptionStyle(descFocused), flex: 1 }}
+            className={cn(
+              `${studioInputClass(descFocused)} w-full flex-1 resize-none leading-snug`,
+              descFocused &&
+                'absolute inset-x-0 top-2 z-elevated h-24 py-sp-1 shadow-elev-2',
+            )}
           />
         )}
       </div>

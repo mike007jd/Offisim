@@ -1,3 +1,4 @@
+import { ComposerPrimitive, type CreateAttachment, useAui } from '@assistant-ui/react';
 import type { EventBus } from '@offisim/core/browser';
 import type { ParsedAttachment, StagedAttachment } from '@offisim/shared-types';
 import { Button, Input, Textarea, cn } from '@offisim/ui-core';
@@ -34,6 +35,14 @@ type TauriDropPosition = { x: number; y: number };
 export interface ChatInputAttachmentPayload {
   staged: StagedAttachment[];
   cachedParsed: Map<string, ParsedAttachment>;
+}
+
+export interface OffisimComposerRunConfig {
+  custom?: {
+    offisim?: {
+      attachments?: ChatInputAttachmentPayload;
+    };
+  };
 }
 
 // ── Mention option ──────────────────────────────────────────────────
@@ -77,13 +86,6 @@ function resizeTextarea(element: HTMLTextAreaElement | null, currentText: string
 // ── ChatInput props ─────────────────────────────────────────────────
 
 export interface ChatInputProps {
-  onSend: (
-    message: string,
-    options?: {
-      entryMode?: 'boss_chat' | 'direct_chat' | 'meeting';
-      attachments?: ChatInputAttachmentPayload;
-    },
-  ) => void;
   onCommand: (command: ChatCommand, args: string) => void;
   disabled?: boolean;
   placeholder?: string;
@@ -97,7 +99,6 @@ export interface ChatInputProps {
 }
 
 export function ChatInput({
-  onSend,
   onCommand,
   disabled,
   placeholder = 'Message your team...',
@@ -110,11 +111,12 @@ export function ChatInput({
   eventBus,
 }: ChatInputProps) {
   const [text, setText] = useState('');
+  const aui = useAui();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const dragDepthRef = useRef(0);
-  const chatInputElementRef = useRef<HTMLDivElement | null>(null);
+  const chatInputElementRef = useRef<HTMLElement | null>(null);
   const lastHtmlDropAtRef = useRef(0);
   const lastNativeDropAtRef = useRef(0);
   const staging = useChatAttachmentStaging({
@@ -243,8 +245,13 @@ export function ChatInput({
   }, []);
 
   // ── Send logic ──────────────────────────────────────────────────
+  function setComposerText(nextText: string) {
+    setText(nextText);
+    aui.composer().setText(nextText);
+  }
+
   function clearComposer() {
-    setText('');
+    setComposerText('');
     setShowSlashMenu(false);
     setShowMentionMenu(false);
     setSlashFilter('');
@@ -252,7 +259,7 @@ export function ChatInput({
     staging.clear();
   }
 
-  function handleSend() {
+  async function handleSend() {
     const trimmed = text.trim();
     const hasAttachments = staging.staged.length > 0;
     if ((!trimmed && !hasAttachments) || disabled) return;
@@ -276,15 +283,39 @@ export function ChatInput({
           ),
         }
       : undefined;
-    // Attachment-only sends ship empty content + non-empty refs; do NOT inject
-    // placeholder text per the chat-attachments-end-to-end spec.
-    onSend(trimmed, attachmentPayload ? { attachments: attachmentPayload } : undefined);
-    clearComposer();
+    const composer = aui.composer();
+    const runConfig: OffisimComposerRunConfig = attachmentPayload
+      ? { custom: { offisim: { attachments: attachmentPayload } } }
+      : {};
+    composer.setRunConfig(runConfig);
+    if (attachmentPayload) {
+      await composer.clearAttachments();
+      await Promise.all(
+        attachmentPayload.staged.map((attachment) => {
+          const assistantAttachment: CreateAttachment = {
+            id: attachment.attachmentId,
+            type: attachment.kind === 'image' ? 'image' : 'file',
+            name: attachment.filename,
+            contentType: attachment.mimeType,
+            content: [],
+          };
+          return composer.addAttachment(assistantAttachment);
+        }),
+      );
+    }
+    composer.send();
+    composer.setRunConfig({});
+    setText('');
+    setShowSlashMenu(false);
+    setShowMentionMenu(false);
+    setSlashFilter('');
+    setMentionFilter('');
+    staging.clear();
   }
 
   // ── Select slash command ────────────────────────────────────────
   function selectSlashCommand(cmd: ChatCommand) {
-    setText(`/${cmd.name} `);
+    setComposerText(`/${cmd.name} `);
     setShowSlashMenu(false);
     textareaRef.current?.focus();
   }
@@ -294,7 +325,7 @@ export function ChatInput({
     // Replace @fragment with @Name
     const before = text.slice(0, mentionStartPos);
     const afterCursor = text.slice(mentionStartPos + 1 + mentionFilter.length);
-    setText(`${before}@${option.name} ${afterCursor}`);
+    setComposerText(`${before}@${option.name} ${afterCursor}`);
     setShowMentionMenu(false);
     textareaRef.current?.focus();
   }
@@ -325,7 +356,7 @@ export function ChatInput({
         const cmd = filteredSlash[slashIndex];
         const parsed = parseCommand(text.trim());
         if (parsed && parsed.command === cmd && parsed.args === '' && cmd.type !== 'runtime') {
-          handleSend();
+          void handleSend();
           return;
         }
         if (cmd) selectSlashCommand(cmd);
@@ -378,14 +409,14 @@ export function ChatInput({
     // Normal send: Enter without shift
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   }
 
   const canSend = (!!text.trim() || staging.staged.length > 0) && !disabled;
   const registerChatInputTarget = useTourTarget('office:chat-input');
   const setChatInputTargetRef = useCallback(
-    (el: HTMLDivElement | null) => {
+    (el: HTMLFormElement | null) => {
       chatInputElementRef.current = el;
       registerChatInputTarget(el);
     },
@@ -499,7 +530,7 @@ export function ChatInput({
           pastedText,
         });
         if (merged.text !== text) {
-          setText(merged.text);
+          setComposerText(merged.text);
           resizeTextarea(e.currentTarget, merged.text);
           requestAnimationFrame(() => {
             textareaRef.current?.setSelectionRange(merged.selectionStart, merged.selectionEnd);
@@ -547,9 +578,13 @@ export function ChatInput({
   const dropMessage = staging.storageAvailable ? 'Drop to attach' : 'Storage unavailable';
 
   return (
-    <div
+    <ComposerPrimitive.Root
       ref={setChatInputTargetRef}
       className="relative box-border w-full min-w-0 max-w-full overflow-hidden border-t border-border-default px-3 py-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void handleSend();
+      }}
       onDragEnter={onDragEnter}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -668,9 +703,9 @@ export function ChatInput({
 
       {/* Input row */}
       <div className="flex w-full min-w-0 max-w-full items-end gap-2">
-        <Textarea
+        <ComposerPrimitive.Input
+          render={<Textarea />}
           ref={textareaRef}
-          value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onPaste={onPaste}
@@ -680,16 +715,19 @@ export function ChatInput({
           maxLength={8000}
           className="max-h-20 min-h-8 min-w-0 flex-1 resize-none py-1.5 text-sm leading-snug"
         />
-        <Button
-          type="button"
-          size="icon"
-          onClick={handleSend}
-          disabled={!canSend}
-          aria-label="Send message"
-          className="size-7 shrink-0 rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
-        >
-          <ArrowUp className="size-3.5" aria-hidden="true" />
-        </Button>
+        <ComposerPrimitive.Send
+          render={
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!canSend}
+              aria-label="Send message"
+              className="size-7 shrink-0 rounded-lg bg-accent text-text-inverse transition-all hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-accent"
+            >
+              <ArrowUp className="size-3.5" aria-hidden="true" />
+            </Button>
+          }
+        />
       </div>
 
       {/* Hint line */}
@@ -724,6 +762,6 @@ export function ChatInput({
         )}
         {modeChip ? <span className="ml-auto">{modeChip}</span> : null}
       </div>
-    </div>
+    </ComposerPrimitive.Root>
   );
 }

@@ -1,7 +1,7 @@
 import {
   Activity,
   Building2,
-  LayoutDashboard,
+  LayoutGrid,
   PenTool,
   Settings as SettingsIcon,
   Store,
@@ -20,7 +20,7 @@ export interface PeerWorkspaceNavItem {
   icon: NavIcon;
 }
 
-export type OfficeToolId = 'studio' | 'dashboard';
+export type OfficeToolId = 'studio';
 
 export interface OfficeToolNavItem {
   key: OfficeToolId;
@@ -45,6 +45,7 @@ export interface NavigationConfig {
 
 export const PEER_WORKSPACE_ITEMS: ReadonlyArray<PeerWorkspaceNavItem> = [
   { key: 'office', label: 'Office', icon: Building2 },
+  { key: 'workspace', label: 'Workspace', icon: LayoutGrid },
   { key: 'sops', label: 'SOPs', icon: Workflow },
   { key: 'market', label: 'Market', icon: Store },
   { key: 'personnel', label: 'Personnel', icon: Users },
@@ -54,49 +55,35 @@ export const PEER_WORKSPACE_ITEMS: ReadonlyArray<PeerWorkspaceNavItem> = [
 
 export const OFFICE_TOOL_ICON: Record<OfficeToolId, NavIcon> = {
   studio: PenTool,
-  dashboard: LayoutDashboard,
 };
 
 export const OFFICE_TOOL_LABEL: Record<OfficeToolId, string> = {
   studio: 'Studio',
-  dashboard: 'Dashboard',
 };
 
 export const OFFICE_TOOL_SHORTCUT: Record<OfficeToolId, string | undefined> = {
   studio: undefined,
-  dashboard: '⌘D',
 };
 
 export interface BuildOfficeToolsOptions {
   hasActiveCompany: boolean;
-  dashboardOpen: boolean;
   onOpenStudio: () => void;
-  onToggleDashboard: () => void;
 }
 
 export function buildOfficeToolItems(opts: BuildOfficeToolsOptions): OfficeToolNavItem[] {
   const disabledBase = !opts.hasActiveCompany;
   const disabledReason = disabledBase ? 'Select or create a company first' : undefined;
-  return (['studio', 'dashboard'] as const).map((id) => {
-    const base = {
-      key: id,
-      label: OFFICE_TOOL_LABEL[id],
-      icon: OFFICE_TOOL_ICON[id],
-      shortcut: OFFICE_TOOL_SHORTCUT[id],
+  return [
+    {
+      key: 'studio',
+      label: OFFICE_TOOL_LABEL.studio,
+      icon: OFFICE_TOOL_ICON.studio,
+      shortcut: OFFICE_TOOL_SHORTCUT.studio,
       disabled: disabledBase,
       disabledReason,
-    };
-    switch (id) {
-      case 'studio':
-        return { ...base, onActivate: opts.onOpenStudio };
-      case 'dashboard':
-        return {
-          ...base,
-          isActive: opts.dashboardOpen,
-          onActivate: opts.onToggleDashboard,
-        };
-    }
-  });
+      onActivate: opts.onOpenStudio,
+    },
+  ];
 }
 
 /**

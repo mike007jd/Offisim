@@ -10,8 +10,8 @@ export interface AvatarProps extends ComponentPropsWithoutRef<typeof AvatarPrimi
 }
 
 const SIZE_CLASS: Record<NonNullable<AvatarProps['size']>, string> = {
-  xs: 'h-4 w-4 text-[9px]',
-  sm: 'h-6 w-6 text-[10px]',
+  xs: 'h-4 w-4 text-fs-micro',
+  sm: 'h-6 w-6 text-fs-meta',
   md: 'h-8 w-8 text-xs',
   lg: 'h-10 w-10 text-sm',
   xl: 'h-14 w-14 text-base',

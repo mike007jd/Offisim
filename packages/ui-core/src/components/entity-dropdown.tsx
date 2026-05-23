@@ -167,7 +167,7 @@ export function EntityDropdown(props: EntityDropdownProps) {
         className={cn('p-1', contentClassName)}
       >
         {title ? (
-          <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+          <div className="px-2 py-1.5 text-fs-meta font-semibold uppercase tracking-wide text-text-muted">
             {title}
           </div>
         ) : null}
@@ -198,7 +198,7 @@ function SectionGroup({
   return (
     <>
       {section.title ? (
-        <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+        <div className="px-2 pt-2 pb-1 text-fs-meta font-semibold uppercase tracking-wide text-text-muted">
           {section.title}
         </div>
       ) : null}
@@ -233,12 +233,12 @@ function Row({
       <span className="min-w-0 flex-1">
         <span className="block truncate">{item.label}</span>
         {item.hint ? (
-          <span className="mt-0.5 block truncate text-[10px] text-text-muted">{item.hint}</span>
+          <span className="mt-0.5 block truncate text-fs-meta text-text-muted">{item.hint}</span>
         ) : null}
       </span>
       {item.badge ? <span className="ml-auto shrink-0">{item.badge}</span> : null}
       {!item.badge && isActive ? (
-        <span className="ml-auto rounded-full bg-success-muted px-1.5 py-0.5 text-[10px] text-success">
+        <span className="ml-auto rounded-full bg-success-muted px-1.5 py-0.5 text-fs-meta text-success">
           Active
         </span>
       ) : null}

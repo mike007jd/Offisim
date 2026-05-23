@@ -9,7 +9,7 @@ import {
   SelectValue,
   Textarea,
 } from '@offisim/ui-core';
-import { RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { isTauri } from '../../lib/env';
 import { isLlmExecutionLane } from '../../lib/provider-config';
@@ -118,13 +118,17 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
     verifiedExecutionLanes,
   } = controller;
 
-  const apiKeyPlaceholder = hasStoredSecret
-    ? 'Stored securely on this device'
-    : selectedProduct?.productId === 'lmstudio'
-      ? 'lm-studio'
-      : selectedProduct?.productId === 'minimax'
-        ? 'sk-cp-...'
-        : 'sk-...';
+  const apiKeyPlaceholder = (() => {
+    if (hasStoredSecret) return 'Stored securely on this device';
+    switch (selectedProduct?.productId) {
+      case 'lmstudio':
+        return 'lm-studio';
+      case 'minimax':
+        return 'sk-cp-...';
+      default:
+        return 'sk-...';
+    }
+  })();
   const routeSummary = [
     selectedAccess?.label,
     selectedCompatibility,
@@ -150,7 +154,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   const modelOptions =
     pulledModelOptions.length > 0 ? pulledModelOptions : (selectedVariant?.modelIds ?? []);
   const providerListPullSummary = providerListPull
-    ? `上次成功 ${formatFetchedAt(providerListPull.fetchedAt)}`
+    ? `Last refreshed ${formatFetchedAt(providerListPull.fetchedAt)}`
     : 'Hermes Agent / OpenClaw scope, filled with LiteLLM + OpenRouter model metadata';
 
   async function handleProviderListPull() {
@@ -160,11 +164,11 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
       const snapshot = await pullLatestProviderList();
       setProviderListPull(snapshot);
       window.localStorage.setItem(PROVIDER_LIST_PULL_STORAGE_KEY, JSON.stringify(snapshot));
-      notify?.('模型目录已更新：Hermes Agent / OpenClaw scope.', 'success');
+      notify?.('Model catalog refreshed: Hermes Agent / OpenClaw scope.', 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown provider list error';
       setProviderListPullError(message);
-      notify?.(`模型目录更新失败：${message}`, 'error');
+      notify?.(`Model catalog refresh failed: ${message}`, 'error');
     } finally {
       setIsPullingProviderList(false);
     }
@@ -184,7 +188,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
 
   return (
     <div className="grid min-h-0 gap-6 xl:grid-settings-provider">
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <SectionLabel htmlFor="settings-provider-product">Product</SectionLabel>
         <Select value={productId} onValueChange={handleProductChange}>
           <SelectTrigger id="settings-provider-product" className={surfaceInputProps()}>
@@ -222,7 +226,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
         <div className="xl:hidden">{resolvedSummary}</div>
       </div>
 
-      <div ref={providerTargetRef} className="space-y-4">
+      <div ref={providerTargetRef} className="flex flex-col gap-4">
         <div className="hidden xl:block">{resolvedSummary}</div>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -294,53 +298,59 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
           <summary className="cursor-pointer text-sm font-semibold text-text-primary">
             Advanced model catalog
           </summary>
-          <div className="mt-3">
-            <SettingsSection
-              title="模型目录更新"
-              description={providerListPullSummary}
-              action={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  isLoading={isPullingProviderList}
-                  onClick={handleProviderListPull}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  更新模型目录
-                </Button>
-              }
-            >
-              <div className="space-y-2 text-xs text-text-muted">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="text-caption uppercase tracking-wide">Agent scoped</Badge>
-                  <span>
-                    {providerListPull
-                      ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
-                      : 'Refresh updates model suggestions without changing saved credentials.'}
-                  </span>
-                </div>
-                {providerListPull ? (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {providerListPull.sources.map((source) => (
-                      <div
-                        key={source.sourceId}
-                        className="rounded-md border border-border-default bg-surface px-2 py-1.5"
-                      >
-                        <p className="font-medium text-text-secondary">{source.label}</p>
-                        <p className="mt-0.5 text-text-muted">{formatSourceSummary(source)}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {providerListPullError ? (
-                  <p className="rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-warning">
-                    Last refresh failed: {providerListPullError}
-                  </p>
-                ) : null}
+          <div className="mt-3 flex flex-col gap-3">
+            <header className="flex items-baseline justify-between gap-3">
+              <div>
+                <h4 className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
+                  Model catalog refresh
+                </h4>
+                <p className="mt-1 text-xs text-text-muted">{providerListPullSummary}</p>
               </div>
-            </SettingsSection>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={isPullingProviderList}
+                aria-busy={isPullingProviderList || undefined}
+                onClick={handleProviderListPull}
+              >
+                {isPullingProviderList ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <RefreshCw className="size-3.5" aria-hidden="true" />
+                )}
+                Refresh catalog
+              </Button>
+            </header>
+            <div className="flex flex-col gap-2 text-xs text-text-muted">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="text-caption uppercase tracking-wide">Agent scoped</Badge>
+                <span>
+                  {providerListPull
+                    ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
+                    : 'Refresh updates model suggestions without changing saved credentials.'}
+                </span>
+              </div>
+              {providerListPull ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {providerListPull.sources.map((source) => (
+                    <div
+                      key={source.sourceId}
+                      className="rounded-md border border-border-default bg-surface px-2 py-1.5"
+                    >
+                      <p className="font-medium text-text-secondary">{source.label}</p>
+                      <p className="mt-0.5 text-text-muted">{formatSourceSummary(source)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {providerListPullError ? (
+                <p className="rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-warning">
+                  Last refresh failed: {providerListPullError}
+                </p>
+              ) : null}
+            </div>
           </div>
         </details>
 

@@ -26,11 +26,16 @@ export function SettingsTabNav({
     <nav
       className={
         horizontal
-          ? 'flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-border-default bg-surface-elevated p-2'
-          : 'w-56 flex-shrink-0 border-r border-border-default bg-surface-elevated py-6'
+          ? 'flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-line-soft bg-surface-1 p-2'
+          : 'flex w-60 flex-shrink-0 flex-col gap-px overflow-y-auto border-r border-line-soft bg-surface-1 px-2.5 py-6'
       }
       aria-orientation={orientation}
     >
+      {!horizontal ? (
+        <span className="px-2.5 pb-3 text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
+          Settings
+        </span>
+      ) : null}
       {SETTINGS_TABS.map(({ key, label, icon: Icon }) => {
         const isActive = activeTab === key;
         return (
@@ -39,12 +44,12 @@ export function SettingsTabNav({
             type="button"
             variant="ghost"
             onClick={() => onTabChange(key)}
-            className={`h-12 justify-start gap-3 rounded-none text-sm ${
-              horizontal ? 'min-w-max rounded-lg border px-3' : 'w-full border-l-[4px] px-5'
+            className={`justify-start gap-2.5 text-sm font-medium ${
+              horizontal ? 'h-9 min-w-max rounded-r-sm px-3' : 'h-8 w-full rounded-r-sm px-2.5'
             } ${
               isActive
-                ? 'border-border-focus bg-accent-muted text-accent-text'
-                : 'border-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                ? 'bg-accent-muted text-accent-text ring-1 ring-inset ring-accent-ring hover:bg-accent-muted'
+                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
             }`}
           >
             <Icon className="size-4" />

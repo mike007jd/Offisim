@@ -28,11 +28,11 @@ function statusBadge(enabled: number, agentState?: string): { label: string; cls
   if (!enabled) return { label: 'disabled', cls: 'bg-surface-muted text-text-muted' };
   switch (agentState) {
     case 'working':
-      return { label: 'working', cls: 'bg-kelp-green/20 text-kelp-green' };
+      return { label: 'working', cls: 'bg-ok-surface text-ok' };
     case 'blocked':
-      return { label: 'blocked', cls: 'bg-lobster-red/20 text-lobster-red' };
+      return { label: 'blocked', cls: 'bg-danger-surface text-danger' };
     default:
-      return { label: 'idle', cls: 'bg-ocean-light/40 text-shell' };
+      return { label: 'idle', cls: 'bg-surface-hover text-ink-2' };
   }
 }
 
@@ -95,7 +95,7 @@ function InlineEdit({
         setDraft(e.target.value),
       onBlur: commit,
       onKeyDown: handleKeyDown,
-      className: `w-full bg-white text-sm text-ink focus-visible:ring-lobster-red/40 ${className}`,
+      className: `w-full bg-white text-sm text-ink focus-visible:ring-danger/40 ${className}`,
       placeholder,
     };
     if (multiline) {
@@ -110,9 +110,9 @@ function InlineEdit({
       variant="ghost"
       onClick={startEdit}
       aria-label="Edit field"
-      className={`h-auto w-full cursor-text justify-start whitespace-normal rounded px-1.5 py-0.5 text-left transition-colors hover:bg-ocean-light/20 ${className}`}
+      className={`h-auto w-full cursor-text justify-start whitespace-normal rounded px-1.5 py-0.5 text-left transition-colors hover:bg-surface-muted ${className}`}
     >
-      {value || <span className="text-shell/40 italic">{placeholder}</span>}
+      {value || <span className="text-ink-2/40 italic">{placeholder}</span>}
     </Button>
   );
 }
@@ -145,7 +145,7 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
   );
 
   return (
-    <div className="flex flex-col gap-2 bg-white border border-ocean-light rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow w-full">
+    <div className="flex flex-col gap-2 bg-white border border-line rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow w-full">
       {/* Header row: name + status badge */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
@@ -165,14 +165,14 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
 
       {/* Role badge */}
       <div>
-        <span className="inline-block text-caption font-mono bg-ocean-light/40 text-shell rounded px-1.5 py-0.5">
+        <span className="inline-block text-caption font-mono bg-surface-hover text-ink-2 rounded px-1.5 py-0.5">
           {employee.role_slug}
         </span>
       </div>
 
       {/* Expertise */}
       <div>
-        <p className="text-caption text-shell/60 uppercase tracking-wider mb-0.5">Expertise</p>
+        <p className="text-caption text-ink-2/60 uppercase tracking-wider mb-0.5">Expertise</p>
         <InlineEdit
           value={persona.expertise}
           placeholder="e.g. React, Node.js"
@@ -184,7 +184,7 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
 
       {/* Style */}
       <div>
-        <p className="text-caption text-shell/60 uppercase tracking-wider mb-0.5">Style</p>
+        <p className="text-caption text-ink-2/60 uppercase tracking-wider mb-0.5">Style</p>
         <InlineEdit
           value={persona.style}
           placeholder="e.g. detail-oriented"
@@ -194,14 +194,14 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
       </div>
 
       {/* Model + temperature footer */}
-      <div className="mt-auto pt-2 border-t border-ocean-light/60 flex items-center justify-between gap-2">
+      <div className="mt-auto pt-2 border-t border-line/60 flex items-center justify-between gap-2">
         <span
-          className="max-w-employee-quick-meta truncate text-caption text-shell/70"
+          className="max-w-employee-quick-meta truncate text-caption text-ink-2/70"
           title={config.modelPreference || '跟随统一设置'}
         >
           {config.modelPreference || <em>跟随统一设置</em>}
         </span>
-        <span className="text-caption font-mono text-shell/70 shrink-0">
+        <span className="text-caption font-mono text-ink-2/70 shrink-0">
           T {config.temperature.toFixed(1)}
         </span>
       </div>

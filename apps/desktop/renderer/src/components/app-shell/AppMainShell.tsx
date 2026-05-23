@@ -1,6 +1,6 @@
-import { Button, type ToastVariant } from '@offisim/ui-core';
+import type { ToastVariant } from '@offisim/ui-core';
 import {
-  AgentPanel,
+  type AgentState,
   AppLayout,
   Header,
   KanbanTray,
@@ -8,17 +8,16 @@ import {
   ProjectSelectedSummary,
   ProjectSelector,
   type ProviderConfig,
-  StatusBar,
 } from '@offisim/ui-office/web';
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useCallback, useMemo } from 'react';
 import {
   PEER_WORKSPACE_ITEMS,
   buildOfficeToolItems,
   visibleOfficeToolsFor,
 } from '../../lib/workspace-navigation';
-import { useGitBranch } from '../../runtime/useGitBranch';
 import { useKanbanStream } from '../../runtime/useKanbanStream';
-import { GitWorkbench } from '../git/GitWorkbench';
+import { OfficeLeftRail } from '../office-shell/OfficeLeftRail';
+import { StageTeamDock } from '../office-shell/StageTeamDock';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
 import type {
   CreateKanbanCardInput,
@@ -42,10 +41,11 @@ const OfficeSceneSurface = React.lazy(() =>
   import('../office-shell/OfficeSceneSurface').then((m) => ({ default: m.OfficeSceneSurface })),
 );
 
-const WORKSPACE_TITLES: Record<string, string> = {
+const WORKSPACE_TITLES: Partial<Record<WorkspaceKey, string>> = {
   sops: 'SOPs',
   market: 'Market',
   personnel: 'Personnel',
+  workspace: 'Workspace',
   'activity-log': 'Activity Log',
   settings: 'Settings',
 };
@@ -61,14 +61,13 @@ export interface AppMainShellProps {
   providerConfig: ProviderConfig | null;
   activeCompanyName: string | undefined;
   sceneInteractive: boolean;
-  agents: React.ComponentProps<typeof AgentPanel>['agents'];
+  agents: Map<string, AgentState>;
   onFileImport: (file: File) => void;
   projects: React.ComponentProps<typeof ProjectSelector>['projects'];
   activeProjectId: React.ComponentProps<typeof ProjectSelector>['activeProjectId'];
   setActiveProjectId: React.ComponentProps<typeof ProjectSelector>['onSelect'];
   onRequestCreateProject: () => void;
   onRequestEditProject: React.ComponentProps<typeof ProjectSelector>['onRequestEditProject'];
-  activeProjectStatus: React.ComponentProps<typeof StatusBar>['activeProjectStatus'];
   chatOpenToken: number;
   collaborationRailProps: CollaborationRailProps;
   handleOpenSettings: () => void;
@@ -76,7 +75,6 @@ export interface AppMainShellProps {
   onSelectWorkspace: (key: WorkspaceKey) => void;
   onOpenCompanySelect: () => void;
   onOpenEmployeeCreator: () => void;
-  onToggleDashboard: () => void;
   onToggleKanban: () => void;
   onSelectEmployee: (id: string | null) => void;
   onViewModeChange: (mode: '2D' | '3D') => void;
@@ -91,6 +89,10 @@ export interface AppMainShellProps {
   addToast: (message: string, variant?: ToastVariant) => void;
   onEditExternalEmployee: (employeeId: string) => void;
   lastUserRequest?: string | null;
+  /** Workspace collaboration suite wiring (deep half). */
+  activeCompanyId: string | null;
+  onSelectThread: (threadId: string) => void;
+  selectedEmployeeId: string | null;
 }
 
 export function AppMainShell(props: AppMainShellProps) {
@@ -110,7 +112,6 @@ export function AppMainShell(props: AppMainShellProps) {
     setActiveProjectId,
     onRequestCreateProject,
     onRequestEditProject,
-    activeProjectStatus,
     chatOpenToken,
     collaborationRailProps,
     handleOpenSettings,
@@ -118,7 +119,6 @@ export function AppMainShell(props: AppMainShellProps) {
     onSelectWorkspace,
     onOpenCompanySelect,
     onOpenEmployeeCreator,
-    onToggleDashboard,
     onToggleKanban,
     onSelectEmployee,
     onViewModeChange,
@@ -133,15 +133,14 @@ export function AppMainShell(props: AppMainShellProps) {
     addToast,
     onEditExternalEmployee,
     lastUserRequest,
+    activeCompanyId,
+    onSelectThread,
+    selectedEmployeeId,
   } = props;
   const kanban = useKanbanStream(activeProjectId);
   const activeProject = useMemo(
     () => projects.find((project) => project.project_id === activeProjectId) ?? null,
     [activeProjectId, projects],
-  );
-  const gitBranch = useGitBranch(
-    activeProject?.workspace_root ?? null,
-    activeProject?.project_id ?? null,
   );
   const officeTools = useMemo(
     () =>
@@ -149,18 +148,19 @@ export function AppMainShell(props: AppMainShellProps) {
         activeWorkspace,
         buildOfficeToolItems({
           hasActiveCompany: Boolean(activeCompanyName),
-          dashboardOpen: officeState.dashboardOpen,
           onOpenStudio: collaborationRailProps.onOpenStudio,
-          onToggleDashboard,
         }),
       ),
-    [
-      activeCompanyName,
-      activeWorkspace,
-      collaborationRailProps.onOpenStudio,
-      officeState.dashboardOpen,
-      onToggleDashboard,
-    ],
+    [activeCompanyName, activeWorkspace, collaborationRailProps.onOpenStudio],
+  );
+  const handleOpenSops = useCallback(
+    (sopTemplateId?: string) => {
+      if (sopTemplateId) {
+        updateWorkspaceState('sops', (prev) => ({ ...prev, selectedSopId: sopTemplateId }));
+      }
+      onSelectWorkspace('sops');
+    },
+    [onSelectWorkspace, updateWorkspaceState],
   );
   const projectSelectorProps = useMemo(
     () => ({
@@ -216,12 +216,7 @@ export function AppMainShell(props: AppMainShellProps) {
       }
       agentPanel={
         isOffice ? (
-          <AgentPanel
-            agents={agents}
-            onSelectEmployee={onSelectEmployee}
-            selectedEmployeeId={officeState.selectedEmployeeId}
-            onOpenCreator={onOpenEmployeeCreator}
-          />
+          <OfficeLeftRail activeProject={activeProject} onOpenSops={handleOpenSops} />
         ) : null
       }
       sceneCanvas={
@@ -236,6 +231,23 @@ export function AppMainShell(props: AppMainShellProps) {
               sceneInteractive={sceneInteractive}
               viewMode={officeState.viewMode}
               viewModeNonce={viewModeNonce}
+              activeThreadId={officeState.selectedThreadId}
+              kanbanOpen={officeState.kanbanOpen}
+              onToggleKanban={onToggleKanban}
+              notificationSlot={
+                <NotificationCenter
+                  onFocusEmployee={onFocusEmployee}
+                  onOpenActivityLog={onOpenActivityLog}
+                />
+              }
+              teamDockSlot={
+                <StageTeamDock
+                  agents={agents}
+                  selectedEmployeeId={officeState.selectedEmployeeId}
+                  onSelectEmployee={(id) => onSelectEmployee(id)}
+                  onOpenCreator={onOpenEmployeeCreator}
+                />
+              }
             />
           </Suspense>
         ) : null
@@ -263,10 +275,6 @@ export function AppMainShell(props: AppMainShellProps) {
                   />
                 ) : null
               }
-              kanbanCardCount={kanban.cards.length}
-              kanbanOpen={officeState.kanbanOpen}
-              onToggleKanban={onToggleKanban}
-              gitSlot={<GitWorkbench activeProject={activeProject} />}
               onSearchSelectEmployee={onEditExternalEmployee}
             />
           </Suspense>
@@ -284,6 +292,17 @@ export function AppMainShell(props: AppMainShellProps) {
               onOpenCreator: onOpenEmployeeCreator,
               onOpenMarket: () => onSelectWorkspace('market'),
             }}
+            workspaceSuiteProps={{
+              activeCompanyId,
+              activeProject,
+              activeThreadId: officeState.selectedThreadId,
+              selectedEmployeeId,
+              onSelectThread,
+              onSelectDirectEmployee: onSelectEmployee,
+              onOpenSettings: handleOpenSettings,
+              onFocusEmployee,
+              onOpenActivityLog,
+            }}
             settingsPageProps={{
               onBack: handleBackToOffice,
               onSave: onSaveConfig,
@@ -293,51 +312,6 @@ export function AppMainShell(props: AppMainShellProps) {
             }}
           />
         ) : undefined
-      }
-      statusBar={
-        <StatusBar
-          modelName={providerConfig?.model}
-          activeProjectStatus={activeProjectStatus}
-          dashboardSlot={
-            isOffice ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onToggleDashboard}
-                className={`h-6 gap-1 rounded-full px-2 text-caption font-semibold uppercase tracking-wider ${
-                  officeState.dashboardOpen
-                    ? 'border-border-focus bg-accent-muted text-accent-text'
-                    : 'border-border-subtle bg-surface-muted text-text-secondary hover:bg-surface-hover hover:text-text-primary'
-                }`}
-                aria-pressed={officeState.dashboardOpen}
-                aria-label="Toggle dashboard"
-                title="Toggle dashboard (⌘D)"
-              >
-                Dashboard
-              </Button>
-            ) : null
-          }
-          notificationSlot={
-            isOffice ? (
-              <NotificationCenter
-                onFocusEmployee={onFocusEmployee}
-                onOpenActivityLog={onOpenActivityLog}
-              />
-            ) : null
-          }
-          gitBranchSlot={
-            isOffice && gitBranch ? (
-              <span
-                className="inline-flex h-6 items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 text-caption uppercase tracking-wider text-text-secondary"
-                title={`Workspace ${activeProject?.workspace_root ?? ''} · branch ${gitBranch}`}
-              >
-                <span className="font-mono lowercase tracking-normal text-text-muted">⎇</span>
-                <span className="truncate">{gitBranch}</span>
-              </span>
-            ) : null
-          }
-        />
       }
       chatDrawerMode="mobile-only"
       requestRightExpandToken={chatOpenToken}

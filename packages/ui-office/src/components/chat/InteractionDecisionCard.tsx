@@ -55,7 +55,7 @@ export function InteractionDecisionCard({
           </div>
         )}
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="flex flex-col gap-3">
         {request.allowFreeformResponse && (
           <Textarea
             value={note}

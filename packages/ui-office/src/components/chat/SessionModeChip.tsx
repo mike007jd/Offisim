@@ -13,11 +13,11 @@ import {
 } from '@offisim/ui-core';
 import { ChevronDown } from 'lucide-react';
 
-const MODE_COLOR: Record<InteractionMode, string> = {
-  boss_proxy: 'var(--color-foam)',
-  human_in_loop: 'var(--color-coral-orange)',
-  direct_to_employee: 'var(--color-sea-blue)',
-  yolo: 'var(--color-kelp-green)',
+const MODE_CLASS: Record<InteractionMode, string> = {
+  boss_proxy: 'border-accent bg-accent-surface text-accent',
+  human_in_loop: 'border-warn bg-warn-surface text-warn',
+  direct_to_employee: 'border-violet bg-violet-surface text-violet',
+  yolo: 'border-ok bg-ok-surface text-ok',
 };
 
 interface SessionModeBadgeProps {
@@ -27,12 +27,7 @@ interface SessionModeBadgeProps {
 function SessionModeBadge({ mode }: SessionModeBadgeProps) {
   return (
     <span
-      className="inline-flex h-4 items-center rounded-full border px-1.5 text-caption font-black uppercase tracking-wider"
-      style={{
-        borderColor: `color-mix(in srgb, ${MODE_COLOR[mode]} 55%, transparent)`,
-        background: `color-mix(in srgb, ${MODE_COLOR[mode]} 14%, transparent)`,
-        color: MODE_COLOR[mode],
-      }}
+      className={`inline-flex h-4 items-center rounded-full border px-1.5 text-caption font-black uppercase tracking-wide ${MODE_CLASS[mode]}`}
     >
       {INTERACTION_MODE_LABEL[mode]}
     </span>

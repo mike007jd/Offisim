@@ -115,8 +115,8 @@ export function FileImportTrigger({
           onDrop={handleDrop}
           className={`mt-2 border-2 border-dashed p-6 text-center transition-colors ${
             isDragging
-              ? 'border-lobster-red bg-lobster-red/5 text-sand'
-              : 'border-ocean-light text-ocean-light hover:border-shell'
+              ? 'border-danger bg-danger-surface text-ink-1'
+              : 'border-line text-ink-3 hover:border-line'
           }`}
         >
           <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />

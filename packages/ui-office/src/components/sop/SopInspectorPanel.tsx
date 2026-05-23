@@ -32,9 +32,7 @@ function pickLatestFailedTask(tasks: readonly TaskInfo[]): TaskInfo | null {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="font-mono text-caption uppercase tracking-wider text-text-muted">
-      {children}
-    </div>
+    <div className="text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">{children}</div>
   );
 }
 
@@ -101,7 +99,7 @@ export function SopInspectorPanel({
           className,
         )}
       >
-        <p className="px-6 text-center text-xs text-text-muted">Select a step to inspect</p>
+        <p className="px-6 text-center text-fs-sm text-ink-4">Select a step to inspect</p>
       </aside>
     );
   }
@@ -109,99 +107,99 @@ export function SopInspectorPanel({
   return (
     <aside
       className={cn(
-        'w-sop-inspector shrink-0 overflow-y-auto border-l border-border-default bg-surface-elevated',
+        'flex w-sop-inspector shrink-0 flex-col overflow-y-auto border-l border-border-default bg-surface-elevated',
         className,
       )}
     >
-      <div className="flex flex-col gap-4 p-4">
-        <div className="flex flex-col gap-1">
-          <div className="text-sm font-semibold text-text-primary">{step.label}</div>
-          <div className="flex items-center gap-2 text-xs text-text-muted">
-            <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
-            <span>{STATUS_LABEL[status]}</span>
-            <span aria-hidden>·</span>
-            <span>{step.role_slug}</span>
-          </div>
+      <div className="border-b border-line-soft px-sp-5 pb-sp-4 pt-sp-5">
+        <div className="text-fs-md font-bold leading-snug text-ink-1">{step.label}</div>
+        <div className="mt-1.5 flex items-center gap-2 text-fs-sm text-ink-3">
+          <span className={`size-2 rounded-full ${STATUS_DOT[status]}`} />
+          <span>{STATUS_LABEL[status]}</span>
+          <span aria-hidden>·</span>
+          <span>{step.role_slug}</span>
         </div>
+      </div>
 
-        {roleMissing && (
-          <p className="rounded border border-warning/40 bg-warning-muted px-2 py-1.5 text-caption leading-snug text-warning">
-            No employee with role <span className="font-semibold">{step.role_slug}</span> —
-            dispatcher will fall back.
+      {roleMissing && (
+        <div className="flex flex-col gap-sp-3 border-b border-line-soft p-sp-5">
+          <p className="rounded-r-sm border border-warn/40 bg-warn-surface px-2.5 py-2 text-fs-meta leading-snug text-warn">
+            No employee with role <span className="font-bold">{step.role_slug}</span> — dispatcher
+            will fall back.
           </p>
-        )}
+        </div>
+      )}
 
-        {status === 'failed' && (
-          <div className="flex flex-col gap-1.5">
-            <SectionLabel>Last error</SectionLabel>
-            <div className="rounded border border-error/30 bg-error-muted px-2 py-1.5 text-caption leading-snug">
-              {lastFailedTask?.taskType?.trim() && (
-                <div className="font-mono text-error">{lastFailedTask.taskType.trim()}</div>
-              )}
-              <div className="mt-0.5 whitespace-pre-wrap text-error">
-                {lastFailedTask?.description?.trim() || '—'}
-              </div>
+      {status === 'failed' && (
+        <div className="flex flex-col gap-sp-3 border-b border-line-soft p-sp-5">
+          <SectionLabel>Last error</SectionLabel>
+          <div className="rounded-r-sm border border-danger/30 bg-danger-surface px-2.5 py-2 text-fs-meta leading-snug text-danger">
+            {lastFailedTask?.taskType?.trim() && (
+              <div className="font-mono font-semibold">{lastFailedTask.taskType.trim()}</div>
+            )}
+            <div className="mt-0.5 whitespace-pre-wrap">
+              {lastFailedTask?.description?.trim() || '—'}
             </div>
           </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-sp-3 border-b border-line-soft p-sp-5">
+        <SectionLabel>Instruction</SectionLabel>
+        <p className="whitespace-pre-wrap text-fs-sm leading-relaxed text-ink-2">
+          {step.instruction || <span className="italic text-ink-4">No instruction</span>}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-sp-3 border-b border-line-soft p-sp-5">
+        <SectionLabel>Dependencies</SectionLabel>
+        {dependencyLabels.length === 0 ? (
+          <p className="text-fs-sm italic text-ink-4">None</p>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {dependencyLabels.map((dep) => (
+              <li key={dep.stepId}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSelectStep(dep.stepId)}
+                  className="h-auto w-full justify-start truncate rounded-r-sm border border-line-soft bg-surface-2 px-2.5 py-1.5 text-left text-fs-sm font-medium text-ink-2 hover:border-accent-ring hover:bg-accent-surface hover:text-accent"
+                >
+                  {dep.label}
+                </Button>
+              </li>
+            ))}
+          </ul>
         )}
+      </div>
 
-        <div className="flex flex-col gap-1.5">
-          <SectionLabel>Instruction</SectionLabel>
-          <p className="whitespace-pre-wrap text-xs leading-relaxed text-text-secondary">
-            {step.instruction || <span className="italic text-text-muted">No instruction</span>}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <SectionLabel>Dependencies</SectionLabel>
-          {dependencyLabels.length === 0 ? (
-            <p className="text-xs italic text-text-muted">None</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {dependencyLabels.map((dep) => (
-                <li key={dep.stepId}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onSelectStep(dep.stepId)}
-                    className="h-auto w-full justify-start truncate rounded bg-surface-muted px-2 py-1 text-left text-xs text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-                  >
-                    {dep.label}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <SectionLabel>Output key</SectionLabel>
-          <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded bg-surface-muted px-2 py-1 font-mono text-caption text-accent-text">
-              {step.output_key}
-            </code>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleCopy}
-              aria-label="Copy output key"
-              className="h-auto shrink-0 gap-1 rounded bg-surface-muted px-2 py-1 text-caption text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-            >
-              {copied ? (
-                <>
-                  <Check className="size-3" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="size-3" />
-                  Copy
-                </>
-              )}
-            </Button>
-          </div>
+      <div className="flex flex-col gap-sp-3 p-sp-5">
+        <SectionLabel>Output key</SectionLabel>
+        <div className="flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate rounded-r-xs bg-surface-sunken px-2.5 py-1.5 font-mono text-fs-meta text-accent">
+            {step.output_key}
+          </code>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleCopy}
+            aria-label="Copy output key"
+            className="h-auto shrink-0 gap-1 rounded-r-xs border border-line-soft bg-surface-2 px-2.5 py-1.5 text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3 hover:border-accent-ring hover:bg-accent-surface hover:text-accent"
+          >
+            {copied ? (
+              <>
+                <Check className="size-3" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy className="size-3" />
+                Copy
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </aside>

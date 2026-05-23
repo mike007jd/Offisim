@@ -1,6 +1,5 @@
 import { Slot } from '@radix-ui/react-slot';
 import { type VariantProps, cva } from 'class-variance-authority';
-import { Loader2 } from 'lucide-react';
 import {
   type ButtonHTMLAttributes,
   Children,
@@ -46,8 +45,6 @@ export interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
-  /** Preserves layout, sets aria-busy, and forces disabled while async work runs. */
-  isLoading?: boolean;
 }
 
 function hasTextChildren(children: ReactNode): boolean {
@@ -70,7 +67,6 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       variant,
       size,
       asChild = false,
-      isLoading = false,
       disabled,
       children,
       'aria-label': ariaLabel,
@@ -95,13 +91,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        disabled={disabled || isLoading}
-        aria-busy={isLoading || undefined}
+        disabled={disabled}
         aria-label={ariaLabel}
         aria-describedby={ariaDescribedBy}
         {...props}
       >
-        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
         {children}
       </Comp>
     );

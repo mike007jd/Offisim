@@ -305,7 +305,7 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
           return (
             <ListTag
               key={key}
-              className={`mt-1.5 min-w-0 max-w-full space-y-0.5 pl-4 first:mt-0 ${
+              className={`mt-1.5 min-w-0 max-w-full flex flex-col gap-0.5 pl-4 first:mt-0 ${
                 block.type === 'ul' ? 'list-disc' : 'list-decimal'
               }`}
             >
@@ -324,7 +324,7 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
               className="mt-2 min-w-0 max-w-full overflow-hidden rounded-lg border border-border-subtle"
             >
               {block.lang && (
-                <div className="border-b border-border-subtle bg-surface-muted px-2 py-1 font-mono text-caption uppercase tracking-[0.08em] text-text-muted">
+                <div className="border-b border-border-subtle bg-surface-muted px-2 py-1 font-mono text-caption uppercase tracking-wide text-text-muted">
                   {block.lang}
                 </div>
               )}

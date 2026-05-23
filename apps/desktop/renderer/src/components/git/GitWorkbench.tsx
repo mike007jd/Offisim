@@ -300,7 +300,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
       <div className="border-b border-border-default px-3 py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-caption font-semibold uppercase tracking-[0.2em] text-text-secondary">
+            <p className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
               Git Workbench
             </p>
             <div className="mt-1 flex min-w-0 items-center gap-2">
@@ -359,7 +359,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
               />
               {selectedCount} selected
             </div>
-            <span className="text-caption uppercase tracking-[0.18em] text-text-muted">Status</span>
+            <span className="text-caption uppercase tracking-wide text-text-muted">Status</span>
           </div>
           <div className="custom-scrollbar max-h-44 overflow-y-auto px-2 pb-2">
             {snapshot.files.length > 0 ? (
@@ -383,7 +383,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
 
         <section className="flex min-h-0 flex-1 flex-col border-b border-border-default">
           <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <span className="text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
+            <span className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
               Diff preview
             </span>
             {selectedFile ? (
@@ -410,9 +410,9 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
           </div>
         </section>
 
-        <section className="space-y-3 px-3 py-3">
+        <section className="flex flex-col gap-3 px-3 py-3">
           <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-            <div className="mb-2 flex items-center gap-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
+            <div className="mb-2 flex items-center gap-2 text-caption font-semibold uppercase tracking-wide text-text-secondary">
               <GitCommit className="h-3.5 w-3.5" />
               Commit
             </div>
@@ -439,7 +439,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
           </div>
 
           <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-            <div className="mb-1 flex items-center gap-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
+            <div className="mb-1 flex items-center gap-2 text-caption font-semibold uppercase tracking-wide text-text-secondary">
               <GitPullRequest className="h-3.5 w-3.5" />
               PR-ready
             </div>
@@ -459,7 +459,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
           </div>
 
           <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
-            <div className="mb-1 flex items-center gap-2 text-caption font-semibold uppercase tracking-[0.18em] text-text-secondary">
+            <div className="mb-1 flex items-center gap-2 text-caption font-semibold uppercase tracking-wide text-text-secondary">
               <CheckCircle2 className="h-3.5 w-3.5" />
               Checks
             </div>
@@ -488,7 +488,7 @@ function GitUnavailable({ title, message }: { title: string; message: string }) 
 function GitMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border-subtle bg-surface-muted px-2 py-2">
-      <div className="text-caption uppercase tracking-[0.18em] text-text-muted">{label}</div>
+      <div className="text-caption uppercase tracking-wide text-text-muted">{label}</div>
       <div className="mt-1 font-mono text-sm font-semibold text-text-primary">{value}</div>
     </div>
   );

@@ -45,38 +45,40 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-shell">
+        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-ink-2">
           Cost by Model
         </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="text-xs text-shell/60">Loading...</div>
+          <div className="text-xs text-ink-2/60">Loading...</div>
         ) : byModel.length === 0 ? (
-          <div className="text-xs text-shell/60">No LLM calls recorded yet.</div>
+          <div className="text-xs text-ink-2/60">No LLM calls recorded yet.</div>
         ) : (
           <div className="flex flex-col gap-2">
             {byModel.map((agg) => {
               const widthPct = maxCost > 0 ? Math.max((agg.totalCost / maxCost) * 100, 2) : 0;
               const pricingNote = formatPricingNote(agg);
+              const barStyle = { width: `${widthPct}%` };
               return (
                 <div key={agg.groupKey} className="flex flex-col gap-0.5">
                   <div className="flex items-center justify-between text-caption">
-                    <span className="text-sand font-pixel-mono truncate max-w-cost-model-name">
+                    <span className="text-ink-1 font-pixel-mono truncate max-w-cost-model-name">
                       {agg.groupKey}
                     </span>
-                    <span className="text-shell/70 font-pixel-mono">
+                    <span className="text-ink-2/70 font-pixel-mono">
                       {formatCost(agg.totalCost)} ({agg.callCount} calls)
                     </span>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-ocean-mid/30">
+                  <div className="h-2 w-full rounded-full bg-surface-sunken">
                     <div
                       className={`h-2 rounded-full transition-all ${getBarColor(agg.groupKey)}`}
-                      style={{ width: `${widthPct}%` }}
+                      // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+                      style={barStyle}
                     />
                   </div>
                   {pricingNote ? (
-                    <div className="text-caption font-pixel-mono text-shell/55">{pricingNote}</div>
+                    <div className="text-caption font-pixel-mono text-ink-2/55">{pricingNote}</div>
                   ) : null}
                 </div>
               );

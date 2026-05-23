@@ -4,18 +4,28 @@ import {
   EntityDropdown,
   type EntityDropdownItem,
   Input,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SegmentedControl,
+  type SegmentedControlItem,
   useFocusTrap,
   useRegisterModal,
   useTopmostEscape,
 } from '@offisim/ui-core';
-import { ChevronDown, Layers, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import {
+  Book,
+  Box,
+  Building2,
+  ChevronDown,
+  CloudUpload,
+  Layers,
+  LayoutGrid,
+  type LucideIcon,
+  Search,
+  SlidersHorizontal,
+  UserPlus,
+  X,
+  Zap,
+} from 'lucide-react';
+import { type ReactNode, useRef, useState } from 'react';
 import { KIND_FILTERS, type MarketSortOption, SORT_OPTIONS } from './marketplace-meta.js';
 
 export interface MarketFilterBarProps {
@@ -34,6 +44,68 @@ export interface MarketFilterBarProps {
 }
 
 const MANAGE_TABS = ['installed', 'updates', 'published'] as const;
+
+const KIND_FILTER_ICON: Partial<Record<AssetKind | 'all', LucideIcon>> = {
+  employee: UserPlus,
+  skill: Zap,
+  sop: Book,
+  company_template: Building2,
+  office_layout: LayoutGrid,
+  prefab: Box,
+};
+
+interface SegmentedOption<V extends string> {
+  value: V;
+  label: string;
+  icon?: LucideIcon;
+}
+
+function Segmented<V extends string>({
+  ariaLabel,
+  value,
+  options,
+  onChange,
+}: {
+  ariaLabel: string;
+  value: V;
+  options: ReadonlyArray<SegmentedOption<V>>;
+  onChange: (value: V) => void;
+}) {
+  return (
+    <SegmentedControl
+      ariaLabel={ariaLabel}
+      value={value}
+      onChange={onChange}
+      size="sm"
+      className="rounded-r-md border-line bg-surface-2 shadow-elev-1"
+      items={options.map((opt): SegmentedControlItem<V> => {
+        const Icon = opt.icon;
+        return {
+          value: opt.value,
+          label: (
+            <>
+              {Icon && <Icon className="size-3" aria-hidden="true" />}
+              {opt.label}
+            </>
+          ),
+        };
+      })}
+    />
+  );
+}
+
+const KIND_OPTIONS: ReadonlyArray<SegmentedOption<AssetKind | 'all'>> = KIND_FILTERS.map((f) => ({
+  value: f.value,
+  label: f.label,
+  icon: KIND_FILTER_ICON[f.value],
+}));
+
+const SORT_OPTION_LIST: ReadonlyArray<SegmentedOption<MarketSortOption>> = SORT_OPTIONS.map(
+  (s) => ({
+    value: s,
+    label: s.charAt(0).toUpperCase() + s.slice(1),
+  }),
+);
 
 export function MarketFilterBar({
   mode,
@@ -61,55 +133,37 @@ export function MarketFilterBar({
   });
   useFocusTrap(sheetRef, narrowSheetOpen);
 
-  const controls = (
+  const controls: ReactNode = (
     <>
-      {/* Kind filter — explore only */}
       {mode === 'explore' && (
-        <Select value={kind} onValueChange={(value) => onKindChange(value as AssetKind | 'all')}>
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {KIND_FILTERS.map((f) => (
-                <SelectItem key={f.value} value={f.value}>
-                  {f.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+        <Segmented
+          ariaLabel="Kind filter"
+          value={kind}
+          options={KIND_OPTIONS}
+          onChange={onKindChange}
+        />
       )}
 
-      {/* Sort — explore only */}
       {mode === 'explore' && (
-        <Select value={sort} onValueChange={(value) => onSortChange(value as MarketSortOption)}>
-          <SelectTrigger className="h-9">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {SORT_OPTIONS.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+        <Segmented
+          ariaLabel="Sort"
+          value={sort}
+          options={SORT_OPTION_LIST}
+          onChange={onSortChange}
+        />
       )}
 
-      {/* Mode toggle */}
       <ModeDropdown mode={mode} onModeChange={onModeChange} />
 
-      {/* Publish — explore only */}
       {mode === 'explore' && (
         <Button
           type="button"
           onClick={onPublishClick}
           variant="outline"
-          className="h-9 px-4 text-sm font-medium text-text-secondary hover:text-text-primary"
+          size="sm"
+          className="gap-1.5 rounded-r-md border-line bg-surface-2 text-fs-meta font-semibold text-ink-2 shadow-elev-1 hover:bg-surface-sunken hover:text-ink-1"
         >
+          <CloudUpload className="size-3" aria-hidden="true" />
           Publish
         </Button>
       )}
@@ -117,17 +171,16 @@ export function MarketFilterBar({
   );
 
   return (
-    <div className="shrink-0 border-b border-border-default bg-surface">
-      <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
-        {/* Search */}
+    <div className="shrink-0 border-b border-line bg-surface-1">
+      <div className="flex h-14 items-center gap-3 px-sp-7">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-4" />
           <Input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search packages..."
-            className="h-9 w-full border-border-default bg-surface pl-9 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus"
+            placeholder="Search packages…"
+            className="h-8 w-full rounded-r-md border-line bg-surface-2 pl-9 text-fs-sm text-ink-1 placeholder:text-ink-4 focus:border-accent"
           />
         </div>
 
@@ -137,44 +190,45 @@ export function MarketFilterBar({
             onClick={() => setSheetOpen(true)}
             variant="outline"
             size="icon"
-            className="size-9 shrink-0 text-text-secondary"
+            className="size-8 shrink-0 rounded-r-md border-line bg-surface-2 text-ink-3 shadow-elev-1"
             aria-label="Open market filters"
           >
             <SlidersHorizontal className="size-4" />
           </Button>
         ) : (
-          controls
+          <div className="flex flex-wrap items-center justify-end gap-3">{controls}</div>
         )}
       </div>
 
-      {sheetOpen && narrow && (
+      {narrowSheetOpen && (
         <div className="fixed inset-0 z-modal flex items-end bg-glass-bg">
           <div
             ref={sheetRef}
-            className="w-full rounded-t-2xl border-t border-border-default bg-surface-elevated p-4 shadow-modal"
+            className="w-full rounded-t-r-lg border-t border-line bg-surface-1 p-4 shadow-elev-2"
           >
             <div className="mb-4 flex items-center justify-between">
-              <div className="text-sm font-semibold text-text-primary">Market filters</div>
+              <div className="text-fs-sm font-semibold text-ink-1">Market filters</div>
               <Button
                 type="button"
                 onClick={() => setSheetOpen(false)}
                 variant="outline"
                 size="icon"
-                className="size-8 text-text-secondary"
+                className="size-8 rounded-r-sm border-line text-ink-3"
                 aria-label="Close market filters"
               >
                 <X className="size-4" />
               </Button>
             </div>
-            <div className="grid gap-3">{controls}</div>
+            <div className="flex flex-col gap-3">{controls}</div>
           </div>
         </div>
       )}
 
-      {/* Manage sub-tabs */}
       {mode === 'manage' && (
-        <div className="flex items-center gap-2 px-6 pb-2">
-          <span className="text-xs uppercase tracking-wider text-text-muted">View</span>
+        <div className="flex items-center gap-2 px-sp-7 pb-2">
+          <span className="text-fs-micro font-semibold uppercase tracking-wide text-ink-3">
+            View
+          </span>
           <ManageTabDropdown manageTab={manageTab} onManageTabChange={onManageTabChange} />
         </div>
       )}
@@ -199,11 +253,12 @@ function ModeDropdown({
         <Button
           type="button"
           variant="outline"
-          className="h-9 gap-2 px-3 text-sm text-text-primary"
+          size="sm"
+          className="gap-1.5 rounded-r-md border-line bg-surface-2 text-fs-meta font-semibold text-ink-1 shadow-elev-1 hover:bg-surface-sunken"
           aria-label="Marketplace mode"
         >
-          <span className="font-medium">{mode === 'explore' ? 'Explore' : 'Manage'}</span>
-          <ChevronDown className="size-3 shrink-0 text-text-muted" />
+          <span>{mode === 'explore' ? 'Explore' : 'Manage'}</span>
+          <ChevronDown className="size-3 shrink-0 text-ink-4" />
         </Button>
       }
       items={items}
@@ -235,12 +290,12 @@ function ManageTabDropdown({
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 gap-2 px-2.5 text-xs text-text-primary"
+          className="gap-1.5 rounded-r-sm border-line bg-surface-2 text-fs-meta font-semibold text-ink-1 shadow-elev-1 hover:bg-surface-sunken"
           aria-label="Manage view"
         >
-          <Layers className="size-3 shrink-0 text-text-muted" />
-          <span className="font-medium">{current}</span>
-          <ChevronDown className="size-3 shrink-0 text-text-muted" />
+          <Layers className="size-3 shrink-0 text-ink-4" />
+          <span>{current}</span>
+          <ChevronDown className="size-3 shrink-0 text-ink-4" />
         </Button>
       }
       items={items}

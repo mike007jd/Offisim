@@ -223,51 +223,50 @@ export function App({ onCompanySwitch }: AppProps) {
             ? existingStartup.replay_count + 1
             : existingStartup.replay_count,
       };
-      if (payload.status === 'requested') {
-        setCompanyStartupCeremony(payload.companyId, {
-          ...base,
-          requested: true,
-          completed: false,
-          skipped: false,
-          failed: false,
-          requested_at: payload.requestedAt,
-        });
-        return;
+      switch (payload.status) {
+        case 'requested':
+          setCompanyStartupCeremony(payload.companyId, {
+            ...base,
+            requested: true,
+            completed: false,
+            skipped: false,
+            failed: false,
+            requested_at: payload.requestedAt,
+          });
+          return;
+        case 'started':
+          setCompanyStartupCeremony(payload.companyId, {
+            ...base,
+            requested: true,
+            started: true,
+            started_at: payload.startedAt,
+          });
+          return;
+        case 'completed':
+          setCompanyStartupCeremony(payload.companyId, {
+            ...base,
+            completed: true,
+            skipped: false,
+            failed: false,
+            completed_at: payload.completedAt,
+          });
+          return;
+        case 'skipped':
+          setCompanyStartupCeremony(payload.companyId, {
+            ...base,
+            skipped: true,
+            failed: false,
+            skipped_at: payload.skippedAt,
+          });
+          return;
+        default:
+          setCompanyStartupCeremony(payload.companyId, {
+            ...base,
+            failed: true,
+            failed_at: payload.failedAt,
+            failure_error: payload.error,
+          });
       }
-      if (payload.status === 'started') {
-        setCompanyStartupCeremony(payload.companyId, {
-          ...base,
-          requested: true,
-          started: true,
-          started_at: payload.startedAt,
-        });
-        return;
-      }
-      if (payload.status === 'completed') {
-        setCompanyStartupCeremony(payload.companyId, {
-          ...base,
-          completed: true,
-          skipped: false,
-          failed: false,
-          completed_at: payload.completedAt,
-        });
-        return;
-      }
-      if (payload.status === 'skipped') {
-        setCompanyStartupCeremony(payload.companyId, {
-          ...base,
-          skipped: true,
-          failed: false,
-          skipped_at: payload.skippedAt,
-        });
-        return;
-      }
-      setCompanyStartupCeremony(payload.companyId, {
-        ...base,
-        failed: true,
-        failed_at: payload.failedAt,
-        failure_error: payload.error,
-      });
     });
   }, [eventBus]);
 
@@ -313,7 +312,6 @@ export function App({ onCompanySwitch }: AppProps) {
     closeOverlay: overlay.closeOverlay,
     setShortcutHelpOpen,
     routeToPersonnel,
-    handleToggleDashboard: officeBindings.handleToggleDashboard,
     handleToggleKanban: officeBindings.handleToggleKanban,
     updateWorkspaceState,
     onViewModeClick: officeBindings.onViewModeClick,
@@ -387,7 +385,6 @@ export function App({ onCompanySwitch }: AppProps) {
   );
 
   const anyOverlayOpen =
-    officeState.dashboardOpen ||
     officeState.kanbanOpen ||
     officeState.marketplaceListingId !== null ||
     installFlow.isOpen ||
@@ -414,7 +411,6 @@ export function App({ onCompanySwitch }: AppProps) {
       onOpenSettings: handleOpenSettings,
       onOpenStudio: lifecycle.handleOpenStudio,
       onSelectEmployee: officeBindings.handleSelectEmployee,
-      onToggleDashboard: officeBindings.handleToggleDashboard,
       onToggleKanban: officeBindings.handleToggleKanban,
       onUserMessage: officeBindings.handleUserMessage,
       onRequestEditProject: handleRequestEditProject,
@@ -432,7 +428,6 @@ export function App({ onCompanySwitch }: AppProps) {
       officeBindings.chatOpenToken,
       officeBindings.focusOutputsToken,
       officeBindings.handleSelectEmployee,
-      officeBindings.handleToggleDashboard,
       officeBindings.handleToggleKanban,
       officeBindings.handleUserMessage,
       officeState.selectedEmployeeId,
@@ -483,7 +478,6 @@ export function App({ onCompanySwitch }: AppProps) {
             officeState={officeState}
             activeCompanyId={activeCompanyId}
             repos={repos}
-            activeThreadId={null}
             onStudioCompanyCreated={lifecycle.handleStudioCompanyCreated}
             onCreatorDeploy={lifecycle.handleCreatorDeploy}
             updateOfficeState={officeBindings.updateOfficeState}
@@ -508,7 +502,6 @@ export function App({ onCompanySwitch }: AppProps) {
               setActiveProjectId={setActiveProjectId}
               onRequestCreateProject={handleRequestCreateProject}
               onRequestEditProject={handleRequestEditProject}
-              activeProjectStatus={activeProject?.status ?? null}
               chatOpenToken={officeBindings.chatOpenToken}
               collaborationRailProps={collaborationRailProps}
               handleOpenSettings={handleOpenSettings}
@@ -516,7 +509,6 @@ export function App({ onCompanySwitch }: AppProps) {
               onSelectWorkspace={setActiveWorkspace}
               onOpenCompanySelect={overlay.openCompanySelect}
               onOpenEmployeeCreator={overlay.openEmployeeCreator}
-              onToggleDashboard={officeBindings.handleToggleDashboard}
               onToggleKanban={officeBindings.handleToggleKanban}
               onSelectEmployee={officeBindings.handleSelectEmployee}
               onViewModeChange={officeBindings.onViewModeChange}
@@ -531,6 +523,9 @@ export function App({ onCompanySwitch }: AppProps) {
               addToast={addToast}
               onEditExternalEmployee={(id) => routeToPersonnel(id, 'profile')}
               lastUserRequest={officeBindings.lastUserRequest}
+              activeCompanyId={activeCompanyId}
+              onSelectThread={handleSelectThread}
+              selectedEmployeeId={officeState.selectedEmployeeId}
             />
           )}
 

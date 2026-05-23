@@ -14,7 +14,6 @@ export {
 export { AppLayout } from './components/layout/AppLayout.js';
 export { Header } from './components/layout/Header.js';
 export { RightSidebar } from './components/layout/RightSidebar.js';
-export { StatusBar } from './components/layout/StatusBar.js';
 export { KanbanTray } from './components/kanban/KanbanTray.js';
 export { NotificationCenter } from './components/notifications/NotificationCenter.js';
 export { OnboardingTour } from './components/onboarding/OnboardingTour.js';
@@ -30,9 +29,15 @@ export { ProjectCreateDialog } from './components/project/ProjectCreateDialog.js
 export type { ProjectCreateDialogCreateInput } from './components/project/ProjectCreateDialog.js';
 export { ProjectSelectedSummary } from './components/project/ProjectListPanel.js';
 export { ProjectSelector } from './components/project/ProjectSelector.js';
+export { ProjectWorkspaceFiles } from './components/project/ProjectWorkspaceFiles.js';
 export { ResumeBar } from './components/project/ResumeBar.js';
 export { KeyboardShortcutsDialog } from './components/shared/KeyboardShortcutsDialog.js';
 export { WorkspacePageShell } from './components/workspace/WorkspacePageShell.js';
+export { WorkspaceSuite, useSuiteEscape } from './components/workspace-suite/index.js';
+export type {
+  WorkspaceAppKey as SuiteAppKey,
+  WorkspaceSuiteProps,
+} from './components/workspace-suite/index.js';
 export type { MarketSortOption } from './components/marketplace/marketplace-meta.js';
 export type { MarketSessionState } from './components/marketplace/MarketPage.js';
 export { ActivityLogPage } from './components/events/ActivityLogPage.js';
@@ -45,6 +50,7 @@ export type { SopSessionState as SopViewSessionState } from './components/sop/So
 export { SettingsPage } from './components/settings/SettingsPage.js';
 export { disposeEventLogStore, primeEventLogStore } from './components/events/EventLog.js';
 export { useCompanyZones } from './hooks/useCompanyZones.js';
+export { useSops, type SopTemplate } from './hooks/useSops.js';
 export { parseCompanyDescription, updateCompanyIdentity } from './lib/company-identity.js';
 export { useDeepLinkInstall } from './hooks/useDeepLinkInstall.js';
 export { useEmployeeEditor } from './hooks/useEmployeeEditor.js';
@@ -124,11 +130,22 @@ export {
   useOffisimRuntimeInteraction,
   useOffisimRuntime,
   useOffisimRuntimeServices,
+  useOffisimRuntimeStatus,
 } from './runtime/offisim-runtime-context.js';
+export { ActivityRail } from './components/chat/ActivityRail.js';
+export { useDashboardMetrics } from './hooks/useDashboardMetrics.js';
+export {
+  STAGE_META,
+  usePipelineStage,
+  type PipelineStage,
+} from './hooks/usePipelineStage.js';
+export { useRuntimeActivityFeed } from './runtime/use-runtime-activity-feed.js';
 export { SceneCeremonyProvider } from './runtime/scene-ceremony-context.js';
 export { SceneIntentDispatcher } from './runtime/scene-intent-dispatcher.js';
 export { InMemorySceneIntentBus } from './runtime/scene-intents.js';
-export { useAgentStates } from './runtime/use-agent-states.js';
+export { useAgentStates, type AgentState } from './runtime/use-agent-states.js';
+export { DicebearAvatar } from './components/shared/DicebearAvatar.js';
+export { STATUS_DOTS } from './lib/state-variants.js';
 export { useEmployeeSkillHighlights } from './runtime/use-employee-skill-highlights.js';
 export type { EmployeeSkillHighlight } from './runtime/use-employee-skill-highlights.js';
 export {

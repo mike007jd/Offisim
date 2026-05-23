@@ -69,7 +69,7 @@ export function KanbanCard({ task, onClick, taskCost = 0 }: KanbanCardProps) {
       variant="ghost"
       className={cn(
         'h-auto w-full flex-col items-stretch rounded-lg border text-left transition-colors duration-150',
-        'space-y-1.5 px-2.5 py-2',
+        'flex flex-col gap-1.5 px-2.5 py-2',
         'border-border-default bg-surface hover:border-border-strong hover:bg-surface-hover',
         task.status === 'active' || task.status === 'running'
           ? 'border-info shadow-glow-accent'

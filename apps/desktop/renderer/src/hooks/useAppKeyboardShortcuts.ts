@@ -1,4 +1,4 @@
-import { getTopmostModalId, isAnyModalOpen } from '@offisim/ui-core';
+import { isAnyModalOpen } from '@offisim/ui-core';
 import { useEffect } from 'react';
 import type {
   OfficeSessionState,
@@ -19,7 +19,6 @@ export interface AppKeyboardShortcutsDeps {
   closeOverlay: () => void;
   setShortcutHelpOpen: (updater: boolean | ((prev: boolean) => boolean)) => void;
   routeToPersonnel: RouteToPersonnelFn;
-  handleToggleDashboard: () => void;
   handleToggleKanban: () => void;
   updateWorkspaceState: UpdateWorkspaceStateFn;
   onViewModeClick: () => void;
@@ -35,7 +34,6 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     closeOverlay,
     setShortcutHelpOpen,
     routeToPersonnel,
-    handleToggleDashboard,
     handleToggleKanban,
     updateWorkspaceState,
     onViewModeClick,
@@ -53,28 +51,10 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
         return;
       }
 
-      if (
-        isOffice &&
-        (e.metaKey || e.ctrlKey) &&
-        e.key.toLowerCase() === 'd' &&
-        officeState.dashboardOpen &&
-        getTopmostModalId() === 'dashboard-overlay'
-      ) {
-        e.preventDefault();
-        handleToggleDashboard();
-        return;
-      }
-
       // When any topmost modal owns input, leave every other shortcut to the
       // owner's own useTopmostEscape / keydown handlers.
       if (anyModalOpen) return;
 
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
-        if (!isOffice) return;
-        e.preventDefault();
-        handleToggleDashboard();
-        return;
-      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
         if (!isOffice) return;
         e.preventDefault();
@@ -123,6 +103,8 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
                 return nextSessionState.market as typeof prev;
               case 'personnel':
                 return nextSessionState.personnel as typeof prev;
+              case 'workspace':
+                return nextSessionState.workspace as typeof prev;
               case 'activity-log':
                 return nextSessionState.activityLog as typeof prev;
               case 'settings':
@@ -148,9 +130,7 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     closeOverlay,
     isOffice,
     routeToPersonnel,
-    handleToggleDashboard,
     handleToggleKanban,
-    officeState.dashboardOpen,
     officeState.selectedEmployeeId,
     onViewModeClick,
     setShortcutHelpOpen,

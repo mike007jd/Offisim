@@ -18,8 +18,23 @@ export interface TypographyToken {
 }
 
 export const FONT_FAMILY = {
-  sans: '"Inter", ui-sans-serif, system-ui, sans-serif',
-  mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, monospace',
+  sans: '"General Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  mono: 'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace',
+} as const;
+
+/** V3 product type scale (px). No `2xl` — that is reserved for dialog hero only. */
+export const FONT_SIZE_V3: Record<'micro' | 'meta' | 'sm' | 'base' | 'md' | 'lg' | 'xl', number> = {
+  micro: 10,
+  meta: 11,
+  sm: 12,
+  base: 13,
+  md: 14,
+  lg: 15,
+  xl: 19,
+};
+
+export const LETTER_SPACING = {
+  caps: '0.14em',
 } as const;
 
 /**

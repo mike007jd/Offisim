@@ -31,7 +31,6 @@ import {
 import { BoxSelect, Lock, MapPin, RotateCw, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
-import { STUDIO_COLORS } from './studio-style-helpers.js';
 
 // -- Styles -------------------------------------------------------------------
 
@@ -207,10 +206,9 @@ export function StudioProperties() {
               <div className={SECTION_CLASS}>
                 <div className={LABEL_CLASS}>Archetype</div>
                 <div className={ROW_CLASS}>
-                  <span
-                    className="inline-block size-2 shrink-0 rounded-full"
-                    style={{ background: selectedZone.accentColor }}
-                  />
+                  <svg className="size-2 shrink-0" viewBox="0 0 8 8" aria-hidden="true">
+                    <circle cx="4" cy="4" r="4" fill={selectedZone.accentColor} />
+                  </svg>
                   <span className={`${VALUE_CLASS} capitalize`}>
                     {selectedZone.archetype ?? 'Custom'}
                   </span>
@@ -384,18 +382,12 @@ export function StudioProperties() {
               <div className={SECTION_CLASS}>
                 <div className={LABEL_CLASS}>Zone</div>
                 <div className={ROW_CLASS}>
-                  <MapPin
-                    className="size-3 shrink-0"
-                    style={{
-                      color: instanceZone?.accentColor ?? STUDIO_COLORS.textTertiary,
-                    }}
-                  />
+                  <MapPin className="size-3 shrink-0 text-ink-3" />
                   {instanceZone ? (
                     <>
-                      <span
-                        className="inline-block size-2 shrink-0 rounded-sm"
-                        style={{ background: instanceZone.accentColor }}
-                      />
+                      <svg className="size-2 shrink-0 rounded-sm" viewBox="0 0 8 8" aria-hidden="true">
+                        <rect width="8" height="8" rx="2" fill={instanceZone.accentColor} />
+                      </svg>
                       <span className={VALUE_CLASS}>{instanceZone.label}</span>
                     </>
                   ) : (

@@ -1,14 +1,21 @@
 import { BORDER_WIDTH } from './border.js';
-import { DARK_SEMANTIC_COLORS, LIGHT_SEMANTIC_COLORS } from './colors-semantic.js';
+import { LIGHT_SEMANTIC_COLORS, V3_COLORS } from './colors-semantic.js';
 import { MOTION_DURATION, MOTION_EASING } from './motion.js';
 import { RADIUS_SCALE } from './radius.js';
-import { SHADOW_SCALE_DARK, SHADOW_SCALE_LIGHT } from './shadow.js';
-import { SPACING_SCALE } from './spacing.js';
-import { FONT_FAMILY, TYPOGRAPHY_SCALE } from './typography.js';
+import { ELEVATION, SHADOW_SCALE } from './shadow.js';
+import { SP_DENSITY, SPACING_SCALE } from './spacing.js';
+import type { DensityMode } from './spacing.js';
+import { FONT_FAMILY, FONT_SIZE_V3, LETTER_SPACING, TYPOGRAPHY_SCALE } from './typography.js';
 import { Z_INDEX_SCALE } from './z-index.js';
 
 export const TAILWIND_THEME_CSS_HEADER =
   '/* AUTO-GENERATED — DO NOT EDIT — source: packages/ui-core/src/tokens — commit:';
+
+/** V3 app-shell heights (`--title` / `--toolbar`). */
+export const SHELL_HEIGHTS = {
+  title: 40,
+  toolbar: 54,
+} as const;
 
 const TOKEN_NAME_OVERRIDES: Record<string, string> = {
   surfaceElevated: 'surface-elevated',
@@ -93,40 +100,126 @@ function semanticValueLines(colors: typeof LIGHT_SEMANTIC_COLORS) {
 }
 
 function shadowThemeLines() {
-  return Object.keys(SHADOW_SCALE_LIGHT).map((key) => {
+  return Object.keys(SHADOW_SCALE).map((key) => {
     const name = shadowName(key);
     return `  --shadow-${name}: var(--shadow-${name}-val);`;
   });
 }
 
-function shadowValueLines(shadows: typeof SHADOW_SCALE_LIGHT) {
-  return Object.entries(shadows).map(
+function shadowValueLines() {
+  return Object.entries(SHADOW_SCALE).map(
     ([key, value]) => `  --shadow-${shadowName(key)}-val: ${value};`,
   );
 }
 
-function legacyThemeAliases() {
+/** V3-named Tailwind `@theme` keys referencing the V3 native `:root` variables. */
+function v3ThemeKeys() {
+  // `--color-<name>` resolves to the identically named `:root` variable.
+  const colorNames = [
+    'bg',
+    'surface-0',
+    'surface-1',
+    'surface-2',
+    'surface-sunken',
+    'ink-1',
+    'ink-2',
+    'ink-3',
+    'ink-4',
+    'line',
+    'line-soft',
+    'line-strong',
+    'accent',
+    'accent-press',
+    'accent-fg',
+    'accent-surface',
+    'accent-ring',
+    'ok',
+    'ok-surface',
+    'warn',
+    'warn-surface',
+    'danger',
+    'danger-surface',
+    'violet',
+    'violet-surface',
+    'wiz-bg',
+    'wiz-surface',
+    'wiz-line',
+    'wiz-line-2',
+    'wiz-ink-1',
+    'wiz-ink-2',
+    'wiz-ink-3',
+    'wiz-ink-4',
+    'wiz-blue',
+    'wiz-emerald',
+  ];
+  const radiusKeys = ['xs', 'sm', 'md', 'lg', 'xl', 'pill'];
+  const fontSizeKeys = Object.keys(FONT_SIZE_V3);
+  const densitySteps = Object.keys(SP_DENSITY.normal);
   return [
-    ['hud-black', 'surface'],
-    ['hud-dark', 'surface-elevated'],
-    ['hud-mid', 'surface-muted'],
-    ['hud-light', 'surface-hover'],
-    ['hud-lighter', 'text-disabled'],
-    ['hud-border', 'border-default'],
-    ['ocean-deep', 'surface-elevated'],
-    ['ocean-mid', 'surface-muted'],
-    ['ocean-light', 'surface-hover'],
-    ['sand', 'text-primary'],
-    ['shell', 'text-secondary'],
-    ['lobster-red', 'error'],
-    ['coral-orange', 'warning'],
-    ['kelp-green', 'success'],
-    ['sea-blue', 'accent'],
-    ['abyss', 'surface'],
-    ['pearl', 'text-inverse'],
-    ['foam', 'surface-active'],
-    ['coral', 'warning'],
-  ].map(([alias, target]) => `  --color-${alias}: var(--color-${target}-val);`);
+    ...colorNames.map((name) => `  --color-${name}: var(--${name});`),
+    ...radiusKeys.map((k) => `  --radius-r-${k}: var(--r-${k});`),
+    ...fontSizeKeys.map((k) => `  --text-fs-${k}: var(--fs-${k});`),
+    '  --shadow-elev-1: var(--elev-1);',
+    '  --shadow-elev-2: var(--elev-2);',
+    '  --shadow-elev-3: var(--elev-3);',
+    ...densitySteps.map((k) => `  --spacing-sp-${k}: var(--sp-${k});`),
+  ];
+}
+
+/** V3 native CSS variables with literal values, declared in `:root`. */
+function v3NativeVars() {
+  const radiusKeys: Array<keyof typeof RADIUS_SCALE> = ['xs', 'sm', 'md', 'lg', 'xl', 'pill'];
+  return [
+    `  --bg: ${V3_COLORS.bg};`,
+    `  --surface-0: ${V3_COLORS.surface0};`,
+    `  --surface-1: ${V3_COLORS.surface1};`,
+    `  --surface-2: ${V3_COLORS.surface2};`,
+    `  --surface-sunken: ${V3_COLORS.surfaceSunken};`,
+    `  --ink-1: ${V3_COLORS.ink1};`,
+    `  --ink-2: ${V3_COLORS.ink2};`,
+    `  --ink-3: ${V3_COLORS.ink3};`,
+    `  --ink-4: ${V3_COLORS.ink4};`,
+    `  --line: ${V3_COLORS.line};`,
+    `  --line-soft: ${V3_COLORS.lineSoft};`,
+    `  --line-strong: ${V3_COLORS.lineStrong};`,
+    `  --accent: ${V3_COLORS.accent};`,
+    `  --accent-press: ${V3_COLORS.accentPress};`,
+    `  --accent-fg: ${V3_COLORS.accentFg};`,
+    `  --accent-surface: ${V3_COLORS.accentSurface};`,
+    `  --accent-ring: ${V3_COLORS.accentRing};`,
+    `  --ok: ${V3_COLORS.ok};`,
+    `  --ok-surface: ${V3_COLORS.okSurface};`,
+    `  --warn: ${V3_COLORS.warn};`,
+    `  --warn-surface: ${V3_COLORS.warnSurface};`,
+    `  --danger: ${V3_COLORS.danger};`,
+    `  --danger-surface: ${V3_COLORS.dangerSurface};`,
+    `  --violet: ${V3_COLORS.violet};`,
+    `  --violet-surface: ${V3_COLORS.violetSurface};`,
+    ...radiusKeys.map((key) => `  --r-${key}: ${RADIUS_SCALE[key]}px;`),
+    `  --elev-1: ${ELEVATION.elev1};`,
+    `  --elev-2: ${ELEVATION.elev2};`,
+    `  --elev-3: ${ELEVATION.elev3};`,
+    ...Object.entries(FONT_SIZE_V3).map(([key, value]) => `  --fs-${key}: ${value}px;`),
+    `  --ls-caps: ${LETTER_SPACING.caps};`,
+    `  --title: ${SHELL_HEIGHTS.title}px;`,
+    `  --toolbar: ${SHELL_HEIGHTS.toolbar}px;`,
+  ];
+}
+
+/** Intentional-dark wizard tokens (emitted contract; consumed by Phase 8). */
+function wizVars() {
+  return [
+    `  --wiz-bg: ${V3_COLORS.wizBg};`,
+    `  --wiz-surface: ${V3_COLORS.wizSurface};`,
+    `  --wiz-line: ${V3_COLORS.wizLine};`,
+    `  --wiz-line-2: ${V3_COLORS.wizLine2};`,
+    `  --wiz-ink-1: ${V3_COLORS.wizInk1};`,
+    `  --wiz-ink-2: ${V3_COLORS.wizInk2};`,
+    `  --wiz-ink-3: ${V3_COLORS.wizInk3};`,
+    `  --wiz-ink-4: ${V3_COLORS.wizInk4};`,
+    `  --wiz-blue: ${V3_COLORS.wizBlue};`,
+    `  --wiz-emerald: ${V3_COLORS.wizEmerald};`,
+  ];
 }
 
 function rootAliases() {
@@ -153,29 +246,26 @@ function rootAliases() {
   ];
 }
 
-function densityLines(mode: 'normal' | 'compact' | 'spacious') {
-  const values =
-    mode === 'compact'
-      ? { xs: 2, sm: 4, md: 8, lg: 12, xl: 16, xxl: 20, xxxl: 24 }
-      : mode === 'spacious'
-        ? { xs: 6, sm: 12, md: 16, lg: 20, xl: 28, xxl: 32, xxxl: 40 }
-        : { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
-  return Object.entries(values).map(([key, value]) => `  --sp-${key}: ${value}px;`);
+const LEGACY_DENSITY: Record<DensityMode, Record<string, number>> = {
+  compact: { xs: 2, sm: 4, md: 8, lg: 12, xl: 16, xxl: 20, xxxl: 24 },
+  spacious: { xs: 6, sm: 12, md: 16, lg: 20, xl: 28, xxl: 32, xxxl: 40 },
+  normal: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 },
+};
+
+function densityLines(mode: DensityMode) {
+  return [
+    ...Object.entries(SP_DENSITY[mode]).map(([key, value]) => `  --sp-${key}: ${value}px;`),
+    ...Object.entries(LEGACY_DENSITY[mode]).map(([key, value]) => `  --sp-${key}: ${value}px;`),
+  ];
 }
 
 export function emitTailwindThemeCss(commit = 'dev'): string {
   const themeLines = [
     ...semanticThemeLines(),
-    ...legacyThemeAliases(),
     ...shadowThemeLines(),
     ...Object.entries(SPACING_SCALE).map(([key, value]) => `  --spacing-${key}: ${value}px;`),
-    '  --spacing-sp-xs: var(--sp-xs);',
-    '  --spacing-sp-sm: var(--sp-sm);',
-    '  --spacing-sp-md: var(--sp-md);',
-    '  --spacing-sp-lg: var(--sp-lg);',
-    '  --spacing-sp-xl: var(--sp-xl);',
-    '  --spacing-sp-xxl: var(--sp-xxl);',
-    '  --spacing-sp-xxxl: var(--sp-xxxl);',
+    ...Object.keys(LEGACY_DENSITY.normal).map((key) => `  --spacing-sp-${key}: var(--sp-${key});`),
+    ...v3ThemeKeys(),
   ];
 
   appendEntries(
@@ -207,13 +297,11 @@ export function emitTailwindThemeCss(commit = 'dev'): string {
 
   const rootLight = [
     ...semanticValueLines(LIGHT_SEMANTIC_COLORS),
-    ...shadowValueLines(SHADOW_SCALE_LIGHT),
+    ...shadowValueLines(),
     ...rootAliases(),
+    ...v3NativeVars(),
+    ...wizVars(),
     ...densityLines('normal'),
-  ];
-  const rootDark = [
-    ...semanticValueLines(DARK_SEMANTIC_COLORS),
-    ...shadowValueLines(SHADOW_SCALE_DARK),
   ];
 
   return [
@@ -225,10 +313,6 @@ export function emitTailwindThemeCss(commit = 'dev'): string {
     '',
     ':root {',
     ...rootLight,
-    '}',
-    '',
-    ':root.dark {',
-    ...rootDark,
     '}',
     '',
     ':root[data-density="compact"] {',

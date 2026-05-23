@@ -9,26 +9,30 @@ export type ShadowName =
   | 'glowWarning'
   | 'glowError';
 
-export const SHADOW_SCALE_DARK: Record<ShadowName, string> = {
-  resting: '0 1px 2px rgba(0,0,0,0.05)',
-  hover: '0 2px 8px rgba(0,0,0,0.10)',
-  popover: '0 8px 24px rgba(2,6,23,0.14)',
-  overlay: '0 12px 32px rgba(2,6,23,0.18)',
-  modal: '0 20px 60px rgba(2,6,23,0.28)',
-  glowAccent: '0 0 12px rgba(59,130,246,0.20), inset 0 0 12px rgba(59,130,246,0.04)',
-  glowSuccess: '0 0 12px rgba(16,185,129,0.20), inset 0 0 12px rgba(16,185,129,0.04)',
-  glowWarning: '0 0 12px rgba(245,158,11,0.20), inset 0 0 12px rgba(245,158,11,0.04)',
-  glowError: '0 0 12px rgba(239,68,68,0.20), inset 0 0 12px rgba(239,68,68,0.04)',
+const ELEV_1 = '0 1px 2px rgba(20,32,56,0.06), 0 1px 1px rgba(20,32,56,0.04)';
+const ELEV_2 = '0 4px 14px rgba(20,32,56,0.10), 0 1px 3px rgba(20,32,56,0.06)';
+const ELEV_3 = '0 18px 44px rgba(18,28,50,0.20), 0 4px 12px rgba(18,28,50,0.10)';
+
+/**
+ * Single light-only shadow scale (V3 is light-only). The 5 legacy elevation
+ * names are re-pointed onto the V3 `elev-1/2/3` semantics so existing
+ * `shadow-resting/hover/popover/overlay/modal` utilities keep working; the 4
+ * glows are retained, re-tinted to V3 accent/ok/warn/danger.
+ */
+export const SHADOW_SCALE: Record<ShadowName, string> = {
+  resting: ELEV_1,
+  hover: ELEV_2,
+  popover: ELEV_2,
+  overlay: ELEV_3,
+  modal: ELEV_3,
+  glowAccent: '0 0 12px rgba(47,107,255,0.16), inset 0 0 12px rgba(47,107,255,0.03)',
+  glowSuccess: '0 0 12px rgba(26,164,106,0.16), inset 0 0 12px rgba(26,164,106,0.03)',
+  glowWarning: '0 0 12px rgba(201,132,16,0.16), inset 0 0 12px rgba(201,132,16,0.03)',
+  glowError: '0 0 12px rgba(214,69,61,0.16), inset 0 0 12px rgba(214,69,61,0.03)',
 };
 
-export const SHADOW_SCALE_LIGHT: Record<ShadowName, string> = {
-  resting: '0 1px 2px rgba(2,6,23,0.04)',
-  hover: '0 2px 8px rgba(2,6,23,0.08)',
-  popover: '0 8px 24px rgba(2,6,23,0.12)',
-  overlay: '0 12px 32px rgba(2,6,23,0.16)',
-  modal: '0 20px 60px rgba(2,6,23,0.22)',
-  glowAccent: '0 0 12px rgba(37,99,235,0.16), inset 0 0 12px rgba(37,99,235,0.03)',
-  glowSuccess: '0 0 12px rgba(5,150,105,0.16), inset 0 0 12px rgba(5,150,105,0.03)',
-  glowWarning: '0 0 12px rgba(217,119,6,0.16), inset 0 0 12px rgba(217,119,6,0.03)',
-  glowError: '0 0 12px rgba(220,38,38,0.16), inset 0 0 12px rgba(220,38,38,0.03)',
-};
+export const ELEVATION = {
+  elev1: ELEV_1,
+  elev2: ELEV_2,
+  elev3: ELEV_3,
+} as const;

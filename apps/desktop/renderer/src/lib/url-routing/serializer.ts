@@ -20,7 +20,6 @@ function primaryIdentity(parsed: ParsedUrl): string {
         'office',
         overlay,
         office?.viewMode ?? '3D',
-        office?.dashboardOpen ? 'dashboard' : '',
         office?.marketplaceListingId ?? '',
         office?.selectedThreadId ?? '',
       ].join(':');
@@ -31,6 +30,8 @@ function primaryIdentity(parsed: ParsedUrl): string {
       return `market:${patch.market?.mode ?? 'explore'}:${patch.market?.manageTab ?? ''}:${patch.market?.selectedListingId ?? ''}:${overlay}`;
     case 'personnel':
       return `personnel:${patch.personnel?.selectedEmployeeId ?? ''}:${overlay}`;
+    case 'workspace':
+      return `workspace:${patch.workspace?.activeApp ?? 'messenger'}:${overlay}`;
     case 'activity-log':
       return `activity-log:${patch.activityLog?.selectedEventId ?? ''}:${overlay}`;
     case 'settings':
@@ -42,7 +43,6 @@ export function serializeOfficeUrl({ sessionState, overlay }: SerializableUrlSta
   const office = sessionState.office;
   const search = new URLSearchParams();
   if (office.viewMode === '2D') search.set('view', '2d');
-  if (office.dashboardOpen) search.set('dashboard', '1');
   append(search, 'listing', office.marketplaceListingId);
   append(search, 'thread', office.selectedThreadId);
   if (overlay === 'office-editor') search.set('overlay', 'office-editor');
@@ -101,6 +101,14 @@ export function serializeActivityUrl({ sessionState }: SerializableUrlState): st
   return `/activity${suffix(search)}`;
 }
 
+export function serializeWorkspaceUrl({ sessionState }: SerializableUrlState): string {
+  const app = sessionState.workspace.activeApp;
+  const search = new URLSearchParams();
+  // Messenger is the default app — keep the canonical path bare for it.
+  if (app !== 'messenger') search.set('app', app);
+  return `/workspace${suffix(search)}`;
+}
+
 export function serializeSettingsUrl({ sessionState }: SerializableUrlState): string {
   return `/settings/${sessionState.settings.activeTab}`;
 }
@@ -117,6 +125,7 @@ export function serializeUrl(state: SerializableUrlState): string {
   if (state.workspace === 'sops') return serializeSopsUrl(state);
   if (state.workspace === 'market') return serializeMarketUrl(state);
   if (state.workspace === 'personnel') return serializePersonnelWorkspaceUrl(state);
+  if (state.workspace === 'workspace') return serializeWorkspaceUrl(state);
   if (state.workspace === 'activity-log') return serializeActivityUrl(state);
   return serializeSettingsUrl(state);
 }

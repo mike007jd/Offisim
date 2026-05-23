@@ -14,7 +14,7 @@ export function SettingsGroupSection({ title, children }: SettingsGroupSectionPr
         </span>
         <div className="h-px flex-1 bg-border-default" />
       </div>
-      <div className="space-y-1">{children}</div>
+      <div className="flex flex-col gap-1">{children}</div>
     </div>
   );
 }

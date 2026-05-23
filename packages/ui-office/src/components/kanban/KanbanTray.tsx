@@ -33,6 +33,7 @@ export function KanbanTray({
   const trayRef = useRef<HTMLElement | null>(null);
   const cardCount = cards?.length ?? 0;
   const stackId = expanded ? 'office:project-board' : null;
+  const tabAnimationStyle = { animation: 'offisim-kanban-tab-in 180ms ease-out both' };
 
   useRegisterModal(stackId, 'overlay');
   useTopmostEscape(stackId, onToggle, { enabled: expanded });
@@ -74,6 +75,7 @@ export function KanbanTray({
             ? 'fixed z-modal kanban-tray-expanded-size overflow-visible rounded-b-2xl rounded-t-none border border-t-0 border-border-subtle bg-surface-elevated/98 shadow-overlay backdrop-blur-xl'
             : 'fixed left-1/2 kanban-tray-collapsed-position z-modal h-12 -translate-x-1/2 overflow-visible'
         }`}
+        // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
         style={
           expanded
             ? {
@@ -90,8 +92,9 @@ export function KanbanTray({
             type="button"
             variant="outline"
             onClick={onToggle}
-            className="absolute inset-0 flex items-center justify-center gap-2 rounded-b-[30px] border border-t-0 border-border-subtle bg-surface-elevated/95 px-5 text-left shadow-popover backdrop-blur-xl transition hover:bg-surface-hover"
-            style={{ animation: 'offisim-kanban-tab-in 180ms ease-out both' }}
+            className="absolute inset-0 flex items-center justify-center gap-2 rounded-b-3xl border border-t-0 border-border-subtle bg-surface-elevated/95 px-5 text-left shadow-popover backdrop-blur-xl transition hover:bg-surface-hover"
+            // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+            style={tabAnimationStyle}
             aria-expanded={expanded}
             data-kanban-toggle
           >
@@ -117,7 +120,7 @@ export function KanbanTray({
               aria-label="Collapse Kanban"
               variant="outline"
               size="icon"
-              className="absolute -bottom-3 left-1/2 flex h-6 w-20 -translate-x-1/2 items-center justify-center rounded-b-[22px] border border-t-0 border-border-subtle bg-surface-elevated/96 text-text-secondary shadow-resting transition hover:text-accent"
+              className="absolute -bottom-3 left-1/2 flex h-6 w-20 -translate-x-1/2 items-center justify-center rounded-b-2xl border border-t-0 border-border-subtle bg-surface-elevated/96 text-text-secondary shadow-resting transition hover:text-accent"
               onClick={onToggle}
               data-kanban-toggle
             >

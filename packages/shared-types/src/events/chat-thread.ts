@@ -1,4 +1,9 @@
-export type ChatThreadUpdateReason = 'created' | 'title' | 'archived';
+export type ChatThreadUpdateReason =
+  | 'created'
+  | 'title'
+  | 'archived'
+  | 'unarchived'
+  | 'deleted';
 
 export interface ChatThreadUpdatedPayload {
   readonly chatThreadId: string;

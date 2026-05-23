@@ -42,9 +42,17 @@ export interface SemanticColors {
 }
 
 /**
- * Semantic color source of truth. Dark values preserve the previous web CSS
- * variables and Studio values where they overlap; light values are the paired
- * AA-contrast theme.
+ * Semantic color source of truth.
+ *
+ * `DARK_SEMANTIC_COLORS` is RETAINED unchanged for the intentional-dark surfaces
+ * (Studio, character-mesh, office3d-sections, zone editor, wizard role-dot
+ * fallback) that read it directly via the tokens subpath — they do not depend on
+ * the `.dark` CSS class.
+ *
+ * `LIGHT_SEMANTIC_COLORS` field VALUES are revalued to the V3 palette so the
+ * ~1500 existing semantic Tailwind utility usages render V3 colors without any
+ * call-site change (field names are intentionally preserved). See
+ * `V3_COLORS` for the native V3 palette consumed by new V3-named utilities.
  */
 export const DARK_SEMANTIC_COLORS: SemanticColors = {
   surface: '#0c1118',
@@ -90,47 +98,97 @@ export const DARK_SEMANTIC_COLORS: SemanticColors = {
 };
 
 export const LIGHT_SEMANTIC_COLORS: SemanticColors = {
-  surface: '#fafbfc',
+  surface: '#f7f9fc',
   surfaceElevated: '#ffffff',
-  surfaceMuted: '#f1f5f9',
-  surfaceHover: '#e2e8f0',
-  surfaceActive: '#cbd5e1',
-  textPrimary: '#0f172a',
-  textSecondary: '#475569',
-  textMuted: '#64748b',
-  textDisabled: '#94a3b8',
+  surfaceMuted: '#f1f4f9',
+  surfaceHover: '#f1f4f9',
+  surfaceActive: '#e9edf4',
+  textPrimary: '#131a27',
+  textSecondary: '#3c4a60',
+  textMuted: '#647186',
+  textDisabled: '#93a0b2',
   textInverse: '#ffffff',
-  borderSubtle: 'rgba(15,23,42,0.06)',
-  borderDefault: 'rgba(15,23,42,0.12)',
-  borderStrong: 'rgba(15,23,42,0.20)',
-  borderFocus: 'rgba(37,99,235,0.55)',
-  accent: '#2563eb',
-  accentHover: '#1d4ed8',
-  accentMuted: 'rgba(37,99,235,0.12)',
-  accentText: '#1e40af',
-  success: '#059669',
-  successMuted: 'rgba(5,150,105,0.12)',
-  warning: '#d97706',
-  warningMuted: 'rgba(217,119,6,0.12)',
-  error: '#dc2626',
-  errorMuted: 'rgba(220,38,38,0.12)',
-  info: '#2563eb',
-  infoMuted: 'rgba(37,99,235,0.12)',
-  glassBg: 'rgba(255,255,255,0.65)',
-  glassBorder: 'rgba(15,23,42,0.10)',
-  statusIdle: '#64748b',
-  statusAssigned: '#2563eb',
-  statusThinking: '#4f46e5',
-  statusSearching: '#9333ea',
-  statusExecuting: '#059669',
-  statusMeeting: '#7c3aed',
-  statusBlocked: '#dc2626',
-  statusWaiting: '#d97706',
-  statusReporting: '#0d9488',
-  statusSuccess: '#16a34a',
-  statusFailed: '#dc2626',
-  statusPaused: '#64748b',
+  borderSubtle: '#e9edf4',
+  borderDefault: '#dde3ec',
+  borderStrong: '#c8d1de',
+  borderFocus: 'rgba(47,107,255,0.36)',
+  accent: '#2f6bff',
+  accentHover: '#1f54d8',
+  accentMuted: '#ecf2ff',
+  accentText: '#1f54d8',
+  success: '#1aa46a',
+  successMuted: '#e4f5ec',
+  warning: '#c98410',
+  warningMuted: '#fdf2dd',
+  error: '#d6453d',
+  errorMuted: '#fdeae9',
+  info: '#2f6bff',
+  infoMuted: '#ecf2ff',
+  glassBg: 'rgba(255,255,255,0.82)',
+  glassBorder: '#dde3ec',
+  statusIdle: '#647186',
+  statusAssigned: '#2f6bff',
+  statusThinking: '#7c4ddb',
+  statusSearching: '#7c4ddb',
+  statusExecuting: '#1aa46a',
+  statusMeeting: '#7c4ddb',
+  statusBlocked: '#d6453d',
+  statusWaiting: '#c98410',
+  statusReporting: '#2f6bff',
+  statusSuccess: '#1aa46a',
+  statusFailed: '#d6453d',
+  statusPaused: '#647186',
 };
+
+/**
+ * V3 native palette (verbatim from the V3 prototype `:root`). New V3-named
+ * Tailwind keys and CSS variables resolve to these values; the legacy
+ * `*_SEMANTIC_COLORS` names above are the back-compat layer that re-points the
+ * existing utilities onto the same V3 values.
+ *
+ * The `wiz*` entries are the intentional-dark wizard tokens. Phase 0 only EMITS
+ * them (as the `--wiz-*` contract); the lifecycle wizard component migration
+ * onto them is owned by Phase 8 (`rebuild-lifecycle-dialogs-v3`).
+ */
+export const V3_COLORS = {
+  bg: '#eef1f6',
+  surface0: '#f7f9fc',
+  surface1: '#ffffff',
+  surface2: '#fbfcfe',
+  surfaceSunken: '#f1f4f9',
+  ink1: '#131a27',
+  ink2: '#3c4a60',
+  ink3: '#647186',
+  ink4: '#93a0b2',
+  line: '#dde3ec',
+  lineSoft: '#e9edf4',
+  lineStrong: '#c8d1de',
+  accent: '#2f6bff',
+  accentPress: '#1f54d8',
+  accentFg: '#ffffff',
+  accentSurface: '#ecf2ff',
+  accentRing: 'rgba(47,107,255,0.36)',
+  ok: '#1aa46a',
+  okSurface: '#e4f5ec',
+  warn: '#c98410',
+  warnSurface: '#fdf2dd',
+  danger: '#d6453d',
+  dangerSurface: '#fdeae9',
+  violet: '#7c4ddb',
+  violetSurface: '#f1ebfd',
+  wizBg: '#0c1019',
+  wizSurface: 'rgba(255,255,255,0.02)',
+  wizLine: 'rgba(255,255,255,0.06)',
+  wizLine2: 'rgba(255,255,255,0.10)',
+  wizInk1: '#ffffff',
+  wizInk2: '#c4cdde',
+  wizInk3: '#8b97ad',
+  wizInk4: '#5a6577',
+  wizBlue: '#3b82f6',
+  wizEmerald: '#34d399',
+} as const;
+
+export type V3ColorName = keyof typeof V3_COLORS;
 
 export function getSemanticColors(theme: 'light' | 'dark'): SemanticColors {
   return theme === 'light' ? LIGHT_SEMANTIC_COLORS : DARK_SEMANTIC_COLORS;

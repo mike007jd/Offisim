@@ -314,12 +314,14 @@ export function EmployeeInspector({
   }
 
   const hasMetadataRow = Boolean(agent.taskRunId || agent.workstationId);
+  const panelPositionStyle = { left: `${leftOffset}px` };
 
   return (
     <div
       ref={panelRef}
       className="max-w-employee-inspector fixed top-16 z-50 w-80"
-      style={{ left: `${leftOffset}px` }}
+      // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+      style={panelPositionStyle}
       data-testid="employee-inspector"
       // biome-ignore lint/a11y/useSemanticElements: floating inspector is a popover anchored to rail, not a modal dialog
       role="dialog"

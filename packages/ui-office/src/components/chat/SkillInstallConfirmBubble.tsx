@@ -3,7 +3,16 @@ import type {
   SkillInstallConfirmInteractionContext,
   SkillMutationAction,
 } from '@offisim/shared-types';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, cn } from '@offisim/ui-core';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  POPOVER_CARD_SKIN_CLASS,
+  cn,
+} from '@offisim/ui-core';
 import { useMemo, useState } from 'react';
 
 interface SkillInstallConfirmBubbleProps {
@@ -135,7 +144,12 @@ export function SkillInstallConfirmBubble({
       : `Employee: ${resolveEmployeeLabel(context)}`;
 
   return (
-    <Card className="border-border-default bg-surface-elevated text-text-primary shadow-overlay">
+    <Card
+      className={cn(
+        POPOVER_CARD_SKIN_CLASS,
+        badge.variant === 'error' && 'border-danger',
+      )}
+    >
       <CardHeader className="gap-2 border-b border-border-subtle pb-3">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="min-w-0 truncate text-sm text-text-primary">
@@ -150,9 +164,9 @@ export function SkillInstallConfirmBubble({
           </p>
         )}
       </CardHeader>
-      <CardContent className="max-h-96 space-y-3 overflow-y-auto pt-3">
+      <CardContent className="max-h-96 flex flex-col gap-3 overflow-y-auto pt-3">
         {action === 'fork' && context.parent && (
-          <section className="space-y-1.5">
+          <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Fork</div>
             <p className="text-xs text-text-primary">
               {`"${context.parent.name}@${context.parent.version}" → ${resolveEmployeeLabel(context)}`}
@@ -162,7 +176,7 @@ export function SkillInstallConfirmBubble({
         )}
 
         {action === 'edit' && context.bodyDiff && (
-          <section className="space-y-1.5">
+          <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Body diff</div>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               <div>
@@ -182,7 +196,7 @@ export function SkillInstallConfirmBubble({
         )}
 
         {(action === 'install' || action === 'create') && (
-          <section className="space-y-1.5">
+          <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Permissions</div>
             {context.allowedTools.length === 0 ? (
               <p className="text-xs text-text-muted">No tools declared.</p>
@@ -210,7 +224,7 @@ export function SkillInstallConfirmBubble({
         )}
 
         {action === 'install' && (
-          <section className="space-y-1.5">
+          <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Source</div>
             <p className="break-all text-xs text-text-primary">
               {describeSource(context.sourceKind, context.sourceRef)}
@@ -219,7 +233,7 @@ export function SkillInstallConfirmBubble({
         )}
 
         {action === 'create' && (
-          <section className="space-y-1.5">
+          <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Attribution</div>
             <p className="break-all text-xs text-text-primary">
               Authored by {context.modelKey ?? context.sourceRef}
@@ -229,7 +243,7 @@ export function SkillInstallConfirmBubble({
         )}
 
         {action !== 'edit' && (
-          <section className="space-y-1.5">
+          <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Scope</div>
             <p className="text-xs text-text-primary">{scopeLabel}</p>
           </section>
@@ -239,7 +253,7 @@ export function SkillInstallConfirmBubble({
           (partitioned.scripts.length > 0 ||
             partitioned.references.length > 0 ||
             partitioned.assets.length > 0) && (
-            <section className="space-y-1.5">
+            <section className="flex flex-col gap-1.5">
               <div className={SECTION_LABEL_CLASS}>Assets</div>
               <AssetGroup label="scripts/" paths={partitioned.scripts} />
               <AssetGroup label="references/" paths={partitioned.references} />
@@ -248,7 +262,7 @@ export function SkillInstallConfirmBubble({
           )}
 
         {hasFrontmatterError && context.frontmatterError && (
-          <section className="space-y-1.5 rounded-md border border-error/40 bg-error-muted p-3">
+          <section className="flex flex-col gap-1.5 rounded-md border border-error/40 bg-error-muted p-3">
             <div className="text-caption font-semibold uppercase tracking-wide text-error">
               Frontmatter error
             </div>
@@ -262,7 +276,7 @@ export function SkillInstallConfirmBubble({
         )}
 
         {(action === 'install' || action === 'create') && body.length > 0 && (
-          <section className="space-y-1.5">
+          <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>SKILL.md preview</div>
             <div
               className={cn(
@@ -315,7 +329,7 @@ function AssetGroup({ label, paths }: { label: string; paths: string[] }) {
   return (
     <div>
       <div className={MUTED_CAPTION_CLASS}>{label}</div>
-      <ul className="ml-2 mt-0.5 space-y-0.5 text-xs text-text-secondary">
+      <ul className="ml-2 mt-0.5 flex flex-col gap-0.5 text-xs text-text-secondary">
         {paths.map((p) => (
           <li key={p} className="font-mono text-caption text-text-secondary">
             {p}

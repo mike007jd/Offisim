@@ -42,7 +42,7 @@
 
 /* ANIM-022: Compatibility verdict emphasis */
 [data-verdict="fail"] {
-  border-color: var(--color-error) !important;
+  border-color: var(--color-error) !important; /* ui-hardcode-allowed: semantic token animation state */
   animation: verdict-pulse 0.5s ease-in-out 2;
 }
 
@@ -53,10 +53,10 @@
 @keyframes verdict-pulse {
   0%,
   100% {
-    border-color: var(--color-error);
+    border-color: var(--color-error); /* ui-hardcode-allowed: semantic token animation state */
   }
   50% {
-    border-color: var(--color-error-muted);
+    border-color: var(--color-error-muted); /* ui-hardcode-allowed: semantic token animation state */
   }
 }
 
@@ -72,7 +72,7 @@
 /* ANIM-023: Binding required state */
 .binding-required {
   border: 1px dashed var(--color-warning);
-  background-color: var(--color-warning-muted);
+  background-color: var(--color-warning-muted); /* ui-hardcode-allowed: semantic token animation state */
 }
 
 .binding-required-badge {

@@ -31,6 +31,9 @@ const THEME_ITEMS = [
   { value: 'dark', label: 'Dark' },
 ] as const;
 
+const SUBSECTION_HEADING_CLASS =
+  'text-xs font-semibold uppercase tracking-wide text-text-muted';
+
 function BooleanSelect({
   id,
   label,
@@ -129,7 +132,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
   const mainHarnessStatuses = listMainHarnessRuntimeStatus(mainHarnessPolicy);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-sp-3">
       <SettingsSection title="Runtime defaults">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div>
@@ -238,11 +241,9 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
       </SettingsSection>
 
       <SettingsSection title="Conversation memory & summarization">
-        <div className="space-y-5">
+        <div className="flex flex-col gap-5">
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
-              Memory
-            </h4>
+            <h4 className={SUBSECTION_HEADING_CLASS}>Memory</h4>
             <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <BooleanSelect
                 id="runtime-memory-enabled"
@@ -276,9 +277,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
           </div>
 
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
-              Summarization
-            </h4>
+            <h4 className={SUBSECTION_HEADING_CLASS}>Summarization</h4>
             <p className="mt-1 text-xs text-text-muted">Auto-compress long conversations.</p>
             <div className="mt-3 grid gap-4 md:grid-cols-3">
               <BooleanSelect

@@ -12,15 +12,19 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-3 border-t border-border-default pt-4 first:border-t-0 first:pt-0">
+    <section className="space-y-sp-3">
       <header className="flex items-baseline justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+          <h3 className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
+            {title}
+          </h3>
           {description ? <p className="mt-1 text-xs text-text-muted">{description}</p> : null}
         </div>
         {action}
       </header>
-      <div className="space-y-3">{children}</div>
+      <div className="flex flex-col gap-3 rounded-r-md border border-line-soft bg-surface-1 p-4 shadow-elev-1">
+        {children}
+      </div>
     </section>
   );
 }
@@ -44,7 +48,7 @@ export function SurfaceCard({
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-caption font-semibold uppercase tracking-[0.22em] text-text-muted">
+          <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
             {title}
           </p>
           {description ? <p className="mt-2 text-sm text-text-secondary">{description}</p> : null}
@@ -64,7 +68,7 @@ export function SectionLabel({ htmlFor, children }: { htmlFor: string; children:
   return (
     <label
       htmlFor={htmlFor}
-      className="mb-2 block text-caption font-semibold uppercase tracking-[0.16em] text-text-muted"
+      className="mb-2 block text-caption font-semibold uppercase tracking-wide text-text-muted"
     >
       {children}
     </label>

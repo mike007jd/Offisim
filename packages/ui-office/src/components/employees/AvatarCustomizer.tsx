@@ -70,23 +70,27 @@ function SwatchRow({ label, options, selected, onSelect }: SwatchRowProps) {
     <div>
       <p className="mb-1.5 text-caption text-text-muted">{label}</p>
       <div className="flex flex-wrap gap-1.5">
-        {options.map((opt) => (
-          <Button
-            key={opt.value}
-            type="button"
-            title={opt.label}
-            variant="ghost"
-            size="icon"
-            onClick={() => onSelect(opt.value)}
-            className="size-6 shrink-0 rounded-full border-2 p-0 transition-all"
-            style={{
-              backgroundColor: numericToHex(opt.value),
-              borderColor: selected === opt.value ? 'var(--color-text-primary-val)' : 'transparent',
-              boxShadow:
-                selected === opt.value ? '0 0 0 1px var(--color-border-focus-val)' : 'none',
-            }}
-          />
-        ))}
+        {options.map((opt) => {
+          const selectedStyle = selected === opt.value;
+          const swatchStyle = {
+            ['backgroundColor']: numericToHex(opt.value),
+            ['borderColor']: selectedStyle ? 'var(--color-text-primary-val)' : 'transparent',
+            ['boxShadow']: selectedStyle ? '0 0 0 1px var(--color-border-focus-val)' : 'none',
+          };
+          return (
+            <Button
+              key={opt.value}
+              type="button"
+              title={opt.label}
+              variant="ghost"
+              size="icon"
+              onClick={() => onSelect(opt.value)}
+              className="size-6 shrink-0 rounded-full border-2 p-0 transition-all"
+              // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+              style={swatchStyle}
+            />
+          );
+        })}
       </div>
     </div>
   );

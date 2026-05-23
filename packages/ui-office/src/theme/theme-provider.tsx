@@ -38,10 +38,15 @@ export function readStoredTheme(): Theme {
   }
 }
 
-export function resolveTheme(theme: Theme): ResolvedTheme {
-  if (theme !== 'system') return theme;
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'dark';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+/**
+ * V3 is light-only. Resolution is PINNED to `light` regardless of the stored
+ * preference or OS setting — the `Theme`/`ResolvedTheme` types and the
+ * class-toggle code path are RETAINED (so dark can be re-enabled later without a
+ * type break) but inert: nothing resolves to `dark` and no `:root.dark` block is
+ * emitted. See `establish-v3-design-foundation` (D2).
+ */
+export function resolveTheme(_theme: Theme): ResolvedTheme {
+  return 'light';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -66,24 +71,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Light-only: resolution is pinned to `light` (no OS follow, no dark resolve).
+  // The effect stays so the dark-resolution machinery can be restored here.
   useEffect(() => {
-    if (theme !== 'system') {
-      setResolvedTheme(resolveTheme(theme));
-      return;
-    }
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      setResolvedTheme('dark');
-      return;
-    }
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      setResolvedTheme(media.matches ? 'dark' : 'light');
-    };
-    handleChange();
-    media.addEventListener?.('change', handleChange);
-    return () => {
-      media.removeEventListener?.('change', handleChange);
-    };
+    setResolvedTheme('light');
   }, [theme]);
 
   useEffect(() => {

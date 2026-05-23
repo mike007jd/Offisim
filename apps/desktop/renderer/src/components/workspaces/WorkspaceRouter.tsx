@@ -1,4 +1,5 @@
 import { WorkspacePageSkeleton } from '@offisim/ui-core';
+import { WorkspaceSuite, useSuiteEscape } from '@offisim/ui-office/web';
 import React, { Suspense, useCallback } from 'react';
 
 import type {
@@ -7,8 +8,10 @@ import type {
   PersonnelSessionState,
   SettingsSessionState,
   SopSessionState,
+  WorkspaceAppKey,
   WorkspaceKey,
   WorkspaceRouterProps,
+  WorkspaceSuiteSessionState,
 } from './types';
 
 // ---------------------------------------------------------------------------
@@ -91,6 +94,7 @@ export function WorkspaceRouter({
   activityLogPageProps,
   settingsPageProps,
   personnelPageProps,
+  workspaceSuiteProps,
   children,
 }: WorkspaceRouterProps) {
   // For now we treat the transition state as idle — animation support will
@@ -126,12 +130,49 @@ export function WorkspaceRouter({
     [updateWorkspaceState],
   );
 
+  // Suite session-state writers. Selection of a thread is intentionally NOT here:
+  // it is clamped to the Office `selectedThreadId` SSOT via
+  // `workspaceSuiteProps.onSelectThread` (which writes through
+  // `updateWorkspaceState('office', …)`).
+  const handleSuiteAppChange = useCallback(
+    (app: WorkspaceAppKey) =>
+      updateWorkspaceState('workspace', (prev: WorkspaceSuiteSessionState) =>
+        prev.activeApp === app ? prev : { ...prev, activeApp: app },
+      ),
+    [updateWorkspaceState],
+  );
+  const handleApprovalsFilterChange = useCallback(
+    (filter: 'todo' | 'done') =>
+      updateWorkspaceState('workspace', (prev: WorkspaceSuiteSessionState) =>
+        prev.approvalsFilter === filter
+          ? prev
+          : { ...prev, approvalsFilter: filter, approvalsSelectedHistoryId: null },
+      ),
+    [updateWorkspaceState],
+  );
+  const handleApprovalsSelectHistory = useCallback(
+    (historyId: string | null) =>
+      updateWorkspaceState('workspace', (prev: WorkspaceSuiteSessionState) =>
+        prev.approvalsSelectedHistoryId === historyId
+          ? prev
+          : { ...prev, approvalsSelectedHistoryId: historyId },
+      ),
+    [updateWorkspaceState],
+  );
+
+  useSuiteEscape({
+    enabled: activeWorkspace === 'workspace',
+    activeApp: sessionState.workspace.activeApp,
+    approvalsSelectedHistoryId: sessionState.workspace.approvalsSelectedHistoryId,
+    onApprovalsSelectHistory: handleApprovalsSelectHistory,
+  });
+
   return (
     <>
       {/* Office scene: conditionally mounted, frozen when not active */}
       {mountOffice && (
         <div
-          style={{ pointerEvents: officeInteractive ? 'auto' : 'none' }}
+          className={officeInteractive ? 'pointer-events-auto' : 'pointer-events-none'}
           aria-hidden={!officeInteractive}
           data-workspace="office"
         >
@@ -162,6 +203,26 @@ export function WorkspaceRouter({
             onSessionStateChange={handlePersonnelChange}
             onOpenCreator={personnelPageProps?.onOpenCreator}
             onOpenMarket={personnelPageProps?.onOpenMarket}
+          />
+        )}
+
+        {activeWorkspace === 'workspace' && (
+          <WorkspaceSuite
+            activeApp={sessionState.workspace.activeApp}
+            onSelectApp={handleSuiteAppChange}
+            activeCompanyId={workspaceSuiteProps?.activeCompanyId ?? null}
+            activeProject={workspaceSuiteProps?.activeProject ?? null}
+            activeThreadId={workspaceSuiteProps?.activeThreadId ?? null}
+            selectedEmployeeId={workspaceSuiteProps?.selectedEmployeeId ?? null}
+            onSelectThread={workspaceSuiteProps?.onSelectThread ?? NOOP}
+            onSelectEmployee={(id) => workspaceSuiteProps?.onSelectDirectEmployee?.(id)}
+            onOpenSettings={workspaceSuiteProps?.onOpenSettings ?? NOOP}
+            onFocusEmployee={workspaceSuiteProps?.onFocusEmployee}
+            onOpenActivityLog={workspaceSuiteProps?.onOpenActivityLog}
+            approvalsFilter={sessionState.workspace.approvalsFilter}
+            onApprovalsFilterChange={handleApprovalsFilterChange}
+            approvalsSelectedHistoryId={sessionState.workspace.approvalsSelectedHistoryId}
+            onApprovalsSelectHistory={handleApprovalsSelectHistory}
           />
         )}
 

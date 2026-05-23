@@ -30,12 +30,12 @@ export function CostOverviewCard({ summary, loading }: CostOverviewCardProps) {
     return (
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-shell">
+          <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-ink-2">
             Cost Overview
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-xs text-shell/60">Loading...</div>
+          <div className="text-xs text-ink-2/60">Loading...</div>
         </CardContent>
       </Card>
     );
@@ -44,7 +44,7 @@ export function CostOverviewCard({ summary, loading }: CostOverviewCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-shell">
+        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-ink-2">
           Cost Overview
         </CardTitle>
       </CardHeader>
@@ -64,9 +64,9 @@ export function CostOverviewCard({ summary, loading }: CostOverviewCardProps) {
 
 function KpiCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-ocean-light bg-ocean-mid/20 p-2">
-      <div className="text-caption text-shell/70 font-pixel-mono uppercase">{label}</div>
-      <div className="text-sm font-medium text-sand font-pixel-mono">{value}</div>
+    <div className="rounded-md border border-line bg-surface-sunken/20 p-2">
+      <div className="text-caption text-ink-2/70 font-pixel-mono uppercase">{label}</div>
+      <div className="text-sm font-medium text-ink-1 font-pixel-mono">{value}</div>
     </div>
   );
 }

@@ -14,7 +14,6 @@ interface CollaborationRailProps {
   onOpenSettings: () => void;
   onOpenStudio: () => void;
   onSelectEmployee: (id: string | null) => void;
-  onToggleDashboard: () => void;
   onToggleKanban: () => void;
   onUserMessage: (text: string) => void;
   /** Open ProjectCreateDialog in edit mode for the active project. */
@@ -42,7 +41,7 @@ function renderChatPanel({
   onOpenSettings,
   onOpenStudio,
   onSelectEmployee,
-  onToggleDashboard,
+  onSelectThread,
   onToggleKanban,
   onUserMessage,
   selectedEmployeeId,
@@ -64,12 +63,12 @@ function renderChatPanel({
       selectedEmployeeId={selectedEmployeeId}
       selectedEmployeeName={selectedEmployeeName}
       onClearSelection={() => onSelectEmployee(null)}
-      onToggleDashboard={onToggleDashboard}
       onToggleKanban={onToggleKanban}
       onOpenEditor={onOpenOfficeEditor}
       onOpenStudio={onOpenStudio}
       activeProject={activeProject}
       activeThreadId={activeThreadId}
+      onSelectThread={onSelectThread}
       onUserMessage={onUserMessage}
       onboardingStarterPrompts={chatOnboardingStarterPrompts}
       showPipelineProgress={showPipelineProgress}
@@ -105,17 +104,11 @@ export function CollaborationSidebar(props: CollaborationSidebarProps) {
         ...props,
         showPipelineProgress: false,
         showMeetingPanel: false,
-        showActivityRail: false,
+        showActivityRail: true,
       })}
-      focusTasksToken={props.focusOutputsToken}
-      requestChatToken={props.chatOpenToken}
       activeThreadId={props.activeThreadId}
       activeProjectId={projectId}
       onSelectThread={props.onSelectThread}
-      kanbanCardCount={props.kanbanCardCount}
-      kanbanOpen={props.kanbanOpen}
-      onToggleKanban={props.onToggleKanban}
-      gitSlot={props.gitSlot}
       onSelectEmployee={props.onSearchSelectEmployee}
     />
   );

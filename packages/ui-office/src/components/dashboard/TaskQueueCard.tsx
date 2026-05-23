@@ -36,17 +36,17 @@ function formatDuration(startedAt: string): string {
 function TaskRow({ task }: { task: TaskRunRow }) {
   const variant = STATUS_VARIANT[task.status] ?? 'secondary';
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-ocean-light bg-ocean-mid/10 px-2 py-1.5">
+    <div className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface-sunken/10 px-2 py-1.5">
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <Badge variant={variant} className="text-caption shrink-0">
           {task.task_type}
         </Badge>
-        <span className="text-xs text-sand font-pixel-mono truncate">
+        <span className="text-xs text-ink-1 font-pixel-mono truncate">
           {task.employee_id ?? 'unassigned'}
         </span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-caption text-shell/60 font-pixel-mono">
+        <span className="text-caption text-ink-2/60 font-pixel-mono">
           {formatDuration(task.started_at)}
         </span>
         <Badge variant={variant} className="text-caption">
@@ -58,7 +58,7 @@ function TaskRow({ task }: { task: TaskRunRow }) {
 }
 
 function EmptyState({ message }: { message: string }) {
-  return <div className="text-xs text-shell/60 py-2 text-center">{message}</div>;
+  return <div className="text-xs text-ink-2/60 py-2 text-center">{message}</div>;
 }
 
 interface TaskQueueCardProps {
@@ -69,13 +69,13 @@ export function TaskQueueCard({ queue }: TaskQueueCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-shell">
+        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-ink-2">
           Task Queue
         </CardTitle>
       </CardHeader>
       <CardContent>
         {queue.loading ? (
-          <div className="text-xs text-shell/60">Loading...</div>
+          <div className="text-xs text-ink-2/60">Loading...</div>
         ) : (
           <Tabs defaultValue="active">
             <TabsList className="w-full">

@@ -93,12 +93,13 @@ export function SopNodeContextMenu({
     position: 'absolute',
     left: Math.min(position.x, window.innerWidth - 160),
     top: Math.min(position.y, window.innerHeight - 140),
-    zIndex: Z_INDEX_SCALE.dropdown,
+    ['zIndex']: Z_INDEX_SCALE.dropdown,
   };
 
   return (
     <div
       ref={menuRef}
+      // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
       style={style}
       className="w-sop-context-menu rounded-lg border border-border-default bg-surface-elevated py-1 shadow-xl backdrop-blur-sm"
       onPointerDown={(e) => e.stopPropagation()}

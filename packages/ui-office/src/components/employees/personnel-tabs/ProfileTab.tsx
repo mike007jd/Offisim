@@ -113,10 +113,6 @@ export function ProfileTab({ editor }: ProfileTabProps) {
     setSelectedProvider(inferProvider(formData.modelPreference));
   }, [formData.modelPreference]);
 
-  const handleProviderChange = (provider: string) => {
-    setSelectedProvider(provider);
-  };
-
   const handleModelModeChange = (mode: string) => {
     if (mode === 'inherit') {
       updateField('modelPreference', '');
@@ -161,15 +157,18 @@ export function ProfileTab({ editor }: ProfileTabProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="grid w-full grid-cols-1 gap-x-8 gap-y-6 pb-32 lg:grid-cols-2">
+      <div className="flex-1 overflow-y-auto px-sp-7 py-sp-6">
+        <div className="flex w-full flex-col gap-sp-6 pb-32">
           {/* Identity */}
-          <section className="flex flex-col gap-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+          <section className="flex flex-col gap-sp-3">
+            <h3 className="text-fs-micro font-semibold uppercase tracking-wide text-ink-3">
               Identity
             </h3>
             <div>
-              <label htmlFor="editor-name" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-name"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
+              >
                 Name
               </label>
               <Input
@@ -180,7 +179,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <label htmlFor="editor-role" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-role"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
+              >
                 Role
               </label>
               <Select
@@ -200,7 +202,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               </Select>
             </div>
             <div>
-              <label htmlFor="editor-enabled" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-enabled"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
+              >
                 Status
               </label>
               <Button
@@ -216,7 +221,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
             <div>
               <label
                 htmlFor="editor-workstation"
-                className="mb-1 block text-sm text-text-secondary"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
               >
                 Assign Workstation
               </label>
@@ -250,12 +255,15 @@ export function ProfileTab({ editor }: ProfileTabProps) {
           </section>
 
           {/* Persona */}
-          <section className="flex flex-col gap-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+          <section className="flex flex-col gap-sp-3">
+            <h3 className="text-fs-micro font-semibold uppercase tracking-wide text-ink-3">
               Persona
             </h3>
             <div>
-              <label htmlFor="editor-expertise" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-expertise"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
+              >
                 Expertise
               </label>
               <Textarea
@@ -267,7 +275,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <label htmlFor="editor-style" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-style"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
+              >
                 Working Style
               </label>
               <Textarea
@@ -279,7 +290,9 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <p className="mb-2 block text-sm text-text-secondary">Communication Frequency</p>
+              <p className="mb-1.5 block text-fs-meta font-medium text-ink-2">
+                Communication Frequency
+              </p>
               <SegmentedControl
                 size="sm"
                 ariaLabel="Communication frequency"
@@ -293,7 +306,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <p className="mb-2 block text-sm text-text-secondary">Risk Preference</p>
+              <p className="mb-1.5 block text-fs-meta font-medium text-ink-2">Risk Preference</p>
               <SegmentedControl
                 size="sm"
                 ariaLabel="Risk preference"
@@ -309,7 +322,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
             <div>
               <label
                 htmlFor="editor-decision-style"
-                className="mb-1 block text-sm text-text-secondary"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
               >
                 Decision Style
               </label>
@@ -333,7 +346,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
             <div>
               <label
                 htmlFor="editor-instructions"
-                className="mb-1 block text-sm text-text-secondary"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
               >
                 Custom Instructions
               </label>
@@ -368,20 +381,20 @@ export function ProfileTab({ editor }: ProfileTabProps) {
           </section>
 
           {/* Config */}
-          <section className="flex flex-col gap-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+          <section className="flex flex-col gap-sp-3">
+            <h3 className="text-fs-micro font-semibold uppercase tracking-wide text-ink-3">
               Config
             </h3>
             <div>
-              <p className="mb-2 block text-sm text-text-secondary">Model mode</p>
+              <p className="mb-1.5 block text-fs-meta font-medium text-ink-2">Model mode</p>
               <SegmentedControl
                 size="sm"
                 ariaLabel="Employee model mode"
                 value={modelMode}
                 onChange={handleModelModeChange}
                 items={[
-                  { value: 'inherit', label: '跟随统一设置' },
-                  { value: 'custom', label: '自定义模型' },
+                  { value: 'inherit', label: 'Inherit defaults' },
+                  { value: 'custom', label: 'Custom model' },
                 ]}
               />
               <p className="mt-2 text-xs text-text-muted">
@@ -395,11 +408,11 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 <div>
                   <label
                     htmlFor="editor-provider"
-                    className="mb-1 block text-sm text-text-secondary"
+                    className="mb-1.5 block text-fs-meta font-medium text-ink-2"
                   >
                     Model family
                   </label>
-                  <Select value={selectedProvider} onValueChange={handleProviderChange}>
+                  <Select value={selectedProvider} onValueChange={setSelectedProvider}>
                     <SelectTrigger id="editor-provider">
                       <SelectValue />
                     </SelectTrigger>
@@ -413,7 +426,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   </Select>
                 </div>
                 <div>
-                  <label htmlFor="editor-model" className="mb-1 block text-sm text-text-secondary">
+                  <label
+                    htmlFor="editor-model"
+                    className="mb-1.5 block text-fs-meta font-medium text-ink-2"
+                  >
                     Override model
                   </label>
                   <Input
@@ -452,7 +468,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
             <div>
               <label
                 htmlFor="editor-temperature"
-                className="mb-1 block text-sm text-text-secondary"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
               >
                 Temperature
               </label>
@@ -467,7 +483,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               />
             </div>
             <div>
-              <label htmlFor="editor-max-tokens" className="mb-1 block text-sm text-text-secondary">
+              <label
+                htmlFor="editor-max-tokens"
+                className="mb-1.5 block text-fs-meta font-medium text-ink-2"
+              >
                 Max Tokens
               </label>
               <Input
@@ -490,12 +509,12 @@ export function ProfileTab({ editor }: ProfileTabProps) {
             </div>
             {isEditMode && employeeId && (
               <div>
-                <p className="mb-2 block text-sm text-text-secondary">Skills</p>
+                <p className="mb-1.5 block text-fs-meta font-medium text-ink-2">Skills</p>
                 <SkillBindingList companyId={activeCompanyId} employeeId={employeeId} />
               </div>
             )}
             <div>
-              <p className="mb-2 block text-sm text-text-secondary">Tool Permissions</p>
+              <p className="mb-1.5 block text-fs-meta font-medium text-ink-2">Tool Permissions</p>
               <ToolPermissionEditor
                 value={formData.toolPermissionPolicy}
                 onChange={(value) => updateField('toolPermissionPolicy', value)}

@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react';
-
 import {
   CATEGORY_COLORS_DARK,
   CATEGORY_COLORS_LIGHT,
@@ -14,14 +12,12 @@ import {
   Z_INDEX_SCALE,
 } from '@offisim/ui-core/tokens';
 
-let cachedIsLight: boolean | null = null;
-
+// Studio is an intentional-dark surface (DNA §11): it stays dark regardless of
+// the app theme. Pinned to `false` so it reads `DARK_SEMANTIC_COLORS` even now
+// that the app root always carries the `.light` class (V3 is light-only). Do not
+// re-couple this to the document `.light`/`data-theme` class.
 function isLightStudioTheme(): boolean {
-  if (cachedIsLight !== null) return cachedIsLight;
-  if (typeof document === 'undefined') return false;
-  const root = document.documentElement;
-  cachedIsLight = root.classList.contains('light') || root.dataset.theme === 'light';
-  return cachedIsLight;
+  return false;
 }
 
 function semanticColors() {
@@ -30,14 +26,6 @@ function semanticColors() {
 
 function categoryColors() {
   return isLightStudioTheme() ? CATEGORY_COLORS_LIGHT : CATEGORY_COLORS_DARK;
-}
-
-if (typeof window !== 'undefined') {
-  const resetThemeCache = () => {
-    cachedIsLight = null;
-  };
-  window.addEventListener('offisim.theme.change', resetThemeCache);
-  window.addEventListener('offisim.density.change', resetThemeCache);
 }
 
 export const STUDIO_COLORS = {
@@ -255,9 +243,6 @@ export const STUDIO_Z_INDEX = {
   modal: Z_INDEX_SCALE.modal,
 } as const;
 
-const fastTransition = `background ${MOTION_DURATION.instant}ms ${MOTION_EASING.standard}, color ${MOTION_DURATION.instant}ms ${MOTION_EASING.standard}`;
-const inputTransition = `background ${MOTION_DURATION.instant}ms ${MOTION_EASING.standard}, border-color ${MOTION_DURATION.instant}ms ${MOTION_EASING.standard}`;
-
 export const STUDIO_TRANSITION = {
   allFast: `all ${MOTION_DURATION.fast}ms ${MOTION_EASING.standard}`,
   backgroundInstant: `background ${MOTION_DURATION.instant}ms ${MOTION_EASING.standard}`,
@@ -265,141 +250,33 @@ export const STUDIO_TRANSITION = {
   transformFast: `transform ${MOTION_DURATION.fast}ms ${MOTION_EASING.standard}`,
 } as const;
 
-export function panelStyle(side: 'left' | 'right' | 'top' | 'bottom'): CSSProperties {
-  const base: CSSProperties = {
-    position: 'absolute',
-    background: STUDIO_COLORS.surface0,
-    fontFamily: FONT.family,
-    zIndex: Z_INDEX_SCALE.sticky,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-  };
+export const STUDIO_PANEL_CLASS = {
+  left:
+    'absolute bottom-10 left-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-r border-line bg-surface-elevated',
+  right:
+    'absolute bottom-10 right-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-l border-line bg-surface-elevated',
+  top:
+    'absolute inset-x-0 top-0 z-sticky flex h-11 flex-row items-center overflow-hidden border-b border-line bg-surface-elevated',
+  bottom:
+    'absolute inset-x-0 bottom-0 z-sticky flex h-10 flex-row items-center justify-center overflow-hidden border-t border-line bg-surface-elevated',
+} as const;
 
-  switch (side) {
-    case 'left':
-      return {
-        ...base,
-        left: 0,
-        top: LAYOUT.toolbarHeight,
-        bottom: LAYOUT.bottomBarHeight,
-        width: LAYOUT.paletteWidth,
-        borderRight: `1px solid ${STUDIO_COLORS.border}`,
-      };
-    case 'right':
-      return {
-        ...base,
-        right: 0,
-        top: LAYOUT.toolbarHeight,
-        bottom: LAYOUT.bottomBarHeight,
-        width: LAYOUT.propertiesWidth,
-        borderLeft: `1px solid ${STUDIO_COLORS.border}`,
-      };
-    case 'top':
-      return {
-        ...base,
-        left: 0,
-        right: 0,
-        top: 0,
-        height: LAYOUT.toolbarHeight,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderBottom: `1px solid ${STUDIO_COLORS.border}`,
-      };
-    case 'bottom':
-      return {
-        ...base,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: LAYOUT.bottomBarHeight,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderTop: `1px solid ${STUDIO_COLORS.border}`,
-      };
-  }
+export const STUDIO_LABEL_CLASS =
+  'mb-1 shrink-0 text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3';
+export const STUDIO_VALUE_CLASS = 'font-mono text-fs-sm text-ink-1';
+export const STUDIO_SECTION_HEADER_CLASS =
+  'shrink-0 border-b border-line px-sp-3 py-sp-2 text-fs-micro font-black uppercase tracking-ls-caps text-ink-3';
+export const STUDIO_KBD_CLASS =
+  'inline-flex h-4 min-w-4 items-center justify-center rounded-r-xs border border-line-soft bg-surface-muted px-1 font-mono text-fs-micro leading-none text-ink-3';
+
+export function studioToolButtonClass(active: boolean): string {
+  return active
+    ? 'gap-sp-1 border-0 bg-accent-surface text-accent hover:bg-accent-surface'
+    : 'gap-sp-1 border-0 bg-transparent text-ink-2 hover:bg-surface-sunken hover:text-ink-1';
 }
 
-export function toolButtonStyle(active: boolean): CSSProperties {
-  return {
-    display: 'flex',
-    alignItems: 'center',
-    gap: SP.xs,
-    padding: `${SP.xs}px ${SP.sm}px`,
-    borderRadius: LAYOUT.buttonRadius,
-    border: 'none',
-    cursor: 'pointer',
-    background: active ? STUDIO_COLORS.accentMuted : 'transparent',
-    color: active ? STUDIO_COLORS.accentText : STUDIO_COLORS.textSecondary,
-    fontSize: FONT.base,
-    fontWeight: FONT.medium,
-    fontFamily: FONT.family,
-    transition: fastTransition,
-  };
-}
-
-export function kbdStyle(): CSSProperties {
-  return {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 18,
-    height: 18,
-    padding: `0 ${SP.xs}px`,
-    borderRadius: RADIUS_SCALE.sm - 1,
-    background: STUDIO_COLORS.surface1,
-    border: `1px solid ${STUDIO_COLORS.borderSubtle}`,
-    color: STUDIO_COLORS.textTertiary,
-    fontSize: FONT.xs,
-    fontFamily: FONT.mono,
-    lineHeight: 1,
-  };
-}
-
-export function sectionHeaderStyle(): CSSProperties {
-  return {
-    padding: `${SP.sm}px ${SP.md}px`,
-    fontSize: FONT.sm,
-    fontWeight: FONT.black,
-    letterSpacing: 0,
-    textTransform: 'uppercase' as const,
-    color: STUDIO_COLORS.textTertiary,
-    borderBottom: `1px solid ${STUDIO_COLORS.border}`,
-    flexShrink: 0,
-  };
-}
-
-export function labelStyle(): CSSProperties {
-  return {
-    fontSize: FONT.xs,
-    fontWeight: FONT.semibold,
-    letterSpacing: 0,
-    textTransform: 'uppercase' as const,
-    color: STUDIO_COLORS.textTertiary,
-    marginBottom: SP.xs,
-  };
-}
-
-export function valueStyle(): CSSProperties {
-  return {
-    fontSize: FONT.md,
-    fontFamily: FONT.mono,
-    color: STUDIO_COLORS.textPrimary,
-  };
-}
-
-export function inputStyle(focused: boolean): CSSProperties {
-  return {
-    height: 32,
-    padding: `0 ${SP.sm}px`,
-    background: focused ? STUDIO_COLORS.surface1 : 'transparent',
-    border: `1px solid ${focused ? STUDIO_COLORS.borderActive : STUDIO_COLORS.borderSubtle}`,
-    borderRadius: LAYOUT.buttonRadius,
-    color: STUDIO_COLORS.textPrimary,
-    fontSize: FONT.md,
-    fontFamily: FONT.family,
-    outline: 'none',
-    transition: inputTransition,
-  };
+export function studioInputClass(focused: boolean): string {
+  return focused
+    ? 'h-8 rounded-r-sm border-line-strong bg-surface-muted px-sp-2 text-fs-sm text-ink-1 outline-none transition-colors'
+    : 'h-8 rounded-r-sm border-line-soft bg-transparent px-sp-2 text-fs-sm text-ink-1 outline-none transition-colors';
 }

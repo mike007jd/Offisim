@@ -120,22 +120,22 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
   if (!open) return null;
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-surface text-text-primary">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg text-ink-1">
       {/* ── Top Bar ────────────────────────────────────────────────── */}
-      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border-default px-4 sm:px-6">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={handleClose}
-            className="gap-2 px-3 py-2.5 text-text-secondary"
+            className="gap-2 px-3 py-2.5 text-ink-2"
             aria-label="Back"
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Button>
-          <div className="hidden h-5 w-px bg-border-default sm:block" />
-          <h1 className="truncate text-sm font-semibold text-text-primary">Add employee</h1>
+          <div className="hidden h-5 w-px bg-line sm:block" />
+          <h1 className="truncate text-sm font-semibold text-ink-1">Add employee</h1>
         </div>
 
         {/* Step Indicator */}
@@ -153,14 +153,14 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                 className={cn(
                   'flex items-center gap-1.5 rounded-md px-2 py-1 text-caption font-semibold uppercase tracking-wider transition-colors',
                   activeStep === i
-                    ? 'border border-border-focus bg-accent-muted text-accent-text'
-                    : 'text-text-muted hover:text-text-secondary',
+                    ? 'border border-accent bg-accent-surface text-accent'
+                    : 'text-ink-4 hover:text-ink-2',
                 )}
               >
                 <span className="tabular-nums">{String(i + 1).padStart(2, '0')}</span>
                 <span className="hidden sm:inline">{step}</span>
               </div>
-              {i < STEPS.length - 1 && <div className="mx-1 h-px w-3 bg-border-default" />}
+              {i < STEPS.length - 1 && <div className="mx-1 h-px w-3 bg-line" />}
             </Button>
           ))}
         </div>
@@ -169,11 +169,11 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       {/* ── Main Content ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* ── Left Panel: Character Preview (45%) ──────────────── */}
-        <div className="flex h-32 w-full shrink-0 flex-row items-center justify-between gap-3 bg-surface px-4 lg:h-auto lg:w-5/12 lg:flex-col lg:justify-center lg:px-0">
+        <div className="flex h-32 w-full shrink-0 flex-row items-center justify-between gap-3 bg-bg px-4 lg:h-auto lg:w-5/12 lg:flex-col lg:justify-center lg:px-0">
           <div className="flex min-w-0 flex-1 items-center gap-3 lg:flex-col lg:gap-6">
             {/* Avatar Preview */}
             <div className="relative shrink-0">
-              <div className="rounded-full border-2 border-border-focus bg-surface-elevated p-1 shadow-glow-accent lg:p-1.5">
+              <div className="rounded-full border-2 border-accent bg-surface-1 p-1 shadow-elev-2 lg:p-1.5">
                 <DicebearAvatar seed={effectiveSeed} size={64} className="rounded-full lg:hidden" />
                 <DicebearAvatar
                   seed={effectiveSeed}
@@ -185,11 +185,11 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
 
             {/* Character Name */}
             <div className="min-w-0 flex-1 text-left lg:text-center">
-              <p className="min-h-0 truncate text-lg font-bold text-text-primary lg:min-h-8 lg:text-2xl">
-                {name || <span className="italic text-text-disabled">Unnamed Employee</span>}
+              <p className="min-h-0 truncate text-lg font-bold text-ink-1 lg:min-h-8 lg:text-2xl">
+                {name || <span className="italic text-ink-4">Unnamed Employee</span>}
               </p>
-              <div className="mt-2 inline-flex items-center rounded-md border border-border-focus bg-accent-muted px-3 py-1">
-                <span className="font-mono text-xs uppercase tracking-wider text-accent-text">
+              <div className="mt-2 inline-flex items-center rounded-md border border-accent bg-accent-surface px-3 py-1">
+                <span className="font-mono text-xs uppercase tracking-wide text-accent">
                   {roleLabel}
                 </span>
               </div>
@@ -201,7 +201,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
             type="button"
             variant="secondary"
             onClick={handleRandomize}
-            className="shrink-0 gap-2 px-3 py-2.5 text-sm text-text-secondary lg:px-5"
+            className="shrink-0 gap-2 px-3 py-2.5 text-sm text-ink-2 lg:px-5"
           >
             <Dices className="size-4" aria-hidden="true" />
             <span className="hidden font-mono text-xs uppercase tracking-wider sm:inline">
@@ -211,7 +211,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
         </div>
 
         {/* ── Right Panel: Configuration (55%) ─────────────────── */}
-        <div className="flex w-full flex-col overflow-y-auto border-t border-border-default lg:w-7/12 lg:border-l lg:border-t-0">
+        <div className="flex w-full flex-col overflow-y-auto border-t border-line lg:w-7/12 lg:border-l lg:border-t-0">
           <div className="flex flex-1 flex-col gap-5 p-5 pb-10 sm:p-6 md:p-8 md:pb-12">
             {/* Section: Identity */}
             <SectionPanel title="IDENTITY" stepIndex={0} activeStep={activeStep}>
@@ -219,7 +219,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                 <div>
                   <label
                     htmlFor="creator-name"
-                    className="mb-2 block font-mono text-xs text-text-muted"
+                    className="mb-2 block font-mono text-xs text-ink-3"
                   >
                     EMPLOYEE NAME
                   </label>
@@ -228,19 +228,19 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Enter employee name..."
-                    className="h-11 rounded-lg border-border-default bg-surface text-text-primary placeholder:text-text-muted"
+                    className="h-11 rounded-lg border-line bg-surface-1 text-ink-1 placeholder:text-ink-4"
                     autoFocus
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="creator-role"
-                    className="mb-2 block font-mono text-xs text-text-muted"
+                    className="mb-2 block font-mono text-xs text-ink-3"
                   >
                     ROLE ASSIGNMENT
                   </label>
                   <Select value={role} onValueChange={(value) => setRole(value as RoleSlug)}>
-                    <SelectTrigger className="h-11 rounded-lg border-border-default bg-surface text-text-primary">
+                    <SelectTrigger className="h-11 rounded-lg border-line bg-surface-1 text-ink-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -261,7 +261,7 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                 <div>
                   <label
                     htmlFor="creator-seed"
-                    className="mb-2 block font-mono text-xs text-text-muted"
+                    className="mb-2 block font-mono text-xs text-ink-3"
                   >
                     AVATAR SEED
                   </label>
@@ -270,11 +270,11 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                     value={seed}
                     onChange={(e) => handleSeedChange(e.target.value)}
                     placeholder="Auto-generated from name..."
-                    className="h-11 rounded-lg border-border-default bg-surface text-text-primary placeholder:text-text-muted"
+                    className="h-11 rounded-lg border-line bg-surface-1 text-ink-1 placeholder:text-ink-4"
                   />
                 </div>
                 <div>
-                  <p className="mb-3 text-caption font-semibold uppercase tracking-wider text-text-muted">
+                  <p className="mb-3 text-caption font-semibold uppercase tracking-wide text-ink-3">
                     Preset identities
                   </p>
                   <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
@@ -287,12 +287,14 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
                         className={cn(
                           'h-auto flex-col gap-1.5 rounded-xl border p-3 transition-all',
                           seed === presetSeed
-                            ? 'border-border-focus bg-accent-muted shadow-glow-accent'
-                            : 'border-border-default bg-surface-muted hover:border-border-strong hover:bg-surface-hover',
+                            ? 'border-accent bg-accent-surface shadow-elev-1'
+                            : 'border-line bg-surface-1 hover:border-line-strong hover:bg-surface-sunken',
                         )}
                       >
                         <DicebearAvatar seed={presetSeed} size={44} />
-                        <span className="font-mono text-caption text-text-muted">{presetSeed}</span>
+                        <span className="font-mono text-caption text-ink-3">
+                          {presetSeed}
+                        </span>
                       </Button>
                     ))}
                   </div>
@@ -300,11 +302,11 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
               </div>
             </SectionPanel>
 
-            <div className="rounded-xl border border-border-default bg-surface-muted p-5">
-              <div className="font-mono text-caption uppercase tracking-wider text-text-muted">
+            <div className="rounded-xl border border-line bg-surface-1 p-5">
+              <div className="font-mono text-caption uppercase tracking-wide text-ink-3">
                 Role Defaults
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+              <p className="mt-2 text-sm leading-relaxed text-ink-2">
                 Traits inherit from the selected role in this build. Create the employee first, then
                 tune persona and memory from the profile editor.
               </p>
@@ -314,12 +316,12 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
       </div>
 
       {/* ── Bottom Bar ────────────────────────────────────────────── */}
-      <div className="pb-safe-0 flex h-16 shrink-0 items-center justify-between gap-3 border-t border-border-default px-4 sm:px-6 md:px-8">
+      <div className="pb-safe-0 flex h-16 shrink-0 items-center justify-between gap-3 border-t border-line px-4 sm:px-6 md:px-8">
         <Button
           type="button"
           variant="outline"
           onClick={handleClose}
-          className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-text-secondary sm:px-5"
+          className="px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-ink-2 sm:px-5"
         >
           Cancel
         </Button>
@@ -330,8 +332,8 @@ export function EmployeeCreatorOverlay({ open, onClose, onDeploy }: EmployeeCrea
           className={cn(
             'gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-200 sm:px-8',
             canDeploy
-              ? 'bg-accent text-text-inverse shadow-glow-accent hover:bg-accent-hover hover:shadow-glow-accent active:scale-95'
-              : 'cursor-not-allowed bg-surface-disabled text-text-disabled',
+              ? 'bg-accent text-accent-fg shadow-elev-1 hover:bg-accent-press active:scale-95'
+              : 'cursor-not-allowed bg-line text-ink-4',
           )}
         >
           <Rocket className="size-4" aria-hidden="true" />
@@ -358,14 +360,18 @@ function SectionPanel({ title, stepIndex, activeStep, children }: SectionPanelPr
     <div
       className={cn(
         'rounded-2xl border p-6 transition-colors',
-        isActive ? 'border-border-focus bg-accent-muted' : 'border-border-default bg-surface-muted',
+        isActive
+          ? 'border-accent bg-accent-surface'
+          : 'border-line bg-surface-1',
       )}
     >
       <div className="mb-4 flex items-center gap-3">
         <span
           className={cn(
             'flex size-6 items-center justify-center rounded font-mono text-caption font-bold',
-            isActive ? 'bg-accent-muted text-accent-text' : 'bg-surface-hover text-text-disabled',
+            isActive
+              ? 'bg-accent text-accent-fg'
+              : 'bg-surface-sunken text-ink-4',
           )}
         >
           {String(stepIndex + 1).padStart(2, '0')}
@@ -373,7 +379,7 @@ function SectionPanel({ title, stepIndex, activeStep, children }: SectionPanelPr
         <h2
           className={cn(
             'font-mono text-xs font-semibold tracking-wider',
-            isActive ? 'text-accent-text' : 'text-text-muted',
+            isActive ? 'text-accent' : 'text-ink-3',
           )}
         >
           {title}

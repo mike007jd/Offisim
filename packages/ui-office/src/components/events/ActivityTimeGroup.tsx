@@ -22,10 +22,10 @@ export function ActivityTimeGroup({
 }: ActivityTimeGroupProps) {
   return (
     <div>
-      {/* Group header */}
-      <div className="flex items-center gap-2 bg-surface-muted px-4 py-2">
-        <span className="text-xs font-bold text-text-primary">{label}</span>
-        <span className="rounded-full bg-surface-elevated px-1.5 py-0.5 text-caption text-text-muted">
+      {/* Group header — sticky, surface-sunken band */}
+      <div className="sticky top-0 z-sticky flex items-center gap-2 bg-surface-sunken px-4 py-2">
+        <span className="text-fs-sm font-bold text-text-primary">{label}</span>
+        <span className="rounded-full border border-line-soft bg-surface-1 px-1.5 py-0.5 text-caption text-text-muted">
           {eventCount}
         </span>
       </div>

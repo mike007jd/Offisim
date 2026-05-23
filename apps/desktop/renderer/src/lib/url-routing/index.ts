@@ -9,6 +9,7 @@ export {
   parseSettingsPath,
   parseSopsPath,
   parseUrl,
+  parseWorkspacePath,
   urlRequiresCompany,
 } from './parser';
 export {
@@ -21,6 +22,7 @@ export {
   serializeSopsUrl,
   serializeStudioUrl,
   serializeUrl,
+  serializeWorkspaceUrl,
   shouldReplaceUrl,
 } from './serializer';
 export type {

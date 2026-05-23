@@ -38,7 +38,7 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
       description="Desktop mode mirrors employee markdown into Offisim's local vault folder automatically."
       icon={<FolderOpen className="h-5 w-5" />}
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div>
           <p className="text-sm text-text-primary">{statusText}</p>
           {desktopVaultRoot ? (

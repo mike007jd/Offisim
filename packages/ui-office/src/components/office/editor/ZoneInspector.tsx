@@ -74,7 +74,7 @@ export function ZoneInspector({
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <div className="flex-1 flex flex-col gap-4 overflow-y-auto p-4">
             <div>
               <p className={inspectorLabelClass}>Name</p>
               <Input

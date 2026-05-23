@@ -14,12 +14,12 @@ import { Button } from './button.js';
 type DialogSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
 const SIZE_CLASS: Record<DialogSize, string> = {
-  xs: 'max-w-xs',
-  sm: 'max-w-sm',
+  xs: 'max-w-sm',
+  sm: 'max-w-md',
   md: 'max-w-lg',
   lg: 'max-w-2xl',
   xl: 'max-w-4xl',
-  full: 'max-w-[min(960px,calc(100vw-2rem))]',
+  full: 'max-w-5xl',
 };
 
 /**
@@ -28,7 +28,7 @@ const SIZE_CLASS: Record<DialogSize, string> = {
  * exceeds the viewport. Pair with `DIALOG_TABS_ROOT_CLASS` +
  * `DIALOG_TABS_CONTENT_CLASS` when the dialog body holds Radix Tabs.
  */
-export const DIALOG_SIZING_CLASS = 'min-h-[clamp(360px,60vh,720px)] max-h-[min(720px,92vh)]';
+export const DIALOG_SIZING_CLASS = 'min-h-96 max-h-[min(720px,92vh)]'; // ui-hardcode-allowed: viewport cap for modal body, centralized primitive.
 
 /** Tabs.Root inside a sized dialog: flex column, fills, allows children to shrink. */
 export const DIALOG_TABS_ROOT_CLASS = 'flex flex-col flex-1 min-h-0';
@@ -40,7 +40,7 @@ export const DIALOG_TABS_ROOT_CLASS = 'flex flex-col flex-1 min-h-0';
  * `TABS_RETAIN_STATE_CLASS` when the tab content must preserve state or avoid
  * layout shifts (see the layout-shift-stability capability).
  */
-export const DIALOG_TABS_CONTENT_CLASS = 'flex-1 min-h-[320px] overflow-y-auto';
+export const DIALOG_TABS_CONTENT_CLASS = 'flex-1 min-h-80 overflow-y-auto';
 
 /**
  * Radix Tabs retain-state class for layout-stable tabs. Use with `forceMount`
@@ -153,7 +153,7 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
               if (!closeOnBackdrop) event.preventDefault();
             }}
             className={cn(
-              'fixed left-[50%] top-[50%] z-modal w-[calc(100%-1rem)] translate-x-[-50%] translate-y-[-50%] overflow-hidden rounded-2xl border border-border-default bg-surface-elevated text-text-primary shadow-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:duration-150 data-[state=closed]:duration-250 sm:w-[calc(100%-2rem)]',
+              'fixed inset-x-2 top-1/2 z-modal mx-auto w-auto -translate-y-1/2 overflow-hidden rounded-lg border border-line bg-surface-1 text-ink-1 shadow-elev-3 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:duration-150 data-[state=closed]:duration-250 sm:inset-x-4',
               SIZE_CLASS[size],
               className,
             )}
@@ -165,15 +165,15 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
                 </DialogPrimitive.Title>
               )}
               {(title || description || showCloseButton) && (
-                <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 pb-3 pt-5">
+                <div className="flex items-start justify-between gap-4 border-b border-line-soft px-sp-7 pb-sp-4 pt-sp-5">
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     {title && (
-                      <DialogPrimitive.Title className="text-base font-semibold leading-tight text-text-primary">
+                      <DialogPrimitive.Title className="text-fs-xl font-semibold leading-tight text-ink-1">
                         {title}
                       </DialogPrimitive.Title>
                     )}
                     {description && (
-                      <DialogPrimitive.Description className="text-sm text-text-secondary">
+                      <DialogPrimitive.Description className="text-fs-sm text-ink-3">
                         {description}
                       </DialogPrimitive.Description>
                     )}
@@ -186,16 +186,16 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
                       aria-label="Close"
                       // 6px hit-area padding around the icon, mobile only — keeps the
                       // visible target compact while honoring touch-target minimums.
-                      className="relative h-8 w-8 shrink-0 before:pointer-events-none before:absolute before:inset-[-6px] before:content-[''] sm:before:hidden"
+                      className="relative h-8 w-8 shrink-0"
                     >
                       <X className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
               )}
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-sp-7 py-sp-5">{children}</div>
               {footer && (
-                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle bg-surface-muted px-5 py-3">
+                <div className="flex flex-wrap items-center justify-end gap-sp-3 border-t border-line-soft bg-surface-2 px-sp-7 py-sp-4">
                   {footer}
                 </div>
               )}

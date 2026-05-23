@@ -78,9 +78,6 @@ export function tryWorkspaceInternalBack(
 
     case 'office': {
       const o = sessionState.office;
-      if (o.dashboardOpen) {
-        return [true, { ...sessionState, office: { ...o, dashboardOpen: false } }];
-      }
       if (o.kanbanOpen) {
         return [true, { ...sessionState, office: { ...o, kanbanOpen: false } }];
       }
@@ -100,6 +97,17 @@ export function tryWorkspaceInternalBack(
       }
       if (p.selectedEmployeeId !== null) {
         return [true, { ...sessionState, personnel: { ...p, selectedEmployeeId: null } }];
+      }
+      return [false, sessionState];
+    }
+
+    // Workspace suite: Approvals resolved-detail → list → (switch workspace).
+    // Messenger selection is clamped to the Office `selectedThreadId` SSOT, so it
+    // has no suite-local drill state to unwind here.
+    case 'workspace': {
+      const w = sessionState.workspace;
+      if (w.activeApp === 'approvals' && w.approvalsSelectedHistoryId !== null) {
+        return [true, { ...sessionState, workspace: { ...w, approvalsSelectedHistoryId: null } }];
       }
       return [false, sessionState];
     }
@@ -158,18 +166,12 @@ export function useWorkspaceSessionState(options: UseWorkspaceSessionStateOption
 
       if (prev.activeWorkspace === 'office') {
         const o = nextSessionState.office;
-        if (
-          o.studioMode !== null ||
-          o.dashboardOpen ||
-          o.kanbanOpen ||
-          o.marketplaceListingId !== null
-        ) {
+        if (o.studioMode !== null || o.kanbanOpen || o.marketplaceListingId !== null) {
           nextSessionState = {
             ...nextSessionState,
             office: {
               ...o,
               studioMode: null,
-              dashboardOpen: false,
               kanbanOpen: false,
               marketplaceListingId: null,
             },

@@ -169,7 +169,7 @@ function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
         {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
       </Button>
 
-      <div className="mt-1 space-y-0.5">
+      <div className="mt-1 flex flex-col gap-0.5">
         {visibleTasks.map((st) => (
           <div key={st.stepIndex} className="flex items-center gap-1 text-caption font-mono">
             <span className="flex-shrink-0">{STATUS_ICON[st.status]}</span>

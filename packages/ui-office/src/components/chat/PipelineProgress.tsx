@@ -154,16 +154,18 @@ export function PipelineProgress({ stage, routeLabel, isRunning, onAbort }: Pipe
       : null;
 
   const activeIdx = PIPELINE_STEPS.indexOf(stage);
+  const entranceStyle = {
+    opacity: 0,
+    transform: 'translateY(4px)',
+    transition: 'opacity 300ms ease-out, transform 300ms ease-out',
+  };
 
   return (
     <div
       ref={containerRef}
       className="border-t border-border-subtle bg-surface-elevated backdrop-blur-sm"
-      style={{
-        opacity: 0,
-        transform: 'translateY(4px)',
-        transition: 'opacity 300ms ease-out, transform 300ms ease-out',
-      }}
+      // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+      style={entranceStyle}
     >
       <div className="px-4 pt-2.5 pb-2">
         <div className="flex items-start gap-0">

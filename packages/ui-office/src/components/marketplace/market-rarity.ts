@@ -1,65 +1,73 @@
 import type { AssetKind } from '@offisim/asset-schema';
 
-export interface RarityColorScheme {
-  border: string;
-  glow: string;
-  badge: string;
+export interface RarityClassScheme {
   accent: string;
+  accentBg: string;
+  accentBorder: string;
+  surface: string;
+  cover: string;
 }
 
-export const RARITY_COLORS: Record<string, RarityColorScheme> = {
+const RARITY_CLASS: Record<string, RarityClassScheme> = {
   employee: {
-    border: 'border-info',
-    glow: 'shadow-sm',
-    badge: 'bg-info-muted text-info',
-    accent: 'border border-info bg-info-muted text-info hover:bg-surface-hover',
+    accent: 'text-accent',
+    accentBg: 'bg-accent',
+    accentBorder: 'border-accent',
+    surface: 'bg-accent-surface',
+    cover: 'bg-accent-surface',
   },
   skill: {
-    border: 'border-accent',
-    glow: 'shadow-sm',
-    badge: 'bg-accent-muted text-accent-text',
-    accent: 'border border-accent bg-accent-muted text-accent-text hover:bg-surface-hover',
+    accent: 'text-violet',
+    accentBg: 'bg-violet',
+    accentBorder: 'border-violet',
+    surface: 'bg-violet-surface',
+    cover: 'bg-violet-surface',
   },
   sop: {
-    border: 'border-warning',
-    glow: 'shadow-sm',
-    badge: 'bg-warning-muted text-warning',
-    accent: 'border border-warning bg-warning-muted text-warning hover:bg-surface-hover',
+    accent: 'text-warn',
+    accentBg: 'bg-warn',
+    accentBorder: 'border-warn',
+    surface: 'bg-warn-surface',
+    cover: 'bg-warn-surface',
   },
   company_template: {
-    border: 'border-accent',
-    glow: 'shadow-sm',
-    badge: 'bg-accent-muted text-accent-text',
-    accent: 'border border-accent bg-accent-muted text-accent-text hover:bg-surface-hover',
+    accent: 'text-violet',
+    accentBg: 'bg-violet',
+    accentBorder: 'border-violet',
+    surface: 'bg-violet-surface',
+    cover: 'bg-violet-surface',
   },
   office_layout: {
-    border: 'border-error',
-    glow: 'shadow-sm',
-    badge: 'bg-error-muted text-error',
-    accent: 'border border-error bg-error-muted text-error hover:bg-surface-hover',
+    accent: 'text-danger',
+    accentBg: 'bg-danger',
+    accentBorder: 'border-danger',
+    surface: 'bg-danger-surface',
+    cover: 'bg-danger-surface',
   },
   prefab: {
-    border: 'border-warning',
-    glow: 'shadow-sm',
-    badge: 'bg-warning-muted text-warning',
-    accent: 'border border-warning bg-warning-muted text-warning hover:bg-surface-hover',
+    accent: 'text-warn',
+    accentBg: 'bg-warn',
+    accentBorder: 'border-warn',
+    surface: 'bg-warn-surface',
+    cover: 'bg-warn-surface',
   },
   bundle: {
-    border: 'border-info',
-    glow: 'shadow-sm',
-    badge: 'bg-info-muted text-info',
-    accent: 'border border-info bg-info-muted text-info hover:bg-surface-hover',
+    accent: 'text-ink-3',
+    accentBg: 'bg-ink-3',
+    accentBorder: 'border-line-strong',
+    surface: 'bg-surface-sunken',
+    cover: 'bg-surface-sunken',
   },
 };
 
-export const DEFAULT_RARITY: RarityColorScheme = {
-  border: 'border-border-default',
-  glow: 'shadow-sm',
-  badge: 'bg-surface-muted text-text-secondary',
-  accent:
-    'border border-border-default bg-surface-muted text-text-secondary hover:bg-surface-hover',
+export const DEFAULT_RARITY_CLASSES: RarityClassScheme = {
+  accent: 'text-ink-3',
+  accentBg: 'bg-ink-3',
+  accentBorder: 'border-line-strong',
+  surface: 'bg-surface-sunken',
+  cover: 'bg-surface-sunken',
 };
 
-export function getRarityColor(kind: AssetKind): RarityColorScheme {
-  return RARITY_COLORS[kind] ?? DEFAULT_RARITY;
+export function getRarityClasses(kind: AssetKind): RarityClassScheme {
+  return RARITY_CLASS[kind] ?? DEFAULT_RARITY_CLASSES;
 }

@@ -12,6 +12,7 @@ import {
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  type DesktopMcpServerRecord,
   listDesktopMcpServers,
   loadStoredLocalMcpServers,
   registerDesktopMcpServer,
@@ -98,6 +99,24 @@ function toCoreConfig(cfg: McpServerConfig): CoreMcpServerConfig {
 
 function serverKey(server: McpServerConfig): string {
   return server.serverId ?? `local:${server.name}`;
+}
+
+function recordToConfig(record: DesktopMcpServerRecord): McpServerConfig {
+  return {
+    serverId: record.serverId,
+    name: record.name,
+    transport: record.transport,
+    command: record.command,
+    args: record.args,
+    url: record.url,
+    approvalId: record.approvalId,
+    commandFingerprint: record.commandFingerprint,
+    source: record.source as McpServerConfig['source'],
+    sourcePackageId: record.sourcePackageId,
+    sourcePackageVersion: record.sourcePackageVersion,
+    sourceManifestHash: record.sourceManifestHash,
+    requestSurface: record.requestSurface as McpServerConfig['requestSurface'],
+  };
 }
 
 export function McpConfigPanel() {
@@ -229,21 +248,7 @@ export function McpConfigPanel() {
             }
           : { url: trimmedUrl }),
       });
-      newConfig = {
-        serverId: record.serverId,
-        name: record.name,
-        transport: record.transport,
-        command: record.command,
-        args: record.args,
-        url: record.url,
-        approvalId: record.approvalId,
-        commandFingerprint: record.commandFingerprint,
-        source: record.source as McpServerConfig['source'],
-        sourcePackageId: record.sourcePackageId,
-        sourcePackageVersion: record.sourcePackageVersion,
-        sourceManifestHash: record.sourceManifestHash,
-        requestSurface: record.requestSurface as McpServerConfig['requestSurface'],
-      };
+      newConfig = recordToConfig(record);
     } else {
       newConfig = {
         name: trimmedName,
@@ -269,21 +274,7 @@ export function McpConfigPanel() {
       requestedTools: pendingStdio.requestedTools,
       requestSurface: 'settings',
     });
-    await addServerConfig({
-      serverId: record.serverId,
-      name: record.name,
-      transport: record.transport,
-      command: record.command,
-      args: record.args,
-      url: record.url,
-      approvalId: record.approvalId,
-      commandFingerprint: record.commandFingerprint,
-      source: record.source as McpServerConfig['source'],
-      sourcePackageId: record.sourcePackageId,
-      sourcePackageVersion: record.sourcePackageVersion,
-      sourceManifestHash: record.sourceManifestHash,
-      requestSurface: record.requestSurface as McpServerConfig['requestSurface'],
-    });
+    await addServerConfig(recordToConfig(record));
   }, [addServerConfig, pendingStdio]);
 
   const handleRemove = useCallback(
@@ -320,6 +311,11 @@ export function McpConfigPanel() {
 
   const isConnected = (serverName: string): boolean => connectedMcpServers.has(serverName);
 
+  const connectionLabel = (serverName: string): string => {
+    if (connecting === serverName) return 'Connecting…';
+    return isConnected(serverName) ? 'Connected' : 'Disconnected';
+  };
+
   const grouped = useMemo(() => {
     const map = new Map<McpTransport, McpServerConfig[]>();
     for (const server of servers) {
@@ -331,7 +327,7 @@ export function McpConfigPanel() {
   }, [servers]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-sp-3">
       <SettingsSection title="Add MCP server">
         <div className="grid gap-3 md:mcp-config-row-grid md:items-start">
           <div>
@@ -448,13 +444,13 @@ export function McpConfigPanel() {
             No MCP servers configured. Add one above to enable tool use.
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             {grouped.map(([groupTransport, groupServers]) => (
-              <div key={groupTransport} className="space-y-1.5">
+              <div key={groupTransport} className="flex flex-col gap-1.5">
                 <header className="text-caption uppercase tracking-wide text-text-muted">
                   {groupTransport.toUpperCase()} · {groupServers.length}
                 </header>
-                <ul className="space-y-1">
+                <ul className="flex flex-col gap-1">
                   {groupServers.map((server) => (
                     <li
                       key={serverKey(server)}
@@ -469,11 +465,7 @@ export function McpConfigPanel() {
                             variant={isConnected(server.name) ? 'success' : 'secondary'}
                             className="shrink-0 px-1.5 py-0 text-caption"
                           >
-                            {connecting === server.name
-                              ? 'Connecting…'
-                              : isConnected(server.name)
-                                ? 'Connected'
-                                : 'Disconnected'}
+                            {connectionLabel(server.name)}
                           </Badge>
                         </div>
                         <p className="mt-0.5 truncate font-mono text-caption text-text-muted">

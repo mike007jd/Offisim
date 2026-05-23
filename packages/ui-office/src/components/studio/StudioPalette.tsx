@@ -271,13 +271,19 @@ function ZoneOverviewRow({
         onClick={onSelect}
         className="h-auto min-w-0 flex-1 justify-start gap-2 border-0 bg-transparent p-0 text-left hover:bg-transparent"
       >
-        <span
-          className="size-5 shrink-0 rounded"
-          style={{
-            border: `2px solid ${zone.accentColor}`,
-            background: zone.floorColor,
-          }}
-        />
+        <svg className="size-5 shrink-0 rounded" viewBox="0 0 20 20" aria-hidden="true">
+          <rect width="20" height="20" rx="4" fill={`${zone.floorColor}`} />
+          <rect
+            x="1"
+            y="1"
+            width="18"
+            height="18"
+            rx="3"
+            fill="none"
+            stroke={`${zone.accentColor}`}
+            strokeWidth="2"
+          />
+        </svg>
         <span className="min-w-0 flex-1">
           <span
             className={cn(

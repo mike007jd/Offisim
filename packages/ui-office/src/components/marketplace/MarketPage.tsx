@@ -40,7 +40,6 @@ export function MarketPage({
   const { tier } = useLayoutTier();
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
-  // 7.2 — useMarketplace integration
   const {
     results,
     setQuery,
@@ -69,7 +68,6 @@ export function MarketPage({
     setSort(sessionState.sort);
   }, [sessionState.sort, setSort]);
 
-  // 7.3 — useListingDetail integration
   const activeListingId = sessionState.mode === 'explore' ? sessionState.selectedListingId : null;
 
   const {
@@ -87,7 +85,6 @@ export function MarketPage({
     }
   }, [activeListingId, addToast, detailUnavailable]);
 
-  // 7.4 — Mode switch callback
   const handleModeChange = useCallback(
     (mode: 'explore' | 'manage') => {
       onSessionStateChange((prev) => ({
@@ -145,7 +142,6 @@ export function MarketPage({
     [onStartInstall],
   );
 
-  // 7.6 — Reset filters
   const handleResetFilters = useCallback(() => {
     onSessionStateChange((prev) => ({
       ...prev,
@@ -212,7 +208,7 @@ export function MarketPage({
               tier === 'desktop' ? 'grid-market-detail-desktop' : 'grid-market-detail-tablet'
             }`}
           >
-            <div className="min-h-0 overflow-y-auto border-r border-border-default">
+            <div className="min-h-0 overflow-y-auto">
               <MarketCardGrid
                 results={results}
                 isLoading={isLoading}
@@ -221,6 +217,8 @@ export function MarketPage({
                 onSelectListing={handleSelectListing}
                 onLoadMore={loadMore}
                 installedListingIds={installedListingIds}
+                installedPackageKeys={installedPackageKeys}
+                selectedListingId={sessionState.selectedListingId}
               />
             </div>
             <MarketDetailView
@@ -231,12 +229,13 @@ export function MarketPage({
               onInstall={handleInstall}
               layout="panel"
               installedListingIds={installedListingIds}
+              installedPackageKeys={installedPackageKeys}
             />
           </div>
         )}
 
         {/* Explore: Error state */}
-        {showError && !showDetail && <MarketErrorState error={error} onRetry={refresh} />}
+        {showError && <MarketErrorState error={error} onRetry={refresh} />}
 
         {/* Explore: Empty state */}
         {showEmpty && (
@@ -271,7 +270,6 @@ export function MarketPage({
         )}
       </div>
 
-      {/* 7.5 — PublishDialog */}
       <PublishDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen} />
     </div>
   );

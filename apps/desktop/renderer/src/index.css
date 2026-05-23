@@ -72,14 +72,6 @@
     width: 17.5rem;
   }
 
-  .w-office-left-expanded {
-    width: 18.75rem;
-  }
-
-  .w-office-right-expanded {
-    width: 22.5rem;
-  }
-
   .w-office-rail-collapsed {
     width: 2.75rem;
   }
@@ -89,7 +81,7 @@
   }
 
   .h-market-listing-card {
-    height: 16.25rem;
+    height: 12.5rem;
   }
 
   .w-kanban-column {
@@ -187,19 +179,20 @@
   }
 
   .h-market-grid-card {
-    height: 13.75rem;
+    height: 12.5rem;
   }
 
   .grid-market-card-list {
-    grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(15.75rem, 1fr));
   }
 
+  /* V3 detail open: retained listing grid (left) + fixed 440px right panel. */
   .grid-market-detail-desktop {
-    grid-template-columns: minmax(0, 3fr) minmax(23.75rem, 2fr);
+    grid-template-columns: minmax(0, 1fr) 27.5rem;
   }
 
   .grid-market-detail-tablet {
-    grid-template-columns: minmax(0, 3fr) minmax(21.25rem, 2fr);
+    grid-template-columns: minmax(0, 1fr) 27.5rem;
   }
 
   .grid-activity-detail {
@@ -316,7 +309,9 @@
   }
 
   .company-wizard-grid-bg {
-    background-image: radial-gradient(circle, var(--surface-lighter) 0.5px, transparent 0.5px);
+    /* Wizard is intentional-dark (DNA §11); pin the dot grid to the --wiz-* line
+       token so Phase 0's light-only revalue does not relight it. */
+    background-image: radial-gradient(circle, var(--wiz-line-2) 0.5px, transparent 0.5px);
     background-size: 24px 24px;
   }
 
@@ -431,6 +426,14 @@
   .light :where(.hover\:text-slate-100:hover, .hover\:text-white:hover) {
     color: var(--color-text-primary);
   }
+}
+
+@font-face {
+  font-family: "General Sans";
+  src: url("/fonts/general-sans-var.woff2") format("woff2-variations");
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {

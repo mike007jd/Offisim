@@ -254,12 +254,12 @@ function formatMs(ms: number): string {
 
 const STATUS_ICON: Record<
   ToolExecutionTelemetryPayload['status'],
-  { Icon: typeof CheckCircle; color: string }
+  { Icon: typeof CheckCircle; iconClassName: string }
 > = {
-  started: { Icon: Clock, color: 'text-text-secondary' },
-  completed: { Icon: CheckCircle, color: 'text-success' },
-  error: { Icon: AlertCircle, color: 'text-error' },
-  denied: { Icon: AlertCircle, color: 'text-warning' },
+  started: { Icon: Clock, iconClassName: 'text-text-secondary' },
+  completed: { Icon: CheckCircle, iconClassName: 'text-success' },
+  error: { Icon: AlertCircle, iconClassName: 'text-error' },
+  denied: { Icon: AlertCircle, iconClassName: 'text-warning' },
 };
 
 interface ServerRoomProps {
@@ -417,13 +417,13 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
         ) : (
           <ScrollArea className="max-h-40">
             {entries.slice(-20).map((e) => {
-              const { Icon, color } = STATUS_ICON[e.status];
+              const { Icon, iconClassName } = STATUS_ICON[e.status];
               return (
                 <div
                   key={`${e.toolCallId}-${e.startedAt}`}
                   className="flex items-center gap-1.5 px-1 py-0.5 text-caption transition-colors hover:bg-surface-hover"
                 >
-                  <Icon className={`h-2.5 w-2.5 shrink-0 ${color}`} />
+                  <Icon className={`h-2.5 w-2.5 shrink-0 ${iconClassName}`} />
                   <span className="min-w-0 flex-1 truncate text-text-secondary">{e.toolName}</span>
                   {e.durationMs != null && (
                     <span className="shrink-0 text-text-muted">{formatMs(e.durationMs)}</span>

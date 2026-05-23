@@ -40,16 +40,16 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
   const [confirmRollback, setConfirmRollback] = useState<number | null>(null);
 
   if (loading) {
-    return <p className="text-sm text-shell/50 py-4 text-center">Loading version history...</p>;
+    return <p className="text-sm text-ink-2/50 py-4 text-center">Loading version history...</p>;
   }
 
   if (versions.length === 0) {
-    return <p className="text-sm text-shell/50 py-4 text-center">No version history available.</p>;
+    return <p className="text-sm text-ink-2/50 py-4 text-center">No version history available.</p>;
   }
 
   if (versions.length === 1) {
     return (
-      <p className="text-sm text-shell/50 py-4 text-center">
+      <p className="text-sm text-ink-2/50 py-4 text-center">
         Only one version exists. Make changes to build up history.
       </p>
     );
@@ -59,18 +59,18 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
     <div className="flex flex-col gap-3 pt-2">
       {/* Fork provenance badge */}
       {forkOrigin && (
-        <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-sea-blue/10 border border-sea-blue/20">
+        <div className="flex items-center gap-2 rounded border border-info/20 bg-info-muted px-2 py-1.5">
           <Badge variant="info" className="shrink-0">
             Forked
           </Badge>
-          <span className="text-xs text-shell/70">
+          <span className="text-xs text-ink-2/70">
             From:{' '}
             {forkOrigin.sourceUrl ? (
               <a
                 href={forkOrigin.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sea-blue hover:underline"
+                className="text-info hover:underline"
               >
                 {forkOrigin.sourceAssetId}
               </a>
@@ -78,7 +78,7 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
               <span className="font-mono">{forkOrigin.sourceAssetId}</span>
             )}
             {forkOrigin.sourcePackageId && (
-              <span className="text-shell/50 ml-1">(pkg: {forkOrigin.sourcePackageId})</span>
+              <span className="text-ink-2/50 ml-1">(pkg: {forkOrigin.sourcePackageId})</span>
             )}
           </span>
         </div>
@@ -129,15 +129,15 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
 
       {/* Diff display */}
       {selectedVersion != null && diffResult != null && (
-        <div className="border border-ocean-light rounded p-2">
+        <div className="border border-line rounded p-2">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-shell/70 font-medium">
+            <span className="text-xs text-ink-2/70 font-medium">
               Changes from v{selectedVersion} to v{versions[0]?.version_num} (current)
             </span>
             {/* Rollback button */}
             {confirmRollback === selectedVersion ? (
               <div className="flex items-center gap-1">
-                <span className="text-xs text-coral-orange">Rollback to v{selectedVersion}?</span>
+                <span className="text-xs text-warning">Rollback to v{selectedVersion}?</span>
                 <Button
                   size="sm"
                   variant="destructive"

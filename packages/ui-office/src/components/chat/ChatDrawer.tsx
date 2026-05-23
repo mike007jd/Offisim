@@ -1,4 +1,4 @@
-import { Button } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { ChevronUp, MessageSquare, Minimize2 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
@@ -193,10 +193,18 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
     document.body.style.userSelect = '';
   }, []);
 
+  const drawerHeightStyle = {
+    height: open ? `${compact ? COMPACT_HEIGHT : heightPx}px` : `${TOGGLE_BAR_HEIGHT}px`,
+  };
+  const contentStyle = {
+    height: Math.max((compact ? COMPACT_HEIGHT : heightPx) - TOGGLE_BAR_HEIGHT, 0),
+  };
+
   return (
     <div
       className="overflow-hidden rounded-2xl border border-border-default bg-surface-elevated/95 text-text-primary shadow-overlay backdrop-blur-3xl transition-all duration-300"
-      style={{ height: open ? `${compact ? COMPACT_HEIGHT : heightPx}px` : '40px' }}
+      // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+      style={drawerHeightStyle}
     >
       {open && (
         <div
@@ -220,30 +228,26 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
         type="button"
         variant="ghost"
         onClick={toggle}
-        className="h-10 w-full justify-between rounded-none text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-        style={{ paddingInline: 'var(--sp-lg)' }}
+        className="h-10 w-full justify-between gap-2 rounded-none px-sp-5 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
       >
-        <div className="flex items-center" style={{ columnGap: 'var(--sp-sm)' }}>
+        <div className="flex items-center gap-sp-2">
           <MessageSquare className="size-3.5 text-accent" />
           <span className="text-xs font-medium text-text-primary">Chat</span>
           {compact && <Minimize2 className="size-3 text-text-muted" />}
         </div>
-        <div
-          className="transition-transform duration-300"
-          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-        >
-          <ChevronUp className="w-3.5 h-3.5" />
+        <div className={cn('transition-transform duration-300', open ? 'rotate-180' : '')}>
+          <ChevronUp className="size-3.5" />
         </div>
       </Button>
 
       {/* Content area — always rendered to preserve state */}
       <div
-        className="flex min-h-0 flex-col overflow-hidden transition-opacity duration-300"
-        style={{
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? 'auto' : 'none',
-          height: Math.max((compact ? COMPACT_HEIGHT : heightPx) - TOGGLE_BAR_HEIGHT, 0),
-        }}
+        className={cn(
+          'flex min-h-0 flex-col overflow-hidden transition-opacity duration-300',
+          open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
+        )}
+        // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+        style={contentStyle}
       >
         {typeof children === 'function' ? children({ compact }) : children}
       </div>

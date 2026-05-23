@@ -1,6 +1,6 @@
 import { AlertCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
-import './workspace-shell.css';
+import { cn } from '@offisim/ui-core';
 
 export interface WorkspacePageShellProps {
   title: string;
@@ -16,14 +16,39 @@ export interface WorkspacePageShellProps {
   className?: string;
 }
 
+const WORKSPACE_MIN_HEIGHT_CLASS: Record<string, string> = {
+  office: 'min-h-0',
+  personnel: 'min-h-0',
+  sops: 'min-h-0',
+  market: 'min-h-0',
+  'activity-log': 'min-h-0',
+  settings: 'min-h-0',
+};
+
+const WORKSPACE_SHELL_CLASS =
+  'flex h-full min-h-0 flex-col overflow-hidden pointer-events-auto';
+
+const WORKSPACE_HEADER_CLASS =
+  'border-b border-line px-sp-6 py-sp-5 max-xl:px-sp-5 max-xl:py-sp-4 max-md:px-sp-4 max-md:py-sp-3';
+
+const WORKSPACE_EYEBROW_CLASS =
+  'text-fs-micro font-semibold uppercase leading-none tracking-ls-caps text-ink-3';
+
+const WORKSPACE_TITLE_CLASS =
+  'mt-sp-1 text-fs-xl max-md:text-fs-lg font-semibold leading-tight text-ink-1';
+
+function workspaceMinHeightClass(workspace?: string) {
+  return workspace ? (WORKSPACE_MIN_HEIGHT_CLASS[workspace] ?? 'min-h-0') : 'min-h-0';
+}
+
 function LoadingSkeleton({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div data-testid="workspace-loading-skeleton">
-      <header className="workspace-shell-header">
-        <p className="workspace-shell-eyebrow">{eyebrow}</p>
-        <h1 className="workspace-shell-title">{title}</h1>
+      <header className={WORKSPACE_HEADER_CLASS}>
+        <p className={WORKSPACE_EYEBROW_CLASS}>{eyebrow}</p>
+        <h1 className={WORKSPACE_TITLE_CLASS}>{title}</h1>
       </header>
-      <div className="workspace-shell-loading-region px-6 py-6 space-y-4">
+      <div className="flex min-h-0 flex-col gap-4 px-sp-6 py-sp-6">
         <div className="h-4 w-3/4 animate-pulse rounded bg-surface-muted" />
         <div className="h-4 w-1/2 animate-pulse rounded bg-surface-muted" />
         <div className="h-32 w-full animate-pulse rounded-lg bg-surface-muted" />
@@ -58,21 +83,23 @@ export function WorkspacePageShell({
   workspace,
   className,
 }: WorkspacePageShellProps) {
-  const rootClassName = ['workspace-shell', className].filter(Boolean).join(' ');
-
   return (
-    <div className={rootClassName} data-testid={testId} data-workspace={workspace}>
+    <div
+      className={cn(WORKSPACE_SHELL_CLASS, className)}
+      data-testid={testId}
+      data-workspace={workspace}
+    >
       {topSlot}
 
       {loading ? (
         <LoadingSkeleton eyebrow={eyebrow} title={title} />
       ) : (
         <>
-          <header className="workspace-shell-header">
+          <header className={WORKSPACE_HEADER_CLASS}>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="workspace-shell-eyebrow">{eyebrow}</p>
-                <h1 className="workspace-shell-title">{title}</h1>
+                <p className={WORKSPACE_EYEBROW_CLASS}>{eyebrow}</p>
+                <h1 className={WORKSPACE_TITLE_CLASS}>{title}</h1>
               </div>
               {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
             </div>
@@ -85,7 +112,9 @@ export function WorkspacePageShell({
               {empty}
             </div>
           ) : (
-            <div className="workspace-shell-content">{children}</div>
+            <div className={cn('min-h-0 flex-1 overflow-hidden', workspaceMinHeightClass(workspace))}>
+              {children}
+            </div>
           )}
         </>
       )}

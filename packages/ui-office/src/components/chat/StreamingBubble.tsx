@@ -77,7 +77,7 @@ function ReasoningRegion({ reasoning, hasContent }: ReasoningRegionProps) {
         variant="ghost"
         size="sm"
         onClick={() => setExpandedByUser(!expanded)}
-        className="mb-0.5 h-auto gap-1 px-0 py-0 text-caption font-medium uppercase tracking-[0.12em] text-info hover:text-text-primary"
+        className="mb-0.5 h-auto gap-1 px-0 py-0 text-caption font-medium uppercase tracking-wide text-info hover:text-text-primary"
       >
         <span>{expanded ? '▾' : '▸'}</span>
         <span>Reasoning</span>

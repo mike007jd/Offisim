@@ -1,81 +1,96 @@
 import type { ListingSummary } from '@offisim/registry-client';
-import { Button } from '@offisim/ui-core';
-import { Star } from 'lucide-react';
-import { getRarityColor } from './market-rarity.js';
+import { Button, cn } from '@offisim/ui-core';
+import { Download, Star } from 'lucide-react';
+import { CoverIconTile, MarketCoverViz, hasCoverViz } from './MarketCoverViz.js';
+import { getRarityClasses } from './market-rarity.js';
 import { INSTALLABLE_KINDS, KIND_ICON, formatInstallCount } from './marketplace-meta.js';
 
 export interface MarketListingCardProps {
   readonly listing: ListingSummary;
   readonly onClick: (listingId: string) => void;
   readonly installed?: boolean;
+  readonly selected?: boolean;
+  readonly featured?: boolean;
 }
 
-export function MarketListingCard({ listing, onClick, installed }: MarketListingCardProps) {
-  const rarity = getRarityColor(listing.kind);
+export function MarketListingCard({
+  listing,
+  onClick,
+  installed,
+  selected,
+  featured,
+}: MarketListingCardProps) {
   const Icon = KIND_ICON[listing.kind];
   const showInstalled = installed === true && INSTALLABLE_KINDS.has(listing.kind);
   const verification = listing.creator.verification_state;
-  const cover =
-    listing.preview && (listing.preview.kind === 'image' || listing.preview.kind === 'icon')
-      ? listing.preview
-      : null;
+  const verified = verification === 'verified' || verification === 'trusted';
+  const rarity = getRarityClasses(listing.kind);
 
   return (
     <Button
       type="button"
       variant="ghost"
       onClick={() => onClick(listing.listing_id)}
-      className={`group h-market-listing-card flex-col items-stretch overflow-hidden rounded-2xl border bg-surface-elevated p-0 text-left text-text-primary shadow-sm transition-all hover:bg-surface-hover ${rarity.border} ${rarity.glow}`}
+      className={cn(
+        'group relative flex h-market-listing-card flex-col items-stretch justify-start gap-0 overflow-hidden rounded-r-md border bg-surface-1 p-0 text-left shadow-elev-1 transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-line-strong hover:bg-surface-1 hover:shadow-elev-2',
+        featured && 'col-span-2',
+        selected ? rarity.accentBorder : 'border-line-soft',
+      )}
     >
-      <div className="relative h-24 w-full shrink-0 overflow-hidden bg-surface-muted">
-        {cover ? (
-          <img
-            src={cover.url}
-            alt={cover.alt ?? listing.title}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
+      <span
+        className={cn('pointer-events-none absolute inset-x-0 top-0 z-elevated h-1 opacity-90', rarity.accentBg)}
+        aria-hidden="true"
+      />
+
+      <div className={cn('relative h-24 flex-none overflow-hidden border-b border-line-soft', rarity.cover)}>
+        {hasCoverViz(listing.kind) ? (
+          <MarketCoverViz listing={listing} />
         ) : (
-          <div
-            className={`flex h-full w-full items-center justify-center ${rarity.badge.replace('text-', 'bg-').split(' ')[0] ?? ''}`}
-          >
-            {Icon && <Icon className="h-8 w-8 opacity-50" />}
-          </div>
+          <CoverIconTile kind={listing.kind} />
         )}
-        <span
-          className={`absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-caption font-medium ${rarity.badge}`}
-        >
-          {Icon && <Icon className="h-3 w-3" />}
-          {listing.kind}
-        </span>
+
         {showInstalled && (
-          <span className="absolute right-3 top-3 inline-flex items-center rounded-full border border-success bg-success-muted px-2 py-0.5 text-caption font-medium text-success">
+          <span className="absolute left-2 top-2 z-elevated inline-flex h-5 items-center gap-1 rounded-r-pill border border-ok bg-ok-surface px-2 text-fs-meta font-bold uppercase tracking-wide text-ok">
             Installed
           </span>
         )}
+
+        <span
+          className={cn(
+            'absolute right-2 top-2 z-elevated inline-flex h-5 items-center gap-1 rounded-r-pill border bg-surface-1 px-2 text-fs-meta font-bold uppercase tracking-wide shadow-elev-1',
+            rarity.accent,
+            rarity.accentBorder,
+          )}
+        >
+          {Icon && <Icon className="size-3" aria-hidden="true" />}
+          {listing.kind}
+        </span>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3">
-        <div className="flex items-center gap-1 text-xs text-text-muted">
-          <span className="truncate">@{listing.creator.handle}</span>
-          {verification === 'verified' || verification === 'trusted' ? (
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full bg-info"
-              title={verification === 'trusted' ? 'Trusted creator' : 'Verified creator'}
-            />
-          ) : null}
+      <div className="flex min-h-0 flex-1 flex-col gap-1 px-3 py-2.5">
+        <div className="truncate text-fs-md font-bold leading-tight text-ink-1">
+          {listing.title}
         </div>
-        <h3 className="mt-1 truncate text-sm font-bold text-text-primary">{listing.title}</h3>
-        <p className="mt-1 line-clamp-2 flex-1 text-xs leading-relaxed text-text-secondary">
-          {listing.summary}
-        </p>
+        <p className="line-clamp-2 flex-1 text-fs-sm leading-snug text-ink-3">{listing.summary}</p>
 
-        <div className="mt-auto flex items-center gap-3 pt-2 text-caption text-text-secondary">
-          <span className="inline-flex items-center gap-1">
-            <Star className="h-3 w-3 fill-current text-warning" />
+        <div className="mt-auto flex items-center gap-1.5 border-t border-line-soft pt-2">
+          <span className="inline-flex h-5 items-center gap-1 rounded-r-xs border border-warn bg-warn-surface px-2 text-fs-meta font-semibold tabular-nums text-warn">
+            <Star className="size-3 fill-current" aria-hidden="true" />
             {listing.rating.toFixed(1)}
           </span>
-          <span>{formatInstallCount(listing.install_count)} installs</span>
+          <span className="inline-flex h-5 items-center gap-1 rounded-r-xs bg-surface-sunken px-2 font-mono text-fs-meta font-semibold tabular-nums text-ink-2">
+            <Download className="size-3 text-ink-4" aria-hidden="true" />
+            {formatInstallCount(listing.install_count)}
+          </span>
+          <span className="ml-auto inline-flex items-center gap-1 truncate pl-1 font-mono text-fs-meta font-semibold text-ink-4">
+            {verified && (
+              <span
+                className="inline-block size-1.5 flex-none rounded-full bg-accent"
+                title={verification === 'trusted' ? 'Trusted creator' : 'Verified creator'}
+              />
+            )}
+            <span className="truncate">@{listing.creator.handle}</span>
+          </span>
         </div>
       </div>
     </Button>

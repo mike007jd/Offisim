@@ -12,6 +12,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@assistant-ui/react": "0.14.7",
+    "@assistant-ui/react-markdown": "0.14.0",
     "@langchain/core": "^1.1.44",
     "@langchain/langgraph-checkpoint": "^1.0.2",
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -23,13 +25,17 @@
     "@offisim/shared-types": "workspace:*",
     "@offisim/ui-core": "workspace:*",
     "@offisim/ui-office": "workspace:*",
+    "@radix-ui/react-collapsible": "1.1.12",
+    "@radix-ui/react-slot": "1.2.4",
     "@tailwindcss/vite": "^4.2.1",
     "@tauri-apps/plugin-fs": "^2.4.5",
     "@tauri-apps/plugin-sql": "^2.3.2",
+    "class-variance-authority": "0.7.1",
     "drizzle-orm": "^0.39.3",
     "lucide-react": "^0.577.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "remark-gfm": "4.0.1",
     "tailwindcss": "^4.2.1",
     "three": "^0.183.2"
   },

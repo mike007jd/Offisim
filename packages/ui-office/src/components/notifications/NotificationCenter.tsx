@@ -1,5 +1,5 @@
-import { Button, ScrollArea } from '@offisim/ui-core';
-import { Bell, Trash2 } from 'lucide-react';
+import { Button, ScrollArea, cn } from '@offisim/ui-core';
+import { Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { NotificationCard } from './NotificationCard';
@@ -10,8 +10,10 @@ interface NotificationCenterProps {
 }
 
 /**
- * Bell icon with unread badge and dropdown notification panel.
- * Placed in the Header bar.
+ * Diegetic notification surface (V3): a quiet round button anchored beside the
+ * stage cost readout — no bell+count header chrome, no status-bar count segment.
+ * Unread state is a small quiet dot only. The list opens as a popover reusing
+ * the existing notification cards.
  *
  * Self-contained: reads notification state from the shared
  * NotificationProvider context via useNotifications().
@@ -51,38 +53,36 @@ export function NotificationCenter({
   return (
     <div ref={rootRef} className="relative">
       <Button
-        variant="ghost"
+        type="button"
+        variant="outline"
         size="icon"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        className="relative size-7 rounded-full bg-surface-1/80 text-ink-4 shadow-elev-1 backdrop-blur-sm hover:border-line-strong hover:text-ink-2"
       >
-        <span className="relative inline-flex h-5 w-5 items-center justify-center">
-          <Bell className="h-4 w-4" />
-          {unreadCount > 0 && (
-            <span
-              aria-hidden="true"
-              className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-notification-badge items-center justify-center rounded-full bg-error px-1 text-caption font-semibold leading-none text-text-inverse ring-2 ring-surface-elevated"
-            >
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-        </span>
+        <span
+          aria-hidden="true"
+          className={cn('size-1.5 rounded-full', unreadCount > 0 ? 'bg-danger' : 'bg-ink-4')}
+        />
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-notification-popover z-50 w-80 rounded-md border border-ocean-light bg-ocean-deep shadow-lg">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-ocean-light">
-            <span className="text-xs font-pixel-body text-shell font-medium">Notifications</span>
+        <div className="absolute bottom-9 right-0 z-50 w-72 overflow-hidden rounded-r-lg border border-line-strong bg-surface-1 shadow-elev-3">
+          <div className="flex items-center justify-between border-b border-line-soft px-3 py-2.5">
+            <span className="text-fs-micro font-bold uppercase tracking-wide text-ink-3">
+              Notifications
+            </span>
             {notifications.length > 0 && (
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5"
+                className="grid size-5 place-items-center rounded-r-sm text-ink-4 transition-colors hover:bg-surface-sunken hover:text-ink-2"
                 onClick={clearAll}
                 title="Clear all"
                 aria-label="Clear all notifications"
               >
-                <Trash2 className="h-3 w-3" />
+                <Trash2 className="size-3" />
               </Button>
             )}
           </div>
@@ -90,9 +90,7 @@ export function NotificationCenter({
           <ScrollArea className="max-h-80">
             {notifications.length === 0 ? (
               <div className="px-3 py-6 text-center">
-                <p className="text-xs text-shell/40 font-pixel-body">
-                  All clear — no pending notifications.
-                </p>
+                <p className="text-fs-meta text-ink-4">All clear — no pending notifications.</p>
               </div>
             ) : (
               notifications.map((n) => (
@@ -107,11 +105,10 @@ export function NotificationCenter({
             )}
           </ScrollArea>
 
-          <div className="flex items-center justify-between border-t border-ocean-light px-3 py-2">
-            <p className="text-caption text-shell/60">
-              Recent items live here. Full history lives in Activity Log.
-            </p>
+          <div className="flex items-center justify-between gap-2 border-t border-line-soft px-3 py-2">
+            <p className="text-fs-meta text-ink-4">Full history lives in Activity Log.</p>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               onClick={() => {
@@ -119,7 +116,10 @@ export function NotificationCenter({
                 onOpenActivityLog?.();
               }}
               aria-label="Open activity log"
-              className="h-7 text-caption"
+              className={cn(
+                'h-7 shrink-0 rounded-r-sm px-2 text-fs-meta font-semibold text-accent',
+                'transition-colors hover:bg-accent-surface',
+              )}
             >
               Open Activity Log
             </Button>

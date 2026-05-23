@@ -140,7 +140,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
           ) : null
         }
       >
-        <div className="space-y-3 pt-2">
+        <div className="flex flex-col gap-3 pt-2">
           <div className="flex items-center gap-2">
             <Link className="h-3.5 w-3.5 shrink-0 text-text-muted" />
             <Input
@@ -181,7 +181,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
           )}
 
           {preview && (
-            <div className="space-y-1.5 rounded-lg border border-border-default bg-surface-muted p-3">
+            <div className="flex flex-col gap-1.5 rounded-lg border border-border-default bg-surface-muted p-3">
               <p className="text-sm font-medium text-text-primary">{preview.name}</p>
               {preview.description && (
                 <p className="text-caption text-text-secondary">{preview.description}</p>

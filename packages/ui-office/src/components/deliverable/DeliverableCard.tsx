@@ -100,8 +100,9 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
   const shown = contributors.slice(0, 3);
   const overflow = contributors.slice(3);
   const overflowLabel = overflow.map((c) => c.employeeName).join(', ');
+  const overflowStyle = { height: size, minHeight: size };
   return (
-    <div className="flex items-center -space-x-1.5">
+    <div className="flex items-center gap-0">
       {shown.map((emp) => (
         <span
           key={emp.employeeId}
@@ -124,7 +125,8 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
         <span
           title={overflowLabel}
           className="flex min-w-5 items-center justify-center rounded-full bg-surface-muted px-1 text-caption text-text-secondary ring-1 ring-border-default"
-          style={{ height: size, minHeight: size }}
+          // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+          style={overflowStyle}
         >
           +{overflow.length}
         </span>

@@ -7,29 +7,9 @@
 import { getBuiltinPrefab } from '@offisim/renderer';
 import { Button } from '@offisim/ui-core';
 import { useMemo } from 'react';
-import { STUDIO_IDENTITY_HEIGHT } from './StudioCompanyIdentity.js';
 import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
-import { FONT, LAYOUT, SP, STUDIO_COLORS, STUDIO_Z_INDEX } from './studio-style-helpers.js';
 
 const SEPARATOR_CHAR = '›';
-
-const CONTAINER_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  top: LAYOUT.toolbarHeight + STUDIO_IDENTITY_HEIGHT,
-  left: LAYOUT.paletteWidth,
-  right: LAYOUT.propertiesWidth,
-  height: 32,
-  display: 'flex',
-  alignItems: 'center',
-  gap: SP.xs,
-  padding: `0 ${SP.md}px`,
-  background: STUDIO_COLORS.surface0,
-  borderBottom: `1px solid ${STUDIO_COLORS.border}`,
-  fontFamily: FONT.family,
-  fontSize: FONT.base,
-  zIndex: STUDIO_Z_INDEX.sticky,
-  pointerEvents: 'auto',
-};
 
 interface SegmentProps {
   label: string;
@@ -38,23 +18,15 @@ interface SegmentProps {
 }
 
 function Segment({ label, active, onClick }: SegmentProps) {
-  const baseStyle: React.CSSProperties = {
-    background: 'transparent',
-    border: 'none',
-    padding: `${SP.xs}px ${SP.sm}px`,
-    cursor: active ? 'default' : 'pointer',
-    fontSize: FONT.base,
-    fontWeight: active ? FONT.semibold : FONT.medium,
-    fontFamily: FONT.family,
-    color: active ? STUDIO_COLORS.textPrimary : STUDIO_COLORS.textTertiary,
-    opacity: active ? 1 : 0.7,
-    borderBottom: active ? `2px solid ${STUDIO_COLORS.accent}` : '2px solid transparent',
-    lineHeight: 1.4,
-  };
+  const className = `border-b-2 border-transparent bg-transparent px-sp-2 py-sp-1 text-fs-sm leading-snug ${
+    active
+      ? 'cursor-default border-accent font-semibold text-ink-1 opacity-100'
+      : 'cursor-pointer font-medium text-ink-3 opacity-70 hover:text-ink-1'
+  }`;
 
   if (active || !onClick) {
     return (
-      <span style={baseStyle} aria-current={active ? 'true' : undefined}>
+      <span className={className} aria-current={active ? 'true' : undefined}>
         {label}
       </span>
     );
@@ -65,7 +37,7 @@ function Segment({ label, active, onClick }: SegmentProps) {
       type="button"
       variant="ghost"
       onClick={onClick}
-      style={baseStyle}
+      className={className}
       aria-label={`Go to ${label}`}
     >
       {label}
@@ -75,10 +47,7 @@ function Segment({ label, active, onClick }: SegmentProps) {
 
 function Separator() {
   return (
-    <span
-      aria-hidden="true"
-      style={{ color: STUDIO_COLORS.textDisabled, fontSize: FONT.md, lineHeight: 1 }}
-    >
+    <span aria-hidden="true" className="text-fs-sm leading-none text-ink-4">
       {SEPARATOR_CHAR}
     </span>
   );
@@ -118,7 +87,7 @@ export function PlotZoneBreadcrumb() {
   };
 
   return (
-    <div style={CONTAINER_STYLE}>
+    <div className="pointer-events-auto absolute left-60 right-60 top-25 z-sticky flex h-8 items-center gap-sp-1 border-b border-line bg-surface-elevated px-sp-3 text-fs-sm">
       <Segment
         label={`Plot · ${plotSize.name}`}
         active={level === 'plot'}

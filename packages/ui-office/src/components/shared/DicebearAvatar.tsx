@@ -26,7 +26,7 @@ export function DicebearAvatar({
       alt={seed}
       width={size}
       height={size}
-      className={`rounded-full ${className}`}
+      className={`rounded-lg ${className}`}
     />
   );
 }

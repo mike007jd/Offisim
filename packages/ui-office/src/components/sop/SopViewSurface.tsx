@@ -587,6 +587,9 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
       onToggleCollapse={tier === 'tablet' ? toggleSidebarCollapse : undefined}
     />
   );
+  const addStepAnchorStyle = addStepPopover
+    ? { left: addStepPopover.screenX, top: addStepPopover.screenY }
+    : undefined;
 
   return (
     <div
@@ -793,10 +796,8 @@ export function SopViewSurface({ sessionState, onSessionStateChange }: SopViewSu
             if (!open) setAddStepPopover(null);
           }}
           anchor={
-            <div
-              className="fixed h-px w-px"
-              style={{ left: addStepPopover.screenX, top: addStepPopover.screenY }}
-            />
+            // ui-hardcode-allowed: popover anchor is runtime pointer geometry.
+            <div className="fixed h-px w-px" style={addStepAnchorStyle} />
           }
           initialValues={
             addStepPopover.editStepId

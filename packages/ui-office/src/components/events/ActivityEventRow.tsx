@@ -2,7 +2,12 @@ import { type RuntimeEvent, TASK_ASSIGNMENT_REROUTED } from '@offisim/shared-typ
 import { Button } from '@offisim/ui-core';
 import { Activity } from 'lucide-react';
 import { formatTimestamp } from '../../lib/format-time';
-import { domainIcon, formatTaskAssignmentReroutedLabel, getDisplayLabel } from './EventItem';
+import {
+  domainIcon,
+  formatTaskAssignmentReroutedLabel,
+  getDisplayLabel,
+  getEventToneClass,
+} from './EventItem';
 import type { EventDisplayLevel } from './EventLog';
 
 export interface ActivityEventRowProps {
@@ -20,9 +25,9 @@ export interface ActivityEventRowProps {
 }
 
 const LEVEL_LEFT_BORDER: Record<EventDisplayLevel, string> = {
-  Error: 'border-l-[4px] border-error',
-  Warning: 'border-l-[4px] border-warning',
-  Info: '',
+  Error: 'border-l-4 border-error',
+  Warning: 'border-l-4 border-warning',
+  Info: 'border-l-4 border-transparent',
 };
 
 const LEVEL_BAR_COLOR: Record<EventDisplayLevel, string> = {
@@ -41,7 +46,7 @@ export function ActivityEventRow({
 }: ActivityEventRowProps) {
   const domain = domainIcon(event.type);
   const Icon = domain?.Icon ?? Activity;
-  const iconColor = domain?.color ?? 'text-text-secondary';
+  const iconColor = domain ? getEventToneClass(domain.tone) : 'text-text-secondary';
   const label =
     event.type === TASK_ASSIGNMENT_REROUTED
       ? formatTaskAssignmentReroutedLabel(event, getEmployeeName)
@@ -60,7 +65,7 @@ export function ActivityEventRow({
       <Icon className={`size-5 shrink-0 ${iconColor}`} />
       <span className="flex-1 truncate text-sm text-text-primary">{label}</span>
       {collapsedCount && collapsedCount > 1 && (
-        <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-caption font-medium text-text-secondary">
+        <span className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-caption font-medium text-text-secondary">
           ×{collapsedCount}
         </span>
       )}

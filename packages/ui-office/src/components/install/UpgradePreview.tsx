@@ -83,12 +83,12 @@ function DiffEntryRow({ entry }: { entry: DiffEntry }) {
   const Icon = config.icon;
 
   return (
-    <div className="flex items-start gap-2 py-1.5 px-2 border-b border-ocean-light/30 last:border-b-0">
+    <div className="flex items-start gap-2 py-1.5 px-2 border-b border-line last:border-b-0">
       <Icon className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${config.textClass}`} />
       <div className="flex-1 min-w-0">
         <p className={`text-sm ${config.textClass}`}>{entry.description}</p>
         {(entry.oldValue || entry.newValue) && (
-          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-shell/70">
+          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-ink-2/70">
             {entry.oldValue && (
               <span className="inline-flex items-center gap-0.5">
                 <Minus className="h-2.5 w-2.5 text-error/70" />
@@ -96,7 +96,7 @@ function DiffEntryRow({ entry }: { entry: DiffEntry }) {
               </span>
             )}
             {entry.oldValue && entry.newValue && (
-              <ArrowRight className="h-2.5 w-2.5 text-shell/50" />
+              <ArrowRight className="h-2.5 w-2.5 text-ink-2/50" />
             )}
             {entry.newValue && (
               <span className="inline-flex items-center gap-0.5">
@@ -172,11 +172,11 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
       {/* Version header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h3 className="text-base font-semibold text-sand truncate">{packageTitle}</h3>
+          <h3 className="text-base font-semibold text-ink-1 truncate">{packageTitle}</h3>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-sm text-shell/70">v{diff.fromVersion}</span>
-            <ArrowRight className="h-3.5 w-3.5 text-shell/50" />
-            <span className="text-sm text-sand font-medium">v{diff.toVersion}</span>
+            <span className="text-sm text-ink-2/70">v{diff.fromVersion}</span>
+            <ArrowRight className="h-3.5 w-3.5 text-ink-2/50" />
+            <span className="text-sm text-ink-1 font-medium">v{diff.toVersion}</span>
           </div>
         </div>
         <Badge variant={maxConfig.badgeVariant}>
@@ -240,13 +240,13 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
           </div>
         </ScrollArea>
       ) : (
-        <p className="text-sm text-shell/70 text-center py-4">
+        <p className="text-sm text-ink-2/70 text-center py-4">
           No manifest changes detected between versions.
         </p>
       )}
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2 border-t border-ocean-light">
+      <div className="flex justify-end gap-2 pt-2 border-t border-line">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>

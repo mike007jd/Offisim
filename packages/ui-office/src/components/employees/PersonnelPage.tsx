@@ -21,7 +21,7 @@ import {
 } from '@offisim/ui-core';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLayoutTier } from '../../hooks/use-layout-tier.js';
+import { type LayoutTier, useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useEmployeeEditor } from '../../hooks/useEmployeeEditor';
 import { lookupExternalBrand } from '../../lib/brand-registry';
 import { ROLE_LABELS, ROLE_OPTIONS } from '../../lib/roles';
@@ -58,6 +58,16 @@ const TABS: ReadonlyArray<{ value: PersonnelTabId; label: string }> = [
   { value: 'memory', label: 'Memory' },
   { value: 'history', label: 'History' },
 ];
+
+function personnelLayoutClass(tier: LayoutTier, railCollapsed: boolean): string {
+  if (tier === 'desktop') {
+    return railCollapsed ? 'grid-personnel-desktop-collapsed' : 'grid-personnel-desktop-expanded';
+  }
+  if (tier === 'tablet') {
+    return railCollapsed ? 'grid-personnel-tablet-collapsed' : 'grid-personnel-tablet-expanded';
+  }
+  return 'grid-cols-1';
+}
 
 export function PersonnelPage({
   sessionState,
@@ -183,16 +193,7 @@ export function PersonnelPage({
     !employeesLoading &&
     !employeesError &&
     filteredEmployees.length > 0;
-  const layoutClass =
-    tier === 'desktop'
-      ? railCollapsed
-        ? 'grid-personnel-desktop-collapsed'
-        : 'grid-personnel-desktop-expanded'
-      : tier === 'tablet'
-        ? railCollapsed
-          ? 'grid-personnel-tablet-collapsed'
-          : 'grid-personnel-tablet-expanded'
-        : 'grid-cols-1';
+  const layoutClass = personnelLayoutClass(tier, railCollapsed);
 
   const showInspectorInline = tier === 'desktop';
   const showStackedInspector = tier !== 'desktop' && selectedEmployee !== null;
@@ -368,7 +369,6 @@ export function PersonnelPage({
               <PersonnelTabs
                 activeTab={sessionState.activeEmployeeTab}
                 onTabChange={handleTabChange}
-                selectedEmployee={selectedEmployee}
                 editor={editor}
                 activeCompanyId={activeCompanyId}
                 selectedEmployeeId={sessionState.selectedEmployeeId}
@@ -384,7 +384,6 @@ export function PersonnelPage({
           <PersonnelTabs
             activeTab={sessionState.activeEmployeeTab}
             onTabChange={handleTabChange}
-            selectedEmployee={selectedEmployee}
             editor={editor}
             activeCompanyId={activeCompanyId}
             selectedEmployeeId={sessionState.selectedEmployeeId}
@@ -404,7 +403,6 @@ function PersonnelTabs({
 }: {
   activeTab: PersonnelTabId;
   onTabChange: (value: string) => void;
-  selectedEmployee: EmployeeRow;
   editor: ReturnType<typeof useEmployeeEditor>;
   activeCompanyId: string | null;
   selectedEmployeeId: string | null;
@@ -415,9 +413,13 @@ function PersonnelTabs({
       onValueChange={onTabChange}
       className="flex h-full min-h-0 flex-1 flex-col"
     >
-      <TabsList className="w-full shrink-0 justify-start overflow-x-auto rounded-none border-b border-border-default bg-surface-elevated px-2 py-1">
+      <TabsList className="h-11 w-full shrink-0 items-center justify-start gap-0.5 overflow-x-auto rounded-none border-0 border-b border-line bg-transparent p-0 px-sp-5">
         {TABS.map((t) => (
-          <TabsTrigger key={t.value} value={t.value} className="text-xs">
+          <TabsTrigger
+            key={t.value}
+            value={t.value}
+            className="h-7 shrink-0 rounded-r-sm border-0 bg-transparent px-3 text-fs-sm font-medium text-ink-3 transition-colors hover:bg-surface-sunken hover:text-ink-1 data-[state=active]:bg-accent-surface data-[state=active]:font-semibold data-[state=active]:text-accent"
+          >
             {t.label}
           </TabsTrigger>
         ))}
@@ -478,7 +480,7 @@ function DetailHeader({ employee, onBack }: { employee: EmployeeRow; onBack?: ()
   const isExternal = employee.is_external === 1;
   const brand = isExternal ? lookupExternalBrand(employee.brand_key) : null;
   return (
-    <div className="flex shrink-0 items-center gap-4 border-b border-border-default bg-surface px-6 py-4">
+    <div className="flex shrink-0 items-center gap-4 border-b border-border-default bg-surface px-sp-7 py-sp-5">
       {onBack ? (
         <Button
           type="button"

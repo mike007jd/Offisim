@@ -104,7 +104,7 @@ const SelectContent = forwardRef<
       <SelectPrimitive.Content
         ref={ref}
         className={cn(
-          'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-lg border border-border-default bg-surface-elevated text-text-primary shadow-xl',
+          'relative z-50 max-h-96 min-w-32 overflow-hidden rounded-lg border border-border-default bg-surface-elevated text-text-primary shadow-xl',
           position === 'popper' && 'translate-y-1',
           className,
         )}
@@ -115,7 +115,7 @@ const SelectContent = forwardRef<
           className={cn(
             'p-1',
             position === 'popper' &&
-              'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]',
+              'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]', // ui-hardcode-allowed: Radix exposes trigger dimensions through CSS vars for popper sizing.
           )}
         >
           {children}

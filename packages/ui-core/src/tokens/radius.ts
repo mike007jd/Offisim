@@ -1,10 +1,12 @@
-export type RadiusName = 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
+export type RadiusName = 'none' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full' | 'pill';
 
 export const RADIUS_SCALE: Record<RadiusName, number> = {
   none: 0,
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
+  xs: 5,
+  sm: 7,
+  md: 9,
+  lg: 13,
+  xl: 18,
   full: 9999,
+  pill: 999,
 };

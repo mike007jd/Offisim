@@ -98,7 +98,7 @@ export function KanbanColumn({
       </div>
 
       {/* Card list */}
-      <div className="custom-scrollbar min-h-kanban-task-list flex-1 space-y-1.5 overflow-y-auto px-2 py-2">
+      <div className="custom-scrollbar min-h-kanban-task-list flex-1 flex flex-col gap-1.5 overflow-y-auto px-2 py-2">
         {children}
         {tasks.map((task) => (
           <KanbanCard

@@ -3,6 +3,7 @@ import type {
   MarketSessionState,
   PersonnelTabId,
   SettingsSessionState,
+  WorkspaceAppKey,
   WorkspaceKey,
   WorkspaceSessionState,
 } from '../../components/workspaces/types';
@@ -30,7 +31,6 @@ export type WorkspaceRoute =
       workspace: 'office';
       overlay: Extract<UrlOverlayKey, 'office-editor'> | null;
       viewMode?: '2D' | '3D';
-      dashboardOpen?: boolean;
       marketplaceListingId?: string | null;
       selectedThreadId?: string | null;
       companyId?: string | null;
@@ -67,6 +67,11 @@ export type WorkspaceRoute =
       actorFilters?: string[];
       datePreset?: ActivityLogSessionState['datePreset'];
       search?: string;
+    }
+  | {
+      kind: 'workspace';
+      workspace: 'workspace';
+      activeApp: WorkspaceAppKey;
     }
   | {
       kind: 'settings';

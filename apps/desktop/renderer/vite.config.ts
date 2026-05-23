@@ -294,11 +294,13 @@ export default defineConfig(({ command, mode }) => {
 
             if (!id.includes('node_modules')) return;
 
-            // React core — shared base, changes infrequently
+            // React core — shared base, changes infrequently. Match the concrete
+            // package directory only; scoped packages such as @assistant-ui/react
+            // must not be pulled into this chunk or they can create vendor cycles.
             if (
-              id.includes('/react/') ||
-              id.includes('/react-dom/') ||
-              id.includes('/scheduler/')
+              id.includes('/node_modules/react/') ||
+              id.includes('/node_modules/react-dom/') ||
+              id.includes('/node_modules/scheduler/')
             ) {
               return 'vendor-react';
             }
@@ -334,7 +336,8 @@ export default defineConfig(({ command, mode }) => {
               id.includes('/react-remove-scroll') ||
               id.includes('/use-callback-ref/') ||
               id.includes('/use-sidecar/') ||
-              id.includes('/react-style-singleton/')
+              id.includes('/react-style-singleton/') ||
+              id.includes('/@assistant-ui/')
             ) {
               return 'vendor-ui';
             }

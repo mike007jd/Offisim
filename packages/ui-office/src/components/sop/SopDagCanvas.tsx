@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { SopRuntimeStepState } from '../../hooks/useSopRuntimeState';
 import { SopDagEdge, buildBezierPath } from './SopDagEdge';
 import { SopDagNode } from './SopDagNode';
@@ -589,6 +590,14 @@ export function SopDagCanvas({
 
   const graphTransform = `translate(${translate.x}, ${translate.y}) scale(${scale})`;
   const graphCssTransform = `translate(${translate.x}px, ${translate.y}px) scale(${scale})`;
+  const graphLayerStyle: CSSProperties = {
+    width: layout.totalWidth,
+    height: layout.totalHeight,
+    transform: graphCssTransform,
+    transformOrigin: '0 0',
+    pointerEvents: editMode ? 'none' : 'auto',
+    willChange: 'transform',
+  };
 
   return (
     <div
@@ -607,7 +616,7 @@ export function SopDagCanvas({
         height="100%"
         role="img"
         aria-label="SOP workflow DAG"
-        style={{ pointerEvents: 'none' }}
+        pointerEvents="none"
       >
         <title>SOP workflow DAG</title>
         {/* Dot grid background */}
@@ -624,7 +633,8 @@ export function SopDagCanvas({
               cx={1 * scale}
               cy={1 * scale}
               r={1 * scale}
-              fill="color-mix(in srgb, var(--color-border-default-val) 38%, transparent)"
+              fill="var(--color-border-default-val)"
+              opacity={0.38}
             />
           </pattern>
         </defs>
@@ -654,27 +664,23 @@ export function SopDagCanvas({
 
       <div
         className="absolute left-0 top-0"
-        style={{
-          width: layout.totalWidth,
-          height: layout.totalHeight,
-          transform: graphCssTransform,
-          transformOrigin: '0 0',
-          pointerEvents: editMode ? 'none' : 'auto',
-          willChange: 'transform',
-        }}
+        // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+        style={graphLayerStyle}
       >
         {layout.nodes.map((node) => {
           const pos = getNodePos(node);
+          const nodeStyle = {
+            left: pos.x,
+            top: pos.y,
+            width: node.width,
+            height: node.height,
+          };
           return (
             <div
               key={node.stepId}
               className="absolute"
-              style={{
-                left: pos.x,
-                top: pos.y,
-                width: node.width,
-                height: node.height,
-              }}
+              // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+              style={nodeStyle}
             >
               <SopDagNode
                 step={node.step}
@@ -694,7 +700,7 @@ export function SopDagCanvas({
         width="100%"
         height="100%"
         aria-hidden={editMode ? undefined : true}
-        style={{ pointerEvents: editMode ? 'auto' : 'none' }}
+        pointerEvents={editMode ? 'auto' : 'none'}
       >
         <title>SOP dependency canvas</title>
         <g transform={graphTransform}>

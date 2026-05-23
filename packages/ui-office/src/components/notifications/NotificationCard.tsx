@@ -9,11 +9,11 @@ interface NotificationCardProps {
   onFocusEmployee?: (employeeId: string) => void;
 }
 
-const LEVEL_STYLES: Record<Notification['level'], { icon: typeof Info; color: string }> = {
-  info: { icon: Info, color: 'text-info' },
-  success: { icon: CheckCircle, color: 'text-success' },
-  warning: { icon: AlertCircle, color: 'text-warning' },
-  error: { icon: XCircle, color: 'text-error' },
+const LEVEL_STYLES: Record<Notification['level'], { icon: typeof Info; iconClassName: string }> = {
+  info: { icon: Info, iconClassName: 'text-info' },
+  success: { icon: CheckCircle, iconClassName: 'text-success' },
+  warning: { icon: AlertCircle, iconClassName: 'text-warning' },
+  error: { icon: XCircle, iconClassName: 'text-error' },
 };
 
 function formatTimestamp(ts: number): string {
@@ -33,7 +33,7 @@ export function NotificationCard({
   onMarkRead,
   onFocusEmployee,
 }: NotificationCardProps) {
-  const { icon: Icon, color } = LEVEL_STYLES[notification.level];
+  const { icon: Icon, iconClassName } = LEVEL_STYLES[notification.level];
 
   const handleClick = () => {
     if (!notification.read) {
@@ -57,7 +57,7 @@ export function NotificationCard({
         className="h-auto flex-1 items-start justify-start gap-2 rounded-none p-0 text-left"
         onClick={handleClick}
       >
-        <Icon className={cn('mt-0.5 size-4 shrink-0', color)} />
+        <Icon className={cn('mt-0.5 size-4 shrink-0', iconClassName)} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium leading-tight text-text-primary">
             {notification.title}

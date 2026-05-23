@@ -6,7 +6,6 @@ interface KeyboardShortcutsDialogProps {
 }
 
 const SHORTCUTS = [
-  { keys: 'Cmd/Ctrl + D', description: 'Toggle Dashboard' },
   { keys: 'Cmd/Ctrl + J', description: 'Toggle Kanban' },
   { keys: 'Cmd/Ctrl + 1', description: 'Toggle 3D / 2D view' },
   { keys: 'Cmd/Ctrl + E', description: 'Edit selected employee' },
@@ -23,7 +22,7 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
       size="md"
       title="Keyboard Shortcuts"
     >
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         {SHORTCUTS.map((shortcut) => (
           <div
             key={shortcut.keys}

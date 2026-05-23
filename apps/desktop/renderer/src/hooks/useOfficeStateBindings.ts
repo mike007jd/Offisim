@@ -19,7 +19,6 @@ export interface OfficeStateBindingsApi {
   /** Bumps `viewModeNonce` on every explicit toggle click — value-agnostic retry signal. */
   onViewModeClick: () => void;
   onSceneFallbackTo2D: () => void;
-  handleToggleDashboard: () => void;
   handleToggleKanban: () => void;
   onLayoutMetricsChange: (metrics: { leftPanelWidth: number; rightPanelWidth: number }) => void;
   handleSelectEmployee: (id: string | null) => void;
@@ -55,21 +54,8 @@ export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeSta
     [updateWorkspaceState],
   );
 
-  const handleToggleDashboard = useCallback(
-    () =>
-      updateWorkspaceState('office', (prev) => {
-        const next = !prev.dashboardOpen;
-        return { ...prev, dashboardOpen: next, kanbanOpen: next ? false : prev.kanbanOpen };
-      }),
-    [updateWorkspaceState],
-  );
-
   const handleToggleKanban = useCallback(
-    () =>
-      updateWorkspaceState('office', (prev) => {
-        const next = !prev.kanbanOpen;
-        return { ...prev, kanbanOpen: next, dashboardOpen: next ? false : prev.dashboardOpen };
-      }),
+    () => updateWorkspaceState('office', (prev) => ({ ...prev, kanbanOpen: !prev.kanbanOpen })),
     [updateWorkspaceState],
   );
 
@@ -123,7 +109,6 @@ export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeSta
     onViewModeChange,
     onViewModeClick,
     onSceneFallbackTo2D,
-    handleToggleDashboard,
     handleToggleKanban,
     onLayoutMetricsChange,
     handleSelectEmployee,

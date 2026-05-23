@@ -158,7 +158,7 @@ export function ErrorBanner({
       {/* Error details panel */}
       {showDetails && (
         <div className="border-t border-error/20 px-4 pb-3">
-          <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto rounded bg-surface-elevated p-3 font-pixel-mono text-caption text-text-primary">
+          <div className="mt-2 max-h-48 flex flex-col gap-1.5 overflow-y-auto rounded bg-surface-elevated p-3 font-pixel-mono text-caption text-text-primary">
             <div>
               <span className="text-error">Error Message:</span>{' '}
               <span className="break-all">{message}</span>
@@ -192,17 +192,17 @@ export function ErrorBanner({
               </>
             )}
             {hasHistory && errorHistory.length > 1 && (
-              <div className="mt-2 pt-2 border-t border-ocean-light/30">
-                <span className="text-coral">Error History ({errorHistory.length} total):</span>
+              <div className="mt-2 pt-2 border-t border-line">
+                <span className="text-warning">Error History ({errorHistory.length} total):</span>
                 {errorHistory
                   .slice(-5)
                   .reverse()
                   .map((err, i) => (
                     <div
                       key={`${err.timestamp}-${i}`}
-                      className="mt-1 pl-2 border-l border-ocean-light/20"
+                      className="mt-1 pl-2 border-l border-line"
                     >
-                      <span className="text-shell/60">
+                      <span className="text-ink-2/60">
                         [{new Date(err.timestamp).toLocaleTimeString()}]
                       </span>{' '}
                       {err.nodeName}: {err.message}

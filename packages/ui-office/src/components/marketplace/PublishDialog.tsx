@@ -358,7 +358,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         className="border-border-default bg-surface-elevated text-text-primary"
       >
         <div className="grid gap-8 lg:grid-publish-dialog">
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             <Field
               label={
                 <span className="flex items-center gap-1.5">
@@ -385,7 +385,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
               />
             </Field>
 
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               {hasMultipleKinds && (
                 <Field label="Kind" htmlFor="publish-kind">
                   <Select value={kind} onValueChange={(value) => setKind(value as PublishKind)}>
@@ -498,12 +498,12 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
             </div>
           </div>
 
-          <aside className="space-y-6 lg:border-l lg:border-border-subtle lg:pl-6">
+          <aside className="flex flex-col gap-6 lg:border-l lg:border-border-subtle lg:pl-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
                 Draft preview
               </p>
-              <dl className="mt-3 space-y-1.5 text-xs">
+              <dl className="mt-3 flex flex-col gap-1.5 text-xs">
                 <DraftRow label="Title" value={form.title || 'Untitled package'} />
                 <DraftRow label="Version" value={form.version} />
                 <DraftRow
@@ -522,7 +522,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
               ) : drafts.length === 0 ? (
                 <p className="mt-3 text-xs text-text-muted">No drafts yet.</p>
               ) : (
-                <ul className="mt-3 space-y-2">
+                <ul className="mt-3 flex flex-col gap-2">
                   {drafts.slice(0, 5).map((draft) => (
                     <li
                       key={draft.draft_id}
@@ -559,7 +559,7 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="flex flex-col gap-1.5">
       <label htmlFor={htmlFor} className="text-xs font-medium text-text-secondary">
         {label}
       </label>

@@ -107,7 +107,7 @@ export function ErrorState({
           <summary className="cursor-pointer text-xs text-text-muted hover:text-text-primary">
             Show technical detail
           </summary>
-          <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-text-secondary">
+          <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-all font-mono text-fs-meta leading-relaxed text-text-secondary">
             {technicalDetail}
           </div>
         </details>

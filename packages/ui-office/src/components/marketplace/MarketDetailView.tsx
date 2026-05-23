@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { packageInstallKey } from '../../hooks/useInstalledListings.js';
 import { PermissionsBlock } from './PermissionsBlock.js';
-import { getRarityColor } from './market-rarity.js';
+import { getRarityClasses } from './market-rarity.js';
 import { INSTALLABLE_KINDS, KIND_ICON, formatInstallCount } from './marketplace-meta.js';
 
 export interface MarketDetailViewProps {
@@ -24,26 +24,18 @@ export interface MarketDetailViewProps {
   readonly installedPackageKeys?: ReadonlySet<string>;
 }
 
-function DetailSkeleton({ compact }: { compact: boolean }) {
+const CAPS_LABEL = 'text-fs-meta font-semibold uppercase tracking-wide text-ink-3';
+const CHIP =
+  'inline-flex h-5 items-center rounded-r-pill bg-surface-sunken px-2 text-fs-meta font-medium text-ink-3';
+
+function DetailSkeleton() {
   return (
-    <div className={cn('flex h-full', compact && 'flex-col overflow-y-auto')}>
-      <div className={cn('flex flex-col gap-4 p-8', compact ? 'w-full' : 'w-3/5')}>
-        <Skeleton className="h-7 w-24 rounded-full" />
-        <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-5 w-full" />
-        <Skeleton className="mt-6 h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
-      </div>
-      <div
-        className={cn(
-          'flex flex-col gap-4 p-8',
-          compact ? 'w-full border-t border-border-subtle' : 'w-2/5 border-l border-border-subtle',
-        )}
-      >
-        <Skeleton className="h-5 w-1/2" />
-        <Skeleton className="h-5 w-1/3" />
-        <Skeleton className="h-10 w-full" />
-      </div>
+    <div className="flex flex-col gap-4 p-sp-7">
+      <Skeleton className="h-6 w-2/3 rounded-r-xs" />
+      <Skeleton className="h-4 w-full rounded-r-xs" />
+      <Skeleton className="aspect-video w-full rounded-r-md" />
+      <Skeleton className="h-20 w-full rounded-r-md" />
+      <Skeleton className="h-9 w-full rounded-r-md" />
     </div>
   );
 }
@@ -58,41 +50,37 @@ export function MarketDetailView({
   installedListingIds,
   installedPackageKeys,
 }: MarketDetailViewProps) {
-  const compact = layout !== 'full';
+  const panelBorder = layout === 'panel' ? 'border-l border-line shadow-elev-2' : '';
+
   if (loading) {
     return (
-      <div className="relative h-full">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={onBack}
-          className="absolute left-4 top-4 z-10 gap-1.5"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Back
-        </Button>
-        <DetailSkeleton compact={compact} />
+      <div className={`flex h-full min-h-0 flex-col bg-surface-1 ${panelBorder}`}>
+        <DetailHead onBack={onBack} kindChip={null} />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <DetailSkeleton />
+        </div>
       </div>
     );
   }
 
   if (unavailable || !detail) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-surface text-text-primary">
-        <p className="text-lg font-semibold text-text-primary">Listing unavailable</p>
-        <p className="text-sm text-text-secondary">
-          This package may have been removed or is no longer accessible.
-        </p>
-        <Button type="button" variant="secondary" onClick={onBack} className="gap-1.5">
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Back
-        </Button>
+      <div className={`flex h-full min-h-0 flex-col bg-surface-1 ${panelBorder}`}>
+        <DetailHead onBack={onBack} kindChip={null} />
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-sp-7 text-center">
+          <p className="text-fs-lg font-semibold text-ink-1">Listing unavailable</p>
+          <p className="text-fs-sm text-ink-3">
+            This package may have been removed or is no longer accessible.
+          </p>
+          <Button type="button" variant="secondary" onClick={onBack} className="gap-1.5">
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Back
+          </Button>
+        </div>
       </div>
     );
   }
 
-  const rarity = getRarityColor(detail.kind);
   const Icon = KIND_ICON[detail.kind];
   const version = typeof detail.version === 'string' ? detail.version : detail.version.version;
   const isInstallable = INSTALLABLE_KINDS.has(detail.kind);
@@ -103,175 +91,173 @@ export function MarketDetailView({
     : false;
   const isInstalled =
     isInstallable && ((installedListingIds?.has(detail.listing_id) ?? false) || installedByPackage);
+  const verified = detail.creator.verification_state !== 'unverified';
+  const rarity = getRarityClasses(detail.kind);
 
   return (
-    <div
-      className={cn(
-        'flex h-full flex-col bg-surface text-text-primary',
-        compact && 'overflow-y-auto',
-      )}
-    >
-      <header className="flex shrink-0 items-center gap-3 border-b border-border-subtle px-6 py-3">
-        <Button type="button" variant="ghost" size="sm" onClick={onBack} className="gap-1.5 px-2">
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Back
-        </Button>
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-caption font-medium ${rarity.badge}`}
-        >
-          {Icon && <Icon className="size-3.5" aria-hidden="true" />}
-          {detail.kind}
-        </span>
-      </header>
+    <div className={`flex h-full min-h-0 flex-col bg-surface-1 text-ink-1 ${panelBorder}`}>
+      <DetailHead
+        onBack={onBack}
+        kindChip={
+          <span
+            className={cn(
+              'inline-flex h-5 items-center gap-1.5 rounded-r-pill border px-2 text-fs-meta font-bold uppercase tracking-wide',
+              rarity.accent,
+              rarity.accentBorder,
+              rarity.surface,
+            )}
+          >
+            {Icon && <Icon className="size-3" aria-hidden="true" />}
+            {detail.kind}
+          </span>
+        }
+      />
 
-      <div className={cn('flex min-h-0 flex-1', compact && 'flex-col overflow-y-auto')}>
-        {/* Left: Hero area */}
-        <div className={cn('overflow-y-auto px-8 py-6', compact ? 'w-full' : 'w-3/5')}>
-          <h1 className="text-2xl font-semibold text-text-primary">{detail.title}</h1>
-          <p className="mt-1.5 text-sm text-text-secondary">{detail.summary}</p>
-
-          <ScreenshotCarousel previews={detail.previews} fallbackTitle={detail.title} />
-
-          {detail.tags && detail.tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {detail.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-surface-muted px-2.5 py-0.5 text-caption text-text-secondary"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {detail.description && (
-            <Section title="Description">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
-                {detail.description}
-              </div>
-            </Section>
-          )}
-
-          {detail.version.changelog && (
-            <Section title="Changelog">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
-                {detail.version.changelog}
-              </div>
-            </Section>
-          )}
-
-          <RequirementsSection requirements={detail.requirements} />
-
-          <LineageSection lineage={detail.lineage} />
-        </div>
-
-        {/* Right: Metadata */}
-        <div
-          className={cn(
-            'overflow-y-auto px-8 py-6',
-            compact
-              ? 'w-full border-t border-border-subtle'
-              : 'w-2/5 border-l border-border-subtle',
-          )}
-        >
-          <dl className="flex flex-col gap-3 text-sm">
-            <MetaRow label="Version" value={version} />
-            <div>
-              <dt className="text-caption uppercase tracking-wide text-text-muted">Creator</dt>
-              <dd className="mt-0.5 flex items-center gap-1.5 text-text-primary">
-                <span>{detail.creator.display_name}</span>
-                <span className="text-text-muted">@{detail.creator.handle}</span>
-                {detail.creator.verification_state !== 'unverified' && (
-                  <span
-                    className="inline-block size-1.5 rounded-full bg-info"
-                    title={
-                      detail.creator.verification_state === 'trusted'
-                        ? 'Trusted creator'
-                        : 'Verified creator'
-                    }
-                  />
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-caption uppercase tracking-wide text-text-muted">Rating</dt>
-              <dd className="mt-0.5 inline-flex items-center gap-1 text-text-primary">
-                <Star className="size-3.5 fill-current text-warning" aria-hidden="true" />
-                {detail.rating.toFixed(1)}
-              </dd>
-            </div>
-            <MetaRow label="Installs" value={formatInstallCount(detail.install_count)} />
-            {detail.version.published_at && (
-              <MetaRow
-                label="Published"
-                value={new Date(detail.version.published_at).toLocaleDateString()}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-sp-7">
+        <div>
+          <h1 className="text-fs-lg font-bold text-ink-1">{detail.title}</h1>
+          <p className="mt-1 text-fs-sm leading-relaxed text-ink-3">{detail.summary}</p>
+          <div className="mt-2 flex items-center gap-1.5 font-mono text-fs-meta text-ink-4">
+            {verified && (
+              <span
+                className="inline-block size-1.5 rounded-full bg-accent"
+                title={
+                  detail.creator.verification_state === 'trusted'
+                    ? 'Trusted creator'
+                    : 'Verified creator'
+                }
               />
             )}
-          </dl>
-
-          {isInstallable ? (
-            isInstalled ? (
-              <Button
-                type="button"
-                disabled
-                variant="secondary"
-                className="mt-5 w-full cursor-not-allowed"
-              >
-                Installed
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={() =>
-                  onInstall(
-                    detail.listing_id,
-                    typeof detail.version === 'string' ? detail.version : detail.version.version,
-                  )
-                }
-                className={`mt-5 w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${rarity.accent}`}
-              >
-                Install
-              </Button>
-            )
-          ) : (
-            <p className="mt-5 text-center text-caption text-text-muted">
-              Install not supported for {detail.kind}.
-            </p>
-          )}
-
-          <div className="mt-5">
-            <PermissionsBlock permissions={detail.permissions} variant="wide" />
+            <span className="text-ink-3">@{detail.creator.handle}</span>
+            <span>·</span>
+            <span>{detail.creator.display_name}</span>
           </div>
-
-          {typeof detail.version !== 'string' && detail.version.runtime_range && (
-            <div className="mt-5 text-caption">
-              <span className="text-text-muted">Runtime · </span>
-              <span className="text-text-secondary">{detail.version.runtime_range}</span>
-            </div>
-          )}
         </div>
+
+        <ScreenshotCarousel previews={detail.previews} fallbackTitle={detail.title} />
+
+        {detail.tags && detail.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {detail.tags.map((tag) => (
+              <span key={tag} className={CHIP}>
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <dl className="grid grid-cols-2 gap-x-sp-5 gap-y-2.5 rounded-r-md border border-line-soft bg-surface-2 p-sp-5">
+          <MetaRow label="Version" value={version} mono />
+          <MetaRow label="Installs" value={formatInstallCount(detail.install_count)} mono />
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <dt className={CAPS_LABEL}>Rating</dt>
+            <dd className="flex items-center gap-1 text-fs-sm text-ink-1">
+              <Star className="size-3.5 fill-current text-warn" aria-hidden="true" />
+              {detail.rating.toFixed(1)}
+            </dd>
+          </div>
+          {detail.version.published_at && (
+            <MetaRow
+              label="Published"
+              value={new Date(detail.version.published_at).toLocaleDateString()}
+              mono
+            />
+          )}
+        </dl>
+
+        {isInstallable ? (
+          isInstalled ? (
+            <Button
+              type="button"
+              disabled
+              variant="secondary"
+              className="w-full cursor-not-allowed gap-1.5 rounded-r-md bg-surface-sunken text-fs-sm font-semibold text-ink-4"
+            >
+              Installed
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={() => onInstall(detail.listing_id, version)}
+              className={cn(
+                'w-full gap-1.5 rounded-r-md border-0 text-fs-sm font-semibold text-accent-fg',
+                rarity.accentBg,
+              )}
+            >
+              Install
+            </Button>
+          )
+        ) : (
+          <div className="rounded-r-md border border-dashed border-line bg-surface-sunken px-3 py-2.5 text-center text-fs-meta text-ink-3">
+            Install not supported for {detail.kind}.
+          </div>
+        )}
+
+        <PermissionsBlock permissions={detail.permissions} variant="wide" />
+
+        {detail.description && (
+          <Section title="Description">
+            <p className="whitespace-pre-wrap text-fs-sm leading-relaxed text-ink-2">
+              {detail.description}
+            </p>
+          </Section>
+        )}
+
+        {detail.version.changelog && (
+          <Section title="Changelog">
+            <p className="whitespace-pre-wrap text-fs-sm leading-relaxed text-ink-2">
+              {detail.version.changelog}
+            </p>
+          </Section>
+        )}
+
+        <RequirementsSection requirements={detail.requirements} />
+
+        <LineageSection lineage={detail.lineage} />
+
+        {typeof detail.version !== 'string' && detail.version.runtime_range && (
+          <div className="flex items-center justify-between text-fs-meta text-ink-3">
+            <span>Runtime</span>
+            <span className="font-mono text-ink-1">{detail.version.runtime_range}</span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+function DetailHead({ onBack, kindChip }: { onBack: () => void; kindChip: ReactNode }) {
   return (
-    <div>
-      <dt className="text-caption uppercase tracking-wide text-text-muted">{label}</dt>
-      <dd className="mt-0.5 text-text-primary">{value}</dd>
+    <header className="flex h-12 flex-none items-center gap-2 border-b border-line px-sp-5">
+      <Button
+        type="button"
+        onClick={onBack}
+        variant="ghost"
+        size="sm"
+        className="gap-1.5 rounded-r-sm text-fs-sm font-medium text-ink-3 hover:bg-surface-sunken hover:text-ink-1"
+      >
+        <ArrowLeft className="size-3.5" aria-hidden="true" />
+        Back
+      </Button>
+      {kindChip}
+    </header>
+  );
+}
+
+function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className={CAPS_LABEL}>{label}</dt>
+      <dd className={`truncate text-fs-sm text-ink-1 ${mono ? 'font-mono' : ''}`}>{value}</dd>
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mt-5 border-t border-border-subtle pt-5">
-      <h2 className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
-        {title}
-      </h2>
-      <div className="mt-2">{children}</div>
+    <div className="flex flex-col gap-1.5 border-t border-line-soft pt-sp-5">
+      <h2 className={CAPS_LABEL}>{title}</h2>
+      {children}
     </div>
   );
 }
@@ -291,8 +277,8 @@ function ScreenshotCarousel({
   const goPrev = () => setIndex((i) => (i === 0 ? images.length - 1 : i - 1));
   const goNext = () => setIndex((i) => (i === images.length - 1 ? 0 : i + 1));
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-border-subtle bg-surface-muted">
-      <div className="relative aspect-[16/9] w-full">
+    <div className="overflow-hidden rounded-r-md border border-line-soft bg-surface-sunken">
+      <div className="relative aspect-video w-full">
         <img
           src={active.url}
           alt={active.alt ?? fallbackTitle}
@@ -303,21 +289,21 @@ function ScreenshotCarousel({
           <>
             <Button
               type="button"
-              variant="secondary"
-              size="icon"
               onClick={goPrev}
               aria-label="Previous screenshot"
-              className="absolute left-2 top-1/2 size-8 -translate-y-1/2 rounded-full bg-surface-elevated/80 text-text-primary backdrop-blur"
+              variant="secondary"
+              size="icon"
+              className="absolute left-2 top-1/2 size-7 -translate-y-1/2 rounded-full bg-surface-1/90 text-ink-1 shadow-elev-1 backdrop-blur"
             >
               <ChevronLeft className="size-4" aria-hidden="true" />
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              size="icon"
               onClick={goNext}
               aria-label="Next screenshot"
-              className="absolute right-2 top-1/2 size-8 -translate-y-1/2 rounded-full bg-surface-elevated/80 text-text-primary backdrop-blur"
+              variant="secondary"
+              size="icon"
+              className="absolute right-2 top-1/2 size-7 -translate-y-1/2 rounded-full bg-surface-1/90 text-ink-1 shadow-elev-1 backdrop-blur"
             >
               <ChevronRight className="size-4" aria-hidden="true" />
             </Button>
@@ -327,10 +313,11 @@ function ScreenshotCarousel({
                   key={preview.url}
                   type="button"
                   variant="ghost"
+                  size="icon"
                   onClick={() => setIndex(i)}
                   aria-label={`Show screenshot ${i + 1}`}
-                  className={`h-1.5 w-1.5 rounded-full border-0 p-0 transition ${
-                    i === index ? 'bg-text-primary' : 'bg-text-muted/40'
+                  className={`size-2 rounded-full border-0 p-0 transition-colors ${
+                    i === index ? 'bg-white' : 'bg-white/45'
                   }`}
                 />
               ))}
@@ -353,18 +340,13 @@ function RequirementsSection({
   if (caps.length === 0 && mcps.length === 0 && models.length === 0) return null;
   return (
     <Section title="Requirements">
-      <div className="flex flex-col gap-2 text-sm">
+      <div className="flex flex-col gap-2">
         {caps.length > 0 && (
           <div className="flex flex-wrap items-baseline gap-2">
-            <span className="text-caption uppercase tracking-wide text-text-muted">
-              Capabilities
-            </span>
+            <span className={CAPS_LABEL}>Capabilities</span>
             <div className="flex flex-wrap gap-1">
               {caps.map((c) => (
-                <span
-                  key={c}
-                  className="rounded-full bg-surface-muted px-2 py-0.5 text-caption text-text-secondary"
-                >
+                <span key={c} className={CHIP}>
                   {c}
                 </span>
               ))}
@@ -373,13 +355,10 @@ function RequirementsSection({
         )}
         {mcps.length > 0 && (
           <div className="flex flex-wrap items-baseline gap-2">
-            <span className="text-caption uppercase tracking-wide text-text-muted">MCPs</span>
+            <span className={CAPS_LABEL}>MCPs</span>
             <div className="flex flex-wrap gap-1">
               {mcps.map((m) => (
-                <span
-                  key={m}
-                  className="rounded-full bg-surface-muted px-2 py-0.5 text-caption text-text-secondary"
-                >
+                <span key={m} className={`${CHIP} font-mono text-ink-2`}>
                   {m}
                 </span>
               ))}
@@ -388,12 +367,12 @@ function RequirementsSection({
         )}
         {models.length > 0 && (
           <div className="flex flex-wrap items-baseline gap-2">
-            <span className="text-caption uppercase tracking-wide text-text-muted">Models</span>
+            <span className={CAPS_LABEL}>Models</span>
             <div className="flex flex-wrap gap-1">
               {models.map((m) => (
                 <span
                   key={m.profile}
-                  className="rounded-full bg-surface-muted px-2 py-0.5 text-caption text-text-secondary"
+                  className={`${CHIP} font-mono text-ink-2`}
                   title={m.reason ?? undefined}
                 >
                   {m.profile}
@@ -419,23 +398,23 @@ function LineageSection({ lineage }: { lineage: ListingDetail['lineage'] }) {
   }
   return (
     <Section title="Lineage">
-      <div className="flex flex-col gap-1 text-sm text-text-secondary">
+      <div className="flex flex-col gap-1 text-fs-sm leading-relaxed text-ink-2">
         {origin_package_id && (
           <div>
-            <span className="text-text-muted">Origin: </span>
-            <span className="font-mono text-text-primary">{origin_package_id}</span>
+            <span className="text-ink-4">Origin: </span>
+            <span className="font-mono text-ink-1">{origin_package_id}</span>
           </div>
         )}
         {forked_from_version && (
           <div>
-            <span className="text-text-muted">Forked from: </span>
-            <span className="font-mono text-text-primary">{forked_from_version}</span>
+            <span className="text-ink-4">Forked from: </span>
+            <span className="font-mono text-ink-1">{forked_from_version}</span>
           </div>
         )}
         {derivative_of && derivative_of.length > 0 && (
           <div>
-            <span className="text-text-muted">Derivative of: </span>
-            <span className="font-mono text-text-primary">{derivative_of.join(', ')}</span>
+            <span className="text-ink-4">Derivative of: </span>
+            <span className="font-mono text-ink-1">{derivative_of.join(', ')}</span>
           </div>
         )}
       </div>

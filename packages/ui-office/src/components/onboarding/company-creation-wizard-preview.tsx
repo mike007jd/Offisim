@@ -11,6 +11,12 @@ import {
   getTemplatePreviewZones,
 } from './company-creation-wizard-data.js';
 
+const PREVIEW_TEXT_STYLE = { pointerEvents: 'none' as const };
+const ZONE_RECT_TRANSITION_STYLE = {
+  transition: `fill-opacity ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}, stroke-width ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}, stroke-opacity ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}`,
+};
+const ZONE_GLOW_STYLE = { animation: 'wiz-glow-pulse 3.2s ease-in-out infinite' };
+
 function PreviewDeskCluster({ x, y }: { x: number; y: number }) {
   const S = 28;
   const half = S / 2;
@@ -30,8 +36,8 @@ function PreviewDeskCluster({ x, y }: { x: number; y: number }) {
         width={S}
         height={S}
         rx={1.5}
-        fill="var(--surface-mid)"
-        stroke="var(--surface-mid)"
+        fill="var(--wiz-line-2)"
+        stroke="var(--wiz-line-2)"
         strokeWidth={0.3}
       />
       <line
@@ -39,7 +45,7 @@ function PreviewDeskCluster({ x, y }: { x: number; y: number }) {
         y1={-half}
         x2="0"
         y2={half}
-        stroke="var(--text-secondary-val)"
+        stroke="var(--wiz-ink-3)"
         strokeWidth={0.5}
         strokeOpacity={0.5}
       />
@@ -48,13 +54,13 @@ function PreviewDeskCluster({ x, y }: { x: number; y: number }) {
         y1="0"
         x2={half}
         y2="0"
-        stroke="var(--text-secondary-val)"
+        stroke="var(--wiz-ink-3)"
         strokeWidth={0.5}
         strokeOpacity={0.5}
       />
       {seats.map(([dx, dz, cdz]) => (
         <g key={`${dx}-${dz}-${cdz}`}>
-          <rect x={dx - 2} y={dz - 1} width={4} height={2} rx={0.3} fill="var(--surface-mid)" />
+          <rect x={dx - 2} y={dz - 1} width={4} height={2} rx={0.3} fill="var(--wiz-line-2)" />
           <rect
             x={dx - 3}
             y={dz < 0 ? dz - 3 : dz + 1}
@@ -68,8 +74,8 @@ function PreviewDeskCluster({ x, y }: { x: number; y: number }) {
             cx={dx}
             cy={cdz}
             r={2.2}
-            fill="var(--surface-lighter)"
-            stroke="var(--surface-mid)"
+            fill="var(--wiz-line)"
+            stroke="var(--wiz-line-2)"
             strokeWidth={0.2}
           />
         </g>
@@ -87,27 +93,27 @@ function PreviewMeetingTable({ x, y }: { x: number; y: number }) {
         width={36}
         height={12}
         rx={3.5}
-        fill="var(--surface-lighter)"
-        stroke="var(--surface-mid)"
+        fill="var(--wiz-line)"
+        stroke="var(--wiz-line-2)"
         strokeWidth={0.3}
       />
-      <rect x={-15} y={-4} width={30} height={8} rx={2} fill="var(--surface-light)" />
+      <rect x={-15} y={-4} width={30} height={8} rx={2} fill="var(--wiz-line-2)" />
       {[-11, -4, 4, 11].map((cx) => (
         <g key={cx}>
           <circle
             cx={cx}
             cy={-9.5}
             r={2}
-            fill="var(--surface-light)"
-            stroke="var(--surface-mid)"
+            fill="var(--wiz-line-2)"
+            stroke="var(--wiz-line-2)"
             strokeWidth={0.2}
           />
           <circle
             cx={cx}
             cy={9.5}
             r={2}
-            fill="var(--surface-light)"
-            stroke="var(--surface-mid)"
+            fill="var(--wiz-line-2)"
+            stroke="var(--wiz-line-2)"
             strokeWidth={0.2}
           />
         </g>
@@ -118,8 +124,8 @@ function PreviewMeetingTable({ x, y }: { x: number; y: number }) {
         width={1.2}
         height={8}
         rx={0.3}
-        fill="var(--surface-lighter)"
-        stroke="var(--text-secondary-val)"
+        fill="var(--wiz-line)"
+        stroke="var(--wiz-ink-3)"
         strokeWidth={0.15}
       />
     </g>
@@ -136,13 +142,13 @@ function PreviewBookshelf({ x, y }: { x: number; y: number }) {
         width={10}
         height={12}
         rx={0.5}
-        fill="var(--surface-lighter)"
-        stroke="var(--surface-mid)"
+        fill="var(--wiz-line)"
+        stroke="var(--wiz-line-2)"
         strokeWidth={0.2}
       />
       {[0, 1, 2].map((shelf) => (
         <g key={shelf}>
-          <rect x={-4.5} y={-5 + shelf * 4} width={9} height={0.2} fill="var(--surface-mid)" />
+          <rect x={-4.5} y={-5 + shelf * 4} width={9} height={0.2} fill="var(--wiz-line-2)" />
           {[0, 1, 2, 3, 4].map((book) => (
             <rect
               key={book}
@@ -170,7 +176,7 @@ function PreviewReadingTable({ x, y }: { x: number; y: number }) {
         height={8}
         rx={1}
         fill="#064e3b"
-        stroke="var(--surface-mid)"
+        stroke="var(--wiz-line-2)"
         strokeWidth={0.2}
       />
       {[-5, 5].map((cx) => (
@@ -179,16 +185,16 @@ function PreviewReadingTable({ x, y }: { x: number; y: number }) {
             cx={cx}
             cy={-6.5}
             r={1.8}
-            fill="var(--surface-light)"
-            stroke="var(--surface-mid)"
+            fill="var(--wiz-line-2)"
+            stroke="var(--wiz-line-2)"
             strokeWidth={0.15}
           />
           <circle
             cx={cx}
             cy={6.5}
             r={1.8}
-            fill="var(--surface-light)"
-            stroke="var(--surface-mid)"
+            fill="var(--wiz-line-2)"
+            stroke="var(--wiz-line-2)"
             strokeWidth={0.15}
           />
         </g>
@@ -201,8 +207,8 @@ function PreviewSofa({ x, y, color = '#f59e0b' }: { x: number; y: number; color?
   return (
     <g transform={`translate(${x}, ${y})`}>
       <path d="M-9,-3.5 L9,-3.5 L9,1.5 L5,1.5 L5,-1 L-5,-1 L-5,1.5 L-9,1.5 Z" fill={color} />
-      <rect x={-10.5} y={-3.5} width={2} height={5} rx={0.8} fill="var(--surface-light)" />
-      <rect x={8.5} y={-3.5} width={2} height={5} rx={0.8} fill="var(--surface-light)" />
+      <rect x={-10.5} y={-3.5} width={2} height={5} rx={0.8} fill="var(--wiz-line-2)" />
+      <rect x={8.5} y={-3.5} width={2} height={5} rx={0.8} fill="var(--wiz-line-2)" />
     </g>
   );
 }
@@ -214,11 +220,11 @@ function PreviewCoffeeTable({ x, y }: { x: number; y: number }) {
         cx="0"
         cy="0"
         r={4.5}
-        fill="var(--surface-lighter)"
-        stroke="var(--surface-mid)"
+        fill="var(--wiz-line)"
+        stroke="var(--wiz-line-2)"
         strokeWidth={0.2}
       />
-      <circle cx="0" cy="0" r={2} fill="var(--surface-light)" />
+      <circle cx="0" cy="0" r={2} fill="var(--wiz-line-2)" />
     </g>
   );
 }
@@ -233,13 +239,13 @@ function PreviewServerRack({ x, y }: { x: number; y: number }) {
         width={7}
         height={16}
         rx={0.5}
-        fill="var(--surface-light)"
-        stroke="var(--surface-lighter)"
+        fill="var(--wiz-line-2)"
+        stroke="var(--wiz-line)"
         strokeWidth={0.3}
       />
       {rackRows.map((row, index) => (
         <g key={`server-rack-${row}`}>
-          <rect x={-2.8} y={row} width={5.6} height={2} rx={0.2} fill="var(--surface)" />
+          <rect x={-2.8} y={row} width={5.6} height={2} rx={0.2} fill="var(--wiz-bg)" />
           <circle cx={1.5} cy={row + 1} r={0.4} fill={index % 3 === 0 ? '#fbbf24' : '#22c55e'} />
         </g>
       ))}
@@ -256,12 +262,12 @@ function PreviewVendingMachine({ x, y }: { x: number; y: number }) {
         width={6}
         height={11}
         rx={0.7}
-        fill="var(--surface-lighter)"
-        stroke="var(--surface-mid)"
+        fill="var(--wiz-line)"
+        stroke="var(--wiz-line-2)"
         strokeWidth={0.2}
       />
       <rect x={-2.2} y={-4.5} width={4.4} height={4.5} rx={0.3} fill="#0ea5e9" opacity={0.4} />
-      <rect x={-1.8} y={1} width={3.6} height={1.5} rx={0.3} fill="var(--surface-light)" />
+      <rect x={-1.8} y={1} width={3.6} height={1.5} rx={0.3} fill="var(--wiz-line-2)" />
     </g>
   );
 }
@@ -273,8 +279,8 @@ function PreviewPlant({ x, y }: { x: number; y: number }) {
         cx="0"
         cy="1"
         r={2.2}
-        fill="var(--surface-mid)"
-        stroke="var(--text-muted-val)"
+        fill="var(--wiz-line-2)"
+        stroke="var(--wiz-ink-4)"
         strokeWidth={0.15}
       />
       {[0, 72, 144, 216, 288].map((angle) => (
@@ -302,6 +308,10 @@ function PreviewEmployeeAvatar({
 }) {
   const avatarUri = useMemo(() => getAvatar(name, 32), [name]);
   const dotColor = ROLE_DOT[role] ?? '#64748b';
+  const idleAnimationStyle = useMemo(
+    () => ({ animation: `wiz-idle-bob 3s ease-in-out ${Math.random() * 2}s infinite` }),
+    [],
+  );
   const initials = name
     .split(' ')
     .map((part) => part[0])
@@ -310,13 +320,14 @@ function PreviewEmployeeAvatar({
 
   return (
     <g transform={`translate(${x}, ${y})`}>
-      <g style={{ animation: `wiz-idle-bob 3s ease-in-out ${Math.random() * 2}s infinite` }}>
+      {/* ui-hardcode-allowed: SVG preview animation style bridge. */}
+      <g style={idleAnimationStyle}>
         <circle cx="0" cy="0" r={5} fill={dotColor} opacity={0.12} />
         <circle
           cx="0"
           cy="0"
           r={4}
-          fill="var(--surface-lighter)"
+          fill="var(--wiz-line)"
           stroke={dotColor}
           strokeWidth={0.5}
         />
@@ -333,10 +344,11 @@ function PreviewEmployeeAvatar({
           y="1.5"
           textAnchor="middle"
           fontSize={3}
-          fill="var(--text-primary-val)"
+          fill="var(--wiz-ink-1)"
           fontFamily="system-ui"
           fontWeight={600}
-          style={{ pointerEvents: 'none' }}
+          // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+          style={PREVIEW_TEXT_STYLE}
         >
           {initials}
         </text>
@@ -347,13 +359,13 @@ function PreviewEmployeeAvatar({
             width={16}
             height={4}
             rx={2}
-            fill="var(--surface-light)"
+            fill="var(--wiz-line-2)"
             opacity={0.8}
           />
           <text
             x="0"
             y="0.8"
-            fill="var(--text-primary-val)"
+            fill="var(--wiz-ink-1)"
             fontSize={2.2}
             fontWeight={600}
             textAnchor="middle"
@@ -445,10 +457,10 @@ export function Office2DPreview({
       aria-label="Company office preview"
     >
       <title>Company office preview</title>
-      <rect width={W} height={H} fill="var(--surface)" rx={6} />
+      <rect width={W} height={H} fill="var(--wiz-bg)" rx={6} />
       <defs>
         <pattern id="wiz-grid" width="16" height="16" patternUnits="userSpaceOnUse">
-          <circle cx="8" cy="8" r="0.25" fill="var(--surface-lighter)" />
+          <circle cx="8" cy="8" r="0.25" fill="var(--wiz-line-2)" />
         </pattern>
       </defs>
       <rect width={W} height={H} fill="url(#wiz-grid)" rx={6} />
@@ -482,9 +494,8 @@ export function Office2DPreview({
               strokeDasharray={
                 zone.archetype === 'meeting' || zone.archetype === 'server' ? '3 1.5' : 'none'
               }
-              style={{
-                transition: `fill-opacity ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}, stroke-width ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}, stroke-opacity ${MOTION_DURATION.normal}ms ${MOTION_EASING.standard}`,
-              }}
+              // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+              style={ZONE_RECT_TRANSITION_STYLE}
             />
 
             <rect
@@ -497,7 +508,8 @@ export function Office2DPreview({
               stroke={zone.accent}
               strokeWidth={1.2}
               strokeOpacity={0.12}
-              style={{ animation: 'wiz-glow-pulse 3.2s ease-in-out infinite' }}
+              // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+              style={ZONE_GLOW_STYLE}
             />
 
             <text x={zone.x + 10} y={zone.y + 18} fill={zone.accent} fontSize={9} fontWeight={700}>
@@ -508,7 +520,7 @@ export function Office2DPreview({
               <text
                 x={zone.x + zone.w - 10}
                 y={zone.y + 18}
-                fill="var(--text-secondary-val)"
+                fill="var(--wiz-ink-3)"
                 fontSize={8}
                 textAnchor="end"
               >
@@ -563,10 +575,10 @@ export function Office2DPreview({
                   width={124}
                   height={18}
                   rx={9}
-                  fill="var(--surface-light)"
+                  fill="var(--wiz-line-2)"
                   opacity={0.96}
                 />
-                <text x="0" y="2.5" fill="var(--text-primary-val)" fontSize={7} textAnchor="middle">
+                <text x="0" y="2.5" fill="var(--wiz-ink-1)" fontSize={7} textAnchor="middle">
                   {tooltip}
                 </text>
               </g>

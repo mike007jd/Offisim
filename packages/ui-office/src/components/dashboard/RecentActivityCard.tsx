@@ -62,29 +62,29 @@ export function RecentActivityCard() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-shell">
+        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-ink-2">
           Recent Activity
         </CardTitle>
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <div className="text-xs text-shell/60">No activity yet.</div>
+          <div className="text-xs text-ink-2/60">No activity yet.</div>
         ) : (
           <div ref={scrollRef} className="flex flex-col gap-1 max-h-48 overflow-y-auto">
             {items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between gap-2 rounded px-1.5 py-1 hover:bg-ocean-mid/20"
+                className="flex items-center justify-between gap-2 rounded px-1.5 py-1 hover:bg-surface-sunken/20"
               >
                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
                   <Badge variant="secondary" className="text-caption shrink-0">
                     {shortenEventType(item.eventType)}
                   </Badge>
-                  <span className="text-caption text-sand font-pixel-mono truncate">
+                  <span className="text-caption text-ink-1 font-pixel-mono truncate">
                     {item.entityName}
                   </span>
                 </div>
-                <span className="text-caption text-shell/50 font-pixel-mono shrink-0">
+                <span className="text-caption text-ink-2/50 font-pixel-mono shrink-0">
                   {formatTime(item.timestamp)}
                 </span>
               </div>

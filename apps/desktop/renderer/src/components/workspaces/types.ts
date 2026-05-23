@@ -1,4 +1,5 @@
 import type { AssetKind } from '@offisim/asset-schema';
+import type { ProjectRow } from '@offisim/shared-types';
 import type React from 'react';
 
 import type {
@@ -17,7 +18,23 @@ export type { LayoutTier, LayoutTierConfig };
 // Workspace Keys
 // ---------------------------------------------------------------------------
 
-export type WorkspaceKey = 'office' | 'sops' | 'market' | 'personnel' | 'activity-log' | 'settings';
+export type WorkspaceKey =
+  | 'office'
+  | 'sops'
+  | 'market'
+  | 'personnel'
+  | 'workspace'
+  | 'activity-log'
+  | 'settings';
+
+export type WorkspaceAppKey =
+  | 'messenger'
+  | 'approvals'
+  | 'docs'
+  | 'calendar'
+  | 'meetings'
+  | 'contacts'
+  | 'workplace';
 
 // ---------------------------------------------------------------------------
 // Per-Workspace Session State
@@ -29,7 +46,6 @@ export type OfficeSessionState = {
   /** Active `chat_threads.thread_id`; not the LangGraph `graph_threads.thread_id`. */
   selectedThreadId: string | null;
   studioMode: 'create' | 'edit' | null;
-  dashboardOpen: boolean;
   kanbanOpen: boolean;
   marketplaceListingId: string | null;
   leftPanelWidth: number;
@@ -63,11 +79,20 @@ export type SettingsSessionState = {
   activeTab: 'provider' | 'runtime' | 'mcp' | 'external';
 };
 
+export type WorkspaceSuiteSessionState = {
+  activeApp: WorkspaceAppKey;
+  /** Approvals OA To-do/Done filter. */
+  approvalsFilter: 'todo' | 'done';
+  /** Selected resolved approval (history_id) when filter === 'done'. */
+  approvalsSelectedHistoryId: string | null;
+};
+
 export type WorkspaceSessionState = {
   office: OfficeSessionState;
   sops: SopSessionState;
   market: MarketSessionState;
   personnel: PersonnelSessionState;
+  workspace: WorkspaceSuiteSessionState;
   activityLog: ActivityLogSessionState;
   settings: SettingsSessionState;
 };
@@ -106,6 +131,7 @@ export type SessionStateKeyMap = {
   sops: 'sops';
   market: 'market';
   personnel: 'personnel';
+  workspace: 'workspace';
   'activity-log': 'activityLog';
   settings: 'settings';
 };
@@ -115,6 +141,7 @@ export const SESSION_KEY: SessionStateKeyMap = {
   sops: 'sops',
   market: 'market',
   personnel: 'personnel',
+  workspace: 'workspace',
   'activity-log': 'activityLog',
   settings: 'settings',
 };
@@ -155,6 +182,25 @@ export interface WorkspaceRouterProps {
     onOpenCreator?: () => void;
     onOpenMarket?: () => void;
   };
+  workspaceSuiteProps?: {
+    /** Active product chat_threads.thread_id (SSOT: OfficeSessionState.selectedThreadId). */
+    activeThreadId?: string | null;
+    /** Active project row (SSOT: App-level activeProjectId). */
+    activeProject?: ProjectRow | null;
+    activeCompanyId?: string | null;
+    /** Selected direct-chat employee (SSOT: OfficeSessionState.selectedEmployeeId). */
+    selectedEmployeeId?: string | null;
+    /** Thread switch writer — MUST clamp to Office `selectedThreadId` SSOT. */
+    onSelectThread?: (threadId: string) => void;
+    /** Direct-chat target writer — clamps Office `selectedEmployeeId` SSOT. */
+    onSelectDirectEmployee?: (employeeId: string | null) => void;
+    /** Open API / model settings. */
+    onOpenSettings?: () => void;
+    /** Focus an employee in Office (used by system-channel cards). */
+    onFocusEmployee?: (employeeId: string) => void;
+    /** Open Activity Log workspace (used by system-channel cards). */
+    onOpenActivityLog?: () => void;
+  };
   children?: React.ReactNode;
 }
 
@@ -168,7 +214,6 @@ export function createDefaultOfficeState(): OfficeSessionState {
     selectedEmployeeId: null,
     selectedThreadId: null,
     studioMode: null,
-    dashboardOpen: false,
     kanbanOpen: false,
     marketplaceListingId: null,
     leftPanelWidth: 44,
@@ -212,12 +257,21 @@ export function createDefaultPersonnelState(): PersonnelSessionState {
   };
 }
 
+export function createDefaultWorkspaceSuiteState(): WorkspaceSuiteSessionState {
+  return {
+    activeApp: 'messenger',
+    approvalsFilter: 'todo',
+    approvalsSelectedHistoryId: null,
+  };
+}
+
 export function createDefaultSessionState(): WorkspaceSessionState {
   return {
     office: createDefaultOfficeState(),
     sops: createDefaultSopState(),
     market: createDefaultMarketState(),
     personnel: createDefaultPersonnelState(),
+    workspace: createDefaultWorkspaceSuiteState(),
     activityLog: createDefaultActivityLogState(),
     settings: { activeTab: 'provider' },
   };

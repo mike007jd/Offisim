@@ -31,8 +31,8 @@ export function SystemMessageFeed() {
             const Icon = ICON_MAP[entry.icon ?? 'default'];
             return <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" />;
           })()}
-          <div className="min-w-0 space-y-1">
-            <p className="font-semibold uppercase tracking-[0.18em] text-caption">{entry.title}</p>
+          <div className="min-w-0 flex flex-col gap-1">
+            <p className="font-semibold uppercase tracking-wide text-caption">{entry.title}</p>
             <p className="leading-relaxed text-text-secondary">{entry.detail}</p>
           </div>
         </div>

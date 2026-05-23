@@ -11,6 +11,7 @@ export type TourWorkspace =
   | 'sops'
   | 'market'
   | 'personnel'
+  | 'workspace'
   | 'activity-log'
   | 'settings';
 

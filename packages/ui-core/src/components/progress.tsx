@@ -43,7 +43,7 @@ const Progress = forwardRef<HTMLDivElement, ProgressProps>(
             'h-full rounded-full transition-all duration-normal ease-standard',
             toneClass,
           )}
-          style={{ width: `${pct}%` }}
+          style={{ width: `${pct}%` }} // ui-hardcode-allowed: progress width is runtime data, not visual styling.
         />
       </div>
     );

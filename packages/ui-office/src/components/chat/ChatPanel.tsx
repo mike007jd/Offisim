@@ -1,10 +1,11 @@
+import type { AppendMessage } from '@assistant-ui/react';
 import { DEFAULT_INTERACTION_MODE } from '@offisim/shared-types';
 import type { ChatAttachmentRef } from '@offisim/shared-types';
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { Button } from '@offisim/ui-core';
 import { ArrowLeft, BriefcaseBusiness, Paperclip } from 'lucide-react';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
-import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
+import { useDeliverables } from '../../hooks/useDeliverables';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { useMeeting } from '../../hooks/useMeeting.js';
 import { usePipelineStage } from '../../hooks/usePipelineStage';
@@ -29,12 +30,14 @@ import { useCompany } from '../company/CompanyContext.js';
 import { ErrorBanner } from '../error/ErrorBanner';
 import { ActivityRail } from './ActivityRail';
 import { ChatInput } from './ChatInput';
-import type { ChatInputAttachmentPayload } from './ChatInput.js';
+import type { ChatInputAttachmentPayload, OffisimComposerRunConfig } from './ChatInput.js';
 import { InteractionPrompt } from './InteractionPrompt';
-import { MessageBubble } from './MessageBubble';
 import { SessionModeChip } from './SessionModeChip';
-import { StreamingBubble } from './StreamingBubble';
 import { SystemMessageFeed } from './SystemMessageFeed';
+import { OffisimAssistantRuntimeProvider } from './runtime/OffisimAssistantRuntimeProvider';
+import { OffisimThread } from './runtime/OffisimThread';
+import { useOffisimThreadListAdapter } from './runtime/useOffisimThreadListAdapter';
+import { PitchHall } from '../pitch/PitchHall';
 import {
   persistStagedAttachments,
   rollbackPersistedAttachments,
@@ -67,8 +70,6 @@ interface ChatPanelProps {
   selectedEmployeeId?: string | null;
   selectedEmployeeName?: string | null;
   onClearSelection?: () => void;
-  /** Toggle dashboard overlay */
-  onToggleDashboard?: () => void;
   /** Toggle kanban overlay */
   onToggleKanban?: () => void;
   /** Open office layout editor */
@@ -87,12 +88,21 @@ interface ChatPanelProps {
   showPipelineProgress?: boolean;
   showMeetingPanel?: boolean;
   showActivityRail?: boolean;
+  /** Thread switch writer (SSOT) — enables the assistant-ui thread-list adapter. */
+  onSelectThread?: (threadId: string) => void;
 }
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const DIRECT_CHAT_TARGET_MISSING_ERROR =
   'Direct chat target missing — selectedEmployeeId not propagated';
 const MAX_AVAILABLE_THREAD_ATTACHMENTS = 20;
+
+function attachmentsFromAssistantMessage(
+  message: AppendMessage,
+): ChatInputAttachmentPayload | undefined {
+  const runConfig = message.runConfig as OffisimComposerRunConfig | undefined;
+  return runConfig?.custom?.offisim?.attachments;
+}
 
 function genMsgId(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -211,7 +221,6 @@ export function ChatPanel({
   selectedEmployeeId,
   selectedEmployeeName,
   onClearSelection,
-  onToggleDashboard,
   onToggleKanban,
   onOpenEditor,
   onOpenStudio,
@@ -223,6 +232,7 @@ export function ChatPanel({
   showPipelineProgress = true,
   showMeetingPanel = true,
   showActivityRail = false,
+  onSelectThread,
 }: ChatPanelProps) {
   const {
     sendMessage,
@@ -250,10 +260,6 @@ export function ChatPanel({
   const getMessages = useChatSessionStore((state) => state.getMessages);
   const conversations = useChatSessionStore((state) => state.conversations);
 
-  const messagesViewportRef = useRef<HTMLDivElement>(null);
-  const isNearBottomRef = useRef(true);
-  const SCROLL_THRESHOLD = 80;
-
   const interactionTargetRef = useRef<string | null>(null);
 
   // Current target key
@@ -268,12 +274,7 @@ export function ChatPanel({
   const interactionEmployeeName = interactionEmployeeId
     ? (agents.get(interactionEmployeeId)?.name ?? null)
     : null;
-  const {
-    content: streamContent,
-    reasoning: streamReasoning,
-    isStreaming,
-    nodeName: streamNodeName,
-  } = useStreamingContentForConversation(conversationKey);
+  const { isStreaming } = useStreamingContentForConversation(conversationKey);
   const bannerMessage = failedRunError?.message ?? error;
 
   // Current messages for the active target
@@ -288,38 +289,20 @@ export function ChatPanel({
     [activeThreadId, conversations],
   );
 
-  // Deliverables — attach each to its matching assistant message.
-  // Pins the assignment by deliverableId so late re-renders don't reshuffle attachments.
-  const allDeliverables = useDeliverables();
-  const assignedDeliverableRef = useRef<Map<string, string>>(new Map());
-  const deliverablesByMessageId = useMemo(() => {
-    const map = new Map<string, Deliverable[]>();
-    const assistantMessages = messages.filter((m) => m.role === 'assistant');
-    if (assistantMessages.length === 0) return map;
-    for (const d of allDeliverables) {
-      let messageId = assignedDeliverableRef.current.get(d.id);
-      if (!messageId) {
-        // Pick latest assistant message created within a sane window around the deliverable.
-        // The 2s slack lets message commits that happen slightly after the deliverable still match.
-        const candidates = assistantMessages.filter(
-          (m) => (m.createdAt ?? 0) <= d.createdAt + 2000,
-        );
-        const fallback = assistantMessages.at(-1);
-        const candidate = candidates.at(-1) ?? fallback;
-        if (candidate) {
-          messageId = candidate.id;
-          assignedDeliverableRef.current.set(d.id, messageId);
-        }
-      }
-      if (!messageId) continue;
-      // Only attach if that message belongs to the current conversation view.
-      if (!assistantMessages.some((m) => m.id === messageId)) continue;
-      const arr = map.get(messageId) ?? [];
-      arr.push(d);
-      map.set(messageId, arr);
-    }
-    return map;
-  }, [allDeliverables, messages]);
+  // assistant-ui thread-list adapter (backed by chat_threads). Switching routes
+  // through the SSOT writer when provided; otherwise switching is inert (the
+  // visible ThreadList still owns selection).
+  const noopSelectThread = useRef((_: string) => {}).current;
+  const threadListAdapter = useOffisimThreadListAdapter({
+    projectId: activeProjectId,
+    selectedThreadId: activeThreadId,
+    onSelectThread: onSelectThread ?? noopSelectThread,
+  });
+
+  // Thread-scoped deliverables surface in the rail's `.conv-outputs` section
+  // (below the message thread, above the composer) rather than attached
+  // per-message — see the single-axis V3 layout.
+  const threadDeliverables = useDeliverables(activeThreadId ?? null);
 
   // Clear error when switching targets
   const prevTargetRef = useRef(targetKey);
@@ -341,33 +324,8 @@ export function ChatPanel({
     interactionTargetRef.current = null;
   }, [pendingInteraction, failedTargetEmployeeId, targetKey]);
 
-  const getScrollViewport = useCallback(
-    (): HTMLDivElement | null => messagesViewportRef.current,
-    [],
-  );
-
-  useEffect(() => {
-    const viewport = getScrollViewport();
-    if (!viewport) return;
-
-    const updateNearBottom = () => {
-      isNearBottomRef.current =
-        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < SCROLL_THRESHOLD;
-    };
-
-    updateNearBottom();
-    viewport.addEventListener('scroll', updateNearBottom, { passive: true });
-    return () => viewport.removeEventListener('scroll', updateNearBottom);
-  });
-
-  // Auto-scroll — only when user is near the bottom
-  // biome-ignore lint/correctness/useExhaustiveDependencies: messages/streamContent trigger scroll
-  useEffect(() => {
-    const viewport = getScrollViewport();
-    if (isNearBottomRef.current && viewport) {
-      viewport.scrollTop = viewport.scrollHeight;
-    }
-  }, [messages, streamContent, streamReasoning, getScrollViewport]);
+  // Autoscroll is owned by assistant-ui's `ThreadPrimitive.Viewport` in the
+  // non-compact rail; no manual scroll tracking needed.
 
   const addMessage = useCallback(
     (targetEmployeeId: string | null, msg: ChatMessage) => {
@@ -624,7 +582,6 @@ export function ChatPanel({
       }
       if (command.type === 'client') {
         const ctx: ClientCommandContext = {
-          showDashboard: () => onToggleDashboard?.(),
           clearMessages: () => clearAllConversations(),
           showHelp: () => {
             const helpText = buildHelpText();
@@ -636,7 +593,6 @@ export function ChatPanel({
       }
       if (command.type === 'panel') {
         const ctx: PanelCommandContext = {
-          toggleDashboard: () => onToggleDashboard?.(),
           toggleKanban: () => onToggleKanban?.(),
           openSettings: () => onOpenSettings(),
           openEditor: () => onOpenEditor?.(),
@@ -647,7 +603,6 @@ export function ChatPanel({
     },
     [
       targetKey,
-      onToggleDashboard,
       onToggleKanban,
       onOpenSettings,
       onOpenEditor,
@@ -660,16 +615,23 @@ export function ChatPanel({
 
   const showEmpty = messages.length === 0 && !isStreaming && !pendingInteraction;
   const isDirectChat = !!selectedEmployeeId;
-  const latestMessage = messages.at(-1);
-  const inputDisabledReason = !isReady
-    ? 'Configure an API Key in Settings to start chatting.'
-    : isRunning
-      ? 'Task in progress — waiting for current round to finish.'
-      : undefined;
+  let inputDisabledReason: string | undefined;
+  if (!isReady) {
+    inputDisabledReason = 'Configure an API Key in Settings to start chatting.';
+  } else if (isRunning) {
+    inputDisabledReason = 'Task in progress — waiting for current round to finish.';
+  }
 
   const inputPlaceholder = isDirectChat
     ? `Message ${selectedEmployeeName ?? 'employee'}...`
     : 'Message your team...';
+  const handleAssistantRuntimeSend = useCallback(
+    (text: string, message: AppendMessage) => {
+      const attachments = attachmentsFromAssistantMessage(message);
+      void handleSend(text, attachments ? { attachments } : undefined);
+    },
+    [handleSend],
+  );
   const activityRail = showActivityRail ? (
     <ActivityRail
       focusedEmployeeId={selectedEmployeeId}
@@ -679,10 +641,17 @@ export function ChatPanel({
   ) : null;
 
   return (
-    <div
-      data-chat-panel-root
-      className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-surface-elevated text-text-primary"
+    <OffisimAssistantRuntimeProvider
+      conversationKey={conversationKey}
+      isRunning={isRunning}
+      onSend={handleAssistantRuntimeSend}
+      onCancel={abortExecution}
+      threadList={threadListAdapter}
     >
+      <div
+        data-chat-panel-root
+        className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-surface-elevated text-text-primary"
+      >
       {!isReady && (
         <div className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-muted px-3 py-1.5 text-caption text-warning">
           <span>Configure an API key to enable AI collaboration.</span>
@@ -700,10 +669,7 @@ export function ChatPanel({
 
       {/* Direct chat header — single compact line */}
       {isDirectChat && (
-        <div
-          className="flex h-8 items-center gap-2 border-b border-border-default"
-          style={{ paddingInline: 'var(--sp-md)' }}
-        >
+        <div className="flex h-8 items-center gap-2 border-b border-border-default px-3">
           <Button
             type="button"
             variant="ghost"
@@ -734,102 +700,57 @@ export function ChatPanel({
       )}
 
       {compact ? (
-        <div className="box-border flex w-full min-w-0 max-w-full flex-1 flex-col justify-end gap-2 overflow-hidden py-2 pl-3 pr-4">
-          {latestMessage ? (
-            <MessageBubble role={latestMessage.role} content={latestMessage.content} />
-          ) : (
-            <div className="rounded-xl border border-border-subtle bg-surface-muted px-3 py-2 text-xs text-text-muted">
-              {isDirectChat
-                ? `Start a conversation with ${selectedEmployeeName ?? 'this employee'}`
-                : 'Enter a task to start collaborating.'}
-            </div>
-          )}
-          <StreamingBubble
-            content={streamContent}
-            reasoning={streamReasoning}
-            isStreaming={isStreaming}
-            nodeName={streamNodeName}
+        <div className="box-border flex w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden py-2 pl-3 pr-4">
+          <OffisimThread
+            attachmentStore={attachmentStore}
+            className="justify-end"
+            emptyState={
+              <div className="rounded-xl border border-border-subtle bg-surface-muted px-3 py-2 text-xs text-text-muted">
+                {isDirectChat
+                  ? `Start a conversation with ${selectedEmployeeName ?? 'this employee'}`
+                  : 'Enter a task to start collaborating.'}
+              </div>
+            }
           />
         </div>
       ) : (
-        <>
-          {/* Message area */}
-          {showEmpty ? (
-            isRunning ? (
-              <div
-                ref={messagesViewportRef}
-                className="custom-scrollbar min-h-0 w-full min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden"
-              >
-                <div
-                  className="box-border flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
-                  style={{
-                    paddingBottom: 'var(--sp-sm)',
-                    paddingLeft: 'var(--sp-sm)',
-                    paddingRight: 'var(--sp-md)',
-                    paddingTop: 'var(--sp-sm)',
-                  }}
-                >
-                  {activityRail}
-                  <SystemMessageFeed />
-                </div>
-              </div>
-            ) : isDirectChat ? (
-              <div className="flex flex-1 items-center justify-center">
-                <p className="text-xs text-text-muted">
-                  Start a conversation with {selectedEmployeeName ?? 'this employee'}
-                </p>
-              </div>
-            ) : (
-              <div className="flex-1 min-h-0" aria-hidden="true" />
-            )
-          ) : (
-            <div
-              ref={messagesViewportRef}
-              className="custom-scrollbar min-h-0 w-full min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden"
-            >
-              <div
-                className="box-border flex w-full min-w-0 max-w-full flex-col gap-1 overflow-x-hidden"
-                style={{
-                  paddingBottom: 'var(--sp-sm)',
-                  paddingLeft: 'var(--sp-sm)',
-                  paddingRight: 'var(--sp-md)',
-                  paddingTop: 'var(--sp-sm)',
-                }}
-              >
-                {activityRail}
-                <SystemMessageFeed />
-                {pendingInteraction?.severity !== 'high' &&
-                  pendingInteraction &&
-                  respondToInteraction && (
-                    <InteractionPrompt
-                      request={pendingInteraction}
-                      employeeName={interactionEmployeeName}
-                      onRespond={handleInteractionRespond}
-                    />
-                  )}
-                {messages.map((msg) => (
-                  <MessageBubble
-                    key={msg.id}
-                    role={msg.role}
-                    content={msg.content}
-                    status={msg.status}
-                    nodeName={msg.nodeName}
-                    reasoning={msg.reasoning}
-                    deliverables={deliverablesByMessageId.get(msg.id)}
-                    attachments={msg.attachments}
-                    attachmentStore={attachmentStore}
+          <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
+            {/* Run-record + system feed + interaction prompt (fixed head) */}
+            <div className="box-border flex shrink-0 flex-col gap-1 px-3 pt-2 empty:hidden">
+              {activityRail}
+              <SystemMessageFeed />
+              {pendingInteraction?.severity !== 'high' &&
+                pendingInteraction &&
+                respondToInteraction && (
+                  <InteractionPrompt
+                    request={pendingInteraction}
+                    employeeName={interactionEmployeeName}
+                    onRespond={handleInteractionRespond}
                   />
-                ))}
-                <StreamingBubble
-                  content={streamContent}
-                  reasoning={streamReasoning}
-                  isStreaming={isStreaming}
-                  nodeName={streamNodeName}
+                )}
+            </div>
+            <OffisimThread
+              attachmentStore={attachmentStore}
+              emptyState={
+                isDirectChat ? (
+                  <div className="flex flex-1 items-center justify-center">
+                    <p className="text-fs-sm text-ink-3">
+                      Start a conversation with {selectedEmployeeName ?? 'this employee'}
+                    </p>
+                  </div>
+                ) : null
+              }
+            />
+            {/* conv-outputs — thread-scoped deliverables */}
+            {threadDeliverables.length > 0 && (
+              <div className="box-border shrink-0 border-t border-line px-3 py-2">
+                <PitchHall
+                  activeThreadId={activeThreadId ?? null}
+                  activeProjectId={activeProjectId ?? null}
                 />
               </div>
-            </div>
-          )}
-        </>
+            )}
+          </div>
       )}
 
       {/* Meeting panel — shows live participants, transcript, actions, controls */}
@@ -909,7 +830,6 @@ export function ChatPanel({
           />
         ) : null}
         <ChatInput
-          onSend={handleSend}
           onCommand={executeCommand}
           disabled={isRunning || !isReady}
           disabledReason={inputDisabledReason}
@@ -929,6 +849,7 @@ export function ChatPanel({
           }
         />
       </div>
-    </div>
+      </div>
+    </OffisimAssistantRuntimeProvider>
   );
 }

@@ -53,6 +53,7 @@ export function StepProgressBar({ steps, activeFilter, onSegmentClick }: StepPro
         {steps.map((step) => {
           const widthPct = (Math.max(step.taskCount, 1) / totalTasks) * 100;
           const isHighlighted = activeFilter === null || activeFilter === step.index;
+          const segmentStyle = { width: `${widthPct}%` };
 
           return (
             <Button
@@ -60,7 +61,8 @@ export function StepProgressBar({ steps, activeFilter, onSegmentClick }: StepPro
               type="button"
               variant="ghost"
               title={`Step ${step.index + 1}: ${step.description} (${step.taskCount} tasks)`}
-              style={{ width: `${widthPct}%` }}
+              // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+              style={segmentStyle}
               className={cn(
                 'relative h-full rounded-none p-0 transition-opacity duration-150 focus-visible:ring-2 focus-visible:ring-info',
                 segmentColor(step.status, isHighlighted),
@@ -83,14 +85,16 @@ export function StepProgressBar({ steps, activeFilter, onSegmentClick }: StepPro
             .slice(0, hoveredIndex)
             .reduce((sum, s) => sum + Math.max(s.taskCount, 1), 0);
           const leftPct = (totalSoFar / totalTasks) * 100;
+          const tooltipStyle = { left: `${leftPct}%` };
           return (
             <div
-              className="pointer-events-none absolute top-full z-50 mt-1 max-w-step-tooltip rounded bg-ocean-deep px-2 py-1 text-caption text-pearl shadow-lg"
-              style={{ left: `${leftPct}%` }}
+              className="pointer-events-none absolute top-full z-50 mt-1 max-w-step-tooltip rounded bg-surface-elevated px-2 py-1 text-caption text-accent-fg shadow-lg"
+              // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+              style={tooltipStyle}
             >
               <div className="font-medium">Step {hovered.index + 1}</div>
-              <div className="text-shell">{hovered.description}</div>
-              <div className="text-koi">
+              <div className="text-ink-2">{hovered.description}</div>
+              <div className="text-accent">
                 {hovered.taskCount} task{hovered.taskCount !== 1 ? 's' : ''}
               </div>
             </div>

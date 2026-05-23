@@ -22,8 +22,8 @@ type InstallDialogProps = InstallFlowState & InstallFlowActions;
 function LoadingContent() {
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
-      <div className="h-8 w-8 animate-spin border-2 border-lobster-red border-t-transparent" />
-      <p className="text-sm text-shell">Loading package...</p>
+      <div className="h-8 w-8 animate-spin border-2 border-danger border-t-transparent" />
+      <p className="text-sm text-ink-2">Loading package...</p>
     </div>
   );
 }
@@ -32,10 +32,10 @@ function DoneContent({ onClose, isUpgrade = false }: { onClose: () => void; isUp
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
       <CheckCircle2 className="h-10 w-10 text-success" />
-      <h3 className="text-base font-semibold text-sand">
+      <h3 className="text-base font-semibold text-ink-1">
         {isUpgrade ? 'Upgrade Complete' : 'Installation Complete'}
       </h3>
-      <p className="text-sm text-shell text-center">
+      <p className="text-sm text-ink-2 text-center">
         {isUpgrade
           ? 'The package has been upgraded successfully.'
           : 'The package has been installed successfully.'}
@@ -59,7 +59,7 @@ function ErrorContent({
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
       <XCircle className="h-10 w-10 text-error" />
-      <h3 className="text-base font-semibold text-sand">Installation Failed</h3>
+      <h3 className="text-base font-semibold text-ink-1">Installation Failed</h3>
       <p className="text-sm text-error text-center">{error}</p>
       <div className="mt-2 flex items-center gap-2">
         <Button variant="outline" onClick={onCancel}>

@@ -21,7 +21,7 @@ export function MarketManageView({
     <div className="flex h-full flex-col">
       {manageTab === 'updates' && (
         <div className="px-3 pb-1 pt-3">
-          <p className="text-caption uppercase tracking-[0.2em] text-text-muted">
+          <p className="text-caption uppercase tracking-wide text-text-muted">
             Packages with available updates
           </p>
         </div>

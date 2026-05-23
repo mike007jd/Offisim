@@ -22,13 +22,11 @@ export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; badgeC
 // ── Context types (provided by ChatPanel) ──────────────────────────
 
 export interface ClientCommandContext {
-  showDashboard: () => void;
   clearMessages: () => void;
   showHelp: () => void;
 }
 
 export interface PanelCommandContext {
-  toggleDashboard: () => void;
   toggleKanban: () => void;
   openSettings: () => void;
   openEditor: () => void;
@@ -144,29 +142,6 @@ export const CHAT_COMMANDS: readonly ChatCommand[] = [
   },
 
   // ── Navigate ──
-  {
-    type: 'client',
-    name: 'status',
-    aliases: ['s'],
-    category: 'navigate',
-    description: 'Open the dashboard',
-    execute: (_args, ctx) => ctx.showDashboard(),
-  },
-  {
-    type: 'client',
-    name: 'budget',
-    category: 'navigate',
-    description: 'Show cost breakdown',
-    execute: (_args, ctx) => ctx.showDashboard(),
-  },
-  {
-    type: 'panel',
-    name: 'dashboard',
-    aliases: ['dash'],
-    category: 'navigate',
-    description: 'Toggle dashboard overlay',
-    execute: (_args, ctx) => ctx.toggleDashboard(),
-  },
   {
     type: 'panel',
     name: 'kanban',

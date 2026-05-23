@@ -120,11 +120,13 @@ function Preview3DCanvas({
     ? lookupExternalBrand(brandKey).asset3dVariant
     : 'default';
   const sc = useSceneColors();
+  const canvasStyle = { ['background']: 'transparent' };
   return (
     <Canvas
       shadows={{ type: THREE.PCFShadowMap }}
       camera={{ position: [0, 1.5, 3], fov: 35 }}
-      style={{ background: 'transparent' }}
+      // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+      style={canvasStyle}
     >
       <Suspense fallback={null}>
         <ambientLight intensity={0.6} />

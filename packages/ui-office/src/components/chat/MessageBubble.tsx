@@ -1,7 +1,6 @@
 import type { ChatAttachmentRef } from '@offisim/shared-types';
 import { Button, cn } from '@offisim/ui-core';
 import { ChevronRight } from 'lucide-react';
-import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import type { Deliverable } from '../../hooks/useDeliverables';
 import {
@@ -30,10 +29,6 @@ interface MessageBubbleProps {
 
 const FILENAME_LINE = /(^|\n)\s*Filename\s*:\s*[^\n]+\s*(?=\n|$)/gi;
 const FENCED_CODE_BLOCK_RE = /```[a-zA-Z0-9#+._-]*\s*\n[\s\S]*?\n```/g;
-const USER_MESSAGE_MAX_WIDTH_STYLE = {
-  maxWidth: 'min(32rem, calc(100% - 2rem))',
-} satisfies CSSProperties;
-
 function stripFencedArtifactContent(content: string): string {
   return content.replace(FENCED_CODE_BLOCK_RE, '').replace(FILENAME_LINE, '').trim();
 }
@@ -144,7 +139,7 @@ export function MessageBubble({
             type="button"
             variant="ghost"
             size="sm"
-            className="mb-1 h-auto gap-1 px-0 py-0 text-caption font-medium uppercase tracking-[0.12em] text-info hover:text-text-primary"
+            className="mb-1 h-auto gap-1 px-0 py-0 text-caption font-medium uppercase tracking-wide text-info hover:text-text-primary"
             onClick={() => setReasoningOpen((o) => !o)}
           >
             <ChevronRight
@@ -162,11 +157,10 @@ export function MessageBubble({
       )}
       {!isAttachmentOnly && (
         <div
-          style={isUser ? USER_MESSAGE_MAX_WIDTH_STYLE : undefined}
           className={cn(
             'min-w-0 overflow-hidden break-words text-sm leading-relaxed',
             isUser
-              ? 'mx-auto w-fit max-w-full rounded-xl bg-accent-muted px-3 py-1.5 text-accent-text'
+              ? 'mx-auto w-fit max-w-prose rounded-xl bg-accent-muted px-3 py-1.5 text-accent-text'
               : 'w-full max-w-full px-1 py-0.5 text-text-primary',
             !isUser && status === 'failed' ? 'border-l-2 border-error pl-2' : '',
             !isUser && status === 'interrupted' ? 'border-l-2 border-warning pl-2' : '',
@@ -183,16 +177,7 @@ export function MessageBubble({
         </div>
       )}
       {hasAttachments && attachments && (
-        <div
-          style={{
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))',
-            ...(isUser ? USER_MESSAGE_MAX_WIDTH_STYLE : {}),
-          }}
-          className={cn(
-            'mt-1 grid w-full min-w-0 gap-1 overflow-hidden',
-            isUser ? 'mx-auto max-w-full' : 'mr-auto max-w-full',
-          )}
-        >
+        <div className="mt-1 grid w-full min-w-0 grid-cols-1 gap-1 overflow-hidden sm:grid-cols-2">
           {attachments.map((a) => (
             <SentAttachmentChip
               key={a.attachmentId}

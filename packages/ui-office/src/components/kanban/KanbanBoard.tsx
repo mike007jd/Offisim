@@ -96,23 +96,23 @@ const KANBAN_LABELS: Record<KanbanState, string> = {
 };
 
 const ORIGIN_BADGE_CLASS: Record<KanbanOrigin, string> = {
-  'pm-planner': 'border-sea-blue bg-accent-muted text-sea-blue',
-  employee: 'border-kelp-green bg-success-muted text-kelp-green',
-  manager: 'border-coral-orange bg-warning-muted text-coral-orange',
-  human: 'border-foam bg-surface-muted text-foam',
+  'pm-planner': 'border-info bg-info-muted text-info',
+  employee: 'border-success bg-success-muted text-ok',
+  manager: 'border-warning bg-warning-muted text-warning',
+  human: 'border-border-subtle bg-surface-muted text-text-secondary',
 };
 
 const STATE_BORDER_CLASS: Record<KanbanState, string> = {
-  todo: 'border-t-sea-blue',
-  doing: 'border-t-coral-orange',
+  todo: 'border-t-info',
+  doing: 'border-t-warning',
   blocked: 'border-t-error',
   review: 'border-t-accent',
   done: 'border-t-success',
 };
 
 const STATE_DOT_CLASS: Record<KanbanState, string> = {
-  todo: 'bg-sea-blue',
-  doing: 'bg-coral-orange',
+  todo: 'bg-info',
+  doing: 'bg-warning',
   blocked: 'bg-error',
   review: 'bg-accent',
   done: 'bg-success',
@@ -192,6 +192,7 @@ function PlanKanbanBoard({
     dashboard.stats.total > 0
       ? Math.round((dashboard.stats.completed / dashboard.stats.total) * 100)
       : 0;
+  const progressStyle = { width: `${pct}%` };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -206,7 +207,8 @@ function PlanKanbanBoard({
               'h-full rounded-full transition-all duration-500',
               dashboard.isComplete ? 'bg-success' : 'bg-info',
             )}
-            style={{ width: `${pct}%` }}
+            // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+            style={progressStyle}
           />
         </div>
 
@@ -254,7 +256,7 @@ function PlanKanbanBoard({
         <div className="flex gap-3 p-3 h-full min-w-max">
           {/* ═══ Requirements column ═══ */}
           <KanbanColumn title="Requirements" stepIndex={null} status="requirements" tasks={[]}>
-            <div className="space-y-1.5 rounded-lg border border-border-subtle bg-surface-elevated px-2.5 py-2">
+            <div className="flex flex-col gap-1.5 rounded-lg border border-border-subtle bg-surface-elevated px-2.5 py-2">
               {requestText && (
                 <p className="whitespace-pre-wrap text-caption leading-relaxed text-text-primary">
                   {requestText}
@@ -443,7 +445,7 @@ function LiveKanbanBoard({
               )}
               {creatingState === state ? (
                 <form
-                  className="mt-auto space-y-2 rounded-lg border border-border-subtle bg-surface-elevated p-2.5"
+                  className="mt-auto flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-elevated p-2.5"
                   onSubmit={(event) => handleCreate(event, state)}
                 >
                   <Input
@@ -615,7 +617,7 @@ function LiveKanbanCard({
         )}
       </div>
       {editing ? (
-        <div className="mt-2 space-y-1.5">
+        <div className="mt-2 flex flex-col gap-1.5">
           <Textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
@@ -655,7 +657,7 @@ function LiveKanbanCard({
       )}
       {!editing && (
         <div className="mt-3 flex items-end justify-between gap-2">
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 flex flex-col gap-1">
             <span
               className={cn(
                 'inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-caption font-semibold',

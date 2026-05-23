@@ -35,23 +35,23 @@ export function BindingForm({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h3 className="text-base font-semibold text-sand">Configure Model Bindings</h3>
-        <p className="text-sm text-shell mt-1">
+        <h3 className="text-base font-semibold text-ink-1">Configure Model Bindings</h3>
+        <p className="text-sm text-ink-2 mt-1">
           Choose which models to use for each role. Optional bindings can be skipped.
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {modelBindings.map((binding) => {
           const value = bindingValues.get(binding.bindingKey) ?? '';
           const isSkipped = value === '__skip__';
 
           return (
-            <div key={binding.bindingKey} className="border-2 border-ocean-light p-3 space-y-2">
+            <div key={binding.bindingKey} className="border-2 border-line p-3 flex flex-col gap-2">
               {/* Binding header */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm font-medium text-sand truncate">
+                  <span className="text-sm font-medium text-ink-1 truncate">
                     {binding.bindingKey.split(':').pop()}
                   </span>
                   {!binding.required && <Badge variant="secondary">optional</Badge>}
@@ -69,11 +69,11 @@ export function BindingForm({
               </div>
 
               {/* Hint */}
-              {binding.hint && <p className="text-xs text-ocean-light">Purpose: {binding.hint}</p>}
+              {binding.hint && <p className="text-xs text-ink-3">Purpose: {binding.hint}</p>}
 
               {/* Input area */}
               {!isSkipped && (
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <Input
                     placeholder="provider/model (e.g. openai/gpt-4o)"
                     value={value}
@@ -89,7 +89,7 @@ export function BindingForm({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="border-2 border-ocean-light px-2 py-0.5 text-xs text-shell hover:bg-ocean-mid hover:text-sand transition-colors"
+                        className="border-2 border-line px-2 py-0.5 text-xs text-ink-2 hover:bg-surface-sunken hover:text-ink-1 transition-colors"
                         onClick={() => onSetValue(binding.bindingKey, model)}
                       >
                         {model}
@@ -104,7 +104,7 @@ export function BindingForm({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2 border-t border-ocean-light">
+      <div className="flex justify-end gap-2 pt-2 border-t border-line">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>

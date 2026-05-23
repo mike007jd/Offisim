@@ -98,6 +98,8 @@ function workspaceLabel(workspace: TourStep['workspace']): string {
       return 'Office';
     case 'personnel':
       return 'Personnel';
+    case 'workspace':
+      return 'Workspace';
     case 'settings':
       return 'Settings';
     case 'sops':
@@ -155,11 +157,13 @@ export function OnboardingTour({
       {ringStyle && !needsWorkspaceSwitch && (
         <div
           className="pointer-events-none fixed z-top rounded-xl ring-2 ring-accent/70 shadow-glow-accent transition-all duration-normal"
+          // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
           style={ringStyle}
         />
       )}
       <div
         className="pointer-events-auto fixed z-top rounded-2xl border border-border-default bg-surface-elevated p-4 shadow-modal"
+        // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
         style={needsWorkspaceSwitch ? centeredPosition : position}
         data-onboarding-step={activeStep.id}
       >

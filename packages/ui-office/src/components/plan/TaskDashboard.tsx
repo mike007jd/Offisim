@@ -152,23 +152,25 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
 
   const pct =
     dashboard.stats.total > 0 ? (dashboard.stats.completed / dashboard.stats.total) * 100 : 0;
+  const progressStyle = { width: `${pct}%` };
 
   return (
     <div ref={scrollContainerRef} className="flex flex-col gap-2 p-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-pearl">Plan Progress</h3>
+        <h3 className="text-xs font-semibold text-accent-fg">Plan Progress</h3>
         <div className="flex gap-2">
-          <span className="text-caption text-koi">{dashboard.stats.active} active</span>
-          <span className="text-caption text-shell">
+          <span className="text-caption text-accent">{dashboard.stats.active} active</span>
+          <span className="text-caption text-ink-2">
             {dashboard.stats.completed}/{dashboard.stats.total}
           </span>
         </div>
       </div>
 
       {/* Numeric progress bar */}
-      <div className="h-1.5 w-full rounded-full bg-ocean-mid/30">
-        <div className="h-full rounded-full bg-koi transition-all" style={{ width: `${pct}%` }} />
+      <div className="h-1.5 w-full rounded-full bg-surface-sunken">
+        {/* ui-hardcode-allowed: runtime progress width. */}
+        <div className="h-full rounded-full bg-accent transition-all" style={progressStyle} />
       </div>
 
       {/* Step progress bar (segmented) */}

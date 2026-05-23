@@ -80,7 +80,7 @@ export function SopAddStepPopover({
           inputRef.current?.focus();
         }}
       >
-        <form onSubmit={handleSubmit} className="space-y-2">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
           <Input
             ref={inputRef}
             type="text"

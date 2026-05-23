@@ -33,17 +33,20 @@ export interface ToastItem {
   durationMs?: number | null;
 }
 
+// V3 status-tinted card skin derived from the lifecycle prototype `.toast`
+// grammar: a `--surface-1` base card with a status-tinted border + surface and
+// matching status foreground. `info` stays status-neutral on the bare card.
 const VARIANT_CLASSES: Record<ToastVariant, string> = {
-  info: 'border-info bg-surface-elevated text-text-primary',
-  success: 'border-success bg-success-muted text-success',
-  warning: 'border-warning bg-warning-muted text-warning',
-  error: 'border-error bg-error-muted text-error',
+  info: 'border-line bg-surface-elevated text-text-primary',
+  success: 'border-ok bg-ok-surface text-ok',
+  warning: 'border-warn bg-warn-surface text-warn',
+  error: 'border-danger bg-danger-surface text-danger',
 };
 
 const ACTION_CLASSES: Record<NonNullable<ToastAction['tone']>, string> = {
-  primary: 'border-accent bg-accent-muted text-accent-text hover:bg-surface-hover',
-  secondary: 'border-border-default bg-surface-muted text-text-secondary hover:bg-surface-hover',
-  danger: 'border-error bg-error-muted text-error hover:bg-surface-hover',
+  primary: 'border-accent bg-accent-surface text-accent hover:bg-surface-hover',
+  secondary: 'border-line bg-surface-muted text-text-secondary hover:bg-surface-hover',
+  danger: 'border-danger bg-danger-surface text-danger hover:bg-surface-hover',
 };
 
 const DEFAULT_DURATION_MS = 5_000;
@@ -82,7 +85,7 @@ function ToastEntry({
       role="status"
       aria-live="polite"
       className={cn(
-        'pointer-events-auto flex max-w-[min(92vw,560px)] items-start justify-between gap-3 rounded-lg border px-4 py-2 text-xs shadow-lg backdrop-blur-sm',
+        'pointer-events-auto flex max-w-xl items-start justify-between gap-3 rounded-md border px-3 py-2.5 text-xs shadow-elev-2',
         'animate-[offisim-toast-slide-in_180ms_ease-out]',
         VARIANT_CLASSES[toast.variant],
       )}

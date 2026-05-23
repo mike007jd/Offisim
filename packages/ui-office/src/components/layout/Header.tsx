@@ -20,7 +20,14 @@ import { useCompany } from '../company/CompanyContext.js';
 import { FileImportTrigger } from '../install/FileImportTrigger.js';
 import { useTourTarget } from '../onboarding/tour-context.js';
 
-type WorkspaceKey = 'office' | 'sops' | 'market' | 'personnel' | 'activity-log' | 'settings';
+type WorkspaceKey =
+  | 'office'
+  | 'sops'
+  | 'market'
+  | 'personnel'
+  | 'workspace'
+  | 'activity-log'
+  | 'settings';
 
 type HeaderIcon = ComponentType<{ className?: string }>;
 
@@ -46,7 +53,6 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenCompanySelect?: () => void;
   onFileImport: (file: File) => void;
-  notificationSlot?: ReactNode;
   projectSlot?: ReactNode;
   modeSlot?: ReactNode;
   viewMode?: '2D' | '3D';
@@ -74,19 +80,28 @@ interface HeaderSlots {
   company: ReactNode;
   project: ReactNode;
   peerNav: ReactNode;
+  iconbar: ReactNode;
   apiSettings: ReactNode;
   mode: ReactNode;
   officeTools: ReactNode;
   fileImport: ReactNode;
-  notification: ReactNode;
 }
+
+/** Peers that render as centered nav pills (vs. the Activity/Settings iconbar). */
+const NAV_PILL_KEYS: ReadonlySet<WorkspaceKey> = new Set([
+  'office',
+  'workspace',
+  'sops',
+  'market',
+  'personnel',
+]);
+const ICONBAR_KEYS: ReadonlyArray<WorkspaceKey> = ['activity-log', 'settings'];
 
 export function Header({
   companyName,
   onOpenSettings,
   onOpenCompanySelect,
   onFileImport,
-  notificationSlot,
   projectSlot,
   modeSlot,
   viewMode,
@@ -132,11 +147,19 @@ export function Header({
     project: isOffice && projectSlot ? <span ref={projectSelectorRef}>{projectSlot}</span> : null,
     peerNav: (
       <PeerWorkspaceNav
-        items={peerWorkspaces}
+        items={peerWorkspaces.filter((item) => NAV_PILL_KEYS.has(item.key))}
         active={activeWorkspace}
         onSelect={onSelectWorkspace}
         personnelRef={personnelRef}
         marketRef={marketRef}
+      />
+    ),
+    iconbar: (
+      <WorkspaceIconBar
+        items={peerWorkspaces.filter((item) => ICONBAR_KEYS.includes(item.key))}
+        active={activeWorkspace}
+        onSelect={onSelectWorkspace}
+        officeTools={isOffice ? officeTools : undefined}
       />
     ),
     apiSettings: needsConfig ? (
@@ -153,12 +176,13 @@ export function Header({
       </Button>
     ) : null,
     mode: isOffice ? modeSlot : null,
+    // Office tools (Studio) render inside the iconbar (after a divider); the
+    // narrow drawer still surfaces them via this slot.
     officeTools:
       isOffice && officeTools && officeTools.length > 0 ? (
         <OfficeToolBar items={officeTools} />
       ) : null,
     fileImport: <FileImportTrigger onFileSelect={onFileImport} compact />,
-    notification: notificationSlot,
   };
 
   if (isNarrow) {
@@ -197,7 +221,7 @@ export function Header({
 
 function DesktopHeader({ slots, isOffice }: { slots: HeaderSlots; isOffice: boolean }) {
   return (
-    <header className="flex h-14 items-center gap-3 rounded-2xl border border-border-default bg-surface-elevated/92 px-3 text-text-primary shadow-overlay backdrop-blur-md">
+    <header className="relative flex h-14 items-center gap-sp-5 px-sp-5 text-ink-1">
       <div className="flex min-w-0 basis-80 items-center gap-2 overflow-hidden">
         {!isOffice && (
           <h1 className="truncate text-sm font-semibold tracking-wide text-text-primary">
@@ -206,16 +230,19 @@ function DesktopHeader({ slots, isOffice }: { slots: HeaderSlots; isOffice: bool
         )}
         {slots.viewMode}
         {slots.company}
+        {slots.project}
       </div>
 
-      <div className="flex min-w-0 flex-1 justify-center">{slots.peerNav}</div>
+      {/* Centered peer-workspace navigation (scope-bar grammar). */}
+      <div className="pointer-events-none absolute inset-x-0 flex justify-center">
+        <div className="pointer-events-auto">{slots.peerNav}</div>
+      </div>
 
-      <div className="flex min-w-0 basis-96 items-center justify-end gap-2 overflow-hidden">
+      <div className="ml-auto flex min-w-0 items-center justify-end gap-2 overflow-hidden">
         {slots.apiSettings}
         {slots.mode}
-        {slots.officeTools}
         {slots.fileImport}
-        {slots.notification}
+        {slots.iconbar}
       </div>
     </header>
   );
@@ -328,7 +355,6 @@ function NarrowHeader({
                 <div className="rounded-lg p-1">{slots.officeTools}</div>
               ) : null}
               {slots.fileImport}
-              {slots.notification}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -531,7 +557,7 @@ function PeerWorkspaceNav({
   return (
     <nav
       aria-label="Primary workspace navigation"
-      className="grid w-full max-w-3xl grid-cols-6 items-center gap-0.5 rounded-full border border-border-default bg-surface-muted p-0.5"
+      className="flex items-center gap-0.5 rounded-md border border-border-default bg-surface-muted p-0.5 shadow-elev-1"
     >
       {items.map((item) => {
         const selected = item.key === active;
@@ -552,18 +578,70 @@ function PeerWorkspaceNav({
             title={item.label}
             aria-current={selected ? 'page' : undefined}
             className={cn(
-              'inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-caption font-semibold tracking-wide transition-colors sm:px-3',
+              'inline-flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-3.5 py-1 text-caption font-semibold tracking-wide transition-colors',
               selected
-                ? 'border border-border-focus bg-accent-muted text-accent-text'
-                : 'border border-transparent text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+                ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring'
+                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
             )}
           >
             <Icon className="size-3.5 shrink-0" />
-            <span className="hidden truncate sm:inline">{item.label}</span>
+            <span className="truncate">{item.label}</span>
           </a>
         );
       })}
     </nav>
+  );
+}
+
+function WorkspaceIconBar({
+  items,
+  active,
+  onSelect,
+  officeTools,
+}: {
+  items: ReadonlyArray<HeaderPeerWorkspaceItem>;
+  active: WorkspaceKey;
+  onSelect: (key: WorkspaceKey) => void;
+  officeTools?: ReadonlyArray<HeaderOfficeToolItem>;
+}) {
+  const showStudio = officeTools && officeTools.length > 0;
+  return (
+    <div
+      role="toolbar"
+      aria-label="Workspace and office tools"
+      className="flex items-center gap-0.5 rounded-md border border-border-default bg-surface-muted p-0.5 shadow-elev-1"
+    >
+      {items.map((item) => {
+        const selected = item.key === active;
+        const Icon = item.icon;
+        return (
+          <a
+            key={item.key}
+            href={workspaceHref(item.key)}
+            onClick={(event) => activateWorkspaceLink(event, item.key, onSelect)}
+            aria-label={`${item.label} workspace`}
+            title={`${item.label} workspace`}
+            aria-current={selected ? 'page' : undefined}
+            className={cn(
+              'grid size-7 place-items-center rounded-sm transition-colors',
+              selected
+                ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring'
+                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+            )}
+          >
+            <Icon className="size-4" />
+          </a>
+        );
+      })}
+      {showStudio ? (
+        <>
+          <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-border-default" />
+          {officeTools.map((tool) => (
+            <OfficeToolButton key={tool.key} tool={tool} />
+          ))}
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -577,6 +655,8 @@ function workspaceHref(key: WorkspaceKey): string {
       return '/';
     case 'personnel':
       return '/personnel';
+    case 'workspace':
+      return '/workspace';
     case 'settings':
       return '/settings/provider';
     case 'sops':

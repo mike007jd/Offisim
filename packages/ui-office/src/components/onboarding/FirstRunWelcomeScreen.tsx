@@ -48,7 +48,7 @@ export function FirstRunWelcomeScreen({
             <div className="mt-6 h-3 w-32 rounded bg-border-subtle" />
             <div className="mt-3 h-2 w-48 rounded bg-border-muted" />
           </div>
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <div className="h-8 rounded-lg border border-border-subtle bg-surface-elevated" />
             <div className="h-8 rounded-lg border border-border-subtle bg-surface-elevated" />
             <div className="h-8 rounded-lg border border-border-subtle bg-surface-elevated" />

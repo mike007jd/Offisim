@@ -4,6 +4,7 @@ import type {
   MarketSessionState,
   PersonnelTabId,
   SettingsSessionState,
+  WorkspaceAppKey,
 } from '../../components/workspaces/types';
 import type { ParsedInitialState, ParsedUrl, UrlOverlayKey } from './types';
 
@@ -24,6 +25,15 @@ const SETTINGS_TABS = new Set<SettingsSessionState['activeTab']>([
   'runtime',
   'mcp',
   'external',
+]);
+const WORKSPACE_APPS = new Set<WorkspaceAppKey>([
+  'messenger',
+  'approvals',
+  'docs',
+  'calendar',
+  'meetings',
+  'contacts',
+  'workplace',
 ]);
 const MARKET_MANAGE_TABS = new Set<MarketSessionState['manageTab']>([
   'installed',
@@ -107,7 +117,6 @@ export function parseOfficePath(search: URLSearchParams): ParsedUrl {
     sessionPatch: {
       office: {
         ...(viewMode ? { viewMode } : {}),
-        dashboardOpen: search.get('dashboard') === '1',
         marketplaceListingId: search.get('listing'),
         selectedThreadId: search.get('thread'),
       },
@@ -205,6 +214,19 @@ export function parseActivityPath(search: URLSearchParams): ParsedUrl {
   };
 }
 
+export function parseWorkspacePath(search: URLSearchParams): ParsedUrl {
+  const app = search.get('app') as WorkspaceAppKey | null;
+  return {
+    workspace: 'workspace',
+    overlay: null,
+    sessionPatch: {
+      workspace: {
+        activeApp: app && WORKSPACE_APPS.has(app) ? app : 'messenger',
+      },
+    },
+  };
+}
+
 export function parseSettingsPath(segments: string[]): ParsedUrl {
   const section = SETTINGS_TABS.has(segments[1] as SettingsSessionState['activeTab'])
     ? (segments[1] as SettingsSessionState['activeTab'])
@@ -233,6 +255,8 @@ export function parseUrl(input: LocationParts): ParsedUrl {
       return parseMarketPath(segments, search);
     case 'personnel':
       return parsePersonnelPath(segments, search);
+    case 'workspace':
+      return parseWorkspacePath(search);
     case 'activity':
       return parseActivityPath(search);
     case 'settings':
@@ -262,5 +286,5 @@ export function urlRequiresCompany(parsed: ParsedUrl): boolean {
   if (parsed.overlay === 'employee-creator') return true;
   if (parsed.overlay === 'office-editor') return true;
   const office = parsed.sessionPatch.office;
-  return Boolean(parsed.companyId || office?.marketplaceListingId || office?.dashboardOpen);
+  return Boolean(parsed.companyId || office?.marketplaceListingId);
 }

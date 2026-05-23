@@ -98,6 +98,7 @@ export const OverlayShell = forwardRef<HTMLDivElement, OverlayShellProps>(
           aria-labelledby={ariaLabelledBy}
           tabIndex={-1}
           className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col outline-none', className)}
+          // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
           style={style}
         >
           {showCloseButton && (

@@ -68,17 +68,21 @@ export function SopRunProgressStrip({ definition, sopTemplateId }: SopRunProgres
   const totalTasks = store.stats.total;
   const completedTasks = store.stats.completed;
 
+  // V3 status-tinted families: in-flight → accent, terminal success → ok,
+  // any failure → danger. (Replaces the legacy info/success/error families.)
   const accentClass = stats.hasFailure
-    ? 'border-error bg-error-muted text-error'
-    : 'border-info bg-info-muted text-info';
+    ? 'border-danger/40 bg-danger-surface text-danger'
+    : isRunning
+      ? 'border-accent-ring bg-accent-surface text-accent'
+      : 'border-ok/40 bg-ok-surface text-ok';
 
-  const dotClass = isRunning
-    ? stats.hasFailure
-      ? 'animate-pulse bg-error'
-      : 'animate-pulse bg-info'
-    : stats.hasFailure
-      ? 'bg-error'
-      : 'bg-success';
+  const dotClass = stats.hasFailure
+    ? isRunning
+      ? 'animate-pulse bg-danger'
+      : 'bg-danger'
+    : isRunning
+      ? 'animate-pulse bg-accent'
+      : 'bg-ok';
 
   let body: string;
   if (isRunning) {

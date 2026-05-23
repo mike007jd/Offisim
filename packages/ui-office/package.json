@@ -50,11 +50,13 @@
     }
   },
   "scripts": {
-    "build": "node ../../scripts/tsc-build-if-dist-missing.mjs --project tsconfig.json && mkdir -p dist/components/install dist/components/workspace && cp src/components/install/install-animations.css dist/components/install/ && cp src/components/workspace/workspace-shell.css dist/components/workspace/",
+    "build": "node ../../scripts/tsc-build-if-dist-missing.mjs --project tsconfig.json && mkdir -p dist/components/install && cp src/components/install/install-animations.css dist/components/install/",
     "typecheck": "tsc -p tsconfig.typecheck.json",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
+    "@assistant-ui/react": "0.14.7",
+    "@assistant-ui/react-markdown": "0.14.0",
     "@dicebear/collection": "^9.4.2",
     "@dicebear/core": "^9.4.2",
     "@offisim/asset-schema": "workspace:*",
@@ -65,11 +67,14 @@
     "@offisim/renderer": "workspace:*",
     "@offisim/shared-types": "workspace:*",
     "@offisim/ui-core": "workspace:*",
+    "@radix-ui/react-collapsible": "1.1.12",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@react-three/postprocessing": "^3.0.4",
+    "class-variance-authority": "0.7.1",
     "fflate": "^0.8.2",
     "lucide-react": "^0.577.0",
+    "remark-gfm": "4.0.1",
     "three": "^0.183.2",
     "zustand": "^5.0.12"
   },

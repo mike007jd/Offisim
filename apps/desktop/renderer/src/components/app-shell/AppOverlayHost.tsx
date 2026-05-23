@@ -16,9 +16,6 @@ const OfficeEditorOverlay = React.lazy(() =>
 const StudioPage = React.lazy(() =>
   import('@offisim/ui-office/studio').then((m) => ({ default: m.StudioPage })),
 );
-const DashboardOverlay = React.lazy(() =>
-  import('@offisim/ui-office/dashboard').then((m) => ({ default: m.DashboardOverlay })),
-);
 const MarketplaceOverlay = React.lazy(() =>
   import('@offisim/ui-office/marketplace').then((m) => ({
     default: m.MarketplaceDetailOverlay,
@@ -40,7 +37,6 @@ export interface AppOverlayHostProps {
   officeState: OfficeSessionState;
   activeCompanyId: string | null;
   repos: RuntimeRepositories | null;
-  activeThreadId: string | null;
   onStudioCompanyCreated: (id: string) => void;
   onCreatorDeploy: (input: { name: string; role: RoleSlug; seed: string }) => Promise<void>;
   updateOfficeState: (updater: (prev: OfficeSessionState) => OfficeSessionState) => void;
@@ -60,7 +56,6 @@ export function AppOverlayHost(props: AppOverlayHostProps) {
     officeState,
     activeCompanyId,
     repos,
-    activeThreadId,
     onStudioCompanyCreated,
     onCreatorDeploy,
     updateOfficeState,
@@ -112,16 +107,6 @@ export function AppOverlayHost(props: AppOverlayHostProps) {
               onCompanyCreated={onStudioCompanyCreated}
             />
           ) : null}
-        </Suspense>
-      )}
-
-      {officeState.dashboardOpen && (
-        <Suspense fallback={null}>
-          <DashboardOverlay
-            open={officeState.dashboardOpen}
-            onClose={() => updateOfficeState((prev) => ({ ...prev, dashboardOpen: false }))}
-            activeThreadId={activeThreadId}
-          />
         </Suspense>
       )}
 

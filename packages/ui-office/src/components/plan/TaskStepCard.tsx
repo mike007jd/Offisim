@@ -59,7 +59,7 @@ export function TaskStepCard({
       </Button>
 
       {step.expanded && step.tasks.length > 0 && (
-        <ul className="space-y-1 border-t border-border-subtle px-2 py-1">
+        <ul className="flex flex-col gap-1 border-t border-border-subtle px-2 py-1">
           {step.tasks.map((task) => (
             <TaskItem
               key={task.taskRunId}

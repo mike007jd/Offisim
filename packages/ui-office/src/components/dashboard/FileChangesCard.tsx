@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle, ScrollArea } from '@offisim/u
 import { FileText } from 'lucide-react';
 import { useFileHistory } from '../../hooks/useFileHistory';
 
-const CHANGE_STYLE: Record<FileHistoryChangeKind, { label: string; color: string }> = {
-  create: { label: 'A', color: 'text-success bg-success-muted' },
-  update: { label: 'M', color: 'text-info bg-info-muted' },
-  delete: { label: 'D', color: 'text-error bg-error-muted' },
+const CHANGE_STYLE: Record<FileHistoryChangeKind, { label: string; className: string }> = {
+  create: { label: 'A', className: 'text-success bg-success-muted' },
+  update: { label: 'M', className: 'text-info bg-info-muted' },
+  delete: { label: 'D', className: 'text-error bg-error-muted' },
 };
 
 interface FileChangesCardProps {
@@ -57,7 +57,7 @@ export function FileChangesCard({ activeThreadId }: FileChangesCardProps) {
                       className="flex items-center gap-2 px-2 py-1 text-xs transition-colors hover:bg-surface-hover"
                     >
                       <span
-                        className={`flex size-4 items-center justify-center rounded text-caption font-bold ${style.color}`}
+                        className={`flex size-4 items-center justify-center rounded text-caption font-bold ${style.className}`}
                       >
                         {style.label}
                       </span>

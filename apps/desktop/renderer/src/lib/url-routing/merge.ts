@@ -16,6 +16,7 @@ export function mergeSessionPatch(
     sops: { ...base.sops, ...patch.sops },
     market: { ...base.market, ...patch.market },
     personnel: { ...base.personnel, ...patch.personnel },
+    workspace: { ...base.workspace, ...patch.workspace },
     activityLog: { ...base.activityLog, ...patch.activityLog },
     settings: { ...base.settings, ...patch.settings },
   };
