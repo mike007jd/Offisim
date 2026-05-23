@@ -2,6 +2,7 @@ import {
   Badge,
   Button,
   Card,
+  CardButton,
   CardContent,
   CardHeader,
   CardTitle,
@@ -29,6 +30,25 @@ import { InsightsCard } from './InsightsCard';
 import { RecentActivityCard } from './RecentActivityCard';
 import { TaskQueueCard } from './TaskQueueCard';
 import { TeamHealthCard } from './TeamHealthCard';
+
+const DASHBOARD_CARD_TITLE_CLASS =
+  'flex items-center gap-sp-2 text-fs-sm font-semibold uppercase tracking-wide text-ink-3';
+const DASHBOARD_ICON_CLASS = 'size-4 shrink-0';
+const DASHBOARD_ACTION_ICON_CLASS = 'size-3';
+const DASHBOARD_CLOSE_ICON_CLASS = 'size-5';
+const DASHBOARD_STATUS_DOT_CLASS = 'mt-sp-1 size-2 shrink-0 rounded-full';
+const DASHBOARD_ROW_ICON_CLASS = 'size-3.5 shrink-0';
+const DASHBOARD_EMPTY_CLASS = 'text-fs-sm text-ink-3';
+const DASHBOARD_LIST_CLASS = 'flex flex-col gap-sp-2';
+const DASHBOARD_ROW_CLASS =
+  'relative flex items-start gap-sp-2 rounded-r-sm border border-transparent p-sp-2 transition-colors hover:border-line-soft hover:bg-surface-sunken';
+const DASHBOARD_ITEM_CLASS = 'rounded-r-sm border border-line-soft bg-surface-2 p-sp-2';
+const DASHBOARD_SCROLL_SHORT_CLASS = 'max-h-dashboard-card-list';
+const DASHBOARD_OVERLAY_CONTENT_CLASS = 'mx-auto max-w-dashboard-overlay px-sp-7 py-sp-6';
+const DASHBOARD_OVERLAY_HEADER_CLASS = 'mb-sp-6 flex items-center justify-between';
+const DASHBOARD_OVERLAY_TITLE_CLASS =
+  'text-fs-lg font-semibold uppercase tracking-ls-caps text-text-primary';
+const DASHBOARD_GRID_CLASS = 'grid grid-cols-1 gap-sp-4 lg:grid-cols-2 xl:grid-cols-3';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -66,13 +86,13 @@ function NotificationsCard({
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-sp-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-text-muted">
-            <Bell className="h-4 w-4" />
+          <CardTitle className={DASHBOARD_CARD_TITLE_CLASS}>
+            <Bell className={DASHBOARD_ICON_CLASS} />
             Notifications
             {unreadCount > 0 && (
-              <Badge variant="error" className="text-caption">
+              <Badge variant="error" size="xs">
                 {unreadCount}
               </Badge>
             )}
@@ -80,65 +100,61 @@ function NotificationsCard({
           {notifications.length > 0 && (
             <Button
               variant="ghost"
-              size="icon"
-              className="h-5 w-5"
+              size="iconSm"
               onClick={onClearAll}
               title="Clear all"
               aria-label="Clear all notifications"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className={DASHBOARD_ACTION_ICON_CLASS} />
             </Button>
           )}
         </div>
       </CardHeader>
       <CardContent>
         {notifications.length === 0 ? (
-          <p className="text-xs text-text-muted">No notifications</p>
+          <p className={DASHBOARD_EMPTY_CLASS}>No notifications</p>
         ) : (
-          <ScrollArea className="max-h-48">
-            <div className="flex flex-col gap-1">
+          <ScrollArea className={DASHBOARD_SCROLL_SHORT_CLASS}>
+            <div className={DASHBOARD_LIST_CLASS}>
               {notifications.slice(0, 20).map((n) => (
                 <div
                   key={n.notificationId}
-                  className={cn(
-                    'flex items-start gap-2 rounded p-1.5 transition-colors hover:bg-surface-hover',
-                    n.read && 'opacity-50',
-                  )}
+                  className={cn(DASHBOARD_ROW_CLASS, n.read && 'opacity-50')}
                 >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-auto flex-1 cursor-pointer appearance-none items-start justify-start gap-2 rounded border-0 bg-transparent p-0 text-left"
+                  <CardButton
+                    aria-label={
+                      n.read
+                        ? `Notification already read: ${n.title}`
+                        : `Mark notification read: ${n.title}`
+                    }
+                    aria-disabled={n.read}
                     onClick={() => !n.read && onMarkRead(n.notificationId)}
-                  >
-                    <div
-                      className={cn('mt-0.5 h-2 w-2 shrink-0 rounded-full', levelDotClass[n.level])}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-xs leading-tight text-text-secondary">
-                        {n.title}
-                      </p>
-                      <p className="mt-0.5 line-clamp-3 text-caption leading-tight text-text-muted">
-                        {n.message}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-caption text-text-muted">
-                      {formatTimestamp(n.timestamp)}
-                    </span>
-                  </Button>
+                  />
+                  <div className={cn(DASHBOARD_STATUS_DOT_CLASS, levelDotClass[n.level])} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-fs-sm leading-tight text-text-secondary">
+                      {n.title}
+                    </p>
+                    <p className="mt-sp-1 line-clamp-3 text-caption leading-tight text-text-muted">
+                      {n.message}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-caption text-text-muted">
+                    {formatTimestamp(n.timestamp)}
+                  </span>
                   {n.dismissable && (
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 shrink-0 text-text-muted hover:text-text-secondary"
-                      aria-label="Dismiss notification"
+                      size="iconSm"
+                      className="z-elevated shrink-0 text-text-muted hover:text-text-secondary"
+                      aria-label={`Dismiss notification: ${n.title}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onDismiss(n.notificationId);
                       }}
                     >
-                      <X className="h-3 w-3" />
+                      <X className={DASHBOARD_ACTION_ICON_CLASS} />
                     </Button>
                   )}
                 </div>
@@ -154,12 +170,12 @@ function NotificationsCard({
 function ErrorHistoryCard({ errors }: { errors: TrackedError[] }) {
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-text-muted">
-          <AlertTriangle className="h-4 w-4" />
+      <CardHeader className="pb-sp-2">
+        <CardTitle className={DASHBOARD_CARD_TITLE_CLASS}>
+          <AlertTriangle className={DASHBOARD_ICON_CLASS} />
           Error History
           {errors.length > 0 && (
-            <Badge variant="error" className="text-caption">
+            <Badge variant="error" size="xs">
               {errors.length}
             </Badge>
           )}
@@ -167,10 +183,10 @@ function ErrorHistoryCard({ errors }: { errors: TrackedError[] }) {
       </CardHeader>
       <CardContent>
         {errors.length === 0 ? (
-          <p className="text-xs text-text-muted">No errors recorded</p>
+          <p className={DASHBOARD_EMPTY_CLASS}>No errors recorded</p>
         ) : (
-          <ScrollArea className="max-h-48">
-            <div className="flex flex-col gap-1.5">
+          <ScrollArea className={DASHBOARD_SCROLL_SHORT_CLASS}>
+            <div className={DASHBOARD_LIST_CLASS}>
               {errors
                 .slice()
                 .reverse()
@@ -178,27 +194,27 @@ function ErrorHistoryCard({ errors }: { errors: TrackedError[] }) {
                 .map((err, i) => (
                   <div
                     key={`${err.errorCode}-${err.timestamp}-${i}`}
-                    className="rounded border border-border-subtle bg-surface-muted/40 p-2"
+                    className={DASHBOARD_ITEM_CLASS}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-sp-2">
                       <XCircle
                         className={cn(
-                          'h-3.5 w-3.5 shrink-0',
+                          DASHBOARD_ROW_ICON_CLASS,
                           err.recoverable ? 'text-warning' : 'text-error',
                         )}
                       />
-                      <span className="truncate font-mono text-xs text-text-secondary">
+                      <span className="min-w-0 flex-1 truncate font-mono text-fs-sm text-text-secondary">
                         {err.errorCode}
                       </span>
                       <span className="ml-auto shrink-0 text-caption text-text-muted">
                         {formatTimestamp(err.timestamp)}
                       </span>
                     </div>
-                    <p className="mt-1 line-clamp-3 text-caption text-text-secondary">
+                    <p className="mt-sp-1 line-clamp-3 text-caption text-text-secondary">
                       {err.message}
                     </p>
                     {err.nodeName && (
-                      <span className="mt-0.5 block text-caption text-text-muted">
+                      <span className="mt-sp-1 block text-caption text-text-muted">
                         node: {err.nodeName}
                         {err.employeeId ? ` | employee: ${err.employeeId}` : ''}
                       </span>
@@ -218,12 +234,12 @@ function OutputsCard() {
 
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-text-muted">
-          <FileOutput className="h-4 w-4" />
+      <CardHeader className="pb-sp-2">
+        <CardTitle className={DASHBOARD_CARD_TITLE_CLASS}>
+          <FileOutput className={DASHBOARD_ICON_CLASS} />
           Recent Outputs
           {deliverables.length > 0 && (
-            <Badge variant="info" className="text-caption">
+            <Badge variant="info" size="xs">
               {deliverables.length}
             </Badge>
           )}
@@ -231,38 +247,33 @@ function OutputsCard() {
       </CardHeader>
       <CardContent>
         {deliverables.length === 0 ? (
-          <p className="text-xs text-text-muted">
+          <p className={DASHBOARD_EMPTY_CLASS}>
             No outputs yet. Deliverables will appear after tasks complete.
           </p>
         ) : (
-          <ScrollArea className="max-h-48">
-            <div className="flex flex-col gap-1.5">
+          <ScrollArea className={DASHBOARD_SCROLL_SHORT_CLASS}>
+            <div className={DASHBOARD_LIST_CLASS}>
               {deliverables
                 .slice()
                 .reverse()
                 .slice(0, 10)
                 .map((d) => (
-                  <div
-                    key={d.id}
-                    className="rounded border border-border-subtle bg-surface-muted/40 p-2"
-                  >
+                  <div key={d.id} className={DASHBOARD_ITEM_CLASS}>
                     <div className="flex items-center justify-between">
-                      <span className="truncate text-xs text-text-primary">{d.title}</span>
-                      <span className="ml-2 shrink-0 text-caption text-text-muted">
+                      <span className="min-w-0 flex-1 truncate text-fs-sm text-text-primary">
+                        {d.title}
+                      </span>
+                      <span className="ml-sp-2 shrink-0 text-caption text-text-muted">
                         {formatTimestamp(d.createdAt)}
                       </span>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-caption text-text-muted">
+                    <p className="mt-sp-1 line-clamp-2 text-caption text-text-muted">
                       {truncate(d.content, 120)}
                     </p>
                     {d.contributingEmployees.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
+                      <div className="mt-sp-1 flex flex-wrap gap-sp-1">
                         {d.contributingEmployees.map((emp) => (
-                          <Badge
-                            key={emp.employeeId}
-                            variant="info"
-                            className="px-1 py-0 text-caption"
-                          >
+                          <Badge key={emp.employeeId} variant="info" size="xs">
                             {emp.employeeName}
                           </Badge>
                         ))}
@@ -336,12 +347,10 @@ export function DashboardOverlay({ open, onClose, activeThreadId }: DashboardOve
           open ? 'translate-y-0' : 'translate-y-3',
         )}
       >
-        <div className="mx-auto max-w-7xl px-4 py-6">
+        <div className={DASHBOARD_OVERLAY_CONTENT_CLASS}>
           {/* Header row */}
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-lg font-black uppercase tracking-wider text-text-primary">
-              Boss Dashboard
-            </h2>
+          <div className={DASHBOARD_OVERLAY_HEADER_CLASS}>
+            <h2 className={DASHBOARD_OVERLAY_TITLE_CLASS}>Boss Dashboard</h2>
             <Button
               variant="ghost"
               size="icon"
@@ -350,12 +359,12 @@ export function DashboardOverlay({ open, onClose, activeThreadId }: DashboardOve
               title="Close dashboard (Esc)"
               aria-label="Close dashboard"
             >
-              <X className="h-5 w-5" />
+              <X className={DASHBOARD_CLOSE_ICON_CLASS} />
             </Button>
           </div>
 
           {/* Dashboard grid — responsive 1/2/3 columns */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <div className={DASHBOARD_GRID_CLASS}>
             <CostOverviewCard summary={cost.summary} loading={cost.loading} />
             <CompanyStatusCard agents={agents} />
             <CostByModelCard byModel={cost.byModel} loading={cost.loading} />

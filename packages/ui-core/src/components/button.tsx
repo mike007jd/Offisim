@@ -32,6 +32,7 @@ const buttonVariants = cva(
         sm: 'h-8 px-3 text-xs',
         lg: 'h-10 px-8',
         icon: 'h-9 w-9',
+        iconSm: 'size-7',
       },
     },
     defaultVariants: {
@@ -60,6 +61,10 @@ function isDevBuild(): boolean {
   return Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
 }
 
+function isIconButtonSize(size: ButtonProps['size']): boolean {
+  return size === 'icon' || size === 'iconSm';
+}
+
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
@@ -79,7 +84,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     useEffect(() => {
       if (
         isDevBuild() &&
-        size === 'icon' &&
+        isIconButtonSize(size) &&
         !ariaLabel &&
         !ariaDescribedBy &&
         !hasTextChildren(children)

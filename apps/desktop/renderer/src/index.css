@@ -156,6 +156,14 @@
     max-width: 60%;
   }
 
+  .max-w-dashboard-overlay {
+    max-width: 80rem;
+  }
+
+  .max-h-dashboard-card-list {
+    max-height: 12rem;
+  }
+
   .grid-appearance-tab {
     grid-template-columns: minmax(0, 1fr) 17.5rem;
   }
