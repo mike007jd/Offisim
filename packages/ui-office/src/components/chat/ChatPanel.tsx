@@ -639,6 +639,126 @@ export function ChatPanel({
       variant="compact"
     />
   ) : null;
+  const railHeadContent = !compact ? (
+    <div className="box-border flex shrink-0 flex-col gap-1 empty:hidden">
+      {activityRail}
+      <SystemMessageFeed />
+      {pendingInteraction?.severity !== 'high' && pendingInteraction && respondToInteraction && (
+        <InteractionPrompt
+          request={pendingInteraction}
+          employeeName={interactionEmployeeName}
+          onRespond={handleInteractionRespond}
+        />
+      )}
+    </div>
+  ) : null;
+  const deliverableContent =
+    !compact && threadDeliverables.length > 0 ? (
+      <div className="box-border shrink-0 border-t border-line py-2">
+        <PitchHall
+          activeThreadId={activeThreadId ?? null}
+          activeProjectId={activeProjectId ?? null}
+        />
+      </div>
+    ) : null;
+  const blockingStatusContent =
+    !compact &&
+    (showMeetingPanel ||
+      meetingState.actions.length > 0 ||
+      pendingInteraction?.severity === 'high' ||
+      showPipelineProgress) ? (
+      <>
+        {showMeetingPanel && (
+          <div className="shrink-0">
+            <Suspense fallback={null}>
+              <MeetingPanel agents={agents} />
+            </Suspense>
+          </div>
+        )}
+        {meetingState.status === 'idle' && meetingState.actions.length > 0 && (
+          <div className="shrink-0">
+            <Suspense fallback={null}>
+              <MeetingActionItems
+                actions={meetingState.actions}
+                agents={agents}
+                onDelegate={(text) => void handleSend(text)}
+              />
+            </Suspense>
+          </div>
+        )}
+        {pendingInteraction?.severity === 'high' && pendingInteraction && respondToInteraction && (
+          <InteractionPrompt
+            request={pendingInteraction}
+            employeeName={interactionEmployeeName}
+            onRespond={handleInteractionRespond}
+          />
+        )}
+        {showPipelineProgress && (
+          <div className="shrink-0">
+            <Suspense fallback={null}>
+              <PipelineProgress
+                stage={pipelineStage}
+                routeLabel={routeLabel}
+                isRunning={isRunning}
+                onAbort={abortExecution}
+              />
+            </Suspense>
+          </div>
+        )}
+      </>
+    ) : null;
+  const starterPromptContent =
+    showEmpty &&
+    !isDirectChat &&
+    !isRunning &&
+    isReady &&
+    onboardingStarterPrompts &&
+    onboardingStarterPrompts.length > 0 ? (
+      <div className="shrink-0 flex flex-wrap gap-2 py-2" data-testid="chat-starter-chip-row">
+        {onboardingStarterPrompts.slice(0, 3).map(({ label, text }) => (
+          <Button
+            key={label}
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleSend(text)}
+            className="rounded-full border-border-subtle bg-surface-muted px-3 py-1.5 text-xs text-text-secondary hover:border-border-focus hover:bg-accent-muted hover:text-accent-text"
+            data-onboarding-starter-prompt={label}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+    ) : null;
+  const assistantThreadFooter = (
+    <div className="shrink-0">
+      {!compact ? (
+        <ChatContextStrip
+          project={activeProject ?? null}
+          attachmentCount={availableThreadAttachments.length}
+        />
+      ) : null}
+      <ChatInput
+        onCommand={executeCommand}
+        disabled={isRunning || !isReady}
+        disabledReason={inputDisabledReason}
+        placeholder={inputPlaceholder}
+        agents={agents}
+        companyId={activeCompanyId ?? ''}
+        threadId={activeThreadId ?? ''}
+        attachmentStore={attachmentStore}
+        eventBus={eventBus}
+        modeChip={
+          setInteractionMode ? (
+            <SessionModeChip
+              current={interactionMode ?? DEFAULT_INTERACTION_MODE}
+              onChange={setInteractionMode}
+            />
+          ) : null
+        }
+      />
+    </div>
+  );
 
   return (
     <OffisimAssistantRuntimeProvider
@@ -704,6 +824,8 @@ export function ChatPanel({
             <OffisimThread
               attachmentStore={attachmentStore}
               className="justify-end"
+              afterMessages={starterPromptContent}
+              footer={assistantThreadFooter}
               emptyState={
                 <div className="rounded-xl border border-border-subtle bg-surface-muted px-3 py-2 text-xs text-text-muted">
                   {isDirectChat
@@ -715,22 +837,17 @@ export function ChatPanel({
           </div>
         ) : (
           <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
-            {/* Run-record + system feed + interaction prompt (fixed head) */}
-            <div className="box-border flex shrink-0 flex-col gap-1 px-3 pt-2 empty:hidden">
-              {activityRail}
-              <SystemMessageFeed />
-              {pendingInteraction?.severity !== 'high' &&
-                pendingInteraction &&
-                respondToInteraction && (
-                  <InteractionPrompt
-                    request={pendingInteraction}
-                    employeeName={interactionEmployeeName}
-                    onRespond={handleInteractionRespond}
-                  />
-                )}
-            </div>
             <OffisimThread
               attachmentStore={attachmentStore}
+              beforeMessages={railHeadContent}
+              afterMessages={
+                <>
+                  {deliverableContent}
+                  {blockingStatusContent}
+                  {starterPromptContent}
+                </>
+              }
+              footer={assistantThreadFooter}
               emptyState={
                 isDirectChat ? (
                   <div className="flex flex-1 items-center justify-center">
@@ -741,114 +858,8 @@ export function ChatPanel({
                 ) : null
               }
             />
-            {/* conv-outputs — thread-scoped deliverables */}
-            {threadDeliverables.length > 0 && (
-              <div className="box-border shrink-0 border-t border-line px-3 py-2">
-                <PitchHall
-                  activeThreadId={activeThreadId ?? null}
-                  activeProjectId={activeProjectId ?? null}
-                />
-              </div>
-            )}
           </div>
         )}
-
-        {/* Meeting panel — shows live participants, transcript, actions, controls */}
-        {!compact && showMeetingPanel && (
-          <div className="shrink-0">
-            <Suspense fallback={null}>
-              <MeetingPanel agents={agents} />
-            </Suspense>
-          </div>
-        )}
-        {!compact && meetingState.status === 'idle' && meetingState.actions.length > 0 && (
-          <div className="shrink-0">
-            <Suspense fallback={null}>
-              <MeetingActionItems
-                actions={meetingState.actions}
-                agents={agents}
-                onDelegate={(text) => void handleSend(text)}
-              />
-            </Suspense>
-          </div>
-        )}
-        {pendingInteraction?.severity === 'high' && pendingInteraction && respondToInteraction && (
-          <InteractionPrompt
-            request={pendingInteraction}
-            employeeName={interactionEmployeeName}
-            onRespond={handleInteractionRespond}
-          />
-        )}
-
-        {/* Pipeline progress bar — 5-stage visual indicator, only visible while active */}
-        {!compact && showPipelineProgress && (
-          <div className="shrink-0">
-            <Suspense fallback={null}>
-              <PipelineProgress
-                stage={pipelineStage}
-                routeLabel={routeLabel}
-                isRunning={isRunning}
-                onAbort={abortExecution}
-              />
-            </Suspense>
-          </div>
-        )}
-
-        {/* Starter prompt chip row — only when team-chat is empty and prompts are provided */}
-        {showEmpty &&
-          !isDirectChat &&
-          !isRunning &&
-          isReady &&
-          onboardingStarterPrompts &&
-          onboardingStarterPrompts.length > 0 && (
-            <div
-              className="shrink-0 flex flex-wrap gap-2 px-3 pb-2"
-              data-testid="chat-starter-chip-row"
-            >
-              {onboardingStarterPrompts.slice(0, 3).map(({ label, text }) => (
-                <Button
-                  key={label}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSend(text)}
-                  className="rounded-full border-border-subtle bg-surface-muted px-3 py-1.5 text-xs text-text-secondary hover:border-border-focus hover:bg-accent-muted hover:text-accent-text"
-                  data-onboarding-starter-prompt={label}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          )}
-
-        {/* Input */}
-        <div className="shrink-0">
-          {!compact ? (
-            <ChatContextStrip
-              project={activeProject ?? null}
-              attachmentCount={availableThreadAttachments.length}
-            />
-          ) : null}
-          <ChatInput
-            onCommand={executeCommand}
-            disabled={isRunning || !isReady}
-            disabledReason={inputDisabledReason}
-            placeholder={inputPlaceholder}
-            agents={agents}
-            companyId={activeCompanyId ?? ''}
-            threadId={activeThreadId ?? ''}
-            attachmentStore={attachmentStore}
-            eventBus={eventBus}
-            modeChip={
-              setInteractionMode ? (
-                <SessionModeChip
-                  current={interactionMode ?? DEFAULT_INTERACTION_MODE}
-                  onChange={setInteractionMode}
-                />
-              ) : null
-            }
-          />
-        </div>
       </div>
     </OffisimAssistantRuntimeProvider>
   );

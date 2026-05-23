@@ -135,12 +135,21 @@ function SystemMessage() {
 export interface OffisimThreadProps {
   /** Rendered by `ThreadPrimitive.Empty` when the conversation has no messages. */
   emptyState?: ReactNode;
+  /** Single-axis rail content that should stay in the assistant-ui viewport before messages. */
+  beforeMessages?: ReactNode;
+  /** Single-axis rail content that should stay in the assistant-ui viewport after messages. */
+  afterMessages?: ReactNode;
+  /** Sticky composer/footer measured by assistant-ui viewport state. */
+  footer?: ReactNode;
   attachmentStore?: AttachmentStore | null;
   className?: string;
 }
 
 export function OffisimThread({
   emptyState,
+  beforeMessages,
+  afterMessages,
+  footer,
   attachmentStore = null,
   className,
 }: OffisimThreadProps) {
@@ -156,8 +165,15 @@ export function OffisimThread({
   return (
     <ThreadPrimitive.Root className={cn('flex min-h-0 flex-1 flex-col', className)}>
       <ThreadPrimitive.Viewport className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-3 py-2">
+        {beforeMessages}
         <ThreadPrimitive.Empty>{emptyState ?? null}</ThreadPrimitive.Empty>
         <ThreadPrimitive.Messages components={components} />
+        {afterMessages}
+        {footer ? (
+          <ThreadPrimitive.ViewportFooter className="sticky bottom-0 z-sticky -mx-3 -mb-2 bg-surface-elevated">
+            {footer}
+          </ThreadPrimitive.ViewportFooter>
+        ) : null}
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
   );
