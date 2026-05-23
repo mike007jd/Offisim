@@ -493,6 +493,67 @@ export function StagePipeInlineGroup({
   );
 }
 
+export function StagePipeCodeGroup({
+  className,
+  children,
+  ...props
+}: HTMLAttributes<HTMLSpanElement> & { children: ReactNode }) {
+  return (
+    <span
+      {...props}
+      data-slot="stage-pipe-code-group"
+      className={cn('stage-pipe-inline-group stage-pipe-code-group', className)}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function StagePipeStepLabel({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      {...props}
+      data-slot="stage-pipe-step-label"
+      className={cn('stage-pipe-step-label', className)}
+    />
+  );
+}
+
+export function StagePipeAssignee({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      {...props}
+      data-slot="stage-pipe-assignee"
+      className={cn('stage-pipe-assignee', className)}
+    />
+  );
+}
+
+export function StagePipeStoppedLabel({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      {...props}
+      data-slot="stage-pipe-stopped-label"
+      className={cn('stage-pipe-stopped-label', className)}
+    />
+  );
+}
+
+interface StagePipeIconProps extends HTMLAttributes<HTMLSpanElement> {
+  tone?: 'default' | 'solid';
+}
+
+export function StagePipeIcon({ tone = 'default', className, ...props }: StagePipeIconProps) {
+  return (
+    <span
+      {...props}
+      data-slot="stage-pipe-icon"
+      data-tone={tone}
+      className={cn('stage-pipe-icon', className)}
+    />
+  );
+}
+
 export function StagePipeDivider({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
     <span

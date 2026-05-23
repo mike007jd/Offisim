@@ -4,6 +4,7 @@ import { CompanySelectionPage } from '@offisim/ui-office/web';
 import React, { Suspense } from 'react';
 import type { OverlayKey } from '../../lib/app-view-layout';
 import type { OfficeSessionState, UpdateWorkspaceStateFn } from '../workspaces/types';
+import { AppOverlayPortalHost } from './AppShellSurfaces';
 
 const EmployeeCreatorOverlay = React.lazy(() =>
   import('@offisim/ui-office/employee-creator').then((m) => ({
@@ -66,11 +67,11 @@ export function AppOverlayHost(props: AppOverlayHostProps) {
   return (
     <>
       {activeOverlay === 'employee-creator' && (
-        <div className="fixed inset-0 z-top">
+        <AppOverlayPortalHost>
           <Suspense fallback={null}>
             <EmployeeCreatorOverlay open onClose={closeOverlay} onDeploy={onCreatorDeploy} />
           </Suspense>
-        </div>
+        </AppOverlayPortalHost>
       )}
 
       {activeOverlay === 'office-editor' && (

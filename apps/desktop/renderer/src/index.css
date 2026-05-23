@@ -1027,6 +1027,23 @@
     pointer-events: auto;
   }
 
+  .app-resume-banner-host {
+    left: 50%;
+    max-width: var(--container-2xl);
+    padding-inline: var(--spacing-4);
+    position: fixed;
+    top: var(--spacing-2);
+    transform: translateX(-50%);
+    width: 100%;
+    z-index: var(--z-top);
+  }
+
+  .app-overlay-portal-host {
+    inset: 0;
+    position: fixed;
+    z-index: var(--z-top);
+  }
+
   .stage-axis-bar {
     align-items: center;
     backdrop-filter: blur(calc(var(--sp-1) * 2));
@@ -1368,6 +1385,10 @@
     display: flex;
     gap: var(--spacing-3);
     justify-content: space-between;
+  }
+
+  .git-workbench-title-stack {
+    min-width: 0;
   }
 
   .git-workbench-kicker {
@@ -2133,6 +2154,45 @@
     align-items: center;
     display: inline-flex;
     gap: var(--sp-1);
+  }
+
+  .stage-pipe-code-group {
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-fs-micro);
+  }
+
+  .stage-pipe-step-label {
+    color: var(--ink-1);
+    font-weight: var(--text-body--font-weight);
+    max-width: calc(var(--spacing-16) + var(--spacing-16) + var(--spacing-8));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stage-pipe-assignee {
+    color: var(--ink-3);
+  }
+
+  .stage-pipe-stopped-label {
+    color: var(--ink-2);
+    font-weight: var(--text-body--font-weight);
+  }
+
+  .stage-pipe-icon {
+    display: inline-flex;
+  }
+
+  .stage-pipe-icon svg {
+    height: calc(var(--spacing-3) + (var(--spacing-1) / 2));
+    width: calc(var(--spacing-3) + (var(--spacing-1) / 2));
+  }
+
+  .stage-pipe-icon[data-tone="solid"] svg {
+    fill: currentColor;
+    height: var(--spacing-3);
+    width: var(--spacing-3);
   }
 
   .stage-pipe-stopped-stack {

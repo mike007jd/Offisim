@@ -52,6 +52,16 @@ export function GitWorkbenchHeaderRow({ className, ...props }: HTMLAttributes<HT
   );
 }
 
+export function GitWorkbenchTitleStack({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      {...props}
+      data-slot="git-workbench-title-stack"
+      className={cn('git-workbench-title-stack', className)}
+    />
+  );
+}
+
 export function GitWorkbenchKicker({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return (
     <p

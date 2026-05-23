@@ -23,6 +23,7 @@ import { OnboardingController } from './components/OnboardingController';
 import { AppGlobalDialogs } from './components/app-shell/AppGlobalDialogs';
 import { AppMainShell } from './components/app-shell/AppMainShell';
 import { AppOverlayHost } from './components/app-shell/AppOverlayHost';
+import { AppResumeBannerHost } from './components/app-shell/AppShellSurfaces';
 import { useWorkspaceSessionState } from './components/workspaces/useWorkspaceSessionState';
 import { useAppKeyboardShortcuts } from './hooks/useAppKeyboardShortcuts';
 import { useAppRuntimeToasts } from './hooks/useAppRuntimeToasts';
@@ -455,13 +456,13 @@ export function App({ onCompanySwitch }: AppProps) {
           <ToastBanner toasts={guidanceToasts} onDismiss={dismissGuidanceToast} />
 
           {isOffice && unfinishedThreads.length > 0 && (
-            <div className="fixed top-2 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 px-4">
+            <AppResumeBannerHost>
               <ResumeBar
                 projects={unfinishedThreads}
                 onResume={(threadId: string) => void resumeThread(threadId)}
                 onDismiss={dismissUnfinishedThreads}
               />
-            </div>
+            </AppResumeBannerHost>
           )}
 
           <AppOverlayHost

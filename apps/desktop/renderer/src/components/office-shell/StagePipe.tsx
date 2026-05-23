@@ -12,11 +12,15 @@ import { useEffect, useRef, useState } from 'react';
 import {
   StagePipeActionButton,
   StagePipeActionRow,
+  StagePipeAssignee,
   StagePipeBadge,
+  StagePipeCodeGroup,
   StagePipeDivider,
-  StagePipeInlineGroup,
+  StagePipeIcon,
   StagePipePill,
   StagePipeProgress,
+  StagePipeStepLabel,
+  StagePipeStoppedLabel,
   StagePipeStoppedPill,
   StagePipeStoppedStack,
   StageRunStatusDot,
@@ -79,19 +83,17 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
     return (
       <StagePipePill aria-label="Plan progress · current step">
         <StageRunStatusDot state="running" />
-        <span className="max-w-56 truncate font-semibold text-ink-1" title={stepLabel}>
-          {stepLabel}
-        </span>
-        {assigneeName ? <span className="text-ink-3">· {assigneeName}</span> : null}
+        <StagePipeStepLabel title={stepLabel}>{stepLabel}</StagePipeStepLabel>
+        {assigneeName ? <StagePipeAssignee>· {assigneeName}</StagePipeAssignee> : null}
         {total > 0 ? (
           <>
             <StagePipeDivider />
-            <StagePipeInlineGroup className="font-mono text-fs-micro text-ink-3">
+            <StagePipeCodeGroup>
               <StagePipeProgress ratio={ratio} />
               <output aria-label="Completed plan steps">
                 {completed}/{total}
               </output>
-            </StagePipeInlineGroup>
+            </StagePipeCodeGroup>
           </>
         ) : null}
         {pendingInteraction ? (
@@ -110,7 +112,9 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
             abortExecution();
           }}
         >
-          <Square className="size-3 fill-current" aria-hidden="true" />
+          <StagePipeIcon tone="solid">
+            <Square aria-hidden="true" />
+          </StagePipeIcon>
           Stop
         </StagePipeActionButton>
       </StagePipePill>
@@ -122,7 +126,7 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
       <StagePipeStoppedStack>
         <StagePipeStoppedPill>
           <StageRunStatusDot state="idle" />
-          <span className="font-semibold text-ink-2">Stopped at {aborted.stepLabel}</span>
+          <StagePipeStoppedLabel>Stopped at {aborted.stepLabel}</StagePipeStoppedLabel>
         </StagePipeStoppedPill>
         <StagePipeActionRow>
           {aborted.threadId ? (
@@ -136,7 +140,9 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
                 if (target) void resumeThread(target);
               }}
             >
-              <ArrowRight className="size-3.5" aria-hidden="true" />
+              <StagePipeIcon>
+                <ArrowRight aria-hidden="true" />
+              </StagePipeIcon>
               Resume
             </StagePipeActionButton>
           ) : null}
@@ -146,7 +152,9 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
             title="Discard the stopped run"
             onClick={() => setAborted(null)}
           >
-            <X className="size-3.5" aria-hidden="true" />
+            <StagePipeIcon>
+              <X aria-hidden="true" />
+            </StagePipeIcon>
             Discard
           </StagePipeActionButton>
         </StagePipeActionRow>

@@ -61,6 +61,7 @@ import {
   GitWorkbenchHeaderRow,
   GitWorkbenchKicker,
   GitWorkbenchShell,
+  GitWorkbenchTitleStack,
 } from './GitWorkbenchSurfaces';
 
 interface GitExecResult {
@@ -347,7 +348,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
     <GitWorkbenchShell>
       <GitWorkbenchHeader>
         <GitWorkbenchHeaderRow>
-          <div className="min-w-0">
+          <GitWorkbenchTitleStack>
             <GitWorkbenchKicker>Git Workbench</GitWorkbenchKicker>
             <GitBranchLine>
               <GitIconSlot>
@@ -355,7 +356,7 @@ export function GitWorkbench({ activeProject }: GitWorkbenchProps) {
               </GitIconSlot>
               <GitBranchName>{snapshot.branch ?? 'No branch'}</GitBranchName>
             </GitBranchLine>
-          </div>
+          </GitWorkbenchTitleStack>
           <GitRefreshButton type="button" onClick={() => void refresh()} disabled={loading}>
             {loading ? (
               <GitIconSlot state="loading">
