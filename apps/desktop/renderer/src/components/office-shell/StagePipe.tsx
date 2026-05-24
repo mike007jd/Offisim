@@ -118,6 +118,19 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
     );
   }
 
+  if (pendingInteraction) {
+    return (
+      <StagePipePill aria-label="Plan progress · input required">
+        <StageStatusDot state="pending" />
+        <StagePipeStepLabel title={pendingInteraction.title}>
+          {pendingInteraction.title}
+        </StagePipeStepLabel>
+        <StagePipeDivider />
+        <StagePipeBadge>Needs input</StagePipeBadge>
+      </StagePipePill>
+    );
+  }
+
   if (aborted) {
     return (
       <StagePipeStoppedStack>
