@@ -13552,6 +13552,203 @@
     white-space: pre-wrap;
   }
 
+  .binding-form,
+  .binding-form-list,
+  .binding-form-row,
+  .binding-form-input-stack,
+  .install-progress,
+  .install-progress-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .binding-form,
+  .binding-form-list,
+  .install-progress {
+    gap: var(--sp-4);
+  }
+
+  .binding-form-head h3,
+  .install-progress-head h3,
+  .install-dialog-state h3 {
+    color: var(--ink-1);
+    font-size: var(--text-body);
+    font-weight: 700;
+  }
+
+  .binding-form-head p {
+    color: var(--ink-2);
+    font-size: var(--text-fs-sm);
+    margin-block-start: var(--sp-1);
+  }
+
+  .binding-form-row {
+    border: calc(var(--border-width-thin) * 2) solid var(--line);
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+  }
+
+  .binding-form-row-head {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+    justify-content: space-between;
+  }
+
+  .binding-form-row-head > div {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+
+  .binding-form-row-head [data-slot="key"] {
+    color: var(--ink-1);
+    font-size: var(--text-fs-sm);
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .binding-form-skip {
+    flex-shrink: 0;
+    font-size: var(--text-fs-xs, var(--text-fs-sm));
+  }
+
+  .binding-form-hint {
+    color: var(--ink-3);
+    font-size: var(--text-fs-xs, var(--text-fs-sm));
+  }
+
+  .binding-form-input-stack {
+    gap: var(--sp-2);
+  }
+
+  .binding-form-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+  }
+
+  .binding-form-suggestion {
+    border: calc(var(--border-width-thin) * 2) solid var(--line);
+    color: var(--ink-2);
+    font-size: var(--text-fs-xs, var(--text-fs-sm));
+    padding: calc(var(--sp-1) / 2) var(--sp-2);
+    transition-duration: var(--duration-normal);
+    transition-property: background-color, color;
+  }
+
+  .binding-form-suggestion:hover {
+    background: var(--surface-sunken);
+    color: var(--ink-1);
+  }
+
+  .binding-form-actions {
+    border-block-start: var(--border-width-thin) solid var(--line);
+    display: flex;
+    gap: var(--sp-2);
+    justify-content: flex-end;
+    padding-block-start: var(--sp-2);
+  }
+
+  .install-dialog-state {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    justify-content: center;
+    padding-block: var(--sp-8);
+  }
+
+  .install-dialog-state [data-slot="spinner"] {
+    animation: offisim-spin var(--duration-slow) linear infinite;
+    border: calc(var(--border-width-thin) * 2) solid var(--danger);
+    border-block-start-color: transparent;
+    border-radius: var(--radius-pill);
+    height: var(--sp-8);
+    width: var(--sp-8);
+  }
+
+  .install-dialog-state [data-icon="state"] {
+    height: calc(var(--sp-8) + var(--sp-2));
+    width: calc(var(--sp-8) + var(--sp-2));
+  }
+
+  .install-dialog-state[data-state="done"] [data-icon="state"] {
+    color: var(--ok);
+  }
+
+  .install-dialog-state[data-state="error"] [data-icon="state"],
+  .install-dialog-state[data-state="error"] p {
+    color: var(--danger);
+  }
+
+  .install-dialog-state p {
+    color: var(--ink-2);
+    font-size: var(--text-fs-sm);
+    text-align: center;
+  }
+
+  .install-dialog-state > div:last-child {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+    margin-block-start: var(--sp-2);
+  }
+
+  .install-dialog-close {
+    margin-block-start: var(--sp-2);
+  }
+
+  .install-progress-list {
+    gap: var(--sp-2);
+  }
+
+  .install-progress-row {
+    align-items: center;
+    display: flex;
+    font-size: var(--text-fs-sm);
+    gap: var(--sp-2);
+  }
+
+  .install-progress-icon,
+  .install-progress-alert-icon {
+    height: var(--sp-4);
+    width: var(--sp-4);
+  }
+
+  .install-progress-icon[data-status="completed"] {
+    color: var(--ok);
+  }
+
+  .install-progress-icon[data-status="active"],
+  .install-progress-icon[data-status="error"] {
+    color: var(--danger);
+  }
+
+  .install-progress-icon[data-status="active"] {
+    animation: offisim-spin var(--duration-slow) linear infinite;
+  }
+
+  .install-progress-icon[data-status="pending"] {
+    color: var(--ink-3);
+  }
+
+  .install-progress-row span[data-status="completed"] {
+    color: var(--ink-2);
+  }
+
+  .install-progress-row span[data-status="active"] {
+    color: var(--ink-1);
+    font-weight: 700;
+  }
+
+  .install-progress-row span[data-status="pending"] {
+    color: var(--ink-3);
+  }
+
   .w-sop-context-menu {
     width: 8.75rem;
   }

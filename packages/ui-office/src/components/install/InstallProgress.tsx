@@ -63,15 +63,20 @@ function getStepStatus(
 }
 
 function StepIcon({ status }: { status: 'completed' | 'active' | 'pending' | 'error' }) {
+  const iconProps = {
+    className: 'install-progress-icon',
+    'data-status': status,
+    'aria-hidden': 'true',
+  } as const;
   switch (status) {
     case 'completed':
-      return <CheckCircle2 className="h-4 w-4 text-ok" />;
+      return <CheckCircle2 {...iconProps} />;
     case 'active':
-      return <Loader2 className="h-4 w-4 text-danger animate-spin" />;
+      return <Loader2 {...iconProps} />;
     case 'error':
-      return <XCircle className="h-4 w-4 text-danger" />;
+      return <XCircle {...iconProps} />;
     default:
-      return <Circle className="h-4 w-4 text-ink-3" />;
+      return <Circle {...iconProps} />;
   }
 }
 
@@ -79,9 +84,9 @@ export function InstallProgress({ currentStep, error }: InstallProgressProps) {
   const progress = stepToProgress(currentStep);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-base font-semibold text-ink-1">
+    <div className="install-progress">
+      <div className="install-progress-head">
+        <h3>
           {currentStep === 'installing'
             ? 'Installing...'
             : currentStep === 'done'
@@ -94,23 +99,13 @@ export function InstallProgress({ currentStep, error }: InstallProgressProps) {
       <Progress value={progress} />
 
       {/* Step list */}
-      <div className="flex flex-col gap-2">
+      <div className="install-progress-list">
         {INSTALL_STEPS.map((step) => {
           const status = getStepStatus(step.key, currentStep);
           return (
-            <div key={step.key} className="flex items-center gap-2 text-sm">
+            <div key={step.key} className="install-progress-row">
               <StepIcon status={status} />
-              <span
-                className={
-                  status === 'completed'
-                    ? 'text-ink-2'
-                    : status === 'active'
-                      ? 'text-ink-1 font-medium'
-                      : 'text-ink-3'
-                }
-              >
-                {step.label}
-              </span>
+              <span data-status={status}>{step.label}</span>
             </div>
           );
         })}
@@ -119,7 +114,7 @@ export function InstallProgress({ currentStep, error }: InstallProgressProps) {
       {/* Error display */}
       {error && (
         <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
+          <XCircle className="install-progress-alert-icon" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}

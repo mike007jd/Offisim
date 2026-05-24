@@ -33,34 +33,30 @@ export function BindingForm({
   const modelBindings = bindings.filter((b) => b.bindingType === 'model_profile');
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-base font-semibold text-ink-1">Configure Model Bindings</h3>
-        <p className="text-sm text-ink-2 mt-1">
-          Choose which models to use for each role. Optional bindings can be skipped.
-        </p>
+    <div className="binding-form">
+      <div className="binding-form-head">
+        <h3>Configure Model Bindings</h3>
+        <p>Choose which models to use for each role. Optional bindings can be skipped.</p>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="binding-form-list">
         {modelBindings.map((binding) => {
           const value = bindingValues.get(binding.bindingKey) ?? '';
           const isSkipped = value === '__skip__';
 
           return (
-            <div key={binding.bindingKey} className="border-2 border-line p-3 flex flex-col gap-2">
+            <div key={binding.bindingKey} className="binding-form-row">
               {/* Binding header */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm font-medium text-ink-1 truncate">
-                    {binding.bindingKey.split(':').pop()}
-                  </span>
+              <div className="binding-form-row-head">
+                <div>
+                  <span data-slot="key">{binding.bindingKey.split(':').pop()}</span>
                   {!binding.required && <Badge variant="secondary">optional</Badge>}
                 </div>
                 {!binding.required && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="shrink-0 text-xs"
+                    className="binding-form-skip"
                     onClick={() => onSetValue(binding.bindingKey, isSkipped ? '' : '__skip__')}
                   >
                     {isSkipped ? 'Configure' : 'Skip'}
@@ -69,11 +65,11 @@ export function BindingForm({
               </div>
 
               {/* Hint */}
-              {binding.hint && <p className="text-xs text-ink-3">Purpose: {binding.hint}</p>}
+              {binding.hint && <p className="binding-form-hint">Purpose: {binding.hint}</p>}
 
               {/* Input area */}
               {!isSkipped && (
-                <div className="flex flex-col gap-2">
+                <div className="binding-form-input-stack">
                   <Input
                     placeholder="provider/model (e.g. openai/gpt-4o)"
                     value={value}
@@ -82,14 +78,14 @@ export function BindingForm({
                     onChange={(e) => onSetValue(binding.bindingKey, e.target.value)}
                   />
                   {/* Quick suggestions */}
-                  <div className="flex flex-wrap gap-1">
+                  <div className="binding-form-suggestions">
                     {MODEL_SUGGESTIONS.map((model) => (
                       <Button
                         key={model}
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="border-2 border-line px-2 py-0.5 text-xs text-ink-2 hover:bg-surface-sunken hover:text-ink-1 transition-colors"
+                        className="binding-form-suggestion"
                         onClick={() => onSetValue(binding.bindingKey, model)}
                       >
                         {model}
@@ -104,7 +100,7 @@ export function BindingForm({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2 border-t border-line">
+      <div className="binding-form-actions">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>

@@ -21,26 +21,24 @@ type InstallDialogProps = InstallFlowState & InstallFlowActions;
 
 function LoadingContent() {
   return (
-    <div className="flex flex-col items-center justify-center py-8 gap-3">
-      <div className="h-8 w-8 animate-spin border-2 border-danger border-t-transparent" />
-      <p className="text-sm text-ink-2">Loading package...</p>
+    <div className="install-dialog-state" data-state="loading">
+      <div data-slot="spinner" />
+      <p>Loading package...</p>
     </div>
   );
 }
 
 function DoneContent({ onClose, isUpgrade = false }: { onClose: () => void; isUpgrade?: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center py-8 gap-3">
-      <CheckCircle2 className="h-10 w-10 text-ok" />
-      <h3 className="text-base font-semibold text-ink-1">
-        {isUpgrade ? 'Upgrade Complete' : 'Installation Complete'}
-      </h3>
-      <p className="text-sm text-ink-2 text-center">
+    <div className="install-dialog-state" data-state="done">
+      <CheckCircle2 data-icon="state" aria-hidden="true" />
+      <h3>{isUpgrade ? 'Upgrade Complete' : 'Installation Complete'}</h3>
+      <p>
         {isUpgrade
           ? 'The package has been upgraded successfully.'
           : 'The package has been installed successfully.'}
       </p>
-      <Button onClick={onClose} className="mt-2">
+      <Button onClick={onClose} className="install-dialog-close">
         Close
       </Button>
     </div>
@@ -57,11 +55,11 @@ function ErrorContent({
   onRetry: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-8 gap-3">
-      <XCircle className="h-10 w-10 text-danger" />
-      <h3 className="text-base font-semibold text-ink-1">Installation Failed</h3>
-      <p className="text-sm text-danger text-center">{error}</p>
-      <div className="mt-2 flex items-center gap-2">
+    <div className="install-dialog-state" data-state="error">
+      <XCircle data-icon="state" aria-hidden="true" />
+      <h3>Installation Failed</h3>
+      <p>{error}</p>
+      <div>
         <Button variant="outline" onClick={onCancel}>
           Close
         </Button>
