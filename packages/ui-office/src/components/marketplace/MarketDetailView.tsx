@@ -31,18 +31,17 @@ export interface MarketDetailViewProps {
   readonly installedPackageKeys?: ReadonlySet<string>;
 }
 
-const CAPS_LABEL = 'text-fs-meta font-semibold uppercase tracking-wide text-ink-3';
-const CHIP =
-  'inline-flex h-5 items-center rounded-r-pill bg-surface-sunken px-2 text-fs-meta font-medium text-ink-3';
+const CAPS_LABEL = 'market-detail-label';
+const CHIP = 'market-detail-chip';
 
 function DetailSkeleton() {
   return (
-    <div className="flex flex-col gap-4 p-sp-7">
-      <Skeleton className="h-6 w-2/3 rounded-r-xs" />
-      <Skeleton className="h-4 w-full rounded-r-xs" />
-      <Skeleton className="aspect-video w-full rounded-r-md" />
-      <Skeleton className="h-20 w-full rounded-r-md" />
-      <Skeleton className="h-9 w-full rounded-r-md" />
+    <div className="market-detail-skeleton">
+      <Skeleton className="market-detail-skeleton-line" data-size="title" />
+      <Skeleton className="market-detail-skeleton-line" data-size="full" />
+      <Skeleton className="market-detail-skeleton-shot" />
+      <Skeleton className="market-detail-skeleton-block" />
+      <Skeleton className="market-detail-skeleton-cta" />
     </div>
   );
 }
@@ -57,13 +56,13 @@ export function MarketDetailView({
   installedListingIds,
   installedPackageKeys,
 }: MarketDetailViewProps) {
-  const panelBorder = layout === 'panel' ? 'border-l border-line shadow-elev-2' : '';
+  const isPanel = layout === 'panel';
 
   if (loading) {
     return (
-      <div className={`flex h-full min-h-0 flex-col bg-surface-1 ${panelBorder}`}>
+      <div className={cn('market-detail-view', isPanel && 'market-detail-view-panel')}>
         <DetailHead onBack={onBack} kindChip={null} />
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="market-detail-scroll">
           <DetailSkeleton />
         </div>
       </div>
@@ -72,15 +71,20 @@ export function MarketDetailView({
 
   if (unavailable || !detail) {
     return (
-      <div className={`flex h-full min-h-0 flex-col bg-surface-1 ${panelBorder}`}>
+      <div className={cn('market-detail-view', isPanel && 'market-detail-view-panel')}>
         <DetailHead onBack={onBack} kindChip={null} />
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-sp-7 text-center">
-          <p className="text-fs-lg font-semibold text-ink-1">Listing unavailable</p>
-          <p className="text-fs-sm text-ink-3">
+        <div className="market-detail-unavailable">
+          <p className="market-detail-unavailable-title">Listing unavailable</p>
+          <p className="market-detail-unavailable-copy">
             This package may have been removed or is no longer accessible.
           </p>
-          <Button type="button" variant="secondary" onClick={onBack} className="gap-1.5">
-            <ArrowLeft className="size-4" aria-hidden="true" />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onBack}
+            className="market-detail-back-cta"
+          >
+            <ArrowLeft data-icon="back" aria-hidden="true" />
             Back
           </Button>
         </div>
@@ -103,33 +107,33 @@ export function MarketDetailView({
   return (
     <div
       className={cn(
-        'flex h-full min-h-0 flex-col bg-surface-1 text-ink-1',
-        panelBorder,
+        'market-detail-view',
+        isPanel && 'market-detail-view-panel',
         rarityClassName(detail.kind),
       )}
     >
       <DetailHead
         onBack={onBack}
         kindChip={
-          <span className="market-rarity-chip inline-flex h-5 items-center gap-1.5 rounded-r-pill px-2 text-fs-meta font-bold uppercase tracking-wide">
-            {Icon && <Icon className="size-3" aria-hidden="true" />}
+          <span className="market-detail-kind-chip market-rarity-chip">
+            {Icon && <Icon data-icon="kind" aria-hidden="true" />}
             {formatMarketKindLabel(detail.kind)}
           </span>
         }
       />
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-sp-7">
-        <div>
-          <h1 className="text-fs-lg font-bold text-ink-1">{detail.title}</h1>
-          <p className="mt-1 text-fs-sm leading-relaxed text-ink-3">{detail.summary}</p>
-          <div className="mt-2 flex items-center gap-1.5 font-mono text-fs-meta text-ink-4">
+      <div className="market-detail-body">
+        <div className="market-detail-intro">
+          <h1 className="market-detail-title">{detail.title}</h1>
+          <p className="market-detail-summary">{detail.summary}</p>
+          <div className="market-detail-creator">
             {verified && (
               <span
-                className="inline-block size-1.5 rounded-full bg-accent"
+                className="market-detail-verified"
                 title={formatCreatorVerificationLabel(detail.creator.verification_state)}
               />
             )}
-            <span className="text-ink-3">@{detail.creator.handle}</span>
+            <span className="market-detail-handle">@{detail.creator.handle}</span>
             <span>·</span>
             <span>{detail.creator.display_name}</span>
           </div>
@@ -138,7 +142,7 @@ export function MarketDetailView({
         <ScreenshotCarousel previews={detail.previews} fallbackTitle={detail.title} />
 
         {detail.tags && detail.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="market-detail-tags">
             {detail.tags.map((tag) => (
               <span key={tag} className={CHIP}>
                 {tag}
@@ -147,13 +151,13 @@ export function MarketDetailView({
           </div>
         )}
 
-        <dl className="grid grid-cols-2 gap-x-sp-5 gap-y-2.5 rounded-r-md border border-line-soft bg-surface-2 p-sp-5">
+        <dl className="market-detail-meta">
           <MetaRow label="Version" value={version} mono />
           <MetaRow label="Installs" value={formatInstallCount(detail.install_count)} mono />
-          <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="market-detail-meta-row">
             <dt className={CAPS_LABEL}>Rating</dt>
-            <dd className="flex items-center gap-1 text-fs-sm text-ink-1">
-              <Star className="size-3.5 fill-current text-warn" aria-hidden="true" />
+            <dd className="market-detail-rating">
+              <Star data-icon="rating" aria-hidden="true" />
               {detail.rating.toFixed(1)}
             </dd>
           </div>
@@ -172,7 +176,7 @@ export function MarketDetailView({
               type="button"
               disabled
               variant="secondary"
-              className="w-full cursor-not-allowed gap-1.5 rounded-r-md bg-surface-sunken text-fs-sm font-semibold text-ink-4"
+              className="market-detail-install market-detail-install-disabled"
             >
               Installed
             </Button>
@@ -180,32 +184,26 @@ export function MarketDetailView({
             <Button
               type="button"
               onClick={() => onInstall(detail.listing_id, version)}
-              className="market-rarity-cta w-full gap-1.5 rounded-r-md border-0 text-fs-sm font-semibold text-accent-fg"
+              className="market-detail-install market-rarity-cta"
             >
               Install
             </Button>
           )
         ) : (
-          <div className="rounded-r-md border border-dashed border-line bg-surface-sunken px-3 py-2.5 text-center text-fs-meta text-ink-3">
-            Install not supported for {detail.kind}.
-          </div>
+          <div className="market-detail-unsupported">Install not supported for {detail.kind}.</div>
         )}
 
         <PermissionsBlock permissions={detail.permissions} variant="wide" />
 
         {detail.description && (
           <Section title="Description">
-            <p className="whitespace-pre-wrap text-fs-sm leading-relaxed text-ink-2">
-              {detail.description}
-            </p>
+            <p className="market-detail-prose">{detail.description}</p>
           </Section>
         )}
 
         {detail.version.changelog && (
           <Section title="Changelog">
-            <p className="whitespace-pre-wrap text-fs-sm leading-relaxed text-ink-2">
-              {detail.version.changelog}
-            </p>
+            <p className="market-detail-prose">{detail.version.changelog}</p>
           </Section>
         )}
 
@@ -214,9 +212,9 @@ export function MarketDetailView({
         <LineageSection lineage={detail.lineage} />
 
         {typeof detail.version !== 'string' && detail.version.runtime_range && (
-          <div className="flex items-center justify-between text-fs-meta text-ink-3">
+          <div className="market-detail-runtime">
             <span>Runtime</span>
-            <span className="font-mono text-ink-1">{detail.version.runtime_range}</span>
+            <span>{detail.version.runtime_range}</span>
           </div>
         )}
       </div>
@@ -226,15 +224,15 @@ export function MarketDetailView({
 
 function DetailHead({ onBack, kindChip }: { onBack: () => void; kindChip: ReactNode }) {
   return (
-    <header className="flex h-12 flex-none items-center gap-2 border-b border-line px-sp-5">
+    <header className="market-detail-head">
       <Button
         type="button"
         onClick={onBack}
         variant="ghost"
         size="sm"
-        className="gap-1.5 rounded-r-sm text-fs-sm font-medium text-ink-3 hover:bg-surface-sunken hover:text-ink-1"
+        className="market-detail-back"
       >
-        <ArrowLeft className="size-3.5" aria-hidden="true" />
+        <ArrowLeft data-icon="back" aria-hidden="true" />
         Back
       </Button>
       {kindChip}
@@ -244,16 +242,16 @@ function DetailHead({ onBack, kindChip }: { onBack: () => void; kindChip: ReactN
 
 function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
+    <div className="market-detail-meta-row">
       <dt className={CAPS_LABEL}>{label}</dt>
-      <dd className={`truncate text-fs-sm text-ink-1 ${mono ? 'font-mono' : ''}`}>{value}</dd>
+      <dd className={cn('market-detail-meta-value', mono && 'market-detail-mono')}>{value}</dd>
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5 border-t border-line-soft pt-sp-5">
+    <div className="market-detail-section">
       <h2 className={CAPS_LABEL}>{title}</h2>
       {children}
     </div>
@@ -275,12 +273,12 @@ function ScreenshotCarousel({
   const goPrev = () => setIndex((i) => (i === 0 ? images.length - 1 : i - 1));
   const goNext = () => setIndex((i) => (i === images.length - 1 ? 0 : i + 1));
   return (
-    <div className="overflow-hidden rounded-r-md border border-line-soft bg-surface-sunken">
-      <div className="relative aspect-video w-full">
+    <div className="market-detail-shot">
+      <div className="market-detail-shot-frame">
         <img
           src={active.url}
           alt={active.alt ?? fallbackTitle}
-          className="h-full w-full object-cover"
+          className="market-detail-shot-image"
           loading="lazy"
         />
         {images.length > 1 && (
@@ -291,9 +289,9 @@ function ScreenshotCarousel({
               aria-label="Previous screenshot"
               variant="secondary"
               size="icon"
-              className="absolute left-2 top-1/2 size-7 -translate-y-1/2 rounded-full bg-surface-1/90 text-ink-1 shadow-elev-1 backdrop-blur"
+              className="market-detail-shot-nav market-detail-shot-nav-prev"
             >
-              <ChevronLeft className="size-4" aria-hidden="true" />
+              <ChevronLeft data-icon="shot-nav" aria-hidden="true" />
             </Button>
             <Button
               type="button"
@@ -301,11 +299,11 @@ function ScreenshotCarousel({
               aria-label="Next screenshot"
               variant="secondary"
               size="icon"
-              className="absolute right-2 top-1/2 size-7 -translate-y-1/2 rounded-full bg-surface-1/90 text-ink-1 shadow-elev-1 backdrop-blur"
+              className="market-detail-shot-nav market-detail-shot-nav-next"
             >
-              <ChevronRight className="size-4" aria-hidden="true" />
+              <ChevronRight data-icon="shot-nav" aria-hidden="true" />
             </Button>
-            <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+            <div className="market-detail-shot-dots">
               {images.map((preview, i) => (
                 <Button
                   key={preview.url}
@@ -315,8 +313,8 @@ function ScreenshotCarousel({
                   onClick={() => setIndex(i)}
                   aria-label={`Show screenshot ${i + 1}`}
                   className={cn(
-                    'size-2 rounded-full border-0 p-0 transition-colors',
-                    i === index ? 'bg-surface-1' : 'bg-surface-1/55',
+                    'market-detail-shot-dot',
+                    i === index && 'market-detail-shot-dot-active',
                   )}
                 />
               ))}
@@ -341,9 +339,9 @@ function RequirementsSection({
     <Section title="Requirements">
       <div className="flex flex-col gap-2">
         {caps.length > 0 && (
-          <div className="flex flex-wrap items-baseline gap-2">
+          <div className="market-detail-requirement-row">
             <span className={CAPS_LABEL}>Capabilities</span>
-            <div className="flex flex-wrap gap-1">
+            <div className="market-detail-chip-row">
               {caps.map((c) => (
                 <span key={c} className={CHIP}>
                   {c}
@@ -353,11 +351,11 @@ function RequirementsSection({
           </div>
         )}
         {mcps.length > 0 && (
-          <div className="flex flex-wrap items-baseline gap-2">
+          <div className="market-detail-requirement-row">
             <span className={CAPS_LABEL}>MCPs</span>
-            <div className="flex flex-wrap gap-1">
+            <div className="market-detail-chip-row">
               {mcps.map((m) => (
-                <span key={m} className={`${CHIP} font-mono text-ink-2`}>
+                <span key={m} className={cn(CHIP, 'market-detail-mono')}>
                   {m}
                 </span>
               ))}
@@ -365,13 +363,13 @@ function RequirementsSection({
           </div>
         )}
         {models.length > 0 && (
-          <div className="flex flex-wrap items-baseline gap-2">
+          <div className="market-detail-requirement-row">
             <span className={CAPS_LABEL}>Models</span>
-            <div className="flex flex-wrap gap-1">
+            <div className="market-detail-chip-row">
               {models.map((m) => (
                 <span
                   key={m.profile}
-                  className={`${CHIP} font-mono text-ink-2`}
+                  className={cn(CHIP, 'market-detail-mono')}
                   title={m.reason ?? undefined}
                 >
                   {m.profile}
@@ -397,23 +395,23 @@ function LineageSection({ lineage }: { lineage: ListingDetail['lineage'] }) {
   }
   return (
     <Section title="Lineage">
-      <div className="flex flex-col gap-1 text-fs-sm leading-relaxed text-ink-2">
+      <div className="market-detail-lineage">
         {origin_package_id && (
           <div>
-            <span className="text-ink-4">Origin: </span>
-            <span className="font-mono text-ink-1">{origin_package_id}</span>
+            <span>Origin: </span>
+            <span className="market-detail-mono">{origin_package_id}</span>
           </div>
         )}
         {forked_from_version && (
           <div>
-            <span className="text-ink-4">Forked from: </span>
-            <span className="font-mono text-ink-1">{forked_from_version}</span>
+            <span>Forked from: </span>
+            <span className="market-detail-mono">{forked_from_version}</span>
           </div>
         )}
         {derivative_of && derivative_of.length > 0 && (
           <div>
-            <span className="text-ink-4">Derivative of: </span>
-            <span className="font-mono text-ink-1">{derivative_of.join(', ')}</span>
+            <span>Derivative of: </span>
+            <span className="market-detail-mono">{derivative_of.join(', ')}</span>
           </div>
         )}
       </div>
