@@ -15,7 +15,7 @@ export const STATE_VARIANTS: Record<string, BadgeProps['variant']> = {
 };
 
 export const STATUS_DOTS: Record<string, string> = {
-  idle: 'bg-text-muted',
+  idle: 'bg-ink-3',
   assigned: 'bg-accent',
   thinking: 'bg-accent',
   executing: 'bg-ok',

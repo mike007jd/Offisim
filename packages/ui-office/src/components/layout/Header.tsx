@@ -223,7 +223,7 @@ export function Header({
 
 function DesktopHeader({ slots }: { slots: HeaderSlots }) {
   return (
-    <header className="grid-app-header-desktop grid h-14 items-center gap-sp-4 px-sp-5 text-ink-1">
+    <header className="grid-app-header-desktop grid h-app-toolbar items-center gap-sp-4 px-sp-5 text-ink-1">
       <div className="flex min-w-0 items-center gap-2 overflow-hidden justify-self-start">
         {slots.viewMode}
         {slots.company}

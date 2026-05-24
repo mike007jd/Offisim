@@ -18,10 +18,10 @@ const DRAG_THRESHOLD = 5; // px radius before treating as drag
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2;
 
-const INPUT_PORT_STROKE = 'var(--color-info-val)';
-const INPUT_PORT_REJECT_STROKE = 'var(--color-error-val)';
-const OUTPUT_PORT_STROKE = 'var(--color-warning-val)';
-const PORT_FILL = 'var(--color-surface-elevated-val)';
+const INPUT_PORT_STROKE = 'var(--accent)';
+const INPUT_PORT_REJECT_STROKE = 'var(--danger)';
+const OUTPUT_PORT_STROKE = 'var(--warn)';
+const PORT_FILL = 'var(--surface-1)';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -629,13 +629,7 @@ export function SopDagCanvas({
             height={20 * scale}
             patternUnits="userSpaceOnUse"
           >
-            <circle
-              cx={1 * scale}
-              cy={1 * scale}
-              r={1 * scale}
-              fill="var(--color-border-default-val)"
-              opacity={0.38}
-            />
+            <circle cx={1 * scale} cy={1 * scale} r={1 * scale} fill="var(--line)" opacity={0.38} />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#sop-dot-grid)" pointerEvents="none" />

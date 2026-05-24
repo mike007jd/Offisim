@@ -17,7 +17,7 @@ const ROLE_AVATAR_TONE: Record<string, string> = {
 };
 
 function roleAvatarTone(role: string): string {
-  return ROLE_AVATAR_TONE[role] ?? 'bg-text-muted';
+  return ROLE_AVATAR_TONE[role] ?? 'bg-ink-3';
 }
 
 export interface AgentAvatarProps {

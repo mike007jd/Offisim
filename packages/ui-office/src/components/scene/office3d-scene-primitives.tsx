@@ -15,6 +15,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const intersectPoint = new THREE.Vector3();
+const htmlPositionScratch = new THREE.Vector3();
 
 const COMPACT_ZONE_LABELS: Record<string, string> = {
   'ART & DESIGN': 'ART',
@@ -33,6 +34,23 @@ function getZoneLabel(name: string) {
   return normalized.split(/\s+/)[0]?.slice(0, 10) ?? normalized.slice(0, 10);
 }
 
+function defaultHtmlPosition(
+  el: THREE.Object3D,
+  camera: THREE.Camera,
+  size: { width: number; height: number },
+): [number, number] {
+  const position = htmlPositionScratch.setFromMatrixPosition(el.matrixWorld);
+  position.project(camera);
+  return [
+    (position.x * size.width) / 2 + size.width / 2,
+    -(position.y * size.height) / 2 + size.height / 2,
+  ];
+}
+
+function clampScreenValue(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 export function ZoneLabel({
   position,
   size,
@@ -44,6 +62,7 @@ export function ZoneLabel({
   activityCount,
   hasBlocked,
   isMeetingActive,
+  viewportInsets,
 }: {
   position: [number, number, number];
   size: [number, number];
@@ -62,6 +81,20 @@ export function ZoneLabel({
 }) {
   const sc = useSceneColors();
   const displayName = getZoneLabel(name);
+  const calculateLabelPosition = useMemo(
+    () => (el: THREE.Object3D, camera: THREE.Camera, size: { width: number; height: number }) => {
+      const [x, y] = defaultHtmlPosition(el, camera, size);
+      const labelPadX = 72;
+      const labelPadY = 40;
+      const minX = labelPadX;
+      const maxX = Math.max(minX, size.width - viewportInsets.right - labelPadX);
+      return [
+        clampScreenValue(x, minX, maxX),
+        clampScreenValue(y, labelPadY, Math.max(labelPadY, size.height - labelPadY)),
+      ];
+    },
+    [viewportInsets.left, viewportInsets.right],
+  );
   const floorOpacity = getZoneRugOpacity({
     isDragging: Boolean(isDragging),
     isHovered: Boolean(isHovered),
@@ -104,7 +137,12 @@ export function ZoneLabel({
       )}
       {isMeetingActive && <MeetingActiveLabel />}
       {isDragging && !isSource && (
-        <Html position={[0, 0.8, 0]} center style={{ pointerEvents: 'none' }}>
+        <Html
+          position={[0, 0.8, 0]}
+          center
+          calculatePosition={calculateLabelPosition}
+          style={{ pointerEvents: 'none' }}
+        >
           <div
             style={{
               background: isHovered ? color : sc.zoneLabelBg,
@@ -129,7 +167,12 @@ export function ZoneLabel({
           </div>
         </Html>
       )}
-      <Html position={[0, 0.5, -size[1] / 2 + 0.5]} center style={{ pointerEvents: 'none' }}>
+      <Html
+        position={[0, 0.5, -size[1] / 2 + 0.5]}
+        center
+        calculatePosition={calculateLabelPosition}
+        style={{ pointerEvents: 'none' }}
+      >
         <div
           data-zone-label={name}
           style={{

@@ -20,7 +20,7 @@ interface TeamHealthCardProps {
 
 function EmployeeHealthRow({ id, agent }: { id: string; agent: AgentState }) {
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
-  const dotColor = STATUS_DOTS[agent.state] ?? 'bg-text-muted';
+  const dotColor = STATUS_DOTS[agent.state] ?? 'bg-ink-3';
   const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
 
   return (

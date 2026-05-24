@@ -18,7 +18,7 @@ export function computeLayoutTier(viewportWidth: number): LayoutTierConfig {
       workspaceLayout: 'stacked-navigation',
     };
   }
-  if (viewportWidth <= 1280) {
+  if (viewportWidth <= 1100) {
     return {
       tier: 'tablet',
       leftRailDefault: 'visible',
@@ -81,8 +81,8 @@ export function useLayoutTier(): LayoutTierConfig {
     };
     const mediaQueries = [
       window.matchMedia('(max-width: 768px)'),
-      window.matchMedia('(min-width: 769px) and (max-width: 1280px)'),
-      window.matchMedia('(min-width: 1281px)'),
+      window.matchMedia('(min-width: 769px) and (max-width: 1100px)'),
+      window.matchMedia('(min-width: 1101px)'),
     ];
     const resizeObserver =
       typeof ResizeObserver === 'undefined'

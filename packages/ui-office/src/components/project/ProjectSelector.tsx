@@ -5,7 +5,7 @@ import {
   type EntityDropdownItem,
   type EntityDropdownSection,
 } from '@offisim/ui-core';
-import { Archive, BriefcaseBusiness, ChevronDown, FolderPlus } from 'lucide-react';
+import { Archive, ChevronDown, FolderClosed, FolderPlus } from 'lucide-react';
 import { useState } from 'react';
 import { ProjectSelectedSummary } from './ProjectListPanel.js';
 
@@ -13,8 +13,8 @@ const STATUS_DOT: Record<ProjectStatus, string> = {
   planning: 'bg-accent',
   active: 'bg-ok',
   paused: 'bg-warn',
-  completed: 'bg-text-muted',
-  archived: 'bg-text-disabled',
+  completed: 'bg-ink-3',
+  archived: 'bg-ink-4',
 };
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -110,11 +110,11 @@ export function ProjectSelector({
       type="button"
       variant="outline"
       size="sm"
-      className="h-7 w-full min-w-0 justify-between gap-1.5 rounded-r-pill border-line bg-surface-2 px-2.5 text-xs text-ink-2 hover:border-line-strong hover:bg-surface-sunken hover:text-ink-1"
+      className="h-8 w-full min-w-0 justify-between gap-1.5 rounded-r-pill border-line bg-surface-2 px-3 text-fs-meta text-ink-2 hover:border-line-strong hover:bg-surface-sunken hover:text-ink-1"
       title="Select project context"
     >
       <span className="flex min-w-0 items-center gap-1.5">
-        <BriefcaseBusiness className="size-3.5 flex-shrink-0 text-accent" />
+        <FolderClosed className="size-3.5 flex-shrink-0 text-accent" />
         {activeProject ? (
           <>
             <span

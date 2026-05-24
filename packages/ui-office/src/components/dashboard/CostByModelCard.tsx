@@ -10,7 +10,7 @@ const PROVIDER_COLORS: Record<string, string> = {
 
 function getBarColor(groupKey: string): string {
   const provider = groupKey.split('/')[0] ?? '';
-  return PROVIDER_COLORS[provider] ?? 'bg-text-muted';
+  return PROVIDER_COLORS[provider] ?? 'bg-ink-3';
 }
 
 function formatCost(usd: number): string {

@@ -26,7 +26,7 @@ interface AgentCardProps {
 
 export function AgentCard({ id, agent, isSelected, skillHighlight, onClick }: AgentCardProps) {
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
-  const dotColor = STATUS_DOTS[agent.state] ?? 'bg-text-muted';
+  const dotColor = STATUS_DOTS[agent.state] ?? 'bg-ink-3';
   const glowClass = STATE_GLOW[agent.state] ?? '';
   const isInteractive = Boolean(onClick);
 

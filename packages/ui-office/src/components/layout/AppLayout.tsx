@@ -174,73 +174,82 @@ export function AppLayout({
   const showLeft = !isNarrow && agentPanel != null;
   const showRight = !isNarrow && eventLog != null;
   const showRunRail = !centerContent && (runRailStart || runRailCenter || runRailEnd);
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-bg text-ink-1">
       <div className="relative z-30 shrink-0 border-b border-line bg-surface-1">{header}</div>
-      {showRunRail ? (
-        <div className="flex min-h-12 shrink-0 items-center gap-sp-3 border-b border-line bg-surface-1 px-sp-5">
-          <div className="flex min-w-0 flex-1 justify-start">{runRailStart}</div>
-          <div className="flex min-w-0 flex-1 justify-center">{runRailCenter}</div>
-          <div className="flex min-w-0 flex-1 justify-end">{runRailEnd}</div>
-        </div>
-      ) : null}
+      <div
+        className={cn(
+          'grid-office-main min-h-0 min-w-0 flex-1',
+          !showLeft
+            ? 'grid-office-main-left-hidden'
+            : leftOpen
+              ? 'grid-office-main-left-expanded'
+              : 'grid-office-main-left-collapsed',
+          !showRight
+            ? 'grid-office-main-right-hidden'
+            : rightOpen
+              ? 'grid-office-main-right-expanded'
+              : 'grid-office-main-right-collapsed',
+        )}
+      >
+        {showLeft && (
+          <aside className="col-start-1 row-start-1 row-end-3 flex min-h-0 flex-col overflow-hidden border-r border-line bg-surface-1">
+            {leftOpen ? (
+              <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
+                {agentPanel}
+              </div>
+            ) : (
+              <CollapsedBar
+                side="left"
+                icon={Users}
+                label="Files"
+                ariaLabel="Expand left rail"
+                onClick={() => setLeftOpen(true)}
+              />
+            )}
+          </aside>
+        )}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex min-h-0 min-w-0 flex-1">
-          {showLeft && (
-            <aside
-              className={cn(
-                'flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-line bg-surface-1',
-                leftOpen ? 'w-office-left-rail' : 'w-office-rail-collapsed',
-              )}
-            >
-              {leftOpen ? (
-                <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
-                  {agentPanel}
-                </div>
-              ) : (
-                <CollapsedBar
-                  side="left"
-                  icon={Users}
-                  label="Files"
-                  ariaLabel="Expand left rail"
-                  onClick={() => setLeftOpen(true)}
-                />
-              )}
-            </aside>
-          )}
+        <main className="relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden">
+          {centerContent ?? sceneCanvas}
+          {showRunRail ? (
+            <div className="pointer-events-none absolute inset-0 z-elevated">
+              <div className="pointer-events-auto absolute left-sp-4 top-sp-3 min-w-0">
+                {runRailStart}
+              </div>
+              <div className="pointer-events-auto absolute left-1/2 top-sp-3 min-w-0 -translate-x-1/2">
+                {runRailCenter}
+              </div>
+              <div className="pointer-events-auto absolute bottom-sp-4 right-sp-4 min-w-0">
+                {runRailEnd}
+              </div>
+            </div>
+          ) : null}
+        </main>
 
-          <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-            {centerContent ?? sceneCanvas}
-          </main>
-
-          {showRight && (
-            <aside
-              className={cn(
-                'flex min-h-0 shrink-0 flex-col overflow-hidden border-l border-line bg-surface-1',
-                rightOpen ? 'w-office-right-rail' : 'w-office-rail-collapsed',
-              )}
-            >
-              {rightOpen ? (
-                <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
-                  {eventLog}
-                </div>
-              ) : (
-                <CollapsedBar
-                  side="right"
-                  icon={LayoutDashboard}
-                  label="Chat"
-                  ariaLabel="Expand right rail"
-                  onClick={() => commitRightOpen(true)}
-                />
-              )}
-            </aside>
-          )}
-        </div>
         {teamDock && !centerContent ? (
-          <div className="shrink-0 border-t border-line bg-surface-1">{teamDock}</div>
+          <div className="col-start-2 row-start-2 min-w-0 border-t border-line bg-surface-1">
+            {teamDock}
+          </div>
         ) : null}
+
+        {showRight && (
+          <aside className="col-start-3 row-start-1 row-end-3 flex min-h-0 flex-col overflow-hidden border-l border-line bg-surface-1">
+            {rightOpen ? (
+              <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
+                {eventLog}
+              </div>
+            ) : (
+              <CollapsedBar
+                side="right"
+                icon={LayoutDashboard}
+                label="Chat"
+                ariaLabel="Expand right rail"
+                onClick={() => commitRightOpen(true)}
+              />
+            )}
+          </aside>
+        )}
       </div>
 
       {/* Narrow tier: chat as a bottom drawer (no room for a solid right column) */}

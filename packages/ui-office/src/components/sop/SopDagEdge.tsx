@@ -18,10 +18,10 @@ export function buildBezierPath(
 // ---------------------------------------------------------------------------
 
 const STROKE_CONFIG: Record<SopStepStatus, { stroke: string; width: number }> = {
-  pending: { stroke: 'var(--color-border-default-val)', width: 2 },
-  active: { stroke: 'var(--color-info-val)', width: 2.5 },
-  completed: { stroke: 'var(--color-success-val)', width: 2 },
-  failed: { stroke: 'var(--color-error-val)', width: 2 },
+  pending: { stroke: 'var(--line)', width: 2 },
+  active: { stroke: 'var(--accent)', width: 2.5 },
+  completed: { stroke: 'var(--ok)', width: 2 },
+  failed: { stroke: 'var(--danger)', width: 2 },
 };
 
 // ---------------------------------------------------------------------------

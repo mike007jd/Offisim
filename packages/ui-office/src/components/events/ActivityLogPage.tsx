@@ -191,8 +191,8 @@ export function ActivityLogPage({
       <div
         className={cn(
           'grid min-h-0 flex-1',
-          sessionState.selectedEventId && focusedEvent
-            ? 'grid-cols-1 md:grid-activity-detail'
+          sessionState.selectedEventId && focusedEvent && tier !== 'narrow'
+            ? 'grid-activity-detail'
             : 'grid-cols-1',
         )}
       >

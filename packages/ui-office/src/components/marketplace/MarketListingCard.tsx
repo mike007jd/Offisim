@@ -233,7 +233,7 @@ function TemplatePreview() {
         ['UX', 'bg-violet'],
         ['DEV', 'bg-ok'],
         ['QA', 'bg-danger'],
-        ['OPS', 'bg-text-secondary'],
+        ['OPS', 'bg-ink-2'],
       ].map(([label, className]) => (
         <span
           key={label}

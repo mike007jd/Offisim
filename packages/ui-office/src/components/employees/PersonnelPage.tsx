@@ -449,12 +449,12 @@ function PersonnelTabs({
       onValueChange={onTabChange}
       className="flex h-full min-h-0 flex-1 flex-col"
     >
-      <TabsList className="h-11 w-full shrink-0 items-center justify-start gap-sp-1 overflow-x-auto rounded-none border-0 border-b border-line-soft bg-transparent px-sp-5 py-0">
+      <TabsList className="h-11 w-full shrink-0 items-center justify-start gap-0.5 overflow-x-auto rounded-none border-0 border-b border-line-soft bg-transparent px-sp-3 py-0">
         {TABS.map((t) => (
           <TabsTrigger
             key={t.value}
             value={t.value}
-            className="h-7 shrink-0 rounded-r-xs border border-transparent bg-transparent px-sp-3 text-fs-sm font-medium text-ink-3 transition-colors hover:bg-surface-sunken hover:text-ink-1 data-[state=active]:border-accent-ring data-[state=active]:bg-accent-surface data-[state=active]:font-semibold data-[state=active]:text-accent"
+            className="h-7 shrink-0 rounded-r-xs border border-transparent bg-transparent px-sp-2 text-fs-sm font-medium text-ink-3 transition-colors hover:bg-surface-sunken hover:text-ink-1 data-[state=active]:border-accent-ring data-[state=active]:bg-accent-surface data-[state=active]:font-semibold data-[state=active]:text-accent"
           >
             {t.label}
           </TabsTrigger>

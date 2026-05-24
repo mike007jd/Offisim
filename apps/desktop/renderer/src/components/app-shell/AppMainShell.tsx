@@ -210,10 +210,10 @@ export function AppMainShell(props: AppMainShellProps) {
         isOffice ? (
           <Suspense fallback={<OfficeSceneCanvasFallback />}>
             <OfficeSceneSurface
-              leftPanelWidth={officeState.leftPanelWidth}
+              leftPanelWidth={0}
               onSceneFallbackTo2D={onSceneFallbackTo2D}
               onSelectEmployee={onSelectEmployee}
-              rightPanelWidth={officeState.rightPanelWidth}
+              rightPanelWidth={0}
               selectedEmployeeId={officeState.selectedEmployeeId}
               sceneInteractive={sceneInteractive}
               viewMode={officeState.viewMode}

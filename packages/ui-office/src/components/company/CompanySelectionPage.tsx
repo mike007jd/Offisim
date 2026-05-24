@@ -137,13 +137,13 @@ function CompanyPortalPreview({
             <path
               d="M 24 0 L 0 0 0 24"
               fill="none"
-              stroke="var(--color-border-subtle-val)"
+              stroke="var(--line-soft)"
               strokeOpacity="0.35"
               strokeWidth="1"
             />
           </pattern>
         </defs>
-        <rect width={viewBox.w} height={viewBox.h} rx="28" fill="var(--color-surface-muted-val)" />
+        <rect width={viewBox.w} height={viewBox.h} rx="28" fill="var(--surface-2)" />
         <rect width={viewBox.w} height={viewBox.h} rx="28" fill="url(#company-preview-grid)" />
         {zones.map((zone, index) => {
           const x0 = mapValue(
@@ -190,13 +190,7 @@ function CompanyPortalPreview({
               <text x={x0 + 12} y={y0 + 22} fill={zone.accent_color} fontSize="11" fontWeight="700">
                 {zone.label.toUpperCase()}
               </text>
-              <text
-                x={x1 - 12}
-                y={y0 + 22}
-                fill="var(--color-text-muted-val)"
-                fontSize="10"
-                textAnchor="end"
-              >
+              <text x={x1 - 12} y={y0 + 22} fill="var(--ink-3)" fontSize="10" textAnchor="end">
                 {prefabCounts.get(zone.zone_id) ?? 0} assets
               </text>
             </g>
@@ -225,7 +219,7 @@ function CompanyPortalPreview({
               cx={x}
               cy={y}
               r="4.5"
-              fill="var(--color-surface-elevated-val)"
+              fill="var(--surface-1)"
               opacity="0.88"
             />
           );
