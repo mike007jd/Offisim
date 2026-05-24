@@ -121,7 +121,7 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
   );
 
   if (loading) {
-    return <p className="px-3 py-6 text-fs-sm text-ink-4">Loading installed packages...</p>;
+    return <p className="market-installed-loading">Loading installed packages...</p>;
   }
 
   if (actionableItems.length === 0) {
@@ -135,46 +135,44 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3 px-3 py-3">
+    <div className="market-installed-list">
       {actionableItems.map((item) => {
         const update = updates[item.installed_package_id];
         const canCheck = Boolean(item.origin_listing_id);
 
         return (
-          <div
-            key={item.installed_package_id}
-            className="rounded-r-md border border-line-soft bg-surface-1 p-3 shadow-elev-1"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-fs-sm font-semibold text-ink-1">{item.package_id}</p>
-                <p className="text-fs-meta text-ink-3">
+          <div key={item.installed_package_id} className="market-installed-card">
+            <div className="market-installed-card-head">
+              <div className="market-installed-card-title">
+                <p>{item.package_id}</p>
+                <p>
                   v{item.version} · {new Date(item.installed_at).toLocaleDateString()}
                 </p>
               </div>
               {update?.hasUpdate && (
-                <Badge variant="success" size="xs" className="shrink-0 uppercase tracking-wide">
+                <Badge variant="success" size="xs" className="market-installed-update-badge">
                   Update
                 </Badge>
               )}
             </div>
 
-            {update?.error && <p className="mt-2 text-fs-meta text-danger">{update.error}</p>}
+            {update?.error && <p className="market-installed-error">{update.error}</p>}
             {!update?.error && update && (
-              <p className="mt-2 text-fs-meta text-ink-3">
+              <p className="market-installed-version">
                 Latest registry version: {update.latestVersion}
               </p>
             )}
 
-            <div className="mt-3 flex items-center gap-2">
+            <div className="market-installed-actions">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 disabled={!canCheck || checkingId === item.installed_package_id}
                 onClick={() => void checkForUpdate(item)}
+                className="market-installed-action"
               >
-                <RefreshCcw className="size-3.5" />
+                <RefreshCcw data-icon="action" />
                 {checkingId === item.installed_package_id ? 'Checking...' : 'Check update'}
               </Button>
 
@@ -184,8 +182,9 @@ export function InstalledList({ onStartInstall }: InstalledListProps) {
                   size="sm"
                   // biome-ignore lint/style/noNonNullAssertion: prior null check guarantees defined
                   onClick={() => onStartInstall(item.origin_listing_id!, update.latestVersion)}
+                  className="market-installed-action"
                 >
-                  <UploadCloud className="size-3.5" />
+                  <UploadCloud data-icon="action" />
                   Update
                 </Button>
               )}

@@ -18,22 +18,20 @@ export function MarketManageView({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="market-manage-view">
       {manageTab === 'updates' && (
-        <div className="px-sp-7 pb-1 pt-3">
-          <p className="text-fs-meta font-semibold uppercase tracking-wide text-ink-4">
-            Packages with available updates
-          </p>
+        <div className="market-manage-heading">
+          <p>Packages with available updates</p>
         </div>
       )}
       <InstalledList onStartInstall={onStartInstall} />
-      <div className="flex justify-center px-4 pb-4">
+      <div className="market-manage-footer">
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={onGoToExplore}
-          className="rounded-r-md bg-surface-2 text-fs-sm text-ink-2 hover:bg-surface-sunken hover:text-ink-1"
+          className="market-manage-explore"
         >
           Browse Explore
         </Button>

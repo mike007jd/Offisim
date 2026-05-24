@@ -1636,6 +1636,121 @@
     font-family: var(--font-mono);
   }
 
+  .market-manage-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .market-manage-heading {
+    padding: var(--sp-3) var(--sp-7) var(--sp-1);
+  }
+
+  .market-manage-heading p {
+    color: var(--ink-4);
+    font-size: var(--text-fs-meta);
+    font-weight: var(--text-h3--font-weight);
+    letter-spacing: var(--text-caption--letter-spacing);
+    text-transform: uppercase;
+  }
+
+  .market-manage-footer {
+    display: flex;
+    justify-content: center;
+    padding: 0 var(--sp-4) var(--sp-4);
+  }
+
+  .market-manage-explore {
+    background: var(--surface-2);
+    border-radius: var(--r-md);
+    color: var(--ink-2);
+    font-size: var(--text-fs-sm);
+  }
+
+  .market-manage-explore:hover {
+    background: var(--surface-sunken);
+    color: var(--ink-1);
+  }
+
+  .market-installed-loading {
+    color: var(--ink-4);
+    font-size: var(--text-fs-sm);
+    padding: var(--sp-6) var(--sp-3);
+  }
+
+  .market-installed-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+  }
+
+  .market-installed-card {
+    background: var(--surface-1);
+    border: var(--border-width-thin) solid var(--line-soft);
+    border-radius: var(--r-md);
+    box-shadow: var(--elev-1);
+    padding: var(--sp-3);
+  }
+
+  .market-installed-card-head {
+    align-items: flex-start;
+    display: flex;
+    gap: var(--sp-3);
+    justify-content: space-between;
+  }
+
+  .market-installed-card-title {
+    min-width: 0;
+  }
+
+  .market-installed-card-title p:first-child {
+    color: var(--ink-1);
+    font-size: var(--text-fs-sm);
+    font-weight: var(--text-h3--font-weight);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .market-installed-card-title p:last-child {
+    color: var(--ink-3);
+    font-size: var(--text-fs-meta);
+  }
+
+  .market-installed-update-badge {
+    flex-shrink: 0;
+    letter-spacing: var(--text-caption--letter-spacing);
+    text-transform: uppercase;
+  }
+
+  .market-installed-error,
+  .market-installed-version {
+    font-size: var(--text-fs-meta);
+    margin-top: var(--sp-2);
+  }
+
+  .market-installed-error {
+    color: var(--danger);
+  }
+
+  .market-installed-version {
+    color: var(--ink-3);
+  }
+
+  .market-installed-actions {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+    margin-top: var(--sp-3);
+  }
+
+  .market-installed-action [data-icon="action"] {
+    height: calc(var(--sp-3) + var(--sp-1) / 2);
+    width: calc(var(--sp-3) + var(--sp-1) / 2);
+  }
+
   /* V3 detail open: retained listing grid (left) + fixed 440px right panel. */
   .grid-market-detail-desktop {
     grid-template-columns: minmax(0, 1fr) 27.5rem;
