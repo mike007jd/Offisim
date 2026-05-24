@@ -49,7 +49,7 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-appearance-tab">
         <div className="min-w-0">
           {isExternal ? (
-            <p data-testid="external-avatar-disabled" className="text-xs text-text-muted">
+            <p data-testid="external-avatar-disabled" className="text-fs-meta text-ink-4">
               Brand avatar — appearance is fixed.
             </p>
           ) : (
@@ -95,8 +95,8 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
 
 function PreviewCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="relative flex avatar-preview-card w-full items-center justify-center rounded-lg border border-border-subtle bg-surface-muted">
-      <span className="absolute left-2 top-1.5 text-caption font-medium uppercase tracking-wider text-text-muted">
+    <div className="relative flex avatar-preview-card w-full items-center justify-center rounded-r-md border border-line-soft bg-surface-2">
+      <span className="absolute left-2 top-1.5 text-fs-meta font-medium uppercase tracking-wider text-ink-4">
         {label}
       </span>
       {children}

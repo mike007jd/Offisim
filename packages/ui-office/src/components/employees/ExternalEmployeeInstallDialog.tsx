@@ -297,7 +297,7 @@ export function ExternalEmployeeInstallDialog({
         {step === 'endpoint' && (
           <div className="mt-2 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs uppercase tracking-wide text-text-muted" htmlFor="a2a-url">
+              <label className="text-fs-meta uppercase tracking-wide text-ink-4" htmlFor="a2a-url">
                 Agent base URL
               </label>
               <Input
@@ -307,7 +307,7 @@ export function ExternalEmployeeInstallDialog({
                 placeholder="https://your-agent.example.dev"
                 autoFocus
               />
-              <p className="text-caption text-text-muted">
+              <p className="text-fs-meta text-ink-4">
                 Offisim will GET {'{url}'}/.well-known/agent-card.json with an optional bearer
                 token.
               </p>
@@ -315,7 +315,7 @@ export function ExternalEmployeeInstallDialog({
 
             <div className="flex flex-col gap-1.5">
               <label
-                className="text-xs uppercase tracking-wide text-text-muted"
+                className="text-fs-meta uppercase tracking-wide text-ink-4"
                 htmlFor="a2a-token"
               >
                 Bearer token (optional)
@@ -331,7 +331,7 @@ export function ExternalEmployeeInstallDialog({
 
             <div className="flex flex-col gap-1.5">
               <label
-                className="text-xs uppercase tracking-wide text-text-muted"
+                className="text-fs-meta uppercase tracking-wide text-ink-4"
                 htmlFor="a2a-agent-id"
               >
                 Agent ID (optional)
@@ -346,7 +346,7 @@ export function ExternalEmployeeInstallDialog({
 
             {error && (
               <div
-                className="rounded-lg border border-error/40 bg-error-muted px-3 py-2 text-sm text-error"
+                className="rounded-r-md border border-danger/40 bg-danger-surface px-3 py-2 text-fs-sm text-danger"
                 role="alert"
               >
                 {error}
@@ -357,32 +357,28 @@ export function ExternalEmployeeInstallDialog({
 
         {step === 'preview' && card && (
           <div className="mt-2 flex flex-col gap-4">
-            <div className="rounded-lg border border-border-subtle bg-surface-muted p-4">
+            <div className="rounded-r-md border border-line-soft bg-surface-2 p-4">
               <div className="flex items-start gap-3">
                 <img
                   alt={`${brandEntry.displayName} avatar`}
                   src={brandEntry.asset2dUri}
-                  className="h-12 w-12 rounded-lg"
+                  className="h-12 w-12 rounded-r-md"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-text-primary">{card.name}</p>
+                  <p className="truncate text-fs-sm font-semibold text-ink-1">{card.name}</p>
                   {card.provider?.organization && (
-                    <p className="truncate text-xs text-text-secondary">
-                      {card.provider.organization}
-                    </p>
+                    <p className="truncate text-fs-meta text-ink-3">{card.provider.organization}</p>
                   )}
-                  <p className="mt-1 text-xs text-text-muted">version {card.version}</p>
+                  <p className="mt-1 text-fs-meta text-ink-4">version {card.version}</p>
                 </div>
               </div>
-              {card.description && (
-                <p className="mt-3 text-sm text-text-secondary">{card.description}</p>
-              )}
+              {card.description && <p className="mt-3 text-fs-sm text-ink-3">{card.description}</p>}
               {card.skills && card.skills.length > 0 && (
                 <ul className="mt-3 flex flex-wrap gap-1.5">
                   {card.skills.map((skill) => (
                     <li
                       key={skill.id}
-                      className="rounded-full border border-border-subtle bg-surface-elevated px-2 py-0.5 text-caption text-text-secondary"
+                      className="rounded-r-pill border border-line-soft bg-surface-1 px-2 py-0.5 text-fs-meta text-ink-3"
                     >
                       {skill.name}
                     </li>
@@ -393,7 +389,7 @@ export function ExternalEmployeeInstallDialog({
 
             <div className="flex flex-col gap-1.5">
               <label
-                className="text-xs uppercase tracking-wide text-text-muted"
+                className="text-fs-meta uppercase tracking-wide text-ink-4"
                 htmlFor="a2a-display-name"
               >
                 Display name
@@ -409,7 +405,7 @@ export function ExternalEmployeeInstallDialog({
               <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="a2a-brand"
-                  className="text-xs uppercase tracking-wide text-text-muted"
+                  className="text-fs-meta uppercase tracking-wide text-ink-4"
                 >
                   Brand
                 </label>
@@ -429,7 +425,7 @@ export function ExternalEmployeeInstallDialog({
                   </SelectContent>
                 </Select>
                 {brandKey === 'custom' && (
-                  <p className="text-caption text-text-muted">
+                  <p className="text-fs-meta text-ink-4">
                     No canonical brand matched - using custom fallback avatar.
                   </p>
                 )}
@@ -438,7 +434,7 @@ export function ExternalEmployeeInstallDialog({
               <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="a2a-role"
-                  className="text-xs uppercase tracking-wide text-text-muted"
+                  className="text-fs-meta uppercase tracking-wide text-ink-4"
                 >
                   Role
                 </label>
@@ -459,7 +455,7 @@ export function ExternalEmployeeInstallDialog({
 
             {error && (
               <div
-                className="rounded-lg border border-error/40 bg-error-muted px-3 py-2 text-sm text-error"
+                className="rounded-r-md border border-danger/40 bg-danger-surface px-3 py-2 text-fs-sm text-danger"
                 role="alert"
               >
                 {error}

@@ -225,7 +225,7 @@ export function PersonnelPage({
 
   return (
     <div
-      className={cn('grid h-full min-h-0 w-full bg-surface text-text-primary', layoutClass)}
+      className={cn('grid h-full min-h-0 w-full bg-bg text-ink-1', layoutClass)}
       data-layout-tier={tier}
     >
       {/* Left rail: list */}
@@ -233,19 +233,19 @@ export function PersonnelPage({
         <aside
           ref={listFocusRef}
           tabIndex={-1}
-          className="flex min-h-0 flex-col border-r border-border-default bg-surface-elevated focus:outline-none focus:ring-2 focus:ring-border-focus"
+          className="flex min-h-0 flex-col border-r border-line bg-surface-2 focus:outline-none focus:ring-2 focus:ring-accent-ring"
         >
-          <div className={cn('border-b border-border-default', railCollapsed ? 'p-2' : 'p-3')}>
+          <div className={cn('border-b border-line', railCollapsed ? 'p-2' : 'p-3')}>
             <div className="flex items-center justify-between gap-2">
               {!railCollapsed && (
                 <div className="relative min-w-0 flex-1">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-4" />
                   <Input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search employees..."
-                    className="h-9 w-full py-1.5 pl-8 pr-3 text-sm"
+                    className="h-9 w-full py-1.5 pl-8 pr-3 text-fs-sm"
                   />
                 </div>
               )}
@@ -256,7 +256,7 @@ export function PersonnelPage({
                   size="icon"
                   aria-label={railCollapsed ? 'Expand personnel list' : 'Collapse personnel list'}
                   onClick={() => setRailState(railCollapsed ? 'expanded' : 'collapsed')}
-                  className="size-8 shrink-0 rounded-lg"
+                  className="size-8 shrink-0 rounded-r-md"
                 >
                   {railCollapsed ? (
                     <ChevronRight className="size-4" aria-hidden="true" />
@@ -268,14 +268,14 @@ export function PersonnelPage({
             </div>
             {!railCollapsed && (
               <label className="mt-3 block" htmlFor="personnel-role-filter">
-                <span className="mb-1 block text-caption font-semibold uppercase tracking-wide text-text-muted">
+                <span className="mb-1 block text-fs-meta font-semibold uppercase tracking-wide text-ink-4">
                   Role filter
                 </span>
                 <Select
                   value={roleFilter}
                   onValueChange={(value) => setRoleFilter(value as RoleSlug | 'all')}
                 >
-                  <SelectTrigger id="personnel-role-filter" className="h-9 text-sm">
+                  <SelectTrigger id="personnel-role-filter" className="h-9 text-fs-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -341,23 +341,25 @@ export function PersonnelPage({
                   onClick={() => handleSelectEmployee(row.employee_id)}
                   title={railCollapsed ? row.name : undefined}
                   className={cn(
-                    'mb-2 min-h-14 w-full rounded-lg border text-left transition-colors',
+                    'h-personnel-roster-row mb-0.5 w-full rounded-r-xs border text-left transition-colors',
                     isSelected
-                      ? 'border-border-focus bg-accent-muted'
-                      : 'border-transparent hover:border-border-default hover:bg-surface-hover',
-                    railCollapsed ? 'justify-center px-1 py-2' : 'justify-start gap-3 px-3 py-2',
+                      ? 'border-accent bg-accent-surface'
+                      : 'border-transparent hover:border-line hover:bg-surface-sunken',
+                    railCollapsed
+                      ? 'justify-center px-sp-1 py-sp-1'
+                      : 'justify-start gap-sp-2 px-sp-2 py-sp-1',
                   )}
                 >
                   <EmployeeAvatar agent={row} size={32} className="shrink-0" />
                   <div className={cn('min-w-0 flex-1', railCollapsed && 'sr-only')}>
                     <div className="flex items-baseline gap-2">
-                      <p className="truncate text-sm font-medium text-text-primary">{row.name}</p>
+                      <p className="truncate text-fs-sm font-medium text-ink-1">{row.name}</p>
                       {row.enabled === 0 && (
-                        <span className="text-caption text-text-muted">disabled</span>
+                        <span className="text-fs-meta text-ink-4">disabled</span>
                       )}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                      <span className="text-caption text-text-secondary">
+                      <span className="text-fs-meta text-ink-3">
                         {ROLE_LABELS[row.role_slug] ?? row.role_slug}
                       </span>
                       <LiveStatePill state={liveState} />
@@ -377,7 +379,7 @@ export function PersonnelPage({
 
       {/* Center: detail + preview */}
       {showDetailPane && (
-        <section className="flex min-h-0 flex-col border-r border-border-default bg-surface">
+        <section className="flex min-h-0 flex-col border-r border-line bg-surface-1">
           {selectedEmployee ? (
             <DetailHeader
               employee={selectedEmployee}
@@ -387,7 +389,7 @@ export function PersonnelPage({
             <EmptyDetail />
           )}
           {showStackedInspector && selectedEmployee && (
-            <div className="min-h-0 flex-1 border-t border-border-default">
+            <div className="min-h-0 flex-1 border-t border-line">
               <PersonnelTabs
                 activeTab={sessionState.activeEmployeeTab}
                 onTabChange={handleTabChange}
@@ -402,7 +404,7 @@ export function PersonnelPage({
 
       {/* Right: tabs inspector */}
       {showInspectorInline && selectedEmployee && (
-        <section className="flex min-h-0 flex-col bg-surface-elevated">
+        <section className="flex min-h-0 flex-col bg-surface-2">
           <PersonnelTabs
             activeTab={sessionState.activeEmployeeTab}
             onTabChange={handleTabChange}
@@ -447,12 +449,12 @@ function PersonnelTabs({
       onValueChange={onTabChange}
       className="flex h-full min-h-0 flex-1 flex-col"
     >
-      <TabsList className="h-11 w-full shrink-0 items-center justify-start gap-1 overflow-x-auto rounded-none border-0 border-b border-line-soft bg-transparent px-sp-5 py-0">
+      <TabsList className="h-11 w-full shrink-0 items-center justify-start gap-sp-1 overflow-x-auto rounded-none border-0 border-b border-line-soft bg-transparent px-sp-5 py-0">
         {TABS.map((t) => (
           <TabsTrigger
             key={t.value}
             value={t.value}
-            className="h-7 shrink-0 rounded-sm border border-transparent bg-transparent px-3 text-fs-sm font-medium text-ink-3 transition-colors hover:bg-surface-sunken hover:text-ink-1 data-[state=active]:border-line-soft data-[state=active]:bg-surface-1 data-[state=active]:font-semibold data-[state=active]:text-accent"
+            className="h-7 shrink-0 rounded-r-xs border border-transparent bg-transparent px-sp-3 text-fs-sm font-medium text-ink-3 transition-colors hover:bg-surface-sunken hover:text-ink-1 data-[state=active]:border-accent-ring data-[state=active]:bg-accent-surface data-[state=active]:font-semibold data-[state=active]:text-accent"
           >
             {t.label}
           </TabsTrigger>
@@ -514,24 +516,24 @@ function DetailHeader({ employee, onBack }: { employee: EmployeeRow; onBack?: ()
   const isExternal = employee.is_external === 1;
   const brand = isExternal ? lookupExternalBrand(employee.brand_key) : null;
   return (
-    <div className="flex shrink-0 items-center gap-4 border-b border-border-default bg-surface px-sp-7 py-sp-5">
+    <div className="flex shrink-0 items-center gap-4 border-b border-line bg-surface-1 px-sp-7 py-sp-5">
       {onBack ? (
         <Button
           type="button"
           variant="secondary"
           size="sm"
           onClick={onBack}
-          className="shrink-0 gap-1.5 px-2.5 py-1.5 text-xs text-text-secondary"
+          className="shrink-0 gap-1.5 px-2.5 py-1.5 text-fs-meta text-ink-3"
         >
           <ChevronLeft className="size-3.5" aria-hidden="true" />
           Back
         </Button>
       ) : null}
-      <EmployeeAvatar agent={employee} size={64} />
+      <EmployeeAvatar agent={employee} size={56} className="size-personnel-detail-avatar" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <h2 className="truncate text-lg font-semibold text-text-primary">{employee.name}</h2>
-        <p className="truncate text-xs text-text-secondary">
-          {ROLE_LABELS[employee.role_slug] ?? employee.role_slug}
+        <h2 className="truncate text-fs-lg font-semibold text-ink-1">{employee.name}</h2>
+        <p className="truncate text-fs-meta text-ink-3">
+          {[ROLE_LABELS[employee.role_slug] ?? employee.role_slug, 'Workspace', 'Desk'].join(' · ')}
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">

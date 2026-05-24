@@ -44,27 +44,27 @@ export function SkillInspectorPanel({ skill }: SkillInspectorPanelProps) {
 
   if (!skill) {
     return (
-      <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border-default py-6 text-center text-xs text-text-muted">
+      <div className="flex flex-col items-center justify-center gap-1 rounded-r-md border border-dashed border-line py-6 text-center text-fs-meta text-ink-4">
         Select a skill to preview its SKILL.md body.
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border-default bg-surface-muted p-3">
+    <div className="flex flex-col gap-2 rounded-r-md border border-line bg-surface-2 p-3">
       <header className="flex items-center gap-2">
-        <p className="text-sm font-medium text-text-primary">{skill.name}</p>
-        <span className="rounded-full border border-border-default bg-surface px-1.5 py-0.5 text-caption text-text-secondary">
+        <p className="text-fs-sm font-medium text-ink-1">{skill.name}</p>
+        <span className="rounded-r-pill border border-line bg-surface-1 px-1.5 py-0.5 text-fs-meta text-ink-3">
           {skill.scope === 'employee' ? 'personal' : 'global'}
         </span>
       </header>
-      <p className="text-xs text-text-secondary">{skill.description}</p>
-      {error && <p className="text-xs text-error">{error}</p>}
+      <p className="text-fs-meta text-ink-3">{skill.description}</p>
+      {error && <p className="text-fs-meta text-danger">{error}</p>}
       {!error && body === null && (
-        <p className="text-xs italic text-text-muted">Loading SKILL.md…</p>
+        <p className="text-fs-meta italic text-ink-4">Loading SKILL.md…</p>
       )}
       {!error && body !== null && (
-        <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-border-default bg-surface p-3 text-caption text-text-secondary">
+        <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-r-sm border border-line bg-surface-1 p-3 text-fs-meta text-ink-3">
           {body}
         </pre>
       )}

@@ -161,14 +161,14 @@ export function ProfileTab({ editor }: ProfileTabProps) {
     const brand = lookupExternalBrand(formData.brandKey);
     const roleLabel = ROLE_OPTIONS.find((role) => role.value === formData.role_slug)?.label;
     return (
-      <div className="flex h-full flex-col bg-surface-elevated">
+      <div className="flex h-full flex-col bg-surface-2">
         <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-sp-5">
           <div className="flex w-full flex-col pb-10">
-            <div className="mt-sp-5 rounded-md border border-line-soft bg-surface-sunken px-sp-4 py-sp-3">
+            <div className="mt-sp-5 rounded-r-sm border border-line-soft bg-surface-sunken px-sp-4 py-sp-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-fs-sm font-semibold text-ink-1">Brand-managed employee</p>
-                  <p className="mt-1 text-caption text-ink-3">
+                  <p className="mt-1 text-fs-meta text-ink-3">
                     Profile, runtime, and permissions are controlled by the external A2A endpoint.
                   </p>
                 </div>
@@ -201,7 +201,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
   }
 
   return (
-    <div className="flex h-full flex-col bg-surface-elevated">
+    <div className="flex h-full flex-col bg-surface-2">
       <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-sp-5">
         <div className="flex w-full flex-col pb-32">
           <ProfileSection title="Identity">
@@ -263,7 +263,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 </SelectContent>
               </Select>
               <p
-                className="mt-1 text-caption text-text-muted"
+                className="mt-1 text-fs-meta text-ink-4"
                 title={
                   workstationLabel
                     ? 'MCP tools available via workstation rack.'
@@ -353,12 +353,12 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 rows={4}
               />
             </FieldStack>
-            <div className="rounded-md border border-line-soft bg-surface-sunken">
+            <div className="rounded-r-sm border border-line-soft bg-surface-sunken">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => setShowSystemPrompt((v) => !v)}
-                className="h-auto w-full justify-start gap-1.5 rounded-md px-3 py-2 text-fs-sm text-ink-3 hover:text-ink-1"
+                className="h-auto w-full justify-start gap-1.5 rounded-r-sm px-3 py-2 text-fs-sm text-ink-3 hover:text-ink-1"
               >
                 {showSystemPrompt ? (
                   <ChevronDown className="size-3.5 shrink-0" />
@@ -368,7 +368,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 System Prompt Preview
               </Button>
               {showSystemPrompt && (
-                <pre className="overflow-x-hidden whitespace-pre-wrap border-t border-line-soft bg-surface-1 px-3 pb-3 pt-3 font-mono text-caption leading-relaxed text-text-secondary">
+                <pre className="overflow-x-hidden whitespace-pre-wrap border-t border-line-soft bg-surface-1 px-3 pb-3 pt-3 font-mono text-fs-meta leading-relaxed text-ink-3">
                   {buildSystemPrompt(formData)}
                 </pre>
               )}
@@ -388,7 +388,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   { value: 'custom', label: 'Custom model' },
                 ]}
               />
-              <p className="mt-2 text-xs text-text-muted">
+              <p className="mt-2 text-fs-meta text-ink-4">
                 {modelMode === 'inherit'
                   ? 'Uses the company-wide model from Settings > Provider.'
                   : 'This employee will use the explicit model below.'}
@@ -436,7 +436,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                           variant="outline"
                           size="sm"
                           onClick={() => updateField('modelPreference', m)}
-                          className="h-6 rounded-xs px-1.5 py-0.5 text-caption text-text-secondary hover:border-border-focus hover:text-accent-text"
+                          className="h-6 rounded-r-xs px-1.5 py-0.5 text-fs-meta text-ink-3 hover:border-accent hover:text-accent"
                         >
                           {m}
                         </Button>
@@ -473,7 +473,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 }}
               />
               {formData.maxTokens < 1024 && (
-                <p className="mt-1 text-caption text-warning">
+                <p className="mt-1 text-fs-meta text-warn">
                   Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.
                 </p>
               )}
@@ -489,7 +489,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
       </div>
 
       {/* Sticky save bar */}
-      <div className="shrink-0 border-t border-line-soft bg-surface-1 px-sp-5 py-3 shadow-overlay">
+      <div className="shrink-0 border-t border-line-soft bg-surface-2 px-sp-5 py-3 shadow-overlay">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="flex flex-1 items-center gap-2">
             {isEditMode && !isConfirmingDelete && (
@@ -499,7 +499,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
             )}
             {isEditMode && isConfirmingDelete && (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-destructive">
+                <span className="text-fs-meta text-destructive">
                   Delete {formData.name || 'this employee'}? This cannot be undone.
                 </span>
                 <Button variant="destructive" size="sm" disabled={isSaving} onClick={confirmDelete}>
@@ -510,7 +510,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 </Button>
               </div>
             )}
-            {deleteError && <p className="ml-2 text-xs text-destructive">{deleteError}</p>}
+            {deleteError && <p className="ml-2 text-fs-meta text-destructive">{deleteError}</p>}
           </div>
           <Button size="sm" disabled={!canSave} onClick={save}>
             {isSaving ? 'Saving...' : 'Save'}
@@ -560,7 +560,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <FieldStack>
       <FieldLabel>{label}</FieldLabel>
-      <div className="min-h-9 rounded-md border border-line-soft bg-surface-1 px-3 py-2 text-fs-sm text-ink-1">
+      <div className="min-h-9 rounded-r-sm border border-line-soft bg-surface-1 px-3 py-2 text-fs-sm text-ink-1">
         {value}
       </div>
     </FieldStack>

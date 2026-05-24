@@ -68,14 +68,14 @@ interface SwatchRowProps {
 function SwatchRow({ label, options, selected, onSelect }: SwatchRowProps) {
   return (
     <div>
-      <p className="mb-1.5 text-caption text-text-muted">{label}</p>
+      <p className="mb-1.5 text-fs-meta text-ink-4">{label}</p>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => {
           const selectedStyle = selected === opt.value;
           const swatchStyle = {
             ['backgroundColor']: numericToHex(opt.value),
-            ['borderColor']: selectedStyle ? 'var(--color-text-primary-val)' : 'transparent',
-            ['boxShadow']: selectedStyle ? '0 0 0 1px var(--color-border-focus-val)' : 'none',
+            ['borderColor']: selectedStyle ? 'var(--ink-1)' : 'transparent',
+            ['boxShadow']: selectedStyle ? '0 0 0 1px var(--accent-ring)' : 'none',
           };
           return (
             <Button
@@ -85,7 +85,7 @@ function SwatchRow({ label, options, selected, onSelect }: SwatchRowProps) {
               variant="ghost"
               size="icon"
               onClick={() => onSelect(opt.value)}
-              className="size-6 shrink-0 rounded-full border-2 p-0 transition-all"
+              className="size-6 shrink-0 rounded-r-pill border-2 p-0 transition-all"
               // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
               style={swatchStyle}
             />
@@ -101,10 +101,8 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
     onChange({ ...config, [key]: value });
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border-default bg-surface-muted p-3">
-      <p className="text-caption font-medium uppercase tracking-wider text-text-primary">
-        Appearance
-      </p>
+    <div className="flex flex-col gap-sp-3">
+      <p className="text-fs-meta font-medium uppercase tracking-wider text-ink-1">Appearance</p>
 
       <SwatchRow
         label="Skin tone"
@@ -134,13 +132,13 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
           selected={config.clothingAccent}
           onSelect={(v) => set('clothingAccent', v)}
         />
-        <p className="mt-1 text-caption text-text-muted">Renders as a visible vest panel.</p>
+        <p className="mt-1 text-fs-meta text-ink-4">Renders as a visible vest panel.</p>
       </div>
 
       {/* Gender presentation toggle */}
       <div>
-        <p className="mb-1.5 text-caption text-text-muted">Gender presentation</p>
-        <div className="flex gap-1">
+        <p className="mb-1.5 text-fs-meta text-ink-4">Gender presentation</p>
+        <div className="flex rounded-r-xs border border-line-soft bg-surface-1 p-0.5">
           {GENDER_OPTIONS.map((opt) => (
             <Button
               key={opt.value}
@@ -149,10 +147,10 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
               size="sm"
               onClick={() => set('gender', opt.value)}
               className={cn(
-                'h-7 flex-1 rounded-none border py-1 text-caption',
+                'h-7 flex-1 rounded-r-xs border border-transparent py-sp-1 text-fs-meta',
                 config.gender === opt.value
-                  ? 'border-border-focus bg-accent-muted text-accent-text'
-                  : 'border-border-default bg-surface text-text-secondary hover:border-border-strong',
+                  ? 'border-accent bg-accent-surface text-accent'
+                  : 'text-ink-3 hover:bg-surface-sunken',
               )}
             >
               {opt.label}
@@ -163,14 +161,14 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <p className="mb-1 text-caption text-text-muted">Hair style</p>
+          <p className="mb-1 text-fs-meta text-ink-4">Hair style</p>
           <Select value={config.hairStyle} onValueChange={(v) => set('hairStyle', v)}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-8 text-fs-meta">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {HAIR_STYLES.map((s) => (
-                <SelectItem key={s} value={s} className="text-xs capitalize">
+                <SelectItem key={s} value={s} className="text-fs-meta capitalize">
                   {s.charAt(0).toUpperCase() + s.slice(1)}
                 </SelectItem>
               ))}
@@ -179,14 +177,14 @@ export function AvatarCustomizer({ config, onChange }: AvatarCustomizerProps) {
         </div>
 
         <div>
-          <p className="mb-1 text-caption text-text-muted">Body type</p>
+          <p className="mb-1 text-fs-meta text-ink-4">Body type</p>
           <Select value={config.bodyType} onValueChange={(v) => set('bodyType', v)}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-8 text-fs-meta">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {BODY_TYPES.map((b) => (
-                <SelectItem key={b} value={b} className="text-xs capitalize">
+                <SelectItem key={b} value={b} className="text-fs-meta capitalize">
                   {b.charAt(0).toUpperCase() + b.slice(1)}
                 </SelectItem>
               ))}

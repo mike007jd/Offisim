@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@offisim/ui-core';
+import { BookOpen, FileText, GitBranch, Pencil, Search, Terminal } from 'lucide-react';
 
 interface ToolPermissionEditorProps {
   value: ToolPermissionPolicy | null;
@@ -32,13 +33,38 @@ const ADVANCED_MODE_ITEMS: Array<{ value: ToolApprovalMode; label: string }> = [
   { value: 'always_ask', label: 'Always Ask' },
 ];
 
-const CORE_TOOL_ROWS: ReadonlyArray<{ label: string; pattern: string; hint: string }> = [
-  { label: 'Read files', pattern: 'read_file', hint: 'Workspace file read access.' },
-  { label: 'Write files', pattern: 'write_file', hint: 'Workspace file mutations.' },
-  { label: 'Shell', pattern: 'bash', hint: 'Local command execution.' },
-  { label: 'Web search', pattern: 'web_search', hint: 'Network research tool access.' },
-  { label: 'Memory recall', pattern: 'recall', hint: 'Long-term context retrieval.' },
-  { label: 'Git', pattern: 'git*', hint: 'Repository status and source-control actions.' },
+const CORE_TOOL_ROWS: ReadonlyArray<{
+  label: string;
+  pattern: string;
+  hint: string;
+  Icon: typeof FileText;
+}> = [
+  {
+    label: 'Read files',
+    pattern: 'read_file',
+    hint: 'Workspace file read access.',
+    Icon: FileText,
+  },
+  { label: 'Write files', pattern: 'write_file', hint: 'Workspace file mutations.', Icon: Pencil },
+  { label: 'Shell', pattern: 'bash', hint: 'Local command execution.', Icon: Terminal },
+  {
+    label: 'Web search',
+    pattern: 'web_search',
+    hint: 'Network research tool access.',
+    Icon: Search,
+  },
+  {
+    label: 'Memory recall',
+    pattern: 'recall',
+    hint: 'Long-term context retrieval.',
+    Icon: BookOpen,
+  },
+  {
+    label: 'Git',
+    pattern: 'git*',
+    hint: 'Repository status and source-control actions.',
+    Icon: GitBranch,
+  },
 ];
 
 function normalizePolicy(value: ToolPermissionPolicy | null): ToolPermissionPolicy {
@@ -99,7 +125,7 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
 
   return (
     <div className="flex flex-col gap-sp-4">
-      <div className="rounded-md border border-line-soft bg-surface-sunken p-sp-3">
+      <div className="rounded-r-sm border border-line-soft bg-surface-sunken p-sp-3">
         <span id={defaultModeId} className="mb-2 block text-fs-meta font-medium text-ink-2">
           Default mode
         </span>
@@ -116,14 +142,16 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
         {CORE_TOOL_ROWS.map((row) => {
           const override = policy.overrides.find((item) => item.pattern === row.pattern);
           const mode = override?.mode ?? policy.defaultMode;
+          const Icon = row.Icon;
           return (
             <div
               key={row.pattern}
-              className="grid grid-tool-permission-row items-center gap-3 rounded-md border border-line-soft bg-surface-1 px-sp-3 py-sp-2"
+              className="grid grid-tool-permission-row items-center gap-3 rounded-r-sm border border-line-soft bg-surface-1 px-sp-3 py-sp-2"
             >
+              <Icon className="size-4 text-ink-4" aria-hidden="true" />
               <div className="min-w-0">
                 <p className="truncate text-fs-sm font-medium text-ink-1">{row.label}</p>
-                <p className="truncate text-caption text-ink-3">{row.hint}</p>
+                <p className="truncate text-fs-meta text-ink-3">{row.hint}</p>
               </div>
               <SegmentedControl
                 size="sm"
@@ -137,26 +165,26 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
         })}
       </div>
 
-      <details className="rounded-md border border-line-soft bg-surface-1 p-sp-3">
+      <details className="rounded-r-sm border border-line-soft bg-surface-1 p-sp-3">
         <summary className="cursor-pointer text-fs-meta font-medium text-ink-2">
           Advanced patterns
         </summary>
         <div className="mt-sp-3 flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-caption text-ink-3">Glob overrides for non-standard tools.</p>
+            <p className="text-fs-meta text-ink-3">Glob overrides for non-standard tools.</p>
             <Button
               type="button"
               onClick={addOverride}
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-xs text-text-secondary"
+              className="h-7 px-2 text-fs-meta text-ink-3"
             >
               Add pattern
             </Button>
           </div>
 
           {advancedOverrides.length === 0 && (
-            <p className="rounded-md border border-dashed border-line-soft px-sp-3 py-sp-2 text-caption text-ink-3">
+            <p className="rounded-r-sm border border-dashed border-line-soft px-sp-3 py-sp-2 text-fs-meta text-ink-3">
               No advanced overrides.
             </p>
           )}
@@ -168,7 +196,7 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
                   value={override.pattern}
                   onChange={(event) => updateOverride(index, { pattern: event.target.value })}
                   placeholder="calendar.*"
-                  className="border-border-default bg-surface text-sm text-text-primary"
+                  className="border-line bg-surface-1 text-fs-sm text-ink-1"
                 />
                 <Select
                   value={override.mode}
@@ -194,7 +222,7 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
                   onClick={() => removeOverride(index)}
                   variant="outline"
                   size="sm"
-                  className="h-9 px-2 text-xs text-text-secondary"
+                  className="h-9 px-2 text-fs-meta text-ink-3"
                 >
                   Remove
                 </Button>

@@ -19,17 +19,17 @@ function formatValue(value: unknown): string {
 function diffColor(from: unknown, to: unknown): string {
   if (from === undefined || from === null) return 'text-ok'; // added
   if (to === undefined || to === null) return 'text-danger'; // removed
-  return 'text-warning'; // changed
+  return 'text-warn'; // changed
 }
 
 export function VersionDiffTable({ diffs }: VersionDiffTableProps) {
   if (diffs.length === 0) {
-    return <p className="text-sm text-ink-2/50 italic py-2">No differences found.</p>;
+    return <p className="text-fs-sm text-ink-2/50 italic py-2">No differences found.</p>;
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
+      <table className="w-full text-fs-sm border-collapse">
         <thead>
           <tr className="border-b border-line">
             <th className="text-left py-1.5 px-2 text-ink-2/70 font-medium">Field</th>
@@ -40,16 +40,16 @@ export function VersionDiffTable({ diffs }: VersionDiffTableProps) {
         <tbody>
           {diffs.map((diff) => (
             <tr key={diff.field} className="border-b border-line">
-              <td className={`py-1.5 px-2 font-mono text-xs ${diffColor(diff.from, diff.to)}`}>
+              <td className={`py-1.5 px-2 font-mono text-fs-meta ${diffColor(diff.from, diff.to)}`}>
                 {diff.field}
               </td>
               <td className="py-1.5 px-2 text-ink-2/60">
-                <pre className="whitespace-pre-wrap break-all text-xs font-mono">
+                <pre className="whitespace-pre-wrap break-all text-fs-meta font-mono">
                   {formatValue(diff.from)}
                 </pre>
               </td>
               <td className="py-1.5 px-2 text-ink-2">
-                <pre className="whitespace-pre-wrap break-all text-xs font-mono">
+                <pre className="whitespace-pre-wrap break-all text-fs-meta font-mono">
                   {formatValue(diff.to)}
                 </pre>
               </td>

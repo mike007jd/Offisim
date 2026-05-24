@@ -38,7 +38,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
   if (formData.isExternal) {
     return (
       <TabScrollShell>
-        <p className="flex items-center gap-2 text-xs text-text-muted">
+        <p className="flex items-center gap-2 text-fs-meta text-ink-4">
           <Lock className="h-3.5 w-3.5" />
           External A2A peer — routing handled by brand endpoint.
         </p>
@@ -56,7 +56,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
       <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-6 py-6">
         <div className="flex w-full flex-col gap-6 pb-32">
           <section className="flex flex-col gap-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            <h3 className="text-fs-meta font-semibold uppercase tracking-wider text-ink-4">
               Execution binding
             </h3>
             <RuntimeBindingControl
@@ -68,7 +68,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
             />
           </section>
           <section className="flex flex-col gap-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            <h3 className="text-fs-meta font-semibold uppercase tracking-wider text-ink-4">
               Tool permissions
             </h3>
             <ToolPermissionEditor
@@ -80,7 +80,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
       </div>
 
       {isDirty && (
-        <div className="shrink-0 border-t border-border-default bg-surface-elevated px-6 py-3 backdrop-blur-sm">
+        <div className="shrink-0 border-t border-line bg-surface-1 px-6 py-3 backdrop-blur-sm">
           <div className="flex w-full items-center justify-end gap-3">
             <Button size="sm" disabled={isSaving} onClick={save}>
               <Save className="mr-1 h-3.5 w-3.5" />

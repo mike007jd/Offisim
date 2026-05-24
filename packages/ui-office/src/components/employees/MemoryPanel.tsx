@@ -50,13 +50,13 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
   );
 
   return (
-    <div className="flex flex-col gap-4 pt-2">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-sp-4 pt-sp-2">
+      <div className="grid grid-memory-compose items-center gap-sp-2">
         <Select
           value={draftCategory}
           onValueChange={(value) => setDraftCategory(value as (typeof MEMORY_CATEGORIES)[number])}
         >
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-memory-category">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -73,7 +73,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
           value={draftContent}
           onChange={(event) => setDraftContent(event.target.value)}
           placeholder="Seed a memory..."
-          className="min-w-0 flex-1 border-border-default bg-surface text-sm text-text-primary"
+          className="min-w-0 flex-1 border-line bg-surface-1 text-fs-sm text-ink-1"
         />
         <Input
           type="range"
@@ -82,7 +82,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
           step={0.1}
           value={draftImportance}
           onChange={(event) => setDraftImportance(Number.parseFloat(event.target.value))}
-          className="w-28"
+          className="w-memory-importance"
         />
         <Button
           type="button"
@@ -96,20 +96,20 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
             setDraftContent('');
           }}
           variant="outline"
-          className="px-3 text-sm text-text-secondary disabled:cursor-not-allowed disabled:text-text-disabled"
+          className="px-3 text-fs-sm text-ink-3 disabled:cursor-not-allowed disabled:text-ink-5"
         >
           Add
         </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="grid grid-memory-filter items-center gap-sp-2">
         <Select
           value={filterCategory}
           onValueChange={(value) =>
             setFilterCategory(value as 'all' | (typeof MEMORY_CATEGORIES)[number])
           }
         >
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-memory-category">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -127,36 +127,33 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search memories..."
-          className="min-w-0 flex-1 border-border-default bg-surface text-sm text-text-primary"
+          className="min-w-0 flex-1 border-line bg-surface-1 text-fs-sm text-ink-1"
         />
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-text-secondary">Loading memories...</p>
+        <p className="text-fs-sm text-ink-3">Loading memories...</p>
       ) : error ? (
-        <p className="text-sm text-error">Error: {error}</p>
+        <p className="text-fs-sm text-danger">Error: {error}</p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-sp-3">
           {groupedMemories.map(({ category, entries }) => (
-            <section
-              key={category}
-              className="rounded-lg border border-border-default bg-surface-muted p-3"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-sm font-medium capitalize text-text-primary">{category}</h4>
-                <span className="text-xs text-text-muted">{entries.length}</span>
+            <section key={category} className="rounded-r-md border border-line bg-surface-2 p-sp-3">
+              <div className="mb-sp-2 flex items-center justify-between">
+                <h4 className="text-fs-sm font-medium capitalize text-ink-1">{category}</h4>
+                <span className="text-fs-meta text-ink-4">{entries.length}</span>
               </div>
               {entries.length === 0 ? (
-                <p className="text-xs text-text-muted">No entries in this category.</p>
+                <p className="text-fs-meta text-ink-4">No entries in this category.</p>
               ) : (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-sp-2">
                   {entries.map((memory) => (
                     <div
                       key={memory.memory_id}
-                      className="rounded-md border border-border-default bg-surface p-2"
+                      className="rounded-r-sm border border-line bg-surface-1 p-sp-2"
                     >
                       <Textarea
-                        className="min-h-20 w-full border-border-default bg-surface text-sm text-text-primary"
+                        className="min-h-20 w-full border-line bg-surface-1 text-fs-sm text-ink-1"
                         defaultValue={memory.content}
                         onBlur={(event) => {
                           const next = event.target.value.trim();
@@ -165,8 +162,8 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
                           }
                         }}
                       />
-                      <div className="mt-2 flex items-center gap-3 text-xs text-text-secondary">
-                        <div className="flex items-center gap-2">
+                      <div className="mt-sp-2 flex items-center gap-sp-3 text-fs-meta text-ink-3">
+                        <div className="flex items-center gap-sp-2">
                           <span>Importance</span>
                           <Input
                             type="range"
@@ -179,7 +176,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
                                 importance: Number.parseFloat(event.target.value),
                               })
                             }
-                            className="w-24"
+                            className="w-memory-importance"
                           />
                         </div>
                         <span>scope: {memory.scope}</span>
@@ -193,7 +190,7 @@ export function MemoryPanel({ employeeId, companyId }: MemoryPanelProps) {
                           }}
                           variant="outline"
                           size="sm"
-                          className="ml-auto h-7 px-2 text-xs text-text-secondary"
+                          className="ml-auto h-7 px-2 text-fs-meta text-ink-3"
                         >
                           Delete
                         </Button>
