@@ -216,7 +216,7 @@ export function ActivityLogPage({
               getEmployeeName={getEmployeeName}
             />
             {sessionState.selectedEventId && focusedEvent && (
-              <div className="min-w-0 border-l border-line">
+              <div className={cn('min-w-0', tier !== 'narrow' && 'border-l border-line')}>
                 <ActivityEventDetail event={focusedEvent} onClose={handleCloseDetail} />
               </div>
             )}

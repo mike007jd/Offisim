@@ -648,12 +648,12 @@
 
   .chat-composer-menu-item:hover,
   .chat-composer-menu-item[data-highlighted] {
-    background: var(--color-accent-muted);
-    color: var(--color-accent-text);
+    background: var(--accent-surface);
+    color: var(--accent);
   }
 
   .chat-composer-command-name {
-    color: var(--color-accent);
+    color: var(--accent);
     flex-shrink: 0;
     font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
     font-size: var(--text-body-sm);
@@ -1076,7 +1076,7 @@
   .attachment-drop-overlay {
     align-items: center;
     background: color-mix(in srgb, var(--surface-1) 85%, transparent);
-    border: var(--border-width-thick) dashed var(--color-accent);
+    border: var(--border-width-thick) dashed var(--accent);
     border-radius: var(--r-lg);
     display: flex;
     inset: 0;
@@ -1283,7 +1283,7 @@
   }
 
   .stage-team-status-dot-info {
-    background: var(--color-info);
+    background: var(--info);
   }
 
   .stage-team-status-dot-success {
@@ -1440,7 +1440,7 @@
   }
 
   .git-branch-line .git-icon-slot {
-    color: var(--color-accent);
+    color: var(--accent);
   }
 
   .git-icon-slot[data-state="loading"] svg {
@@ -1702,7 +1702,7 @@
   }
 
   .git-file-row-selected {
-    background: var(--color-accent-muted);
+    background: var(--accent-surface);
     border-color: var(--accent-ring);
   }
 
@@ -2359,7 +2359,7 @@
   }
 
   .light :where(.bg-blue-500\/14, .bg-blue-500\/15, .bg-cyan-500\/15) {
-    background-color: var(--color-accent-muted);
+    background-color: var(--accent-surface);
   }
 
   .light :where(.hover\:text-slate-100:hover, .hover\:text-white:hover) {
@@ -2405,7 +2405,7 @@
 /* ── Base styles ── */
 body {
   background-color: var(--surface);
-  color: var(--text-primary-val);
+  color: var(--ink-1);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -2414,28 +2414,28 @@ body {
 
 /* ── Glass panel utility ── */
 .glass-panel {
-  background: var(--glass-bg);
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--line-soft);
   border-radius: 1.5rem;
 }
 
 .glass-panel-sm {
-  background: var(--glass-bg);
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--line-soft);
   border-radius: 1rem;
 }
 
 /* ── Cyber button ── */
 .cyber-button {
-  background: color-mix(in srgb, var(--text-primary-val) 5%, transparent);
-  border: 1px solid var(--border-val);
+  background: color-mix(in srgb, var(--ink-1) 5%, transparent);
+  border: 1px solid var(--line);
   border-radius: 0.75rem;
   padding: 0.625rem 1rem;
-  color: var(--text-secondary-val);
+  color: var(--ink-2);
   font-size: 0.625rem;
   font-weight: 900;
   text-transform: uppercase;

@@ -647,7 +647,7 @@ export function SopDagCanvas({
             <path
               d={connectingLine}
               fill="none"
-              stroke="var(--color-warning-val)"
+              stroke="var(--warn)"
               strokeWidth={2}
               strokeDasharray="6 4"
               strokeLinecap="round"
@@ -730,7 +730,7 @@ export function SopDagCanvas({
                         cx={(edge.fromPoint.x + edge.toPoint.x) / 2}
                         cy={(edge.fromPoint.y + edge.toPoint.y) / 2}
                         r={8}
-                        fill="var(--color-error-muted-val)"
+                        fill="var(--danger-surface)"
                         pointerEvents="none"
                       />
                       <text
@@ -738,7 +738,7 @@ export function SopDagCanvas({
                         y={(edge.fromPoint.y + edge.toPoint.y) / 2}
                         textAnchor="middle"
                         dominantBaseline="central"
-                        fill="var(--color-error-val)"
+                        fill="var(--danger)"
                         fontSize={12}
                         fontWeight="bold"
                         pointerEvents="none"

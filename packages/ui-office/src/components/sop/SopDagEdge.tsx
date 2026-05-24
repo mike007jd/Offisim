@@ -45,7 +45,7 @@ export const SopDagEdge = memo(function SopDagEdge({
   const { stroke, width } = STROKE_CONFIG[status];
   const [hovered, setHovered] = useState(false);
 
-  const activeStroke = editMode && hovered ? 'var(--color-error-val)' : stroke;
+  const activeStroke = editMode && hovered ? 'var(--danger)' : stroke;
   const activeWidth = editMode && hovered ? 3 : width;
 
   return (
@@ -82,14 +82,14 @@ export const SopDagEdge = memo(function SopDagEdge({
             cx={(edge.fromPoint.x + edge.toPoint.x) / 2}
             cy={(edge.fromPoint.y + edge.toPoint.y) / 2}
             r={8}
-            fill="var(--color-error-muted-val)"
+            fill="var(--danger-surface)"
           />
           <text
             x={(edge.fromPoint.x + edge.toPoint.x) / 2}
             y={(edge.fromPoint.y + edge.toPoint.y) / 2}
             textAnchor="middle"
             dominantBaseline="central"
-            fill="var(--color-error-val)"
+            fill="var(--danger)"
             fontSize={12}
             fontWeight="bold"
           >
@@ -98,7 +98,7 @@ export const SopDagEdge = memo(function SopDagEdge({
         </>
       )}
       {status === 'active' && (
-        <circle r={3} fill="var(--color-info-val)">
+        <circle r={3} fill="var(--info)">
           <animateMotion dur="1.5s" repeatCount="indefinite" path={d} />
         </circle>
       )}
