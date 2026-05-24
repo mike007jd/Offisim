@@ -157,8 +157,8 @@ function PlanKanbanBoard({
   if (!dashboard.planId) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-        <ClipboardList className="h-8 w-8 text-text-muted" />
-        <p className="text-sm text-text-secondary">No active plan</p>
+        <ClipboardList className="h-8 w-8 text-ink-4" />
+        <p className="text-fs-sm text-ink-3">No active plan</p>
       </div>
     );
   }
@@ -172,34 +172,34 @@ function PlanKanbanBoard({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Top bar: plan progress summary ── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle shrink-0">
-        <h3 className="text-xs font-black uppercase tracking-wider text-text-secondary">Board</h3>
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-line-soft shrink-0">
+        <h3 className="text-fs-meta font-black uppercase tracking-wider text-ink-3">Board</h3>
 
         {/* Progress bar */}
-        <div className="h-1.5 max-w-48 flex-1 overflow-hidden rounded-full bg-surface-muted">
+        <div className="h-1.5 max-w-48 flex-1 overflow-hidden rounded-r-pill bg-surface-2">
           <div
             className={cn(
-              'h-full rounded-full transition-all duration-500',
-              dashboard.isComplete ? 'bg-success' : 'bg-info',
+              'h-full rounded-r-pill transition-all duration-500',
+              dashboard.isComplete ? 'bg-ok' : 'bg-accent',
             )}
             // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
             style={progressStyle}
           />
         </div>
 
-        <span className="font-mono text-caption text-text-muted tabular-nums">
+        <span className="font-mono text-fs-meta text-ink-4 tabular-nums">
           {dashboard.stats.completed}/{dashboard.stats.total} tasks
         </span>
 
         {dashboard.stats.active > 0 && (
-          <span className="flex items-center gap-1 text-caption text-info">
-            <span className="h-1.5 w-1.5 rounded-full bg-info animate-pulse" />
+          <span className="flex items-center gap-1 text-fs-meta text-accent">
+            <span className="h-1.5 w-1.5 rounded-r-pill bg-accent animate-pulse" />
             {dashboard.stats.active} active
           </span>
         )}
 
         {dashboard.stats.failed > 0 && (
-          <span className="text-caption text-error">{dashboard.stats.failed} failed</span>
+          <span className="text-fs-meta text-danger">{dashboard.stats.failed} failed</span>
         )}
 
         <div className="ml-auto flex gap-1">
@@ -208,7 +208,7 @@ function PlanKanbanBoard({
             aria-label="Scroll left"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-text-muted hover:text-text-primary"
+            className="h-7 w-7 text-ink-4 hover:text-ink-1"
             onClick={() => scrollBy(-280)}
           >
             <ChevronLeft className="h-3.5 w-3.5" />
@@ -218,7 +218,7 @@ function PlanKanbanBoard({
             aria-label="Scroll right"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-text-muted hover:text-text-primary"
+            className="h-7 w-7 text-ink-4 hover:text-ink-1"
             onClick={() => scrollBy(280)}
           >
             <ChevronRight className="h-3.5 w-3.5" />
@@ -231,18 +231,16 @@ function PlanKanbanBoard({
         <div className="flex gap-3 p-3 h-full min-w-max">
           {/* ═══ Requirements column ═══ */}
           <KanbanColumn title="Requirements" stepIndex={null} status="requirements" tasks={[]}>
-            <div className="flex flex-col gap-1.5 rounded-lg border border-border-subtle bg-surface-elevated px-2.5 py-2">
+            <div className="flex flex-col gap-1.5 rounded-r-md border border-line-soft bg-surface-1 px-2.5 py-2">
               {requestText && (
-                <p className="whitespace-pre-wrap text-caption leading-relaxed text-text-primary">
+                <p className="whitespace-pre-wrap text-fs-meta leading-relaxed text-ink-1">
                   {requestText}
                 </p>
               )}
               {dashboard.summary ? (
-                <p className="text-caption leading-relaxed text-text-secondary">
-                  {dashboard.summary}
-                </p>
+                <p className="text-fs-meta leading-relaxed text-ink-3">{dashboard.summary}</p>
               ) : requestText ? (
-                <p className="text-caption italic text-text-muted">Waiting for plan…</p>
+                <p className="text-fs-meta italic text-ink-4">Waiting for plan…</p>
               ) : null}
             </div>
           </KanbanColumn>
@@ -374,7 +372,7 @@ function LiveKanbanBoard({
       {errorMessage && (
         <div
           role="alert"
-          className="mb-2 rounded-lg border border-error/30 bg-error-muted px-3 py-2 text-xs font-medium text-error"
+          className="mb-2 rounded-r-md border border-danger/30 bg-danger-surface px-3 py-2 text-fs-meta font-medium text-danger"
         >
           {errorMessage}
         </div>
@@ -386,18 +384,18 @@ function LiveKanbanBoard({
             key={state}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => handleDrop(event, state)}
-            className="flex min-h-0 min-w-24 flex-1 flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface/68 shadow-sm"
+            className="flex min-h-0 min-w-24 flex-1 flex-col overflow-hidden rounded-r-md border border-line-soft bg-bg/68 shadow-sm"
           >
             <header
               className={cn(
-                'flex items-center justify-between border-b border-t-2 border-border-subtle px-3 py-3',
+                'flex items-center justify-between border-b border-t-2 border-line-soft px-3 py-3',
                 kanbanStateBorderClass(state),
               )}
             >
-              <span className="truncate text-body-sm font-bold text-text-primary">
+              <span className="truncate text-body-sm font-bold text-ink-1">
                 {kanbanStateLabel(state)}
               </span>
-              <span className="rounded-full bg-surface-muted px-1.5 font-mono text-caption text-text-muted">
+              <span className="rounded-r-pill bg-surface-2 px-1.5 font-mono text-fs-meta text-ink-4">
                 {grouped[state].length}
               </span>
             </header>
@@ -414,27 +412,27 @@ function LiveKanbanBoard({
                 />
               ))}
               {grouped[state].length === 0 && (
-                <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-border-subtle bg-surface/35 text-caption text-text-muted">
+                <div className="flex min-h-24 items-center justify-center rounded-r-md border border-dashed border-line-soft bg-bg/35 text-fs-meta text-ink-4">
                   Drop here
                 </div>
               )}
               {creatingState === state ? (
                 <form
-                  className="mt-auto flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-elevated p-2.5"
+                  className="mt-auto flex flex-col gap-2 rounded-r-md border border-line-soft bg-surface-1 p-2.5"
                   onSubmit={(event) => handleCreate(event, state)}
                 >
                   <Input
                     name="title"
                     autoFocus
                     placeholder="Card title"
-                    className="h-8 border-border-subtle bg-surface px-2 text-caption"
+                    className="h-8 border-line-soft bg-bg px-2 text-fs-meta"
                     disabled={!onCreate || busyId === `new:${state}`}
                   />
                   <Select
                     name="assignedEmployeeId"
                     disabled={!onCreate || busyId === `new:${state}`}
                   >
-                    <SelectTrigger className="h-8 border-border-subtle bg-surface px-2 text-caption text-text-secondary">
+                    <SelectTrigger className="h-8 border-line-soft bg-bg px-2 text-fs-meta text-ink-3">
                       <SelectValue placeholder="No assignee" />
                     </SelectTrigger>
                     <SelectContent>
@@ -450,14 +448,14 @@ function LiveKanbanBoard({
                     <Input
                       name="blockedReason"
                       placeholder="Blocked reason"
-                      className="h-8 border-error/25 bg-error-muted/20 px-2 text-caption text-text-secondary"
+                      className="h-8 border-danger/25 bg-danger-surface/20 px-2 text-fs-meta text-ink-3"
                       disabled={!onCreate || busyId === `new:${state}`}
                     />
                   ) : (
                     <Input
                       name="note"
                       placeholder="Note"
-                      className="h-8 border-border-subtle bg-surface px-2 text-caption text-text-secondary"
+                      className="h-8 border-line-soft bg-bg px-2 text-fs-meta text-ink-3"
                       disabled={!onCreate || busyId === `new:${state}`}
                     />
                   )}
@@ -465,7 +463,7 @@ function LiveKanbanBoard({
                     <Button
                       type="submit"
                       size="sm"
-                      className="h-7 flex-1 px-2 text-caption"
+                      className="h-7 flex-1 px-2 text-fs-meta"
                       disabled={!onCreate || busyId === `new:${state}`}
                     >
                       Add
@@ -474,7 +472,7 @@ function LiveKanbanBoard({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 px-2 text-caption"
+                      className="h-7 px-2 text-fs-meta"
                       disabled={busyId === `new:${state}`}
                       onClick={() => setCreatingState(null)}
                     >
@@ -486,7 +484,7 @@ function LiveKanbanBoard({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="mt-auto h-9 w-full text-body-sm text-text-secondary hover:border-border-subtle hover:text-accent"
+                  className="mt-auto h-9 w-full text-body-sm text-ink-3 hover:border-line-soft hover:text-accent"
                   disabled={!onCreate}
                   onClick={() => setCreatingState(state)}
                 >
@@ -546,7 +544,7 @@ function LiveKanbanCard({
 
   return (
     <article
-      className="group relative rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-sm transition hover:border-border-focus"
+      className="group relative rounded-r-md border border-line-soft bg-surface-1 p-3 shadow-sm transition hover:border-accent"
       draggable={!editing}
       onDragStart={(event) => {
         event.dataTransfer.setData('text/plain', card.id);
@@ -559,10 +557,10 @@ function LiveKanbanCard({
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="min-w-0 flex-1 border-border-subtle bg-surface px-2 py-1 text-xs font-semibold"
+            className="min-w-0 flex-1 border-line-soft bg-bg px-2 py-1 text-fs-meta font-semibold"
           />
         ) : (
-          <h3 className="min-w-0 flex-1 pr-5 text-body-sm font-semibold leading-snug text-text-primary">
+          <h3 className="min-w-0 flex-1 pr-5 text-body-sm font-semibold leading-snug text-ink-1">
             {card.title}
           </h3>
         )}
@@ -572,7 +570,7 @@ function LiveKanbanCard({
             aria-label="Edit card"
             variant="outline"
             size="icon"
-            className="absolute right-2 top-2 h-6 w-6 bg-surface/85 text-text-muted opacity-0 shadow-sm hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
+            className="absolute right-2 top-2 h-6 w-6 bg-bg/85 text-ink-4 opacity-0 shadow-sm hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
             disabled={busy}
             onClick={() => setEditing(true)}
           >
@@ -598,13 +596,13 @@ function LiveKanbanCard({
             onChange={(event) => setNote(event.target.value)}
             rows={2}
             placeholder="Note"
-            className="resize-none border-border-subtle bg-surface px-2 py-1 text-caption leading-relaxed text-text-secondary"
+            className="resize-none border-line-soft bg-bg px-2 py-1 text-fs-meta leading-relaxed text-ink-3"
           />
           <Select
             value={assignee || '__none'}
             onValueChange={(value) => setAssignee(value === '__none' ? '' : value)}
           >
-            <SelectTrigger className="h-7 border-border-subtle bg-surface px-2 text-caption text-text-secondary">
+            <SelectTrigger className="h-7 border-line-soft bg-bg px-2 text-fs-meta text-ink-3">
               <SelectValue placeholder="No assignee" />
             </SelectTrigger>
             <SelectContent>
@@ -620,14 +618,12 @@ function LiveKanbanCard({
             value={blockedReason}
             onChange={(event) => setBlockedReason(event.target.value)}
             placeholder="Blocked reason"
-            className="h-7 border-border-subtle bg-surface px-2 text-caption text-text-secondary"
+            className="h-7 border-line-soft bg-bg px-2 text-fs-meta text-ink-3"
           />
         </div>
       ) : (
         card.note && (
-          <p className="mt-1.5 line-clamp-2 text-caption leading-relaxed text-text-secondary">
-            {card.note}
-          </p>
+          <p className="mt-1.5 line-clamp-2 text-fs-meta leading-relaxed text-ink-3">{card.note}</p>
         )
       )}
       {!editing && (
@@ -635,23 +631,27 @@ function LiveKanbanCard({
           <div className="min-w-0 flex flex-col gap-1">
             <span
               className={cn(
-                'inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-caption font-semibold',
+                'inline-flex max-w-full truncate rounded-r-sm border px-1.5 py-0.5 text-fs-meta font-semibold',
                 card.blockedReason
-                  ? 'border-error bg-error-muted text-error'
+                  ? 'border-danger bg-danger-surface text-danger'
                   : kanbanOriginBadgeClass(card.origin),
               )}
             >
               {card.blockedReason || kanbanOriginLabel(card.origin)}
             </span>
             {assignedAgent ? (
-              <span className="flex min-w-0 items-center gap-1 text-caption font-medium text-text-secondary">
-                <EmployeeAvatar agent={assignedAgent} size={16} className="h-4 w-4 rounded-full" />
+              <span className="flex min-w-0 items-center gap-1 text-fs-meta font-medium text-ink-3">
+                <EmployeeAvatar
+                  agent={assignedAgent}
+                  size={16}
+                  className="h-4 w-4 rounded-r-pill"
+                />
                 <span className="truncate">{assignedAgent.name}</span>
               </span>
             ) : null}
           </div>
           <span
-            className={cn('mb-1 h-2 w-2 shrink-0 rounded-full', kanbanStateDotClass(card.state))}
+            className={cn('mb-1 h-2 w-2 shrink-0 rounded-r-pill', kanbanStateDotClass(card.state))}
             aria-label={`${kanbanStateLabel(card.state)} status`}
           />
         </div>
@@ -663,7 +663,7 @@ function LiveKanbanCard({
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 gap-1 border-success/40 bg-success-muted px-2 text-caption font-semibold text-success"
+              className="h-7 gap-1 border-ok/40 bg-ok-surface px-2 text-fs-meta font-semibold text-ok"
               disabled={busy || title.trim().length === 0}
               onClick={() => void save()}
             >
@@ -674,7 +674,7 @@ function LiveKanbanCard({
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 gap-1 px-2 text-caption text-text-secondary hover:text-text-primary"
+              className="h-7 gap-1 px-2 text-fs-meta text-ink-3 hover:text-ink-1"
               disabled={busy}
               onClick={() => {
                 setTitle(card.title);

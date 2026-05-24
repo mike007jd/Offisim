@@ -26,29 +26,29 @@ const TASK_STATUS_DISPLAY: Record<string, TaskStatusDisplay> = {
 };
 
 const TONE_BADGE_CLASS: Record<StatusTone, string> = {
-  neutral: 'bg-surface-muted text-text-secondary',
-  info: 'bg-info-muted text-info',
-  success: 'bg-success-muted text-success',
-  warning: 'bg-warning-muted text-warning',
-  error: 'bg-error-muted text-error',
-  accent: 'bg-accent-muted text-accent-text',
+  neutral: 'bg-surface-2 text-ink-3',
+  info: 'bg-accent-surface text-accent',
+  success: 'bg-ok-surface text-ok',
+  warning: 'bg-warn-surface text-warn',
+  error: 'bg-danger-surface text-danger',
+  accent: 'bg-accent-surface text-accent',
 };
 
 const TONE_TEXT_CLASS: Record<StatusTone, string> = {
-  neutral: 'text-text-muted',
-  info: 'text-info',
-  success: 'text-success',
-  warning: 'text-warning',
-  error: 'text-error',
+  neutral: 'text-ink-4',
+  info: 'text-accent',
+  success: 'text-ok',
+  warning: 'text-warn',
+  error: 'text-danger',
   accent: 'text-accent',
 };
 
 const TONE_DOT_CLASS: Record<StatusTone, string> = {
-  neutral: 'bg-text-muted',
-  info: 'bg-info',
-  success: 'bg-success',
-  warning: 'bg-warning',
-  error: 'bg-error',
+  neutral: 'bg-ink-4',
+  info: 'bg-accent',
+  success: 'bg-ok',
+  warning: 'bg-warn',
+  error: 'bg-danger',
   accent: 'bg-accent',
 };
 
@@ -102,8 +102,8 @@ export function taskStatusSegmentClass(status: string, isHighlighted: boolean): 
 
 export function taskStatusCardClass(status: string): string {
   const display = taskStatusDisplay(status);
-  if (display.tone === 'info') return 'border-info shadow-glow-accent';
-  if (display.tone === 'error') return 'border-error';
+  if (display.tone === 'info') return 'border-accent shadow-glow-accent';
+  if (display.tone === 'error') return 'border-danger';
   return '';
 }
 
@@ -130,19 +130,19 @@ const KANBAN_LABELS: Record<KanbanState, string> = {
 };
 
 const KANBAN_STATE_BORDER_CLASS: Record<KanbanState, string> = {
-  todo: 'border-t-info',
-  doing: 'border-t-warning',
-  blocked: 'border-t-error',
+  todo: 'border-t-accent',
+  doing: 'border-t-warn',
+  blocked: 'border-t-danger',
   review: 'border-t-accent',
-  done: 'border-t-success',
+  done: 'border-t-ok',
 };
 
 const KANBAN_STATE_DOT_CLASS: Record<KanbanState, string> = {
-  todo: 'bg-info',
-  doing: 'bg-warning',
-  blocked: 'bg-error',
+  todo: 'bg-accent',
+  doing: 'bg-warn',
+  blocked: 'bg-danger',
   review: 'bg-accent',
-  done: 'bg-success',
+  done: 'bg-ok',
 };
 
 const KANBAN_ORIGIN_LABELS: Record<KanbanOrigin, string> = {
@@ -153,10 +153,10 @@ const KANBAN_ORIGIN_LABELS: Record<KanbanOrigin, string> = {
 };
 
 const KANBAN_ORIGIN_BADGE_CLASS: Record<KanbanOrigin, string> = {
-  'pm-planner': 'border-info bg-info-muted text-info',
-  employee: 'border-success bg-success-muted text-ok',
-  manager: 'border-warning bg-warning-muted text-warning',
-  human: 'border-border-subtle bg-surface-muted text-text-secondary',
+  'pm-planner': 'border-accent bg-accent-surface text-accent',
+  employee: 'border-ok bg-ok-surface text-ok',
+  manager: 'border-warn bg-warn-surface text-warn',
+  human: 'border-line-soft bg-surface-2 text-ink-3',
 };
 
 export { KANBAN_STATES };

@@ -11,15 +11,15 @@ function columnAccent(
 ): string {
   switch (status) {
     case 'completed':
-      return 'border-t-success';
+      return 'border-t-ok';
     case 'active':
-      return 'border-t-info';
+      return 'border-t-accent';
     case 'failed':
-      return 'border-t-error';
+      return 'border-t-danger';
     case 'requirements':
-      return 'border-t-warning';
+      return 'border-t-warn';
     default:
-      return 'border-t-border-default';
+      return 'border-t-line';
   }
 }
 
@@ -64,21 +64,19 @@ export function KanbanColumn({
   return (
     <div
       className={cn(
-        'flex w-kanban-column shrink-0 flex-col rounded-lg',
-        'border border-border-default border-t-2 bg-surface-elevated',
+        'flex w-kanban-column shrink-0 flex-col rounded-r-md',
+        'border border-line border-t-2 bg-surface-1',
         columnAccent(status),
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
+      <div className="flex items-center gap-2 border-b border-line-soft px-3 py-2">
         {stepIndex !== null && (
-          <span className="shrink-0 font-mono text-caption text-text-muted">#{stepIndex + 1}</span>
+          <span className="shrink-0 font-mono text-fs-meta text-ink-4">#{stepIndex + 1}</span>
         )}
-        <span className="flex-1 truncate text-caption font-semibold text-text-primary">
-          {title}
-        </span>
+        <span className="flex-1 truncate text-fs-meta font-semibold text-ink-1">{title}</span>
         {progress && (
-          <span className="shrink-0 font-mono text-caption tabular-nums text-text-muted">
+          <span className="shrink-0 font-mono text-fs-meta tabular-nums text-ink-4">
             {progress}
           </span>
         )}
@@ -89,8 +87,8 @@ export function KanbanColumn({
             ).length;
             if (active === 0) return null;
             return (
-              <span className="flex items-center gap-1 text-caption text-info">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-info" />
+              <span className="flex items-center gap-1 text-fs-meta text-accent">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-r-pill bg-accent" />
                 {active}
               </span>
             );
@@ -109,7 +107,7 @@ export function KanbanColumn({
           />
         ))}
         {!children && tasks.length === 0 && (
-          <div className="flex items-center justify-center py-6 text-caption text-text-muted">
+          <div className="flex items-center justify-center py-6 text-fs-meta text-ink-4">
             No tasks yet
           </div>
         )}
