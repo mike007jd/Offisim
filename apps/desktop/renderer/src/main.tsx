@@ -149,9 +149,7 @@ function Shell() {
 }
 
 function AppBootFallback() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-surface text-text-muted" />
-  );
+  return <div className="flex min-h-screen items-center justify-center bg-surface text-ink-3" />;
 }
 
 const root = document.getElementById('root');

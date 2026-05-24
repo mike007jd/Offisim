@@ -21,7 +21,7 @@ import {
   ThreadUserBubble,
 } from './thread-surfaces';
 import { ToolFallback } from './tool-fallback';
-import { ToolGroup } from './tool-group';
+import { ToolGroupContent, ToolGroupRoot, ToolGroupTrigger } from './tool-group';
 import type { OffisimMessageCustom } from './useOffisimExternalStore';
 
 /**
@@ -129,10 +129,10 @@ function ToolGroupSurface({
   children: ReactNode;
 }) {
   return (
-    <ToolGroup.Root>
-      <ToolGroup.Trigger count={indices.length} />
-      <ToolGroup.Content>{children}</ToolGroup.Content>
-    </ToolGroup.Root>
+    <ToolGroupRoot>
+      <ToolGroupTrigger count={indices.length} />
+      <ToolGroupContent>{children}</ToolGroupContent>
+    </ToolGroupRoot>
   );
 }
 

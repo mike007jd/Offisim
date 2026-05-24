@@ -1,5 +1,5 @@
 // Components
-// Note: CompanyCreationWizard, DashboardOverlay, EmployeeCreatorOverlay, InstallDialog,
+// Note: CompanyCreationWizard, EmployeeCreatorOverlay, InstallDialog,
 // OfficeEditorOverlay, SettingsDialog are intentionally NOT exported from the barrel —
 // they are lazy-loaded via subpath exports (e.g. @offisim/ui-office/wizard).
 export * from './components/ErrorBoundary.js';

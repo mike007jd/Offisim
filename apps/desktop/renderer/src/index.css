@@ -494,7 +494,7 @@
     width: calc(var(--sp-8) * 3);
   }
 
-  .activity-legacy-search {
+  .activity-event-search {
     height: var(--sp-7);
     padding-block: calc(var(--sp-1) / 2);
   }

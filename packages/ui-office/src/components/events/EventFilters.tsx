@@ -151,7 +151,7 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
         value={search}
         onChange={(e) => handleSearch(e.target.value)}
         placeholder="Search events..."
-        className="activity-legacy-search w-full rounded-r-xs border-line bg-surface-2 px-sp-2 text-fs-meta text-ink-1 placeholder:text-ink-4 focus:border-accent"
+        className="activity-event-search w-full rounded-r-xs border-line bg-surface-2 px-sp-2 text-fs-meta text-ink-1 placeholder:text-ink-4 focus:border-accent"
       />
     </div>
   );

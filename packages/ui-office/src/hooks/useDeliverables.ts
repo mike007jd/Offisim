@@ -58,7 +58,7 @@ function upsertDeliverable(list: Deliverable[], next: Deliverable): Deliverable[
  *
  * @param filterChatThreadId — when a chat thread is active, scope the result
  *   to deliverables that originated from that thread (`chatThreadId` matches).
- *   Pass `null`/`undefined` for company-wide views (DashboardOverlay,
+ *   Pass `null`/`undefined` for company-wide views (Activity Log,
  *   PitchHall in cross-thread mode) to receive every deliverable.
  */
 export function useDeliverables(filterChatThreadId?: string | null): Deliverable[] {

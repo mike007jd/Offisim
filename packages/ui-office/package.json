@@ -20,10 +20,6 @@
       "types": "./dist/components/onboarding/CompanyCreationWizard.d.ts",
       "default": "./dist/components/onboarding/CompanyCreationWizard.js"
     },
-    "./dashboard": {
-      "types": "./dist/components/dashboard/DashboardOverlay.d.ts",
-      "default": "./dist/components/dashboard/DashboardOverlay.js"
-    },
     "./employee-creator": {
       "types": "./dist/components/employees/EmployeeCreatorOverlay.d.ts",
       "default": "./dist/components/employees/EmployeeCreatorOverlay.js"

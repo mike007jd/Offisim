@@ -25,7 +25,7 @@ export interface UseNotificationsResult {
 /**
  * Reads notification state from the shared NotificationProvider context.
  *
- * All consumers (Header NotificationCenter, DashboardOverlay, etc.) share
+ * All consumers (NotificationCenter, Workspace system channel, etc.) share
  * a single state instance — markRead/dismiss/clearAll propagate everywhere.
  */
 export function useNotifications(): UseNotificationsResult {
