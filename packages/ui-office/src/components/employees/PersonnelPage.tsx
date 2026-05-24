@@ -77,7 +77,7 @@ function personnelLayoutClass(
   if (tier === 'tablet') {
     return railCollapsed ? 'grid-personnel-tablet-collapsed' : 'grid-personnel-tablet-expanded';
   }
-  return 'grid-cols-1';
+  return 'grid-personnel-narrow';
 }
 
 export function PersonnelPage({
@@ -246,28 +246,25 @@ export function PersonnelPage({
 
   return (
     <div
-      className={cn('grid h-full min-h-0 w-full bg-bg text-ink-1', layoutClass)}
+      className={`personnel-page ${layoutClass}`}
       data-layout-tier={tier}
+      data-collapsed={railCollapsed || undefined}
     >
       {/* Left rail: list */}
       {showListPane && (
-        <aside
-          ref={listFocusRef}
-          tabIndex={-1}
-          className="flex min-h-0 flex-col border-r border-line bg-surface-2 focus:outline-none focus:ring-2 focus:ring-accent-ring"
-        >
-          <div className={cn('border-b border-line', railCollapsed ? 'p-2' : 'p-3')}>
-            <div className="flex items-center justify-between gap-2">
+        <aside ref={listFocusRef} tabIndex={-1} className="personnel-list-pane">
+          <div className="personnel-list-head" data-collapsed={railCollapsed || undefined}>
+            <div className="personnel-search-row">
               {!railCollapsed && (
-                <div className="relative min-w-0 flex-1">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-4" />
+                <div className="personnel-search">
+                  <Search className="personnel-search-icon" aria-hidden="true" />
                   <Input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search employees..."
                     disabled={showFirstHireEmpty}
-                    className="h-9 w-full py-1.5 pl-8 pr-3 text-fs-sm"
+                    className="personnel-search-input"
                   />
                 </div>
               )}
@@ -278,27 +275,25 @@ export function PersonnelPage({
                   size="icon"
                   aria-label={railCollapsed ? 'Expand personnel list' : 'Collapse personnel list'}
                   onClick={() => setRailState(railCollapsed ? 'expanded' : 'collapsed')}
-                  className="size-8 shrink-0 rounded-r-md"
+                  className="personnel-collapse-button"
                 >
                   {railCollapsed ? (
-                    <ChevronRight className="size-4" aria-hidden="true" />
+                    <ChevronRight data-icon="collapse" aria-hidden="true" />
                   ) : (
-                    <ChevronLeft className="size-4" aria-hidden="true" />
+                    <ChevronLeft data-icon="collapse" aria-hidden="true" />
                   )}
                 </Button>
               )}
             </div>
             {!railCollapsed && (
-              <label className="mt-3 block" htmlFor="personnel-role-filter">
-                <span className="mb-1 block text-fs-meta font-semibold uppercase tracking-wide text-ink-4">
-                  Role filter
-                </span>
+              <label className="personnel-role-filter" htmlFor="personnel-role-filter">
+                <span>Role filter</span>
                 <Select
                   value={roleFilter}
                   onValueChange={(value) => setRoleFilter(value as RoleSlug | 'all')}
                   disabled={showFirstHireEmpty}
                 >
-                  <SelectTrigger id="personnel-role-filter" className="h-9 text-fs-sm">
+                  <SelectTrigger id="personnel-role-filter" className="personnel-role-trigger">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -313,9 +308,9 @@ export function PersonnelPage({
               </label>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="personnel-list-scroll">
             {employeesLoading ? (
-              <WorkspaceListSkeleton rows={6} className="p-0" />
+              <WorkspaceListSkeleton rows={6} className="personnel-list-skeleton" />
             ) : employeesError ? (
               <ErrorState
                 variant="page"
@@ -346,32 +341,26 @@ export function PersonnelPage({
               const showRetryChip = liveState === 'failed';
               const canRetryEmployee = failedRunError?.targetEmployeeId === row.employee_id;
               return (
-                <div key={row.employee_id} className="mb-0.5 flex min-w-0 items-stretch gap-1">
+                <div key={row.employee_id} className="personnel-roster-entry">
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => handleSelectEmployee(row.employee_id)}
                     title={railCollapsed ? row.name : undefined}
-                    className={cn(
-                      'h-personnel-roster-row min-w-0 flex-1 rounded-r-xs border text-left transition-colors',
-                      isSelected
-                        ? 'border-accent bg-accent-surface'
-                        : 'border-transparent hover:border-line hover:bg-surface-sunken',
-                      railCollapsed
-                        ? 'justify-center px-sp-1 py-sp-1'
-                        : 'justify-start gap-sp-2 px-sp-2 py-sp-1',
-                    )}
+                    className="personnel-roster-button"
+                    data-selected={isSelected || undefined}
+                    data-collapsed={railCollapsed || undefined}
                   >
-                    <EmployeeAvatar agent={row} size={32} className="shrink-0" />
-                    <div className={cn('min-w-0 flex-1', railCollapsed && 'sr-only')}>
-                      <div className="flex items-baseline gap-2">
-                        <p className="truncate text-fs-sm font-medium text-ink-1">{row.name}</p>
+                    <EmployeeAvatar agent={row} size={32} className="personnel-roster-avatar" />
+                    <div className="personnel-roster-info">
+                      <div className="personnel-roster-name-row">
+                        <p className="personnel-roster-name">{row.name}</p>
                         {row.enabled === 0 && (
-                          <span className="text-fs-meta text-ink-4">disabled</span>
+                          <span className="personnel-roster-disabled">disabled</span>
                         )}
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                        <span className="text-fs-meta text-ink-3">
+                      <div className="personnel-roster-meta">
+                        <span className="personnel-roster-role">
                           {ROLE_LABELS[row.role_slug] ?? row.role_slug}
                         </span>
                         <LiveStatePill state={liveState} />
@@ -395,9 +384,9 @@ export function PersonnelPage({
                           ? 'Retry the last failed run for this employee'
                           : 'Select the failed employee to inspect the run'
                       }
-                      className="h-personnel-roster-row shrink-0 gap-1 rounded-r-xs px-2 text-fs-meta"
+                      className="personnel-retry-button"
                     >
-                      <RefreshCw className="size-3" aria-hidden="true" />
+                      <RefreshCw data-icon="retry" aria-hidden="true" />
                       Retry
                     </Button>
                   ) : null}
@@ -410,7 +399,7 @@ export function PersonnelPage({
 
       {/* Center: detail + preview */}
       {showDetailPane && (
-        <section className="flex min-h-0 flex-col border-r border-line bg-surface-1">
+        <section className="personnel-detail-pane">
           {selectedEmployee ? (
             <DetailHeader
               employee={selectedEmployee}
@@ -422,7 +411,7 @@ export function PersonnelPage({
             <EmptyDetail />
           )}
           {showStackedInspector && selectedEmployee && (
-            <div className="min-h-0 flex-1 border-t border-line">
+            <div className="personnel-stacked-inspector">
               <PersonnelTabs
                 activeTab={sessionState.activeEmployeeTab}
                 onTabChange={handleTabChange}
@@ -437,7 +426,7 @@ export function PersonnelPage({
 
       {/* Right: tabs inspector */}
       {showInspectorInline && selectedEmployee && (
-        <section className="flex min-h-0 flex-col bg-surface-2">
+        <section className="personnel-inspector-pane">
           <PersonnelTabs
             activeTab={sessionState.activeEmployeeTab}
             onTabChange={handleTabChange}
@@ -481,62 +470,54 @@ function PersonnelTabs({
   });
 
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={onTabChange}
-      className="flex h-full min-h-0 flex-1 flex-col"
-    >
-      <TabsList className="h-11 w-full shrink-0 items-center justify-start gap-0.5 overflow-x-auto rounded-none border-0 border-b border-line-soft bg-transparent px-sp-3 py-0">
+    <Tabs value={activeTab} onValueChange={onTabChange} className="personnel-tabs">
+      <TabsList className="personnel-tabs-list">
         {TABS.map((t) => (
-          <TabsTrigger
-            key={t.value}
-            value={t.value}
-            className="h-7 shrink-0 rounded-r-xs border border-transparent bg-transparent px-sp-2 text-fs-sm font-medium text-ink-3 transition-colors hover:bg-surface-sunken hover:text-ink-1 data-[state=active]:border-accent-ring data-[state=active]:bg-accent-surface data-[state=active]:font-semibold data-[state=active]:text-accent"
-          >
+          <TabsTrigger key={t.value} value={t.value} className="personnel-tab-trigger">
             {t.label}
           </TabsTrigger>
         ))}
       </TabsList>
-      <div ref={tabBodyRef} className="flex min-h-0 flex-1 flex-col">
+      <div ref={tabBodyRef} className="personnel-tabs-body">
         <TabsContent
           value="profile"
           forceMount
-          className={cn('m-0 flex min-h-0 flex-1 flex-col', TABS_RETAIN_STATE_CLASS)}
+          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
         >
           <ProfileTab editor={editor} />
         </TabsContent>
         <TabsContent
           value="appearance"
           forceMount
-          className={cn('m-0 flex min-h-0 flex-1 flex-col', TABS_RETAIN_STATE_CLASS)}
+          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
         >
           <AppearanceTab editor={editor} />
         </TabsContent>
         <TabsContent
           value="runtime"
           forceMount
-          className={cn('m-0 flex min-h-0 flex-1 flex-col', TABS_RETAIN_STATE_CLASS)}
+          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
         >
           <RuntimeTab editor={editor} />
         </TabsContent>
         <TabsContent
           value="skills"
           forceMount
-          className={cn('m-0 flex min-h-0 flex-1 flex-col', TABS_RETAIN_STATE_CLASS)}
+          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
         >
           <SkillsTab companyId={activeCompanyId} employeeId={selectedEmployeeId} />
         </TabsContent>
         <TabsContent
           value="memory"
           forceMount
-          className={cn('m-0 flex min-h-0 flex-1 flex-col', TABS_RETAIN_STATE_CLASS)}
+          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
         >
           <MemoryTab companyId={activeCompanyId} employeeId={selectedEmployeeId} />
         </TabsContent>
         <TabsContent
           value="history"
           forceMount
-          className={cn('m-0 flex min-h-0 flex-1 flex-col', TABS_RETAIN_STATE_CLASS)}
+          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
         >
           <HistoryTab
             employeeId={selectedEmployeeId}
@@ -553,27 +534,25 @@ function DetailHeader({ employee, onBack }: { employee: EmployeeRow; onBack?: ()
   const isExternal = employee.is_external === 1;
   const brand = isExternal ? lookupExternalBrand(employee.brand_key) : null;
   return (
-    <div className="flex shrink-0 items-center gap-4 border-b border-line bg-surface-1 px-sp-7 py-sp-5">
+    <div className="personnel-detail-head">
       {onBack ? (
         <Button
           type="button"
           variant="secondary"
           size="sm"
           onClick={onBack}
-          className="shrink-0 gap-1.5 px-2.5 py-1.5 text-fs-meta text-ink-3"
+          className="personnel-back-button"
         >
-          <ChevronLeft className="size-3.5" aria-hidden="true" />
+          <ChevronLeft data-icon="back" aria-hidden="true" />
           Back
         </Button>
       ) : null}
-      <EmployeeAvatar agent={employee} size={56} className="size-personnel-detail-avatar" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <h2 className="truncate text-fs-lg font-semibold text-ink-1">{employee.name}</h2>
-        <p className="truncate text-fs-meta text-ink-3">
-          {ROLE_LABELS[employee.role_slug] ?? employee.role_slug}
-        </p>
+      <EmployeeAvatar agent={employee} size={56} className="personnel-detail-avatar" />
+      <div className="personnel-detail-id">
+        <h2>{employee.name}</h2>
+        <p>{ROLE_LABELS[employee.role_slug] ?? employee.role_slug}</p>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      <div className="personnel-detail-pills">
         <Badge variant={employee.enabled ? 'success' : 'secondary'} size="xs">
           {employee.enabled ? 'Enabled' : 'Disabled'}
         </Badge>
@@ -599,7 +578,7 @@ function LiveStatePill({ state }: { state: string }) {
 
 function EmptyDetail() {
   return (
-    <div className="flex h-full items-center justify-center px-6 py-10">
+    <div className="personnel-empty-shell">
       <EmptyState title="Select an employee" />
     </div>
   );
@@ -613,7 +592,7 @@ function FirstHireEmpty({
   onOpenMarket?: () => void;
 }) {
   return (
-    <div className="flex h-full items-center justify-center px-6 py-10">
+    <div className="personnel-empty-shell">
       <EmptyState
         title="No employees yet"
         description="Hire the first teammate for this company or install a marketplace employee."

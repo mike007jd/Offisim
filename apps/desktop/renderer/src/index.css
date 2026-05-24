@@ -116,6 +116,10 @@
     grid-template-columns: var(--personnel-left-rail-collapsed) minmax(0, 1fr);
   }
 
+  .grid-personnel-narrow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .studio-canvas-frame {
     bottom: 2.5rem;
     left: 15rem;
@@ -3982,8 +3986,424 @@
     grid-template-columns: 1.375rem minmax(0, 1fr) auto;
   }
 
-  .h-personnel-roster-row {
-    height: 2.375rem;
+  .personnel-page {
+    background: var(--bg);
+    color: var(--ink-1);
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .personnel-list-pane {
+    background: var(--surface-2);
+    border-right: var(--border-width-thin) solid var(--line);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .personnel-list-pane:focus-visible {
+    box-shadow: inset 0 0 0 var(--border-width-thin) var(--accent-ring);
+    outline: none;
+  }
+
+  .personnel-list-head {
+    border-bottom: var(--border-width-thin) solid var(--line);
+    padding: var(--sp-4) var(--sp-5);
+  }
+
+  .personnel-list-head[data-collapsed] {
+    padding: var(--sp-3) var(--sp-2);
+  }
+
+  .personnel-search-row {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+    justify-content: space-between;
+  }
+
+  .personnel-search {
+    flex: 1 1 auto;
+    min-width: 0;
+    position: relative;
+  }
+
+  .personnel-search-icon {
+    color: var(--ink-4);
+    height: calc(var(--sp-3) + var(--sp-1) / 2);
+    left: var(--sp-3);
+    pointer-events: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: calc(var(--sp-3) + var(--sp-1) / 2);
+  }
+
+  .personnel-search-input {
+    background: var(--surface-sunken);
+    border-color: var(--line);
+    font-size: var(--text-fs-sm);
+    height: var(--sp-8);
+    padding: 0 var(--sp-4) 0 calc(var(--sp-7) + var(--sp-3));
+    width: 100%;
+  }
+
+  .personnel-search-input:hover {
+    background: var(--surface-2);
+    border-color: var(--line-strong);
+  }
+
+  .personnel-collapse-button {
+    border-radius: var(--r-sm);
+    flex: 0 0 auto;
+    height: var(--sp-8);
+    width: var(--sp-8);
+  }
+
+  .personnel-collapse-button [data-icon="collapse"] {
+    height: var(--sp-4);
+    width: var(--sp-4);
+  }
+
+  .personnel-role-filter {
+    display: block;
+    margin-top: var(--sp-3);
+  }
+
+  .personnel-role-filter > span {
+    color: var(--ink-3);
+    display: block;
+    font-size: var(--text-fs-micro);
+    font-weight: var(--text-heading--font-weight);
+    letter-spacing: var(--text-caption--letter-spacing);
+    margin-bottom: var(--sp-1);
+    text-transform: uppercase;
+  }
+
+  .personnel-role-trigger {
+    background: var(--surface-1);
+    border-color: var(--line);
+    border-radius: var(--r-sm);
+    color: var(--ink-1);
+    font-size: var(--text-fs-sm);
+    font-weight: var(--text-h3--font-weight);
+    height: var(--sp-8);
+  }
+
+  .personnel-list-scroll {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: calc(var(--sp-1) / 2);
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--sp-2) var(--sp-3);
+  }
+
+  .personnel-list-skeleton {
+    padding: 0;
+  }
+
+  .personnel-roster-entry {
+    align-items: stretch;
+    display: flex;
+    gap: var(--sp-1);
+    min-width: 0;
+  }
+
+  .personnel-roster-button {
+    align-items: center;
+    border: var(--border-width-thin) solid transparent;
+    border-radius: var(--r-sm);
+    color: var(--ink-2);
+    display: flex;
+    flex: 1 1 auto;
+    gap: var(--sp-3);
+    height: auto;
+    justify-content: flex-start;
+    min-height: calc(var(--sp-8) + var(--sp-2));
+    min-width: 0;
+    padding: var(--sp-1) var(--sp-3);
+    text-align: left;
+    transition: background var(--duration-fast) var(--ease-standard), border-color
+      var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+  }
+
+  .personnel-roster-button:hover {
+    background: var(--surface-sunken);
+    border-color: var(--line);
+    color: var(--ink-1);
+  }
+
+  .personnel-roster-button[data-selected] {
+    background: var(--accent-surface);
+    border-color: var(--accent-ring);
+    color: var(--accent);
+    font-weight: var(--text-heading--font-weight);
+  }
+
+  .personnel-roster-button[data-collapsed] {
+    justify-content: center;
+    padding: var(--sp-1) var(--sp-1);
+  }
+
+  .personnel-roster-avatar {
+    flex: 0 0 auto;
+  }
+
+  .personnel-roster-info {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: calc(var(--sp-1) / 4);
+    min-width: 0;
+  }
+
+  .personnel-roster-button[data-collapsed] .personnel-roster-info {
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    position: absolute;
+    width: 1px;
+  }
+
+  .personnel-roster-name-row {
+    align-items: baseline;
+    display: flex;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+
+  .personnel-roster-name {
+    color: currentColor;
+    flex: 1 1 auto;
+    font-size: var(--text-fs-sm);
+    font-weight: var(--text-h3--font-weight);
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .personnel-roster-disabled {
+    color: var(--ink-4);
+    font-size: var(--text-fs-micro);
+  }
+
+  .personnel-roster-meta {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-top: calc(var(--sp-1) / 2);
+  }
+
+  .personnel-roster-role {
+    color: var(--ink-3);
+    font-size: var(--text-fs-micro);
+  }
+
+  .personnel-roster-button[data-selected] .personnel-roster-role,
+  .personnel-roster-button[data-selected] .personnel-roster-disabled {
+    color: var(--accent);
+    opacity: 0.78;
+  }
+
+  .personnel-retry-button {
+    border-radius: var(--r-sm);
+    flex: 0 0 auto;
+    font-size: var(--text-fs-meta);
+    gap: var(--sp-1);
+    min-height: calc(var(--sp-8) + var(--sp-2));
+    padding-inline: var(--sp-2);
+  }
+
+  .personnel-retry-button [data-icon="retry"] {
+    height: var(--sp-3);
+    width: var(--sp-3);
+  }
+
+  .personnel-detail-pane {
+    background: var(--surface-1);
+    border-right: var(--border-width-thin) solid var(--line);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .personnel-stacked-inspector {
+    border-top: var(--border-width-thin) solid var(--line);
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .personnel-inspector-pane {
+    background: var(--surface-2);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .personnel-tabs {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .personnel-tabs-list {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-bottom: var(--border-width-thin) solid var(--line);
+    border-radius: 0;
+    display: flex;
+    flex: 0 0 auto;
+    gap: calc(var(--sp-1) / 2);
+    height: calc(var(--sp-8) + var(--sp-6));
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding: 0 var(--sp-5);
+    width: 100%;
+  }
+
+  .personnel-tab-trigger {
+    background: transparent;
+    border: 0;
+    border-radius: var(--r-sm);
+    color: var(--ink-3);
+    flex: 0 0 auto;
+    font-size: var(--text-fs-sm);
+    font-weight: var(--text-h3--font-weight);
+    height: calc(var(--sp-8) + var(--sp-2));
+    padding-inline: var(--sp-4);
+    transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast)
+      var(--ease-standard);
+  }
+
+  .personnel-tab-trigger:hover {
+    background: var(--surface-sunken);
+    color: var(--ink-1);
+  }
+
+  .personnel-tab-trigger[data-state="active"] {
+    background: var(--accent-surface);
+    box-shadow: none;
+    color: var(--accent);
+    font-weight: var(--text-heading--font-weight);
+  }
+
+  .personnel-tabs-body,
+  .personnel-tabs-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .personnel-tabs-content {
+    margin: 0;
+  }
+
+  .personnel-detail-head {
+    align-items: center;
+    background: var(--surface-1);
+    border-bottom: var(--border-width-thin) solid var(--line);
+    display: flex;
+    flex: 0 0 auto;
+    gap: var(--sp-5);
+    padding: var(--sp-5) var(--sp-7);
+  }
+
+  .personnel-back-button {
+    flex: 0 0 auto;
+    font-size: var(--text-fs-meta);
+    gap: calc(var(--sp-1) + var(--sp-1) / 2);
+    height: calc(var(--sp-8) + var(--sp-2));
+    padding-inline: var(--sp-3);
+  }
+
+  .personnel-back-button [data-icon="back"] {
+    height: calc(var(--sp-3) + var(--sp-1) / 2);
+    width: calc(var(--sp-3) + var(--sp-1) / 2);
+  }
+
+  .personnel-detail-avatar {
+    height: calc(var(--spacing-16) + var(--sp-8));
+    width: calc(var(--spacing-16) + var(--sp-8));
+  }
+
+  .personnel-detail-id {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: calc(var(--sp-1) / 2);
+    min-width: 0;
+  }
+
+  .personnel-detail-id h2 {
+    color: var(--ink-1);
+    font-size: var(--text-fs-xl);
+    font-weight: var(--text-heading--font-weight);
+    letter-spacing: 0;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .personnel-detail-id p {
+    color: var(--ink-3);
+    font-size: var(--text-fs-sm);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .personnel-detail-pills {
+    align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    justify-content: flex-end;
+  }
+
+  .personnel-empty-shell {
+    align-items: center;
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    padding: calc(var(--sp-8) * 2) var(--sp-6);
+  }
+
+  .collaboration-sidebar,
+  .collaboration-sidebar-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .collaboration-sidebar {
+    background: var(--surface-1);
+    box-sizing: border-box;
+    color: var(--ink-1);
+    height: 100%;
+    max-width: 100%;
+  }
+
+  .collaboration-sidebar-body {
+    flex: 1 1 auto;
+    max-width: 100%;
+    min-height: 0;
   }
 
   .grid-memory-compose {
@@ -4000,11 +4420,6 @@
 
   .w-memory-category {
     width: 8.125rem;
-  }
-
-  .size-personnel-detail-avatar {
-    height: 3.5rem;
-    width: 3.5rem;
   }
 
   .max-w-step-tooltip {

@@ -79,8 +79,8 @@ export function ChatDock(props: CollaborationRailProps) {
 
 export function CollaborationSidebar(props: CollaborationRailProps) {
   return (
-    <div className="box-border flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden bg-surface-1 text-ink-1">
-      <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
+    <div className="collaboration-sidebar">
+      <div className="collaboration-sidebar-body">
         {renderChatPanel({
           ...props,
           showMeetingPanel: false,
