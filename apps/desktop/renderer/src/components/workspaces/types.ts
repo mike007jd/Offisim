@@ -198,6 +198,8 @@ export interface WorkspaceRouterProps {
     onSelectDirectEmployee?: (employeeId: string | null) => void;
     /** Open API / model settings. */
     onOpenSettings?: () => void;
+    /** Open a top-level workspace from inside Workspace Suite surfaces. */
+    onOpenWorkspace?: (target: WorkspaceKey) => void;
     /** Focus an employee in Office (used by system-channel cards). */
     onFocusEmployee?: (employeeId: string) => void;
     /** Open Activity Log workspace (used by system-channel cards). */

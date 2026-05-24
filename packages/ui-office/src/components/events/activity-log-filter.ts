@@ -1,8 +1,8 @@
 import type { RuntimeEvent } from '@offisim/shared-types';
-import type { EventFilterType } from './EventFilters';
 import { getDisplayLabel } from './EventItem';
-import { TYPE_PREFIX_MAP, getEventLevel } from './EventLog';
+import { getEventLevel } from './EventLog';
 import type { EventDisplayLevel } from './EventLog';
+import { TYPE_PREFIX_MAP, type EventFilterType } from './activity-event-options';
 import {
   type DatePreset,
   getDateCutoff,

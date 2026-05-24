@@ -1,6 +1,6 @@
 import { Button, cn } from '@offisim/ui-core';
 import { SHELL_LAYOUT } from '@offisim/ui-core/tokens';
-import { ChevronLeft, ChevronRight, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageSquare, type LucideIcon, Users } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
@@ -242,7 +242,7 @@ export function AppLayout({
             ) : (
               <CollapsedBar
                 side="right"
-                icon={LayoutDashboard}
+                icon={MessageSquare}
                 label="Chat"
                 ariaLabel="Expand right rail"
                 onClick={() => commitRightOpen(true)}

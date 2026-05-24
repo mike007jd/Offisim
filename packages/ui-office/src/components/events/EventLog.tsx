@@ -1,11 +1,5 @@
 import type { EventBus } from '@offisim/core/browser';
 import type { RuntimeEvent } from '@offisim/shared-types';
-import { ScrollArea } from '@offisim/ui-core';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
-import { EventFilters } from './EventFilters';
-import type { EventFilterState, EventFilterType } from './EventFilters';
-import { EventItem } from './EventItem';
 
 const EVENT_PREFIXES = [
   'graph.node.',
@@ -115,30 +109,6 @@ export function disposeEventLogStore(eventBus: EventBus) {
   eventHistoryStores.delete(eventBus);
 }
 
-/** Map a filter type label to the topic prefix(es) it covers */
-export const TYPE_PREFIX_MAP: Record<EventFilterType, string[]> = {
-  All: [],
-  Node: ['graph.node.'],
-  Plan: ['plan.'],
-  Task: ['task.'],
-  Deliverable: ['deliverable.'],
-  Employee: ['employee.'],
-  Install: ['install.'],
-  Skill: ['skill.'],
-  LLM: ['llm.'],
-  Interaction: ['interaction.'],
-  Error: ['error.'],
-  MCP: ['mcp.'],
-  Knowledge: ['knowledge.'],
-  Meeting: ['meeting.', 'direct.chat.'],
-  HR: ['hr.'],
-  Memory: ['memory.'],
-  Infrastructure: ['rack.', 'slot.', 'binding.', 'cost.'],
-  Git: ['git.'],
-  Attachment: ['chat.attachment.'],
-};
-
-/** Determine a display level from event topic only — no payload serialization */
 export type EventDisplayLevel = 'Info' | 'Warning' | 'Error';
 
 export function getEventLevel(event: RuntimeEvent): EventDisplayLevel {
@@ -155,136 +125,4 @@ export function getEventLevel(event: RuntimeEvent): EventDisplayLevel {
     return 'Warning';
   }
   return 'Info';
-}
-
-type EnrichedEvent = { event: RuntimeEvent; level: EventDisplayLevel; employeeId: string | null };
-
-/** Extract an employeeId from the event payload if present */
-function extractEmployeeId(event: RuntimeEvent): string | null {
-  const payload = event.payload as Record<string, unknown>;
-  if (typeof payload.employeeId === 'string') return payload.employeeId;
-  return null;
-}
-
-export const LEVEL_ROW_STYLES: Record<EventDisplayLevel, string> = {
-  Info: '',
-  Warning: 'activity-severity-border-soft border-l border-warn bg-warn-surface',
-  Error: 'activity-severity-border-soft border-l border-danger bg-danger-surface',
-};
-
-export function EventLog() {
-  const { eventBus } = useOffisimRuntimeServices();
-  const store = useMemo(() => hydrateEventLogStore(eventBus, []), [eventBus]);
-  const [events, setEvents] = useState<RuntimeEvent[]>(() => store.events);
-  const [filters, setFilters] = useState<EventFilterState>({
-    types: ['All'],
-    levels: ['Info', 'Warning', 'Error'],
-    search: '',
-  });
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setEvents(store.events);
-    const syncEvents = () => setEvents(store.events);
-    store.listeners.add(syncEvents);
-
-    return () => {
-      store.listeners.delete(syncEvents);
-    };
-  }, [store]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: events array triggers scroll-to-bottom intentionally
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [events]);
-
-  /** Filtered events — computed in useMemo to avoid re-render on every new event.
-   *  Returns enriched tuples so level and employeeId are computed only once per event. */
-  const filteredEvents = useMemo((): EnrichedEvent[] => {
-    const { types, levels, search } = filters;
-    const selectedType = (types[0] ?? 'All') as EventFilterType;
-    const prefixes = TYPE_PREFIX_MAP[selectedType] ?? [];
-    const searchLower = search.toLowerCase();
-
-    const result: EnrichedEvent[] = [];
-    for (const event of events) {
-      // Type filter
-      if (prefixes.length > 0 && !prefixes.some((p) => event.type.startsWith(p))) {
-        continue;
-      }
-
-      // Level filter — computed once here, reused in render
-      const level = getEventLevel(event);
-      if (!levels.includes(level)) continue;
-
-      // Search filter — type string only, no payload serialization
-      if (searchLower && !event.type.toLowerCase().includes(searchLower)) {
-        continue;
-      }
-
-      result.push({ event, level, employeeId: extractEmployeeId(event) });
-    }
-    return result;
-  }, [events, filters]);
-
-  const handleEmployeeClick = useCallback(
-    (employeeId: string) => {
-      eventBus.emit({
-        type: 'ui.employee.focused',
-        entityId: employeeId,
-        entityType: 'employee',
-        companyId: '',
-        timestamp: Date.now(),
-        payload: { employeeId },
-      });
-    },
-    [eventBus],
-  );
-
-  return (
-    <div className="flex h-full flex-col overflow-hidden bg-surface-1 text-ink-1">
-      <h2 className="px-sp-3 pt-sp-3 pb-sp-1 text-fs-meta uppercase tracking-ls-caps text-ink-3">
-        Event Log
-      </h2>
-      <EventFilters onFilterChange={setFilters} />
-      <ScrollArea className="flex-1">
-        <div ref={scrollRef}>
-          {filteredEvents.length === 0 ? (
-            <div className="p-sp-3 text-fs-meta text-ink-4">
-              {events.length === 0 ? 'No events yet' : 'No events match filters'}
-            </div>
-          ) : (
-            filteredEvents.map(({ event, level, employeeId }, i) => {
-              const rowStyle = LEVEL_ROW_STYLES[level];
-              const clickable = employeeId !== null;
-
-              return (
-                <div
-                  key={`${event.timestamp}-${i}`}
-                  role={clickable ? 'button' : undefined}
-                  tabIndex={clickable ? 0 : undefined}
-                  className={`${rowStyle} ${clickable ? 'cursor-pointer hover:bg-surface-sunken' : ''}`}
-                  onClick={clickable ? () => handleEmployeeClick(employeeId) : undefined}
-                  onKeyDown={
-                    clickable
-                      ? (e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleEmployeeClick(employeeId);
-                          }
-                        }
-                      : undefined
-                  }
-                >
-                  <EventItem event={event} />
-                </div>
-              );
-            })
-          )}
-        </div>
-      </ScrollArea>
-    </div>
-  );
 }

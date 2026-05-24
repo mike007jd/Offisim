@@ -280,6 +280,7 @@ export function AppMainShell(props: AppMainShellProps) {
               onSelectThread,
               onSelectDirectEmployee: onSelectEmployee,
               onOpenSettings: handleOpenSettings,
+              onOpenWorkspace: onSelectWorkspace,
               onFocusEmployee,
               onOpenActivityLog,
             }}

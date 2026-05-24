@@ -11,7 +11,7 @@ import {
 } from '@offisim/ui-core';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
-import { ALL_EVENT_TYPES } from './EventFilters';
+import { ALL_EVENT_TYPES } from './activity-event-options';
 import type { DatePreset } from './workspace/activity-log-utils';
 
 export interface ActivityFilterBarProps {

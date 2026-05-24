@@ -217,6 +217,7 @@ export function WorkspaceRouter({
             onSelectThread={workspaceSuiteProps?.onSelectThread ?? NOOP}
             onSelectEmployee={(id) => workspaceSuiteProps?.onSelectDirectEmployee?.(id)}
             onOpenSettings={workspaceSuiteProps?.onOpenSettings ?? NOOP}
+            onOpenWorkspace={workspaceSuiteProps?.onOpenWorkspace}
             onFocusEmployee={workspaceSuiteProps?.onFocusEmployee}
             onOpenActivityLog={workspaceSuiteProps?.onOpenActivityLog}
             approvalsFilter={sessionState.workspace.approvalsFilter}

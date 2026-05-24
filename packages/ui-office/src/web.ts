@@ -32,6 +32,7 @@ export { WorkspacePageShell } from './components/workspace/WorkspacePageShell.js
 export { WorkspaceSuite, useSuiteEscape } from './components/workspace-suite/index.js';
 export type {
   WorkspaceAppKey as SuiteAppKey,
+  WorkspaceSuiteOpenTarget,
   WorkspaceSuiteProps,
 } from './components/workspace-suite/index.js';
 export type { MarketSortOption } from './components/marketplace/marketplace-meta.js';

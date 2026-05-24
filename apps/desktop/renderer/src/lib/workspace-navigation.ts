@@ -1,12 +1,12 @@
 import {
   Activity,
+  BookOpen,
   Building2,
   LayoutGrid,
   PenTool,
   Settings as SettingsIcon,
   Store,
   Users,
-  Workflow,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { WorkspaceKey } from '../components/workspaces/types';
@@ -46,7 +46,7 @@ export interface NavigationConfig {
 export const PEER_WORKSPACE_ITEMS: ReadonlyArray<PeerWorkspaceNavItem> = [
   { key: 'office', label: 'Office', icon: Building2 },
   { key: 'workspace', label: 'Workspace', icon: LayoutGrid },
-  { key: 'sops', label: 'SOPs', icon: Workflow },
+  { key: 'sops', label: 'SOPs', icon: BookOpen },
   { key: 'market', label: 'Market', icon: Store },
   { key: 'personnel', label: 'Personnel', icon: Users },
   { key: 'activity-log', label: 'Activity', icon: Activity },

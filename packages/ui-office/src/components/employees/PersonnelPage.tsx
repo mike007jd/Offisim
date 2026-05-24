@@ -533,7 +533,7 @@ function DetailHeader({ employee, onBack }: { employee: EmployeeRow; onBack?: ()
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h2 className="truncate text-fs-lg font-semibold text-ink-1">{employee.name}</h2>
         <p className="truncate text-fs-meta text-ink-3">
-          {[ROLE_LABELS[employee.role_slug] ?? employee.role_slug, 'Workspace', 'Desk'].join(' · ')}
+          {ROLE_LABELS[employee.role_slug] ?? employee.role_slug}
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
