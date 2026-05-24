@@ -27,49 +27,49 @@ export function EditorToolbar({
   onClose,
 }: EditorToolbarProps) {
   return (
-    <Toolbar className="h-12 shrink-0 justify-between border-b border-border-subtle px-4">
-      <div className="flex items-center gap-3">
+    <Toolbar className="h-12 shrink-0 justify-between border-b border-line-soft px-sp-4">
+      <div className="flex items-center gap-sp-3">
         <Button
           type="button"
           onClick={onClose}
           variant="ghost"
           size="sm"
-          className="gap-1.5 px-2.5 text-text-muted hover:text-text-primary"
+          className="gap-sp-1 px-sp-2 text-ink-3 hover:text-ink-1"
           aria-label="Close editor"
         >
           <ArrowLeft className="size-3.5" />
         </Button>
         <ToolbarSeparator className="h-4" />
-        <h1 className="font-mono text-xs font-black uppercase tracking-wider text-text-primary">
+        <h1 className="font-mono text-fs-micro font-black uppercase tracking-ls-caps text-ink-1">
           OFFICE STUDIO
         </h1>
-        <Badge variant="secondary" className="font-mono text-caption">
+        <Badge variant="secondary" className="font-mono text-fs-micro">
           Zone edit mode
         </Badge>
         {selectedZoneLabel && (
-          <Badge variant="info" className="font-mono text-caption">
+          <Badge variant="info" className="font-mono text-fs-micro">
             Focus: {selectedZoneLabel}
           </Badge>
         )}
         {dirty && (
-          <Badge variant="warning" className="ml-2 font-mono text-caption">
+          <Badge variant="warning" className="ml-sp-2 font-mono text-fs-micro">
             Unsaved
           </Badge>
         )}
       </div>
-      <ToolbarGroup className="gap-2">
-        <ToolbarGroup className="mr-2 gap-1">
+      <ToolbarGroup className="gap-sp-2">
+        <ToolbarGroup className="mr-sp-2 gap-sp-1">
           <Button
             type="button"
             onClick={onZoomOut}
             variant="ghost"
             size="icon"
-            className="size-7 text-text-muted hover:text-text-primary"
+            className="size-7 text-ink-3 hover:text-ink-1"
             aria-label="Zoom out"
           >
             <ZoomOut className="size-3.5" />
           </Button>
-          <span className="w-8 text-center font-mono text-caption text-text-muted">
+          <span className="w-8 text-center font-mono text-fs-micro text-ink-3">
             {Math.round(zoom * 100)}%
           </span>
           <Button
@@ -77,7 +77,7 @@ export function EditorToolbar({
             onClick={onZoomIn}
             variant="ghost"
             size="icon"
-            className="size-7 text-text-muted hover:text-text-primary"
+            className="size-7 text-ink-3 hover:text-ink-1"
             aria-label="Zoom in"
           >
             <ZoomIn className="size-3.5" />
@@ -87,7 +87,7 @@ export function EditorToolbar({
             onClick={onZoomFit}
             variant="ghost"
             size="icon"
-            className="size-7 text-text-muted hover:text-text-primary"
+            className="size-7 text-ink-3 hover:text-ink-1"
             aria-label="Fit zoom"
           >
             <Maximize2 className="size-3.5" />
@@ -98,7 +98,7 @@ export function EditorToolbar({
           onClick={onResetAll}
           variant="outline"
           size="sm"
-          className="gap-1.5 px-3 font-mono text-caption text-text-secondary"
+          className="gap-sp-1 px-sp-3 font-mono text-fs-micro text-ink-2"
         >
           <RotateCcw className="size-3" />
           Reset
@@ -108,7 +108,7 @@ export function EditorToolbar({
           onClick={onSave}
           disabled={saving || !dirty}
           size="sm"
-          className="gap-1.5 px-4 font-mono text-caption font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+          className="gap-sp-1 px-sp-4 font-mono text-fs-micro font-semibold disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Save className="size-3" />
           {saving ? 'Saving...' : 'Save'}

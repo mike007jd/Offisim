@@ -19,21 +19,21 @@ export function StatusBar({
   zoom,
 }: StatusBarProps) {
   return (
-    <div className="flex h-8 shrink-0 items-center justify-between border-t border-border-subtle px-4">
-      <div className="flex items-center gap-3">
-        <p className="font-mono text-caption text-text-muted">
+    <div className="flex h-8 shrink-0 items-center justify-between border-t border-line-soft px-sp-4">
+      <div className="flex items-center gap-sp-3">
+        <p className="font-mono text-fs-micro text-ink-3">
           {zoneCount} zones · {itemCount} items
           {placingPresetLabel && ` · Placing: ${placingPresetLabel}`}
           {isDragging && ' · Dragging...'}
         </p>
         {overlapCount > 0 && (
-          <span className="rounded bg-error-muted px-2 py-0.5 font-mono text-caption text-error">
+          <span className="rounded-r-xs bg-danger-surface px-sp-2 py-sp-1 font-mono text-fs-micro text-danger">
             {overlapCount} overlap{overlapCount > 1 ? 's' : ''}
           </span>
         )}
       </div>
-      <p className="font-mono text-caption text-text-secondary">
-        <Grid3X3 className="inline h-3 w-3 mr-1" />
+      <p className="font-mono text-fs-micro text-ink-2">
+        <Grid3X3 className="mr-sp-1 inline h-3 w-3" />
         {Math.round(zoom * 100)}% · {SCALE}px/unit
       </p>
     </div>

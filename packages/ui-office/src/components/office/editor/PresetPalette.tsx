@@ -43,9 +43,9 @@ export function PresetPalette({
   onCreateCustom,
 }: PresetPaletteProps) {
   return (
-    <div className="flex w-60 shrink-0 flex-col overflow-hidden border-r border-border-subtle bg-surface">
-      <div className="border-b border-border-subtle px-3 py-2.5">
-        <p className="font-mono text-caption font-bold uppercase tracking-wider text-text-muted">
+    <div className="flex w-60 shrink-0 flex-col overflow-hidden border-r border-line-soft bg-surface-1">
+      <div className="border-b border-line-soft px-sp-3 py-sp-2">
+        <p className="font-mono text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
           ZONE_PRESETS
         </p>
       </div>
@@ -62,7 +62,7 @@ export function PresetPalette({
                 onClick={() =>
                   setCollapsed((p) => ({ ...p, [group.archetype]: !p[group.archetype] }))
                 }
-                className="h-auto w-full justify-start rounded-none px-3 py-2 text-left font-mono text-caption font-semibold"
+                className="h-auto w-full justify-start rounded-none px-sp-3 py-sp-2 text-left font-mono text-fs-micro font-semibold"
               >
                 <ChevronDown
                   className={cn('size-3 transition-transform', isCollapsed && '-rotate-90')}
@@ -75,7 +75,7 @@ export function PresetPalette({
                     REQUIRED
                   </Badge>
                 )}
-                <span className="text-text-muted">{group.presets.length}</span>
+                <span className="text-ink-3">{group.presets.length}</span>
               </Button>
               {!isCollapsed &&
                 group.presets.map((preset) => (
@@ -90,7 +90,7 @@ export function PresetPalette({
           );
         })}
 
-        <div className="mt-1 border-t border-border-subtle pt-1">
+        <div className="mt-sp-1 border-t border-line-soft pt-sp-1">
           <Button
             type="button"
             variant="ghost"
@@ -99,25 +99,25 @@ export function PresetPalette({
               setShowCustomForm((v) => !v);
               setPlacingPreset(null);
             }}
-            className="h-auto w-full justify-start rounded-none px-3 py-2 text-left font-mono text-caption"
+            className="h-auto w-full justify-start rounded-none px-sp-3 py-sp-2 text-left font-mono text-fs-micro"
           >
             <Plus className="size-3" aria-hidden="true" />
             <span>Create Custom Zone</span>
           </Button>
           {showCustomForm && (
-            <div className="flex flex-col gap-2 px-3 pb-2">
+            <div className="flex flex-col gap-sp-2 px-sp-3 pb-sp-2">
               <Input
                 type="text"
                 value={customLabel}
                 onChange={(e) => setCustomLabel(e.target.value)}
                 placeholder="Zone name..."
-                className="h-8 font-mono text-caption"
+                className="h-8 font-mono text-fs-micro"
               />
               <Select
                 value={customArchetype}
                 onValueChange={(value) => setCustomArchetype(value as ZoneArchetype)}
               >
-                <SelectTrigger className="h-8 font-mono text-caption">
+                <SelectTrigger className="h-8 font-mono text-fs-micro">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -132,7 +132,7 @@ export function PresetPalette({
                 type="button"
                 size="sm"
                 onClick={onCreateCustom}
-                className="w-full font-mono text-caption"
+                className="w-full font-mono text-fs-micro"
               >
                 Add to Canvas
               </Button>
@@ -142,11 +142,11 @@ export function PresetPalette({
       </div>
 
       {placingPreset && (
-        <div className="border-t border-border-subtle bg-accent-muted px-3 py-2">
-          <p className="font-mono text-caption text-accent-text">
+        <div className="border-t border-line-soft bg-accent-surface px-sp-3 py-sp-2">
+          <p className="font-mono text-fs-micro text-accent">
             Placing: <strong>{placingPreset.label}</strong>
           </p>
-          <p className="mt-0.5 font-mono text-caption text-text-muted">
+          <p className="mt-sp-1 font-mono text-fs-micro text-ink-3">
             Click on canvas to place · ESC to cancel
           </p>
         </div>
@@ -171,8 +171,8 @@ function PresetCard({ preset, isActive, onClick }: PresetCardProps) {
       className={cn(
         'h-auto w-full justify-start rounded-none border-l-2 px-2 py-2 pl-6 text-left transition-all',
         isActive
-          ? 'border-accent bg-accent-muted text-accent-text'
-          : 'border-transparent text-text-muted hover:bg-surface-hover hover:text-text-primary',
+          ? 'border-accent bg-accent-surface text-accent'
+          : 'border-transparent text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
       )}
     >
       <div className="relative shrink-0">
@@ -196,14 +196,14 @@ function PresetCard({ preset, isActive, onClick }: PresetCardProps) {
           />
         </div>
         {required && (
-          <div className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-full bg-warning">
-            <Lock className="size-1.5 text-text-inverse" aria-hidden="true" />
+          <div className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-r-pill bg-warn">
+            <Lock className="size-1.5 text-ink-inverse" aria-hidden="true" />
           </div>
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <span className="block truncate font-mono text-caption font-medium">{preset.label}</span>
-        <span className="block font-mono text-caption text-text-muted">
+        <span className="block truncate font-mono text-fs-micro font-medium">{preset.label}</span>
+        <span className="block font-mono text-fs-micro text-ink-3">
           {preset.w}x{preset.d} · {preset.prefabs.length} items
           {preset.deskSlots > 0 && ` · ${preset.deskSlots} desks`}
         </span>

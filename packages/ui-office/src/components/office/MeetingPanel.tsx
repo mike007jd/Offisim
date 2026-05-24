@@ -31,9 +31,9 @@ const MEETING_TYPE_META: Record<MeetingType, { label: string; Icon: FC<LucidePro
 };
 
 const PRIORITY_COLORS: Record<MeetingActionItem['priority'], string> = {
-  high: 'text-error',
-  medium: 'text-warning',
-  low: 'text-text-muted',
+  high: 'text-danger',
+  medium: 'text-warn',
+  low: 'text-ink-3',
 };
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -59,17 +59,15 @@ function ParticipantDot({
     <div className="relative flex-shrink-0" title={name}>
       <div
         className={cn(
-          'flex size-5 items-center justify-center rounded-full text-caption font-semibold',
+          'flex size-5 items-center justify-center rounded-r-pill text-fs-micro font-semibold',
           isActive
-            ? 'bg-accent-muted text-accent-text ring-1 ring-accent/60'
-            : 'bg-surface-muted text-text-muted',
+            ? 'bg-accent-surface text-accent ring-1 ring-accent/60'
+            : 'bg-surface-2 text-ink-3',
         )}
       >
         {initials}
       </div>
-      {isActive && (
-        <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-success" />
-      )}
+      {isActive && <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-ok" />}
     </div>
   );
 }
@@ -82,15 +80,15 @@ function ActionItemRow({
   const assigneeName = assignee?.name ?? item.assigneeEmployeeId;
 
   return (
-    <div className="flex items-start gap-1.5 py-0.5">
+    <div className="flex items-start gap-sp-1 py-sp-1">
       <CheckSquare className={cn('mt-0.5 size-3 flex-shrink-0', PRIORITY_COLORS[item.priority])} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-text-secondary">{item.description}</p>
-        <p className="text-caption text-text-muted">→ {assigneeName}</p>
+        <p className="truncate text-fs-micro text-ink-2">{item.description}</p>
+        <p className="text-fs-micro text-ink-3">→ {assigneeName}</p>
       </div>
       <span
         className={cn(
-          'flex-shrink-0 text-caption font-semibold uppercase tracking-wider',
+          'flex-shrink-0 text-fs-micro font-semibold uppercase tracking-ls-caps',
           PRIORITY_COLORS[item.priority],
         )}
       >
@@ -147,16 +145,16 @@ export function MeetingPanel({
     status === 'running' ? 'success' : status === 'paused' ? 'warning' : 'default';
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border-subtle px-2 py-2">
+    <div className="flex flex-col gap-sp-2 border-t border-line-soft px-sp-2 py-sp-2">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <MetaIcon className="size-3 text-text-muted" />
-          <span className="text-xs font-medium text-text-secondary">{meta.label}</span>
+        <div className="flex items-center gap-sp-1">
+          <MetaIcon className="size-3 text-ink-3" />
+          <span className="text-fs-micro font-medium text-ink-2">{meta.label}</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-sp-1">
           {duration !== null && (
-            <span className="font-mono text-caption text-text-muted tabular-nums">
+            <span className="font-mono text-fs-micro text-ink-3 tabular-nums">
               {formatDuration(duration)}
             </span>
           )}
@@ -166,12 +164,12 @@ export function MeetingPanel({
 
       {/* ── Participants ────────────────────────────────────────────── */}
       {participantIds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="text-caption uppercase tracking-wider text-text-muted">In room</span>
+        <div className="flex flex-wrap items-center gap-sp-1">
+          <span className="text-fs-micro uppercase tracking-ls-caps text-ink-3">In room</span>
           {participantIds.map((id) => (
             <ParticipantDot key={id} participantId={id} agents={agents} />
           ))}
-          <span className="text-caption text-text-muted">
+          <span className="text-fs-micro text-ink-3">
             {participantIds.length} {participantIds.length === 1 ? 'person' : 'people'}
           </span>
         </div>
@@ -180,20 +178,18 @@ export function MeetingPanel({
       {/* ── Transcript ──────────────────────────────────────────────── */}
       {transcript.length > 0 && (
         <div>
-          <p className="mb-0.5 text-caption uppercase tracking-wider text-text-muted">Transcript</p>
+          <p className="mb-sp-1 text-fs-micro uppercase tracking-ls-caps text-ink-3">Transcript</p>
           <ScrollArea className="max-h-20 pr-1">
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-sp-1">
               {transcript.map((entry) => {
                 const speaker = agents.get(entry.participantId);
                 const speakerName = speaker?.name ?? entry.participantId;
                 return (
-                  <div key={entry.id} className="flex gap-1">
-                    <span className="flex-shrink-0 text-caption font-semibold text-accent">
+                  <div key={entry.id} className="flex gap-sp-1">
+                    <span className="flex-shrink-0 text-fs-micro font-semibold text-accent">
                       {speakerName}:
                     </span>
-                    <span className="text-xs leading-tight text-text-secondary">
-                      {entry.content}
-                    </span>
+                    <span className="text-fs-micro leading-tight text-ink-2">{entry.content}</span>
                   </div>
                 );
               })}
@@ -206,10 +202,10 @@ export function MeetingPanel({
       {/* ── Action items ─────────────────────────────────────────────── */}
       {actions.length > 0 && (
         <div>
-          <p className="mb-0.5 text-caption uppercase tracking-wider text-text-muted">
+          <p className="mb-sp-1 text-fs-micro uppercase tracking-ls-caps text-ink-3">
             Actions ({actions.length})
           </p>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-sp-1">
             {actions.map((item) => (
               <ActionItemRow key={item.actionItemId} item={item} agents={agents} />
             ))}
@@ -219,7 +215,7 @@ export function MeetingPanel({
 
       {/* No transcript yet indicator */}
       {transcript.length === 0 && actions.length === 0 && (
-        <div className="flex items-center gap-1 text-caption text-text-muted">
+        <div className="flex items-center gap-sp-1 text-fs-micro text-ink-3">
           <AlertTriangle className="size-3" />
           <span>Waiting for discussion...</span>
         </div>

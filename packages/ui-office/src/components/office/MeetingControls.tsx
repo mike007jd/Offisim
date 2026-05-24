@@ -116,19 +116,19 @@ export function MeetingControls({
   if (status === 'idle') return null;
 
   return (
-    <Card className="border-border-subtle">
-      <CardHeader className="pb-2">
+    <Card className="border-line-soft">
+      <CardHeader className="pb-sp-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm uppercase tracking-wider text-text-muted">
+          <CardTitle className="text-fs-sm uppercase tracking-ls-caps text-ink-3">
             Meeting
           </CardTitle>
           <Badge variant={STATUS_VARIANTS[status]}>{STATUS_LABELS[status]}</Badge>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-sp-2">
           {/* Meeting type selector */}
-          <div className="flex gap-1">
+          <div className="flex gap-sp-1">
             {MEETING_TYPES.map(({ value, label, Icon }) => (
               <Button
                 key={value}
@@ -137,10 +137,10 @@ export function MeetingControls({
                 size="sm"
                 onClick={() => handleMeetingTypeChange(value)}
                 className={cn(
-                  'h-7 gap-1 rounded px-2 text-xs',
+                  'h-7 gap-sp-1 rounded-r-sm px-sp-2 text-fs-micro',
                   meetingType === value
-                    ? 'border border-border-focus bg-accent-muted text-accent-text'
-                    : 'border border-transparent text-text-muted hover:text-text-secondary',
+                    ? 'border border-focus bg-accent-surface text-accent'
+                    : 'border border-transparent text-ink-3 hover:text-ink-2',
                 )}
               >
                 <Icon className="size-3" />
@@ -148,7 +148,7 @@ export function MeetingControls({
               </Button>
             ))}
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex gap-sp-1">
             {status === 'running' && (
               <>
                 <Button
@@ -156,7 +156,7 @@ export function MeetingControls({
                   variant="outline"
                   onClick={onPause}
                   title="Pause meeting"
-                  className="gap-1"
+                  className="gap-sp-1"
                 >
                   <Pause className="size-3" />
                   Pause
@@ -166,7 +166,7 @@ export function MeetingControls({
                   variant="outline"
                   onClick={onEnd}
                   title="End meeting"
-                  className="gap-1"
+                  className="gap-sp-1"
                 >
                   <Square className="size-3" />
                   End
@@ -176,7 +176,7 @@ export function MeetingControls({
                   variant="outline"
                   onClick={() => setShowInjectInput((prev) => !prev)}
                   title="Inject comment"
-                  className="gap-1"
+                  className="gap-sp-1"
                 >
                   <MessageSquarePlus className="size-3" />
                   Comment
@@ -190,7 +190,7 @@ export function MeetingControls({
                   variant="outline"
                   onClick={onResume}
                   title="Resume meeting"
-                  className="gap-1"
+                  className="gap-sp-1"
                 >
                   <Play className="size-3" />
                   Resume
@@ -200,7 +200,7 @@ export function MeetingControls({
                   variant="outline"
                   onClick={onEnd}
                   title="End meeting"
-                  className="gap-1"
+                  className="gap-sp-1"
                 >
                   <Square className="size-3" />
                   End
@@ -209,10 +209,10 @@ export function MeetingControls({
             )}
           </div>
           {showInjectInput && status === 'running' && (
-            <div className="flex gap-1.5">
+            <div className="flex gap-sp-1">
               <Input
                 type="text"
-                className="h-8 flex-1 border-border-subtle bg-transparent px-2 py-1 text-xs text-text-secondary placeholder:text-text-muted focus:border-border-focus"
+                className="h-8 flex-1 border-line-soft bg-transparent px-sp-2 py-sp-1 text-fs-micro text-ink-2 placeholder:text-ink-3 focus:border-focus"
                 placeholder="Type your comment..."
                 value={injectText}
                 onChange={(e) => setInjectText(e.target.value)}
