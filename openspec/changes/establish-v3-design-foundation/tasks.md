@@ -42,3 +42,4 @@
 - [x] 7.3 `pnpm tokens:check` + `pnpm tokens:lint-hex` 绿
 - [ ] 7.4 OpenSpec archive gate 三查（spec/tasks/docs 一致）；协议台账无新增协议触及（assistant-ui 仅装包，Phase 1 再更）
 - [ ] 7.5 release `.app` live 由用户/Codex 验：确认全屏变 V3 浅色 + General Sans 生效 + Wizard/Studio 仍暗 + 不崩；场景观感记录作 B1 输入。**BLOCKED 2026-05-24**：release `.app` 已用当前 worktree 精确路径构建并启动，但本机处于 macOS 锁屏界面；CGWindow 可见 Offisim 窗口存在，Computer Use 附着返回 `cgWindowNotFound`，无法完成 release live 视觉/交互验收。解锁后必须用同一 `.app` 路径补跑，不得用 dev server 或浏览器替代。
+  - **PARTIAL LIVE VERIFIED 2026-05-24**：当前 release `.app` 精确路径已重新构建并用 Computer Use 附着成功；Office 首屏是 V3 light shell，未出现 ErrorBoundary，未出现 release FPS HUD。未勾本 task，因为 Wizard/Studio intentional-dark、字体渲染细节和跨 surface 观感还要单独打开对应 surface 验证。
