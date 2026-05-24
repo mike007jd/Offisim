@@ -1,6 +1,6 @@
-import { Button, cn } from '@offisim/ui-core';
+import { Button } from '@offisim/ui-core';
 import { useState } from 'react';
-import { taskStatusLabel, taskStatusTextClass } from '../../lib/status-display';
+import { taskStatusLabel } from '../../lib/status-display';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,68 +37,59 @@ export function TaskDetailPanel({ task, taskCost = 0 }: TaskDetailPanelProps) {
   const outputText = outputTruncated ? `${output.slice(0, OUTPUT_PREVIEW_LIMIT)}…` : output;
 
   return (
-    <div
-      className={cn(
-        'overflow-hidden transition-all duration-200 ease-in-out',
-        'border-t border-line-soft bg-surface-2/70 px-3 py-2',
-      )}
-    >
-      <div className="flex flex-col gap-1.5">
+    <div className="task-detail-panel">
+      <div className="task-detail-body">
         {/* Description */}
-        <div>
-          <span className="text-fs-micro font-medium uppercase tracking-wide text-ink-3">Task</span>
-          <p className="mt-0.5 text-xs text-ink-1">{task.description}</p>
+        <div className="task-detail-section">
+          <span data-slot="label">Task</span>
+          <p>{task.description}</p>
         </div>
 
         {/* Meta row */}
-        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-fs-micro">
+        <div className="task-detail-meta">
           {task.employeeName && (
             <span>
-              <span className="text-ink-3">Owner: </span>
-              <span className="text-accent">{task.employeeName}</span>
+              <span data-slot="label-inline">Owner: </span>
+              <span data-tone="accent">{task.employeeName}</span>
             </span>
           )}
           {task.taskType && (
             <span>
-              <span className="text-ink-3">Type: </span>
-              <span className="text-ink-1">{task.taskType}</span>
+              <span data-slot="label-inline">Type: </span>
+              <span>{task.taskType}</span>
             </span>
           )}
           <span>
-            <span className="text-ink-3">Status: </span>
-            <span className={taskStatusTextClass(task.status)}>{taskStatusLabel(task.status)}</span>
+            <span data-slot="label-inline">Status: </span>
+            <span data-status={task.status}>{taskStatusLabel(task.status)}</span>
           </span>
           {taskCost > 0 && (
             <span>
-              <span className="text-ink-3">Est. cost: </span>
-              <span className="font-mono text-ok">${taskCost.toFixed(4)}</span>
+              <span data-slot="label-inline">Est. cost: </span>
+              <span data-tone="ok">${taskCost.toFixed(4)}</span>
             </span>
           )}
         </div>
 
         {/* Dependencies */}
         {task.dependencies && task.dependencies.length > 0 && (
-          <div className="text-fs-micro">
-            <span className="text-ink-3">Depends on: </span>
-            <span className="text-ink-1">{task.dependencies.join(', ')}</span>
+          <div className="task-detail-dependencies">
+            <span data-slot="label-inline">Depends on: </span>
+            <span>{task.dependencies.join(', ')}</span>
           </div>
         )}
 
         {/* Output preview */}
         {hasOutput && (
-          <div>
-            <span className="text-fs-micro font-medium uppercase tracking-wide text-ink-3">
-              Output
-            </span>
-            <p className="mt-0.5 whitespace-pre-wrap break-words font-mono text-fs-micro leading-relaxed text-ink-3">
-              {outputText}
-            </p>
+          <div className="task-detail-section">
+            <span data-slot="label">Output</span>
+            <p data-slot="output">{outputText}</p>
             {output.length > OUTPUT_PREVIEW_LIMIT && (
               <Button
                 type="button"
                 variant="link"
                 size="sm"
-                className="mt-0.5 h-auto p-0 text-fs-micro text-accent"
+                className="task-detail-toggle"
                 onClick={() => setShowFullOutput((v) => !v)}
               >
                 {showFullOutput ? 'Show less' : 'Show more'}

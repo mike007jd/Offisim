@@ -136,10 +136,10 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
     if (isRunning) {
       const stageLabel = stage ? STAGE_META[stage].chatLabel : 'Runtime active';
       return (
-        <div className="p-3">
-          <div className="rounded-r-md border border-accent/20 bg-accent-surface/50 px-4 py-5 text-center">
-            <p className="text-sm font-semibold text-accent">{stageLabel}</p>
-            <p className="mt-2 text-xs leading-relaxed text-ink-3">
+        <div className="task-dashboard-runtime">
+          <div>
+            <p>{stageLabel}</p>
+            <p data-slot="hint">
               {routeLabel ??
                 'The boss is routing the request and the manager is building the first executable plan.'}
             </p>
@@ -155,22 +155,22 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
   const progressStyle = { width: `${pct}%` };
 
   return (
-    <div ref={scrollContainerRef} className="flex flex-col gap-2 p-3">
+    <div ref={scrollContainerRef} className="task-dashboard">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-accent-fg">Plan Progress</h3>
-        <div className="flex gap-2">
-          <span className="text-fs-micro text-accent">{dashboard.stats.active} active</span>
-          <span className="text-fs-micro text-ink-2">
+      <div className="task-dashboard-head">
+        <h3>Plan Progress</h3>
+        <div>
+          <span data-tone="accent">{dashboard.stats.active} active</span>
+          <span>
             {dashboard.stats.completed}/{dashboard.stats.total}
           </span>
         </div>
       </div>
 
       {/* Numeric progress bar */}
-      <div className="h-1.5 w-full rounded-full bg-surface-sunken">
+      <div className="task-dashboard-progress">
         {/* ui-hardcode-allowed: runtime progress width. */}
-        <div className="h-full rounded-full bg-accent transition-all" style={progressStyle} />
+        <div style={progressStyle} />
       </div>
 
       {/* Step progress bar (segmented) */}
@@ -184,13 +184,13 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
 
       {/* Filter badge */}
       {stepFilter !== null && (
-        <div className="flex items-center gap-1">
-          <span className="text-fs-micro text-ink-2">Filtered: Step {stepFilter + 1}</span>
+        <div className="task-dashboard-filter">
+          <span>Filtered: Step {stepFilter + 1}</span>
           <Button
             type="button"
             variant="link"
             size="sm"
-            className="h-auto p-0 text-fs-micro text-accent"
+            className="task-dashboard-clear"
             onClick={() => setStepFilter(null)}
           >
             clear

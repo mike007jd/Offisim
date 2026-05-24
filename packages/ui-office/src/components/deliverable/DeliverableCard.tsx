@@ -9,7 +9,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  cn,
 } from '@offisim/ui-core';
 import { useCallback, useState } from 'react';
 import type { Deliverable } from '../../hooks/useDeliverables';
@@ -32,11 +31,6 @@ const EXPORT_FORMATS: { value: ExportFormat; label: string }[] = [
   { value: 'html', label: 'HTML' },
   { value: 'txt', label: 'TXT' },
 ];
-
-const ACTION_CLASS = 'h-6 px-2 text-fs-micro text-ink-2 hover:text-ink-1';
-const SOP_DEFAULT_CLASS = 'h-6 px-2 text-fs-micro text-ink-2 hover:text-ok disabled:opacity-50';
-const SOP_PROMOTED_CLASS =
-  'h-6 px-2 text-fs-micro bg-ok text-ink-inverse hover:bg-ok animate-pulse';
 
 function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -66,7 +60,7 @@ function previewInNewTab(content: string, mimeType: string | null): void {
 
 interface CopyButtonProps {
   content: string;
-  className: string;
+  className?: string;
 }
 
 function CopyButton({ content, className }: CopyButtonProps) {
@@ -83,7 +77,12 @@ function CopyButton({ content, className }: CopyButtonProps) {
   }, [content]);
   const label = state === 'copied' ? 'Copied!' : state === 'failed' ? 'Copy failed' : 'Copy';
   return (
-    <Button variant="ghost" size="sm" className={className} onClick={onClick}>
+    <Button
+      variant="ghost"
+      size="sm"
+      className={className ?? 'deliverable-action'}
+      onClick={onClick}
+    >
       {label}
     </Button>
   );
@@ -101,13 +100,9 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
   const overflowLabel = overflow.map((c) => c.employeeName).join(', ');
   const overflowStyle = { height: size, minHeight: size };
   return (
-    <div className="flex items-center gap-0">
+    <div className="deliverable-contributors">
       {shown.map((emp) => (
-        <span
-          key={emp.employeeId}
-          className="inline-block rounded-full ring-1 ring-border-default"
-          title={emp.employeeName}
-        >
+        <span key={emp.employeeId} className="deliverable-contributor" title={emp.employeeName}>
           <EmployeeAvatar
             agent={{
               isExternal: emp.isExternal,
@@ -123,7 +118,7 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
       {overflow.length > 0 && (
         <span
           title={overflowLabel}
-          className="flex min-w-5 items-center justify-center rounded-full bg-surface-2 px-1 text-fs-micro text-ink-2 ring-1 ring-border-default"
+          className="deliverable-contributor-overflow"
           // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
           style={overflowStyle}
         >
@@ -141,19 +136,17 @@ interface DeliverableHeaderProps {
 function DeliverableHeader({ item }: DeliverableHeaderProps) {
   const Icon = mimeTypeToIcon(item.artifact.mimeType);
   return (
-    <div className="flex w-full min-w-0 max-w-full items-start gap-2 overflow-hidden">
-      <Icon className="h-4 w-4 shrink-0 text-ink-3 mt-px" />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 max-w-full items-baseline justify-between gap-2">
-          <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink-1">
-            {item.title}
-          </span>
-          <span className="shrink-0 text-fs-micro text-ink-3 tabular-nums">
+    <div className="deliverable-head">
+      <Icon data-icon="artifact" aria-hidden="true" />
+      <div className="deliverable-head-copy">
+        <div>
+          <span data-slot="title">{item.title}</span>
+          <span data-slot="meta">
             {formatDeliverableBytes(item.contentSize)} · {formatTimeAgo(item.createdAt)}
           </span>
         </div>
         {item.contributingEmployees.length > 0 && (
-          <div className="mt-1">
+          <div className="deliverable-head-contributors">
             <ContributorStack contributors={item.contributingEmployees} />
           </div>
         )}
@@ -198,22 +191,20 @@ function CompactCard({ item, employeeLabel }: CompactCardProps) {
   const { content, mimeType } = item.artifact;
 
   return (
-    <div className="mt-2 box-border w-full min-w-0 max-w-full overflow-hidden rounded-r-md border border-ok bg-ok-surface px-3 py-2">
+    <div className="deliverable-compact-card">
       <DeliverableHeader item={item} />
-      <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden text-fs-micro">
-        <span className="inline-flex max-w-full items-center truncate rounded border border-ok bg-surface px-1.5 py-px font-medium text-ok">
-          {artifactLabel}
-        </span>
-        {mimeType && <span className="text-ink-2">{mimeType}</span>}
-        {employeeLabel && <span className="text-ink-3">· {employeeLabel}</span>}
+      <div className="deliverable-artifact-row">
+        <span data-slot="artifact-label">{artifactLabel}</span>
+        {mimeType && <span>{mimeType}</span>}
+        {employeeLabel && <span data-slot="employee">· {employeeLabel}</span>}
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1">
-        <CopyButton content={item.content} className={ACTION_CLASS} />
+      <div className="deliverable-actions">
+        <CopyButton content={item.content} />
         {canPreview && (
           <Button
             variant="ghost"
             size="sm"
-            className={ACTION_CLASS}
+            className="deliverable-action"
             onClick={() => previewInNewTab(content, mimeType)}
           >
             Open
@@ -223,7 +214,7 @@ function CompactCard({ item, employeeLabel }: CompactCardProps) {
           <Button
             variant="ghost"
             size="sm"
-            className={ACTION_CLASS}
+            className="deliverable-action"
             onClick={() => downloadArtifactContent(content, fileName, mimeType)}
           >
             Download
@@ -315,32 +306,25 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
   }, [item, onSaveAsSop, savingSop, sopSaved]);
 
   return (
-    <Card
-      className={cn(
-        'animate-in fade-in slide-in-from-bottom-2 duration-300 overflow-hidden bg-surface-2 transition-all',
-        isNew ? 'border-ok shadow-glow-success' : 'border-line-soft',
-      )}
-    >
-      <CardHeader className="p-3 pb-1">
+    <Card className="deliverable-full-card" data-new={isNew ? 'true' : 'false'}>
+      <CardHeader className="deliverable-full-head">
         <DeliverableHeader item={item} />
       </CardHeader>
-      <CardContent className="p-3 pt-1">
-        <p className="font-mono text-fs-micro leading-relaxed text-ink-2 whitespace-pre-wrap break-words">
-          {truncate(content, 200)}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-1">
-          <CopyButton content={content} className={ACTION_CLASS} />
+      <CardContent className="deliverable-full-content">
+        <p className="deliverable-preview-text">{truncate(content, 200)}</p>
+        <div className="deliverable-actions">
+          <CopyButton content={content} />
           {!isFileArtifact && (
             <Select
               value={selectedFormat}
               onValueChange={(v: string) => setSelectedFormat(v as ExportFormat)}
             >
-              <SelectTrigger className="h-6 w-deliverable-review-select border-line-soft bg-surface text-fs-micro text-ink-2">
+              <SelectTrigger className="deliverable-export-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {EXPORT_FORMATS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-fs-micro">
+                  <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
                   </SelectItem>
                 ))}
@@ -351,7 +335,7 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
             <Button
               variant="ghost"
               size="sm"
-              className={ACTION_CLASS}
+              className="deliverable-action"
               onClick={() => previewInNewTab(content, mimeType)}
             >
               Preview
@@ -360,7 +344,7 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
           <Button
             variant="ghost"
             size="sm"
-            className={ACTION_CLASS}
+            className="deliverable-action"
             onClick={handleDownload}
             disabled={exporting}
           >
@@ -370,7 +354,7 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
             <Button
               variant="ghost"
               size="sm"
-              className={ACTION_CLASS}
+              className="deliverable-action"
               onClick={() =>
                 localPath && activeProjectId
                   ? void openDesktopLocalPath(activeProjectId, localPath)
@@ -385,7 +369,7 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
             <Button
               variant="ghost"
               size="sm"
-              className={ACTION_CLASS}
+              className="deliverable-action"
               onClick={() => void openDesktopLocalPath(activeProjectId, 'deliverables')}
             >
               Open folder
@@ -395,7 +379,8 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
             <Button
               variant={isSopPromoted ? 'default' : 'ghost'}
               size="sm"
-              className={isSopPromoted && !savingSop ? SOP_PROMOTED_CLASS : SOP_DEFAULT_CLASS}
+              className="deliverable-sop-action"
+              data-promoted={isSopPromoted && !savingSop ? 'true' : 'false'}
               onClick={() => void handleSaveAsSop()}
               disabled={savingSop || sopSaved}
               title="Save the task path that produced this output as a reusable SOP template"

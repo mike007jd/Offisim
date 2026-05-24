@@ -3,18 +3,10 @@ import { ChevronDown, ChevronUp, Wrench } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { truncate } from '../../lib/format-time';
 import { ROLE_LABELS } from '../../lib/roles';
-import { STATE_VARIANTS, STATUS_DOTS } from '../../lib/state-variants';
+import { STATE_VARIANTS } from '../../lib/state-variants';
 import type { AgentState, SubTaskInfo } from '../../runtime/use-agent-states';
 import type { EmployeeSkillHighlight } from '../../runtime/use-employee-skill-highlights';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
-
-/** Border glow color per state category. */
-const STATE_GLOW: Record<string, string> = {
-  executing: 'shadow-glow-success',
-  success: 'shadow-glow-success',
-  failed: 'shadow-glow-error',
-  blocked: 'shadow-glow-warning',
-};
 
 interface AgentCardProps {
   id: string;
@@ -26,8 +18,6 @@ interface AgentCardProps {
 
 export function AgentCard({ id, agent, isSelected, skillHighlight, onClick }: AgentCardProps) {
   const variant = STATE_VARIANTS[agent.state] ?? 'secondary';
-  const dotColor = STATUS_DOTS[agent.state] ?? 'bg-ink-3';
-  const glowClass = STATE_GLOW[agent.state] ?? '';
   const isInteractive = Boolean(onClick);
 
   // Track state changes for border glow animation
@@ -54,16 +44,11 @@ export function AgentCard({ id, agent, isSelected, skillHighlight, onClick }: Ag
       tabIndex={isInteractive ? 0 : undefined}
       aria-label={isInteractive ? `${agent.name} employee card` : undefined}
       aria-pressed={isInteractive ? (isSelected ?? false) : undefined}
-      className={[
-        'group min-h-20 rounded-r-md border px-2.5 py-2 cursor-pointer',
-        'transition-colors duration-200',
-        isSelected
-          ? 'border-focus bg-accent-surface'
-          : 'border-line-soft/70 bg-surface-2/70 hover:border-line hover:bg-surface-sunken',
-        glowing ? glowClass : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className="agent-card"
+      data-selected={isSelected ? 'true' : 'false'}
+      data-glowing={glowing ? 'true' : 'false'}
+      data-state={agent.state}
+      data-interactive={isInteractive ? 'true' : 'false'}
       onClick={onClick}
       onKeyDown={(e) => {
         if (!onClick) return;
@@ -73,45 +58,35 @@ export function AgentCard({ id, agent, isSelected, skillHighlight, onClick }: Ag
         }
       }}
     >
-      <div className="flex items-center gap-3">
-        <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center">
-          <EmployeeAvatar agent={agent} size={56} className="h-14 w-14 object-cover" />
-          <div
-            className={`absolute bottom-1 right-0 h-3 w-3 rounded-full border-2 border-surface-elevated transition-colors duration-300 ${dotColor}`}
-          />
+      <div className="agent-card-main">
+        <div className="agent-card-avatar">
+          <EmployeeAvatar agent={agent} size={56} className="agent-card-avatar-image" />
+          <div data-slot="status-dot" />
         </div>
 
         {/* Info */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <span className="min-w-0 truncate text-sm font-semibold text-ink-1">{agent.name}</span>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <Badge
-                variant={variant}
-                className="min-w-12 justify-center text-fs-micro transition-colors duration-300"
-              >
+        <div className="agent-card-copy">
+          <div className="agent-card-title">
+            <span>{agent.name}</span>
+            <div>
+              <Badge variant={variant} className="agent-card-state">
                 {agent.state}
               </Badge>
             </div>
           </div>
-          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-2">
+          <p className="agent-card-role">
             {roleLabel}
-            <Wrench className="inline h-2.5 w-2.5 flex-shrink-0 text-ink-3" />
+            <Wrench data-icon="role-tool" aria-hidden="true" />
           </p>
-          <div className="mt-1.5 flex min-w-0 flex-wrap gap-1">
-            <span className="rounded-full border border-line-soft bg-surface-2 px-1.5 py-0.5 text-fs-micro leading-none text-ink-3">
-              {agent.isExternal ? 'External' : 'Internal'}
-            </span>
+          <div className="agent-card-tags">
+            <span>{agent.isExternal ? 'External' : 'Internal'}</span>
             {skillHighlight ? (
-              <span
-                className="max-w-36 animate-pulse truncate rounded-full border border-ok/30 bg-ok-surface px-1.5 py-0.5 text-fs-micro leading-none text-ok"
-                title={skillHighlight.detail}
-              >
+              <span data-state="highlight" title={skillHighlight.detail}>
                 {skillHighlight.label}
               </span>
             ) : null}
             {hasTask && (
-              <span className="max-w-32 truncate rounded-full border border-line-soft bg-surface-2 px-1.5 py-0.5 text-fs-micro leading-none text-ink-2">
+              <span data-state="task">
                 {task.stepIndex + 1}/{task.totalSteps} {truncate(task.stepLabel, 18)}
               </span>
             )}
@@ -150,12 +125,12 @@ function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
   const hiddenCount = subTasks.length - visibleTasks.length;
 
   return (
-    <div className="mt-1.5">
+    <div className="subtask-list">
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="h-auto w-full justify-between px-0 py-0 text-fs-micro font-mono text-ink-3 hover:text-ink-2"
+        className="subtask-list-trigger"
         onClick={(e) => {
           e.stopPropagation();
           setExpanded((prev) => !prev);
@@ -164,35 +139,26 @@ function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
         <span>
           {completedCount}/{totalCount} tasks
         </span>
-        {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+        {expanded ? (
+          <ChevronUp data-icon="inline-end" aria-hidden="true" />
+        ) : (
+          <ChevronDown data-icon="inline-end" aria-hidden="true" />
+        )}
       </Button>
 
-      <div className="mt-1 flex flex-col gap-0.5">
+      <div className="subtask-list-items">
         {visibleTasks.map((st) => (
-          <div key={st.stepIndex} className="flex items-center gap-1 text-fs-micro font-mono">
-            <span className="flex-shrink-0">{STATUS_ICON[st.status]}</span>
-            <span
-              className={[
-                'truncate max-w-32',
-                st.status === 'done'
-                  ? 'text-ink-3'
-                  : st.status === 'failed'
-                    ? 'text-danger'
-                    : 'text-ink-2',
-              ].join(' ')}
-            >
-              {truncate(st.label, 25)}
-            </span>
+          <div key={st.stepIndex} className="subtask-list-item" data-status={st.status}>
+            <span data-slot="status">{STATUS_ICON[st.status]}</span>
+            <span data-slot="label">{truncate(st.label, 25)}</span>
             {st.status === 'running' && st.startedAt && (
-              <span className="ml-auto text-ink-3">
-                {Math.round((Date.now() - st.startedAt) / 1000)}s
-              </span>
+              <span data-slot="time">{Math.round((Date.now() - st.startedAt) / 1000)}s</span>
             )}
-            {st.status === 'done' && <span className="ml-auto text-ink-3">done</span>}
+            {st.status === 'done' && <span data-slot="time">done</span>}
           </div>
         ))}
         {hiddenCount > 0 && !expanded && (
-          <div className="pl-4 text-fs-micro font-mono text-ink-3">+{hiddenCount} more</div>
+          <div className="subtask-list-more">+{hiddenCount} more</div>
         )}
       </div>
     </div>
