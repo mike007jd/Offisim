@@ -10,7 +10,7 @@ export interface ActivityPayloadViewProps {
 export function ActivityPayloadView({ payload, depth = 0 }: ActivityPayloadViewProps) {
   const entries = Object.entries(payload);
   if (entries.length === 0) {
-    return <p className="text-xs italic text-text-muted">Empty payload</p>;
+    return <p className="text-fs-meta italic text-ink-4">Empty payload</p>;
   }
 
   return (
@@ -34,7 +34,7 @@ function PayloadEntry({
   if (value === null || value === undefined) {
     return (
       <Row label={entryKey}>
-        <span className="italic text-text-muted">null</span>
+        <span className="italic text-ink-4">null</span>
       </Row>
     );
   }
@@ -42,7 +42,7 @@ function PayloadEntry({
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return (
       <Row label={entryKey}>
-        <span className="text-text-primary">{String(value)}</span>
+        <span className="text-ink-1">{String(value)}</span>
       </Row>
     );
   }
@@ -51,9 +51,7 @@ function PayloadEntry({
     if (value.length <= 5) {
       return (
         <Row label={entryKey}>
-          <span className="text-text-primary">
-            [{value.map((v) => formatPrimitive(v)).join(', ')}]
-          </span>
+          <span className="text-ink-1">[{value.map((v) => formatPrimitive(v)).join(', ')}]</span>
         </Row>
       );
     }
@@ -74,7 +72,7 @@ function PayloadEntry({
     } catch {
       return (
         <Row label={entryKey}>
-          <span className="italic text-text-muted">[Unable to display]</span>
+          <span className="italic text-ink-4">[Unable to display]</span>
         </Row>
       );
     }
@@ -88,7 +86,7 @@ function PayloadEntry({
 
   return (
     <Row label={entryKey}>
-      <span className="text-text-primary">{String(value)}</span>
+      <span className="text-ink-1">{String(value)}</span>
     </Row>
   );
 }
@@ -101,9 +99,9 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-8 items-baseline gap-3 py-1">
-      <span className="shrink-0 font-mono text-xs text-text-secondary">{label}</span>
-      <span className="break-all text-xs">{children}</span>
+    <div className="activity-payload-row flex items-baseline">
+      <span className="shrink-0 font-mono text-fs-meta text-ink-3">{label}</span>
+      <span className="break-all text-fs-meta">{children}</span>
     </div>
   );
 }
@@ -126,12 +124,16 @@ function CollapsibleSection({
         variant="ghost"
         size="sm"
         onClick={() => setOpen((prev) => !prev)}
-        className="h-auto gap-1 px-0 py-1 font-mono text-xs text-text-secondary hover:text-text-primary"
+        className="h-auto gap-sp-1 px-0 py-sp-1 font-mono text-fs-meta text-ink-3 hover:text-ink-1"
       >
-        {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+        {open ? (
+          <ChevronDown className="activity-payload-icon" />
+        ) : (
+          <ChevronRight className="activity-payload-icon" />
+        )}
         {label}
       </Button>
-      {open && <div className="pl-4">{children}</div>}
+      {open && <div className="activity-payload-indent">{children}</div>}
     </div>
   );
 }

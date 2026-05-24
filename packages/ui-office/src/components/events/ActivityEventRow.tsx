@@ -25,25 +25,24 @@ export interface ActivityEventRowProps {
 }
 
 const LEVEL_LEFT_BORDER: Record<EventDisplayLevel, string> = {
-  Error: 'border-l-4 border-error',
-  Warning: 'border-l-4 border-warning',
-  Info: 'border-l-4 border-transparent',
+  Error: 'activity-severity-border-strong border-l border-danger',
+  Warning: 'activity-severity-border-strong border-l border-warn',
+  Info: 'activity-severity-border-strong border-l border-transparent',
 };
 
 const LEVEL_BAR_COLOR: Record<EventDisplayLevel, string> = {
-  Error: 'bg-error',
-  Warning: 'bg-warning',
+  Error: 'bg-danger',
+  Warning: 'bg-warn',
   Info: 'bg-transparent',
 };
 
 const ACTIVITY_ROW_CLASS =
-  'h-activity-row w-full justify-start gap-sp-3 rounded-none px-sp-4 text-left hover:bg-surface-hover';
+  'h-activity-row w-full justify-start gap-sp-3 rounded-none px-sp-4 text-left hover:bg-surface-sunken';
 const ACTIVITY_ROW_ICON_CLASS = 'activity-row-icon shrink-0';
-const ACTIVITY_ROW_LABEL_CLASS = 'min-w-0 flex-1 truncate text-fs-sm text-text-primary';
+const ACTIVITY_ROW_LABEL_CLASS = 'min-w-0 flex-1 truncate text-fs-sm text-ink-1';
 const ACTIVITY_ROW_COUNT_CLASS =
-  'activity-row-count shrink-0 bg-surface-sunken text-caption font-medium text-text-secondary';
-const ACTIVITY_ROW_TIME_CLASS =
-  'w-activity-row-time shrink-0 text-right text-caption text-text-muted';
+  'activity-row-count shrink-0 bg-surface-sunken text-fs-meta font-medium text-ink-3';
+const ACTIVITY_ROW_TIME_CLASS = 'w-activity-row-time shrink-0 text-right text-fs-meta text-ink-4';
 const ACTIVITY_ROW_LEVEL_BAR_CLASS = 'activity-row-level-marker shrink-0 rounded-r-pill';
 
 export function ActivityEventRow({
@@ -56,13 +55,13 @@ export function ActivityEventRow({
 }: ActivityEventRowProps) {
   const domain = domainIcon(event.type);
   const Icon = domain?.Icon ?? Activity;
-  const iconColor = domain ? getEventToneClass(domain.tone) : 'text-text-secondary';
+  const iconColor = domain ? getEventToneClass(domain.tone) : 'text-ink-3';
   const label =
     event.type === TASK_ASSIGNMENT_REROUTED
       ? formatTaskAssignmentReroutedLabel(event, getEmployeeName)
       : getDisplayLabel(event);
 
-  const selectedStyle = selected ? 'bg-accent-muted' : '';
+  const selectedStyle = selected ? 'bg-accent-surface' : '';
   const levelBorder = LEVEL_LEFT_BORDER[level];
 
   return (

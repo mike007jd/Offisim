@@ -23,9 +23,9 @@ export function ActivityTimeGroup({
   return (
     <div>
       {/* Group header — sticky, surface-sunken band */}
-      <div className="sticky top-0 z-sticky flex items-center gap-2 bg-surface-sunken px-4 py-2">
-        <span className="text-fs-sm font-bold text-text-primary">{label}</span>
-        <span className="rounded-full border border-line-soft bg-surface-1 px-1.5 py-0.5 text-caption text-text-muted">
+      <div className="activity-time-header sticky top-0 z-sticky flex items-center bg-surface-sunken">
+        <span className="text-fs-sm font-bold text-ink-1">{label}</span>
+        <span className="activity-time-count rounded-r-pill border border-line-soft bg-surface-1 text-fs-meta text-ink-4">
           {eventCount}
         </span>
       </div>

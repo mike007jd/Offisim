@@ -101,23 +101,22 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
 
   const levelPillClass = (level: EventLevel, active: boolean) => {
     const base =
-      'h-7 px-2 rounded text-caption font-medium cursor-pointer select-none transition-colors';
-    if (!active)
-      return `${base} bg-transparent text-text-muted border border-border-default opacity-60`;
-    if (level === 'Error') return `${base} bg-error-muted text-error border border-error`;
-    if (level === 'Warning') return `${base} bg-warning-muted text-warning border border-warning`;
-    return `${base} bg-info-muted text-info border border-info`;
+      'activity-filter-pill rounded-r-xs px-sp-2 text-fs-meta font-medium cursor-pointer select-none transition-colors';
+    if (!active) return `${base} bg-transparent text-ink-4 border border-line`;
+    if (level === 'Error') return `${base} bg-danger-surface text-danger border border-danger`;
+    if (level === 'Warning') return `${base} bg-warn-surface text-warn border border-warn`;
+    return `${base} bg-accent-surface text-accent border border-accent`;
   };
 
   return (
-    <div className="flex flex-col gap-1.5 border-b border-border-subtle px-3 py-1.5">
+    <div className="flex flex-col gap-sp-2 border-b border-line-soft bg-surface-1 px-sp-3 py-sp-2">
       {/* Top row: type dropdown + level pills */}
-      <div className="flex items-center gap-1.5 overflow-hidden">
+      <div className="flex items-center gap-sp-2 overflow-hidden">
         <Select
           value={selectedType}
           onValueChange={(value) => handleTypeChange(value as EventFilterType)}
         >
-          <SelectTrigger className="h-7 w-24 shrink-0 px-2 text-caption text-text-secondary">
+          <SelectTrigger className="activity-filter-type-trigger shrink-0 px-sp-2 text-fs-meta text-ink-3">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -131,7 +130,7 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-sp-1">
           {ALL_LEVELS.map((level) => (
             <Button
               key={level}
@@ -152,7 +151,7 @@ export function EventFilters({ onFilterChange }: EventFiltersProps) {
         value={search}
         onChange={(e) => handleSearch(e.target.value)}
         placeholder="Search events..."
-        className="h-7 w-full rounded border-border-default bg-surface px-1.5 py-0.5 text-caption text-text-primary placeholder:text-text-muted focus:border-border-focus"
+        className="activity-legacy-search w-full rounded-r-xs border-line bg-surface-2 px-sp-2 text-fs-meta text-ink-1 placeholder:text-ink-4 focus:border-accent"
       />
     </div>
   );

@@ -80,10 +80,10 @@ interface EventItemProps {
 
 /** Pick a domain-specific icon + color for known event prefixes. */
 const EVENT_TONE_CLASS: Record<EventTone, string> = {
-  error: 'text-error',
-  info: 'text-info',
+  error: 'text-danger',
+  info: 'text-accent',
   success: 'text-success',
-  warning: 'text-warning',
+  warning: 'text-warn',
   accent: 'text-accent',
 };
 
@@ -115,19 +115,21 @@ export function EventItem({ event }: EventItemProps) {
   const topicLabel = formatEventType(event.type);
 
   return (
-    <div className="flex items-start gap-2 px-3 py-2 text-xs">
-      <Icon className={`mt-0.5 size-3.5 shrink-0 ${EVENT_TONE_CLASS[iconTone]}`} />
-      <div className="min-w-0 flex-1 flex flex-col gap-1">
-        <div className="break-words leading-relaxed text-text-primary">
+    <div className="flex items-start gap-sp-2 px-sp-3 py-sp-2 text-fs-meta">
+      <Icon className={`activity-event-icon shrink-0 ${EVENT_TONE_CLASS[iconTone]}`} />
+      <div className="min-w-0 flex-1 flex flex-col gap-sp-1">
+        <div className="break-words leading-relaxed text-ink-1">
           <span className="font-medium">{label}</span>
-          {action && <span className="ml-1 text-text-secondary">{action}</span>}
+          {action && <span className="activity-event-action-gap text-ink-3">{action}</span>}
         </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-text-muted">
+        <div className="flex flex-wrap items-center gap-x-sp-2 gap-y-sp-1 text-fs-meta text-ink-4">
           <span className="font-mono">{topicLabel}</span>
           {event.entityId ? <span className="font-mono">ID {event.entityId}</span> : null}
         </div>
       </div>
-      <span className="shrink-0 pt-0.5 text-text-muted">{formatTimestamp(event.timestamp)}</span>
+      <span className="activity-event-time-offset shrink-0 text-ink-4">
+        {formatTimestamp(event.timestamp)}
+      </span>
     </div>
   );
 }

@@ -13,22 +13,22 @@ export interface ActivityEventDetailProps {
 }
 
 const LEVEL_BADGE: Record<EventDisplayLevel, string> = {
-  Info: 'bg-info-muted text-info border-info',
-  Warning: 'bg-warning-muted text-warning border-warning',
-  Error: 'bg-error-muted text-error border-error',
+  Info: 'bg-accent-surface text-accent border-accent',
+  Warning: 'bg-warn-surface text-warn border-warn',
+  Error: 'bg-danger-surface text-danger border-danger',
 };
 
 const ACTIVITY_DETAIL_HEADER_CLASS =
-  'flex shrink-0 items-center justify-between border-b border-border-subtle px-sp-4 py-sp-3';
-const ACTIVITY_DETAIL_TITLE_CLASS = 'text-fs-sm font-medium text-text-primary';
+  'flex shrink-0 items-center justify-between border-b border-line-soft px-sp-4 py-sp-3';
+const ACTIVITY_DETAIL_TITLE_CLASS = 'text-fs-sm font-medium text-ink-1';
 const ACTIVITY_DETAIL_BODY_CLASS = 'min-h-0 flex-1 overflow-y-auto p-sp-4';
 const ACTIVITY_DETAIL_BODY_STACK_CLASS = 'flex flex-col gap-sp-4';
 const ACTIVITY_DETAIL_CLOSE_ICON_CLASS = 'activity-detail-icon';
 const ACTIVITY_DETAIL_SECTION_LABEL_CLASS =
-  'mb-sp-1 text-caption uppercase tracking-ls-caps text-text-muted';
-const ACTIVITY_DETAIL_TEXT_CLASS = 'text-fs-sm text-text-secondary';
-const ACTIVITY_DETAIL_MONO_TEXT_CLASS = 'font-mono text-fs-sm text-text-primary';
-const ACTIVITY_DETAIL_META_CLASS = 'mt-sp-1 text-caption text-text-muted';
+  'mb-sp-1 text-fs-meta uppercase tracking-ls-caps text-ink-4';
+const ACTIVITY_DETAIL_TEXT_CLASS = 'text-fs-sm text-ink-3';
+const ACTIVITY_DETAIL_MONO_TEXT_CLASS = 'font-mono text-fs-sm text-ink-1';
+const ACTIVITY_DETAIL_META_CLASS = 'mt-sp-1 text-fs-meta text-ink-4';
 const ACTIVITY_DETAIL_META_ID_CLASS = 'break-all font-mono';
 
 export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps) {
@@ -37,7 +37,7 @@ export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps
   const entityLabel = getDisplayLabel(event);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-surface-elevated text-text-primary">
+    <div className="flex h-full flex-col overflow-hidden bg-surface-2 text-ink-1">
       {/* Header */}
       <div className={ACTIVITY_DETAIL_HEADER_CLASS}>
         <h2 className={ACTIVITY_DETAIL_TITLE_CLASS}>Event Detail</h2>
@@ -47,7 +47,7 @@ export function ActivityEventDetail({ event, onClose }: ActivityEventDetailProps
           size="iconSm"
           onClick={onClose}
           aria-label="Close detail panel"
-          className="text-text-secondary hover:text-text-primary"
+          className="text-ink-3 hover:text-ink-1"
         >
           <X className={ACTIVITY_DETAIL_CLOSE_ICON_CLASS} />
         </Button>

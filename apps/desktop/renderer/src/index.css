@@ -426,6 +426,66 @@
     width: var(--sp-7);
   }
 
+  .activity-filter-pill {
+    height: var(--sp-7);
+  }
+
+  .activity-filter-type-trigger {
+    height: var(--sp-7);
+    width: calc(var(--sp-8) * 3);
+  }
+
+  .activity-legacy-search {
+    height: var(--sp-7);
+    padding-block: calc(var(--sp-1) / 2);
+  }
+
+  .activity-time-header {
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+  }
+
+  .activity-time-count {
+    padding: calc(var(--sp-1) / 2) calc(var(--sp-1) + var(--sp-1) / 2);
+  }
+
+  .activity-payload-row {
+    gap: var(--sp-3);
+    min-height: var(--sp-8);
+    padding-block: var(--sp-1);
+  }
+
+  .activity-payload-indent {
+    padding-left: var(--sp-4);
+  }
+
+  .activity-payload-icon {
+    height: var(--sp-3);
+    width: var(--sp-3);
+  }
+
+  .activity-event-icon {
+    height: calc(var(--sp-3) + var(--sp-1) / 2);
+    margin-top: calc(var(--sp-1) / 2);
+    width: calc(var(--sp-3) + var(--sp-1) / 2);
+  }
+
+  .activity-event-action-gap {
+    margin-left: var(--sp-1);
+  }
+
+  .activity-event-time-offset {
+    padding-top: calc(var(--sp-1) / 2);
+  }
+
+  .activity-severity-border-strong {
+    border-left-width: var(--border-width-thick);
+  }
+
+  .activity-severity-border-soft {
+    border-left-width: var(--border-width-default);
+  }
+
   .chat-composer-root {
     border-top: var(--border-width-thin) solid var(--color-border-default);
     box-sizing: border-box;
