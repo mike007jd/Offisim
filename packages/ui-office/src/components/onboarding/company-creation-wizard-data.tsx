@@ -24,95 +24,81 @@ export function getTemplateZoneSummary(template: CompanyTemplate): string[] {
 export interface TemplateMeta {
   icon: ReactNode;
   iconLg: ReactNode;
-  accent: string;
+  tone: 'accent' | 'ok' | 'warn' | 'violet' | 'info';
   accentHex: string;
-  accentBg: string;
   tagline: string;
   bestFor: string[];
   complexity: number;
   capabilities: string[];
-  gradient: string;
   /** Zone IDs that are primary for this template — highlighted in the preview. */
   highlightZones: string[];
 }
 
 export const TEMPLATE_META: Record<string, TemplateMeta> = {
   'rd-company': {
-    icon: <FlaskConical className="h-4 w-4" />,
-    iconLg: <FlaskConical className="h-8 w-8" />,
-    accent: 'text-blue-400',
+    icon: <FlaskConical data-icon="template" />,
+    iconLg: <FlaskConical data-icon="template-large" />,
+    tone: 'accent',
     accentHex: '#3b82f6', // raw-hex-allowed
-    accentBg: 'bg-blue-500/10 border-blue-500/30',
     tagline: 'Build software with a full engineering team',
     bestFor: ['Software Development', 'Full Stack', 'Enterprise'],
     complexity: 4,
     capabilities: ['Full-stack development', 'Code review & testing', 'Technical documentation'],
-    gradient: 'from-blue-500/20 via-blue-600/10 to-transparent',
     highlightZones: ['zone-dev', 'zone-server'],
   },
   'content-studio': {
-    icon: <PenTool className="h-4 w-4" />,
-    iconLg: <PenTool className="h-8 w-8" />,
-    accent: 'text-emerald-400',
+    icon: <PenTool data-icon="template" />,
+    iconLg: <PenTool data-icon="template-large" />,
+    tone: 'ok',
     accentHex: '#10b981', // raw-hex-allowed
-    accentBg: 'bg-emerald-500/10 border-emerald-500/30',
     tagline: 'Create, edit, and publish content at scale',
     bestFor: ['Content Marketing', 'Publishing', 'Creative'],
     complexity: 2,
     capabilities: ['Article & blog writing', 'Design & illustration', 'Editorial workflow'],
-    gradient: 'from-emerald-500/20 via-emerald-600/10 to-transparent',
     highlightZones: ['zone-dev', 'zone-library'],
   },
   'product-team': {
-    icon: <Rocket className="h-4 w-4" />,
-    iconLg: <Rocket className="h-8 w-8" />,
-    accent: 'text-violet-400',
+    icon: <Rocket data-icon="template" />,
+    iconLg: <Rocket data-icon="template-large" />,
+    tone: 'violet',
     accentHex: '#8b5cf6', // raw-hex-allowed
-    accentBg: 'bg-violet-500/10 border-violet-500/30',
     tagline: 'Design and ship products from research to launch',
     bestFor: ['Product Strategy', 'Design Thinking', 'Agile'],
     complexity: 3,
     capabilities: ['User research', 'Product strategy', 'Design prototyping'],
-    gradient: 'from-violet-500/20 via-violet-600/10 to-transparent',
     highlightZones: ['zone-product', 'zone-meeting'],
   },
   'agency-lite': {
-    icon: <Briefcase className="h-4 w-4" />,
-    iconLg: <Briefcase className="h-8 w-8" />,
-    accent: 'text-amber-400',
+    icon: <Briefcase data-icon="template" />,
+    iconLg: <Briefcase data-icon="template-large" />,
+    tone: 'warn',
     accentHex: '#f59e0b', // raw-hex-allowed
-    accentBg: 'bg-amber-500/10 border-amber-500/30',
     tagline: 'Lean team for client projects and quick deliveries',
     bestFor: ['Client Work', 'Freelance', 'Fast Delivery'],
     complexity: 2,
     capabilities: ['Fast turnaround', 'Multi-client support', 'Flexible roles'],
-    gradient: 'from-amber-500/20 via-amber-600/10 to-transparent',
     highlightZones: ['zone-dev', 'zone-product'],
   },
   'ai-startup': {
-    icon: <Brain className="h-4 w-4" />,
-    iconLg: <Brain className="h-8 w-8" />,
-    accent: 'text-cyan-400',
+    icon: <Brain data-icon="template" />,
+    iconLg: <Brain data-icon="template-large" />,
+    tone: 'info',
     accentHex: '#06b6d4', // raw-hex-allowed
-    accentBg: 'bg-cyan-500/10 border-cyan-500/30',
     tagline: 'Research-first team pushing the boundaries of AI',
     bestFor: ['Machine Learning', 'Research', 'Data Science'],
     complexity: 5,
     capabilities: ['ML research', 'Data analysis', 'Rapid prototyping'],
-    gradient: 'from-cyan-500/20 via-cyan-600/10 to-transparent',
     highlightZones: ['zone-dev', 'zone-server'],
   },
   'create-your-own': {
-    icon: <Wrench className="h-4 w-4" />,
-    iconLg: <Wrench className="h-8 w-8" />,
-    accent: 'text-emerald-400',
+    icon: <Wrench data-icon="template" />,
+    iconLg: <Wrench data-icon="template-large" />,
+    tone: 'ok',
     accentHex: '#34d399', // raw-hex-allowed
-    accentBg: 'bg-emerald-500/10',
     tagline: 'Design your office from scratch',
     bestFor: ['Custom layout', 'Full creative control'],
     complexity: 0,
     capabilities: ['3D Studio Editor', 'Custom plot size', 'Free placement'],
-    gradient: 'from-emerald-600 to-teal-500',
     highlightZones: [],
   },
 };

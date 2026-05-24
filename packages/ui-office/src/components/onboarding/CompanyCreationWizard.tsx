@@ -1,5 +1,5 @@
 import type { CompanyTemplate } from '@offisim/core/browser';
-import { Button, Input, cn, useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
+import { Button, Input, useRegisterModal, useTopmostEscape } from '@offisim/ui-core';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCompanyCreation } from '../../hooks/useCompanyCreation.js';
@@ -25,169 +25,36 @@ interface Props {
   onDismiss?: () => void;
 }
 
-const ROLE_TONE_CLASSES: Record<
-  string,
-  { dot: string; text: string; border: string; surface: string; rail: string }
-> = {
-  developer: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  backend: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  frontend: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  fullstack: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  pm: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  product_manager: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  manager: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  designer: {
-    dot: 'bg-warn',
-    text: 'text-warn',
-    border: 'border-warn/30',
-    surface: 'bg-warn-surface',
-    rail: 'bg-warn',
-  },
-  ui_designer: {
-    dot: 'bg-warn',
-    text: 'text-warn',
-    border: 'border-warn/30',
-    surface: 'bg-warn-surface',
-    rail: 'bg-warn',
-  },
-  ux_designer: {
-    dot: 'bg-warn',
-    text: 'text-warn',
-    border: 'border-warn/30',
-    surface: 'bg-warn-surface',
-    rail: 'bg-warn',
-  },
-  artist: {
-    dot: 'bg-warn',
-    text: 'text-warn',
-    border: 'border-warn/30',
-    surface: 'bg-warn-surface',
-    rail: 'bg-warn',
-  },
-  analyst: {
-    dot: 'bg-ok',
-    text: 'text-ok',
-    border: 'border-ok/30',
-    surface: 'bg-ok-surface',
-    rail: 'bg-ok',
-  },
-  qa: {
-    dot: 'bg-ok',
-    text: 'text-ok',
-    border: 'border-ok/30',
-    surface: 'bg-ok-surface',
-    rail: 'bg-ok',
-  },
-  researcher: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  devops: {
-    dot: 'bg-ink-4',
-    text: 'text-ink-3',
-    border: 'border-line',
-    surface: 'bg-surface-sunken',
-    rail: 'bg-ink-4',
-  },
-  engineering_manager: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  writer: {
-    dot: 'bg-ok',
-    text: 'text-ok',
-    border: 'border-ok/30',
-    surface: 'bg-ok-surface',
-    rail: 'bg-ok',
-  },
-  seo_specialist: {
-    dot: 'bg-warn',
-    text: 'text-warn',
-    border: 'border-warn/30',
-    surface: 'bg-warn-surface',
-    rail: 'bg-warn',
-  },
-  project_manager: {
-    dot: 'bg-accent',
-    text: 'text-accent',
-    border: 'border-accent/30',
-    surface: 'bg-accent-surface',
-    rail: 'bg-accent',
-  },
-  account_manager: {
-    dot: 'bg-danger',
-    text: 'text-danger',
-    border: 'border-danger/30',
-    surface: 'bg-danger-surface',
-    rail: 'bg-danger',
-  },
-  graphic_designer: {
-    dot: 'bg-warn',
-    text: 'text-warn',
-    border: 'border-warn/30',
-    surface: 'bg-warn-surface',
-    rail: 'bg-warn',
-  },
+type RoleTone = 'accent' | 'warn' | 'ok' | 'neutral' | 'danger';
+
+const ROLE_TONES: Record<string, RoleTone> = {
+  developer: 'accent',
+  backend: 'accent',
+  frontend: 'accent',
+  fullstack: 'accent',
+  pm: 'accent',
+  product_manager: 'accent',
+  manager: 'accent',
+  designer: 'warn',
+  ui_designer: 'warn',
+  ux_designer: 'warn',
+  artist: 'warn',
+  analyst: 'ok',
+  qa: 'ok',
+  researcher: 'accent',
+  devops: 'neutral',
+  engineering_manager: 'accent',
+  writer: 'ok',
+  seo_specialist: 'warn',
+  project_manager: 'accent',
+  account_manager: 'danger',
+  graphic_designer: 'warn',
 };
 
-const DEFAULT_ROLE_TONE = {
-  dot: 'bg-ink-4',
-  text: 'text-ink-3',
-  border: 'border-line',
-  surface: 'bg-surface-sunken',
-  rail: 'bg-ink-4',
-};
+const DEFAULT_ROLE_TONE: RoleTone = 'neutral';
 
 function getRoleTone(role: string) {
-  return ROLE_TONE_CLASSES[role] ?? DEFAULT_ROLE_TONE;
+  return ROLE_TONES[role] ?? DEFAULT_ROLE_TONE;
 }
 
 export function CompanyCreationWizard({
@@ -316,10 +183,10 @@ export function CompanyCreationWizard({
 
   if (step === 'checking') {
     return (
-      <div className="flex h-dvh items-center justify-center bg-bg">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="size-6 animate-spin text-accent" />
-          <p className="text-fs-meta text-ink-3">Loading templates...</p>
+      <div className="company-wizard-checking">
+        <div>
+          <Loader2 data-icon="loading" aria-hidden="true" />
+          <p>Loading templates...</p>
         </div>
       </div>
     );
@@ -338,8 +205,8 @@ export function CompanyCreationWizard({
   const primaryActionContent = (() => {
     if (openingStudio) {
       return (
-        <span className="flex items-center gap-2">
-          <Loader2 className="size-4 animate-spin" /> Opening Studio...
+        <span className="company-wizard-inline-status">
+          <Loader2 data-icon="inline-loading" aria-hidden="true" /> Opening Studio...
         </span>
       );
     }
@@ -347,8 +214,8 @@ export function CompanyCreationWizard({
     if (shouldRetryRuntime) return 'Retry Runtime';
     if (!runtimeReady) {
       return (
-        <span className="flex items-center gap-2">
-          <Loader2 className="size-4 animate-spin" /> Initializing...
+        <span className="company-wizard-inline-status">
+          <Loader2 data-icon="inline-loading" aria-hidden="true" /> Initializing...
         </span>
       );
     }
@@ -356,55 +223,52 @@ export function CompanyCreationWizard({
   })();
 
   return (
-    <div className="fixed inset-0 z-modal flex flex-col overflow-hidden bg-bg text-ink-1">
-      <div className="company-wizard-grid-bg pointer-events-none absolute inset-0" />
+    <div className="company-wizard-shell">
+      <div className="company-wizard-grid-bg" />
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+      <div className="company-wizard-body">
         {selected && meta ? (
           <>
-            <div
-              className="animate-wiz-fade-in-fast flex w-full shrink-0 flex-col border-b border-line lg:w-80 lg:border-r lg:border-b-0"
-              key={`info-${selected.id}`}
-            >
-              <div className="flex shrink-0 flex-col gap-3 border-b border-line px-4 pt-4 pb-3">
-                <div className="flex flex-col items-center gap-2 rounded-r-lg border border-line bg-surface-1 px-2 py-2.5">
-                  <div className="flex w-full items-center">
+            <div className="company-wizard-info" key={`info-${selected.id}`}>
+              <div className="company-wizard-info-head">
+                <div className="company-wizard-template-switcher">
+                  <div className="company-wizard-template-row">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => switchTemplate(-1)}
-                      className="size-10 shrink-0 text-ink-3 hover:text-ink-1"
+                      className="company-wizard-switch-button"
                       aria-label="Previous template"
                     >
-                      <ChevronLeft className="size-6" aria-hidden="true" />
+                      <ChevronLeft data-icon="template-prev" aria-hidden="true" />
                     </Button>
-                    <div className="flex min-w-0 flex-1 items-center justify-center gap-2.5">
-                      <div className={`shrink-0 ${meta.accent}`}>{meta.icon}</div>
-                      <h2 className="truncate text-lg font-semibold text-ink-1">{selected.name}</h2>
+                    <div className="company-wizard-template-title">
+                      <div className="company-wizard-template-icon" data-tone={meta.tone}>
+                        {meta.icon}
+                      </div>
+                      <h2>{selected.name}</h2>
                     </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => switchTemplate(1)}
-                      className="size-10 shrink-0 text-ink-3 hover:text-ink-1"
+                      className="company-wizard-switch-button"
                       aria-label="Next template"
                     >
-                      <ChevronRight className="size-6" aria-hidden="true" />
+                      <ChevronRight data-icon="template-next" aria-hidden="true" />
                     </Button>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="company-wizard-template-dots">
                     {templates.map((template, index) => (
                       <Button
                         key={template.id}
                         type="button"
                         variant="ghost"
                         onClick={() => setSelectedTemplateId(template.id)}
-                        className={cn(
-                          'h-1.5 rounded-r-pill border-0 p-0 transition-all',
-                          index === currentTemplateIdx ? 'w-4 bg-accent' : 'w-1.5 bg-line-soft',
-                        )}
+                        className="company-wizard-template-dot"
+                        data-active={index === currentTemplateIdx || undefined}
                         aria-label={`Select ${template.name}`}
                       />
                     ))}
@@ -413,24 +277,18 @@ export function CompanyCreationWizard({
 
                 {!isCreateYourOwn && (
                   <>
-                    <div className="rounded-r-md border border-line bg-surface-1 px-3 py-2">
-                      <p className="text-fs-meta font-semibold uppercase tracking-wider text-ink-4">
-                        Zones · {zoneSummary.length}
-                      </p>
-                      <p className="mt-1 text-fs-meta text-ink-2">{zoneSummary.join(' • ')}</p>
+                    <div className="company-wizard-zone-summary">
+                      <p>Zones · {zoneSummary.length}</p>
+                      <p>{zoneSummary.join(' • ')}</p>
                     </div>
-                    <div className="mt-3 flex">
+                    <div className="company-wizard-info-tabs">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => setInfoTab('team')}
-                        className={cn(
-                          'h-auto rounded-none px-0 pb-2 pr-4 text-fs-meta font-semibold uppercase tracking-wider',
-                          infoTab === 'team'
-                            ? 'border-b-2 border-accent text-ink-1'
-                            : 'text-ink-4 hover:text-ink-2',
-                        )}
+                        className="company-wizard-info-tab"
+                        data-active={infoTab === 'team' || undefined}
                       >
                         Team · {selected.employees.length}
                       </Button>
@@ -440,12 +298,8 @@ export function CompanyCreationWizard({
                           variant="ghost"
                           size="sm"
                           onClick={() => setInfoTab('workflows')}
-                          className={cn(
-                            'h-auto rounded-none px-4 pb-2 text-fs-meta font-semibold uppercase tracking-wider',
-                            infoTab === 'workflows'
-                              ? 'border-b-2 border-accent text-ink-1'
-                              : 'text-ink-4 hover:text-ink-2',
-                          )}
+                          className="company-wizard-info-tab"
+                          data-active={infoTab === 'workflows' || undefined}
                         >
                           Workflows · {selected.sops.length}
                         </Button>
@@ -455,27 +309,26 @@ export function CompanyCreationWizard({
                 )}
               </div>
 
-              <div className="flex-1 overflow-y-auto px-4 py-3">
+              <div className="company-wizard-info-scroll">
                 {isCreateYourOwn ? (
-                  <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
-                    <div className="text-ok">{meta.iconLg}</div>
-                    <p className="text-fs-sm text-ink-2">{meta.tagline}</p>
-                    <div className="flex w-full flex-col gap-2">
+                  <div className="company-wizard-custom-info">
+                    <div className="company-wizard-template-icon-large" data-tone={meta.tone}>
+                      {meta.iconLg}
+                    </div>
+                    <p>{meta.tagline}</p>
+                    <div>
                       {meta.capabilities.map((capability) => (
-                        <div
-                          key={capability}
-                          className="flex items-center gap-2 rounded-r-md border border-line bg-surface-1 px-3 py-2"
-                        >
-                          <span className="size-1.5 shrink-0 rounded-r-pill bg-ok" />
-                          <span className="text-fs-meta text-ink-2">{capability}</span>
+                        <div key={capability} className="company-wizard-capability">
+                          <span />
+                          <span>{capability}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : infoTab === 'team' || selected.sops.length === 0 ? (
-                  <div className="flex flex-col gap-1.5">
+                  <div className="company-wizard-team-list">
                     {selected.employees.map((employee) => (
-                      <div key={employee.name} className="animate-wiz-card-in">
+                      <div key={employee.name} className="company-wizard-team-card">
                         <EmployeeCard name={employee.name} role={employee.role_slug} />
                       </div>
                     ))}
@@ -486,17 +339,12 @@ export function CompanyCreationWizard({
               </div>
             </div>
 
-            <div
-              className="animate-wiz-fade-in flex min-h-80 min-w-0 flex-1 items-center justify-center p-4 lg:min-h-0"
-              key={`fp-${selected.id}`}
-            >
-              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-r-lg border border-line bg-surface-1 p-2">
+            <div className="company-wizard-preview" key={`fp-${selected.id}`}>
+              <div className="company-wizard-preview-frame">
                 {isCreateYourOwn ? (
-                  <div className="flex flex-col items-center gap-3 text-center">
-                    <Wrench className="size-12 text-ok/40" />
-                    <p className="text-fs-sm text-ink-3">
-                      Your custom office will be designed in the 3D Studio editor
-                    </p>
+                  <div className="company-wizard-studio-empty">
+                    <Wrench data-icon="studio-empty" aria-hidden="true" />
+                    <p>Your custom office will be designed in the 3D Studio editor</p>
                   </div>
                 ) : (
                   <Office2DPreview
@@ -509,17 +357,17 @@ export function CompanyCreationWizard({
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center">
-            <p className="text-fs-sm text-ink-3">Select a template above</p>
+          <div className="company-wizard-empty">
+            <p>Select a template above</p>
           </div>
         )}
       </div>
 
-      <div className="pb-safe-3 relative z-10 border-t border-line bg-bg/90 px-4 py-3 backdrop-blur-xl lg:px-6 lg:py-4">
+      <div className="company-wizard-footer pb-safe-3">
         {step === 'creating' ? (
           <BuildingAnimation />
         ) : (
-          <div className="mx-auto flex max-w-3xl flex-col items-stretch gap-3 lg:flex-row lg:items-end lg:gap-4">
+          <div className="company-wizard-footer-form">
             {onDismiss && (
               <Button
                 type="button"
@@ -527,26 +375,21 @@ export function CompanyCreationWizard({
                 onClick={onDismiss}
                 disabled={isCreating || openingStudio}
                 aria-label="Back"
-                className="h-11 shrink-0 gap-1.5 px-4 font-mono text-fs-meta uppercase tracking-wider lg:self-end"
+                className="company-wizard-back-button"
               >
-                <ChevronLeft className="size-4" aria-hidden="true" />
+                <ChevronLeft data-icon="back" aria-hidden="true" />
                 Back
               </Button>
             )}
-            <div className="flex-1">
-              <label
-                htmlFor="company-name"
-                className="mb-1.5 block text-fs-meta font-medium uppercase tracking-wider text-ink-4"
-              >
-                Company Name
-              </label>
+            <div className="company-wizard-name-field">
+              <label htmlFor="company-name">Company Name</label>
               <Input
                 id="company-name"
                 type="text"
                 value={companyName}
                 onChange={(event) => setCompanyName(event.target.value)}
                 placeholder="My AI Company"
-                className="h-11 text-fs-sm"
+                className="company-wizard-name-input"
               />
             </div>
             <Button
@@ -556,20 +399,18 @@ export function CompanyCreationWizard({
                 void handlePrimaryAction();
               }}
               disabled={primaryDisabled || openingStudio}
-              className={cn(
-                'w-full shrink-0 lg:w-auto lg:px-8',
+              className="company-wizard-primary-button"
+              data-pulse={
                 (isCreateYourOwn || runtimeReady) && selectedTemplateId && !openingStudio
-                  ? 'animate-wiz-cta-pulse'
-                  : '',
-              )}
+                  ? true
+                  : undefined
+              }
             >
               {primaryActionContent}
             </Button>
           </div>
         )}
-        {visibleError && (
-          <p className="mt-2 text-center text-fs-meta text-danger">{visibleError}</p>
-        )}
+        {visibleError && <p className="company-wizard-error">{visibleError}</p>}
       </div>
     </div>
   );
@@ -577,14 +418,12 @@ export function CompanyCreationWizard({
 
 function BuildingAnimation() {
   return (
-    <div className="animate-wiz-fade-in-slow flex flex-col items-center gap-3 py-2">
-      <div className="flex items-center gap-3">
-        <Loader2 className="size-5 animate-spin text-accent" />
-        <span className="animate-wiz-building-pulse text-fs-sm font-medium text-ink-1">
-          Building your office...
-        </span>
+    <div className="company-wizard-building">
+      <div>
+        <Loader2 data-icon="building" aria-hidden="true" />
+        <span>Building your office...</span>
       </div>
-      <p className="text-fs-meta text-ink-3">Setting up employees, workflows, and office layout</p>
+      <p>Setting up employees, workflows, and office layout</p>
     </div>
   );
 }
@@ -599,53 +438,40 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
   const toggleExpand = useCallback(() => setExpanded((value) => !value), []);
 
   return (
-    <div className="overflow-hidden rounded-r-lg border border-line bg-surface-1">
+    <div className="company-wizard-employee-card" data-tone={roleTone}>
       <Button
         type="button"
         variant="ghost"
-        className="h-auto w-full justify-start gap-3 rounded-none px-3 py-2.5 text-left transition-all duration-200"
+        className="company-wizard-employee-trigger"
         onClick={toggleExpand}
       >
-        <div className="relative shrink-0">
-          <img src={avatarUri} alt="" className="size-11 rounded-r-pill" />
-          <div
-            className={cn(
-              'absolute -bottom-0.5 -right-0.5 size-3.5 rounded-r-pill border-2 border-bg',
-              roleTone.dot,
-            )}
-          />
+        <div className="company-wizard-employee-avatar">
+          <img src={avatarUri} alt="" />
+          <div />
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-base font-medium text-ink-1">{name}</div>
-          <div className={cn('mt-0.5 text-body-sm', roleTone.text)}>{roleLabel}</div>
-          {bio && <div className="mt-0.5 truncate text-fs-meta italic text-ink-4">{bio.bio}</div>}
+        <div className="company-wizard-employee-copy">
+          <div>{name}</div>
+          <div>{roleLabel}</div>
+          {bio && <div>{bio.bio}</div>}
         </div>
-        <div className="shrink-0 text-ink-3">
-          {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+        <div className="company-wizard-employee-caret">
+          {expanded ? (
+            <ChevronUp data-icon="employee-collapse" aria-hidden="true" />
+          ) : (
+            <ChevronDown data-icon="employee-expand" aria-hidden="true" />
+          )}
         </div>
       </Button>
 
       {expanded && bio && (
-        <div className="animate-wiz-slide-up border-t border-line px-3 pb-3 pt-0">
-          <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="company-wizard-employee-detail">
+          <div>
             {bio.expertise.map((tag) => (
-              <span
-                key={tag}
-                className={cn(
-                  'rounded-r-sm border px-1.5 py-0.5 text-fs-meta font-medium',
-                  roleTone.border,
-                  roleTone.surface,
-                  roleTone.text,
-                )}
-              >
-                {tag}
-              </span>
+              <span key={tag}>{tag}</span>
             ))}
-            <span className="rounded-r-sm border border-line bg-surface-1 px-1.5 py-0.5 text-fs-meta text-ink-3">
-              {bio.style}
-            </span>
+            <span data-neutral>{bio.style}</span>
           </div>
-          <p className="mt-2 text-fs-meta leading-relaxed text-ink-3">{bio.helpsWith}</p>
+          <p>{bio.helpsWith}</p>
         </div>
       )}
     </div>
@@ -658,22 +484,18 @@ function ProductionWorkflow({
   sops: CompanyTemplate['sops'];
 }) {
   return (
-    <div className="flex flex-col items-center">
+    <div className="company-wizard-workflow">
       {sops.map((sop, sopIdx) => (
-        <div key={sop.sop_id} className="flex w-full flex-col items-center">
+        <div key={sop.sop_id}>
           {sops.length > 1 && sopIdx > 0 && (
-            <div className="my-2 flex w-full items-center gap-2">
-              <div className="h-px flex-1 bg-line-soft" />
-              <span className="text-fs-meta font-medium uppercase tracking-wider text-accent">
-                Phase {sopIdx + 1}
-              </span>
-              <div className="h-px flex-1 bg-line-soft" />
+            <div className="company-wizard-phase-divider">
+              <div />
+              <span>Phase {sopIdx + 1}</span>
+              <div />
             </div>
           )}
           {sops.length > 1 && sopIdx === 0 && (
-            <div className="mb-2 text-fs-meta font-medium uppercase tracking-wider text-accent">
-              Phase 1
-            </div>
+            <div className="company-wizard-phase-label">Phase 1</div>
           )}
 
           {sop.steps.map((step, idx) => {
@@ -682,26 +504,25 @@ function ProductionWorkflow({
             const isLastGlobal = sopIdx === sops.length - 1 && idx === sop.steps.length - 1;
 
             return (
-              <div key={step.step_id} className="flex w-full flex-col items-center">
-                <div
-                  className={cn(
-                    'relative w-full overflow-hidden rounded-r-md border px-3 py-2',
-                    stepTone.border,
-                    stepTone.surface,
-                  )}
-                >
-                  <div className={cn('absolute bottom-0 left-0 top-0 w-1', stepTone.rail)} />
-                  <div className="pl-2.5">
-                    <div className="text-fs-meta font-medium text-ink-1">{step.label}</div>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-fs-meta">
-                      <span className={cn('size-1.5 rounded-r-pill', stepTone.dot)} />
-                      <span className={stepTone.text}>{stepRole}</span>
+              <div key={step.step_id} className="company-wizard-workflow-step">
+                <div className="company-wizard-workflow-card" data-tone={stepTone}>
+                  <div />
+                  <div>
+                    <div>{step.label}</div>
+                    <div>
+                      <span />
+                      <span>{stepRole}</span>
                     </div>
                   </div>
                 </div>
 
                 {!isLastGlobal && (
-                  <svg className="shrink-0 text-line" width="8" height="16" viewBox="0 0 8 16">
+                  <svg
+                    className="company-wizard-workflow-connector"
+                    width="8"
+                    height="16"
+                    viewBox="0 0 8 16"
+                  >
                     <title>Workflow connector</title>
                     <line x1="4" y1="0" x2="4" y2="12" stroke="currentColor" strokeWidth={1} />
                     <path d="M2 10l2 4 2-4" fill="none" stroke="currentColor" strokeWidth={0.8} />
