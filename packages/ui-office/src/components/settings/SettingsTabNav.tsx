@@ -23,19 +23,8 @@ export function SettingsTabNav({
 }: SettingsTabNavProps) {
   const horizontal = orientation === 'horizontal';
   return (
-    <nav
-      className={cn(
-        horizontal
-          ? 'flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-line-soft bg-surface-1 p-2'
-          : 'flex w-settings-nav flex-shrink-0 flex-col gap-px overflow-y-auto border-r border-line bg-surface-1 px-sp-4 py-sp-7',
-      )}
-      aria-orientation={orientation}
-    >
-      {!horizontal ? (
-        <span className="px-2.5 pb-3 text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
-          Settings
-        </span>
-      ) : null}
+    <nav className="settings-tab-nav" data-orientation={orientation} aria-orientation={orientation}>
+      {!horizontal ? <span className="settings-tab-nav-caption">Settings</span> : null}
       {SETTINGS_TABS.map(({ key, label, icon: Icon }) => {
         const isActive = activeTab === key;
         return (
@@ -44,15 +33,9 @@ export function SettingsTabNav({
             type="button"
             variant="ghost"
             onClick={() => onTabChange(key)}
-            className={cn(
-              'justify-start gap-2.5 text-fs-sm font-medium',
-              horizontal ? 'h-9 min-w-max rounded-r-sm px-3' : 'h-8 w-full rounded-r-sm px-2.5',
-              isActive
-                ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring hover:bg-accent-surface'
-                : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
-            )}
+            className={cn('settings-tab-nav-item', isActive && 'settings-tab-nav-item-active')}
           >
-            <Icon className="size-4" />
+            <Icon data-icon="settings-tab" />
             {label}
           </Button>
         );

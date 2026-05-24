@@ -1,4 +1,3 @@
-import { cn } from '@offisim/ui-core';
 import { useEffect, useRef } from 'react';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { SettingsContentArea } from './SettingsContentArea';
@@ -57,10 +56,7 @@ export function SettingsPage({
   }, []);
 
   return (
-    <div
-      className={cn('flex h-full bg-bg text-ink-1', tier === 'narrow' ? 'flex-col' : 'flex-row')}
-      data-layout-tier={tier}
-    >
+    <div className="settings-page" data-layout-tier={tier}>
       <SettingsTabNav
         activeTab={sessionState.activeTab}
         orientation={tier === 'narrow' ? 'horizontal' : 'vertical'}

@@ -22,20 +22,16 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-sp-3">
-      <header className="flex items-baseline justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
-            {title}
-          </h3>
-          {description ? (
-            <p className="mt-1 text-fs-sm leading-relaxed text-ink-3">{description}</p>
-          ) : null}
+    <section className="settings-section">
+      <header className="settings-section-head">
+        <div className="settings-section-title-wrap">
+          <h3>{title}</h3>
+          {description ? <p>{description}</p> : null}
         </div>
         {action}
       </header>
-      <Card className="rounded-r-md border-line-soft bg-surface-1 shadow-elev-1">
-        <CardContent className="flex flex-col gap-sp-4 p-sp-5">{children}</CardContent>
+      <Card className="settings-section-card">
+        <CardContent className="settings-section-card-content">{children}</CardContent>
       </Card>
     </section>
   );
@@ -55,33 +51,26 @@ export function SurfaceCard({
   className?: string;
 }) {
   return (
-    <Card className={cn('rounded-r-md border-line-soft bg-surface-1 shadow-elev-1', className)}>
-      <CardHeader className="flex-row items-start justify-between gap-sp-4 p-sp-5 pb-sp-3">
-        <div className="min-w-0">
-          <CardTitle className="text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
-            {title}
-          </CardTitle>
+    <Card className={cn('settings-surface-card', className)}>
+      <CardHeader className="settings-surface-card-head">
+        <div className="settings-surface-card-copy">
+          <CardTitle className="settings-surface-card-title">{title}</CardTitle>
           {description ? (
-            <CardDescription className="mt-2 text-fs-sm text-ink-3">{description}</CardDescription>
+            <CardDescription className="settings-surface-card-description">
+              {description}
+            </CardDescription>
           ) : null}
         </div>
-        {icon ? (
-          <div className="rounded-r-md border border-accent-ring bg-accent-surface p-2 text-accent">
-            {icon}
-          </div>
-        ) : null}
+        {icon ? <div className="settings-surface-card-icon">{icon}</div> : null}
       </CardHeader>
-      <CardContent className="p-sp-5 pt-0">{children}</CardContent>
+      <CardContent className="settings-surface-card-content">{children}</CardContent>
     </Card>
   );
 }
 
 export function SectionLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
   return (
-    <label
-      htmlFor={htmlFor}
-      className="mb-2 block text-fs-meta font-semibold uppercase tracking-ls-caps text-ink-4"
-    >
+    <label htmlFor={htmlFor} className="settings-section-label">
       {children}
     </label>
   );
@@ -101,7 +90,7 @@ export function SettingsField({
   className?: string;
 }) {
   return (
-    <div className={cn('min-w-0', className)}>
+    <div className={cn('settings-field', className)}>
       <SectionLabel htmlFor={id}>{label}</SectionLabel>
       {children}
       {note ? <SettingsFieldNote>{note}</SettingsFieldNote> : null}
@@ -110,7 +99,7 @@ export function SettingsField({
 }
 
 export function SettingsFieldNote({ children }: { children: ReactNode }) {
-  return <p className="mt-2 text-fs-meta leading-relaxed text-ink-4">{children}</p>;
+  return <p className="settings-field-note">{children}</p>;
 }
 
 export function SettingsControlGrid({
@@ -123,15 +112,7 @@ export function SettingsControlGrid({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        'grid gap-sp-4',
-        columns === 2 && 'md:grid-cols-2',
-        columns === 3 && 'md:grid-cols-2 xl:grid-cols-3',
-        columns === 4 && 'md:grid-cols-2 xl:grid-cols-4',
-        className,
-      )}
-    >
+    <div className={cn('settings-control-grid', className)} data-columns={columns}>
       {children}
     </div>
   );
@@ -149,9 +130,9 @@ export function SettingsNotice({
   className?: string;
 }) {
   return (
-    <Alert variant={tone} className={cn('rounded-r-sm px-3 py-2 text-fs-meta', className)}>
+    <Alert variant={tone} className={cn('settings-notice', className)}>
       {icon}
-      <AlertDescription className="text-fs-meta leading-relaxed">{children}</AlertDescription>
+      <AlertDescription className="settings-notice-description">{children}</AlertDescription>
     </Alert>
   );
 }
@@ -166,29 +147,15 @@ export function SettingsStatCard({
   tone?: 'default' | 'warning';
 }) {
   return (
-    <div
-      className={cn(
-        'rounded-r-sm border px-3 py-3',
-        tone === 'warning'
-          ? 'border-warn/30 bg-warn-surface text-warn'
-          : 'border-line bg-surface-1 text-ink-1',
-      )}
-    >
-      <div
-        className={cn('text-fs-meta font-medium', tone === 'warning' ? 'text-warn' : 'text-ink-3')}
-      >
-        {label}
-      </div>
-      <div className="mt-1 text-fs-sm font-semibold">{value}</div>
+    <div className="settings-stat-card" data-tone={tone}>
+      <div className="settings-stat-card-label">{label}</div>
+      <div className="settings-stat-card-value">{value}</div>
     </div>
   );
 }
 
 export function surfaceInputProps(className = '') {
-  return cn(
-    'h-10 rounded-r-sm border-line bg-surface-1 text-ink-1 placeholder:text-ink-4 focus:border-accent focus-visible:ring-accent-ring',
-    className,
-  );
+  return cn('settings-surface-input', className);
 }
 
 export function formatCompatibilityLabel(value?: string) {

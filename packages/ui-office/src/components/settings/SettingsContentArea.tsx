@@ -1,4 +1,4 @@
-import { Button, ErrorState, cn } from '@offisim/ui-core';
+import { Button, ErrorState } from '@offisim/ui-core';
 import { McpConfigPanel } from './McpConfigPanel';
 import { SettingsExternalTab } from './SettingsExternalTab';
 import { SettingsProviderTab } from './SettingsProviderTab';
@@ -59,15 +59,16 @@ export function SettingsContentArea({
   const meta = SETTINGS_CONTENT_META[activeTab];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-bg text-ink-1">
+    <div className="settings-content">
       <div
         data-testid="settings-content-scroll"
-        className={cn('flex-1 overflow-y-auto px-sp-8 py-sp-7', showSaveBar ? 'pb-24' : 'pb-sp-7')}
+        className="settings-content-scroll"
+        data-savebar={showSaveBar ? 'visible' : 'hidden'}
       >
-        <div className="max-w-settings-pane mx-auto flex w-full flex-col gap-sp-7">
-          <header className="flex flex-col gap-1">
-            <h2 className="text-fs-lg font-semibold text-ink-1">{meta.title}</h2>
-            <p className="max-w-2xl text-fs-sm leading-relaxed text-ink-3">{meta.description}</p>
+        <div className="settings-content-pane">
+          <header className="settings-content-head">
+            <h2>{meta.title}</h2>
+            <p>{meta.description}</p>
           </header>
           {saveError && (
             <ErrorState
@@ -75,7 +76,7 @@ export function SettingsContentArea({
               title="Settings update failed"
               message={saveError}
               primaryAction={{ label: 'Retry', onClick: () => void handleSave() }}
-              className="mb-4"
+              className="settings-content-error"
             />
           )}
           {activeTab === 'provider' && <SettingsProviderTab controller={controller} />}
@@ -88,15 +89,15 @@ export function SettingsContentArea({
       </div>
 
       {showSaveBar && (
-        <div className="shrink-0 border-t border-line-soft bg-surface-1 px-6 py-3 shadow-overlay sm:px-8 sm:py-4">
-          <div className="max-w-settings-pane mx-auto flex w-full justify-end">
+        <div className="settings-savebar">
+          <div className="settings-savebar-inner">
             <Button
               type="button"
               variant={buttonDisabled ? 'outline' : 'default'}
               onClick={() => void handleSave()}
               disabled={buttonDisabled}
               title={tooltip}
-              className="h-10 min-w-settings-save rounded-r-md px-sp-7 text-fs-sm font-medium"
+              className="settings-savebar-button"
             >
               {buttonLabel}
             </Button>
