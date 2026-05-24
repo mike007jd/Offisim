@@ -59,12 +59,12 @@ export function SettingsContentArea({
   const meta = SETTINGS_CONTENT_META[activeTab];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-surface text-text-primary">
+    <div className="flex min-h-0 flex-1 flex-col bg-bg text-ink-1">
       <div
         data-testid="settings-content-scroll"
-        className={`flex-1 overflow-y-auto p-5 sm:p-6 ${showSaveBar ? 'pb-24' : 'pb-6'}`}
+        className={`flex-1 overflow-y-auto px-sp-8 py-sp-7 ${showSaveBar ? 'pb-24' : 'pb-sp-7'}`}
       >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-sp-5">
+        <div className="max-w-settings-pane mx-auto flex w-full flex-col gap-sp-7">
           <header className="flex flex-col gap-1">
             <h2 className="text-fs-lg font-semibold text-ink-1">{meta.title}</h2>
             <p className="max-w-2xl text-fs-sm leading-relaxed text-ink-3">{meta.description}</p>
@@ -89,14 +89,14 @@ export function SettingsContentArea({
 
       {showSaveBar && (
         <div className="shrink-0 border-t border-line-soft bg-surface-1 px-6 py-3 shadow-overlay sm:px-8 sm:py-4">
-          <div className="mx-auto w-full max-w-3xl">
+          <div className="max-w-settings-pane mx-auto w-full">
             <Button
               type="button"
               variant={buttonDisabled ? 'outline' : 'default'}
               onClick={() => void handleSave()}
               disabled={buttonDisabled}
               title={tooltip}
-              className="h-11 w-full rounded-lg text-sm font-medium"
+              className="h-11 w-full rounded-r-md text-fs-sm font-medium"
             >
               {buttonLabel}
             </Button>

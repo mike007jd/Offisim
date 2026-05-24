@@ -26,7 +26,7 @@ export function SettingsSection({
         {action}
       </header>
       <Card className="rounded-r-md border-line-soft bg-surface-1 shadow-elev-1">
-        <CardContent className="flex flex-col gap-3 p-4">{children}</CardContent>
+        <CardContent className="flex flex-col gap-sp-4 p-sp-7">{children}</CardContent>
       </Card>
     </section>
   );
@@ -47,17 +47,15 @@ export function SurfaceCard({
 }) {
   return (
     <section
-      className={`rounded-xl border border-border-default bg-surface-elevated p-4 ${className}`}
+      className={`rounded-r-md border border-line-soft bg-surface-1 p-sp-7 shadow-elev-1 ${className}`}
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="mb-sp-5 flex items-start justify-between gap-sp-4">
         <div>
-          <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
-            {title}
-          </p>
-          {description ? <p className="mt-2 text-sm text-text-secondary">{description}</p> : null}
+          <p className="text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">{title}</p>
+          {description ? <p className="mt-2 text-fs-sm text-ink-3">{description}</p> : null}
         </div>
         {icon ? (
-          <div className="rounded-lg border border-border-focus bg-accent-muted p-2 text-accent-text">
+          <div className="rounded-r-md border border-accent-ring bg-accent-surface p-2 text-accent">
             {icon}
           </div>
         ) : null}
@@ -71,7 +69,7 @@ export function SectionLabel({ htmlFor, children }: { htmlFor: string; children:
   return (
     <label
       htmlFor={htmlFor}
-      className="mb-2 block text-caption font-semibold uppercase tracking-wide text-text-muted"
+      className="mb-2 block text-fs-meta font-semibold uppercase tracking-ls-caps text-ink-4"
     >
       {children}
     </label>
@@ -79,7 +77,7 @@ export function SectionLabel({ htmlFor, children }: { htmlFor: string; children:
 }
 
 export function surfaceInputProps(className = '') {
-  return `h-10 rounded-lg border-border-default bg-surface text-text-primary placeholder:text-text-muted focus-visible:ring-border-focus ${className}`;
+  return `h-10 rounded-r-sm border-line bg-surface-1 text-ink-1 placeholder:text-ink-4 focus:border-accent focus-visible:ring-accent-ring ${className}`;
 }
 
 export function formatCompatibilityLabel(value?: string) {

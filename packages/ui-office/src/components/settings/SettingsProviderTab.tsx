@@ -180,14 +180,14 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   }
 
   const resolvedSummary = (
-    <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
-      <span className="font-semibold text-text-primary">
+    <div className="flex flex-wrap items-center gap-2 text-fs-sm text-ink-3">
+      <span className="font-semibold text-ink-1">
         {selectedProduct?.displayName ?? 'Manual product'}
       </span>
       {selectedAccess?.label ? (
-        <Badge className="text-caption uppercase tracking-wide">{selectedAccess.label}</Badge>
+        <Badge className="text-fs-meta uppercase tracking-ls-caps">{selectedAccess.label}</Badge>
       ) : null}
-      <span className="text-xs text-text-muted">{routeSummary || 'Select a product'}</span>
+      <span className="text-fs-meta text-ink-4">{routeSummary || 'Select a product'}</span>
     </div>
   );
 
@@ -265,7 +265,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             </Select>
           </div>
         </div>
-        <p className="text-xs text-text-muted" title={selectedCapabilities}>
+        <p className="text-fs-meta text-ink-4" title={selectedCapabilities}>
           {selectedAccess?.description || selectedCapabilities}
         </p>
       </SettingsSection>
@@ -288,7 +288,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               }));
             }}
             placeholder="model-name"
-            className={surfaceInputProps('font-mono text-sm')}
+            className={surfaceInputProps('font-mono text-fs-sm')}
           />
           {modelOptions.length > 0 ? (
             <datalist id="settings-provider-model-options">
@@ -311,25 +311,25 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               className={surfaceInputProps()}
             />
             {IS_DESKTOP && hasStoredSecret ? (
-              <p className="mt-2 text-xs text-text-muted">
+              <p className="mt-2 text-fs-meta text-ink-4">
                 Leave empty to keep the stored credential.
               </p>
             ) : null}
             {IS_DESKTOP ? (
-              <p className="mt-2 break-all text-xs text-text-muted">
+              <p className="mt-2 break-all text-fs-meta text-ink-4">
                 Credential destination: {credentialDestination}
               </p>
             ) : null}
           </div>
         ) : (
-          <p className="text-xs text-text-muted">Credentials managed by host.</p>
+          <p className="text-fs-meta text-ink-4">Credentials managed by host.</p>
         )}
 
         {isThinkingProvider ? (
-          <p className="text-xs text-warning">Thinking model — keep max tokens at 1024+.</p>
+          <p className="text-fs-meta text-warn">Thinking model — keep max tokens at 1024+.</p>
         ) : null}
         {isHostResolvedProduct ? (
-          <p className="text-xs text-info">
+          <p className="text-fs-meta text-accent">
             Runtime binding activates only when a trusted host resolver is available.
           </p>
         ) : null}
@@ -357,8 +357,8 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
           </Button>
         }
       >
-        <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
-          <Badge className="text-caption uppercase tracking-wide">Agent scoped</Badge>
+        <div className="flex flex-wrap items-center gap-2 text-fs-meta text-ink-4">
+          <Badge className="text-fs-meta uppercase tracking-ls-caps">Agent scoped</Badge>
           <span>
             {providerListPull
               ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
@@ -370,16 +370,16 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             {providerListPull.sources.map((source) => (
               <div
                 key={source.sourceId}
-                className="rounded-md border border-border-default bg-surface px-2 py-1.5"
+                className="rounded-r-sm border border-line bg-surface-1 px-2 py-1.5"
               >
-                <p className="font-medium text-text-secondary">{source.label}</p>
-                <p className="mt-0.5 text-xs text-text-muted">{formatSourceSummary(source)}</p>
+                <p className="font-medium text-ink-3">{source.label}</p>
+                <p className="mt-0.5 text-fs-meta text-ink-4">{formatSourceSummary(source)}</p>
               </div>
             ))}
           </div>
         ) : null}
         {providerListPullError ? (
-          <p className="rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-warning">
+          <p className="rounded-r-sm border border-warn/40 bg-warn-surface px-2 py-1.5 text-warn">
             Last refresh failed: {providerListPullError}
           </p>
         ) : null}
@@ -412,9 +412,9 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               value={endpointOverride}
               onChange={(event) => setEndpointOverride(event.target.value)}
               placeholder={selectedVariant?.baseURL ?? 'https://api.example.com/v1'}
-              className={surfaceInputProps('font-mono text-sm')}
+              className={surfaceInputProps('font-mono text-fs-sm')}
             />
-            <p className="mt-2 text-xs text-text-muted">Leave empty to use the product default.</p>
+            <p className="mt-2 text-fs-meta text-ink-4">Leave empty to use the product default.</p>
           </div>
         ) : null}
 
@@ -439,7 +439,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               ))}
             </SelectContent>
           </Select>
-          <p className="mt-2 text-xs text-text-muted">
+          <p className="mt-2 text-fs-meta text-ink-4">
             {verifiedExecutionLanes.length > supportedExecutionLanes.length
               ? 'Other lanes exist in metadata but cannot run on this host.'
               : laneHelp}
@@ -453,20 +453,20 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             value={defaultHeaders}
             onChange={(event) => setDefaultHeaders(event.target.value)}
             placeholder='{"HTTP-Referer":"https://example.com"}'
-            className={surfaceInputProps('min-h-provider-headers font-mono text-sm')}
+            className={surfaceInputProps('min-h-provider-headers font-mono text-fs-sm')}
           />
-          <p className="mt-2 text-xs text-text-muted">JSON merged into transport headers.</p>
+          <p className="mt-2 text-fs-meta text-ink-4">JSON merged into transport headers.</p>
         </div>
 
-        <div className="text-xs text-text-muted">
-          <span className="font-semibold uppercase tracking-wide text-text-secondary">
+        <div className="text-fs-meta text-ink-4">
+          <span className="font-semibold uppercase tracking-ls-caps text-ink-3">
             Effective endpoint
           </span>
-          <p className="mt-1 break-all font-mono text-sm text-text-primary">
+          <p className="mt-1 break-all font-mono text-fs-sm text-ink-1">
             {effectiveEndpoint || 'Resolved at runtime'}
           </p>
           {selectedVariant?.notes ? (
-            <p className="mt-2 text-xs text-text-muted">{selectedVariant.notes}</p>
+            <p className="mt-2 text-fs-meta text-ink-4">{selectedVariant.notes}</p>
           ) : null}
         </div>
       </SettingsSection>

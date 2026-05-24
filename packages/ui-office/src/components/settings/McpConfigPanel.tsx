@@ -327,12 +327,12 @@ export function McpConfigPanel() {
   }, [servers]);
 
   return (
-    <div className="space-y-sp-3">
+    <div className="flex flex-col gap-sp-3">
       <SettingsSection title="Add MCP server">
         <div className="grid gap-3 md:mcp-config-row-grid md:items-start">
           <div>
             <Select value={transport} onValueChange={(v) => setTransport(v as McpTransport)}>
-              <SelectTrigger className={surfaceInputProps('text-sm')}>
+              <SelectTrigger className={surfaceInputProps('text-fs-sm')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -347,7 +347,7 @@ export function McpConfigPanel() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Server name"
-            className={surfaceInputProps('text-sm')}
+            className={surfaceInputProps('text-fs-sm')}
           />
           <Input
             value={transport === 'stdio' ? command : url}
@@ -358,7 +358,7 @@ export function McpConfigPanel() {
             placeholder={
               transport === 'stdio' ? '/usr/local/bin/mcp-server' : 'http://localhost:3001/sse'
             }
-            className={surfaceInputProps('text-sm')}
+            className={surfaceInputProps('text-fs-sm')}
           />
           <Button
             onClick={handleAdd}
@@ -369,9 +369,9 @@ export function McpConfigPanel() {
               (transport === 'stdio' ? !command.trim() : !url.trim()) ||
               connecting !== null
             }
-            className="h-10 border-success/40 bg-success-muted text-success hover:border-success hover:bg-surface-hover"
+            className="h-10 border-success/40 bg-success-muted text-success hover:border-success hover:bg-surface-sunken"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="size-3.5" />
             {connecting ? 'Connecting…' : 'Add'}
           </Button>
         </div>
@@ -380,34 +380,34 @@ export function McpConfigPanel() {
             value={argsText}
             onChange={(e) => setArgsText(e.target.value)}
             placeholder="Arguments (one per line, optional)"
-            className={surfaceInputProps('text-sm')}
+            className={surfaceInputProps('text-fs-sm')}
           />
         )}
         {pendingStdio && (
-          <div className="rounded-md border border-warning/40 bg-warning-muted px-3 py-3 text-xs text-text-secondary">
+          <div className="rounded-r-sm border border-warn/40 bg-warn-surface px-3 py-3 text-fs-meta text-ink-3">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <span className="font-medium text-text-primary">Confirm stdio MCP server</span>
-              <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-caption">
+              <span className="font-medium text-ink-1">Confirm stdio MCP server</span>
+              <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-fs-meta">
                 High risk
               </Badge>
             </div>
             <dl className="grid gap-1">
               <div className="grid gap-1 sm:mcp-config-detail-grid">
-                <dt className="text-text-muted">Command</dt>
+                <dt className="text-ink-4">Command</dt>
                 <dd className="break-all font-mono">{pendingStdio.command}</dd>
               </div>
               <div className="grid gap-1 sm:mcp-config-detail-grid">
-                <dt className="text-text-muted">Args</dt>
+                <dt className="text-ink-4">Args</dt>
                 <dd className="break-all font-mono">
                   {pendingStdio.args.length > 0 ? pendingStdio.args.join(' ') : '(none)'}
                 </dd>
               </div>
               <div className="grid gap-1 sm:mcp-config-detail-grid">
-                <dt className="text-text-muted">Source</dt>
+                <dt className="text-ink-4">Source</dt>
                 <dd>{pendingStdio.source}</dd>
               </div>
               <div className="grid gap-1 sm:mcp-config-detail-grid">
-                <dt className="text-text-muted">Tools</dt>
+                <dt className="text-ink-4">Tools</dt>
                 <dd>
                   {pendingStdio.requestedTools.length > 0
                     ? pendingStdio.requestedTools.join(', ')
@@ -435,40 +435,40 @@ export function McpConfigPanel() {
             </div>
           </div>
         )}
-        {formError && <p className="text-xs text-error">{formError}</p>}
+        {formError && <p className="text-fs-meta text-danger">{formError}</p>}
       </SettingsSection>
 
       <SettingsSection title="Configured servers">
         {servers.length === 0 ? (
-          <p className="text-xs text-text-muted">
+          <p className="text-fs-meta text-ink-4">
             No MCP servers configured. Add one above to enable tool use.
           </p>
         ) : (
           <div className="flex flex-col gap-4">
             {grouped.map(([groupTransport, groupServers]) => (
               <div key={groupTransport} className="flex flex-col gap-1.5">
-                <header className="text-caption uppercase tracking-wide text-text-muted">
+                <header className="text-fs-meta uppercase tracking-ls-caps text-ink-4">
                   {groupTransport.toUpperCase()} · {groupServers.length}
                 </header>
                 <ul className="flex flex-col gap-1">
                   {groupServers.map((server) => (
                     <li
                       key={serverKey(server)}
-                      className="flex items-center gap-3 rounded-md border border-border-subtle bg-surface px-3 py-2 hover:bg-surface-hover"
+                      className="flex items-center gap-3 rounded-r-sm border border-line-soft bg-surface-1 px-3 py-2 hover:bg-surface-sunken"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-text-primary">
+                          <span className="truncate text-fs-sm font-medium text-ink-1">
                             {server.name}
                           </span>
                           <Badge
                             variant={isConnected(server.name) ? 'success' : 'secondary'}
-                            className="shrink-0 px-1.5 py-0 text-caption"
+                            className="shrink-0 px-1.5 py-0 text-fs-meta"
                           >
                             {connectionLabel(server.name)}
                           </Badge>
                         </div>
-                        <p className="mt-0.5 truncate font-mono text-caption text-text-muted">
+                        <p className="mt-0.5 truncate font-mono text-fs-meta text-ink-4">
                           {server.transport === 'stdio'
                             ? [server.command ?? '', ...(server.args ?? [])]
                                 .filter(Boolean)
@@ -484,9 +484,9 @@ export function McpConfigPanel() {
                             onClick={() => handleReconnect(server)}
                             disabled={!isReady || connecting !== null}
                             title="Reconnect"
-                            className="h-7 w-7 p-0 text-text-secondary hover:text-success"
+                            className="size-7 p-0 text-ink-3 hover:text-success"
                           >
-                            <RefreshCw className="h-3.5 w-3.5" />
+                            <RefreshCw className="size-3.5" />
                           </Button>
                         )}
                         <Button
@@ -494,9 +494,9 @@ export function McpConfigPanel() {
                           size="sm"
                           onClick={() => handleRemove(server)}
                           title="Delete server"
-                          className="h-7 w-7 p-0 text-text-secondary hover:text-error"
+                          className="size-7 p-0 text-ink-3 hover:text-danger"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="size-3.5" />
                         </Button>
                       </div>
                     </li>

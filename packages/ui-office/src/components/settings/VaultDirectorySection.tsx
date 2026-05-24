@@ -36,13 +36,13 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
     <SurfaceCard
       title="Local vault"
       description="Desktop mode mirrors employee markdown into Offisim's local vault folder automatically."
-      icon={<FolderOpen className="h-5 w-5" />}
+      icon={<FolderOpen className="size-5" />}
     >
       <div className="flex flex-col gap-4">
         <div>
-          <p className="text-sm text-text-primary">{statusText}</p>
+          <p className="text-fs-sm text-ink-1">{statusText}</p>
           {desktopVaultRoot ? (
-            <p className="mt-2 font-mono text-xs text-text-muted">{desktopVaultRoot}</p>
+            <p className="mt-2 font-mono text-fs-meta text-ink-4">{desktopVaultRoot}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-3">
@@ -52,7 +52,7 @@ export function VaultDirectorySection({ notify }: VaultDirectorySectionProps) {
             onClick={handleOpenFolder}
             disabled={!desktopVaultRoot || openingFolder}
           >
-            <FolderOpen className="mr-2 h-4 w-4" />
+            <FolderOpen className="mr-2 size-4" />
             {openingFolder ? 'Opening...' : 'Open folder'}
           </Button>
         </div>

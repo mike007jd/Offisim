@@ -8,10 +8,10 @@ interface SettingsRowProps {
 
 export function SettingsRow({ label, description, children }: SettingsRowProps) {
   return (
-    <div className="flex h-12 items-center rounded-lg px-2 hover:bg-surface-hover">
+    <div className="flex h-12 items-center rounded-r-md px-2 hover:bg-surface-sunken">
       <div className="min-w-0 flex-1">
-        <span className="text-sm text-text-primary">{label}</span>
-        {description && <p className="mt-0.5 text-xs text-text-muted">{description}</p>}
+        <span className="text-fs-sm text-ink-1">{label}</span>
+        {description && <p className="mt-0.5 text-fs-meta text-ink-4">{description}</p>}
       </div>
       <div className="ml-4 flex-shrink-0">{children}</div>
     </div>

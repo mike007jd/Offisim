@@ -27,7 +27,7 @@ export function SettingsTabNav({
       className={
         horizontal
           ? 'flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-line-soft bg-surface-1 p-2'
-          : 'flex w-60 flex-shrink-0 flex-col gap-px overflow-y-auto border-r border-line-soft bg-surface-1 px-2.5 py-6'
+          : 'flex w-settings-nav flex-shrink-0 flex-col gap-px overflow-y-auto border-r border-line bg-surface-1 px-sp-4 py-sp-7'
       }
       aria-orientation={orientation}
     >
@@ -44,12 +44,12 @@ export function SettingsTabNav({
             type="button"
             variant="ghost"
             onClick={() => onTabChange(key)}
-            className={`justify-start gap-2.5 text-sm font-medium ${
+            className={`justify-start gap-2.5 text-fs-sm font-medium ${
               horizontal ? 'h-9 min-w-max rounded-r-sm px-3' : 'h-8 w-full rounded-r-sm px-2.5'
             } ${
               isActive
-                ? 'bg-accent-muted text-accent-text ring-1 ring-inset ring-accent-ring hover:bg-accent-muted'
-                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring hover:bg-accent-surface'
+                : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1'
             }`}
           >
             <Icon className="size-4" />

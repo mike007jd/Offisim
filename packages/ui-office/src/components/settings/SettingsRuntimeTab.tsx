@@ -31,8 +31,7 @@ const THEME_ITEMS = [
   { value: 'dark', label: 'Dark' },
 ] as const;
 
-const SUBSECTION_HEADING_CLASS =
-  'text-xs font-semibold uppercase tracking-wide text-text-muted';
+const SUBSECTION_HEADING_CLASS = 'text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3';
 
 function BooleanSelect({
   id,
@@ -132,7 +131,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
   const mainHarnessStatuses = listMainHarnessRuntimeStatus(mainHarnessPolicy);
 
   return (
-    <div className="space-y-sp-3">
+    <div className="flex flex-col gap-sp-3">
       <SettingsSection title="Runtime defaults">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div>
@@ -174,7 +173,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
               ariaLabel="Theme"
             />
             {theme === 'system' ? (
-              <p className="mt-2 text-xs text-text-muted">
+              <p className="mt-2 text-fs-meta text-ink-4">
                 Following OS preference: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
               </p>
             ) : null}
@@ -205,20 +204,20 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
 
       <SettingsSection title="Main harness control">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <div className="rounded-md border border-border-default bg-surface px-3 py-3">
-            <div className="text-xs font-medium text-text-secondary">Default owner</div>
-            <div className="mt-1 text-sm font-semibold text-text-primary">Offisim core</div>
+          <div className="rounded-r-sm border border-line bg-surface-1 px-3 py-3">
+            <div className="text-fs-meta font-medium text-ink-3">Default owner</div>
+            <div className="mt-1 text-fs-sm font-semibold text-ink-1">Offisim core</div>
           </div>
-          <div className="rounded-md border border-border-default bg-surface px-3 py-3">
-            <div className="text-xs font-medium text-text-secondary">Driver profiles</div>
-            <div className="mt-1 text-sm font-semibold text-text-primary">
+          <div className="rounded-r-sm border border-line bg-surface-1 px-3 py-3">
+            <div className="text-fs-meta font-medium text-ink-3">Driver profiles</div>
+            <div className="mt-1 text-fs-sm font-semibold text-ink-1">
               {mainHarnessStatuses.filter((status) => status.mode === 'driver' && status.selectable)
                 .length || 'None verified'}
             </div>
           </div>
-          <div className="rounded-md border border-warning/30 bg-warning-muted px-3 py-3">
-            <div className="text-xs font-medium text-warning">Replacement mode</div>
-            <div className="mt-1 text-sm font-semibold text-warning">
+          <div className="rounded-r-sm border border-warn/30 bg-warn-surface px-3 py-3">
+            <div className="text-fs-meta font-medium text-warn">Replacement mode</div>
+            <div className="mt-1 text-fs-sm font-semibold text-warn">
               Unavailable until release evidence
             </div>
           </div>
@@ -228,10 +227,10 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
             {mainHarnessStatuses.map((status) => (
               <div
                 key={`${status.mode}:${status.runtimeProfileId}`}
-                className="flex items-center justify-between rounded-md border border-border-default px-3 py-2 text-xs"
+                className="flex items-center justify-between rounded-r-sm border border-line px-3 py-2 text-fs-meta"
               >
-                <span className="font-medium text-text-primary">{status.runtimeProfileId}</span>
-                <span className={status.selectable ? 'text-success' : 'text-warning'}>
+                <span className="font-medium text-ink-1">{status.runtimeProfileId}</span>
+                <span className={status.selectable ? 'text-success' : 'text-warn'}>
                   {status.selectable ? 'Verified' : status.reason}
                 </span>
               </div>
@@ -278,7 +277,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
 
           <div>
             <h4 className={SUBSECTION_HEADING_CLASS}>Summarization</h4>
-            <p className="mt-1 text-xs text-text-muted">Auto-compress long conversations.</p>
+            <p className="mt-1 text-fs-meta text-ink-4">Auto-compress long conversations.</p>
             <div className="mt-3 grid gap-4 md:grid-cols-3">
               <BooleanSelect
                 id="runtime-summarization-enabled"

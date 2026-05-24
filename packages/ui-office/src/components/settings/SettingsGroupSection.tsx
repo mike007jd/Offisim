@@ -9,7 +9,7 @@ export function SettingsGroupSection({ title, children }: SettingsGroupSectionPr
   return (
     <div className="mb-6">
       <div className="mb-4 flex items-center gap-3">
-        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+        <span className="text-fs-meta font-semibold uppercase tracking-ls-capsr text-ink-4">
           {title}
         </span>
         <div className="h-px flex-1 bg-border-default" />

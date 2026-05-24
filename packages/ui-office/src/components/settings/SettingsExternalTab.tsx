@@ -162,27 +162,27 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-text-primary">External Employees</h2>
-          <p className="mt-1 text-sm text-text-secondary">
+          <h2 className="text-lg font-semibold text-ink-1">External Employees</h2>
+          <p className="mt-1 text-fs-sm text-ink-3">
             Branded A2A agents connected to this company. Offisim dispatches tasks over JSON-RPC
             using each agent card.
           </p>
         </div>
         <Button onClick={() => setInstallOpen(true)}>
-          <Plug className="h-4 w-4" /> Connect agent
+          <Plug className="size-4" /> Connect agent
         </Button>
       </div>
 
       {isLoading && rows.length === 0 && (
-        <div className="flex items-center gap-2 text-sm text-text-secondary">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+        <div className="flex items-center gap-2 text-fs-sm text-ink-3">
+          <Loader2 className="size-4 animate-spin" /> Loading…
         </div>
       )}
 
       {!isLoading && rows.length === 0 && (
-        <div className="rounded-lg border border-dashed border-border-default bg-surface-muted px-6 py-10 text-center">
-          <p className="text-sm font-semibold text-text-primary">No external employees yet</p>
-          <p className="mt-1 text-xs text-text-muted">
+        <div className="rounded-r-md border border-dashed border-line bg-surface-2 px-6 py-10 text-center">
+          <p className="text-fs-sm font-semibold text-ink-1">No external employees yet</p>
+          <p className="mt-1 text-fs-meta text-ink-4">
             Connect an A2A endpoint to add a branded external employee.
           </p>
         </div>
@@ -195,27 +195,24 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
           const isBusy = busyRowId === row.employee_id;
           const isEditing = editingTokenId === row.employee_id;
           return (
-            <li
-              key={row.employee_id}
-              className="rounded-lg border border-border-default bg-surface-elevated p-4"
-            >
+            <li key={row.employee_id} className="rounded-r-md border border-line bg-surface-1 p-4">
               <div className="flex items-start gap-3">
                 <img
                   alt={`${brand.displayName} avatar`}
                   src={brand.asset2dUri}
-                  className="h-11 w-11 rounded-lg"
+                  className="size-11 rounded-r-md"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2">
-                    <p className="truncate text-sm font-semibold text-text-primary">{row.name}</p>
-                    <span className="rounded-full border border-border-subtle bg-surface-muted px-2 py-0.5 text-caption text-text-secondary">
+                    <p className="truncate text-fs-sm font-semibold text-ink-1">{row.name}</p>
+                    <span className="rounded-r-pill border border-line-soft bg-surface-2 px-2 py-0.5 text-fs-meta text-ink-3">
                       {brand.displayName}
                     </span>
-                    <span className="text-caption text-text-muted">role: {row.role_slug}</span>
+                    <span className="text-fs-meta text-ink-4">role: {row.role_slug}</span>
                   </div>
-                  <p className="mt-1 truncate text-xs text-text-secondary">{row.a2a_url ?? '—'}</p>
+                  <p className="mt-1 truncate text-fs-meta text-ink-3">{row.a2a_url ?? '—'}</p>
                   {card?.name && card.name !== row.name && (
-                    <p className="mt-0.5 truncate text-caption text-text-muted">
+                    <p className="mt-0.5 truncate text-fs-meta text-ink-4">
                       agent card: {card.name}
                       {card.version ? ` · v${card.version}` : ''}
                     </p>
@@ -228,9 +225,9 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
                       variant="outline"
                       onClick={() => onEditEmployee(row.employee_id)}
                       disabled={isBusy}
-                      className="gap-1.5 text-xs"
+                      className="gap-1.5 text-fs-meta"
                     >
-                      <Pencil className="h-3 w-3" /> Edit
+                      <Pencil className="size-3" /> Edit
                     </Button>
                   )}
                   <Button
@@ -240,9 +237,9 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
                     disabled={isBusy || !row.a2a_url}
                   >
                     {isBusy ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <Loader2 className="size-3.5 animate-spin" />
                     ) : (
-                      <RefreshCw className="h-3.5 w-3.5" />
+                      <RefreshCw className="size-3.5" />
                     )}
                     Refresh
                   </Button>
@@ -260,16 +257,16 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
                     onClick={() => handleDisconnect(row)}
                     disabled={isBusy}
                   >
-                    <Trash2 className="h-3.5 w-3.5" /> Disconnect
+                    <Trash2 className="size-3.5" /> Disconnect
                   </Button>
                 </div>
               </div>
 
               {isEditing && (
-                <div className="mt-3 flex items-end gap-2 rounded-lg border border-border-default bg-surface-muted p-3">
+                <div className="mt-3 flex items-end gap-2 rounded-r-md border border-line bg-surface-2 p-3">
                   <div className="flex-1">
                     <label
-                      className="text-caption uppercase tracking-wide text-text-muted"
+                      className="text-fs-meta uppercase tracking-ls-caps text-ink-4"
                       htmlFor={`token-${row.employee_id}`}
                     >
                       Bearer token
