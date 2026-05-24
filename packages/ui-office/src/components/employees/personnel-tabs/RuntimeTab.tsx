@@ -10,7 +10,7 @@ import {
   type RuntimeBindingResolvedSource,
 } from '../../runtime/RuntimeBindingControl.js';
 import { ToolPermissionEditor } from '../ToolPermissionEditor';
-import { TabScrollShell } from './shared';
+import { PersonnelSaveBar, PersonnelTabSection, TabScrollShell } from './shared';
 
 interface RuntimeTabProps {
   editor: UseEmployeeEditorReturn;
@@ -55,10 +55,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
     <div className="flex h-full flex-col">
       <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-6 py-6">
         <div className="flex w-full flex-col gap-6 pb-32">
-          <section className="flex flex-col gap-3">
-            <h3 className="text-fs-meta font-semibold uppercase tracking-wider text-ink-4">
-              Execution binding
-            </h3>
+          <PersonnelTabSection title="Execution binding" className="py-0">
             <RuntimeBindingControl
               scope="employee"
               value={formData.runtimeBinding}
@@ -66,28 +63,25 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
               resolvedBinding={resolved.binding}
               resolvedSource={resolved.source}
             />
-          </section>
-          <section className="flex flex-col gap-3">
-            <h3 className="text-fs-meta font-semibold uppercase tracking-wider text-ink-4">
-              Tool permissions
-            </h3>
+          </PersonnelTabSection>
+          <PersonnelTabSection title="Tool permissions" className="py-0">
             <ToolPermissionEditor
               value={formData.toolPermissionPolicy}
               onChange={(value) => updateField('toolPermissionPolicy', value)}
             />
-          </section>
+          </PersonnelTabSection>
         </div>
       </div>
 
       {isDirty && (
-        <div className="shrink-0 border-t border-line bg-surface-1 px-6 py-3 backdrop-blur-sm">
-          <div className="flex w-full items-center justify-end gap-3">
+        <PersonnelSaveBar className="bg-surface-1 px-6">
+          <div className="flex flex-1 items-center justify-end gap-3">
             <Button size="sm" disabled={isSaving} onClick={save}>
               <Save className="mr-1 h-3.5 w-3.5" />
               {isSaving ? 'Saving...' : 'Save'}
             </Button>
           </div>
-        </div>
+        </PersonnelSaveBar>
       )}
     </div>
   );

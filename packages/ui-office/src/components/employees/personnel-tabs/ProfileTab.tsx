@@ -14,15 +14,20 @@ import {
   Textarea,
 } from '@offisim/ui-core';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useCompanyZones } from '../../../hooks/useCompanyZones.js';
 import type { UseEmployeeEditorReturn } from '../../../hooks/useEmployeeEditor';
-import { buildSystemPrompt } from '../../../lib/build-system-prompt';
 import { lookupExternalBrand } from '../../../lib/brand-registry';
+import { buildSystemPrompt } from '../../../lib/build-system-prompt';
 import { ROLE_OPTIONS } from '../../../lib/roles';
 import { useCompany } from '../../company/CompanyContext.js';
 import { SkillBindingList } from '../SkillBindingList';
+import {
+  PersonnelField,
+  PersonnelReadOnlyField,
+  PersonnelSaveBar,
+  PersonnelTabSection,
+} from './shared';
 
 interface ProviderOption {
   value: string;
@@ -106,7 +111,9 @@ export function ProfileTab({ editor }: ProfileTabProps) {
   const canSave = !formData.isExternal && isDirty && formData.name.trim() !== '' && !isSaving;
   const modelMode = formData.modelPreference.trim() ? 'custom' : 'inherit';
 
-  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [promptPreviewOpenByEmployee, setPromptPreviewOpenByEmployee] = useState<
+    Record<string, boolean>
+  >({});
   const [selectedProvider, setSelectedProvider] = useState(() =>
     inferProvider(formData.modelPreference),
   );
@@ -156,6 +163,14 @@ export function ProfileTab({ editor }: ProfileTabProps) {
   const workstationLabel = formData.workstation_id
     ? (workstationOptions.find((w) => w.value === formData.workstation_id)?.label ?? 'Assigned')
     : null;
+  const promptPreviewKey = employeeId ?? 'new-employee';
+  const showSystemPrompt = promptPreviewOpenByEmployee[promptPreviewKey] ?? false;
+  const toggleSystemPrompt = () => {
+    setPromptPreviewOpenByEmployee((prev) => ({
+      ...prev,
+      [promptPreviewKey]: !(prev[promptPreviewKey] ?? false),
+    }));
+  };
 
   if (formData.isExternal) {
     const brand = lookupExternalBrand(formData.brandKey);
@@ -178,22 +193,34 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               </div>
             </div>
 
-            <ProfileSection title="Identity">
-              <ReadOnlyField label="Name" value={formData.name || 'Unnamed employee'} />
-              <ReadOnlyField label="Role" value={roleLabel ?? formData.role_slug} />
-              <ReadOnlyField label="Status" value={formData.enabled ? 'Enabled' : 'Disabled'} />
-              <ReadOnlyField label="Brand" value={brand.displayName} />
-              <ReadOnlyField label="Workstation" value={workstationLabel ?? 'Unassigned'} />
-            </ProfileSection>
+            <PersonnelTabSection title="Identity">
+              <PersonnelReadOnlyField label="Name" value={formData.name || 'Unnamed employee'} />
+              <PersonnelReadOnlyField label="Role" value={roleLabel ?? formData.role_slug} />
+              <PersonnelReadOnlyField
+                label="Status"
+                value={formData.enabled ? 'Enabled' : 'Disabled'}
+              />
+              <PersonnelReadOnlyField label="Brand" value={brand.displayName} />
+              <PersonnelReadOnlyField
+                label="Workstation"
+                value={workstationLabel ?? 'Unassigned'}
+              />
+            </PersonnelTabSection>
 
-            <ProfileSection title="Persona">
-              <ReadOnlyField label="Expertise" value={formData.expertise || 'Managed externally'} />
-              <ReadOnlyField label="Working Style" value={formData.style || 'Managed externally'} />
-              <ReadOnlyField
+            <PersonnelTabSection title="Persona">
+              <PersonnelReadOnlyField
+                label="Expertise"
+                value={formData.expertise || 'Managed externally'}
+              />
+              <PersonnelReadOnlyField
+                label="Working Style"
+                value={formData.style || 'Managed externally'}
+              />
+              <PersonnelReadOnlyField
                 label="Instructions"
                 value={formData.customInstructions || 'Managed externally'}
               />
-            </ProfileSection>
+            </PersonnelTabSection>
           </div>
         </div>
       </div>
@@ -204,18 +231,16 @@ export function ProfileTab({ editor }: ProfileTabProps) {
     <div className="flex h-full flex-col bg-surface-2">
       <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-sp-5">
         <div className="flex w-full flex-col pb-32">
-          <ProfileSection title="Identity">
-            <FieldStack>
-              <FieldLabel htmlFor="editor-name">Name</FieldLabel>
+          <PersonnelTabSection title="Identity">
+            <PersonnelField label="Name" htmlFor="editor-name">
               <Input
                 id="editor-name"
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
                 placeholder="Employee name"
               />
-            </FieldStack>
-            <FieldStack>
-              <FieldLabel htmlFor="editor-role">Role</FieldLabel>
+            </PersonnelField>
+            <PersonnelField label="Role" htmlFor="editor-role">
               <Select
                 value={formData.role_slug}
                 onValueChange={(v) => updateField('role_slug', v as RoleSlug)}
@@ -231,9 +256,8 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   ))}
                 </SelectContent>
               </Select>
-            </FieldStack>
-            <FieldStack>
-              <FieldLabel htmlFor="editor-enabled">Status</FieldLabel>
+            </PersonnelField>
+            <PersonnelField label="Status" htmlFor="editor-enabled">
               <Button
                 id="editor-enabled"
                 type="button"
@@ -243,9 +267,22 @@ export function ProfileTab({ editor }: ProfileTabProps) {
               >
                 {formData.enabled ? 'Enabled' : 'Disabled'}
               </Button>
-            </FieldStack>
-            <FieldStack>
-              <FieldLabel htmlFor="editor-workstation">Assign Workstation</FieldLabel>
+            </PersonnelField>
+            <PersonnelField
+              label="Assign Workstation"
+              htmlFor="editor-workstation"
+              note={
+                <span
+                  title={
+                    workstationLabel
+                      ? 'MCP tools available via workstation rack.'
+                      : 'No MCP tools accessible without a workstation.'
+                  }
+                >
+                  {workstationLabel ? 'MCP tools enabled' : 'No MCP tools'}
+                </span>
+              }
+            >
               <Select
                 value={formData.workstation_id ?? 'none'}
                 onValueChange={(v) => updateField('workstation_id', v === 'none' ? null : v)}
@@ -262,22 +299,11 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   ))}
                 </SelectContent>
               </Select>
-              <p
-                className="mt-1 text-fs-meta text-ink-4"
-                title={
-                  workstationLabel
-                    ? 'MCP tools available via workstation rack.'
-                    : 'No MCP tools accessible without a workstation.'
-                }
-              >
-                {workstationLabel ? 'MCP tools enabled' : 'No MCP tools'}
-              </p>
-            </FieldStack>
-          </ProfileSection>
+            </PersonnelField>
+          </PersonnelTabSection>
 
-          <ProfileSection title="Persona">
-            <FieldStack>
-              <FieldLabel htmlFor="editor-expertise">Expertise</FieldLabel>
+          <PersonnelTabSection title="Persona">
+            <PersonnelField label="Expertise" htmlFor="editor-expertise">
               <Textarea
                 id="editor-expertise"
                 value={formData.expertise}
@@ -285,9 +311,8 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 placeholder="e.g. full-stack development, React, Node.js"
                 rows={3}
               />
-            </FieldStack>
-            <FieldStack>
-              <FieldLabel htmlFor="editor-style">Working Style</FieldLabel>
+            </PersonnelField>
+            <PersonnelField label="Working Style" htmlFor="editor-style">
               <Textarea
                 id="editor-style"
                 value={formData.style}
@@ -295,9 +320,8 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 placeholder="e.g. detail-oriented, collaborative"
                 rows={3}
               />
-            </FieldStack>
-            <FieldStack>
-              <FieldLabel>Communication Frequency</FieldLabel>
+            </PersonnelField>
+            <PersonnelField label="Communication Frequency">
               <SegmentedControl
                 size="sm"
                 ariaLabel="Communication frequency"
@@ -309,9 +333,8 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   { value: 'high', label: 'High' },
                 ]}
               />
-            </FieldStack>
-            <FieldStack>
-              <FieldLabel>Risk Preference</FieldLabel>
+            </PersonnelField>
+            <PersonnelField label="Risk Preference">
               <SegmentedControl
                 size="sm"
                 ariaLabel="Risk preference"
@@ -323,9 +346,8 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   { value: 'aggressive', label: 'Aggressive' },
                 ]}
               />
-            </FieldStack>
-            <FieldStack>
-              <FieldLabel htmlFor="editor-decision-style">Decision Style</FieldLabel>
+            </PersonnelField>
+            <PersonnelField label="Decision Style" htmlFor="editor-decision-style">
               <Select
                 value={formData.decisionStyle}
                 onValueChange={(value) =>
@@ -342,9 +364,8 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   <SelectItem value="directive">Directive</SelectItem>
                 </SelectContent>
               </Select>
-            </FieldStack>
-            <FieldStack>
-              <FieldLabel htmlFor="editor-instructions">Custom Instructions</FieldLabel>
+            </PersonnelField>
+            <PersonnelField label="Custom Instructions" htmlFor="editor-instructions">
               <Textarea
                 id="editor-instructions"
                 value={formData.customInstructions}
@@ -352,12 +373,12 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 placeholder="Additional instructions for this employee's behavior..."
                 rows={4}
               />
-            </FieldStack>
+            </PersonnelField>
             <div className="rounded-r-sm border border-line-soft bg-surface-sunken">
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => setShowSystemPrompt((v) => !v)}
+                onClick={toggleSystemPrompt}
                 className="h-auto w-full justify-start gap-1.5 rounded-r-sm px-3 py-2 text-fs-sm text-ink-3 hover:text-ink-1"
               >
                 {showSystemPrompt ? (
@@ -373,11 +394,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 </pre>
               )}
             </div>
-          </ProfileSection>
+          </PersonnelTabSection>
 
-          <ProfileSection title="Config">
-            <FieldStack>
-              <FieldLabel>Model mode</FieldLabel>
+          <PersonnelTabSection title="Config">
+            <PersonnelField label="Model mode">
               <SegmentedControl
                 size="sm"
                 ariaLabel="Employee model mode"
@@ -393,11 +413,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   ? 'Uses the company-wide model from Settings > Provider.'
                   : 'This employee will use the explicit model below.'}
               </p>
-            </FieldStack>
+            </PersonnelField>
             {modelMode === 'custom' ? (
               <>
-                <FieldStack>
-                  <FieldLabel htmlFor="editor-provider">Model family</FieldLabel>
+                <PersonnelField label="Model family" htmlFor="editor-provider">
                   <Select value={selectedProvider} onValueChange={setSelectedProvider}>
                     <SelectTrigger id="editor-provider">
                       <SelectValue />
@@ -410,9 +429,8 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                       ))}
                     </SelectContent>
                   </Select>
-                </FieldStack>
-                <FieldStack>
-                  <FieldLabel htmlFor="editor-model">Override model</FieldLabel>
+                </PersonnelField>
+                <PersonnelField label="Override model" htmlFor="editor-model">
                   <Input
                     id="editor-model"
                     list="editor-model-suggestions"
@@ -443,11 +461,10 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                       ))}
                     </div>
                   )}
-                </FieldStack>
+                </PersonnelField>
               </>
             ) : null}
-            <FieldStack>
-              <FieldLabel htmlFor="editor-temperature">Temperature</FieldLabel>
+            <PersonnelField label="Temperature" htmlFor="editor-temperature">
               <Input
                 id="editor-temperature"
                 type="number"
@@ -457,9 +474,8 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 value={formData.temperature}
                 onChange={(e) => updateField('temperature', Number.parseFloat(e.target.value) || 0)}
               />
-            </FieldStack>
-            <FieldStack>
-              <FieldLabel htmlFor="editor-max-tokens">Max Tokens</FieldLabel>
+            </PersonnelField>
+            <PersonnelField label="Max Tokens" htmlFor="editor-max-tokens">
               <Input
                 id="editor-max-tokens"
                 type="number"
@@ -477,92 +493,44 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                   Some models (e.g. MiniMax) use tokens for thinking. Recommend max tokens ≥ 1024.
                 </p>
               )}
-            </FieldStack>
-          </ProfileSection>
+            </PersonnelField>
+          </PersonnelTabSection>
 
           {isEditMode && employeeId && (
-            <ProfileSection title="Skills">
+            <PersonnelTabSection title="Skills">
               <SkillBindingList companyId={activeCompanyId} employeeId={employeeId} />
-            </ProfileSection>
+            </PersonnelTabSection>
           )}
         </div>
       </div>
 
       {/* Sticky save bar */}
-      <div className="shrink-0 border-t border-line-soft bg-surface-2 px-sp-5 py-3 shadow-overlay">
-        <div className="flex w-full items-center justify-between gap-3">
-          <div className="flex flex-1 items-center gap-2">
-            {isEditMode && !isConfirmingDelete && (
-              <Button variant="destructive" size="sm" disabled={isSaving} onClick={requestDelete}>
-                Delete
+      <PersonnelSaveBar>
+        <div className="flex flex-1 items-center gap-2">
+          {isEditMode && !isConfirmingDelete && (
+            <Button variant="destructive" size="sm" disabled={isSaving} onClick={requestDelete}>
+              Delete
+            </Button>
+          )}
+          {isEditMode && isConfirmingDelete && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-fs-meta text-destructive">
+                Delete {formData.name || 'this employee'}? This cannot be undone.
+              </span>
+              <Button variant="destructive" size="sm" disabled={isSaving} onClick={confirmDelete}>
+                {isSaving ? 'Deleting...' : 'Delete'}
               </Button>
-            )}
-            {isEditMode && isConfirmingDelete && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-fs-meta text-destructive">
-                  Delete {formData.name || 'this employee'}? This cannot be undone.
-                </span>
-                <Button variant="destructive" size="sm" disabled={isSaving} onClick={confirmDelete}>
-                  {isSaving ? 'Deleting...' : 'Delete'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={cancelDelete}>
-                  Cancel
-                </Button>
-              </div>
-            )}
-            {deleteError && <p className="ml-2 text-fs-meta text-destructive">{deleteError}</p>}
-          </div>
-          <Button size="sm" disabled={!canSave} onClick={save}>
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
+              <Button variant="outline" size="sm" onClick={cancelDelete}>
+                Cancel
+              </Button>
+            </div>
+          )}
+          {deleteError && <p className="ml-2 text-fs-meta text-destructive">{deleteError}</p>}
         </div>
-      </div>
+        <Button size="sm" disabled={!canSave} onClick={save}>
+          {isSaving ? 'Saving...' : 'Save'}
+        </Button>
+      </PersonnelSaveBar>
     </div>
-  );
-}
-
-function ProfileSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="border-b border-line-soft py-sp-5">
-      <header className="mb-sp-3">
-        <h3 className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
-          {title}
-        </h3>
-      </header>
-      <div className="flex flex-col gap-sp-3">{children}</div>
-    </section>
-  );
-}
-
-function FieldStack({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col gap-1.5">{children}</div>;
-}
-
-function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: ReactNode }) {
-  const className = 'text-fs-meta font-medium text-ink-2';
-  if (!htmlFor) {
-    return <span className={className}>{children}</span>;
-  }
-  return (
-    <label htmlFor={htmlFor} className={className}>
-      {children}
-    </label>
-  );
-}
-
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <FieldStack>
-      <FieldLabel>{label}</FieldLabel>
-      <div className="min-h-9 rounded-r-sm border border-line-soft bg-surface-1 px-3 py-2 text-fs-sm text-ink-1">
-        {value}
-      </div>
-    </FieldStack>
   );
 }

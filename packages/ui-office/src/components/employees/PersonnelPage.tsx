@@ -19,7 +19,7 @@ import {
   WorkspaceListSkeleton,
   cn,
 } from '@offisim/ui-core';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type LayoutTier, useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useEmployeeEditor } from '../../hooks/useEmployeeEditor';
@@ -28,8 +28,11 @@ import { ROLE_LABELS, ROLE_OPTIONS } from '../../lib/roles';
 import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
 import { STATE_LABELS } from '../../lib/state-labels';
 import { STATE_VARIANTS } from '../../lib/state-variants';
+import {
+  useOffisimRuntimeExecution,
+  useOffisimRuntimeServices,
+} from '../../runtime/offisim-runtime-context';
 import { useAgentStates } from '../../runtime/use-agent-states';
-import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
 import { AppearanceTab } from './personnel-tabs/AppearanceTab';
@@ -62,8 +65,13 @@ const TABS: ReadonlyArray<{ value: PersonnelTabId; label: string }> = [
   { value: 'history', label: 'History' },
 ];
 
-function personnelLayoutClass(tier: LayoutTier, railCollapsed: boolean): string {
+function personnelLayoutClass(
+  tier: LayoutTier,
+  railCollapsed: boolean,
+  isFirstHireEmpty: boolean,
+): string {
   if (tier === 'desktop') {
+    if (isFirstHireEmpty) return 'grid-personnel-desktop-empty';
     return railCollapsed ? 'grid-personnel-desktop-collapsed' : 'grid-personnel-desktop-expanded';
   }
   if (tier === 'tablet') {
@@ -79,6 +87,7 @@ export function PersonnelPage({
   onOpenMarket,
 }: PersonnelPageProps) {
   const { repos, eventBus } = useOffisimRuntimeServices();
+  const { failedRunError, retryLastMessage } = useOffisimRuntimeExecution();
   const { activeCompanyId } = useCompany();
   const editor = useEmployeeEditor();
   const { tier } = useLayoutTier();
@@ -200,6 +209,15 @@ export function PersonnelPage({
     onSessionStateChange((prev) => ({ ...prev, selectedEmployeeId: id }));
   };
 
+  const handleRetryEmployee = useCallback(
+    async (id: string) => {
+      onSessionStateChange((prev) => ({ ...prev, selectedEmployeeId: id }));
+      if (failedRunError?.targetEmployeeId !== id) return;
+      await retryLastMessage();
+    },
+    [failedRunError?.targetEmployeeId, onSessionStateChange, retryLastMessage],
+  );
+
   const handleTabChange = (value: string) => {
     onSessionStateChange((prev) => ({
       ...prev,
@@ -207,15 +225,18 @@ export function PersonnelPage({
     }));
   };
 
+  const hasRosterFilters = search.trim() !== '' || roleFilter !== 'all';
+  const showFirstHireEmpty =
+    !employeesLoading && !employeesError && employees.length === 0 && !hasRosterFilters;
   const railCollapsed =
     tier !== 'narrow' &&
     railState === 'collapsed' &&
     !employeesLoading &&
     !employeesError &&
     filteredEmployees.length > 0;
-  const layoutClass = personnelLayoutClass(tier, railCollapsed);
+  const layoutClass = personnelLayoutClass(tier, railCollapsed, showFirstHireEmpty);
 
-  const showInspectorInline = tier === 'desktop';
+  const showInspectorInline = tier === 'desktop' && !showFirstHireEmpty;
   const showStackedInspector = tier !== 'desktop' && selectedEmployee !== null;
   const showListPane = tier !== 'narrow' || selectedEmployee === null;
   const showDetailPane = tier !== 'narrow' || selectedEmployee !== null;
@@ -245,6 +266,7 @@ export function PersonnelPage({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search employees..."
+                    disabled={showFirstHireEmpty}
                     className="h-9 w-full py-1.5 pl-8 pr-3 text-fs-sm"
                   />
                 </div>
@@ -274,6 +296,7 @@ export function PersonnelPage({
                 <Select
                   value={roleFilter}
                   onValueChange={(value) => setRoleFilter(value as RoleSlug | 'all')}
+                  disabled={showFirstHireEmpty}
                 >
                   <SelectTrigger id="personnel-role-filter" className="h-9 text-fs-sm">
                     <SelectValue />
@@ -301,31 +324,18 @@ export function PersonnelPage({
                 technicalDetail={employeesError}
                 primaryAction={{ label: 'Retry', onClick: () => void refreshEmployees() }}
               />
-            ) : filteredEmployees.length === 0 ? (
+            ) : showFirstHireEmpty ? null : filteredEmployees.length === 0 ? (
               <EmptyState
                 variant="compact"
-                title={employees.length === 0 ? 'No employees yet' : 'No matching employees'}
-                description={
-                  employees.length === 0
-                    ? 'Hire the first teammate for this company.'
-                    : 'Reset the search or role filter to broaden the list.'
-                }
-                primaryAction={
-                  employees.length === 0
-                    ? { label: 'Hire your first employee', onClick: onOpenCreator }
-                    : {
-                        label: 'Reset filters',
-                        onClick: () => {
-                          setSearch('');
-                          setRoleFilter('all');
-                        },
-                      }
-                }
-                secondaryAction={
-                  employees.length === 0 && onOpenMarket
-                    ? { label: 'Browse marketplace', onClick: onOpenMarket }
-                    : undefined
-                }
+                title="No matching employees"
+                description="Reset the search or role filter to broaden the list."
+                primaryAction={{
+                  label: 'Reset filters',
+                  onClick: () => {
+                    setSearch('');
+                    setRoleFilter('all');
+                  },
+                }}
               />
             ) : null}
             {filteredEmployees.map((row) => {
@@ -333,44 +343,65 @@ export function PersonnelPage({
               const isExternal = row.is_external === 1;
               const brandLabel = isExternal ? lookupExternalBrand(row.brand_key).displayName : null;
               const liveState = agentStates.get(row.employee_id)?.state ?? 'idle';
+              const showRetryChip = liveState === 'failed';
+              const canRetryEmployee = failedRunError?.targetEmployeeId === row.employee_id;
               return (
-                <Button
-                  key={row.employee_id}
-                  type="button"
-                  variant="ghost"
-                  onClick={() => handleSelectEmployee(row.employee_id)}
-                  title={railCollapsed ? row.name : undefined}
-                  className={cn(
-                    'h-personnel-roster-row mb-0.5 w-full rounded-r-xs border text-left transition-colors',
-                    isSelected
-                      ? 'border-accent bg-accent-surface'
-                      : 'border-transparent hover:border-line hover:bg-surface-sunken',
-                    railCollapsed
-                      ? 'justify-center px-sp-1 py-sp-1'
-                      : 'justify-start gap-sp-2 px-sp-2 py-sp-1',
-                  )}
-                >
-                  <EmployeeAvatar agent={row} size={32} className="shrink-0" />
-                  <div className={cn('min-w-0 flex-1', railCollapsed && 'sr-only')}>
-                    <div className="flex items-baseline gap-2">
-                      <p className="truncate text-fs-sm font-medium text-ink-1">{row.name}</p>
-                      {row.enabled === 0 && (
-                        <span className="text-fs-meta text-ink-4">disabled</span>
-                      )}
+                <div key={row.employee_id} className="mb-0.5 flex min-w-0 items-stretch gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => handleSelectEmployee(row.employee_id)}
+                    title={railCollapsed ? row.name : undefined}
+                    className={cn(
+                      'h-personnel-roster-row min-w-0 flex-1 rounded-r-xs border text-left transition-colors',
+                      isSelected
+                        ? 'border-accent bg-accent-surface'
+                        : 'border-transparent hover:border-line hover:bg-surface-sunken',
+                      railCollapsed
+                        ? 'justify-center px-sp-1 py-sp-1'
+                        : 'justify-start gap-sp-2 px-sp-2 py-sp-1',
+                    )}
+                  >
+                    <EmployeeAvatar agent={row} size={32} className="shrink-0" />
+                    <div className={cn('min-w-0 flex-1', railCollapsed && 'sr-only')}>
+                      <div className="flex items-baseline gap-2">
+                        <p className="truncate text-fs-sm font-medium text-ink-1">{row.name}</p>
+                        {row.enabled === 0 && (
+                          <span className="text-fs-meta text-ink-4">disabled</span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                        <span className="text-fs-meta text-ink-3">
+                          {ROLE_LABELS[row.role_slug] ?? row.role_slug}
+                        </span>
+                        <LiveStatePill state={liveState} />
+                        {brandLabel && (
+                          <Badge size="xs" variant="outline">
+                            {brandLabel}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                      <span className="text-fs-meta text-ink-3">
-                        {ROLE_LABELS[row.role_slug] ?? row.role_slug}
-                      </span>
-                      <LiveStatePill state={liveState} />
-                      {brandLabel && (
-                        <Badge size="xs" variant="outline">
-                          {brandLabel}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </Button>
+                  </Button>
+                  {!railCollapsed && showRetryChip ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!canRetryEmployee}
+                      onClick={() => void handleRetryEmployee(row.employee_id)}
+                      title={
+                        canRetryEmployee
+                          ? 'Retry the last failed run for this employee'
+                          : 'Select the failed employee to inspect the run'
+                      }
+                      className="h-personnel-roster-row shrink-0 gap-1 rounded-r-xs px-2 text-fs-meta"
+                    >
+                      <RefreshCw className="size-3" aria-hidden="true" />
+                      Retry
+                    </Button>
+                  ) : null}
+                </div>
               );
             })}
           </div>
@@ -385,6 +416,8 @@ export function PersonnelPage({
               employee={selectedEmployee}
               onBack={tier === 'narrow' ? handleBackToList : undefined}
             />
+          ) : showFirstHireEmpty ? (
+            <FirstHireEmpty onOpenCreator={onOpenCreator} onOpenMarket={onOpenMarket} />
           ) : (
             <EmptyDetail />
           )}
@@ -432,8 +465,12 @@ function PersonnelTabs({
   selectedEmployeeId: string | null;
 }) {
   const tabBodyRef = useRef<HTMLDivElement | null>(null);
+  const scrollKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const scrollKey = `${activeTab}:${selectedEmployeeId ?? ''}`;
+    if (scrollKeyRef.current === scrollKey) return;
+    scrollKeyRef.current = scrollKey;
     const frame = window.requestAnimationFrame(() => {
       const activeScroll = tabBodyRef.current?.querySelector<HTMLElement>(
         '[data-state="active"] [data-personnel-tab-scroll]',
@@ -441,7 +478,7 @@ function PersonnelTabs({
       activeScroll?.scrollTo({ left: 0, top: 0 });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeTab, selectedEmployeeId]);
+  });
 
   return (
     <Tabs
@@ -564,6 +601,27 @@ function EmptyDetail() {
   return (
     <div className="flex h-full items-center justify-center px-6 py-10">
       <EmptyState title="Select an employee" />
+    </div>
+  );
+}
+
+function FirstHireEmpty({
+  onOpenCreator,
+  onOpenMarket,
+}: {
+  onOpenCreator?: () => void;
+  onOpenMarket?: () => void;
+}) {
+  return (
+    <div className="flex h-full items-center justify-center px-6 py-10">
+      <EmptyState
+        title="No employees yet"
+        description="Hire the first teammate for this company or install a marketplace employee."
+        primaryAction={{ label: 'Hire your first employee', onClick: onOpenCreator }}
+        secondaryAction={
+          onOpenMarket ? { label: 'Browse marketplace', onClick: onOpenMarket } : undefined
+        }
+      />
     </div>
   );
 }

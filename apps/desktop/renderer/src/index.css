@@ -87,6 +87,10 @@
     grid-template-columns: var(--personnel-left-rail) minmax(0, 1fr) var(--personnel-inspector);
   }
 
+  .grid-personnel-desktop-empty {
+    grid-template-columns: var(--personnel-left-rail) minmax(0, 1fr);
+  }
+
   .grid-personnel-desktop-collapsed {
     grid-template-columns: var(--personnel-left-rail-collapsed) minmax(0, 1fr) var(
         --personnel-inspector
