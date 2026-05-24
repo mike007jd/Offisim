@@ -13,7 +13,13 @@ import { RuntimeBindingControl } from '../runtime/RuntimeBindingControl.js';
 import { SceneDiagnosticsSection } from './SceneDiagnosticsSection';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
 import { VaultDirectorySection } from './VaultDirectorySection';
-import { SectionLabel, SettingsSection, surfaceInputProps } from './settings-primitives';
+import {
+  SettingsControlGrid,
+  SettingsField,
+  SettingsSection,
+  SettingsStatCard,
+  surfaceInputProps,
+} from './settings-primitives';
 
 interface SettingsRuntimeTabProps {
   controller: ReturnType<typeof useSettingsWorkspaceController>;
@@ -45,8 +51,7 @@ function BooleanSelect({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <div>
-      <SectionLabel htmlFor={id}>{label}</SectionLabel>
+    <SettingsField id={id} label={label}>
       <Select
         value={value ? 'enabled' : 'disabled'}
         onValueChange={(next) => onChange(next === 'enabled')}
@@ -59,7 +64,7 @@ function BooleanSelect({
           <SelectItem value="disabled">Disabled</SelectItem>
         </SelectContent>
       </Select>
-    </div>
+    </SettingsField>
   );
 }
 
@@ -81,8 +86,7 @@ function NumberField({
   step?: string;
 }) {
   return (
-    <div>
-      <SectionLabel htmlFor={id}>{label}</SectionLabel>
+    <SettingsField id={id} label={label}>
       <Input
         id={id}
         type="number"
@@ -93,7 +97,7 @@ function NumberField({
         step={step}
         className={surfaceInputProps()}
       />
-    </div>
+    </SettingsField>
   );
 }
 
@@ -133,9 +137,8 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
   return (
     <div className="flex flex-col gap-sp-3">
       <SettingsSection title="Runtime defaults">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div>
-            <SectionLabel htmlFor="settings-execution-mode">Execution mode</SectionLabel>
+        <SettingsControlGrid columns={3}>
+          <SettingsField id="settings-execution-mode" label="Execution mode">
             <Select
               value={executionMode}
               onValueChange={(value) => setExecutionMode(value as RuntimeExecutionMode)}
@@ -148,7 +151,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
                 <SelectItem value="desktop-trusted">Desktop trusted</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </SettingsField>
 
           <BooleanSelect
             id="settings-tool-search"
@@ -164,8 +167,11 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
             onChange={setGitAutoCommit}
           />
 
-          <div className="md:col-span-2 xl:col-span-3">
-            <SectionLabel htmlFor="settings-theme-group">Theme</SectionLabel>
+          <SettingsField
+            id="settings-theme-group"
+            label="Theme"
+            className="md:col-span-2 xl:col-span-3"
+          >
             <SegmentedControl
               value={theme}
               onChange={(next) => setTheme(next as typeof theme)}
@@ -177,51 +183,51 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
                 Following OS preference: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
               </p>
             ) : null}
-          </div>
+          </SettingsField>
 
-          <div className="md:col-span-2 xl:col-span-3">
-            <SectionLabel htmlFor="settings-density-group">Display density</SectionLabel>
+          <SettingsField
+            id="settings-density-group"
+            label="Display density"
+            className="md:col-span-2 xl:col-span-3"
+          >
             <SegmentedControl
               value={density}
               onChange={(next) => setDensity(next as typeof density)}
               items={[...DENSITY_ITEMS]}
               ariaLabel="Display density"
             />
-          </div>
+          </SettingsField>
 
-          <div className="md:col-span-2 xl:col-span-2">
-            <SectionLabel htmlFor="settings-employee-runtime-default">
-              Default employee runtime
-            </SectionLabel>
+          <SettingsField
+            id="settings-employee-runtime-default"
+            label="Default employee runtime"
+            className="md:col-span-2 xl:col-span-2"
+          >
             <RuntimeBindingControl
               scope="company"
               value={employeeRuntimeDefault ?? null}
               onChange={(next) => setEmployeeRuntimeDefault(next ?? undefined)}
             />
-          </div>
-        </div>
+          </SettingsField>
+        </SettingsControlGrid>
       </SettingsSection>
 
       <SettingsSection title="Main harness control">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <div className="rounded-r-sm border border-line bg-surface-1 px-3 py-3">
-            <div className="text-fs-meta font-medium text-ink-3">Default owner</div>
-            <div className="mt-1 text-fs-sm font-semibold text-ink-1">Offisim core</div>
-          </div>
-          <div className="rounded-r-sm border border-line bg-surface-1 px-3 py-3">
-            <div className="text-fs-meta font-medium text-ink-3">Driver profiles</div>
-            <div className="mt-1 text-fs-sm font-semibold text-ink-1">
-              {mainHarnessStatuses.filter((status) => status.mode === 'driver' && status.selectable)
-                .length || 'None verified'}
-            </div>
-          </div>
-          <div className="rounded-r-sm border border-warn/30 bg-warn-surface px-3 py-3">
-            <div className="text-fs-meta font-medium text-warn">Replacement mode</div>
-            <div className="mt-1 text-fs-sm font-semibold text-warn">
-              Unavailable until release evidence
-            </div>
-          </div>
-        </div>
+        <SettingsControlGrid columns={3} className="gap-3">
+          <SettingsStatCard label="Default owner" value="Offisim core" />
+          <SettingsStatCard
+            label="Driver profiles"
+            value={
+              mainHarnessStatuses.filter((status) => status.mode === 'driver' && status.selectable)
+                .length || 'None verified'
+            }
+          />
+          <SettingsStatCard
+            label="Replacement mode"
+            value="Unavailable until release evidence"
+            tone="warning"
+          />
+        </SettingsControlGrid>
         {mainHarnessStatuses.length > 0 ? (
           <div className="mt-3 grid gap-2">
             {mainHarnessStatuses.map((status) => (
@@ -243,7 +249,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
         <div className="flex flex-col gap-5">
           <div>
             <h4 className={SUBSECTION_HEADING_CLASS}>Memory</h4>
-            <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SettingsControlGrid columns={4} className="mt-3">
               <BooleanSelect
                 id="runtime-memory-enabled"
                 label="Enabled"
@@ -272,13 +278,13 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
                 max={1}
                 step="0.1"
               />
-            </div>
+            </SettingsControlGrid>
           </div>
 
           <div>
             <h4 className={SUBSECTION_HEADING_CLASS}>Summarization</h4>
             <p className="mt-1 text-fs-meta text-ink-4">Auto-compress long conversations.</p>
-            <div className="mt-3 grid gap-4 md:grid-cols-3">
+            <SettingsControlGrid columns={3} className="mt-3">
               <BooleanSelect
                 id="runtime-summarization-enabled"
                 label="Enabled"
@@ -299,7 +305,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
                 onChange={setSummarizationKeepRecentMessages}
                 min={0}
               />
-            </div>
+            </SettingsControlGrid>
           </div>
         </div>
       </SettingsSection>

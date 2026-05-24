@@ -1,4 +1,4 @@
-import { Button } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import type { LucideIcon } from 'lucide-react';
 import { Bot, Cpu, Plug, Users } from 'lucide-react';
 import type { SettingsTab } from './SettingsWorkspaceSurface';
@@ -24,11 +24,11 @@ export function SettingsTabNav({
   const horizontal = orientation === 'horizontal';
   return (
     <nav
-      className={
+      className={cn(
         horizontal
           ? 'flex w-full flex-shrink-0 gap-1 overflow-x-auto border-b border-line-soft bg-surface-1 p-2'
-          : 'flex w-settings-nav flex-shrink-0 flex-col gap-px overflow-y-auto border-r border-line bg-surface-1 px-sp-4 py-sp-7'
-      }
+          : 'flex w-settings-nav flex-shrink-0 flex-col gap-px overflow-y-auto border-r border-line bg-surface-1 px-sp-4 py-sp-7',
+      )}
       aria-orientation={orientation}
     >
       {!horizontal ? (
@@ -44,13 +44,13 @@ export function SettingsTabNav({
             type="button"
             variant="ghost"
             onClick={() => onTabChange(key)}
-            className={`justify-start gap-2.5 text-fs-sm font-medium ${
-              horizontal ? 'h-9 min-w-max rounded-r-sm px-3' : 'h-8 w-full rounded-r-sm px-2.5'
-            } ${
+            className={cn(
+              'justify-start gap-2.5 text-fs-sm font-medium',
+              horizontal ? 'h-9 min-w-max rounded-r-sm px-3' : 'h-8 w-full rounded-r-sm px-2.5',
               isActive
                 ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring hover:bg-accent-surface'
-                : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1'
-            }`}
+                : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
+            )}
           >
             <Icon className="size-4" />
             {label}

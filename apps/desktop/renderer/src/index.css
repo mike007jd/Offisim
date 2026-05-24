@@ -934,6 +934,10 @@
     grid-template-columns: 21.25rem minmax(0, 1fr);
   }
 
+  .min-w-settings-save {
+    min-width: 9rem;
+  }
+
   .min-h-provider-headers {
     min-height: 7.5rem;
   }

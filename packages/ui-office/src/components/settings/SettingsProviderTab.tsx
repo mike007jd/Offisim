@@ -21,7 +21,14 @@ import {
 } from '../../lib/provider-list-refresh';
 import { useTourTarget } from '../onboarding/tour-context.js';
 import type { useSettingsWorkspaceController } from './SettingsWorkspaceSurface';
-import { SectionLabel, SettingsSection, surfaceInputProps } from './settings-primitives';
+import {
+  SettingsControlGrid,
+  SettingsField,
+  SettingsFieldNote,
+  SettingsNotice,
+  SettingsSection,
+  surfaceInputProps,
+} from './settings-primitives';
 
 const IS_DESKTOP = isTauri();
 const PROVIDER_LIST_PULL_STORAGE_KEY = 'offisim-provider-list-last-pull';
@@ -229,9 +236,8 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
 
       <SettingsSection title="Product and access" description={routingDescription}>
         {resolvedSummary}
-        <div className="grid gap-sp-4 md:grid-cols-2">
-          <div>
-            <SectionLabel htmlFor="settings-provider-product">Product</SectionLabel>
+        <SettingsControlGrid columns={2}>
+          <SettingsField id="settings-provider-product" label="Product">
             <Select value={productId} onValueChange={handleProductChange}>
               <SelectTrigger id="settings-provider-product" className={surfaceInputProps()}>
                 <SelectValue />
@@ -244,10 +250,9 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </SettingsField>
 
-          <div>
-            <SectionLabel htmlFor="settings-provider-access">Access mode</SectionLabel>
+          <SettingsField id="settings-provider-access" label="Access mode">
             <Select
               value={accessMode}
               onValueChange={(value) => handleAccessModeChange(value as typeof accessMode)}
@@ -263,16 +268,15 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        </div>
+          </SettingsField>
+        </SettingsControlGrid>
         <p className="text-fs-meta text-ink-4" title={selectedCapabilities}>
           {selectedAccess?.description || selectedCapabilities}
         </p>
       </SettingsSection>
 
       <SettingsSection title="Model and credentials" description={laneHelp}>
-        <div>
-          <SectionLabel htmlFor="settings-model">Model</SectionLabel>
+        <SettingsField id="settings-model" label="Model">
           <Input
             id="settings-model"
             value={model}
@@ -297,11 +301,10 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               ))}
             </datalist>
           ) : null}
-        </div>
+        </SettingsField>
 
         {showApiKeyField ? (
-          <div>
-            <SectionLabel htmlFor="settings-api-key">Secure API key</SectionLabel>
+          <SettingsField id="settings-api-key" label="Secure API key">
             <Input
               id="settings-api-key"
               type="password"
@@ -311,27 +314,23 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               className={surfaceInputProps()}
             />
             {IS_DESKTOP && hasStoredSecret ? (
-              <p className="mt-2 text-fs-meta text-ink-4">
-                Leave empty to keep the stored credential.
-              </p>
+              <SettingsFieldNote>Leave empty to keep the stored credential.</SettingsFieldNote>
             ) : null}
             {IS_DESKTOP ? (
-              <p className="mt-2 break-all text-fs-meta text-ink-4">
-                Credential destination: {credentialDestination}
-              </p>
+              <SettingsFieldNote>Credential destination: {credentialDestination}</SettingsFieldNote>
             ) : null}
-          </div>
+          </SettingsField>
         ) : (
           <p className="text-fs-meta text-ink-4">Credentials managed by host.</p>
         )}
 
         {isThinkingProvider ? (
-          <p className="text-fs-meta text-warn">Thinking model — keep max tokens at 1024+.</p>
+          <SettingsNotice tone="warning">Thinking model — keep max tokens at 1024+.</SettingsNotice>
         ) : null}
         {isHostResolvedProduct ? (
-          <p className="text-fs-meta text-accent">
+          <SettingsNotice>
             Runtime binding activates only when a trusted host resolver is available.
-          </p>
+          </SettingsNotice>
         ) : null}
       </SettingsSection>
 
@@ -379,16 +378,15 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
           </div>
         ) : null}
         {providerListPullError ? (
-          <p className="rounded-r-sm border border-warn/40 bg-warn-surface px-2 py-1.5 text-warn">
+          <SettingsNotice tone="warning">
             Last refresh failed: {providerListPullError}
-          </p>
+          </SettingsNotice>
         ) : null}
       </SettingsSection>
 
       <SettingsSection title="Advanced routing" description={routingDescription}>
         {showVariantSelector ? (
-          <div>
-            <SectionLabel htmlFor="settings-provider-variant">Provider variant</SectionLabel>
+          <SettingsField id="settings-provider-variant" label="Provider variant">
             <Select value={providerVariantId} onValueChange={handleVariantChange}>
               <SelectTrigger id="settings-provider-variant" className={surfaceInputProps()}>
                 <SelectValue />
@@ -401,12 +399,15 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </SettingsField>
         ) : null}
 
         {showEndpointOverride ? (
-          <div>
-            <SectionLabel htmlFor="settings-endpoint-override">Endpoint override</SectionLabel>
+          <SettingsField
+            id="settings-endpoint-override"
+            label="Endpoint override"
+            note="Leave empty to use the product default."
+          >
             <Input
               id="settings-endpoint-override"
               value={endpointOverride}
@@ -414,12 +415,18 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               placeholder={selectedVariant?.baseURL ?? 'https://api.example.com/v1'}
               className={surfaceInputProps('font-mono text-fs-sm')}
             />
-            <p className="mt-2 text-fs-meta text-ink-4">Leave empty to use the product default.</p>
-          </div>
+          </SettingsField>
         ) : null}
 
-        <div>
-          <SectionLabel htmlFor="settings-execution-lane">Execution lane</SectionLabel>
+        <SettingsField
+          id="settings-execution-lane"
+          label="Execution lane"
+          note={
+            verifiedExecutionLanes.length > supportedExecutionLanes.length
+              ? 'Other lanes exist in metadata but cannot run on this host.'
+              : laneHelp
+          }
+        >
           <Select
             value={executionLane}
             onValueChange={(value) => {
@@ -439,15 +446,13 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
               ))}
             </SelectContent>
           </Select>
-          <p className="mt-2 text-fs-meta text-ink-4">
-            {verifiedExecutionLanes.length > supportedExecutionLanes.length
-              ? 'Other lanes exist in metadata but cannot run on this host.'
-              : laneHelp}
-          </p>
-        </div>
+        </SettingsField>
 
-        <div>
-          <SectionLabel htmlFor="settings-default-headers">Default headers</SectionLabel>
+        <SettingsField
+          id="settings-default-headers"
+          label="Default headers"
+          note="JSON merged into transport headers."
+        >
           <Textarea
             id="settings-default-headers"
             value={defaultHeaders}
@@ -455,8 +460,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             placeholder='{"HTTP-Referer":"https://example.com"}'
             className={surfaceInputProps('min-h-provider-headers font-mono text-fs-sm')}
           />
-          <p className="mt-2 text-fs-meta text-ink-4">JSON merged into transport headers.</p>
-        </div>
+        </SettingsField>
 
         <div className="text-fs-meta text-ink-4">
           <span className="font-semibold uppercase tracking-ls-caps text-ink-3">

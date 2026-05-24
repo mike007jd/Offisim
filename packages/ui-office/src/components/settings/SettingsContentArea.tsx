@@ -1,4 +1,4 @@
-import { Button, ErrorState } from '@offisim/ui-core';
+import { Button, ErrorState, cn } from '@offisim/ui-core';
 import { McpConfigPanel } from './McpConfigPanel';
 import { SettingsExternalTab } from './SettingsExternalTab';
 import { SettingsProviderTab } from './SettingsProviderTab';
@@ -62,7 +62,7 @@ export function SettingsContentArea({
     <div className="flex min-h-0 flex-1 flex-col bg-bg text-ink-1">
       <div
         data-testid="settings-content-scroll"
-        className={`flex-1 overflow-y-auto px-sp-8 py-sp-7 ${showSaveBar ? 'pb-24' : 'pb-sp-7'}`}
+        className={cn('flex-1 overflow-y-auto px-sp-8 py-sp-7', showSaveBar ? 'pb-24' : 'pb-sp-7')}
       >
         <div className="max-w-settings-pane mx-auto flex w-full flex-col gap-sp-7">
           <header className="flex flex-col gap-1">
@@ -89,14 +89,14 @@ export function SettingsContentArea({
 
       {showSaveBar && (
         <div className="shrink-0 border-t border-line-soft bg-surface-1 px-6 py-3 shadow-overlay sm:px-8 sm:py-4">
-          <div className="max-w-settings-pane mx-auto w-full">
+          <div className="max-w-settings-pane mx-auto flex w-full justify-end">
             <Button
               type="button"
               variant={buttonDisabled ? 'outline' : 'default'}
               onClick={() => void handleSave()}
               disabled={buttonDisabled}
               title={tooltip}
-              className="h-11 w-full rounded-r-md text-fs-sm font-medium"
+              className="h-10 min-w-settings-save rounded-r-md px-sp-7 text-fs-sm font-medium"
             >
               {buttonLabel}
             </Button>
