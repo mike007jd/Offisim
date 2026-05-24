@@ -4,6 +4,7 @@ import type {
   RuntimeEvent,
   SopDefinition,
 } from '@offisim/shared-types';
+import { EmptyState } from '@offisim/ui-core';
 import { FileOutput } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Deliverable, useDeliverables } from '../../hooks/useDeliverables';
@@ -119,26 +120,21 @@ export function PitchHall({
 
   if (deliverables.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-8 text-center p-3">
-        <div className="w-10 h-10 rounded-r-md bg-surface-2 border border-line-soft flex items-center justify-center">
-          <FileOutput className="w-5 h-5 text-ink-3" />
-        </div>
-        <div className="px-2">
-          <p className="text-fs-micro font-semibold text-ink-2">No Outputs Yet</p>
-          <p className="text-fs-micro text-ink-3 mt-1.5 leading-relaxed">
-            Deliverables will appear here as your AI employees complete tasks. You can copy, export,
-            or save them as SOPs.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        title="No Outputs Yet"
+        description="Deliverables will appear here as your AI employees complete tasks. You can copy, export, or save them as SOPs."
+        icon={FileOutput}
+        variant="compact"
+        className="pitch-empty-state"
+      />
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 p-3 overflow-hidden">
-      <div className="flex items-center justify-between">
-        <h2 className="text-fs-micro uppercase tracking-wider text-ink-3">Outputs</h2>
-        <span className="text-fs-micro text-ink-3">{deliverables.length}</span>
+    <div className="pitch-output-panel">
+      <div className="pitch-output-head">
+        <h2>Outputs</h2>
+        <span>{deliverables.length}</span>
       </div>
       {deliverables.map((item) => (
         <DeliverableCard

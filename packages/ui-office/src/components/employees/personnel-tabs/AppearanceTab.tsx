@@ -42,14 +42,11 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
   const isExternal = formData.isExternal;
 
   return (
-    <div
-      data-personnel-tab-scroll
-      className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-6 py-6"
-    >
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-appearance-tab">
-        <div className="min-w-0">
+    <div data-personnel-tab-scroll className="personnel-appearance-tab">
+      <div className="personnel-appearance-layout">
+        <div data-slot="customizer">
           {isExternal ? (
-            <p data-testid="external-avatar-disabled" className="text-fs-meta text-ink-4">
+            <p data-testid="external-avatar-disabled" data-slot="external-note">
               Brand avatar — appearance is fixed.
             </p>
           ) : (
@@ -59,7 +56,7 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
             />
           )}
         </div>
-        <div className="flex flex-col gap-3">
+        <div data-slot="preview-stack">
           <PreviewCard label="2D">
             {isExternal ? (
               <BrandAvatar2D brandKey={formData.brandKey} size={140} />
@@ -95,10 +92,8 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
 
 function PreviewCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="relative flex avatar-preview-card w-full items-center justify-center rounded-r-md border border-line-soft bg-surface-2">
-      <span className="absolute left-2 top-1.5 text-fs-meta font-medium uppercase tracking-wider text-ink-4">
-        {label}
-      </span>
+    <div className="avatar-preview-card">
+      <span data-slot="label">{label}</span>
       {children}
     </div>
   );
@@ -123,7 +118,8 @@ function Preview3DCanvas({
     ? lookupExternalBrand(brandKey).asset3dVariant
     : 'default';
   const sc = useSceneColors();
-  const canvasStyle = { ['background']: 'transparent' };
+  // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
+  const canvasStyle = { background: 'transparent' };
   return (
     <Canvas
       shadows={{ type: THREE.PCFShadowMap }}

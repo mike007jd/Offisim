@@ -1,6 +1,6 @@
 import { DEFAULT_RUNTIME_ENGINE_CAPABILITY_PROFILES } from '@offisim/core/browser';
 import { ENGINE_IDS, type EmployeeRuntimeBinding, type EngineId } from '@offisim/shared-types';
-import { RadioGroup, RadioGroupItem } from '@offisim/ui-core';
+import { RadioGroup, RadioGroupItem, cn } from '@offisim/ui-core';
 import { useAvailableEngineAdapters } from '../../runtime/offisim-runtime-context.js';
 
 export type RuntimeBindingScope = 'employee' | 'company';
@@ -147,12 +147,12 @@ export function RuntimeBindingControl({
     disclosureBinding.profileId !== CODEX_FULL_AGENT_PROFILE_ID;
 
   return (
-    <fieldset className={`flex flex-col gap-3 border-0 p-0 ${className}`}>
+    <fieldset className={cn('runtime-binding-control', className)}>
       <legend className="sr-only">Employee runtime capability</legend>
       <RadioGroup
         value={selectedId}
         onValueChange={(next) => onChange(optionIdToBinding(next as PickerOptionId))}
-        className="grid gap-2 md:grid-cols-2"
+        className="runtime-binding-grid"
       >
         {visibleOptions.map((option) => {
           const engineUnavailable =
@@ -172,26 +172,20 @@ export function RuntimeBindingControl({
           return (
             <RadioGroupItem key={option.id} value={option.id} disabled={optionDisabled} asChild>
               <div
-                className={`flex h-auto min-h-runtime-binding-card w-auto flex-col items-start gap-1 rounded-r-md border px-3 py-3 text-left transition ${
-                  isSelected
-                    ? 'border-focus bg-accent-surface text-accent'
-                    : 'border-line bg-surface text-ink-1 hover:border-line-strong hover:bg-surface-sunken'
-                } ${
-                  optionDisabled
-                    ? 'cursor-not-allowed opacity-55 hover:border-line hover:bg-surface'
-                    : 'cursor-pointer'
-                }`}
+                className="runtime-binding-option"
+                data-selected={isSelected ? 'true' : 'false'}
+                data-disabled={optionDisabled ? 'true' : 'false'}
               >
-                <span className="text-sm font-medium">{option.label}</span>
-                <span className="text-fs-micro leading-snug text-ink-2">{description}</span>
+                <span data-slot="label">{option.label}</span>
+                <span data-slot="description">{description}</span>
                 {selectedProfile ? (
-                  <span className="text-fs-micro leading-snug text-ink-3">
+                  <span data-slot="profile">
                     {selectedProfile.profileId} · {selectedProfile.tier} ·{' '}
                     {selectedProfile.evidenceClass} · {selectedProfile.verification.status}
                   </span>
                 ) : null}
                 {engineProfiles?.fullAgent && !option.profileId ? (
-                  <span className="text-fs-micro leading-snug text-warn">
+                  <span data-slot="warning">
                     {engineProfiles.fullAgent.availability === 'production'
                       ? `Full-agent promoted: ${engineProfiles.fullAgent.profileId}`
                       : `Full-agent target unavailable: ${engineProfiles.fullAgent.profileId} · missing ${engineProfiles.fullAgent.verification.blockers
@@ -200,11 +194,7 @@ export function RuntimeBindingControl({
                   </span>
                 ) : null}
                 {option.profileId && selectedProfile ? (
-                  <span
-                    className={`text-fs-micro leading-snug ${
-                      selectedProfile.availability === 'production' ? 'text-ok' : 'text-warn'
-                    }`}
-                  >
+                  <span data-slot="profile-state" data-availability={selectedProfile.availability}>
                     {selectedProfile.availability === 'production'
                       ? 'Release verified'
                       : `Unavailable: ${selectedProfile.verification.blockers
@@ -213,9 +203,7 @@ export function RuntimeBindingControl({
                   </span>
                 ) : null}
                 {engineUnavailable && (
-                  <span className="mt-1 text-fs-micro uppercase tracking-wider text-warn">
-                    {ENGINE_UNAVAILABLE_HINT}
-                  </span>
+                  <span data-slot="unavailable">{ENGINE_UNAVAILABLE_HINT}</span>
                 )}
               </div>
             </RadioGroupItem>
@@ -224,16 +212,14 @@ export function RuntimeBindingControl({
       </RadioGroup>
 
       {scope === 'employee' && resolvedBinding && (
-        <p className="text-xs text-ink-2">
+        <p className="runtime-binding-resolved">
           Resolved:{' '}
-          <span className="font-medium text-ink-1">
-            {resolvedBindingLabel(resolvedBinding, resolvedSource)}
-          </span>
+          <span data-slot="value">{resolvedBindingLabel(resolvedBinding, resolvedSource)}</span>
         </p>
       )}
 
       {showPreviewDisclosure && (
-        <p className="rounded-r-md border border-warn/30 bg-warn-surface px-3 py-2 text-fs-micro leading-snug text-warn">
+        <p className="runtime-binding-disclosure">
           Text-only preview · SDK transport is model access, not a full-agent route. Gateway-bridged
           tools and SDK-native full-agent profiles become selectable only after deterministic,
           benchmark, trusted-host, release app, denied-path, cancellation, rollback, sandbox, and
