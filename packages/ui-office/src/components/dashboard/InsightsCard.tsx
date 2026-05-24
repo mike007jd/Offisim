@@ -42,7 +42,10 @@ export function InsightsCard() {
         ) : (
           <ScrollArea className="max-h-48">
             {memories.map((m) => (
-              <div key={m.memory_id} className="px-2 py-1.5 border-b border-white/5 last:border-0">
+              <div
+                key={m.memory_id}
+                className="border-b border-line-soft px-2 py-1.5 last:border-0"
+              >
                 <p className="text-fs-micro text-ink-2 leading-relaxed">{m.content}</p>
                 <div className="flex items-center gap-2 mt-0.5 text-fs-micro text-ink-3">
                   <span>Importance: {Math.round((m.importance ?? 0.5) * 100)}%</span>

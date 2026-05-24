@@ -148,12 +148,12 @@ export default function Office2DCanvasView({
   if (hasCanvasContextError) {
     return (
       <div
-        className="w-full h-full flex items-center justify-center text-white"
+        className="flex h-full w-full items-center justify-center text-ink-1"
         style={{ backgroundColor: sceneColors.canvasBackground }}
       >
-        <div className="text-center p-4">
-          <p className="text-sm text-red-400">Canvas Error</p>
-          <p className="text-xs text-gray-400 mt-1">
+        <div className="p-4 text-center">
+          <p className="text-fs-sm text-danger">Canvas Error</p>
+          <p className="mt-1 text-fs-meta text-ink-4">
             Unable to obtain 2D rendering context. Your browser may not support Canvas.
           </p>
         </div>

@@ -238,7 +238,7 @@ function TemplatePreview() {
         <span
           key={label}
           className={cn(
-            'market-template-seat grid place-items-center rounded-r-xs text-fs-sm font-bold text-white shadow-elev-1',
+            'market-template-seat grid place-items-center rounded-r-xs text-fs-sm font-bold text-ink-1 shadow-elev-1',
             className,
           )}
         >
