@@ -5,6 +5,7 @@ import {
   unstable_useMentionAdapter,
   unstable_useSlashCommandAdapter,
   useAui,
+  useAuiState,
 } from '@assistant-ui/react';
 import type { EventBus } from '@offisim/core/browser';
 import type { ParsedAttachment, StagedAttachment } from '@offisim/shared-types';
@@ -127,11 +128,10 @@ export function ChatInput({
   attachmentStore,
   eventBus,
 }: ChatInputProps) {
-  const [text, setText] = useState('');
   const aui = useAui();
+  const text = useAuiState((state) => state.composer.text);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const latestTextRef = useRef('');
   const [dragActive, setDragActive] = useState(false);
   const dragDepthRef = useRef(0);
   const chatInputElementRef = useRef<HTMLElement | null>(null);
@@ -163,16 +163,16 @@ export function ChatInput({
   // ── Input change handler ────────────────────────────────────────
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
-    latestTextRef.current = val;
-    setText(val);
     resizeTextarea(e.currentTarget, val);
   }, []);
+
+  useEffect(() => {
+    resizeTextarea(textareaRef.current, text);
+  }, [text]);
 
   // ── Send logic ──────────────────────────────────────────────────
   const setComposerText = useCallback(
     (nextText: string) => {
-      latestTextRef.current = nextText;
-      setText(nextText);
       aui.composer().setText(nextText);
     },
     [aui],
@@ -183,40 +183,79 @@ export function ChatInput({
     staging.clear();
   }, [setComposerText, staging.clear]);
 
-  async function handleSend(messageText = text) {
+  const buildAttachmentPayload = useCallback((): ChatInputAttachmentPayload => {
+    return {
+      staged: staging.staged,
+      cachedParsed: new Map(
+        staging.staged
+          .map((s) => [s.attachmentId, staging.getCachedParsed(s.attachmentId)] as const)
+          .filter((pair): pair is [string, ParsedAttachment] => pair[1] !== undefined),
+      ),
+    };
+  }, [staging.getCachedParsed, staging.staged]);
+
+  const submitAttachmentOnly = useCallback(async () => {
+    if (disabled || staging.staged.length === 0) return;
+    const attachmentPayload = buildAttachmentPayload();
+    await onSendMessage('', attachmentPayload);
+    aui.composer().setText('');
+    aui.composer().setRunConfig({});
+    staging.clear();
+  }, [aui, buildAttachmentPayload, disabled, onSendMessage, staging.clear, staging.staged.length]);
+
+  const submitComposerForm = useCallback(() => {
+    const form =
+      chatInputElementRef.current instanceof HTMLFormElement
+        ? chatInputElementRef.current
+        : textareaRef.current?.form;
+    form?.requestSubmit();
+  }, []);
+
+  const prepareComposerSubmit = useCallback((): boolean => {
+    const composer = aui.composer();
+    const messageText = composer.getState().text;
     const trimmed = messageText.trim();
     const hasAttachments = staging.staged.length > 0;
-    if ((!trimmed && !hasAttachments) || disabled) return;
+    if ((!trimmed && !hasAttachments) || disabled) return true;
 
     if (trimmed) {
       const parsed = parseCommand(trimmed);
       if (parsed) {
         onCommand(parsed.command, parsed.args);
         clearComposer();
-        return;
+        composer.setRunConfig({});
+        return true;
       }
     }
 
-    const attachmentPayload: ChatInputAttachmentPayload | undefined = hasAttachments
-      ? {
-          staged: staging.staged,
-          cachedParsed: new Map(
-            staging.staged
-              .map((s) => [s.attachmentId, staging.getCachedParsed(s.attachmentId)] as const)
-              .filter((pair): pair is [string, ParsedAttachment] => pair[1] !== undefined),
-          ),
-        }
-      : undefined;
-    await onSendMessage(trimmed ? messageText : '', attachmentPayload);
-    latestTextRef.current = '';
-    setText('');
-    aui.composer().setText('');
+    if (!hasAttachments) {
+      composer.setRunConfig({});
+      return false;
+    }
+
+    const attachmentPayload = buildAttachmentPayload();
+    if (!trimmed) {
+      void submitAttachmentOnly();
+      return true;
+    }
+
+    composer.setRunConfig({ custom: { offisim: { attachments: attachmentPayload } } });
     staging.clear();
-  }
+    return false;
+  }, [
+    aui,
+    buildAttachmentPayload,
+    clearComposer,
+    disabled,
+    onCommand,
+    staging.clear,
+    staging.staged.length,
+    submitAttachmentOnly,
+  ]);
 
   // ── Select slash command ────────────────────────────────────────
   function selectSlashCommand(cmd: ChatCommand) {
-    const currentText = latestTextRef.current;
+    const currentText = aui.composer().getState().text;
     const slashTrigger = detectComposerTrigger(
       currentText,
       '/',
@@ -224,7 +263,7 @@ export function ChatInput({
     );
     if (slashTrigger && slashTrigger.offset !== 0) {
       setComposerText(currentText);
-      void handleSend(currentText);
+      requestAnimationFrame(submitComposerForm);
       return;
     }
     setComposerText(`/${cmd.name} `);
@@ -255,8 +294,6 @@ export function ChatInput({
       },
     })),
     onInserted: () => {
-      const nextText = aui.composer().getState().text;
-      setText(nextText);
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
   });
@@ -302,7 +339,7 @@ export function ChatInput({
 
     if (shouldRunNoArgCommand || shouldSendAttachmentOnly || shouldSendNoResultTrigger) {
       e.preventDefault();
-      void handleSend(value);
+      submitComposerForm();
     }
   }
 
@@ -482,8 +519,9 @@ export function ChatInput({
         ref={setChatInputTargetRef}
         className="chat-composer-root"
         onSubmit={(event) => {
-          event.preventDefault();
-          void handleSend();
+          if (prepareComposerSubmit()) {
+            event.preventDefault();
+          }
         }}
         onDragEnter={onDragEnter}
         onDragOver={onDragOver}

@@ -78,9 +78,6 @@ export function tryWorkspaceInternalBack(
 
     case 'office': {
       const o = sessionState.office;
-      if (o.kanbanOpen) {
-        return [true, { ...sessionState, office: { ...o, kanbanOpen: false } }];
-      }
       if (o.selectedEmployeeId) {
         return [true, { ...sessionState, office: { ...o, selectedEmployeeId: null } }];
       }
@@ -163,13 +160,12 @@ export function useWorkspaceSessionState(options: UseWorkspaceSessionStateOption
 
       if (prev.activeWorkspace === 'office') {
         const o = nextSessionState.office;
-        if (o.studioMode !== null || o.kanbanOpen) {
+        if (o.studioMode !== null) {
           nextSessionState = {
             ...nextSessionState,
             office: {
               ...o,
               studioMode: null,
-              kanbanOpen: false,
             },
           };
         }

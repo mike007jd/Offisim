@@ -22,12 +22,7 @@ interface SceneCostReadoutProps {
   notificationSlot?: ReactNode;
 }
 
-/**
- * Diegetic cumulative cost readout pinned to the stage bottom-right (replaces the
- * deleted StatusBar EnergyMeter). Tokens + estimated spend only — latency lives in
- * the Live run overlay, not here. While a run is live the readout gains an
- * accent-ring border and a pulsing beat dot (过程即价值 — money burning is felt).
- */
+/** Cumulative token/cost readout for the shell run rail. */
 export function SceneCostReadout({ notificationSlot }: SceneCostReadoutProps) {
   const metrics = useDashboardMetrics();
   const { isRunning } = useOffisimRuntimeStatus();

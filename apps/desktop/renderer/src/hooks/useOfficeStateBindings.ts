@@ -8,7 +8,6 @@ export interface OfficeStateBindingsDeps {
 }
 
 export interface OfficeStateBindingsApi {
-  lastUserRequest: string | null;
   chatOpenToken: number;
   focusOutputsToken: number;
   viewModeNonce: number;
@@ -19,7 +18,6 @@ export interface OfficeStateBindingsApi {
   /** Bumps `viewModeNonce` on every explicit toggle click — value-agnostic retry signal. */
   onViewModeClick: () => void;
   onSceneFallbackTo2D: () => void;
-  handleToggleKanban: () => void;
   onLayoutMetricsChange: (metrics: { leftPanelWidth: number; rightPanelWidth: number }) => void;
   handleSelectEmployee: (id: string | null) => void;
   handleUserMessage: (text: string) => void;
@@ -28,7 +26,6 @@ export interface OfficeStateBindingsApi {
 export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeStateBindingsApi {
   const { activeCompanyId, updateWorkspaceState } = deps;
 
-  const [lastUserRequest, setLastUserRequest] = useState<string | null>(null);
   const [chatOpenToken, setChatOpenToken] = useState(0);
   const [focusOutputsToken, setFocusOutputsToken] = useState(0);
   const [viewModeNonce, setViewModeNonce] = useState(0);
@@ -51,11 +48,6 @@ export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeSta
 
   const onSceneFallbackTo2D = useCallback(
     () => updateWorkspaceState('office', (prev) => ({ ...prev, viewMode: '2D' })),
-    [updateWorkspaceState],
-  );
-
-  const handleToggleKanban = useCallback(
-    () => updateWorkspaceState('office', (prev) => ({ ...prev, kanbanOpen: !prev.kanbanOpen })),
     [updateWorkspaceState],
   );
 
@@ -89,8 +81,7 @@ export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeSta
   );
 
   const handleUserMessage = useCallback(
-    (text: string) => {
-      setLastUserRequest(text);
+    (_text: string) => {
       if (activeCompanyId) {
         markCompany(activeCompanyId, 'first_task_sent');
       }
@@ -99,7 +90,6 @@ export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeSta
   );
 
   return {
-    lastUserRequest,
     chatOpenToken,
     focusOutputsToken,
     viewModeNonce,
@@ -109,7 +99,6 @@ export function useOfficeStateBindings(deps: OfficeStateBindingsDeps): OfficeSta
     onViewModeChange,
     onViewModeClick,
     onSceneFallbackTo2D,
-    handleToggleKanban,
     onLayoutMetricsChange,
     handleSelectEmployee,
     handleUserMessage,

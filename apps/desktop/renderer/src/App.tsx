@@ -313,7 +313,6 @@ export function App({ onCompanySwitch }: AppProps) {
     closeOverlay: overlay.closeOverlay,
     setShortcutHelpOpen,
     routeToPersonnel,
-    handleToggleKanban: officeBindings.handleToggleKanban,
     updateWorkspaceState,
     onViewModeClick: officeBindings.onViewModeClick,
   });
@@ -385,8 +384,7 @@ export function App({ onCompanySwitch }: AppProps) {
     ],
   );
 
-  const anyOverlayOpen =
-    officeState.kanbanOpen || installFlow.isOpen || shortcutHelpOpen || companyWizardMode !== null;
+  const anyOverlayOpen = installFlow.isOpen || shortcutHelpOpen || companyWizardMode !== null;
 
   const handleSelectThread = useCallback(
     (threadId: string) =>
@@ -408,7 +406,6 @@ export function App({ onCompanySwitch }: AppProps) {
       onOpenSettings: handleOpenSettings,
       onOpenStudio: lifecycle.handleOpenStudio,
       onSelectEmployee: officeBindings.handleSelectEmployee,
-      onToggleKanban: officeBindings.handleToggleKanban,
       onUserMessage: officeBindings.handleUserMessage,
       onRequestEditProject: handleRequestEditProject,
       onProjectError: handleProjectWorkspaceError,
@@ -425,7 +422,6 @@ export function App({ onCompanySwitch }: AppProps) {
       officeBindings.chatOpenToken,
       officeBindings.focusOutputsToken,
       officeBindings.handleSelectEmployee,
-      officeBindings.handleToggleKanban,
       officeBindings.handleUserMessage,
       officeState.selectedEmployeeId,
       officeState.selectedThreadId,
@@ -503,7 +499,6 @@ export function App({ onCompanySwitch }: AppProps) {
               onSelectWorkspace={setActiveWorkspace}
               onOpenCompanySelect={overlay.openCompanySelect}
               onOpenEmployeeCreator={overlay.openEmployeeCreator}
-              onToggleKanban={officeBindings.handleToggleKanban}
               onSelectEmployee={officeBindings.handleSelectEmployee}
               onViewModeChange={officeBindings.onViewModeChange}
               onViewModeClick={officeBindings.onViewModeClick}
@@ -516,7 +511,6 @@ export function App({ onCompanySwitch }: AppProps) {
               onStartMarketInstall={installFlow.startRegistryInstall}
               addToast={addToast}
               onEditExternalEmployee={(id) => routeToPersonnel(id, 'profile')}
-              lastUserRequest={officeBindings.lastUserRequest}
               activeCompanyId={activeCompanyId}
               onSelectThread={handleSelectThread}
               selectedEmployeeId={officeState.selectedEmployeeId}

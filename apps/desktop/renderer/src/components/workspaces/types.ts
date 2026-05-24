@@ -46,7 +46,6 @@ export type OfficeSessionState = {
   /** Active `chat_threads.thread_id`; not the LangGraph `graph_threads.thread_id`. */
   selectedThreadId: string | null;
   studioMode: 'create' | 'edit' | null;
-  kanbanOpen: boolean;
   leftPanelWidth: number;
   rightPanelWidth: number;
 };
@@ -217,7 +216,6 @@ export function createDefaultOfficeState(): OfficeSessionState {
     selectedEmployeeId: null,
     selectedThreadId: null,
     studioMode: null,
-    kanbanOpen: false,
     leftPanelWidth: 44,
     rightPanelWidth: 44,
   };

@@ -4,10 +4,20 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
 
+const SHELL_RAIL_WIDTHS = {
+  collapsed: 44,
+  left: 288,
+  right: 448,
+} as const;
+
 interface AppLayoutProps {
   header: ReactNode;
   agentPanel: ReactNode;
   sceneCanvas: ReactNode;
+  runRailStart?: ReactNode;
+  runRailCenter?: ReactNode;
+  runRailEnd?: ReactNode;
+  teamDock?: ReactNode;
   chatDrawer: ReactNode;
   eventLog: ReactNode;
   /**
@@ -16,8 +26,6 @@ interface AppLayoutProps {
    * When `null` / `undefined`, the scene canvas is shown (Office mode).
    */
   centerContent?: ReactNode;
-  /** Office-scoped tray mounted below the shell header (for boards/status). */
-  taskTray?: ReactNode;
   chatDrawerMode?: 'always' | 'mobile-only';
   /** Bump to request right rail expansion (only on desktop/tablet). */
   requestRightExpandToken?: number;
@@ -70,24 +78,6 @@ function CollapsedBar({
 
 const RIGHT_RAIL_STORAGE_KEY = 'offisim-rightrail-open';
 
-function readShellWidth(className: string): number {
-  if (typeof document === 'undefined') return 0;
-  const probe = document.createElement('div');
-  probe.className = `${className} pointer-events-none invisible absolute`;
-  document.body.appendChild(probe);
-  const width = probe.getBoundingClientRect().width;
-  probe.remove();
-  return width;
-}
-
-function readRailWidths() {
-  return {
-    left: readShellWidth('w-office-left-rail'),
-    right: readShellWidth('w-office-right-rail'),
-    collapsed: readShellWidth('w-office-rail-collapsed'),
-  };
-}
-
 function readStoredRightOpen(): boolean | null {
   try {
     const saved = localStorage.getItem(RIGHT_RAIL_STORAGE_KEY);
@@ -113,10 +103,13 @@ export function AppLayout({
   header,
   agentPanel,
   sceneCanvas,
+  runRailStart,
+  runRailCenter,
+  runRailEnd,
+  teamDock,
   chatDrawer,
   eventLog,
   centerContent,
-  taskTray,
   chatDrawerMode = 'always',
   requestRightExpandToken,
   onLayoutMetricsChange,
@@ -159,9 +152,8 @@ export function AppLayout({
     }
   }, [requestRightExpandToken, isNarrow, rightOpen, commitRightOpen]);
 
-  const railWidths = useMemo(readRailWidths, []);
-  const leftWidth = leftOpen ? railWidths.left : railWidths.collapsed;
-  const rightWidth = rightOpen ? railWidths.right : railWidths.collapsed;
+  const leftWidth = leftOpen ? SHELL_RAIL_WIDTHS.left : SHELL_RAIL_WIDTHS.collapsed;
+  const rightWidth = rightOpen ? SHELL_RAIL_WIDTHS.right : SHELL_RAIL_WIDTHS.collapsed;
 
   const layoutMetrics = useMemo(
     () => ({
@@ -180,68 +172,74 @@ export function AppLayout({
 
   const showLeft = !isNarrow && agentPanel != null;
   const showRight = !isNarrow && eventLog != null;
+  const showRunRail = !centerContent && (runRailStart || runRailCenter || runRailEnd);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-bg text-ink-1">
-      <div className="relative z-30 shrink-0 border-b border-line bg-surface-1">
-        {header}
-        {taskTray ? (
-          <div className="pointer-events-none absolute inset-x-0 top-full z-40 px-sp-4">
-            <div className="pointer-events-auto w-full">{taskTray}</div>
-          </div>
+      <div className="relative z-30 shrink-0 border-b border-line bg-surface-1">{header}</div>
+      {showRunRail ? (
+        <div className="flex min-h-12 shrink-0 items-center gap-sp-3 border-b border-line bg-surface-1 px-sp-5">
+          <div className="flex min-w-0 flex-1 justify-start">{runRailStart}</div>
+          <div className="flex min-w-0 flex-1 justify-center">{runRailCenter}</div>
+          <div className="flex min-w-0 flex-1 justify-end">{runRailEnd}</div>
+        </div>
+      ) : null}
+
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1">
+          {showLeft && (
+            <aside
+              className={cn(
+                'flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-line bg-surface-1',
+                leftOpen ? 'w-office-left-rail' : 'w-office-rail-collapsed',
+              )}
+            >
+              {leftOpen ? (
+                <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
+                  {agentPanel}
+                </div>
+              ) : (
+                <CollapsedBar
+                  side="left"
+                  icon={Users}
+                  label="Files"
+                  ariaLabel="Expand left rail"
+                  onClick={() => setLeftOpen(true)}
+                />
+              )}
+            </aside>
+          )}
+
+          <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+            {centerContent ?? sceneCanvas}
+          </main>
+
+          {showRight && (
+            <aside
+              className={cn(
+                'flex min-h-0 shrink-0 flex-col overflow-hidden border-l border-line bg-surface-1',
+                rightOpen ? 'w-office-right-rail' : 'w-office-rail-collapsed',
+              )}
+            >
+              {rightOpen ? (
+                <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
+                  {eventLog}
+                </div>
+              ) : (
+                <CollapsedBar
+                  side="right"
+                  icon={LayoutDashboard}
+                  label="Chat"
+                  ariaLabel="Expand right rail"
+                  onClick={() => commitRightOpen(true)}
+                />
+              )}
+            </aside>
+          )}
+        </div>
+        {teamDock && !centerContent ? (
+          <div className="shrink-0 border-t border-line bg-surface-1">{teamDock}</div>
         ) : null}
-      </div>
-
-      <div className="flex min-h-0 min-w-0 flex-1">
-        {showLeft && (
-          <aside
-            className={cn(
-              'flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-line bg-surface-1',
-              leftOpen ? 'w-office-left-rail' : 'w-office-rail-collapsed',
-            )}
-          >
-            {leftOpen ? (
-              <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
-                {agentPanel}
-              </div>
-            ) : (
-              <CollapsedBar
-                side="left"
-                icon={Users}
-                label="Files"
-                ariaLabel="Expand left rail"
-                onClick={() => setLeftOpen(true)}
-              />
-            )}
-          </aside>
-        )}
-
-        <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-          {centerContent ?? sceneCanvas}
-        </main>
-
-        {showRight && (
-          <aside
-            className={cn(
-              'flex min-h-0 shrink-0 flex-col overflow-hidden border-l border-line bg-surface-1',
-              rightOpen ? 'w-office-right-rail' : 'w-office-rail-collapsed',
-            )}
-          >
-            {rightOpen ? (
-              <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
-                {eventLog}
-              </div>
-            ) : (
-              <CollapsedBar
-                side="right"
-                icon={LayoutDashboard}
-                label="Chat"
-                ariaLabel="Expand right rail"
-                onClick={() => commitRightOpen(true)}
-              />
-            )}
-          </aside>
-        )}
       </div>
 
       {/* Narrow tier: chat as a bottom drawer (no room for a solid right column) */}

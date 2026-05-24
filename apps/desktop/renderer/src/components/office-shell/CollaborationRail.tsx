@@ -13,7 +13,6 @@ interface CollaborationRailProps {
   onOpenSettings: () => void;
   onOpenStudio: () => void;
   onSelectEmployee: (id: string | null) => void;
-  onToggleKanban: () => void;
   onUserMessage: (text: string) => void;
   /** Open ProjectCreateDialog in edit mode for the active project. */
   onRequestEditProject?: (project: ProjectRow) => void;
@@ -21,11 +20,6 @@ interface CollaborationRailProps {
   onProjectError?: (message: string) => void;
   selectedEmployeeId: string | null;
   selectedEmployeeName: string | null;
-}
-
-interface CollaborationSidebarProps extends CollaborationRailProps {
-  kanbanCardCount?: number;
-  kanbanOpen?: boolean;
 }
 
 function renderChatPanel({
@@ -37,18 +31,15 @@ function renderChatPanel({
   onOpenStudio,
   onSelectEmployee,
   onSelectThread,
-  onToggleKanban,
   onUserMessage,
   selectedEmployeeId,
   selectedEmployeeName,
   compact,
   showMeetingPanel,
-  showPipelineProgress,
   showActivityRail,
 }: CollaborationRailProps & {
   compact?: boolean;
   showMeetingPanel?: boolean;
-  showPipelineProgress?: boolean;
   showActivityRail?: boolean;
 }) {
   return (
@@ -58,7 +49,6 @@ function renderChatPanel({
       selectedEmployeeId={selectedEmployeeId}
       selectedEmployeeName={selectedEmployeeName}
       onClearSelection={() => onSelectEmployee(null)}
-      onToggleKanban={onToggleKanban}
       onOpenEditor={onOpenOfficeEditor}
       onOpenStudio={onOpenStudio}
       activeProject={activeProject}
@@ -66,7 +56,6 @@ function renderChatPanel({
       onSelectThread={onSelectThread}
       onUserMessage={onUserMessage}
       onboardingStarterPrompts={chatOnboardingStarterPrompts}
-      showPipelineProgress={showPipelineProgress}
       showMeetingPanel={showMeetingPanel}
       showActivityRail={showActivityRail}
     />
@@ -81,7 +70,6 @@ export function ChatDock(props: CollaborationRailProps) {
           ...props,
           compact,
           showMeetingPanel: !compact,
-          showPipelineProgress: true,
           showActivityRail: compact,
         })
       }
@@ -89,12 +77,11 @@ export function ChatDock(props: CollaborationRailProps) {
   );
 }
 
-export function CollaborationSidebar(props: CollaborationSidebarProps) {
+export function CollaborationSidebar(props: CollaborationRailProps) {
   return (
     <RightSidebar
       chatPanel={renderChatPanel({
         ...props,
-        showPipelineProgress: false,
         showMeetingPanel: false,
         showActivityRail: true,
       })}

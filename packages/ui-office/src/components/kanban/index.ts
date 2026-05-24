@@ -9,5 +9,3 @@ export { KanbanColumn } from './KanbanColumn.js';
 export type { KanbanColumnProps } from './KanbanColumn.js';
 export { KanbanCard } from './KanbanCard.js';
 export type { KanbanCardProps } from './KanbanCard.js';
-export { KanbanTray } from './KanbanTray.js';
-export type { KanbanTrayProps } from './KanbanTray.js';

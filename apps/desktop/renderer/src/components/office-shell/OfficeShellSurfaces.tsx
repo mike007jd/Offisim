@@ -60,36 +60,6 @@ export function OfficeSceneCanvasFallback({ className, ...props }: HTMLAttribute
   );
 }
 
-export function OfficeSceneOverlayLayer({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      data-slot="office-scene-overlay-layer"
-      className={cn('office-scene-overlay-layer', className)}
-      {...props}
-    />
-  );
-}
-
-export function OfficeSceneTeamDockHost({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      data-slot="office-scene-team-dock-host"
-      className={cn('office-scene-team-dock-host', className)}
-      {...props}
-    />
-  );
-}
-
-export function OfficeSceneTeamDockFrame({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      data-slot="office-scene-team-dock-frame"
-      className={cn('office-scene-team-dock-frame', className)}
-      {...props}
-    />
-  );
-}
-
 export function OfficeRailShell({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div data-slot="office-rail-shell" className={cn('office-rail-shell', className)} {...props} />

@@ -23,8 +23,8 @@ import {
   StagePipeStoppedLabel,
   StagePipeStoppedPill,
   StagePipeStoppedStack,
-  StageRunStatusDot,
-} from './StageRunSurfaces';
+  StageStatusDot,
+} from './StageShellSurfaces';
 
 interface StagePipeProps {
   /** Active product thread id — the resume target after an abort. */
@@ -42,12 +42,9 @@ function fallbackHeadline(stage: PipelineStage): string {
 }
 
 /**
- * Diegetic run-state control on the stage (relocation home of the deleted
- * StatusBar run-state headline + Stop). While a run is live, a single pill floats
- * above the worker zones showing the current step + assignee + progress and a
- * Stop control that invokes the existing abortExecution() path. On abort the pill
- * collapses to a muted "Stopped at step #N" state and a Resume / Discard
- * affordance stays in the stage run pipe. Stop is never moved into the composer.
+ * Shell run-state control. While a run is live, a single rail pill shows the
+ * current step + assignee + progress and a Stop control that invokes the existing
+ * abortExecution() path. Stop is intentionally outside the composer.
  */
 export function StagePipe({ activeThreadId }: StagePipeProps) {
   const { isRunning } = useOffisimRuntimeStatus();
@@ -82,7 +79,7 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
     const ratio = total > 0 ? Math.min(1, completed / total) : 0;
     return (
       <StagePipePill aria-label="Plan progress · current step">
-        <StageRunStatusDot state="running" />
+        <StageStatusDot state="running" />
         <StagePipeStepLabel title={stepLabel}>{stepLabel}</StagePipeStepLabel>
         {assigneeName ? <StagePipeAssignee>· {assigneeName}</StagePipeAssignee> : null}
         {total > 0 ? (
@@ -125,7 +122,7 @@ export function StagePipe({ activeThreadId }: StagePipeProps) {
     return (
       <StagePipeStoppedStack>
         <StagePipeStoppedPill>
-          <StageRunStatusDot state="idle" />
+          <StageStatusDot state="idle" />
           <StagePipeStoppedLabel>Stopped at {aborted.stepLabel}</StagePipeStoppedLabel>
         </StagePipeStoppedPill>
         <StagePipeActionRow>

@@ -12,7 +12,7 @@ import {
 } from '../runtime/offisim-runtime-context';
 
 // ---------------------------------------------------------------------------
-// Shared pipeline stage hook — consumed by ChatPanel, StatusBar, PipelineProgress.
+// Shared pipeline stage hook — consumed by shell run surfaces.
 // Derived from graph.node.entered events and auto-clears 3s after run ends.
 // ---------------------------------------------------------------------------
 

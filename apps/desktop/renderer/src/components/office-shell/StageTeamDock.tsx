@@ -1,4 +1,4 @@
-import { type AgentState, DicebearAvatar } from '@offisim/ui-office/web';
+import { type AgentState, DicebearAvatar, agentStatusTone } from '@offisim/ui-office/web';
 import { Plus } from 'lucide-react';
 import {
   StageTeamAddButton,
@@ -12,38 +12,13 @@ import {
   StageTeamRoster,
   StageTeamStatusDot,
   StageTeamSummary,
-} from './StageRunSurfaces';
+} from './StageShellSurfaces';
 
 interface StageTeamDockProps {
   agents: Map<string, AgentState>;
   selectedEmployeeId: string | null;
   onSelectEmployee: (id: string) => void;
   onOpenCreator: () => void;
-}
-
-type StageTeamStatus =
-  | 'assigned'
-  | 'blocked'
-  | 'executing'
-  | 'failed'
-  | 'idle'
-  | 'meeting'
-  | 'thinking'
-  | 'waiting';
-
-function stageTeamStatus(state: string): StageTeamStatus {
-  if (
-    state === 'assigned' ||
-    state === 'blocked' ||
-    state === 'executing' ||
-    state === 'failed' ||
-    state === 'meeting' ||
-    state === 'thinking' ||
-    state === 'waiting'
-  ) {
-    return state;
-  }
-  return 'idle';
 }
 
 /**
@@ -85,8 +60,8 @@ export function StageTeamDock({
               <StageTeamAvatarSlot>
                 <DicebearAvatar seed={agent.avatarSeed} appearance={agent.appearance} size={46} />
               </StageTeamAvatarSlot>
+              <StageTeamStatusDot state={agentStatusTone(agent.state)} />
               <StageTeamEmployeeName>{agent.name}</StageTeamEmployeeName>
-              <StageTeamStatusDot state={stageTeamStatus(agent.state)} />
             </StageTeamEmployeeButton>
           );
         })}

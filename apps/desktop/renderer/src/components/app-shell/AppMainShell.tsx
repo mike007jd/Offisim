@@ -3,7 +3,6 @@ import {
   type AgentState,
   AppLayout,
   Header,
-  KanbanTray,
   NotificationCenter,
   ProjectSelector,
   type ProviderConfig,
@@ -14,16 +13,12 @@ import {
   buildOfficeToolItems,
   visibleOfficeToolsFor,
 } from '../../lib/workspace-navigation';
-import { useKanbanStream } from '../../runtime/useKanbanStream';
 import { OfficeLeftRail } from '../office-shell/OfficeLeftRail';
 import { OfficeSceneCanvasFallback } from '../office-shell/OfficeShellSurfaces';
+import { SceneCostReadout } from '../office-shell/SceneCostReadout';
+import { StagePipe } from '../office-shell/StagePipe';
 import { StageTeamDock } from '../office-shell/StageTeamDock';
 import { WorkspaceRouter } from '../workspaces/WorkspaceRouter';
-import type {
-  CreateKanbanCardInput,
-  KanbanState,
-  UpdateKanbanCardInput,
-} from '../workspaces/kanban/types';
 import type {
   OfficeSessionState,
   UpdateWorkspaceStateFn,
@@ -75,7 +70,6 @@ export interface AppMainShellProps {
   onSelectWorkspace: (key: WorkspaceKey) => void;
   onOpenCompanySelect: () => void;
   onOpenEmployeeCreator: () => void;
-  onToggleKanban: () => void;
   onSelectEmployee: (id: string | null) => void;
   onViewModeChange: (mode: '2D' | '3D') => void;
   onViewModeClick: (mode: '2D' | '3D') => void;
@@ -88,7 +82,6 @@ export interface AppMainShellProps {
   onStartMarketInstall: (listingId: string, version: string) => void;
   addToast: (message: string, variant?: ToastVariant) => void;
   onEditExternalEmployee: (employeeId: string) => void;
-  lastUserRequest?: string | null;
   /** Workspace collaboration suite wiring (deep half). */
   activeCompanyId: string | null;
   onSelectThread: (threadId: string) => void;
@@ -119,7 +112,6 @@ export function AppMainShell(props: AppMainShellProps) {
     onSelectWorkspace,
     onOpenCompanySelect,
     onOpenEmployeeCreator,
-    onToggleKanban,
     onSelectEmployee,
     onViewModeChange,
     onViewModeClick,
@@ -132,12 +124,10 @@ export function AppMainShell(props: AppMainShellProps) {
     onStartMarketInstall,
     addToast,
     onEditExternalEmployee,
-    lastUserRequest,
     activeCompanyId,
     onSelectThread,
     selectedEmployeeId,
   } = props;
-  const kanban = useKanbanStream(activeProjectId);
   const activeProject = useMemo(
     () => projects.find((project) => project.project_id === activeProjectId) ?? null,
     [activeProjectId, projects],
@@ -211,19 +201,6 @@ export function AppMainShell(props: AppMainShellProps) {
           officeTools={officeTools}
         />
       }
-      taskTray={
-        isOffice && officeState.kanbanOpen ? (
-          <KanbanTray
-            expanded={officeState.kanbanOpen}
-            requestText={lastUserRequest ?? undefined}
-            cards={kanban.cards}
-            onMove={kanban.move as (id: string, next: KanbanState) => Promise<void>}
-            onCreate={kanban.create as (input: CreateKanbanCardInput) => Promise<void>}
-            onUpdate={kanban.update as (id: string, input: UpdateKanbanCardInput) => Promise<void>}
-            onToggle={onToggleKanban}
-          />
-        ) : null
-      }
       agentPanel={
         isOffice ? (
           <OfficeLeftRail activeProject={activeProject} onOpenSops={handleOpenSops} />
@@ -241,23 +218,31 @@ export function AppMainShell(props: AppMainShellProps) {
               sceneInteractive={sceneInteractive}
               viewMode={officeState.viewMode}
               viewModeNonce={viewModeNonce}
-              activeThreadId={officeState.selectedThreadId}
-              notificationSlot={
-                <NotificationCenter
-                  onFocusEmployee={onFocusEmployee}
-                  onOpenActivityLog={onOpenActivityLog}
-                />
-              }
-              teamDockSlot={
-                <StageTeamDock
-                  agents={agents}
-                  selectedEmployeeId={officeState.selectedEmployeeId}
-                  onSelectEmployee={(id) => onSelectEmployee(id)}
-                  onOpenCreator={onOpenEmployeeCreator}
-                />
-              }
             />
           </Suspense>
+        ) : null
+      }
+      runRailCenter={isOffice ? <StagePipe activeThreadId={officeState.selectedThreadId} /> : null}
+      runRailEnd={
+        isOffice ? (
+          <SceneCostReadout
+            notificationSlot={
+              <NotificationCenter
+                onFocusEmployee={onFocusEmployee}
+                onOpenActivityLog={onOpenActivityLog}
+              />
+            }
+          />
+        ) : null
+      }
+      teamDock={
+        isOffice ? (
+          <StageTeamDock
+            agents={agents}
+            selectedEmployeeId={officeState.selectedEmployeeId}
+            onSelectEmployee={(id) => onSelectEmployee(id)}
+            onOpenCreator={onOpenEmployeeCreator}
+          />
         ) : null
       }
       chatDrawer={

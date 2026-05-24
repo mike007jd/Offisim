@@ -1,113 +1,36 @@
-import { Button, cn } from '@offisim/ui-core';
+import { Button, Progress, cn } from '@offisim/ui-core';
 import { type VariantProps, cva } from 'class-variance-authority';
-import type { CSSProperties, ComponentProps, HTMLAttributes, ReactNode } from 'react';
+import type { ComponentProps, HTMLAttributes, ReactNode } from 'react';
 
-const runStatusDotVariants = cva('stage-run-status-dot', {
+const stageStatusDotVariants = cva('stage-status-dot', {
   variants: {
     state: {
-      idle: 'stage-run-status-dot-idle',
-      running: 'stage-run-status-dot-running',
-      completed: 'stage-run-status-dot-completed',
-      failed: 'stage-run-status-dot-failed',
-      pending: 'stage-run-status-dot-pending',
-      active: 'stage-run-status-dot-active',
+      idle: 'stage-status-dot-idle',
+      running: 'stage-status-dot-running',
+      completed: 'stage-status-dot-completed',
+      failed: 'stage-status-dot-failed',
+      pending: 'stage-status-dot-pending',
+      active: 'stage-status-dot-active',
     },
   },
   defaultVariants: { state: 'idle' },
 });
 
-const runStepItemVariants = cva('stage-run-step-item', {
-  variants: {
-    state: {
-      current: 'stage-run-step-item-current',
-      idle: 'stage-run-step-item-idle',
-    },
-  },
-  defaultVariants: { state: 'idle' },
-});
-
-export function StageRunPanel({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div data-slot="stage-run-panel" className={cn('stage-run-panel', className)} {...props} />
-  );
-}
-
-export function StageRunHeader({ className, ...props }: HTMLAttributes<HTMLElement>) {
-  return (
-    <header data-slot="stage-run-header" className={cn('stage-run-header', className)} {...props} />
-  );
-}
-
-export function StageRunHeaderGroup({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      data-slot="stage-run-header-group"
-      className={cn('stage-run-header-group', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunKicker({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <span data-slot="stage-run-kicker" className={cn('stage-run-kicker', className)} {...props} />
-  );
-}
-
-export function StageRunMeta({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return <span data-slot="stage-run-meta" className={cn('stage-run-meta', className)} {...props} />;
-}
-
-export function StageRunCloseButton({
-  className,
-  ...props
-}: Omit<ComponentProps<typeof Button>, 'variant' | 'size'>) {
-  return (
-    <Button
-      data-slot="stage-run-close-button"
-      variant="ghost"
-      size="icon"
-      className={cn('stage-run-close-button', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunStatusDot({
+export function StageStatusDot({
   className,
   state,
   ...props
-}: HTMLAttributes<HTMLSpanElement> & VariantProps<typeof runStatusDotVariants>) {
+}: HTMLAttributes<HTMLSpanElement> & VariantProps<typeof stageStatusDotVariants>) {
   return (
     <span
       aria-hidden="true"
-      data-slot="stage-run-status-dot"
+      data-slot="stage-status-dot"
       data-state={state ?? 'idle'}
-      className={cn(runStatusDotVariants({ state }), className)}
+      className={cn(stageStatusDotVariants({ state }), className)}
       {...props}
     />
   );
 }
-
-export function StageRunScrollArea({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      data-slot="stage-run-scroll-area"
-      className={cn('stage-run-scroll-area', className)}
-      {...props}
-    />
-  );
-}
-
-const runSectionVariants = cva('stage-run-section', {
-  variants: {
-    boundary: {
-      default: '',
-      last: 'stage-run-section-last',
-    },
-  },
-  defaultVariants: { boundary: 'default' },
-});
 
 const pipeActionButtonVariants = cva('stage-pipe-action-button', {
   variants: {
@@ -134,137 +57,15 @@ const teamStatusDotVariants = cva('stage-team-status-dot', {
   variants: {
     state: {
       idle: 'stage-team-status-dot-idle',
-      assigned: 'stage-team-status-dot-info',
-      thinking: 'stage-team-status-dot-info',
-      executing: 'stage-team-status-dot-success',
-      meeting: 'stage-team-status-dot-accent',
-      blocked: 'stage-team-status-dot-error',
-      failed: 'stage-team-status-dot-error',
-      waiting: 'stage-team-status-dot-warning',
+      info: 'stage-team-status-dot-info',
+      success: 'stage-team-status-dot-success',
+      accent: 'stage-team-status-dot-accent',
+      error: 'stage-team-status-dot-error',
+      warning: 'stage-team-status-dot-warning',
     },
   },
   defaultVariants: { state: 'idle' },
 });
-
-export function StageRunSection({
-  className,
-  boundary,
-  ...props
-}: HTMLAttributes<HTMLElement> & VariantProps<typeof runSectionVariants>) {
-  return (
-    <section
-      data-slot="stage-run-section"
-      data-boundary={boundary ?? 'default'}
-      className={cn(runSectionVariants({ boundary }), className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunStepItem({
-  className,
-  state,
-  ...props
-}: HTMLAttributes<HTMLLIElement> & VariantProps<typeof runStepItemVariants>) {
-  return (
-    <li
-      data-slot="stage-run-step-item"
-      data-state={state ?? 'idle'}
-      className={cn(runStepItemVariants({ state }), className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunStepStatusDot({
-  className,
-  state,
-  ...props
-}: HTMLAttributes<HTMLSpanElement> & VariantProps<typeof runStatusDotVariants>) {
-  return (
-    <span
-      aria-hidden="true"
-      data-slot="stage-run-step-status-dot"
-      data-state={state ?? 'idle'}
-      className={cn(runStatusDotVariants({ state }), 'stage-run-step-status-dot', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunSectionHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      data-slot="stage-run-section-header"
-      className={cn('stage-run-section-header', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunSectionTitle({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <span
-      data-slot="stage-run-section-title"
-      className={cn('stage-run-section-title', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunCountBadge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <span
-      data-slot="stage-run-count-badge"
-      className={cn('stage-run-count-badge', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunEmpty({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p data-slot="stage-run-empty" className={cn('stage-run-empty', className)} {...props} />;
-}
-
-export function StageRunStepList({ className, ...props }: HTMLAttributes<HTMLOListElement>) {
-  return (
-    <ol
-      data-slot="stage-run-step-list"
-      className={cn('stage-run-step-list', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunStepBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      data-slot="stage-run-step-body"
-      className={cn('stage-run-step-body', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunStepTitle({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return (
-    <p
-      data-slot="stage-run-step-title"
-      className={cn('stage-run-step-title', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageRunStepMeta({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return (
-    <p
-      data-slot="stage-run-step-meta"
-      className={cn('stage-run-step-meta', className)}
-      {...props}
-    />
-  );
-}
 
 export function StageTeamLabel({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
@@ -414,14 +215,13 @@ export function StagePipeProgress({
   className?: string;
 }) {
   return (
-    <span data-slot="stage-pipe-progress" className={cn('stage-pipe-progress', className)}>
-      <i
-        data-slot="stage-pipe-progress-value"
-        className="stage-pipe-progress-value"
-        // ui-hardcode-allowed: runtime progress value exposed on the progress primitive.
-        style={{ '--stage-pipe-progress': `${Math.round(ratio * 100)}%` } as CSSProperties}
-      />
-    </span>
+    <Progress
+      data-slot="stage-pipe-progress"
+      value={ratio}
+      max={1}
+      size="sm"
+      className={cn('stage-pipe-progress', className)}
+    />
   );
 }
 

@@ -9,12 +9,11 @@
 
 import type { RunToolPolicy } from '@offisim/shared-types';
 
-export type CommandCategory = 'team' | 'workflow' | 'navigate' | 'config' | 'chat';
+export type CommandCategory = 'team' | 'workflow' | 'config' | 'chat';
 
 export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; badgeClass: string }> = {
   team: { label: 'Team', badgeClass: 'bg-success-muted text-success' },
   workflow: { label: 'Workflow', badgeClass: 'bg-info-muted text-info' },
-  navigate: { label: 'Navigate', badgeClass: 'bg-warning-muted text-warning' },
   config: { label: 'Config', badgeClass: 'bg-accent-muted text-accent' },
   chat: { label: 'Chat', badgeClass: 'bg-surface-muted text-text-muted' },
 };
@@ -27,7 +26,6 @@ export interface ClientCommandContext {
 }
 
 export interface PanelCommandContext {
-  toggleKanban: () => void;
   openSettings: () => void;
   openEditor: () => void;
   openStudio: () => void;
@@ -141,16 +139,6 @@ export const CHAT_COMMANDS: readonly ChatCommand[] = [
       args || 'Inspect the current project and report findings without making changes.',
   },
 
-  // ── Navigate ──
-  {
-    type: 'panel',
-    name: 'kanban',
-    aliases: ['board', 'k'],
-    category: 'navigate',
-    description: 'Toggle project board',
-    execute: (_args, ctx) => ctx.toggleKanban(),
-  },
-
   // ── Config ──
   {
     type: 'panel',
@@ -235,7 +223,7 @@ export function buildHelpText(): string {
     byCategory.set(cmd.category, list);
   }
 
-  const order: CommandCategory[] = ['team', 'workflow', 'navigate', 'config', 'chat'];
+  const order: CommandCategory[] = ['team', 'workflow', 'config', 'chat'];
   const lines: string[] = ['Available commands:', ''];
 
   for (const cat of order) {

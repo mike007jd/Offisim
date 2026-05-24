@@ -8,17 +8,9 @@ import {
   useReducedMotion,
   useSceneOrchestrator,
 } from '@offisim/ui-office/web';
-import React, { type ReactNode, Suspense, useCallback, useMemo } from 'react';
+import React, { Suspense, useCallback, useMemo } from 'react';
 import { EmployeeBadgeOverlay } from './EmployeeBadgeOverlay';
-import {
-  OfficeSceneCanvasFallback,
-  OfficeSceneOverlayLayer,
-  OfficeSceneRoot,
-  OfficeSceneTeamDockFrame,
-  OfficeSceneTeamDockHost,
-} from './OfficeShellSurfaces';
-import { SceneCostReadout } from './SceneCostReadout';
-import { StagePipe } from './StagePipe';
+import { OfficeSceneCanvasFallback, OfficeSceneRoot } from './OfficeShellSurfaces';
 
 const SceneCanvas = React.lazy<
   React.ComponentType<{
@@ -50,12 +42,6 @@ interface OfficeSceneSurfaceProps {
   viewMode: '2D' | '3D';
   viewModeNonce: number;
   paused?: boolean;
-  /** Active product thread id — resume target for the diegetic `.stage-pipe`. */
-  activeThreadId: string | null;
-  /** Diegetic notification surface rendered beside the cost readout. */
-  notificationSlot?: ReactNode;
-  /** Team dock strip pinned below the stage (employee roster relocation). */
-  teamDockSlot?: ReactNode;
 }
 
 function CeremonyHost({ children }: { children: React.ReactNode }) {
@@ -90,9 +76,6 @@ export function OfficeSceneSurface({
   viewMode,
   viewModeNonce,
   paused = false,
-  activeThreadId,
-  notificationSlot,
-  teamDockSlot,
 }: OfficeSceneSurfaceProps) {
   const reducedMotion = useReducedMotion();
   const handleDeselectEmployee = useCallback(() => onSelectEmployee(null), [onSelectEmployee]);
@@ -119,15 +102,6 @@ export function OfficeSceneSurface({
             renderEmployeeBadge={renderEmployeeBadge}
           />
         </Suspense>
-        <OfficeSceneOverlayLayer>
-          <StagePipe activeThreadId={activeThreadId} />
-          <SceneCostReadout notificationSlot={notificationSlot} />
-        </OfficeSceneOverlayLayer>
-        {teamDockSlot ? (
-          <OfficeSceneTeamDockHost>
-            <OfficeSceneTeamDockFrame>{teamDockSlot}</OfficeSceneTeamDockFrame>
-          </OfficeSceneTeamDockHost>
-        ) : null}
       </CeremonyHost>
     </OfficeSceneRoot>
   );

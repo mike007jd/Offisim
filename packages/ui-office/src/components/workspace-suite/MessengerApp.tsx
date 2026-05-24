@@ -1,7 +1,7 @@
 import type { ProjectRow } from '@offisim/shared-types';
 import { Button, Input, cn } from '@offisim/ui-core';
 import { Building2, Search, Sparkles } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
 import { ChatPanel } from '../chat/ChatPanel';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
@@ -40,6 +40,7 @@ export function MessengerApp(props: MessengerAppProps) {
   const { teams } = useMessengerConversations(projectId);
   const agents = useAgentStates();
   const [search, setSearch] = useState('');
+  const searchInputId = useId();
   const [systemOpen, setSystemOpen] = useState(false);
 
   const directEmployees = useMemo(
@@ -86,9 +87,13 @@ export function MessengerApp(props: MessengerAppProps) {
       <div className="flex w-80 shrink-0 flex-col border-r border-line bg-surface-1">
         <div className="flex flex-col gap-2 border-b border-line-soft px-3 pb-2 pt-2.5">
           <span className="text-fs-md font-bold text-ink-1">Chats</span>
-          <label className="flex h-8 items-center gap-2 rounded-r-sm border border-line bg-surface-sunken px-2.5 text-fs-sm text-ink-4 transition-colors focus-within:border-line-strong">
+          <label
+            htmlFor={searchInputId}
+            className="flex h-8 items-center gap-2 rounded-r-sm border border-line bg-surface-sunken px-2.5 text-fs-sm text-ink-4 transition-colors focus-within:border-line-strong"
+          >
             <Search className="size-3.5 shrink-0" aria-hidden="true" />
             <Input
+              id={searchInputId}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search people, groups, messages"
@@ -180,7 +185,6 @@ export function MessengerApp(props: MessengerAppProps) {
             activeProject={activeProject}
             activeThreadId={activeThreadId}
             onSelectThread={onSelectThread}
-            showPipelineProgress={false}
             showMeetingPanel={false}
             showActivityRail
           />

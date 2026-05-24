@@ -3,6 +3,7 @@ import type { BadgeProps } from '@offisim/ui-core';
 import { cn } from '@offisim/ui-core';
 
 type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'error' | 'accent';
+export type AgentStatusTone = 'idle' | 'info' | 'success' | 'accent' | 'error' | 'warning';
 
 interface TaskStatusDisplay {
   readonly label: string;
@@ -104,6 +105,20 @@ export function taskStatusCardClass(status: string): string {
   if (display.tone === 'info') return 'border-info shadow-glow-accent';
   if (display.tone === 'error') return 'border-error';
   return '';
+}
+
+const AGENT_STATE_TONE: Record<string, AgentStatusTone> = {
+  assigned: 'info',
+  thinking: 'info',
+  executing: 'success',
+  meeting: 'accent',
+  blocked: 'error',
+  failed: 'error',
+  waiting: 'warning',
+};
+
+export function agentStatusTone(state: string): AgentStatusTone {
+  return AGENT_STATE_TONE[state] ?? 'idle';
 }
 
 const KANBAN_LABELS: Record<KanbanState, string> = {

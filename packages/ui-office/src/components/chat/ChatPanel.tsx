@@ -8,7 +8,6 @@ import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 import { useDeliverables } from '../../hooks/useDeliverables';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { useMeeting } from '../../hooks/useMeeting.js';
-import { usePipelineStage } from '../../hooks/usePipelineStage';
 import {
   type ChatCommand,
   type ClientCommandContext,
@@ -62,17 +61,12 @@ const MeetingPanel = lazy(() =>
 const MeetingActionItems = lazy(() =>
   import('./MeetingActionItems.js').then((module) => ({ default: module.MeetingActionItems })),
 );
-const PipelineProgress = lazy(() =>
-  import('./PipelineProgress').then((module) => ({ default: module.PipelineProgress })),
-);
 
 interface ChatPanelProps {
   onOpenSettings: () => void;
   selectedEmployeeId?: string | null;
   selectedEmployeeName?: string | null;
   onClearSelection?: () => void;
-  /** Toggle kanban overlay */
-  onToggleKanban?: () => void;
   /** Open office layout editor */
   onOpenEditor?: () => void;
   /** Open decoration studio */
@@ -81,12 +75,11 @@ interface ChatPanelProps {
   activeProject?: ProjectRow | null;
   /** Active product chat_threads.thread_id (SSOT: OfficeSessionState.selectedThreadId). */
   activeThreadId?: string | null;
-  /** Called when the user sends a message (provides the raw text for Kanban board etc.) */
+  /** Called when the user sends a message so shell-level first-run state can update. */
   onUserMessage?: (text: string) => void;
   /** Template-aware starter prompts for the chat empty state. */
   onboardingStarterPrompts?: readonly StarterPrompt[];
   compact?: boolean;
-  showPipelineProgress?: boolean;
   showMeetingPanel?: boolean;
   showActivityRail?: boolean;
   /** Thread switch writer (SSOT) — enables the assistant-ui thread-list adapter. */
@@ -222,7 +215,6 @@ export function ChatPanel({
   selectedEmployeeId,
   selectedEmployeeName,
   onClearSelection,
-  onToggleKanban,
   onOpenEditor,
   onOpenStudio,
   activeProject,
@@ -230,7 +222,6 @@ export function ChatPanel({
   onUserMessage,
   onboardingStarterPrompts,
   compact = false,
-  showPipelineProgress = true,
   showMeetingPanel = true,
   showActivityRail = false,
   onSelectThread,
@@ -252,7 +243,6 @@ export function ChatPanel({
   const errorHistory = useErrorTracking();
   const agents = useAgentStates();
   const { meetingState } = useMeeting();
-  const { stage: pipelineStage, routeLabel } = usePipelineStage();
   const appendMessage = useChatSessionStore((state) => state.appendMessage);
   const startRun = useChatSessionStore((state) => state.startRun);
   const finalizeActiveRun = useChatSessionStore((state) => state.finalizeActiveRun);
@@ -594,7 +584,6 @@ export function ChatPanel({
       }
       if (command.type === 'panel') {
         const ctx: PanelCommandContext = {
-          toggleKanban: () => onToggleKanban?.(),
           openSettings: () => onOpenSettings(),
           openEditor: () => onOpenEditor?.(),
           openStudio: () => onOpenStudio?.(),
@@ -604,7 +593,6 @@ export function ChatPanel({
     },
     [
       targetKey,
-      onToggleKanban,
       onOpenSettings,
       onOpenEditor,
       onOpenStudio,
@@ -667,8 +655,7 @@ export function ChatPanel({
     !compact &&
     (showMeetingPanel ||
       meetingState.actions.length > 0 ||
-      pendingInteraction?.severity === 'high' ||
-      showPipelineProgress) ? (
+      pendingInteraction?.severity === 'high') ? (
       <>
         {showMeetingPanel && (
           <div className="shrink-0">
@@ -694,18 +681,6 @@ export function ChatPanel({
             employeeName={interactionEmployeeName}
             onRespond={handleInteractionRespond}
           />
-        )}
-        {showPipelineProgress && (
-          <div className="shrink-0">
-            <Suspense fallback={null}>
-              <PipelineProgress
-                stage={pipelineStage}
-                routeLabel={routeLabel}
-                isRunning={isRunning}
-                onAbort={abortExecution}
-              />
-            </Suspense>
-          </div>
         )}
       </>
     ) : null;

@@ -19,7 +19,6 @@ export interface AppKeyboardShortcutsDeps {
   closeOverlay: () => void;
   setShortcutHelpOpen: (updater: boolean | ((prev: boolean) => boolean)) => void;
   routeToPersonnel: RouteToPersonnelFn;
-  handleToggleKanban: () => void;
   updateWorkspaceState: UpdateWorkspaceStateFn;
   onViewModeClick: () => void;
 }
@@ -34,7 +33,6 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     closeOverlay,
     setShortcutHelpOpen,
     routeToPersonnel,
-    handleToggleKanban,
     updateWorkspaceState,
     onViewModeClick,
   } = deps;
@@ -55,12 +53,6 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
       // owner's own useTopmostEscape / keydown handlers.
       if (anyModalOpen) return;
 
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
-        if (!isOffice) return;
-        e.preventDefault();
-        handleToggleKanban();
-        return;
-      }
       if ((e.metaKey || e.ctrlKey) && e.key === '1') {
         if (!isOffice) return;
         e.preventDefault();
@@ -130,7 +122,6 @@ export function useAppKeyboardShortcuts(deps: AppKeyboardShortcutsDeps): void {
     closeOverlay,
     isOffice,
     routeToPersonnel,
-    handleToggleKanban,
     officeState.selectedEmployeeId,
     onViewModeClick,
     setShortcutHelpOpen,
