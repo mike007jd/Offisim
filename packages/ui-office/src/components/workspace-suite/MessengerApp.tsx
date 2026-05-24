@@ -1,5 +1,5 @@
 import type { ProjectRow } from '@offisim/shared-types';
-import { Button, Input, cn } from '@offisim/ui-core';
+import { Button, Input } from '@offisim/ui-core';
 import { Building2, Search, Sparkles } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { useAgentStates } from '../../runtime/use-agent-states';
@@ -82,31 +82,26 @@ export function MessengerApp(props: MessengerAppProps) {
     : null;
 
   return (
-    <div className="flex h-full min-h-0 min-w-0">
+    <div className="messenger-app">
       {/* Conversation list */}
-      <div className="flex w-workspace-suite-list shrink-0 flex-col border-r border-line bg-surface-1">
-        <div className="flex flex-col gap-2 border-b border-line-soft px-3 pb-2 pt-2.5">
-          <span className="text-fs-md font-bold text-ink-1">Chats</span>
-          <label
-            htmlFor={searchInputId}
-            className="flex h-8 items-center gap-2 rounded-r-sm border border-line bg-surface-sunken px-2.5 text-fs-sm text-ink-4 transition-colors focus-within:border-line-strong"
-          >
-            <Search className="size-3.5 shrink-0" aria-hidden="true" />
+      <div className="messenger-list">
+        <div className="messenger-list-head">
+          <span>Chats</span>
+          <label htmlFor={searchInputId} className="messenger-search">
+            <Search data-icon="search" aria-hidden="true" />
             <Input
               id={searchInputId}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search people, groups, messages"
-              className="h-auto min-w-0 flex-1 border-0 bg-transparent p-0 text-fs-sm text-ink-1 shadow-none outline-none placeholder:text-ink-4 focus-visible:ring-0"
+              className="messenger-search-input"
             />
           </label>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2 py-2">
+        <div className="messenger-list-scroll">
           {!projectId ? (
-            <p className="px-2 py-6 text-center text-fs-meta text-ink-4">
-              Select a project to see its conversations.
-            </p>
+            <p className="messenger-list-empty">Select a project to see its conversations.</p>
           ) : (
             <>
               {filteredTeams.map((team) => {
@@ -116,8 +111,8 @@ export function MessengerApp(props: MessengerAppProps) {
                     key={team.threadId}
                     active={isActive}
                     avatar={
-                      <span className="grid size-10 place-items-center rounded-r-md bg-accent-surface text-accent ring-1 ring-line">
-                        <Building2 className="size-3.5" aria-hidden="true" />
+                      <span className="messenger-avatar messenger-avatar-team">
+                        <Building2 data-icon="avatar" aria-hidden="true" />
                       </span>
                     }
                     name={team.title}
@@ -130,8 +125,8 @@ export function MessengerApp(props: MessengerAppProps) {
               <ConversationRow
                 active={selection === 'system'}
                 avatar={
-                  <span className="grid size-10 place-items-center rounded-r-md bg-violet-surface text-violet ring-1 ring-line">
-                    <Sparkles className="size-3.5" aria-hidden="true" />
+                  <span className="messenger-avatar messenger-avatar-system">
+                    <Sparkles data-icon="avatar" aria-hidden="true" />
                   </span>
                 }
                 name="System"
@@ -141,9 +136,7 @@ export function MessengerApp(props: MessengerAppProps) {
               />
 
               {filteredDirect.length > 0 ? (
-                <div className="px-2 pb-1 pt-3 text-fs-micro font-bold uppercase tracking-widest text-ink-4">
-                  Direct
-                </div>
+                <div className="messenger-list-section">Direct</div>
               ) : null}
               {filteredDirect.map(({ id, agent }) => {
                 const isActive = selection === 'direct' && id === selectedEmployeeId;
@@ -152,7 +145,7 @@ export function MessengerApp(props: MessengerAppProps) {
                     key={id}
                     active={isActive}
                     avatar={
-                      <div className="size-10 overflow-hidden rounded-r-md ring-1 ring-line">
+                      <div className="messenger-avatar messenger-avatar-direct">
                         <EmployeeAvatar agent={agent} size={40} />
                       </div>
                     }
@@ -169,11 +162,11 @@ export function MessengerApp(props: MessengerAppProps) {
       </div>
 
       {/* Detail */}
-      <div className="grid min-h-0 min-w-0 flex-1">
+      <div className="messenger-detail">
         {selection === 'system' ? (
           <SystemChannel onFocusEmployee={onFocusEmployee} onOpenActivityLog={onOpenActivityLog} />
         ) : !projectId ? (
-          <div className="grid h-full place-items-center px-6 text-center text-fs-sm text-ink-4">
+          <div className="messenger-detail-empty">
             No project selected. Pick a project to open its team conversation.
           </div>
         ) : (
@@ -210,29 +203,16 @@ function ConversationRow({ active, avatar, name, badge, snippet, onClick }: Conv
       variant="ghost"
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={cn(
-        'flex h-auto w-full items-center justify-start gap-2 rounded-r-md border border-transparent px-2 py-2 text-left transition-colors',
-        active ? 'border-accent-ring bg-accent-surface' : 'hover:bg-surface-sunken',
-      )}
+      className="messenger-conversation-row"
+      data-active={active || undefined}
     >
       {avatar}
-      <span className="min-w-0 flex-1">
-        <span className="flex items-baseline gap-1.5">
-          <span
-            className={cn(
-              'min-w-0 flex-1 truncate text-fs-sm font-semibold',
-              active ? 'text-accent' : 'text-ink-1',
-            )}
-          >
-            {name}
-          </span>
-          {badge ? (
-            <span className="shrink-0 rounded-r-xs bg-violet-surface px-1.5 py-px text-fs-micro font-bold uppercase tracking-wide text-violet">
-              {badge}
-            </span>
-          ) : null}
+      <span className="messenger-conversation-copy">
+        <span className="messenger-conversation-title-row">
+          <span className="messenger-conversation-title">{name}</span>
+          {badge ? <span className="messenger-conversation-badge">{badge}</span> : null}
         </span>
-        <span className="mt-0.5 block truncate text-fs-meta text-ink-3">{snippet}</span>
+        <span className="messenger-conversation-snippet">{snippet}</span>
       </span>
     </Button>
   );

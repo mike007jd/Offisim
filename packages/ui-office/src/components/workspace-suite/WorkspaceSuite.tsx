@@ -1,5 +1,5 @@
 import type { ProjectRow } from '@offisim/shared-types';
-import { Button, EmptyState, cn } from '@offisim/ui-core';
+import { Button, EmptyState } from '@offisim/ui-core';
 import {
   Activity,
   BriefcaseBusiness,
@@ -7,11 +7,11 @@ import {
   ClipboardList,
   ContactRound,
   FileText,
+  type LucideIcon,
   MessageSquare,
   Settings,
   Store,
   Video,
-  type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { ApprovalsApp } from './ApprovalsApp';
@@ -92,13 +92,13 @@ export function WorkspaceSuite(props: WorkspaceSuiteProps) {
   ];
 
   return (
-    <div className="flex h-full min-h-0 w-full bg-surface-1 text-ink-1">
-      <aside className="flex w-workspace-suite-appbar shrink-0 flex-col items-center gap-1 border-r border-line bg-surface-0 pb-2 pt-2">
+    <div className="workspace-suite">
+      <aside className="workspace-suite-appbar">
         <span
-          className="workspace-appbar-id mb-2 grid place-items-center rounded-r-md bg-accent-surface text-accent shadow-elev-1 ring-1 ring-line"
+          className="workspace-suite-appbar-id"
           title={activeProject?.name ?? 'Company workspace'}
         >
-          <BriefcaseBusiness className="size-4" aria-hidden="true" />
+          <BriefcaseBusiness data-icon="appbar-id" aria-hidden="true" />
         </span>
         {railItems.map((item) => {
           const Icon = item.icon;
@@ -111,26 +111,23 @@ export function WorkspaceSuite(props: WorkspaceSuiteProps) {
               onClick={() => onSelectApp(item.key)}
               aria-current={selected ? 'page' : undefined}
               aria-label={`${item.label} app`}
-              className={cn(
-                'relative flex h-auto w-12 flex-col items-center gap-1 rounded-r-md border border-transparent pb-1.5 pt-1.5 transition-colors',
-                selected
-                  ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring'
-                  : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
-              )}
+              className="workspace-suite-app-button"
+              data-selected={selected || undefined}
+              data-state={item.state}
             >
               {item.badge && item.badge > 0 ? (
-                <span className="absolute right-1.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-r-pill bg-danger px-1 text-fs-micro font-bold leading-none text-accent-fg shadow-elev-1">
+                <span className="workspace-suite-app-badge">
                   {item.badge > 99 ? '99+' : item.badge}
                 </span>
               ) : null}
-              <Icon className="size-4" aria-hidden="true" />
-              <span className="text-fs-micro font-semibold">{item.label}</span>
+              <Icon data-icon="app" aria-hidden="true" />
+              <span>{item.label}</span>
             </Button>
           );
         })}
       </aside>
 
-      <section className="min-h-0 min-w-0 flex-1">
+      <section className="workspace-suite-body">
         {activeApp === 'messenger' ? (
           <MessengerApp
             activeProject={activeProject}
@@ -204,19 +201,17 @@ function WorkspaceSurfaceApp({
 
   const meta = getSurfaceMeta(app);
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface-2">
-      <div className="flex items-center gap-sp-4 border-b border-line-soft bg-surface-1 px-sp-7 py-sp-5">
-        <span className="grid size-10 shrink-0 place-items-center rounded-r-md bg-accent-surface text-accent ring-1 ring-accent-ring">
-          <meta.icon className="size-5" aria-hidden="true" />
+    <div className="workspace-surface-app">
+      <div className="workspace-surface-head">
+        <span className="workspace-surface-icon">
+          <meta.icon data-icon="surface" aria-hidden="true" />
         </span>
-        <div className="min-w-0">
-          <h2 className="truncate text-fs-lg font-bold text-ink-1">{meta.title}</h2>
-          <p className="mt-1 truncate text-fs-meta text-ink-3">
-            {activeProject?.name ?? 'No project selected'}
-          </p>
+        <div className="workspace-surface-copy">
+          <h2>{meta.title}</h2>
+          <p>{activeProject?.name ?? 'No project selected'}</p>
         </div>
       </div>
-      <div className="grid min-h-0 flex-1 place-items-center px-sp-7 py-sp-6">
+      <div className="workspace-surface-empty">
         <EmptyState
           title={meta.emptyTitle}
           description={meta.emptyDescription}
@@ -225,11 +220,11 @@ function WorkspaceSurfaceApp({
               ? { label: 'Open Activity', onClick: onOpenActivityLog }
               : meta.action === 'personnel' && onOpenWorkspace
                 ? { label: 'Open Personnel', onClick: () => onOpenWorkspace('personnel') }
-              : meta.action === 'approvals' && pendingApprovals > 0
-                ? { label: 'Review approvals', onClick: () => onSelectApp('approvals') }
-                : meta.action === 'settings'
-                  ? { label: 'Open Settings', onClick: onOpenSettings }
-                  : undefined
+                : meta.action === 'approvals' && pendingApprovals > 0
+                  ? { label: 'Review approvals', onClick: () => onSelectApp('approvals') }
+                  : meta.action === 'settings'
+                    ? { label: 'Open Settings', onClick: onOpenSettings }
+                    : undefined
           }
         />
       </div>
@@ -302,24 +297,20 @@ function WorkspaceHomeSurface({
   onOpenWorkspace?: (target: WorkspaceSuiteOpenTarget) => void;
 }) {
   return (
-    <div className="min-h-0 overflow-y-auto bg-surface-2 px-sp-7 py-sp-6">
-      <section className="rounded-r-lg border border-line-soft bg-surface-1 p-sp-7 shadow-elev-1">
-        <h2 className="text-fs-xl font-bold text-ink-1">Workspace</h2>
-        <p className="mt-1 text-fs-sm text-ink-3">
-          {activeProject?.name ?? 'No project selected'} · company OS control surface
-        </p>
-        <div className="grid-workspace-home-stats mt-sp-6 grid gap-sp-3">
+    <div className="workspace-home">
+      <section className="workspace-home-hero">
+        <h2>Workspace</h2>
+        <p>{activeProject?.name ?? 'No project selected'} · company OS control surface</p>
+        <div className="workspace-home-stats">
           {[
             ['To approve', String(pendingApprovals)],
             ['Active project', activeProject ? '1' : '0'],
             ['Company scope', activeCompanyId ? 'Active' : 'Missing'],
             ['Suite apps', '7'],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-r-md border border-line-soft bg-surface-2 p-sp-4">
-              <div className="text-fs-lg font-bold text-ink-1">{value}</div>
-              <div className="mt-1 text-fs-meta font-semibold uppercase tracking-wide text-ink-4">
-                {label}
-              </div>
+            <div key={label} className="workspace-home-stat">
+              <div>{value}</div>
+              <span>{label}</span>
             </div>
           ))}
         </div>
@@ -353,10 +344,30 @@ function WorkspaceHomeSurface({
       <WorkspaceTileSection
         title="Workspaces"
         tiles={[
-          ['Office', 'Live floor and team dock', BriefcaseBusiness, () => onOpenWorkspace?.('office')],
-          ['SOPs', 'Operational playbooks and runs', ClipboardList, () => onOpenWorkspace?.('sops')],
-          ['Market', 'Install employees, skills and layouts', Store, () => onOpenWorkspace?.('market')],
-          ['Personnel', 'Employee profiles and runtime controls', ContactRound, () => onOpenWorkspace?.('personnel')],
+          [
+            'Office',
+            'Live floor and team dock',
+            BriefcaseBusiness,
+            () => onOpenWorkspace?.('office'),
+          ],
+          [
+            'SOPs',
+            'Operational playbooks and runs',
+            ClipboardList,
+            () => onOpenWorkspace?.('sops'),
+          ],
+          [
+            'Market',
+            'Install employees, skills and layouts',
+            Store,
+            () => onOpenWorkspace?.('market'),
+          ],
+          [
+            'Personnel',
+            'Employee profiles and runtime controls',
+            ContactRound,
+            () => onOpenWorkspace?.('personnel'),
+          ],
           ['Activity', 'Inspect real runtime events', Activity, onOpenActivityLog],
           ['Settings', 'Runtime, providers and external agents', Settings, onOpenSettings],
         ]}
@@ -373,11 +384,9 @@ function WorkspaceTileSection({
   tiles: Array<[string, string, LucideIcon, (() => void)?]>;
 }) {
   return (
-    <section className="mt-sp-7">
-      <h3 className="mb-sp-3 text-fs-micro font-bold uppercase tracking-wide text-ink-3">
-        {title}
-      </h3>
-      <div className="grid-workspace-home-tiles grid gap-sp-3">
+    <section className="workspace-tile-section">
+      <h3>{title}</h3>
+      <div className="workspace-tile-grid">
         {tiles.map(([name, description, Icon, onClick]) => (
           <Button
             key={name}
@@ -385,13 +394,13 @@ function WorkspaceTileSection({
             variant="ghost"
             onClick={onClick}
             disabled={!onClick}
-            className="grid h-auto justify-start gap-sp-2 rounded-r-md border border-line-soft bg-surface-1 p-sp-4 text-left shadow-elev-1 transition-colors hover:bg-surface-sunken"
+            className="workspace-tile"
           >
-            <span className="grid size-9 place-items-center rounded-r-sm bg-accent-surface text-accent">
-              <Icon className="size-4" aria-hidden="true" />
+            <span className="workspace-tile-icon">
+              <Icon data-icon="tile" aria-hidden="true" />
             </span>
-            <span className="text-fs-sm font-bold text-ink-1">{name}</span>
-            <span className="text-fs-meta text-ink-3">{description}</span>
+            <span className="workspace-tile-title">{name}</span>
+            <span className="workspace-tile-description">{description}</span>
           </Button>
         ))}
       </div>
