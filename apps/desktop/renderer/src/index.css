@@ -9152,6 +9152,22 @@
     text-transform: uppercase;
   }
 
+  .chat-composer-command-badge[data-category="team"] {
+    background: var(--ok-surface);
+    color: var(--ok);
+  }
+
+  .chat-composer-command-badge[data-category="workflow"],
+  .chat-composer-command-badge[data-category="config"] {
+    background: var(--accent-surface);
+    color: var(--accent);
+  }
+
+  .chat-composer-command-badge[data-category="chat"] {
+    background: var(--surface-2);
+    color: var(--ink-3);
+  }
+
   .chat-composer-command-description,
   .chat-composer-command-argument,
   .chat-composer-mention-name,
@@ -9200,6 +9216,26 @@
     width: 100%;
   }
 
+  .chat-composer-meta-row [data-slot="disabled-reason"] {
+    color: var(--warn);
+    font-size: var(--text-fs-meta);
+  }
+
+  .chat-composer-meta-row [data-slot="hint"] {
+    color: var(--ink-4);
+    font-size: var(--text-fs-meta);
+  }
+
+  .chat-composer-meta-row [data-slot="hint"] kbd {
+    color: var(--ink-4);
+  }
+
+  .chat-composer-meta-row [data-slot="mode-chip"] {
+    flex-shrink: 1;
+    margin-inline-start: auto;
+    min-width: 0;
+  }
+
   .chat-composer-attach-button {
     border-radius: var(--r-sm);
     color: var(--ink-3);
@@ -9215,12 +9251,12 @@
     opacity: 0.4;
   }
 
-  .chat-composer-send-icon {
+  .chat-composer-submit [data-icon="send"] {
     height: var(--sp-6);
     width: var(--sp-6);
   }
 
-  .chat-composer-attach-icon {
+  .chat-composer-attach-button [data-icon="attach"] {
     height: var(--sp-5);
     width: var(--sp-5);
   }
@@ -13312,6 +13348,108 @@
 
   .notification-activity-button:hover {
     background: var(--accent-surface);
+  }
+
+  .notification-card {
+    align-items: flex-start;
+    border-bottom: var(--border-width-thin) solid var(--line-soft);
+    display: flex;
+    gap: var(--sp-2);
+    padding: var(--sp-2);
+    transition: background var(--duration-fast) var(--ease-standard), opacity var(--duration-fast)
+      var(--ease-standard);
+  }
+
+  .notification-card:hover {
+    background: var(--surface-sunken);
+  }
+
+  .notification-card[data-read="true"] {
+    opacity: 0.6;
+  }
+
+  .notification-card-main {
+    align-items: flex-start;
+    border-radius: 0;
+    flex: 1 1 auto;
+    gap: var(--sp-2);
+    height: auto;
+    justify-content: flex-start;
+    padding: 0;
+    text-align: start;
+  }
+
+  .notification-card-main [data-icon="notification-level"] {
+    flex: 0 0 auto;
+    height: var(--sp-4);
+    margin-block-start: calc(var(--sp-1) / 2);
+    width: var(--sp-4);
+  }
+
+  .notification-card[data-level="info"] [data-icon="notification-level"] {
+    color: var(--accent);
+  }
+
+  .notification-card[data-level="success"] [data-icon="notification-level"] {
+    color: var(--ok);
+  }
+
+  .notification-card[data-level="warning"] [data-icon="notification-level"] {
+    color: var(--warn);
+  }
+
+  .notification-card[data-level="error"] [data-icon="notification-level"] {
+    color: var(--danger);
+  }
+
+  .notification-card [data-slot="copy"] {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .notification-card [data-slot="title"],
+  .notification-card [data-slot="message"] {
+    margin: 0;
+  }
+
+  .notification-card [data-slot="title"] {
+    color: var(--ink-1);
+    font-size: var(--text-body-sm);
+    font-weight: 600;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .notification-card [data-slot="message"] {
+    color: var(--ink-3);
+    display: -webkit-box;
+    font-size: var(--text-fs-micro);
+    line-height: 1.2;
+    margin-block-start: calc(var(--sp-1) / 2);
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .notification-card [data-slot="time"] {
+    color: var(--ink-3);
+    display: block;
+    font-size: var(--text-fs-micro);
+    margin-block-start: calc(var(--sp-1) / 2);
+  }
+
+  .notification-card-dismiss {
+    flex: 0 0 auto;
+    height: var(--sp-4);
+    min-height: var(--sp-4);
+    width: var(--sp-4);
+  }
+
+  .notification-card-dismiss [data-icon="notification-dismiss"] {
+    height: var(--sp-3);
+    width: var(--sp-3);
   }
 
   .tool-permission-editor,

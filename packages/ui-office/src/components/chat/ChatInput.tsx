@@ -9,7 +9,7 @@ import {
 } from '@assistant-ui/react';
 import type { EventBus } from '@offisim/core/browser';
 import type { ParsedAttachment, StagedAttachment } from '@offisim/shared-types';
-import { Button, Input, Textarea, TriggerListboxSurface, cn } from '@offisim/ui-core';
+import { Button, Input, Textarea, TriggerListboxSurface } from '@offisim/ui-core';
 import { ArrowUp, Paperclip } from 'lucide-react';
 import {
   type KeyboardEvent,
@@ -23,12 +23,7 @@ import {
   useState,
 } from 'react';
 import type { AttachmentStore } from '../../lib/attachment-store.js';
-import {
-  COMMAND_CATEGORIES,
-  type ChatCommand,
-  getVisibleCommands,
-  parseCommand,
-} from '../../lib/chat-commands.js';
+import { type ChatCommand, getVisibleCommands, parseCommand } from '../../lib/chat-commands.js';
 import { isTauri } from '../../lib/env.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { useTourTarget } from '../onboarding/tour-context.js';
@@ -594,7 +589,7 @@ export function ChatInput({
               aria-label="Send message"
               className="chat-composer-submit"
             >
-              <ArrowUp className="chat-composer-send-icon" aria-hidden="true" />
+              <ArrowUp data-icon="send" aria-hidden="true" />
             </Button>
           </div>
 
@@ -618,13 +613,7 @@ export function ChatInput({
                     className="chat-composer-menu-item"
                   >
                     <span className="chat-composer-command-name">/{command.name}</span>
-                    <span
-                      className={cn(
-                        'chat-composer-command-badge',
-                        COMMAND_CATEGORIES[command.category]?.badgeClass ??
-                          'bg-surface-2 text-ink-4',
-                      )}
-                    >
+                    <span className="chat-composer-command-badge" data-category={command.category}>
                       {command.category}
                     </span>
                     <span className="chat-composer-command-description">{command.description}</span>
@@ -665,7 +654,7 @@ export function ChatInput({
         {/* Hint line */}
         <div className="chat-composer-meta-row">
           {disabled && disabledReason ? (
-            <span className="text-fs-meta text-warn">{disabledReason}</span>
+            <span data-slot="disabled-reason">{disabledReason}</span>
           ) : (
             <>
               <Button
@@ -682,17 +671,17 @@ export function ChatInput({
                 }
                 className="chat-composer-attach-button"
               >
-                <Paperclip className="chat-composer-attach-icon" aria-hidden="true" />
+                <Paperclip data-icon="attach" aria-hidden="true" />
               </Button>
-              <span className="text-fs-meta text-ink-4">
-                <kbd className="text-ink-4">/</kbd> commands
+              <span data-slot="hint">
+                <kbd>/</kbd> commands
               </span>
-              <span className="text-fs-meta text-ink-4">
-                <kbd className="text-ink-4">@</kbd> mention
+              <span data-slot="hint">
+                <kbd>@</kbd> mention
               </span>
             </>
           )}
-          {modeChip ? <span className="ml-auto min-w-0 shrink">{modeChip}</span> : null}
+          {modeChip ? <span data-slot="mode-chip">{modeChip}</span> : null}
         </div>
       </ComposerPrimitive.Root>
     </ComposerPrimitive.Unstable_TriggerPopoverRoot>

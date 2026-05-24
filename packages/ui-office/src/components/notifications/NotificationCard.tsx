@@ -1,4 +1,4 @@
-import { Button, cn } from '@offisim/ui-core';
+import { Button } from '@offisim/ui-core';
 import { AlertCircle, CheckCircle, Info, X, XCircle } from 'lucide-react';
 import type { Notification } from '../../hooks/useNotifications';
 
@@ -9,11 +9,11 @@ interface NotificationCardProps {
   onFocusEmployee?: (employeeId: string) => void;
 }
 
-const LEVEL_STYLES: Record<Notification['level'], { icon: typeof Info; iconClassName: string }> = {
-  info: { icon: Info, iconClassName: 'text-accent' },
-  success: { icon: CheckCircle, iconClassName: 'text-ok' },
-  warning: { icon: AlertCircle, iconClassName: 'text-warn' },
-  error: { icon: XCircle, iconClassName: 'text-danger' },
+const LEVEL_ICONS: Record<Notification['level'], typeof Info> = {
+  info: Info,
+  success: CheckCircle,
+  warning: AlertCircle,
+  error: XCircle,
 };
 
 function formatTimestamp(ts: number): string {
@@ -33,7 +33,7 @@ export function NotificationCard({
   onMarkRead,
   onFocusEmployee,
 }: NotificationCardProps) {
-  const { icon: Icon, iconClassName } = LEVEL_STYLES[notification.level];
+  const Icon = LEVEL_ICONS[notification.level];
 
   const handleClick = () => {
     if (!notification.read) {
@@ -46,42 +46,36 @@ export function NotificationCard({
 
   return (
     <div
-      className={cn(
-        'flex items-start gap-2 border-b border-line-soft p-2 transition-colors hover:bg-surface-sunken',
-        notification.read ? 'opacity-60' : '',
-      )}
+      className="notification-card"
+      data-level={notification.level}
+      data-read={notification.read ? 'true' : 'false'}
     >
       <Button
         type="button"
         variant="ghost"
-        className="h-auto flex-1 items-start justify-start gap-2 rounded-none p-0 text-left"
+        className="notification-card-main"
         onClick={handleClick}
       >
-        <Icon className={cn('mt-0.5 size-4 shrink-0', iconClassName)} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium leading-tight text-ink-1">
-            {notification.title}
-          </p>
-          <p className="mt-0.5 line-clamp-2 text-fs-micro leading-tight text-ink-3">
-            {notification.message}
-          </p>
-          <span className="mt-0.5 block text-fs-micro text-ink-3">
-            {formatTimestamp(notification.timestamp)}
-          </span>
+        <Icon data-icon="notification-level" aria-hidden="true" />
+        <div data-slot="copy">
+          <p data-slot="title">{notification.title}</p>
+          <p data-slot="message">{notification.message}</p>
+          <span data-slot="time">{formatTimestamp(notification.timestamp)}</span>
         </div>
       </Button>
       {notification.dismissable && (
         <Button
           type="button"
           variant="ghost"
-          size="icon"
-          className="size-4 shrink-0"
+          size="iconSm"
+          className="notification-card-dismiss"
+          aria-label="Dismiss notification"
           onClick={(e) => {
             e.stopPropagation();
             onDismiss(notification.notificationId);
           }}
         >
-          <X className="size-3" />
+          <X data-icon="notification-dismiss" aria-hidden="true" />
         </Button>
       )}
     </div>
