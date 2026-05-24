@@ -20,8 +20,8 @@ export function MarketManageView({
   return (
     <div className="flex h-full flex-col">
       {manageTab === 'updates' && (
-        <div className="px-3 pb-1 pt-3">
-          <p className="text-caption uppercase tracking-wide text-text-muted">
+        <div className="px-sp-7 pb-1 pt-3">
+          <p className="text-fs-meta font-semibold uppercase tracking-wide text-ink-4">
             Packages with available updates
           </p>
         </div>
@@ -33,7 +33,7 @@ export function MarketManageView({
           variant="outline"
           size="sm"
           onClick={onGoToExplore}
-          className="bg-surface-muted text-xs text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+          className="rounded-r-md bg-surface-2 text-fs-sm text-ink-2 hover:bg-surface-sunken hover:text-ink-1"
         >
           Browse Explore
         </Button>

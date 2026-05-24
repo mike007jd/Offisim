@@ -332,7 +332,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         disabled={isPackaging || !selectedSourceId}
         onClick={() => void handleDownload()}
       >
-        <Download className="h-4 w-4" />
+        <Download className="size-4" />
         {isPackaging ? 'Building...' : 'Download package'}
       </Button>
       <Button
@@ -340,7 +340,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         disabled={isPackaging || isSubmitting || !selectedSourceId}
         onClick={() => void handleSubmit()}
       >
-        <CloudUpload className="h-4 w-4" />
+        <CloudUpload className="size-4" />
         {isSubmitting ? 'Submitting...' : 'Submit draft'}
       </Button>
     </>
@@ -356,14 +356,14 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         description="Build a package from an employee or a skill, then submit a registry draft with platform-verified artifact bytes."
         footer={footer}
         onRequestClose={handleRequestClose}
-        className="border-border-default bg-surface-elevated text-text-primary"
+        className="border-line bg-surface-1 text-ink-1"
       >
         <div className="grid gap-8 lg:grid-publish-dialog">
           <div className="flex flex-col gap-6">
             <Field
               label={
                 <span className="flex items-center gap-1.5">
-                  <KeyRound className="h-3.5 w-3.5 text-info" />
+                  <KeyRound className="size-3.5 text-accent" />
                   Registry token
                 </span>
               }
@@ -493,15 +493,13 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                 />
               </Field>
 
-              {(status || error) && (
-                <p className="text-xs text-text-secondary">{status ?? error}</p>
-              )}
+              {(status || error) && <p className="text-fs-sm text-ink-3">{status ?? error}</p>}
             </div>
           </div>
 
-          <aside className="flex flex-col gap-6 lg:border-l lg:border-border-subtle lg:pl-6">
+          <aside className="flex flex-col gap-6 lg:border-l lg:border-line-soft lg:pl-6">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+              <p className="text-fs-meta font-semibold uppercase tracking-wide text-ink-3">
                 Draft preview
               </p>
               <dl className="mt-3 flex flex-col gap-1.5 text-xs">
@@ -515,24 +513,24 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
             </div>
 
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+              <p className="text-fs-meta font-semibold uppercase tracking-wide text-ink-3">
                 Recent drafts
               </p>
               {isLoading ? (
-                <p className="mt-3 text-xs text-text-muted">Loading…</p>
+                <p className="mt-3 text-fs-meta text-ink-4">Loading…</p>
               ) : drafts.length === 0 ? (
-                <p className="mt-3 text-xs text-text-muted">No drafts yet.</p>
+                <p className="mt-3 text-fs-meta text-ink-4">No drafts yet.</p>
               ) : (
                 <ul className="mt-3 flex flex-col gap-2">
                   {drafts.slice(0, 5).map((draft) => (
                     <li
                       key={draft.draft_id}
-                      className="border-l-2 border-border-default pl-2.5 text-xs"
+                      className="border-l-2 border-line-soft pl-2.5 text-fs-meta"
                     >
-                      <p className="font-medium text-text-primary">
+                      <p className="font-medium text-ink-1">
                         {draft.title ?? draft.kind ?? 'Untitled draft'}
                       </p>
-                      <p className="text-caption text-text-muted">
+                      <p className="text-fs-meta text-ink-4">
                         {draftStatusLabel(draft.status)} ·{' '}
                         {draftValidationLabel(draft.validation_state)}
                       </p>
@@ -562,11 +560,11 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-xs font-medium text-text-secondary">
+      <label htmlFor={htmlFor} className="text-fs-sm font-medium text-ink-2">
         {label}
       </label>
       {children}
-      {hint ? <p className="text-caption text-text-muted">{hint}</p> : null}
+      {hint ? <p className="text-fs-meta text-ink-4">{hint}</p> : null}
     </div>
   );
 }
@@ -574,8 +572,8 @@ function Field({
 function DraftRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-text-muted">{label}</dt>
-      <dd className="truncate text-text-primary">{value}</dd>
+      <dt className="text-ink-4">{label}</dt>
+      <dd className="truncate text-ink-1">{value}</dd>
     </div>
   );
 }

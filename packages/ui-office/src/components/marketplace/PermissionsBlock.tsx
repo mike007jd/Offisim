@@ -10,20 +10,20 @@ export interface PermissionsBlockProps {
 
 const VARIANT_STYLES = {
   compact: {
-    section: 'rounded-2xl border border-border-default bg-surface-muted p-3',
-    header: 'mb-2 flex items-center gap-1.5 text-xs font-semibold text-text-primary',
-    icon: 'h-3.5 w-3.5',
-    dl: 'flex flex-col gap-1.5 text-xs text-text-secondary',
+    section: 'rounded-r-md border border-line-soft bg-surface-2 p-3',
+    header: 'mb-2 flex items-center gap-1.5 text-fs-meta font-semibold text-ink-1',
+    icon: 'size-3.5',
+    dl: 'flex flex-col gap-1.5 text-fs-meta text-ink-3',
     row: 'flex justify-between gap-2',
-    dt: 'text-text-muted',
+    dt: 'text-ink-4',
   },
   wide: {
-    section: 'rounded-2xl border border-border-default bg-surface-muted p-4',
-    header: 'flex items-center gap-2 text-sm font-semibold text-text-primary',
-    icon: 'h-4 w-4',
-    dl: 'mt-4 flex flex-col gap-3 text-sm text-text-secondary',
+    section: 'rounded-r-md border border-line-soft bg-surface-2 p-sp-5',
+    header: 'flex items-center gap-2 text-fs-sm font-semibold text-ink-1',
+    icon: 'size-4',
+    dl: 'mt-3 flex flex-col gap-2.5 text-fs-sm text-ink-3',
     row: '',
-    dt: 'text-xs uppercase tracking-wide text-text-muted',
+    dt: 'text-fs-meta font-semibold uppercase tracking-wide text-ink-4',
   },
 } as const;
 

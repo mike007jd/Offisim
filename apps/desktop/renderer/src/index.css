@@ -94,6 +94,10 @@
     height: 12.5rem;
   }
 
+  .h-market-card-cover {
+    height: 5.5rem;
+  }
+
   .w-kanban-column {
     width: 16.25rem;
   }
@@ -209,6 +213,20 @@
     grid-template-columns: repeat(auto-fill, minmax(15.75rem, 1fr));
   }
 
+  .grid-market-layout-preview {
+    grid-template-columns: 1.2fr 1fr;
+  }
+
+  .market-template-seat {
+    height: 3.5rem;
+    width: 2.25rem;
+  }
+
+  .market-prefab-wing {
+    height: 1rem;
+    width: 3rem;
+  }
+
   .market-rarity-employee {
     --rc: var(--accent);
     --rcs: var(--accent-surface);
@@ -256,6 +274,14 @@
   .market-rarity-stripe,
   .market-rarity-cta {
     background: var(--rc);
+  }
+
+  .market-card-cover {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--rcs) 52%, var(--surface-1)) 0%,
+      var(--rcs) 100%
+    );
   }
 
   /* V3 detail open: retained listing grid (left) + fixed 440px right panel. */

@@ -314,9 +314,10 @@ function ScreenshotCarousel({
                   size="icon"
                   onClick={() => setIndex(i)}
                   aria-label={`Show screenshot ${i + 1}`}
-                  className={`size-2 rounded-full border-0 p-0 transition-colors ${
-                    i === index ? 'bg-white' : 'bg-white/45'
-                  }`}
+                  className={cn(
+                    'size-2 rounded-full border-0 p-0 transition-colors',
+                    i === index ? 'bg-surface-1' : 'bg-surface-1/55',
+                  )}
                 />
               ))}
             </div>

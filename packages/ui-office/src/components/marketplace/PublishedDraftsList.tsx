@@ -40,16 +40,11 @@ export function PublishedDraftsList() {
 
   if (state === 'unauth') {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border-default bg-surface-muted">
-          <Store className="h-5 w-5 text-text-muted" />
-        </div>
-        <p className="text-sm font-semibold text-text-primary">Sign in to view your drafts</p>
-        <p className="max-w-sm text-xs text-text-secondary">
-          Publishing requires a marketplace account. Once you connect one, your drafts and published
-          packages will appear here.
-        </p>
-      </div>
+      <EmptyState
+        icon={Store}
+        title="Sign in to view your drafts"
+        description="Publishing requires a marketplace account. Once you connect one, your drafts and published packages will appear here."
+      />
     );
   }
 
@@ -58,7 +53,7 @@ export function PublishedDraftsList() {
       <div className="flex flex-col gap-2 p-4">
         {Array.from({ length: 3 }).map((_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder
-          <Skeleton key={i} className="h-16 rounded-xl" />
+          <Skeleton key={i} className="h-16 rounded-r-md" />
         ))}
       </div>
     );
@@ -89,19 +84,21 @@ export function PublishedDraftsList() {
       {drafts.map((draft) => (
         <div
           key={draft.draft_id}
-          className="rounded-xl border border-border-default bg-surface-elevated p-4"
+          className="rounded-r-md border border-line-soft bg-surface-1 p-4 shadow-elev-1"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-text-primary">
+              <div className="truncate text-fs-sm font-semibold text-ink-1">
                 {draft.title ?? draft.kind ?? 'Untitled draft'}
               </div>
               {draft.summary && (
-                <div className="mt-0.5 truncate text-xs text-text-secondary">{draft.summary}</div>
+                <div className="mt-0.5 truncate text-fs-meta text-ink-3">{draft.summary}</div>
               )}
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-caption text-text-muted">
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-fs-meta text-ink-4">
                 {draft.kind && (
-                  <span className="rounded-full bg-surface-muted px-2 py-0.5">{draft.kind}</span>
+                  <Badge variant="secondary" size="xs">
+                    {draft.kind}
+                  </Badge>
                 )}
                 <span>Updated {new Date(draft.updated_at).toLocaleDateString()}</span>
               </div>

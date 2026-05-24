@@ -128,7 +128,7 @@ export function MarketCardGrid({
 
       {isLoadingMore && (
         <div className="col-span-full flex justify-center py-4">
-          <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
+          <Loader2 className="size-6 animate-spin text-ink-4" />
         </div>
       )}
     </div>
