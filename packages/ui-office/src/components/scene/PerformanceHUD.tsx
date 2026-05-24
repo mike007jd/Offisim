@@ -9,6 +9,11 @@ interface PerfStats {
 }
 
 export function PerformanceHUD() {
+  if (!import.meta.env.DEV) return null;
+  return <PerformanceHUDInner />;
+}
+
+function PerformanceHUDInner() {
   const [visible, setVisible] = useState<boolean>(() => {
     try {
       return localStorage.getItem(STORAGE_KEY) === 'true';
