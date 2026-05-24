@@ -19,7 +19,6 @@ import {
 } from './OfficeShellSurfaces';
 import { SceneCostReadout } from './SceneCostReadout';
 import { StagePipe } from './StagePipe';
-import { StageRunAxisFloats } from './StageRunAxisFloats';
 
 const SceneCanvas = React.lazy<
   React.ComponentType<{
@@ -53,9 +52,6 @@ interface OfficeSceneSurfaceProps {
   paused?: boolean;
   /** Active product thread id — resume target for the diegetic `.stage-pipe`. */
   activeThreadId: string | null;
-  /** Board run-axis entry state + toggle (backs the kanban). */
-  kanbanOpen: boolean;
-  onToggleKanban: () => void;
   /** Diegetic notification surface rendered beside the cost readout. */
   notificationSlot?: ReactNode;
   /** Team dock strip pinned below the stage (employee roster relocation). */
@@ -95,8 +91,6 @@ export function OfficeSceneSurface({
   viewModeNonce,
   paused = false,
   activeThreadId,
-  kanbanOpen,
-  onToggleKanban,
   notificationSlot,
   teamDockSlot,
 }: OfficeSceneSurfaceProps) {
@@ -126,7 +120,6 @@ export function OfficeSceneSurface({
           />
         </Suspense>
         <OfficeSceneOverlayLayer>
-          <StageRunAxisFloats kanbanOpen={kanbanOpen} onToggleKanban={onToggleKanban} />
           <StagePipe activeThreadId={activeThreadId} />
           <SceneCostReadout notificationSlot={notificationSlot} />
         </OfficeSceneOverlayLayer>

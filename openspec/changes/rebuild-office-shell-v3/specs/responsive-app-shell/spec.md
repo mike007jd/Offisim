@@ -17,7 +17,7 @@ unless the user has explicitly collapsed it (preference persisted in
 After the V3 shell change, the Office workspace SHALL NOT render a
 global bottom status-bar footer. Run-state, run cost, token usage, and
 git branch are presented diegetically (the `.scene-cost` stage readout,
-the stage run-axis Live entry, and the left-rail GitWorkbench),
+the `.stage-pipe`, the assistant-ui right rail, and the left-rail GitWorkbench),
 not in an app-level fixed footer. Non-Office screens that legitimately
 keep a sticky footer are unaffected.
 
@@ -29,8 +29,8 @@ keep a sticky footer are unaffected.
   scene or chat input controls
 - **AND** the right rail SHALL render expanded by default
 - **AND** there SHALL be NO global bottom status-bar footer — run-state,
-  cost, tokens, and branch are diegetic (stage readout / run-axis Live /
-  left-rail GitWorkbench)
+  cost, tokens, and branch are diegetic (stage readout / stage pipe /
+  assistant-ui right rail / left-rail GitWorkbench)
 
 #### Scenario: Tablet workspace keeps right rail expanded
 - **WHEN** the viewport is `1280x800` and the active workspace is Office
@@ -50,7 +50,7 @@ keep a sticky footer are unaffected.
 
 ### Requirement: Fixed bottom action areas reserve readable content space
 
-Screens with sticky or fixed bottom actions SHALL reserve enough bottom padding in the scrollable content area so the last form field, preview, validation message, or card is not obscured by the footer. The **Office workspace SHALL NOT have a global bottom status-bar footer**: run cost, token usage, run-state, and git branch are presented diegetically (the `.scene-cost` stage readout, the run-axis Live entry, and the left-rail GitWorkbench), not in an app-level fixed footer. This requirement therefore governs only screens that legitimately keep a sticky footer (Employee Creator, Settings save area, Company Editor), not Office.
+Screens with sticky or fixed bottom actions SHALL reserve enough bottom padding in the scrollable content area so the last form field, preview, validation message, or card is not obscured by the footer. The **Office workspace SHALL NOT have a global bottom status-bar footer**: run cost, token usage, run-state, and git branch are presented diegetically (the `.scene-cost` stage readout, `.stage-pipe`, the assistant-ui right rail, and the left-rail GitWorkbench), not in an app-level fixed footer. This requirement therefore governs only screens that legitimately keep a sticky footer (Employee Creator, Settings save area, Company Editor), not Office.
 
 #### Scenario: Employee Creator footer does not cover form content
 - **WHEN** Employee Creator is open and the user scrolls to the bottom

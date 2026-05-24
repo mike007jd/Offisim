@@ -120,17 +120,6 @@ const pipeActionButtonVariants = cva('stage-pipe-action-button', {
   defaultVariants: { tone: 'neutral' },
 });
 
-const axisButtonVariants = cva('stage-axis-button', {
-  variants: {
-    state: {
-      active: 'stage-axis-button-active',
-      idle: 'stage-axis-button-idle',
-      muted: 'stage-axis-button-muted',
-    },
-  },
-  defaultVariants: { state: 'idle' },
-});
-
 const teamEmployeeButtonVariants = cva('stage-team-employee-button', {
   variants: {
     state: {
@@ -272,47 +261,6 @@ export function StageRunStepMeta({ className, ...props }: HTMLAttributes<HTMLPar
     <p
       data-slot="stage-run-step-meta"
       className={cn('stage-run-step-meta', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageAxisBar({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div data-slot="stage-axis-bar" className={cn('stage-axis-bar', className)} {...props} />;
-}
-
-export function StageAxisButton({
-  className,
-  state,
-  ...props
-}: Omit<ComponentProps<typeof Button>, 'variant'> & VariantProps<typeof axisButtonVariants>) {
-  return (
-    <Button
-      data-slot="stage-axis-button"
-      variant="ghost"
-      className={cn(axisButtonVariants({ state }), className)}
-      {...props}
-    />
-  );
-}
-
-export function StageAxisDivider({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <span
-      aria-hidden="true"
-      data-slot="stage-axis-divider"
-      className={cn('stage-axis-divider', className)}
-      {...props}
-    />
-  );
-}
-
-export function StageAxisLiveIndicator({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <span
-      aria-hidden="true"
-      data-slot="stage-axis-live-indicator"
-      className={cn('stage-axis-live-indicator', className)}
       {...props}
     />
   );

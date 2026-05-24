@@ -31,7 +31,6 @@ export type WorkspaceRoute =
       workspace: 'office';
       overlay: Extract<UrlOverlayKey, 'office-editor'> | null;
       viewMode?: '2D' | '3D';
-      marketplaceListingId?: string | null;
       selectedThreadId?: string | null;
       companyId?: string | null;
     }

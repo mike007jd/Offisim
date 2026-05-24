@@ -1,7 +1,6 @@
 import type { TaskRunRow } from '@offisim/core/browser';
 import {
   Badge,
-  type BadgeProps,
   Card,
   CardContent,
   CardHeader,
@@ -12,16 +11,7 @@ import {
   TabsTrigger,
 } from '@offisim/ui-core';
 import type { TaskQueueState } from '../../hooks/useTaskQueue';
-
-const STATUS_VARIANT: Record<string, BadgeProps['variant']> = {
-  active: 'success',
-  queued: 'info',
-  planned: 'secondary',
-  pending: 'secondary',
-  completed: 'default',
-  failed: 'error',
-  cancelled: 'warning',
-};
+import { taskStatusBadgeVariant, taskStatusLabel } from '../../lib/status-display';
 
 function formatDuration(startedAt: string): string {
   const ms = Date.now() - new Date(startedAt).getTime();
@@ -34,7 +24,7 @@ function formatDuration(startedAt: string): string {
 }
 
 function TaskRow({ task }: { task: TaskRunRow }) {
-  const variant = STATUS_VARIANT[task.status] ?? 'secondary';
+  const variant = taskStatusBadgeVariant(task.status);
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface-sunken/10 px-2 py-1.5">
       <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -50,7 +40,7 @@ function TaskRow({ task }: { task: TaskRunRow }) {
           {formatDuration(task.started_at)}
         </span>
         <Badge variant={variant} className="text-caption">
-          {task.status}
+          {taskStatusLabel(task.status)}
         </Badge>
       </div>
     </div>

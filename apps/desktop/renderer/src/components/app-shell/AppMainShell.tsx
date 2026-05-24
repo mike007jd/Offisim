@@ -242,8 +242,6 @@ export function AppMainShell(props: AppMainShellProps) {
               viewMode={officeState.viewMode}
               viewModeNonce={viewModeNonce}
               activeThreadId={officeState.selectedThreadId}
-              kanbanOpen={officeState.kanbanOpen}
-              onToggleKanban={onToggleKanban}
               notificationSlot={
                 <NotificationCenter
                   onFocusEmployee={onFocusEmployee}

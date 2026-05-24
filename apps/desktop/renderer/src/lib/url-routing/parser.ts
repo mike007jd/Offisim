@@ -110,6 +110,27 @@ function readKind(search: URLSearchParams): MarketSessionState['kind'] {
 export function parseOfficePath(search: URLSearchParams): ParsedUrl {
   const view = search.get('view');
   const viewMode = view === '2d' ? '2D' : view === '3d' ? '3D' : undefined;
+  const listingId = search.get('listing');
+  if (listingId) {
+    return {
+      workspace: 'market',
+      overlay: null,
+      companyId: search.get('company'),
+      sessionPatch: {
+        office: {
+          ...(viewMode ? { viewMode } : {}),
+          selectedThreadId: search.get('thread'),
+        },
+        market: {
+          mode: 'explore',
+          selectedListingId: listingId,
+          search: '',
+          sort: readSort(search),
+          kind: readKind(search),
+        },
+      },
+    };
+  }
   return {
     workspace: 'office',
     overlay: readQueryOverlay(search),
@@ -117,7 +138,6 @@ export function parseOfficePath(search: URLSearchParams): ParsedUrl {
     sessionPatch: {
       office: {
         ...(viewMode ? { viewMode } : {}),
-        marketplaceListingId: search.get('listing'),
         selectedThreadId: search.get('thread'),
       },
     },
@@ -285,6 +305,5 @@ export function urlRequiresCompany(parsed: ParsedUrl): boolean {
   if (parsed.overlay === 'studio') return true;
   if (parsed.overlay === 'employee-creator') return true;
   if (parsed.overlay === 'office-editor') return true;
-  const office = parsed.sessionPatch.office;
-  return Boolean(parsed.companyId || office?.marketplaceListingId);
+  return Boolean(parsed.companyId);
 }

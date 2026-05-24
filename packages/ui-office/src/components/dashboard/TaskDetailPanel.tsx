@@ -1,5 +1,6 @@
 import { Button, cn } from '@offisim/ui-core';
 import { useState } from 'react';
+import { taskStatusLabel, taskStatusTextClass } from '../../lib/status-display';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,27 +20,6 @@ export interface TaskDetailPanelProps {
   task: TaskDetail;
   /** Accumulated estimated LLM cost for this task in USD. Hidden when 0. */
   taskCost?: number;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function statusColor(status: string): string {
-  switch (status) {
-    case 'completed':
-      return 'text-success';
-    case 'active':
-    case 'running':
-      return 'text-info';
-    case 'failed':
-    case 'cancelled':
-      return 'text-error';
-    case 'review_ready':
-      return 'text-warning';
-    default:
-      return 'text-text-muted';
-  }
 }
 
 const OUTPUT_PREVIEW_LIMIT = 200;
@@ -88,7 +68,7 @@ export function TaskDetailPanel({ task, taskCost = 0 }: TaskDetailPanelProps) {
           )}
           <span>
             <span className="text-text-muted">Status: </span>
-            <span className={statusColor(task.status)}>{task.status}</span>
+            <span className={taskStatusTextClass(task.status)}>{taskStatusLabel(task.status)}</span>
           </span>
           {taskCost > 0 && (
             <span>

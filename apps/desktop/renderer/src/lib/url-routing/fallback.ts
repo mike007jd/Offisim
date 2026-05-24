@@ -54,20 +54,6 @@ export function applyFallbackRules(
   const listings = idSetFromMapOrRows(runtime.listings, ['listing_id', 'id']);
   const companies = idSetFromMapOrRows(runtime.companies, ['company_id', 'id']);
 
-  const officeListingId = parsed.sessionPatch.office?.marketplaceListingId;
-  if (missing(listings, officeListingId)) {
-    return withInfo(
-      {
-        ...parsed,
-        sessionPatch: {
-          ...parsed.sessionPatch,
-          office: { ...parsed.sessionPatch.office, marketplaceListingId: null },
-        },
-      },
-      'listing',
-    );
-  }
-
   if (parsed.workspace === 'sops') {
     const selectedSopId = parsed.sessionPatch.sops?.selectedSopId;
     if (missing(sops, selectedSopId)) {

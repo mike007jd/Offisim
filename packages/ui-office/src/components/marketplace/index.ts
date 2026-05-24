@@ -9,6 +9,5 @@ export * from './MarketListingCard.js';
 export * from './InstalledList.js';
 export * from './MarketManageView.js';
 export * from './MarketPage.js';
-export * from './MarketplaceDetailOverlay.js';
 export * from './PermissionsBlock.js';
 export * from './PublishDialog.js';

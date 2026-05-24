@@ -47,7 +47,6 @@ export type OfficeSessionState = {
   selectedThreadId: string | null;
   studioMode: 'create' | 'edit' | null;
   kanbanOpen: boolean;
-  marketplaceListingId: string | null;
   leftPanelWidth: number;
   rightPanelWidth: number;
 };
@@ -219,7 +218,6 @@ export function createDefaultOfficeState(): OfficeSessionState {
     selectedThreadId: null,
     studioMode: null,
     kanbanOpen: false,
-    marketplaceListingId: null,
     leftPanelWidth: 44,
     rightPanelWidth: 44,
   };

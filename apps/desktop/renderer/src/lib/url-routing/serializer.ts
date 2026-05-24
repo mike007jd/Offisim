@@ -16,13 +16,9 @@ function primaryIdentity(parsed: ParsedUrl): string {
   switch (parsed.workspace) {
     case 'office': {
       const office = patch.office;
-      return [
-        'office',
-        overlay,
-        office?.viewMode ?? '3D',
-        office?.marketplaceListingId ?? '',
-        office?.selectedThreadId ?? '',
-      ].join(':');
+      return ['office', overlay, office?.viewMode ?? '3D', office?.selectedThreadId ?? ''].join(
+        ':',
+      );
     }
     case 'sops':
       return `sops:${patch.sops?.selectedSopId ?? ''}:${overlay}`;
@@ -43,7 +39,6 @@ export function serializeOfficeUrl({ sessionState, overlay }: SerializableUrlSta
   const office = sessionState.office;
   const search = new URLSearchParams();
   if (office.viewMode === '2D') search.set('view', '2d');
-  append(search, 'listing', office.marketplaceListingId);
   append(search, 'thread', office.selectedThreadId);
   if (overlay === 'office-editor') search.set('overlay', 'office-editor');
   return `/${suffix(search)}`;

@@ -17,7 +17,7 @@ The Office shell SHALL render a 40px titlebar (window controls + brand) and a 54
 
 ### Requirement: Office SHALL have no global status bar; run cost SHALL be a diegetic stage readout
 
-The Office shell SHALL NOT render a global bottom status bar. Run cost and token usage SHALL render as a diegetic pill (`.scene-cost`) anchored to the stage's bottom-right (blur background, `--line` border, `--r-pill`), reading from the existing dashboard metrics — this is the relocation home of the deleted StatusBar's EnergyMeter (token + cost). When a run is live the readout SHALL gain an `--accent-ring` border and an animated pulse dot (`过程即价值` — money burning is felt). Latency SHALL NOT live here (it relocates to the Live run overlay; see the run-state requirement). Run-state context that previously lived in the status bar SHALL be expressed within the diegetic `.stage-pipe` / `.scene-cost` / run-axis Live entry — not a global footer.
+The Office shell SHALL NOT render a global bottom status bar. Run cost and token usage SHALL render as a diegetic pill (`.scene-cost`) anchored to the stage's bottom-right (blur background, `--line` border, `--r-pill`), reading from the existing dashboard metrics — this is the relocation home of the deleted StatusBar's EnergyMeter (token + cost). When a run is live the readout SHALL gain an `--accent-ring` border and an animated pulse dot (`过程即价值` — money burning is felt). Latency SHALL NOT live here and SHALL NOT create a scene Live overlay. Run-state context that previously lived in the status bar SHALL be expressed within the diegetic `.stage-pipe`, `.scene-cost`, and the assistant-ui right rail — not a global footer or scene-level Live tab.
 
 #### Scenario: No global status bar
 
@@ -40,61 +40,60 @@ Notifications SHALL surface as a round `.sc-notif` button (26×26) adjacent to t
 - **THEN** the `.sc-notif` button shows a small `.nb-dot` corner marker (with or without a compact count, per the prototype skin) and no bell or status-bar count chrome
 - **AND** activating it opens the notification list popover
 
-### Requirement: Stage SHALL host a run-axis with Board and Live entries
+### Requirement: Stage SHALL NOT host floating Board or Live tabs
 
-The stage SHALL render a run-axis float (`.stage-runaxis`, top-centered) with two adjacent entries sharing one visual language but distinct lifecycles: Board (a persistent kanban toggle backed by the existing kanban data/CAS, present even when idle) and Live (a run-broadcast entry with `live-idle` / `live-active` states + pulse dot). The Live entry SHALL open a run-broadcast overlay while a run is active (Plan + Activity surface; latency degrades into this overlay's header — see the run-state requirement). The two entries SHALL NOT merge into one overlay.
+The stage SHALL NOT render a top-centered run-axis float, floating Board tab, or floating Live tab. Kanban data/CAS and keyboard access MAY remain, but Board/Live SHALL NOT appear as scene chrome. Run activity SHALL be surfaced through the assistant-ui chat/run-record rail or a future topbar-owned framework surface, not as an absolutely positioned scene tab.
 
-This change OWNS the Live **entry shell** + its idle/active state on the stage. The data contract for how a completed run **sediments** into the triggering thread's run-record is OWNED by the chat-rail rebuild (Phase 1) and is explicitly DEFERRED there — this change SHALL NOT assert or implement the sediment persistence behavior.
+The data contract for how a completed run sediments into the triggering thread's run-record is OWNED by the chat-rail rebuild (Phase 1). The Office scene shell SHALL NOT reintroduce a separate Live entry shell for that behavior.
 
-#### Scenario: Board toggles the kanban
+#### Scenario: No floating Board tab
 
-- **WHEN** the user activates the Board entry
-- **THEN** the kanban board opens/closes; its data and state-transition rules are unchanged
+- **WHEN** the Office scene renders
+- **THEN** there is no stage-level Board tab or run-axis control floating over the canvas
 
-#### Scenario: Live entry reflects run state
+#### Scenario: No floating Live tab
 
 - **WHEN** a run is active
-- **THEN** the Live entry shows the `live-active` state + pulse dot and opens the run-broadcast overlay (Plan + Activity)
-- **WHEN** no run is active
-- **THEN** the Live entry shows the `live-idle` state
+- **THEN** no Live tab or auto-open Live popover appears on top of the scene
 
 #### Scenario: Sediment contract is owned by the chat rail rebuild
 
 - **WHEN** a run completes
 - **THEN** the run-record sediment persistence is governed by the Phase 1 chat-rail run-record contract, NOT by this change
-- **AND** this change SHALL NOT define or claim sediment behavior beyond the stage Live entry shell + active state
+- **AND** this change SHALL NOT define or claim sediment behavior beyond deleting the stage Live entry shell
 
 ### Requirement: Run-state headline, Stop control, and pending-interaction cues SHALL survive the StatusBar deletion
 
-Deleting the global StatusBar SHALL NOT drop the load-bearing run-control surfaces it carried. The run-state headline (current pipeline stage / step + active assignee) and the run abort control SHALL be relocated to a diegetic stage element — the `.stage-pipe` pill that floats above the worker zones (per the states prototype's resting Office mid-run frame). The Stop control SHALL render iff a run is active (`isRunning && onAbort`) and SHALL invoke the existing `abortExecution()` path; it SHALL NOT be moved into the right-rail composer. On abort, the `.stage-pipe` SHALL collapse to a muted post-state with a Resume/Discard affordance below the run-axis.
+Deleting the global StatusBar SHALL NOT drop the load-bearing run-control surfaces it carried. The run-state headline (current pipeline stage / step + active assignee) and the run abort control SHALL be relocated to a diegetic stage element — the `.stage-pipe` pill that floats above the worker zones (per the states prototype's resting Office mid-run frame). The Stop control SHALL render iff a run is active (`isRunning && onAbort`) and SHALL invoke the existing `abortExecution()` path; it SHALL NOT be moved into the right-rail composer.
 
-Latency SHALL relocate from the StatusBar into the Live run-broadcast overlay header (e.g. `1.2s latency` beside the single-run cost) — it SHALL NOT live in the persistent `.scene-cost` readout. The model name and the EnergyMeter (token + cost meter) SHALL relocate: token + estimated cost render in the diegetic `.scene-cost` readout (see the cost requirement); the active model name relocates to the right-rail composer model-chip (`provider · model · think-level`), which is OWNED by the chat-rail rebuild (Phase 1) and DEFERRED there — this change SHALL NOT host model name in the shell chrome.
+Latency SHALL relocate from the StatusBar into the assistant-ui right rail/run-record surface — it SHALL NOT live in the persistent `.scene-cost` readout and SHALL NOT create a scene-level Live overlay. The model name and the EnergyMeter (token + cost meter) SHALL relocate: token + estimated cost render in the diegetic `.scene-cost` readout (see the cost requirement); the active model name relocates to the right-rail composer model-chip (`provider · model · think-level`), which is OWNED by the chat-rail rebuild (Phase 1) and DEFERRED there — this change SHALL NOT host model name in the shell chrome.
 
-Pending-interaction states the StatusBar surfaced (`Approval required` / `Awaiting approval` / `Awaiting plan review` / `Awaiting clarification` / `Decision required` / `Awaiting input`) are load-bearing for the "user must be able to intervene" guarantee. After the StatusBar deletion they SHALL remain visible: the structured "needs intervention" entries (plan-step blocked / error) broadcast in the Live run overlay, and the actionable interaction prompts (permission / plan_review / clarification) surface as chat bubbles in the right rail and/or high-severity HIL modals — both OWNED by Phase 1 / the global lifecycle change. This change SHALL NOT silently drop pending-interaction surfacing; if a run needs intervention while no actionable prompt is mounted elsewhere, the stage SHALL still cue it (Live `live-active` + the structured blocked/error entry), never leaving the user with no visible intervention path.
+Pending-interaction states the StatusBar surfaced (`Approval required` / `Awaiting approval` / `Awaiting plan review` / `Awaiting clarification` / `Decision required` / `Awaiting input`) are load-bearing for the "user must be able to intervene" guarantee. After the StatusBar deletion they SHALL remain visible: the `.stage-pipe` presents a needs-input cue, and the actionable interaction prompts (permission / plan_review / clarification) surface as chat bubbles in the right rail and/or high-severity HIL modals — both OWNED by Phase 1 / the global lifecycle change. This change SHALL NOT silently drop pending-interaction surfacing, and SHALL NOT recreate a Live scene tab to carry it.
 
 #### Scenario: Stop control is on the stage, not the composer
 
 - **WHEN** a run is active in Office
 - **THEN** the `.stage-pipe` pill shows the current step + assignee + progress and renders the Stop control
 - **AND** activating Stop invokes `abortExecution()`
-- **AND** the right-rail composer carries only the composer (no run-axis chrome / Stop button stacked on it)
+- **AND** the right-rail composer carries only the composer (no scene run-axis chrome / Stop button stacked on it)
 
 #### Scenario: Abort collapses the stage pipe to a resumable post-state
 
 - **WHEN** the user activates Stop and the run aborts
 - **THEN** the `.stage-pipe` collapses to a muted "Stopped at step #N" state
-- **AND** a Resume / Discard affordance appears below the run-axis
+- **AND** no Board/Live run-axis affordance appears over the stage
 
-#### Scenario: Latency lives in the Live overlay, not the persistent readout
+#### Scenario: Latency does not live in the persistent readout
 
 - **WHEN** a run is live
-- **THEN** latency renders in the Live run-broadcast overlay header
+- **THEN** latency is absent from the persistent `.scene-cost` readout
+- **AND** no Live run-broadcast overlay appears over the scene
 - **AND** the persistent `.scene-cost` readout shows only cost + tokens (no latency)
 
 #### Scenario: Pending interaction stays visible after StatusBar removal
 
 - **WHEN** a run reaches a pending-interaction state (approval / plan_review / clarification, or a blocked/error plan step)
-- **THEN** the intervention is surfaced via the Live run overlay structured entries and/or the right-rail interaction bubble / HIL modal (Phase 1 / lifecycle owned)
+- **THEN** the intervention is surfaced via `.stage-pipe` needs-input cue and/or the right-rail interaction bubble / HIL modal (Phase 1 / lifecycle owned)
 - **AND** the user is never left with an active run that needs intervention and no visible way to intervene
 
 ### Requirement: Office SHALL use a three-column layout with a left Files/SOPs/Git widget

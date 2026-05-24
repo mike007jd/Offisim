@@ -1,24 +1,8 @@
 import { Button, cn } from '@offisim/ui-core';
 import { ChevronDown } from 'lucide-react';
 import type { DashboardStep } from '../../hooks/useTaskDashboard';
+import { taskStatusDotClass } from '../../lib/status-display';
 import { TaskItem } from './TaskItem';
-
-// ---------------------------------------------------------------------------
-// Step status → dot colour
-// ---------------------------------------------------------------------------
-
-function statusColor(status: 'pending' | 'active' | 'completed' | 'failed'): string {
-  switch (status) {
-    case 'completed':
-      return 'bg-success';
-    case 'active':
-      return 'bg-info';
-    case 'failed':
-      return 'bg-error';
-    default:
-      return 'bg-text-muted';
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -46,7 +30,7 @@ export function TaskStepCard({
         className="h-auto w-full justify-start gap-2 rounded-none px-2 py-1.5 text-left text-xs"
       >
         {/* Status dot */}
-        <span className={cn('size-2 shrink-0 rounded-full', statusColor(step.status))} />
+        <span className={cn('size-2 shrink-0 rounded-full', taskStatusDotClass(step.status))} />
         <span className="flex-1 truncate text-text-primary">
           Step {step.stepIndex + 1}: {step.description}
         </span>

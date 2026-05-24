@@ -1,24 +1,9 @@
 import type { PublishDraft } from '@offisim/registry-client';
-import { EmptyState, Skeleton } from '@offisim/ui-core';
+import { Badge, EmptyState, Skeleton } from '@offisim/ui-core';
 import { Store } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRegistryClient } from '../../hooks/useRegistryClient.js';
-
-const STATUS_LABEL: Record<PublishDraft['status'], string> = {
-  draft: 'Draft',
-  validated: 'Validated',
-  submitted: 'Submitted',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
-
-const STATUS_TONE: Record<PublishDraft['status'], string> = {
-  draft: 'bg-surface-muted text-text-secondary',
-  validated: 'bg-info-muted text-info',
-  submitted: 'bg-info-muted text-info',
-  approved: 'bg-success-muted text-success',
-  rejected: 'bg-error-muted text-error',
-};
+import { draftStatusLabel, draftStatusVariant } from '../../lib/status-display.js';
 
 export function PublishedDraftsList() {
   const client = useRegistryClient();
@@ -121,11 +106,9 @@ export function PublishedDraftsList() {
                 <span>Updated {new Date(draft.updated_at).toLocaleDateString()}</span>
               </div>
             </div>
-            <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-caption font-medium ${STATUS_TONE[draft.status]}`}
-            >
-              {STATUS_LABEL[draft.status]}
-            </span>
+            <Badge variant={draftStatusVariant(draft.status)} size="xs" className="shrink-0">
+              {draftStatusLabel(draft.status)}
+            </Badge>
           </div>
         </div>
       ))}

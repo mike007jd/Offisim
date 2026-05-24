@@ -47,7 +47,7 @@ function fallbackHeadline(stage: PipelineStage): string {
  * above the worker zones showing the current step + assignee + progress and a
  * Stop control that invokes the existing abortExecution() path. On abort the pill
  * collapses to a muted "Stopped at step #N" state and a Resume / Discard
- * affordance appears below the run-axis. Stop is never moved into the composer.
+ * affordance stays in the stage run pipe. Stop is never moved into the composer.
  */
 export function StagePipe({ activeThreadId }: StagePipeProps) {
   const { isRunning } = useOffisimRuntimeStatus();

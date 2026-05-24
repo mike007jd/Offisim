@@ -386,11 +386,7 @@ export function App({ onCompanySwitch }: AppProps) {
   );
 
   const anyOverlayOpen =
-    officeState.kanbanOpen ||
-    officeState.marketplaceListingId !== null ||
-    installFlow.isOpen ||
-    shortcutHelpOpen ||
-    companyWizardMode !== null;
+    officeState.kanbanOpen || installFlow.isOpen || shortcutHelpOpen || companyWizardMode !== null;
 
   const handleSelectThread = useCallback(
     (threadId: string) =>
@@ -481,9 +477,6 @@ export function App({ onCompanySwitch }: AppProps) {
             repos={repos}
             onStudioCompanyCreated={lifecycle.handleStudioCompanyCreated}
             onCreatorDeploy={lifecycle.handleCreatorDeploy}
-            updateOfficeState={officeBindings.updateOfficeState}
-            updateWorkspaceState={updateWorkspaceState}
-            installFlow={installFlow}
           />
 
           {showLayout && (

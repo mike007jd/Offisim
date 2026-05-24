@@ -81,9 +81,6 @@ export function tryWorkspaceInternalBack(
       if (o.kanbanOpen) {
         return [true, { ...sessionState, office: { ...o, kanbanOpen: false } }];
       }
-      if (o.marketplaceListingId) {
-        return [true, { ...sessionState, office: { ...o, marketplaceListingId: null } }];
-      }
       if (o.selectedEmployeeId) {
         return [true, { ...sessionState, office: { ...o, selectedEmployeeId: null } }];
       }
@@ -166,14 +163,13 @@ export function useWorkspaceSessionState(options: UseWorkspaceSessionStateOption
 
       if (prev.activeWorkspace === 'office') {
         const o = nextSessionState.office;
-        if (o.studioMode !== null || o.kanbanOpen || o.marketplaceListingId !== null) {
+        if (o.studioMode !== null || o.kanbanOpen) {
           nextSessionState = {
             ...nextSessionState,
             office: {
               ...o,
               studioMode: null,
               kanbanOpen: false,
-              marketplaceListingId: null,
             },
           };
         }

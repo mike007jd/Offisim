@@ -28,6 +28,14 @@ import {
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { toErrorMessage } from '../../lib/error-message.js';
+import {
+  KANBAN_STATES,
+  kanbanOriginBadgeClass,
+  kanbanOriginLabel,
+  kanbanStateBorderClass,
+  kanbanStateDotClass,
+  kanbanStateLabel,
+} from '../../lib/status-display';
 import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
@@ -84,39 +92,6 @@ export interface UpdateKanbanInput {
   assignedEmployeeId?: string | null;
   blockedReason?: string | null;
 }
-
-const KANBAN_STATES: KanbanState[] = ['todo', 'doing', 'blocked', 'review', 'done'];
-
-const KANBAN_LABELS: Record<KanbanState, string> = {
-  todo: 'Todo',
-  doing: 'Doing',
-  blocked: 'Blocked',
-  review: 'Review',
-  done: 'Done',
-};
-
-const ORIGIN_BADGE_CLASS: Record<KanbanOrigin, string> = {
-  'pm-planner': 'border-info bg-info-muted text-info',
-  employee: 'border-success bg-success-muted text-ok',
-  manager: 'border-warning bg-warning-muted text-warning',
-  human: 'border-border-subtle bg-surface-muted text-text-secondary',
-};
-
-const STATE_BORDER_CLASS: Record<KanbanState, string> = {
-  todo: 'border-t-info',
-  doing: 'border-t-warning',
-  blocked: 'border-t-error',
-  review: 'border-t-accent',
-  done: 'border-t-success',
-};
-
-const STATE_DOT_CLASS: Record<KanbanState, string> = {
-  todo: 'bg-info',
-  doing: 'bg-warning',
-  blocked: 'bg-error',
-  review: 'bg-accent',
-  done: 'bg-success',
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -369,7 +344,7 @@ function LiveKanbanBoard({
       if (!card || card.state === state) return;
       if (!isKanbanTransitionAllowed(card.state, state)) {
         setErrorMessage(
-          `Invalid transition: ${KANBAN_LABELS[card.state]} -> ${KANBAN_LABELS[state]}`,
+          `Invalid transition: ${kanbanStateLabel(card.state)} -> ${kanbanStateLabel(state)}`,
         );
         return;
       }
@@ -416,11 +391,11 @@ function LiveKanbanBoard({
             <header
               className={cn(
                 'flex items-center justify-between border-b border-t-2 border-border-subtle px-3 py-3',
-                STATE_BORDER_CLASS[state],
+                kanbanStateBorderClass(state),
               )}
             >
               <span className="truncate text-body-sm font-bold text-text-primary">
-                {KANBAN_LABELS[state]}
+                {kanbanStateLabel(state)}
               </span>
               <span className="rounded-full bg-surface-muted px-1.5 font-mono text-caption text-text-muted">
                 {grouped[state].length}
@@ -609,10 +584,10 @@ function LiveKanbanCard({
             size="xs"
             className={cn(
               'hidden shrink-0 px-1.5 font-bold uppercase lg:inline-flex',
-              ORIGIN_BADGE_CLASS[card.origin],
+              kanbanOriginBadgeClass(card.origin),
             )}
           >
-            {card.origin}
+            {kanbanOriginLabel(card.origin)}
           </Badge>
         )}
       </div>
@@ -663,10 +638,10 @@ function LiveKanbanCard({
                 'inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-caption font-semibold',
                 card.blockedReason
                   ? 'border-error bg-error-muted text-error'
-                  : ORIGIN_BADGE_CLASS[card.origin],
+                  : kanbanOriginBadgeClass(card.origin),
               )}
             >
-              {card.blockedReason || originLabel(card.origin)}
+              {card.blockedReason || kanbanOriginLabel(card.origin)}
             </span>
             {assignedAgent ? (
               <span className="flex min-w-0 items-center gap-1 text-caption font-medium text-text-secondary">
@@ -676,8 +651,8 @@ function LiveKanbanCard({
             ) : null}
           </div>
           <span
-            className={cn('mb-1 h-2 w-2 shrink-0 rounded-full', STATE_DOT_CLASS[card.state])}
-            aria-label={`${KANBAN_LABELS[card.state]} status`}
+            className={cn('mb-1 h-2 w-2 shrink-0 rounded-full', kanbanStateDotClass(card.state))}
+            aria-label={`${kanbanStateLabel(card.state)} status`}
           />
         </div>
       )}
@@ -719,25 +694,9 @@ function LiveKanbanCard({
   );
 }
 
-function originLabel(origin: KanbanOrigin): string {
-  switch (origin) {
-    case 'pm-planner':
-      return 'PM Planned';
-    case 'employee':
-      return 'Employee';
-    case 'manager':
-      return 'Manager';
-    case 'human':
-      return 'Human';
-  }
-}
-
 function groupCards(cards: KanbanCardData[]): Record<KanbanState, KanbanCardData[]> {
-  return {
-    todo: cards.filter((card) => card.state === 'todo'),
-    doing: cards.filter((card) => card.state === 'doing'),
-    blocked: cards.filter((card) => card.state === 'blocked'),
-    review: cards.filter((card) => card.state === 'review'),
-    done: cards.filter((card) => card.state === 'done'),
-  };
+  const grouped = {} as Record<KanbanState, KanbanCardData[]>;
+  for (const state of KANBAN_STATES) grouped[state] = [];
+  for (const card of cards) grouped[card.state].push(card);
+  return grouped;
 }

@@ -7,23 +7,23 @@
 
 ## 2. Diegetic cost readout + 通知 dot + StatusBar residents 迁移
 
-- [x] 2.1 `SceneCostReadout`（stage 内 absolute right/bottom，消费 `useDashboardMetrics`；`.live` accent-ring + pulse dot）——这是 StatusBar EnergyMeter(token+cost) 的落点；**latency 不进这里**（去 Live overlay header）
+- [x] 2.1 `SceneCostReadout`（stage 内 absolute right/bottom，消费 `useDashboardMetrics`；`.live` accent-ring + pulse dot）——这是 StatusBar EnergyMeter(token+cost) 的落点；**latency 不进这里**（归 assistant-ui 右栏/run-record）
   - **已做**：`apps/desktop/renderer/src/components/office-shell/SceneCostReadout.tsx`，`bottom-sp-6 right-sp-7` absolute pill，`useDashboardMetrics` token+cost，`useOffisimRuntimeStatus().isRunning` → accent-ring border + pulse beat dot。无 latency。
 - [x] 2.2 `NotificationCenter` 改 `.sc-notif`（26×26，unread = `.nb-dot` 角标…；无铃铛、无 status-bar count chrome）+ popover 列表（复用 NotificationCard）；紧邻 cost readout
   - **已做**：重写 `NotificationCenter` 为 26×26 圆 button（内含 Bell glyph，per prototype）+ `.nb-dot` 角标（compact count）+ popover（复用 `NotificationCard`），V3 token skin。作为 `SceneCostReadout` 的 `notificationSlot` 紧邻渲染。Header 不再 mount notification slot（bell+count header chrome 删）。
-- [x] 2.3 `OfficeSceneSurface` 加 stage insets（右下 readout + 上方 run-axis 预留 + worker zone 上方 `.stage-pipe` 预留），不改 canvas 渲染逻辑
-  - **已做**：scene 容器改 `relative`，新增 `pointer-events-none absolute inset-0` overlay 层挂 `StageRunAxisFloats`/`StagePipe`/`SceneCostReadout`（各自 `pointer-events-auto`），canvas props/渲染逻辑零改动。Team dock 走单独 bottom-pinned `teamDockSlot`（inset 居中）。
-- [x] 2.4 `.stage-pipe` diegetic 运行态 pill：run-state headline（step + assignee + progress）+ Stop（`isRunning && onAbort` → `abortExecution()`）；abort 后 collapse 成 muted "Stopped at #N" + run-axis 下方 Resume/Discard。**Stop 不进右栏 composer**
+- [x] 2.3 `OfficeSceneSurface` 加 stage insets（右下 readout + worker zone 上方 `.stage-pipe` 预留），不改 canvas 渲染逻辑
+  - **已做**：scene 容器改 `relative`，新增 `pointer-events-none absolute inset-0` overlay 层挂 `StagePipe`/`SceneCostReadout`（各自 `pointer-events-auto`），canvas props/渲染逻辑零改动。Team dock 走单独 bottom-pinned `teamDockSlot`（inset 居中）。**2026-05-24 修正**：删除 stage 顶部 `StageRunAxisFloats`，避免截图中的 Board/Live floating-tab chrome 回流进 scene。
+- [x] 2.4 `.stage-pipe` diegetic 运行态 pill：run-state headline（step + assignee + progress）+ Stop（`isRunning && onAbort` → `abortExecution()`）；abort 后 collapse 成 muted "Stopped at #N" + Resume/Discard。**Stop 不进右栏 composer**
   - **已做**：`StagePipe.tsx` 消费 `usePlanStepStore`（step+assignee+progress bar+`stats`）+ `usePipelineStage`(fallback headline) + `useOffisimRuntimeExecution.abortExecution/resumeThread`。Stop 仅 `isRunning` 时渲染，点击捕获 `{stepLabel, threadId}` 后 `abortExecution()`；run 停后 collapse muted `Stopped at #N` + Resume(`resumeThread(activeThreadId)`)/Discard。pendingInteraction 时显 `Needs input` cue。**决定**：Resume 目标用从 stage 传入的 `activeThreadId`（`officeState.selectedThreadId`）。
-- [x] 2.5 pending-interaction 不丢：结构化进 Live overlay；actionable prompt 走右栏 interaction bubble / HIL modal；model name 去 composer model-chip（Phase 1）
-  - **已做**：`StagePipe` 显 `Needs input` cue（`useOffisimRuntimeInteraction().pendingInteraction`）；`LiveRunOverlay` 结构化 Plan(per-step status dot：active/completed/failed/pending)+Activity；actionable prompt + model-chip 归 Phase 1 chat-rail（本 change 不在 shell chrome 放 model name）。
+- [x] 2.5 pending-interaction 不丢：结构化进 `.stage-pipe` cue；actionable prompt 走右栏 interaction bubble / HIL modal；model name 去 composer model-chip（Phase 1）
+  - **已做**：`StagePipe` 显 `Needs input` cue（`useOffisimRuntimeInteraction().pendingInteraction`）；删除 `LiveRunOverlay`，避免 pending/run 状态再通过旧 scene popover 承载；actionable prompt + model-chip 归 Phase 1 chat-rail（本 change 不在 shell chrome 放 model name）。
 
-## 3. 运行轴 Board + Live
+## 3. 删除旧 Board + Live 浮层
 
-- [x] 3.1 `StageRunAxisFloats`（stage 上方居中）：Board entry 切现有 KanbanTray（数据/CAS 不变）；Live entry `live-idle` / `live-active` + pulse dot；两 entry 一套视觉语言、不合并成单 overlay
-  - **已做**：`StageRunAxisFloats.tsx` top-centered `.stage-float` 双 entry。Board entry `aria-pressed={kanbanOpen}` + `onToggleKanban`（KanbanTray 仍由 AppMainShell `taskTray` 渲染，数据/CAS/`officeState.kanbanOpen`/⌘J 不变）。Live entry idle/active + pulse。
+- [x] 3.1 删除 `StageRunAxisFloats`（stage 上方旧浮动 tabs）：KanbanTray 数据/CAS 不变；Live 不再有 scene entry
+  - **已废止 2026-05-24**：用户截图确认 stage 顶部 Board/Live 是旧 floating-tab 观感，不属于新 layout framework。删除 `StageRunAxisFloats.tsx` + stage-axis primitives/CSS；KanbanTray 数据/CAS/`officeState.kanbanOpen`/⌘J 保留，但不再通过 scene 内浮动 tab 暴露。Live 广播后续并入 chat/run-record 或 topbar framework，不再作为 scene chrome。
 - [x] 3.2 Live entry **shell** + active state：active 时开 run-broadcast overlay（Plan + Activity，latency 在 header）；taskTray chip 入口收进运行轴。**sediment 数据契约归 Phase 1**——只对接 Live entry 壳
-  - **已做**：`LiveRunOverlay.tsx`（Plan from `usePlanStepStore` + `ActivityRail` + header latency `useDashboardMetrics().elapsedMs` + single-run cost）。run 开始自动 open（`isRunning` effect），可手动关。sediment 持久化未实现/未断言（Phase 1）。**决定**：Live overlay 用 popover-style 锚 stage 顶部（非全屏 modal），与 Board 各自独立不合并。
+  - **已废止 2026-05-24**：删除 Live scene entry 与 auto-open popover，防止 run UI 继续以绝对定位浮层压在 scene 上。run-record/outputs 归 assistant-ui chat rail 承接。
 
 ## 4. 删 Boss Dashboard 入口（打真实站点，Dashboard 不是 OverlayKey）
 
@@ -50,10 +50,10 @@
 ## 6. 文档 + 验收
 
 - [x] 6.1 更新 root `CLAUDE.md`「Header/StatusBar/Tasks·Kanban·Git 职责锁定」为 V3 shell
-  - **已做**：替换为 6 条 V3 shell 锁定规则（删状态栏 + diegetic 迁移、topbar grammar、运行轴 Board+Live、左栏 Files/SOPs/Git、Team dock、删 Dashboard 入口含遗留说明）；Key Files 表 `useGitBranch` 行改为 `GitWorkbench`（左栏 Git tab）。
+  - **已做**：替换为 6 条 V3 shell 锁定规则（删状态栏 + diegetic 迁移、topbar grammar、删除 Board/Live scene 浮层、左栏 Files/SOPs/Git、Team dock、删 Dashboard 入口含遗留说明）；Key Files 表 `useGitBranch` 行改为 `GitWorkbench`（左栏 Git tab）。
 - [x] 6.2 串行 build + `pnpm typecheck`（含删 StatusBar 后无悬空 import/slot 提供方）
   - **已做（6 gate 全 exit 0）**：① `rm -rf ui-office/dist + tsbuildinfo && pnpm --filter @offisim/ui-office build` ✓；② `pnpm --filter @offisim/ui-office typecheck` ✓；③ renderer `npx tsc --noEmit` ✓；④ `pnpm --filter @offisim/desktop-renderer build`(vite) ✓；⑤ `pnpm tokens:check` + `pnpm tokens:lint-hex` ✓（z-[]→named z-token、shadow-[]→ring/elev、`#000`→`black`）；⑥ `pnpm typecheck`(25/25) ✓。
-- [ ] 6.3 release `.app` live（用户/Codex）：无底部状态栏 / cost readout diegetic + live 高亮 / 通知 `.nb-dot` 角标无铃铛 / 运行轴 Board+Live / `.stage-pipe` run-state + Stop + abort Resume/Discard / latency 在 Live overlay / pending-interaction 仍可见 / 左栏 Files-SOPs-Git / 员工 Team dock + 场景 avatar + Add slot / topbar 无铃铛 / Dashboard 入口消失
+- [ ] 6.3 release `.app` live（用户/Codex）：无底部状态栏 / cost readout diegetic + live 高亮 / 通知 `.nb-dot` 角标无铃铛 / stage 无 Board/Live 浮动 tab / `.stage-pipe` run-state + Stop / pending-interaction 仍可见 / 左栏 Files-SOPs-Git / 员工 Team dock + 场景 avatar + Add slot / topbar 无铃铛 / Dashboard 入口消失
   - **BLOCKED 2026-05-24**：release `.app` 已用当前 worktree 精确路径构建并启动，但本机处于 macOS 锁屏界面；CGWindow 可见 Offisim 窗口存在，Computer Use 附着返回 `cgWindowNotFound`，无法完成 release live 视觉/交互验收。解锁后必须用同一 `.app` 路径补跑，不得用 dev server 或浏览器替代。
 - [ ] 6.4 archive gate 三查 + 协议台账（Tauri git_exec 路径无变化则不动台账）
   - **未勾（归档时做）**：本 change 未碰 Tauri/A2A/MCP 等协议口径，git_exec 路径不变，台账无需动。

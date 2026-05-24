@@ -24,6 +24,7 @@ import {
   buildEmployeePackage,
   buildSkillPackage,
 } from '../../lib/export-to-manifest.js';
+import { draftStatusLabel, draftValidationLabel } from '../../lib/status-display.js';
 import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context.js';
 import { useCompany } from '../company/CompanyContext.js';
 
@@ -532,7 +533,8 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                         {draft.title ?? draft.kind ?? 'Untitled draft'}
                       </p>
                       <p className="text-caption text-text-muted">
-                        {draft.status} · {draft.validation_state}
+                        {draftStatusLabel(draft.status)} ·{' '}
+                        {draftValidationLabel(draft.validation_state)}
                       </p>
                     </li>
                   ))}

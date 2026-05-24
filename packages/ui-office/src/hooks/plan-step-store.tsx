@@ -64,7 +64,7 @@ function calcStats(steps: PlanStep[]) {
     for (const t of step.tasks) {
       total++;
       if (t.status === 'completed') completed++;
-      else if (t.status === 'active') active++;
+      else if (t.status === 'active' || t.status === 'running') active++;
       else if (t.status === 'failed' || t.status === 'cancelled') failed++;
     }
   }

@@ -1,5 +1,6 @@
 import { Button, cn } from '@offisim/ui-core';
 import { useState } from 'react';
+import { taskStatusSegmentClass } from '../../lib/status-display';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,24 +17,6 @@ export interface StepProgressBarProps {
   steps: StepProgressSegment[];
   activeFilter: number | null;
   onSegmentClick: (stepIndex: number | null) => void;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function segmentColor(status: StepProgressSegment['status'], isHighlighted: boolean): string {
-  const dimmed = !isHighlighted ? 'opacity-50' : '';
-  switch (status) {
-    case 'completed':
-      return cn('bg-success', dimmed);
-    case 'active':
-      return cn('bg-info', dimmed);
-    case 'failed':
-      return cn('bg-error', dimmed);
-    default:
-      return cn('bg-text-muted', dimmed);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +48,7 @@ export function StepProgressBar({ steps, activeFilter, onSegmentClick }: StepPro
               style={segmentStyle}
               className={cn(
                 'relative h-full rounded-none p-0 transition-opacity duration-150 focus-visible:ring-2 focus-visible:ring-info',
-                segmentColor(step.status, isHighlighted),
+                taskStatusSegmentClass(step.status, isHighlighted),
                 activeFilter === step.index && 'ring-2 ring-inset ring-border-focus',
               )}
               onClick={() => onSegmentClick(activeFilter === step.index ? null : step.index)}

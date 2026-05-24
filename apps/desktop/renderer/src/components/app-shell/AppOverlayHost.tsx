@@ -3,7 +3,7 @@ import type { RoleSlug } from '@offisim/shared-types';
 import { CompanySelectionPage } from '@offisim/ui-office/web';
 import React, { Suspense } from 'react';
 import type { OverlayKey } from '../../lib/app-view-layout';
-import type { OfficeSessionState, UpdateWorkspaceStateFn } from '../workspaces/types';
+import type { OfficeSessionState } from '../workspaces/types';
 import { AppOverlayPortalHost } from './AppShellSurfaces';
 
 const EmployeeCreatorOverlay = React.lazy(() =>
@@ -17,15 +17,6 @@ const OfficeEditorOverlay = React.lazy(() =>
 const StudioPage = React.lazy(() =>
   import('@offisim/ui-office/studio').then((m) => ({ default: m.StudioPage })),
 );
-const MarketplaceOverlay = React.lazy(() =>
-  import('@offisim/ui-office/marketplace').then((m) => ({
-    default: m.MarketplaceDetailOverlay,
-  })),
-);
-
-interface InstallFlowLike {
-  startRegistryInstall: (listingId: string, version: string) => void;
-}
 
 export interface AppOverlayHostProps {
   activeOverlay: OverlayKey | null;
@@ -40,9 +31,6 @@ export interface AppOverlayHostProps {
   repos: RuntimeRepositories | null;
   onStudioCompanyCreated: (id: string) => void;
   onCreatorDeploy: (input: { name: string; role: RoleSlug; seed: string }) => Promise<void>;
-  updateOfficeState: (updater: (prev: OfficeSessionState) => OfficeSessionState) => void;
-  updateWorkspaceState: UpdateWorkspaceStateFn;
-  installFlow: InstallFlowLike;
 }
 
 export function AppOverlayHost(props: AppOverlayHostProps) {
@@ -59,9 +47,6 @@ export function AppOverlayHost(props: AppOverlayHostProps) {
     repos,
     onStudioCompanyCreated,
     onCreatorDeploy,
-    updateOfficeState,
-    updateWorkspaceState,
-    installFlow,
   } = props;
 
   return (
@@ -108,22 +93,6 @@ export function AppOverlayHost(props: AppOverlayHostProps) {
               onCompanyCreated={onStudioCompanyCreated}
             />
           ) : null}
-        </Suspense>
-      )}
-
-      {officeState.marketplaceListingId && (
-        <Suspense fallback={null}>
-          <MarketplaceOverlay
-            listingId={officeState.marketplaceListingId}
-            onClose={() => updateOfficeState((prev) => ({ ...prev, marketplaceListingId: null }))}
-            onInstall={(listingId, version) => {
-              updateWorkspaceState('office', (prev) => ({
-                ...prev,
-                marketplaceListingId: null,
-              }));
-              installFlow.startRegistryInstall(listingId, version);
-            }}
-          />
         </Suspense>
       )}
     </>

@@ -71,7 +71,7 @@ Rarity SHALL be expressed via CSS-var aliases keyed by kind: employee → accent
 
 ### Requirement: V3 Market redo SHALL preserve install singularity and dual installed-identity matching
 
-The V3 redo SHALL NOT change install behavior: `INSTALLABLE_KINDS` remains `['employee','skill']`; the detail install CTA stays gated on `INSTALLABLE_KINDS.has(detail.kind)`; `useInstalledListings` and the `market.listing-installed` event remain the installed-state SSOT; and `MarketplaceDetailOverlay` (deep-link `offisim://install`) is retained unchanged. The single install entry continues to route through `useInstallFlow().startRegistryInstall` (Market detail CTA + deep-link) and `startFileImport` (file sideload).
+The V3 redo SHALL NOT change install behavior: `INSTALLABLE_KINDS` remains `['employee','skill']`; the detail install CTA stays gated on `INSTALLABLE_KINDS.has(detail.kind)`; `useInstalledListings` and the `market.listing-installed` event remain the installed-state SSOT. The single install entry continues to route through `useInstallFlow().startRegistryInstall` (Market detail CTA + `offisim://install` deep-link) and `startFileImport` (file sideload). Legacy full-screen Market detail overlays SHALL NOT remain in production; old Office `?listing=` links SHALL open the Market workspace's single detail surface (`market.selectedListingId`) instead.
 
 Because the V3 redo touches install-badge wiring, the `MarketPage` detail-open branch SHALL pass BOTH `installedListingIds` AND `installedPackageKeys` to its `MarketCardGrid` (the no-detail branch already passes both), so the `Installed` badge survives catalog re-seed while the detail panel is open.
 
@@ -79,7 +79,13 @@ Because the V3 redo touches install-badge wiring, the `MarketPage` detail-open b
 
 - **WHEN** viewing a non-installable kind's detail (e.g. office_layout)
 - **THEN** no install CTA renders, consistent with `INSTALLABLE_KINDS`
-- **AND** the deep-link install overlay continues to function
+- **AND** `offisim://install` continues to enter `startRegistryInstall` without opening a legacy detail overlay
+
+#### Scenario: Legacy Office listing route converges to Market detail
+
+- **WHEN** an old Office URL contains `?listing=<id>`
+- **THEN** the app SHALL route to the Market workspace explore detail state for that listing
+- **AND** no `MarketplaceDetailOverlay` full-screen surface SHALL render
 
 #### Scenario: Installed badge survives re-seed with detail panel open
 

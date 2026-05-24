@@ -1,14 +1,13 @@
 ## ADDED Requirements
 
-### Requirement: Board and Live have visible run-axis entry points
+### Requirement: Board and Live are not scene chrome
 
-The kanban (Board) and the run broadcast (Live) SHALL be openable through visible entries on the stage run-axis in addition to keyboard shortcuts (this replaces the former header-resident Dashboard + Kanban entry points). The Boss Dashboard entry SHALL NOT exist anywhere in the shell chrome (single-run cost lives in the diegetic run flow; a cross-project ledger is deferred). The Board entry SHALL expose open/active state consistently with the kanban overlay.
+The stage SHALL NOT render visible Board or Live entries as floating scene chrome. The Boss Dashboard entry SHALL NOT exist anywhere in the shell chrome (single-run cost lives in the diegetic run flow; a cross-project ledger is deferred). Kanban data/CAS and keyboard access MAY remain, but Board and Live SHALL NOT be exposed as top-centered scene tabs or popovers.
 
-#### Scenario: Board opens from the run-axis
+#### Scenario: No Board or Live scene tabs
 
-- **WHEN** the user activates the Board entry on the stage run-axis
-- **THEN** the kanban board opens and the Board entry reflects its open/active state
-- **AND** the user does not need to know the keyboard shortcut
+- **WHEN** auditing the Office scene
+- **THEN** there is no Board tab, Live tab, run-axis control, or Live popover floating over the canvas
 
 #### Scenario: No Boss Dashboard entry exists
 
@@ -18,7 +17,7 @@ The kanban (Board) and the run broadcast (Live) SHALL be openable through visibl
 ## MODIFIED Requirements
 
 ### Requirement: Office tools are visible and distinct from peer workspaces
-The Header SHALL distinguish peer workspace navigation from Office-scoped tools. Peer workspaces are Office, SOPs, Market, Personnel, Activity, and Settings — reached through the centered peer-nav pills plus the Activity + Settings iconbar entries. After the V3 shell change the only header-resident Office-scoped tool is Studio (rendered in the iconbar after a 1px divider, only when the active workspace is Office). Board (kanban) and Live (run broadcast) are NOT header tools — they live on the stage run-axis. The Boss Dashboard entry SHALL NOT exist. Employee creation ("Add") is reached from the stage Team dock, not the header. There SHALL be no notification bell in the header.
+The Header SHALL distinguish peer workspace navigation from Office-scoped tools. Peer workspaces are Office, SOPs, Market, Personnel, Activity, and Settings — reached through the centered peer-nav pills plus the Activity + Settings iconbar entries. After the V3 shell change the only header-resident Office-scoped tool is Studio (rendered in the iconbar after a 1px divider, only when the active workspace is Office). Board (kanban) and Live (run broadcast) are NOT header tools and are NOT scene floating tabs. The Boss Dashboard entry SHALL NOT exist. Employee creation ("Add") is reached from the stage Team dock, not the header. There SHALL be no notification bell in the header.
 
 #### Scenario: Office header shows workspace and tool groups
 - **WHEN** `activeWorkspace` is `'office'`
@@ -33,7 +32,7 @@ The Header SHALL distinguish peer workspace navigation from Office-scoped tools.
 
 ### Requirement: Header selected state is unique to peer workspace navigation
 
-The Header SHALL render the active peer workspace as the only "selected chip" style indicator. Office-scoped tools that expose an active state SHALL use a visually weaker indicator than peer workspace selection. After the V3 shell change the only header-resident Office tool is Studio (Activity + Settings live in the iconbar; Board + Live live on the stage run-axis, not the header). The Personnel peer SHALL share the same chip style as the other peers when active.
+The Header SHALL render the active peer workspace as the only "selected chip" style indicator. Office-scoped tools that expose an active state SHALL use a visually weaker indicator than peer workspace selection. After the V3 shell correction the only header-resident Office tool is Studio (Activity + Settings live in the iconbar); Board + Live SHALL NOT live on a stage run-axis. The Personnel peer SHALL share the same chip style as the other peers when active.
 
 #### Scenario: Peer workspace selected uses chip style
 
@@ -50,12 +49,12 @@ The Header SHALL render the active peer workspace as the only "selected chip" st
 
 ### Requirement: Dashboard and Kanban have visible entry points
 
-**Reason**: The Boss Dashboard entry is removed in the V3 shell (V3 design DNA §2) and the Kanban entry moves from the header to the stage run-axis (renamed "Board"). The "Dashboard + Kanban header entry points" framing no longer holds, so this requirement is replaced by the new `Board and Live have visible run-axis entry points` requirement (ADDED).
+**Reason**: The Boss Dashboard entry is removed in the V3 shell (V3 design DNA §2), and user screenshot review rejected the stage run-axis Board/Live treatment as old floating chrome. The "Dashboard + Kanban header entry points" framing no longer holds, so this requirement is replaced by the new `Board and Live are not scene chrome` requirement (ADDED).
 
-**Migration**: Board (kanban) is reached via the stage run-axis entry and remains backed by the unchanged kanban data/CAS pipeline; the ⌘J keyboard shortcut is preserved. The Dashboard entry has no replacement (single-run cost is diegetic; cross-project ledger v1-deferred). See ADDED `Board and Live have visible run-axis entry points`.
+**Migration**: Kanban remains backed by the unchanged kanban data/CAS pipeline; the ⌘J keyboard shortcut is preserved. The Dashboard entry has no replacement (single-run cost is diegetic; cross-project ledger v1-deferred). See ADDED `Board and Live are not scene chrome`.
 
 ### Requirement: Dashboard and Kanban panels are mutually exclusive
 
-**Reason**: The Boss Dashboard entry point is removed in the V3 shell (V3 design DNA §2). With no Dashboard panel, there is no Dashboard/Kanban mutual-exclusion to enforce; the kanban (Board) is a persistent stage run-axis float and Live is a separate run-broadcast entry.
+**Reason**: The Boss Dashboard entry point is removed in the V3 shell (V3 design DNA §2). With no Dashboard panel and no Board/Live stage float, there is no Dashboard/Kanban mutual-exclusion to enforce.
 
-**Migration**: Board (kanban) is reached via the stage run-axis and remains backed by the unchanged kanban data/CAS pipeline; single-run cost is shown in the diegetic `.scene-cost` readout; a cross-project ledger (the former Dashboard's role) is deferred to a future change.
+**Migration**: Kanban remains backed by the unchanged kanban data/CAS pipeline; single-run cost is shown in the diegetic `.scene-cost` readout; a cross-project ledger (the former Dashboard's role) is deferred to a future change.

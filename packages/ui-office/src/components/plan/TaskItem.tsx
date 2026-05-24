@@ -1,26 +1,7 @@
 import { Button, cn } from '@offisim/ui-core';
 import type { TaskInfo } from '../../hooks/useTaskDashboard';
+import { taskStatusBadgeClass, taskStatusLabel } from '../../lib/status-display';
 import { TaskDetailPanel } from '../dashboard/TaskDetailPanel';
-
-// ---------------------------------------------------------------------------
-// Status → badge colour mapping
-// ---------------------------------------------------------------------------
-
-function statusBadgeColor(status: string): string {
-  switch (status) {
-    case 'completed':
-      return 'bg-success/20 text-success';
-    case 'active':
-      return 'bg-info-muted text-info';
-    case 'failed':
-    case 'cancelled':
-      return 'bg-error-muted text-error';
-    case 'review_ready':
-      return 'bg-warning-muted text-warning';
-    default:
-      return 'bg-surface-muted text-text-secondary';
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -54,8 +35,8 @@ export function TaskItem({
         )}
         onClick={() => onTaskClick?.(task.taskRunId)}
       >
-        <span className={cn('shrink-0 rounded px-1 py-0.5', statusBadgeColor(task.status))}>
-          {task.status}
+        <span className={cn('shrink-0 rounded px-1 py-0.5', taskStatusBadgeClass(task.status))}>
+          {taskStatusLabel(task.status)}
         </span>
         <span className="shrink-0 text-info">
           {task.assigneeName ?? task.employeeName ?? task.employeeId ?? 'Unassigned'}
