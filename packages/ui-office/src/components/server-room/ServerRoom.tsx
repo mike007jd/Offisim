@@ -3,7 +3,6 @@ import {
   Activity,
   AlertCircle,
   CheckCircle,
-  Circle,
   Clock,
   Plus,
   Server,
@@ -31,18 +30,8 @@ const RACK_BADGE_VARIANT: Record<RackStatus, 'success' | 'secondary' | 'error' |
   disabled: 'outline',
 };
 
-const SLOT_DOT: Record<SlotStatus, string> = {
-  available: 'bg-ok',
-  occupied: 'bg-accent',
-  error: 'bg-danger',
-};
-
 function rackBadgeVariant(status: RackStatus) {
   return RACK_BADGE_VARIANT[status] ?? 'outline';
-}
-
-function slotDotColor(status: SlotStatus) {
-  return SLOT_DOT[status] ?? 'bg-ink-4';
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
@@ -63,52 +52,41 @@ function SlotList({
   onRemoveSlot,
 }: SlotListProps) {
   return (
-    <div className="mt-sp-2 flex flex-col gap-sp-1 border-l border-line-soft pl-sp-1">
+    <div className="server-room-slots">
       {rack.slots.length === 0 && (
-        <p className="py-sp-1 pl-sp-1 text-fs-micro text-ink-3">
-          No slots — add a capability below
-        </p>
+        <p className="server-room-slot-empty">No slots — add a capability below</p>
       )}
 
       {rack.slots.map((slot) => (
-        <div
-          key={slot.slot_id}
-          className="flex items-center justify-between gap-sp-1 rounded-r-sm bg-surface-2 px-sp-2 py-sp-1"
-        >
-          <div className="flex min-w-0 flex-1 items-center gap-sp-1">
-            <Circle
-              className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${slotDotColor(slot.status)}`}
-              fill="currentColor"
-              strokeWidth={0}
-            />
-            <span className="truncate font-mono text-fs-micro text-ink-1">
-              {slot.capability_name}
-            </span>
+        <div key={slot.slot_id} className="server-room-slot-row">
+          <div>
+            <span className="server-room-slot-dot" data-status={slot.status as SlotStatus} />
+            <span>{slot.capability_name}</span>
           </div>
-          <div className="flex flex-shrink-0 items-center gap-sp-1">
-            <span className="font-mono text-fs-micro text-ink-3">{slot.exposure_scope}</span>
+          <div>
+            <span>{slot.exposure_scope}</span>
             <Button
               type="button"
               variant="ghost"
               size="icon"
               onClick={() => onRemoveSlot(slot.slot_id)}
-              className="h-5 w-5 text-ink-3 hover:text-danger"
+              className="server-room-slot-remove"
               title="Remove slot"
             >
-              <Trash2 className="h-2.5 w-2.5" />
+              <Trash2 data-icon="remove-slot" aria-hidden="true" />
             </Button>
           </div>
         </div>
       ))}
 
       {/* Add slot inline input */}
-      <div className="mt-sp-1 flex items-center gap-sp-1">
+      <div className="server-room-slot-add">
         <Input
           type="text"
           value={newSlotInput}
           onChange={(e) => onSlotInputChange(e.target.value)}
           placeholder="Capability name"
-          className="h-7 min-w-0 flex-1 border-line-soft bg-surface-1 px-sp-2 py-sp-1 text-fs-micro"
+          className="server-room-slot-input"
           onKeyDown={(e) => e.key === 'Enter' && onAddSlot()}
         />
         <Button
@@ -116,9 +94,9 @@ function SlotList({
           variant="outline"
           size="sm"
           onClick={onAddSlot}
-          className="h-7 flex-shrink-0 gap-sp-1 px-sp-2 text-fs-micro"
+          className="server-room-slot-add-button"
         >
-          <Plus className="h-2.5 w-2.5" />
+          <Plus data-icon="add-slot" aria-hidden="true" />
         </Button>
       </div>
     </div>
@@ -149,35 +127,27 @@ function RackCard({
   const isBound = rack.status === 'bound';
 
   return (
-    <div className="flex flex-col gap-sp-2 overflow-hidden rounded-r-md border border-line-soft bg-surface-2 p-sp-3">
+    <div className="server-room-rack-card">
       {/* Rack header */}
-      <div className="flex min-w-0 items-start justify-between gap-sp-2">
-        <div className="flex min-w-0 flex-1 items-center gap-sp-2">
-          <Server className="h-3 w-3 flex-shrink-0 text-ink-2" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-fs-sm font-semibold leading-tight text-ink-1">
-              {rack.label}
-            </p>
-            <p className="truncate font-mono text-fs-micro text-ink-3">{rack.provider_type}</p>
+      <div className="server-room-rack-head">
+        <div>
+          <Server data-icon="rack" aria-hidden="true" />
+          <div>
+            <p>{rack.label}</p>
+            <p>{rack.provider_type}</p>
           </div>
         </div>
-        <Badge
-          variant={rackBadgeVariant(rack.status)}
-          size="xs"
-          className="flex-shrink-0 px-1.5 py-0"
-        >
+        <Badge variant={rackBadgeVariant(rack.status)} size="xs" className="server-room-rack-badge">
           {rack.status}
         </Badge>
       </div>
 
       {/* Slot count summary */}
-      <div className="flex items-center gap-sp-3 text-fs-micro text-ink-3">
+      <div className="server-room-rack-summary">
         <span>
           {rack.slots.length} slot{rack.slots.length !== 1 ? 's' : ''}
         </span>
-        <span className="text-ok">
-          {rack.slots.filter((s) => s.status === 'available').length} available
-        </span>
+        <span>{rack.slots.filter((s) => s.status === 'available').length} available</span>
       </div>
 
       {/* Slot list */}
@@ -190,16 +160,17 @@ function RackCard({
       />
 
       {/* Rack actions */}
-      <div className="flex items-center gap-sp-1 border-t border-line-soft pt-sp-1">
+      <div className="server-room-rack-actions">
         {isBound ? (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => onUnbind(rack.rack_id)}
-            className="h-6 gap-sp-1 px-sp-2 text-fs-micro text-warn hover:text-warn"
+            className="server-room-rack-action"
+            data-tone="warn"
           >
-            <Unplug className="h-2.5 w-2.5" />
+            <Unplug data-icon="unbind" aria-hidden="true" />
             Unbind
           </Button>
         ) : (
@@ -208,9 +179,10 @@ function RackCard({
             variant="ghost"
             size="sm"
             onClick={() => onBind(rack.rack_id)}
-            className="h-6 gap-sp-1 px-sp-2 text-fs-micro text-ok hover:text-ok"
+            className="server-room-rack-action"
+            data-tone="ok"
           >
-            <Wifi className="h-2.5 w-2.5" />
+            <Wifi data-icon="bind" aria-hidden="true" />
             Bind
           </Button>
         )}
@@ -219,9 +191,9 @@ function RackCard({
           variant="ghost"
           size="icon"
           onClick={() => onDelete(rack.rack_id)}
-          className="ml-auto h-6 w-6 text-ink-3 hover:text-danger"
+          className="server-room-rack-delete"
         >
-          <Trash2 className="h-2.5 w-2.5" />
+          <Trash2 data-icon="delete-rack" aria-hidden="true" />
         </Button>
       </div>
     </div>
@@ -232,13 +204,13 @@ function RackCard({
 
 function EmptyRacks() {
   return (
-    <div className="flex flex-col items-center justify-center gap-sp-3 py-sp-8 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-r-md border border-line-soft bg-surface-2">
-        <Server className="h-5 w-5 text-ink-3" />
+    <div className="server-room-empty">
+      <div>
+        <Server data-icon="empty-racks" aria-hidden="true" />
       </div>
-      <div className="px-sp-2">
-        <p className="text-fs-sm font-semibold text-ink-2">No MCP Racks</p>
-        <p className="mt-sp-1 text-fs-micro leading-relaxed text-ink-3">
+      <div>
+        <p>No MCP Racks</p>
+        <p>
           Racks are groups of MCP server capabilities that your AI employees can access. Create a
           rack, add capability slots, then bind it to make tools available to agents.
         </p>
@@ -254,14 +226,11 @@ function formatMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-const STATUS_ICON: Record<
-  ToolExecutionTelemetryPayload['status'],
-  { Icon: typeof CheckCircle; iconClassName: string }
-> = {
-  started: { Icon: Clock, iconClassName: 'text-ink-2' },
-  completed: { Icon: CheckCircle, iconClassName: 'text-ok' },
-  error: { Icon: AlertCircle, iconClassName: 'text-danger' },
-  denied: { Icon: AlertCircle, iconClassName: 'text-warn' },
+const STATUS_ICON: Record<ToolExecutionTelemetryPayload['status'], { Icon: typeof CheckCircle }> = {
+  started: { Icon: Clock },
+  completed: { Icon: CheckCircle },
+  error: { Icon: AlertCircle },
+  denied: { Icon: AlertCircle },
 };
 
 interface ServerRoomProps {
@@ -323,17 +292,17 @@ export function ServerRoom({ activeThreadId }: ServerRoomProps) {
   );
 
   return (
-    <div className="flex flex-col gap-sp-3 overflow-hidden">
+    <div className="server-room-root">
       {/* Section header */}
-      <h2 className="text-fs-micro uppercase tracking-ls-caps text-ink-2">Server Room</h2>
+      <h2>Server Room</h2>
 
       {/* Rack list */}
       {loading ? (
-        <div className="py-sp-2 text-fs-micro text-ink-3">Loading racks...</div>
+        <div className="server-room-loading">Loading racks...</div>
       ) : racks.length === 0 ? (
         <EmptyRacks />
       ) : (
-        <div className="flex flex-col gap-sp-2">
+        <div className="server-room-rack-list">
           {racks.map((rack: RackWithSlots) => (
             <RackCard
               key={rack.rack_id}
@@ -351,18 +320,16 @@ export function ServerRoom({ activeThreadId }: ServerRoomProps) {
       )}
 
       {/* Add rack — below content */}
-      <div className="flex flex-col gap-sp-1 border-t border-line-soft pt-sp-2">
-        <label htmlFor="server-room-new-rack" className="text-fs-micro font-medium text-ink-3">
-          Add New Rack
-        </label>
-        <div className="flex items-center gap-sp-1">
+      <div className="server-room-add-rack">
+        <label htmlFor="server-room-new-rack">Add New Rack</label>
+        <div>
           <Input
             id="server-room-new-rack"
             type="text"
             value={newRackLabel}
             onChange={(e) => setNewRackLabel(e.target.value)}
             placeholder="Rack name"
-            className="h-8 min-w-0 flex-1 border-line-soft bg-surface-1 px-sp-2 py-sp-1 text-fs-micro"
+            className="server-room-rack-input"
             onKeyDown={(e) => e.key === 'Enter' && handleCreateRack()}
           />
           <Button
@@ -370,9 +337,9 @@ export function ServerRoom({ activeThreadId }: ServerRoomProps) {
             size="sm"
             onClick={handleCreateRack}
             disabled={!newRackLabel.trim()}
-            className="h-8 flex-shrink-0 gap-sp-1 px-sp-2 text-fs-micro"
+            className="server-room-add-rack-button"
           >
-            <Plus className="h-3 w-3" />
+            <Plus data-icon="add-rack" aria-hidden="true" />
             <span>Add</span>
           </Button>
         </div>
@@ -394,19 +361,17 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
   if (!activeThreadId) return null;
 
   return (
-    <div className="mt-sp-3 border-t border-line-soft pt-sp-2">
+    <div className="server-room-activity">
       <Button
         type="button"
         variant="ghost"
         onClick={() => setExpanded((v) => !v)}
-        className="mb-sp-1 h-auto w-full justify-start gap-sp-1 p-0 text-left hover:bg-transparent"
+        className="server-room-activity-toggle"
       >
-        <Activity className="h-3 w-3 text-accent" />
-        <span className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-2">
-          Tool Activity
-        </span>
+        <Activity data-icon="activity" aria-hidden="true" />
+        <span>Tool Activity</span>
         {stats.total > 0 && (
-          <span className="ml-auto text-fs-micro text-ink-3">
+          <span>
             {stats.total} calls &middot; {Math.round(stats.successRate * 100)}% ok &middot; avg{' '}
             {formatMs(stats.avgDurationMs)}
           </span>
@@ -415,21 +380,20 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
 
       {expanded &&
         (entries.length === 0 ? (
-          <p className="px-sp-1 text-fs-micro italic text-ink-3">No tool calls yet</p>
+          <p className="server-room-activity-empty">No tool calls yet</p>
         ) : (
-          <ScrollArea className="max-h-40">
+          <ScrollArea className="server-room-activity-scroll">
             {entries.slice(-20).map((e) => {
-              const { Icon, iconClassName } = STATUS_ICON[e.status];
+              const { Icon } = STATUS_ICON[e.status];
               return (
                 <div
                   key={`${e.toolCallId}-${e.startedAt}`}
-                  className="flex items-center gap-sp-1 px-sp-1 py-sp-1 text-fs-micro transition-colors hover:bg-surface-sunken"
+                  className="server-room-activity-row"
+                  data-status={e.status}
                 >
-                  <Icon className={`h-2.5 w-2.5 shrink-0 ${iconClassName}`} />
-                  <span className="min-w-0 flex-1 truncate text-ink-2">{e.toolName}</span>
-                  {e.durationMs != null && (
-                    <span className="shrink-0 text-ink-3">{formatMs(e.durationMs)}</span>
-                  )}
+                  <Icon data-icon="activity-status" aria-hidden="true" />
+                  <span>{e.toolName}</span>
+                  {e.durationMs != null && <span>{formatMs(e.durationMs)}</span>}
                 </div>
               );
             })}
