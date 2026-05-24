@@ -1,5 +1,5 @@
-import { Button, cn } from '@offisim/ui-core';
-import { ChevronLeft, FileText, Folder, RefreshCw } from 'lucide-react';
+import { Button, Input, cn } from '@offisim/ui-core';
+import { ChevronLeft, FileText, Folder, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { toErrorMessage } from '../../lib/error-message.js';
 import {
@@ -72,6 +72,7 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [search, setSearch] = useState('');
   const [selection, dispatchSelection] = useReducer(selectionReducer, null);
   // Bumped on every preview request and on workspaceRoot change so in-flight
   // fetches that resolve after the user moved on (workspace switch, new click)
@@ -79,10 +80,19 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
   const previewRequestId = useRef(0);
 
   const displayPath = currentPath ? `/${currentPath}` : '/';
+  const rootHint = workspaceRoot ? workspaceRoot.replace(/^\/Users\/[^/]+/, '~') : null;
   const directoryRequest = useMemo(
     () => ({ path: currentPath || '.', version: reloadVersion }),
     [currentPath, reloadVersion],
   );
+  const filteredEntries = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return entries;
+    return entries.filter(
+      (entry) =>
+        entry.name.toLowerCase().includes(query) || entry.path.toLowerCase().includes(query),
+    );
+  }, [entries, search]);
 
   // Reset internal nav + selection when the parent passes a different
   // workspaceRoot (project switch). Replaces the old `key=` re-mount approach
@@ -155,8 +165,8 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
 
   if (!workspaceRoot) {
     return (
-      <div className="border-t border-line-soft pt-2 text-fs-micro text-ink-2">
-        <div className="flex items-center gap-1.5">
+      <div className="project-workspace-files-empty">
+        <div className="project-workspace-files-empty-message">
           <Folder className="size-3" aria-hidden="true" />
           <span>No workspace folder</span>
         </div>
@@ -166,8 +176,8 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
 
   if (!desktopMode) {
     return (
-      <div className="border-t border-line-soft pt-2 text-fs-micro text-ink-2">
-        <div className="flex items-center gap-1.5">
+      <div className="project-workspace-files-empty">
+        <div className="project-workspace-files-empty-message">
           <Folder className="size-3" aria-hidden="true" />
           <span>Desktop files only</span>
         </div>
@@ -178,16 +188,20 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
   const selectedFilePath = selection?.path ?? null;
 
   return (
-    <div className="border-t border-line-soft pt-2">
-      <div className="mb-1.5 flex items-center gap-2 text-fs-micro uppercase tracking-wider text-ink-3">
-        <span className="min-w-0 flex-1 truncate" title={displayPath}>
-          Workspace files {displayPath}
-        </span>
+    <div className="project-workspace-files-root">
+      <div className="project-workspace-files-header">
+        <div className="project-workspace-files-path-stack">
+          <span className="project-workspace-files-kicker">Workspace files</span>
+          <span className="project-workspace-files-path" title={workspaceRoot}>
+            {rootHint}
+            {displayPath}
+          </span>
+        </div>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="size-6 text-ink-3"
+          className="project-workspace-files-refresh"
           onClick={() => setReloadVersion((version) => version + 1)}
           disabled={directoryLoading}
           aria-label="Refresh workspace files"
@@ -197,12 +211,22 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
         </Button>
       </div>
 
+      <div className="project-workspace-files-search">
+        <Search className="project-workspace-files-search-icon" aria-hidden="true" />
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search files..."
+          className="project-workspace-files-search-input"
+        />
+      </div>
+
       {currentPath && (
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="mb-1 h-auto justify-start gap-1 px-0 py-1 text-fs-micro"
+          className="project-workspace-files-up"
           onClick={() => {
             dispatchSelection({ type: 'clear' });
             setCurrentPath(parentWorkspacePath(currentPath));
@@ -213,15 +237,15 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
         </Button>
       )}
 
-      <div className="max-h-36 overflow-y-auto pr-1">
-        {entries.map((entry) => (
+      <div className="project-workspace-files-list custom-scrollbar">
+        {filteredEntries.map((entry) => (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             key={entry.path || entry.name}
             className={cn(
-              'h-auto w-full min-w-0 justify-start gap-1.5 rounded px-1.5 py-1 text-left text-fs-micro',
+              'project-workspace-files-row',
               selectedFilePath === entry.path ? 'bg-accent-surface text-accent' : 'text-ink-2',
             )}
             onClick={() => {
@@ -241,28 +265,27 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
             )}
             <span className="min-w-0 flex-1 truncate">{entry.name}</span>
             {!entry.isDirectory && (
-              <span className="flex-shrink-0 text-fs-micro text-ink-3">
+              <span className="project-workspace-files-size">
                 {formatWorkspaceFileSize(entry.size)}
               </span>
             )}
           </Button>
         ))}
+        {!directoryLoading && entries.length > 0 && filteredEntries.length === 0 && (
+          <div className="project-workspace-files-inline-empty">No files match this search.</div>
+        )}
         {!directoryLoading && entries.length === 0 && (
-          <div className="px-1.5 py-2 text-fs-micro text-ink-3">Empty folder</div>
+          <div className="project-workspace-files-inline-empty">Empty folder</div>
         )}
       </div>
 
       {selection?.kind === 'loading' && (
-        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-line-soft bg-surface px-2 py-1.5 text-fs-micro leading-relaxed text-ink-2">
-          Loading...
-        </pre>
+        <pre className="project-workspace-files-preview">Loading...</pre>
       )}
 
       {selection?.kind === 'ready' && (
-        <div className="mt-2 flex flex-col gap-1">
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded border border-line-soft bg-surface px-2 py-1.5 text-fs-micro leading-relaxed text-ink-2">
-            {selection.preview}
-          </pre>
+        <div className="project-workspace-files-preview-stack">
+          <pre className="project-workspace-files-preview">{selection.preview}</pre>
           {selection.truncated && (
             <p className="text-fs-micro text-ink-3">
               preview truncated · {formatWorkspaceFileSize(selection.totalSize)} total
@@ -272,16 +295,10 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
       )}
 
       {selection?.kind === 'error' && (
-        <div className="mt-2 rounded border border-danger bg-danger-surface px-2 py-1 text-fs-micro text-danger">
-          {selection.message}
-        </div>
+        <div className="project-workspace-files-error">{selection.message}</div>
       )}
 
-      {directoryError && (
-        <div className="mt-2 rounded border border-danger bg-danger-surface px-2 py-1 text-fs-micro text-danger">
-          {directoryError}
-        </div>
-      )}
+      {directoryError && <div className="project-workspace-files-error">{directoryError}</div>}
     </div>
   );
 }

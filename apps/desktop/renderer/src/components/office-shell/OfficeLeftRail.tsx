@@ -1,6 +1,6 @@
 import type { ProjectRow } from '@offisim/shared-types';
 import { ProjectWorkspaceFiles, useSops } from '@offisim/ui-office/web';
-import { FileText, FolderClosed, GitBranch, Workflow } from 'lucide-react';
+import { FileText, GitBranch, Workflow } from 'lucide-react';
 import { useState } from 'react';
 import { GitWorkbench } from '../git/GitWorkbench';
 import {
@@ -19,8 +19,6 @@ import {
   OfficeRailTabBadge,
   OfficeRailTabButton,
   OfficeRailTabs,
-  OfficeRailWorkspaceHeader,
-  OfficeRailWorkspacePath,
 } from './OfficeShellSurfaces';
 
 type LeftRailTab = 'files' | 'sops' | 'git';
@@ -82,16 +80,6 @@ export function OfficeLeftRail({ activeProject, onOpenSops }: OfficeLeftRailProp
       <OfficeRailContent>
         {tab === 'files' ? (
           <OfficeRailPane>
-            {workspaceRoot ? (
-              <OfficeRailWorkspaceHeader>
-                <OfficeRailIconSlot>
-                  <FolderClosed aria-hidden="true" />
-                </OfficeRailIconSlot>
-                <OfficeRailWorkspacePath title={workspaceRoot}>
-                  {workspaceRoot}
-                </OfficeRailWorkspacePath>
-              </OfficeRailWorkspaceHeader>
-            ) : null}
             <OfficeRailBody>
               {activeProject ? (
                 <ProjectWorkspaceFiles
