@@ -19,6 +19,24 @@
     }
   }
 
+  @keyframes offisim-collapsible-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+    }
+  }
+
+  @keyframes offisim-collapsible-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
   .z-base {
     z-index: var(--z-base);
   }
@@ -9259,6 +9277,150 @@
   .chat-composer-attach-button [data-icon="attach"] {
     height: var(--sp-5);
     width: var(--sp-5);
+  }
+
+  .aui-tool-fallback-root {
+    border: var(--border-width-thin) solid var(--line);
+    border-radius: var(--r-md);
+    padding-block: var(--sp-3);
+    width: 100%;
+  }
+
+  .aui-tool-fallback-root[data-cancelled="true"] {
+    background: color-mix(in srgb, var(--surface-sunken) 30%, transparent);
+    border-color: color-mix(in srgb, var(--line) 30%, transparent);
+  }
+
+  .aui-tool-fallback-trigger {
+    align-items: center;
+    display: flex;
+    font-size: var(--text-fs-sm);
+    gap: var(--sp-2);
+    padding-inline: var(--sp-4);
+    transition: color var(--duration-fast) var(--ease-standard);
+    width: 100%;
+  }
+
+  .aui-tool-fallback-trigger-icon,
+  .aui-tool-fallback-trigger-chevron {
+    flex: 0 0 auto;
+    height: var(--sp-4);
+    width: var(--sp-4);
+  }
+
+  .aui-tool-fallback-trigger[data-running="true"] .aui-tool-fallback-trigger-icon {
+    animation: offisim-spin var(--duration-slow) linear infinite;
+  }
+
+  .aui-tool-fallback-trigger[data-cancelled="true"] .aui-tool-fallback-trigger-icon,
+  .aui-tool-fallback-trigger[data-cancelled="true"] .aui-tool-fallback-trigger-label-wrapper {
+    color: var(--ink-3);
+  }
+
+  .aui-tool-fallback-trigger[data-cancelled="true"] .aui-tool-fallback-trigger-label-wrapper {
+    text-decoration: line-through;
+  }
+
+  .aui-tool-fallback-trigger-label-wrapper {
+    flex: 1 1 auto;
+    line-height: 1;
+    min-width: 0;
+    position: relative;
+    text-align: start;
+  }
+
+  .aui-tool-fallback-trigger-label-text,
+  .aui-tool-fallback-trigger-shimmer {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .aui-tool-fallback-trigger-label-text {
+    display: block;
+  }
+
+  .aui-tool-fallback-trigger-shimmer {
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .aui-tool-fallback-trigger-chevron {
+    transition: transform var(--animation-duration) var(--ease-decelerate);
+  }
+
+  .aui-tool-fallback-trigger[data-state="closed"] .aui-tool-fallback-trigger-chevron {
+    transform: rotate(-90deg);
+  }
+
+  .aui-tool-fallback-trigger[data-state="open"] .aui-tool-fallback-trigger-chevron {
+    transform: rotate(0deg);
+  }
+
+  .aui-tool-fallback-content {
+    font-size: var(--text-fs-sm);
+    outline: none;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .aui-tool-fallback-content[data-state="open"] {
+    animation: offisim-collapsible-down var(--animation-duration) var(--ease-decelerate);
+  }
+
+  .aui-tool-fallback-content[data-state="closed"] {
+    animation: offisim-collapsible-up var(--animation-duration) var(--ease-decelerate) forwards;
+    pointer-events: none;
+  }
+
+  .aui-tool-fallback-content-inner {
+    border-top: var(--border-width-thin) solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    margin-block-start: var(--sp-3);
+    padding-block-start: var(--sp-2);
+  }
+
+  .aui-tool-fallback-args,
+  .aui-tool-fallback-error {
+    padding-inline: var(--sp-4);
+  }
+
+  .aui-tool-fallback-args[data-cancelled="true"] {
+    opacity: 0.6;
+  }
+
+  .aui-tool-fallback-result {
+    border-top: var(--border-width-thin) dashed var(--line);
+    padding: var(--sp-2) var(--sp-4) 0;
+  }
+
+  .aui-tool-fallback-result-header,
+  .aui-tool-fallback-error-header {
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .aui-tool-fallback-error-header,
+  .aui-tool-fallback-error-reason {
+    color: var(--ink-3);
+  }
+
+  .aui-tool-fallback-error-reason {
+    margin: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .aui-tool-fallback-args-value,
+  .aui-tool-fallback-result-content {
+    display: block;
+    max-height: calc(var(--spacing-16) * 4);
+    max-width: 100%;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
 
   .chat-context-strip {
