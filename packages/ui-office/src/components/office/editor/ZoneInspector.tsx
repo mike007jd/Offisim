@@ -9,7 +9,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  cn,
 } from '@offisim/ui-core';
 import { Lock, Minus, Plus, Trash2, X } from 'lucide-react';
 import type { EditorZone } from './types.js';
@@ -36,30 +35,17 @@ export function ZoneInspector({
   onDeselect,
 }: ZoneInspectorProps) {
   const variants = zone?.archetype ? getPresetsForArchetype(zone.archetype) : [];
-  const inspectorLabelClass =
-    'mb-sp-1 font-mono text-fs-micro uppercase tracking-ls-caps text-ink-3';
 
   return (
-    <div
-      className={cn(
-        'flex shrink-0 flex-col overflow-hidden border-l border-line-soft bg-surface-1 transition-all duration-200',
-        zone ? 'w-64 opacity-100' : 'w-0 border-l-0 opacity-0',
-      )}
-    >
+    <div className="zone-inspector" data-open={zone ? 'true' : 'false'}>
       {zone && (
         <>
-          <div className="flex items-center justify-between border-b border-line-soft px-sp-4 py-sp-3">
-            <div className="flex items-center gap-sp-2">
-              <h2 className="font-mono text-fs-micro font-bold uppercase tracking-ls-caps text-ink-2">
-                ZONE
-              </h2>
+          <div className="zone-inspector-header">
+            <div className="zone-inspector-title">
+              <h2>ZONE</h2>
               {selectedZoneRequired && (
-                <Badge
-                  variant="warning"
-                  size="xs"
-                  className="gap-sp-1 rounded-r-xs px-sp-2 py-sp-1 font-bold"
-                >
-                  <Lock className="h-2 w-2" />
+                <Badge variant="warning" size="xs" className="zone-inspector-required">
+                  <Lock data-icon="inline-start" aria-hidden="true" />
                   REQUIRED
                 </Badge>
               )}
@@ -69,39 +55,39 @@ export function ZoneInspector({
               variant="ghost"
               size="icon"
               onClick={onDeselect}
-              className="h-7 w-7 text-ink-3 hover:text-ink-2"
+              className="zone-inspector-close"
             >
-              <X className="h-3.5 w-3.5" />
+              <X data-icon="button" aria-hidden="true" />
             </Button>
           </div>
-          <div className="flex flex-1 flex-col gap-sp-4 overflow-y-auto p-sp-4">
-            <div>
-              <p className={inspectorLabelClass}>Name</p>
+          <div className="zone-inspector-body">
+            <div className="zone-inspector-field">
+              <p data-slot="label">Name</p>
               <Input
                 type="text"
                 value={zone.label}
                 onChange={(e) => onLabelChange(e.target.value)}
-                className="border-line-soft bg-surface-2 px-sp-2 py-sp-1 font-mono text-fs-micro"
+                className="zone-inspector-input"
               />
             </div>
 
-            <div>
-              <p className={inspectorLabelClass}>Type</p>
-              <div className="flex items-center gap-sp-2">
+            <div className="zone-inspector-field">
+              <p data-slot="label">Type</p>
+              <div className="zone-inspector-row">
                 <span
-                  className="h-3 w-3 rounded-sm"
+                  data-swatch="zone"
                   // ui-hardcode-allowed: runtime zone accent swatch.
                   style={{ backgroundColor: zone.accentColor }}
                 />
-                <span className="font-mono text-fs-micro capitalize text-ink-2">
+                <span data-slot="value" data-transform="capitalize">
                   {zone.archetype ?? 'none'}
                 </span>
               </div>
             </div>
 
             {variants.length > 1 && (
-              <div>
-                <p className={inspectorLabelClass}>Variant</p>
+              <div className="zone-inspector-field">
+                <p data-slot="label">Variant</p>
                 <Select
                   value={zone.presetId ?? '__current'}
                   onValueChange={(value) => {
@@ -109,7 +95,7 @@ export function ZoneInspector({
                     if (p) onSwapVariant(p);
                   }}
                 >
-                  <SelectTrigger className="h-8 border-line-soft bg-surface-2 px-sp-2 font-mono text-fs-micro text-ink-1">
+                  <SelectTrigger className="zone-inspector-select">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -124,42 +110,38 @@ export function ZoneInspector({
               </div>
             )}
 
-            <div>
-              <p className={inspectorLabelClass}>Size</p>
-              <p className="font-mono text-fs-micro text-ink-2">
+            <div className="zone-inspector-field">
+              <p data-slot="label">Size</p>
+              <p data-slot="value">
                 {zone.w} x {zone.d} units
               </p>
             </div>
 
-            <div>
-              <p className="mb-sp-2 font-mono text-fs-micro uppercase tracking-ls-caps text-ink-3">
-                Position
-              </p>
-              <div className="grid grid-cols-2 gap-sp-2">
+            <div className="zone-inspector-field">
+              <p data-slot="label">Position</p>
+              <div className="zone-inspector-position-grid">
                 {(['X', 'Z'] as const).map((axis) => (
-                  <div key={axis}>
-                    <span className="font-mono text-fs-micro text-ink-3">{axis}</span>
-                    <div className="mt-sp-1 flex items-center gap-sp-1">
+                  <div key={axis} className="zone-inspector-axis">
+                    <span>{axis}</span>
+                    <div>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() => onMoveZone(axis === 'X' ? -1 : 0, axis === 'Z' ? -1 : 0)}
-                        className="h-6 w-6 text-ink-3 hover:text-ink-2"
+                        className="zone-inspector-stepper"
                       >
-                        <Minus className="h-2.5 w-2.5" />
+                        <Minus data-icon="button" aria-hidden="true" />
                       </Button>
-                      <span className="flex-1 text-center font-mono text-fs-micro text-ink-2">
-                        {axis === 'X' ? zone.cx : zone.cz}
-                      </span>
+                      <span data-slot="axis-value">{axis === 'X' ? zone.cx : zone.cz}</span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() => onMoveZone(axis === 'X' ? 1 : 0, axis === 'Z' ? 1 : 0)}
-                        className="h-6 w-6 text-ink-3 hover:text-ink-2"
+                        className="zone-inspector-stepper"
                       >
-                        <Plus className="h-2.5 w-2.5" />
+                        <Plus data-icon="button" aria-hidden="true" />
                       </Button>
                     </div>
                   </div>
@@ -167,14 +149,10 @@ export function ZoneInspector({
               </div>
             </div>
 
-            <div>
-              <p className={inspectorLabelClass}>Furniture</p>
-              <p className="font-mono text-fs-micro text-ink-2">{itemCount} items</p>
-              {zone.deskSlots > 0 && (
-                <p className="mt-sp-1 font-mono text-fs-micro text-ink-3">
-                  {zone.deskSlots} desk slots
-                </p>
-              )}
+            <div className="zone-inspector-field">
+              <p data-slot="label">Furniture</p>
+              <p data-slot="value">{itemCount} items</p>
+              {zone.deskSlots > 0 && <p data-slot="muted">{zone.deskSlots} desk slots</p>}
             </div>
 
             <Button
@@ -182,26 +160,24 @@ export function ZoneInspector({
               variant={selectedZoneRequired ? 'secondary' : 'destructive'}
               onClick={onDeleteZone}
               disabled={selectedZoneRequired}
-              className="w-full gap-sp-1 px-sp-3 py-sp-2 font-mono text-fs-micro"
+              className="zone-inspector-delete"
             >
               {selectedZoneRequired ? (
                 <>
-                  <Lock className="h-3 w-3" />
+                  <Lock data-icon="inline-start" aria-hidden="true" />
                   Required — Cannot Delete
                 </>
               ) : (
                 <>
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 data-icon="inline-start" aria-hidden="true" />
                   Delete Zone
                 </>
               )}
             </Button>
           </div>
 
-          <div className="border-t border-line-soft px-sp-4 py-sp-2">
-            <p className="font-mono text-fs-micro text-ink-3">
-              Drag to move · Del: Delete · Esc: Deselect
-            </p>
+          <div className="zone-inspector-footer">
+            <p>Drag to move · Del: Delete · Esc: Deselect</p>
           </div>
         </>
       )}

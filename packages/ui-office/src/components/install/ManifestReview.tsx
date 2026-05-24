@@ -33,16 +33,16 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="install-manifest">
       {/* Package header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-base font-semibold text-ink-1 truncate">{pkg.title}</h3>
-          <p className="text-sm text-ink-2 mt-0.5">
+      <div className="install-manifest-header">
+        <div className="install-manifest-title">
+          <h3>{pkg.title}</h3>
+          <p>
             {pkg.id} &middot; v{pkg.version}
           </p>
           {pkg.publisher?.display_name && (
-            <p className="text-xs text-ink-3 mt-0.5">
+            <p data-slot="publisher">
               by {pkg.publisher.display_name}
               {pkg.publisher.creator_handle ? ` (@${pkg.publisher.creator_handle})` : ''}
             </p>
@@ -52,66 +52,56 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       </div>
 
       {/* Summary */}
-      {pkg.summary && <p className="text-sm text-ink-2">{pkg.summary}</p>}
+      {pkg.summary && <p className="install-manifest-summary">{pkg.summary}</p>}
 
       {/* Permissions */}
-      <div className="border-2 border-line p-3 flex flex-col gap-2">
-        <h4 className="text-xs font-medium text-ink-3 uppercase tracking-wide font-sans">
-          Permissions
-        </h4>
+      <div className="install-manifest-section">
+        <h4>Permissions</h4>
 
-        <div className="flex items-center gap-2 text-sm text-ink-2">
-          <HardDrive className="h-3.5 w-3.5 shrink-0" />
+        <div className="install-manifest-row">
+          <HardDrive data-icon="inline-start" aria-hidden="true" />
           <span>
-            Filesystem: <span className="text-ink-1 font-medium">{perms.filesystem_scope}</span>
+            Filesystem: <strong>{perms.filesystem_scope}</strong>
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-ink-2">
-          <Globe className="h-3.5 w-3.5 shrink-0" />
+        <div className="install-manifest-row">
+          <Globe data-icon="inline-start" aria-hidden="true" />
           <span>
-            Network: <span className="text-ink-1 font-medium">{perms.network_scope}</span>
+            Network: <strong>{perms.network_scope}</strong>
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-ink-2">
-          <KeyRound className="h-3.5 w-3.5 shrink-0" />
+        <div className="install-manifest-row">
+          <KeyRound data-icon="inline-start" aria-hidden="true" />
           <span>
-            Secrets:{' '}
-            <span className="text-ink-1 font-medium">
-              {perms.declares_secrets ? 'Yes' : 'None'}
-            </span>
+            Secrets: <strong>{perms.declares_secrets ? 'Yes' : 'None'}</strong>
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-ink-2">
-          <Shield className="h-3.5 w-3.5 shrink-0" />
+        <div className="install-manifest-row">
+          <Shield data-icon="inline-start" aria-hidden="true" />
           <span>
-            Risk class:{' '}
-            <span className="text-ink-1 font-medium">{perms.risk_class.replace('_', ' ')}</span>
+            Risk class: <strong>{perms.risk_class.replace('_', ' ')}</strong>
           </span>
         </div>
       </div>
 
       {/* Required MCP Servers */}
       {manifest.requirements.required_mcps.length > 0 && (
-        <div className="border-2 border-line p-3 flex flex-col gap-2">
-          <h4 className="text-xs font-medium text-ink-3 uppercase tracking-wide font-sans">
-            Required MCP Servers
-          </h4>
+        <div className="install-manifest-section">
+          <h4>Required MCP Servers</h4>
           {manifest.requirements.required_mcps.map((mcp) => (
-            <div key={mcp} className="flex items-center gap-2 text-sm text-ink-2">
-              <Server className="h-3.5 w-3.5 shrink-0" />
-              <span className="text-ink-1 font-medium">{mcp}</span>
+            <div key={mcp} className="install-manifest-row">
+              <Server data-icon="inline-start" aria-hidden="true" />
+              <strong>{mcp}</strong>
             </div>
           ))}
           <Alert variant="warning">
-            <AlertTriangle className="h-4 w-4" />
+            <AlertTriangle data-icon="inline-start" aria-hidden="true" />
             <AlertDescription>
-              <span className="text-xs">
-                This package requires the MCP servers listed above. Ensure they are configured in
-                your local runtime before installing.
-              </span>
+              This package requires the MCP servers listed above. Ensure they are configured in your
+              local runtime before installing.
             </AlertDescription>
           </Alert>
         </div>
@@ -120,9 +110,9 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       {/* Confirmation reasons */}
       {confirmationReasons.length > 0 && (
         <Alert variant="warning">
-          <AlertTriangle className="h-4 w-4" />
+          <AlertTriangle data-icon="inline-start" aria-hidden="true" />
           <AlertDescription>
-            <ul className="list-disc list-inside flex flex-col gap-0.5">
+            <ul className="install-manifest-reasons">
               {confirmationReasons.map((reason) => (
                 <li key={reason}>{reason}</li>
               ))}
@@ -132,7 +122,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       )}
 
       {/* Compatibility info */}
-      <div className="flex flex-wrap gap-1.5 text-xs text-ink-3">
+      <div className="install-manifest-meta">
         <span>Runtime: {manifest.compatibility.runtime_range}</span>
         <span>&middot;</span>
         <span>Schema: {manifest.compatibility.schema_version}</span>
@@ -141,7 +131,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2 border-t border-line">
+      <div className="install-manifest-actions">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>

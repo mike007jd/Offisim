@@ -40,26 +40,22 @@ const SEVERITY_CONFIG: Record<
   {
     label: string;
     icon: typeof Info;
-    textClass: string;
     badgeVariant: 'success' | 'warning' | 'error';
   }
 > = {
   info: {
     label: 'Info',
     icon: Info,
-    textClass: 'text-ok',
     badgeVariant: 'success',
   },
   warning: {
     label: 'Warning',
     icon: AlertTriangle,
-    textClass: 'text-warn',
     badgeVariant: 'warning',
   },
   breaking: {
     label: 'Breaking',
     icon: OctagonAlert,
-    textClass: 'text-danger',
     badgeVariant: 'error',
   },
 };
@@ -83,24 +79,24 @@ function DiffEntryRow({ entry }: { entry: DiffEntry }) {
   const Icon = config.icon;
 
   return (
-    <div className="flex items-start gap-2 py-1.5 px-2 border-b border-line last:border-b-0">
-      <Icon className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${config.textClass}`} />
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm ${config.textClass}`}>{entry.description}</p>
+    <div className="install-diff-row" data-severity={entry.severity}>
+      <Icon data-icon="status" aria-hidden="true" />
+      <div className="install-diff-copy">
+        <p>{entry.description}</p>
         {(entry.oldValue || entry.newValue) && (
-          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-ink-2/70">
+          <div className="install-diff-change">
             {entry.oldValue && (
-              <span className="inline-flex items-center gap-0.5">
-                <Minus className="h-2.5 w-2.5 text-danger/70" />
-                <span className="line-through">{entry.oldValue}</span>
+              <span data-change="old">
+                <Minus data-icon="inline-start" aria-hidden="true" />
+                <span>{entry.oldValue}</span>
               </span>
             )}
             {entry.oldValue && entry.newValue && (
-              <ArrowRight className="h-2.5 w-2.5 text-ink-2/50" />
+              <ArrowRight data-icon="inline" aria-hidden="true" />
             )}
             {entry.newValue && (
-              <span className="inline-flex items-center gap-0.5">
-                <Plus className="h-2.5 w-2.5 text-ok/70" />
+              <span data-change="new">
+                <Plus data-icon="inline-start" aria-hidden="true" />
                 <span>{entry.newValue}</span>
               </span>
             )}
@@ -123,26 +119,24 @@ function CategorySection({
   const ChevronIcon = expanded ? ChevronDown : ChevronRight;
 
   return (
-    <div className="mb-2 border border-line-soft">
+    <div className="install-diff-section" data-has-breaking={hasBreaking ? 'true' : 'false'}>
       <Button
         type="button"
         variant="ghost"
-        className="h-auto w-full justify-start gap-2 rounded-none px-2 py-1.5 text-left hover:bg-surface-sunken"
+        className="install-diff-section-trigger"
         onClick={() => setExpanded((v) => !v)}
       >
-        <ChevronIcon className="size-3.5 text-ink-3" />
-        <span className="font-sans text-xs font-medium uppercase tracking-wide text-ink-2">
-          {CATEGORY_LABELS[category]}
-        </span>
-        <span className="text-xs text-ink-3">({entries.length})</span>
+        <ChevronIcon data-icon="inline-start" aria-hidden="true" />
+        <span data-slot="category">{CATEGORY_LABELS[category]}</span>
+        <span data-slot="count">({entries.length})</span>
         {hasBreaking && (
-          <Badge variant="error" className="ml-auto px-1 py-0 text-fs-micro">
+          <Badge variant="error" size="xs" data-slot="breaking-badge">
             Breaking
           </Badge>
         )}
       </Button>
       {expanded && (
-        <div className="px-1">
+        <div className="install-diff-section-body">
           {entries.map((entry, i) => (
             <DiffEntryRow key={`${entry.field}-${i}`} entry={entry} />
           ))}
@@ -168,15 +162,15 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
   const maxConfig = SEVERITY_CONFIG[diff.maxSeverity];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="install-upgrade">
       {/* Version header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-base font-semibold text-ink-1 truncate">{packageTitle}</h3>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-sm text-ink-2/70">v{diff.fromVersion}</span>
-            <ArrowRight className="h-3.5 w-3.5 text-ink-2/50" />
-            <span className="text-sm text-ink-1 font-medium">v{diff.toVersion}</span>
+      <div className="install-upgrade-header">
+        <div className="install-upgrade-title">
+          <h3>{packageTitle}</h3>
+          <div>
+            <span>v{diff.fromVersion}</span>
+            <ArrowRight data-icon="inline" aria-hidden="true" />
+            <strong>v{diff.toVersion}</strong>
           </div>
         </div>
         <Badge variant={maxConfig.badgeVariant}>
@@ -186,22 +180,22 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
 
       {/* Summary counts */}
       {diff.entries.length > 0 && (
-        <div className="flex gap-3 text-xs">
+        <div className="install-upgrade-summary">
           {diff.counts.breaking > 0 && (
-            <span className="text-danger flex items-center gap-1">
-              <OctagonAlert className="h-3 w-3" />
+            <span data-severity="breaking">
+              <OctagonAlert data-icon="inline-start" aria-hidden="true" />
               {diff.counts.breaking} breaking
             </span>
           )}
           {diff.counts.warning > 0 && (
-            <span className="text-warn flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" />
+            <span data-severity="warning">
+              <AlertTriangle data-icon="inline-start" aria-hidden="true" />
               {diff.counts.warning} warnings
             </span>
           )}
           {diff.counts.info > 0 && (
-            <span className="text-ok flex items-center gap-1">
-              <Info className="h-3 w-3" />
+            <span data-severity="info">
+              <Info data-icon="inline-start" aria-hidden="true" />
               {diff.counts.info} info
             </span>
           )}
@@ -211,7 +205,7 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
       {/* Migration notice */}
       {diff.requiresMigration && (
         <Alert variant="warning">
-          <Shield className="h-4 w-4" />
+          <Shield data-icon="inline-start" aria-hidden="true" />
           <AlertDescription>
             This upgrade includes a data migration. A backup will be created automatically.
           </AlertDescription>
@@ -221,7 +215,7 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
       {/* Breaking changes alert */}
       {diff.counts.breaking > 0 && (
         <Alert variant="destructive">
-          <OctagonAlert className="h-4 w-4" />
+          <OctagonAlert data-icon="inline-start" aria-hidden="true" />
           <AlertDescription>
             This upgrade contains {diff.counts.breaking} breaking change
             {diff.counts.breaking > 1 ? 's' : ''} that may affect your current setup. Review
@@ -232,21 +226,19 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
 
       {/* Diff entries grouped by category */}
       {diff.entries.length > 0 ? (
-        <ScrollArea className="max-h-upgrade-diff">
-          <div className="pr-3">
+        <ScrollArea className="install-upgrade-scroll">
+          <div className="install-upgrade-scroll-body">
             {Array.from(groupedEntries.entries()).map(([category, entries]) => (
               <CategorySection key={category} category={category} entries={entries} />
             ))}
           </div>
         </ScrollArea>
       ) : (
-        <p className="text-sm text-ink-2/70 text-center py-4">
-          No manifest changes detected between versions.
-        </p>
+        <p className="install-upgrade-empty">No manifest changes detected between versions.</p>
       )}
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2 border-t border-line">
+      <div className="install-upgrade-actions">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>

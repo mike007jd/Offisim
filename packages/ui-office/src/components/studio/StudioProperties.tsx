@@ -32,16 +32,6 @@ import { BoxSelect, Lock, MapPin, RotateCw, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
 
-// -- Styles -------------------------------------------------------------------
-
-const SECTION_CLASS = 'border-b border-line-soft px-sp-4 py-sp-3';
-const LABEL_CLASS = 'mb-sp-1 text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3';
-const VALUE_CLASS = 'font-mono text-fs-sm text-ink-1';
-const ROW_CLASS = 'mb-sp-1 flex items-center gap-sp-2';
-const AXIS_CLASS = 'text-fs-micro font-bold';
-const KBD_CLASS =
-  'ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-r-xs border border-line-soft bg-surface-2 px-sp-1 font-mono text-fs-micro leading-none text-ink-3';
-
 // -- Component ----------------------------------------------------------------
 
 const TOOL_HINTS: Record<string, { label: string; hint: string }> = {
@@ -75,20 +65,18 @@ function StudioPropertiesEmptyState() {
   const hint = TOOL_HINTS[tool] ?? DEFAULT_TOOL_HINT;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-sp-3 p-sp-5 text-center">
-      <BoxSelect className="size-8 text-ink-4" aria-hidden="true" />
-      <div className="text-fs-sm font-semibold text-ink-1">Nothing selected</div>
-      <div className="max-w-60 text-fs-micro leading-relaxed text-ink-3">{hint.hint}</div>
-      <div className="flex w-full flex-col gap-sp-1 border-t border-line-soft pt-sp-2 text-fs-micro text-ink-2">
+    <div className="studio-properties-empty">
+      <BoxSelect data-icon="empty" aria-hidden="true" />
+      <div data-slot="title">Nothing selected</div>
+      <div data-slot="hint">{hint.hint}</div>
+      <div data-slot="meta">
         <span>
-          Current tool: <strong className="text-ink-1">{hint.label}</strong>
+          Current tool: <strong>{hint.label}</strong>
         </span>
         {focusedZoneId && (
           <span>
             Focused zone:{' '}
-            <strong className="text-ink-1">
-              {focusedZoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : focusedZoneId}
-            </strong>
+            <strong>{focusedZoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : focusedZoneId}</strong>
           </span>
         )}
         {isEditingZone && <span>Editing zone — press Escape to exit edit mode.</span>}
@@ -157,15 +145,11 @@ export function StudioProperties() {
   }
 
   return (
-    <div className="absolute bottom-10 right-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-l border-line bg-surface-1 font-sans">
-      <div className="shrink-0 border-b border-line px-sp-3 py-sp-2 text-fs-micro font-black uppercase tracking-ls-caps text-ink-3">
-        Properties
-      </div>
+    <div className="studio-properties-panel">
+      <div className="studio-properties-title">Properties</div>
 
       {/* Hierarchy anchor row */}
-      <div className="shrink-0 border-b border-line-soft px-sp-3 py-sp-1 text-fs-micro tracking-ls-caps text-ink-3">
-        {anchorText}
-      </div>
+      <div className="studio-properties-anchor">{anchorText}</div>
 
       {/* Empty state */}
       {showEmpty && <StudioPropertiesEmptyState />}
@@ -191,67 +175,67 @@ export function StudioProperties() {
           return (
             <>
               {/* Zone name (editable) */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Name</div>
+              <div className="studio-properties-section">
+                <div data-slot="label">Name</div>
                 <Input
                   type="text"
                   value={selectedZone.label}
                   onChange={(e) => updateZoneLabel(selectedZone.zoneId, e.target.value)}
                   aria-label="Zone name"
-                  className="h-8 font-sans text-body-sm"
+                  className="studio-properties-input"
                 />
               </div>
 
               {/* Archetype */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Archetype</div>
-                <div className={ROW_CLASS}>
-                  <svg className="size-2 shrink-0" viewBox="0 0 8 8" aria-hidden="true">
+              <div className="studio-properties-section">
+                <div data-slot="label">Archetype</div>
+                <div className="studio-properties-row">
+                  <svg data-swatch="round" viewBox="0 0 8 8" aria-hidden="true">
                     <circle cx="4" cy="4" r="4" fill={selectedZone.accentColor} />
                   </svg>
-                  <span className={`${VALUE_CLASS} capitalize`}>
+                  <span data-slot="value" data-transform="capitalize">
                     {selectedZone.archetype ?? 'Custom'}
                   </span>
                 </div>
               </div>
 
               {/* Size */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Size</div>
-                <div className={VALUE_CLASS}>
+              <div className="studio-properties-section">
+                <div data-slot="label">Size</div>
+                <div data-slot="value">
                   {selectedZone.w} &times; {selectedZone.d}
                 </div>
               </div>
 
               {/* Position */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Position</div>
-                <div className={ROW_CLASS}>
-                  <span className={`${AXIS_CLASS} text-danger`}>X</span>
-                  <span className={VALUE_CLASS}>{selectedZone.cx.toFixed(1)}</span>
-                  <span className={`${AXIS_CLASS} ml-sp-3 text-accent`}>Z</span>
-                  <span className={VALUE_CLASS}>{selectedZone.cz.toFixed(1)}</span>
+              <div className="studio-properties-section">
+                <div data-slot="label">Position</div>
+                <div className="studio-properties-row">
+                  <span data-axis="x">X</span>
+                  <span data-slot="value">{selectedZone.cx.toFixed(1)}</span>
+                  <span data-axis="z">Z</span>
+                  <span data-slot="value">{selectedZone.cz.toFixed(1)}</span>
                 </div>
               </div>
 
               {/* Furniture count */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Furniture</div>
-                <div className={VALUE_CLASS}>{zoneFurnitureCount}</div>
+              <div className="studio-properties-section">
+                <div data-slot="label">Furniture</div>
+                <div data-slot="value">{zoneFurnitureCount}</div>
               </div>
 
               {/* Desk slots (only if > 0) */}
               {selectedZone.deskSlots > 0 && (
-                <div className={SECTION_CLASS}>
-                  <div className={LABEL_CLASS}>Desk Slots</div>
-                  <div className={VALUE_CLASS}>{selectedZone.deskSlots}</div>
+                <div className="studio-properties-section">
+                  <div data-slot="label">Desk Slots</div>
+                  <div data-slot="value">{selectedZone.deskSlots}</div>
                 </div>
               )}
 
               {/* Variant selector (only if archetype has multiple presets) */}
               {presets.length > 1 && (
-                <div className={SECTION_CLASS}>
-                  <div className={LABEL_CLASS}>Variant</div>
+                <div className="studio-properties-section">
+                  <div data-slot="label">Variant</div>
                   <Select
                     value={selectedPreset?.id}
                     onValueChange={(value) => {
@@ -259,7 +243,7 @@ export function StudioProperties() {
                       if (preset) swapZoneVariant(selectedZone.zoneId, preset, allPrefabsMap);
                     }}
                   >
-                    <SelectTrigger aria-label="Zone variant" className="h-8 text-body-sm">
+                    <SelectTrigger aria-label="Zone variant" className="studio-properties-select">
                       <SelectValue placeholder="Choose variant" />
                     </SelectTrigger>
                     <SelectContent>
@@ -274,35 +258,35 @@ export function StudioProperties() {
               )}
 
               {/* Rotate zone */}
-              <div className="px-sp-4">
+              <div className="studio-properties-action">
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
                   onClick={() => rotateZone(selectedZone.zoneId)}
                   aria-label="Rotate zone 90° clockwise (R)"
-                  className="w-full justify-center"
+                  className="studio-properties-action-button"
                 >
-                  <RotateCw className="size-3" aria-hidden="true" />
+                  <RotateCw data-icon="inline-start" aria-hidden="true" />
                   <span>Rotate +90°</span>
-                  <kbd className={KBD_CLASS}>R</kbd>
+                  <kbd className="studio-properties-keycap">R</kbd>
                 </Button>
               </div>
 
               {/* Spacer */}
-              <div className="flex-1" />
+              <div className="studio-properties-spacer" />
 
               {/* Delete zone */}
-              <div className="px-sp-4 py-sp-3">
+              <div className="studio-properties-footer">
                 {required ? (
                   <Button
                     type="button"
                     variant="outline"
                     disabled
                     aria-label="Cannot delete required zone"
-                    className="w-full justify-center"
+                    className="studio-properties-action-button"
                   >
-                    <Lock className="size-3" aria-hidden="true" />
+                    <Lock data-icon="inline-start" aria-hidden="true" />
                     <span>Required — Cannot Delete</span>
                   </Button>
                 ) : (
@@ -311,9 +295,9 @@ export function StudioProperties() {
                     variant="destructive"
                     onClick={() => deleteZone(selectedZone.zoneId)}
                     aria-label="Delete zone"
-                    className="w-full justify-center"
+                    className="studio-properties-action-button"
                   >
-                    <Trash2 className="size-3" aria-hidden="true" />
+                    <Trash2 data-icon="inline-start" aria-hidden="true" />
                     <span>Delete Zone</span>
                   </Button>
                 )}
@@ -333,30 +317,30 @@ export function StudioProperties() {
           return (
             <>
               {/* Name + category */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Prefab</div>
-                <div className={VALUE_CLASS}>{definition.name}</div>
-                <div className="mt-sp-1 text-fs-micro capitalize text-ink-3">
+              <div className="studio-properties-section">
+                <div data-slot="label">Prefab</div>
+                <div data-slot="value">{definition.name}</div>
+                <div data-slot="muted" data-transform="capitalize">
                   {definition.category}
                 </div>
               </div>
 
               {/* Position */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Position</div>
-                <div className={ROW_CLASS}>
-                  <span className={`${AXIS_CLASS} text-danger`}>X</span>
-                  <span className={VALUE_CLASS}>{x.toFixed(1)}</span>
-                  <span className={`${AXIS_CLASS} ml-sp-3 text-accent`}>Z</span>
-                  <span className={VALUE_CLASS}>{z.toFixed(1)}</span>
+              <div className="studio-properties-section">
+                <div data-slot="label">Position</div>
+                <div className="studio-properties-row">
+                  <span data-axis="x">X</span>
+                  <span data-slot="value">{x.toFixed(1)}</span>
+                  <span data-axis="z">Z</span>
+                  <span data-slot="value">{z.toFixed(1)}</span>
                 </div>
               </div>
 
               {/* Rotation */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Rotation</div>
-                <div className={ROW_CLASS}>
-                  <span className={VALUE_CLASS}>{instance.rotation}&deg;</span>
+              <div className="studio-properties-section">
+                <div data-slot="label">Rotation</div>
+                <div className="studio-properties-row">
+                  <span data-slot="value">{instance.rotation}&deg;</span>
                   <Button
                     type="button"
                     variant="secondary"
@@ -364,38 +348,34 @@ export function StudioProperties() {
                     onClick={rotateSelected}
                     aria-label="Rotate 90 degrees clockwise"
                     title="Rotate +90\u00B0"
-                    className="h-7 gap-sp-1 px-sp-2 text-fs-micro"
+                    className="studio-properties-inline-action"
                   >
-                    <RotateCw className="size-3" aria-hidden="true" />
+                    <RotateCw data-icon="inline-start" aria-hidden="true" />
                     <span>+90\u00B0</span>
                   </Button>
                 </div>
               </div>
 
               {/* Grid size */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Grid Size</div>
-                <div className={VALUE_CLASS}>{gridLabel}</div>
+              <div className="studio-properties-section">
+                <div data-slot="label">Grid Size</div>
+                <div data-slot="value">{gridLabel}</div>
               </div>
 
               {/* Zone */}
-              <div className={SECTION_CLASS}>
-                <div className={LABEL_CLASS}>Zone</div>
-                <div className={ROW_CLASS}>
-                  <MapPin className="size-3 shrink-0 text-ink-3" />
+              <div className="studio-properties-section">
+                <div data-slot="label">Zone</div>
+                <div className="studio-properties-row">
+                  <MapPin data-icon="inline-start" aria-hidden="true" />
                   {instanceZone ? (
                     <>
-                      <svg
-                        className="size-2 shrink-0 rounded-sm"
-                        viewBox="0 0 8 8"
-                        aria-hidden="true"
-                      >
+                      <svg data-swatch="square" viewBox="0 0 8 8" aria-hidden="true">
                         <rect width="8" height="8" rx="2" fill={instanceZone.accentColor} />
                       </svg>
-                      <span className={VALUE_CLASS}>{instanceZone.label}</span>
+                      <span data-slot="value">{instanceZone.label}</span>
                     </>
                   ) : (
-                    <span className="text-fs-micro italic text-ink-3">
+                    <span data-slot="muted" data-style="italic">
                       {instance.zoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : instance.zoneId}
                     </span>
                   )}
@@ -403,18 +383,18 @@ export function StudioProperties() {
               </div>
 
               {/* Spacer */}
-              <div className="flex-1" />
+              <div className="studio-properties-spacer" />
 
               {/* Delete */}
-              <div className="px-sp-4 py-sp-3">
+              <div className="studio-properties-footer">
                 <Button
                   type="button"
                   variant="destructive"
                   onClick={deleteSelected}
                   aria-label="Delete selected instance"
-                  className="w-full justify-center"
+                  className="studio-properties-action-button"
                 >
-                  <Trash2 className="size-3" aria-hidden="true" />
+                  <Trash2 data-icon="inline-start" aria-hidden="true" />
                   <span>Delete Instance</span>
                 </Button>
               </div>
