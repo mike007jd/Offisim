@@ -90,6 +90,55 @@
     width: var(--office-right-rail);
   }
 
+  .w-workspace-suite-appbar {
+    width: 4rem;
+  }
+
+  .w-workspace-suite-list {
+    width: 20rem;
+  }
+
+  .workspace-appbar-id {
+    height: 2.125rem;
+    width: 2.125rem;
+  }
+
+  .grid-workspace-surface-panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid-workspace-doc-row {
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+  }
+
+  .grid-workspace-contact-row {
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+  }
+
+  .grid-workspace-agenda {
+    grid-template-columns: minmax(0, 1fr) 22.5rem;
+  }
+
+  .grid-workspace-home-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .grid-workspace-home-tiles {
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  }
+
+  .max-w-workspace-doc-paper {
+    max-width: 45rem;
+  }
+
+  .w-workspace-detail-label {
+    width: 7rem;
+  }
+
+  .w-workspace-agenda-day {
+    width: 4rem;
+  }
+
   .h-market-listing-card {
     height: 12.5rem;
   }

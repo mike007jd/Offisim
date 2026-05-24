@@ -1,12 +1,20 @@
 import type { ProjectRow } from '@offisim/shared-types';
 import { Button, cn } from '@offisim/ui-core';
 import {
+  Activity,
   BriefcaseBusiness,
   CalendarDays,
+  Check,
   ClipboardList,
   ContactRound,
+  Download,
   FileText,
+  Grid2X2,
+  PenLine,
   MessageSquare,
+  Search,
+  Store,
+  Users,
   Video,
   type LucideIcon,
 } from 'lucide-react';
@@ -86,7 +94,13 @@ export function WorkspaceSuite(props: WorkspaceSuiteProps) {
 
   return (
     <div className="flex h-full min-h-0 w-full bg-surface-1 text-ink-1">
-      <aside className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-line bg-surface-0 pb-2 pt-2">
+      <aside className="flex w-workspace-suite-appbar shrink-0 flex-col items-center gap-1 border-r border-line bg-surface-0 pb-2 pt-2">
+        <span
+          className="workspace-appbar-id mb-2 grid place-items-center rounded-r-md bg-accent-surface text-accent shadow-elev-1 ring-1 ring-line"
+          title={activeProject?.name ?? 'Company workspace'}
+        >
+          <BriefcaseBusiness className="size-4" aria-hidden="true" />
+        </span>
         {railItems.map((item) => {
           const Icon = item.icon;
           const selected = item.key === activeApp;
@@ -145,6 +159,8 @@ export function WorkspaceSuite(props: WorkspaceSuiteProps) {
             activeProject={activeProject}
             activeCompanyId={activeCompanyId}
             pendingApprovals={pendingCount}
+            onSelectApp={onSelectApp}
+            onOpenSettings={onOpenSettings}
           />
         )}
       </section>
@@ -157,11 +173,15 @@ function WorkspaceSurfaceApp({
   activeProject,
   activeCompanyId,
   pendingApprovals,
+  onSelectApp,
+  onOpenSettings,
 }: {
   app: Exclude<WorkspaceAppKey, 'messenger' | 'approvals'>;
   activeProject: ProjectRow | null;
   activeCompanyId: string | null;
   pendingApprovals: number;
+  onSelectApp: (app: WorkspaceAppKey) => void;
+  onOpenSettings: () => void;
 }) {
   const appTitle: Record<typeof app, string> = {
     docs: 'Docs',
@@ -173,59 +193,404 @@ function WorkspaceSurfaceApp({
   const rows = createWorkspaceRows(app, activeProject, activeCompanyId, pendingApprovals);
   const panels = createWorkspacePanels(app, activeProject, activeCompanyId, pendingApprovals);
   const primary = rows[0];
+
+  if (app === 'calendar' || app === 'meetings') {
+    return (
+      <WorkspaceAgendaSurface
+        app={app}
+        activeProject={activeProject}
+        pendingApprovals={pendingApprovals}
+      />
+    );
+  }
+
+  if (app === 'workplace') {
+    return (
+      <WorkspaceHomeSurface
+        activeProject={activeProject}
+        pendingApprovals={pendingApprovals}
+        onSelectApp={onSelectApp}
+        onOpenSettings={onOpenSettings}
+      />
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 min-w-0">
-      <div className="flex w-80 shrink-0 flex-col border-r border-line bg-surface-1">
-        <div className="border-b border-line-soft px-3 pb-2 pt-2.5">
-          <p className="text-fs-md font-bold text-ink-1">{appTitle[app]}</p>
-          <p className="mt-1 text-fs-meta text-ink-3">Company workspace</p>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-3">
-          {rows.map((row) => (
-            <div
-              key={row.title}
-              className="rounded-r-md border border-line-soft bg-surface-1 px-3 py-2 shadow-elev-1"
-            >
-              <p className="truncate text-fs-sm font-semibold text-ink-1">{row.title}</p>
-              <p className="mt-1 line-clamp-2 text-fs-meta text-ink-3">{row.detail}</p>
-              <p className="mt-2 text-fs-micro font-semibold uppercase tracking-wide text-ink-4">
-                {row.meta}
-              </p>
+      <div className="flex w-workspace-suite-list shrink-0 flex-col border-r border-line bg-surface-1">
+        <div className="flex flex-col gap-2 border-b border-line-soft px-3 pb-2 pt-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-fs-md font-bold text-ink-1">{appTitle[app]}</p>
+            {app === 'contacts' ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-7 rounded-r-sm bg-surface-2 text-ink-3"
+                onClick={onOpenSettings}
+                aria-label="Open personnel settings"
+              >
+                <PenLine className="size-3.5" aria-hidden="true" />
+              </Button>
+            ) : null}
+          </div>
+          {app === 'docs' ? (
+            <div className="inline-flex h-8 items-center gap-0.5 self-start rounded-r-md border border-line bg-surface-2 p-1 shadow-elev-1">
+              <SurfaceFilter active label="All" count={rows.length} />
+              <SurfaceFilter label="Documents" />
+              <SurfaceFilter label="Files" />
             </div>
+          ) : null}
+          <div className="flex h-8 items-center gap-2 rounded-r-sm border border-line bg-surface-sunken px-2.5 text-fs-sm text-ink-4">
+            <Search className="size-3.5" aria-hidden="true" />
+            {app === 'contacts' ? 'Search by name or role' : 'Search title or contributor'}
+          </div>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-2">
+          {rows.map((row) => (
+            <Button
+              key={row.title}
+              type="button"
+              variant="ghost"
+              className={cn(
+                'grid h-auto w-full items-center justify-start gap-2 rounded-r-md border border-transparent px-3 py-2 text-left transition-colors hover:bg-surface-sunken',
+                row === primary && 'border-accent-ring bg-accent-surface',
+                app === 'docs' ? 'grid-workspace-doc-row' : 'grid-workspace-contact-row',
+              )}
+            >
+              <span className="grid size-8 place-items-center rounded-r-sm bg-surface-sunken text-ink-3 ring-1 ring-line">
+                {app === 'docs' ? (
+                  <FileText className="size-3.5" aria-hidden="true" />
+                ) : (
+                  <ContactRound className="size-3.5" aria-hidden="true" />
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-fs-sm font-semibold text-ink-1">
+                  {row.title}
+                </span>
+                <span className="mt-0.5 block truncate text-fs-meta text-ink-4">{row.detail}</span>
+              </span>
+              <span className="justify-self-end rounded-r-xs bg-surface-sunken px-1.5 py-0.5 font-mono text-fs-micro font-bold uppercase tracking-wide text-ink-3">
+                {row.meta}
+              </span>
+            </Button>
           ))}
         </div>
       </div>
       <div className="flex min-w-0 flex-1 flex-col bg-surface-2">
-        <div className="border-b border-line-soft px-sp-7 py-sp-5">
-          <p className="text-fs-micro font-bold uppercase tracking-wide text-ink-3">
-            {appTitle[app]} hub
-          </p>
-          <h2 className="mt-1 text-fs-lg font-bold text-ink-1">
-            {primary?.title ?? activeProject?.name ?? 'Company workspace'}
-          </h2>
-          <p className="mt-1 max-w-2xl text-fs-sm text-ink-3">
-            {primary?.detail ?? 'Workspace evidence will appear here as the company works.'}
-          </p>
-        </div>
-        <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-sp-4 overflow-y-auto px-sp-7 py-sp-6">
-          {panels.map((panel) => (
-            <section
-              key={panel.title}
-              className={cn(
-                'rounded-r-md border border-line-soft bg-surface-1 p-sp-5 shadow-elev-1',
-                panel.wide ? 'col-span-2' : '',
-              )}
-            >
-              <p className="text-fs-micro font-bold uppercase tracking-wide text-ink-3">
-                {panel.kicker}
-              </p>
-              <h3 className="mt-1 text-fs-md font-bold text-ink-1">{panel.title}</h3>
-              <p className="mt-2 text-fs-sm leading-relaxed text-ink-3">{panel.body}</p>
-            </section>
-          ))}
-        </div>
+        {app === 'docs' ? (
+          <DocsDetail
+            title={primary?.title ?? 'Project documents'}
+            projectName={activeProject?.name}
+          />
+        ) : (
+          <ContactsDetail
+            title={primary?.title ?? 'Team directory'}
+            projectName={activeProject?.name}
+            panels={panels}
+          />
+        )}
       </div>
     </div>
+  );
+}
+
+function SurfaceFilter({
+  active,
+  label,
+  count,
+}: {
+  active?: boolean;
+  label: string;
+  count?: number;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex h-6 items-center gap-1 rounded-r-sm px-2.5 text-fs-meta font-semibold',
+        active ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring' : 'text-ink-3',
+      )}
+    >
+      {label}
+      {count != null ? <span className="font-mono text-fs-micro opacity-80">{count}</span> : null}
+    </span>
+  );
+}
+
+function DocsDetail({ title, projectName }: { title: string; projectName?: string }) {
+  return (
+    <>
+      <div className="border-b border-line-soft px-sp-7 py-sp-5">
+        <div className="flex items-start justify-between gap-sp-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-fs-lg font-bold text-ink-1">{title}</h2>
+            <p className="mt-1 text-fs-meta text-ink-3">
+              5 contributors · produced in {projectName ?? 'active project'} · just now
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button type="button" variant="outline" size="sm" className="rounded-r-sm">
+              Copy
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="rounded-r-sm">
+              <Download className="size-3.5" aria-hidden="true" />
+              Export
+            </Button>
+          </div>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-sp-7 py-sp-6">
+        <article className="max-w-workspace-doc-paper mx-auto rounded-r-md border border-line bg-surface-1 px-sp-8 py-sp-7 shadow-elev-1">
+          <h1 className="text-fs-xl font-bold text-ink-1">Q3 Roadmap</h1>
+          <p className="mt-sp-4 text-fs-md leading-relaxed text-ink-2">
+            Goals for the quarter, distilled from the launch kickoff. Owners are AI employees; the
+            boss approves scope changes.
+          </p>
+          <h2 className="mt-sp-7 text-fs-lg font-semibold text-ink-1">Workstreams</h2>
+          <ul className="mt-sp-3 flex list-disc flex-col gap-1 pl-5 text-fs-md leading-relaxed text-ink-2">
+            <li>Ship the doc-engine verify flow.</li>
+            <li>Harden the attachment pipeline across caps, MIME, and non-UTF-8 inputs.</li>
+            <li>Close the UX and information architecture debt batch.</li>
+          </ul>
+          <h2 className="mt-sp-7 text-fs-lg font-semibold text-ink-1">Milestones</h2>
+          <p className="mt-sp-3 text-fs-md leading-relaxed text-ink-2">
+            Week 1 — sandbox and parser verified. Week 2 — pipeline hardened. Week 3 — launch review
+            and sign-off.
+          </p>
+        </article>
+      </div>
+    </>
+  );
+}
+
+function ContactsDetail({
+  title,
+  projectName,
+  panels,
+}: {
+  title: string;
+  projectName?: string;
+  panels: Array<{ kicker: string; title: string; body: string; wide?: boolean }>;
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="border-b border-line-soft bg-surface-1 px-sp-7 py-sp-6">
+        <div className="flex items-center gap-sp-4">
+          <span className="grid size-16 shrink-0 place-items-center rounded-r-md bg-accent-surface text-accent ring-1 ring-accent-ring">
+            <Users className="size-6" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-fs-xl font-bold text-ink-1">{title}</h2>
+            <p className="mt-1 text-fs-sm text-ink-3">
+              Directory view · {projectName ?? 'active project'} · model and tool policy summary
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="sm" className="rounded-r-sm">
+            Direct chat
+          </Button>
+        </div>
+      </div>
+      <dl className="mx-sp-7 mt-sp-6 grid gap-2 rounded-r-md border border-line-soft bg-surface-1 p-sp-5 shadow-elev-1">
+        {panels.map((panel) => (
+          <div key={panel.title} className="flex gap-sp-4">
+            <dt className="w-workspace-detail-label shrink-0 text-fs-meta font-semibold uppercase tracking-wide text-ink-4">
+              {panel.kicker}
+            </dt>
+            <dd className="m-0 min-w-0 flex-1 text-fs-sm text-ink-2">{panel.body}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function WorkspaceAgendaSurface({
+  app,
+  activeProject,
+  pendingApprovals,
+}: {
+  app: 'calendar' | 'meetings';
+  activeProject: ProjectRow | null;
+  pendingApprovals: number;
+}) {
+  const title = app === 'calendar' ? 'This week' : 'Meeting room';
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-surface-1">
+      <div className="flex items-center gap-sp-4 border-b border-line-soft px-sp-7 py-sp-5">
+        <h2 className="text-fs-lg font-bold text-ink-1">{title}</h2>
+        <div className="inline-flex h-8 items-center gap-0.5 rounded-r-md border border-line bg-surface-2 p-1 shadow-elev-1">
+          <SurfaceFilter active label="Agenda" />
+          <SurfaceFilter label="Week" />
+        </div>
+        <span className="ml-auto rounded-r-pill border border-line-soft bg-surface-sunken px-3 py-1 text-fs-meta font-semibold text-ink-3">
+          {activeProject?.name ?? 'No project selected'}
+        </span>
+      </div>
+      <div className="grid-workspace-agenda grid min-h-0 flex-1 gap-sp-7 overflow-y-auto bg-surface-2 px-sp-7 py-sp-6">
+        <div className="flex flex-col gap-sp-5">
+          {[
+            ['Today', 'Q3 Launch standup', '09:30 · daily ceremony', 'bg-accent'],
+            ['Today', 'Attachment pipeline run', '11:00 · live run', 'bg-violet'],
+            ['Tomorrow', 'Design review', '14:00 · Sophie, Marcus', 'bg-success'],
+            ['Monday', 'Weekly retro run', '10:00 · auto-scheduled SOP', 'bg-warn'],
+          ].map(([day, eventTitle, meta, tone]) => (
+            <div
+              key={`${day}-${eventTitle}`}
+              className="flex gap-sp-4 rounded-r-md border border-line-soft bg-surface-1 p-sp-4 shadow-elev-1"
+            >
+              <span className="w-workspace-agenda-day shrink-0 text-fs-meta font-bold uppercase tracking-wide text-ink-4">
+                {day}
+              </span>
+              <span className={cn('w-1 rounded-r-pill', tone)} />
+              <span className="min-w-0">
+                <span className="block truncate text-fs-sm font-semibold text-ink-1">
+                  {eventTitle}
+                </span>
+                <span className="mt-0.5 block text-fs-meta text-ink-3">{meta}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+        <aside className="self-start overflow-hidden rounded-r-lg border border-line-soft bg-surface-1 shadow-elev-1">
+          <div className="border-b border-line-soft p-sp-5">
+            <h3 className="text-fs-md font-bold text-ink-1">Q3 Launch standup</h3>
+            <p className="mt-1 text-fs-meta text-ink-4">Today 09:30 · 4 attendees · ended</p>
+          </div>
+          <div className="flex flex-col gap-sp-3 p-sp-5">
+            <div className="text-fs-micro font-bold uppercase tracking-wide text-ink-3">
+              Action items <span className="font-mono">4</span>
+            </div>
+            {[
+              ['done', 'Provision the harness sandbox'],
+              ['todo', 'Review parser boundary cases'],
+              ['todo', 'Draft pitch deck v2'],
+              ['todo', `${pendingApprovals} approval gates waiting`],
+            ].map(([state, text]) => (
+              <div key={text} className="flex items-center gap-sp-3 text-fs-sm text-ink-2">
+                <span
+                  className={cn(
+                    'grid size-4 place-items-center rounded-r-xs border border-line-soft',
+                    state === 'done' && 'border-success bg-success text-accent-fg',
+                  )}
+                >
+                  {state === 'done' ? <Check className="size-3" aria-hidden="true" /> : null}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{text}</span>
+              </div>
+            ))}
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceHomeSurface({
+  activeProject,
+  pendingApprovals,
+  onSelectApp,
+  onOpenSettings,
+}: {
+  activeProject: ProjectRow | null;
+  pendingApprovals: number;
+  onSelectApp: (app: WorkspaceAppKey) => void;
+  onOpenSettings: () => void;
+}) {
+  return (
+    <div className="min-h-0 overflow-y-auto bg-surface-2 px-sp-7 py-sp-6">
+      <section className="rounded-r-lg border border-line-soft bg-surface-1 p-sp-7 shadow-elev-1">
+        <h2 className="text-fs-xl font-bold text-ink-1">Good afternoon</h2>
+        <p className="mt-1 text-fs-sm text-ink-3">
+          {activeProject?.name ?? 'No project selected'} · company OS control surface
+        </p>
+        <div className="grid-workspace-home-stats mt-sp-6 grid gap-sp-3">
+          {[
+            ['To approve', String(pendingApprovals)],
+            ['Live runs', '1'],
+            ['Docs', '14'],
+            ['Spend today', '$0.00'],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-r-md border border-line-soft bg-surface-2 p-sp-4">
+              <div className="text-fs-lg font-bold text-ink-1">{value}</div>
+              <div className="mt-1 text-fs-meta font-semibold uppercase tracking-wide text-ink-4">
+                {label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <WorkspaceTileSection
+        title="Suite apps"
+        tiles={[
+          [
+            'Messenger',
+            'Group and direct chats with your team',
+            MessageSquare,
+            () => onSelectApp('messenger'),
+          ],
+          [
+            'Approvals',
+            'Human-in-loop gates waiting on you',
+            ClipboardList,
+            () => onSelectApp('approvals'),
+          ],
+          ['Docs', 'Every deliverable, exportable', FileText, () => onSelectApp('docs')],
+          [
+            'Calendar',
+            'Meetings, ceremonies and deadlines',
+            CalendarDays,
+            () => onSelectApp('calendar'),
+          ],
+          ['Contacts', 'The company directory', ContactRound, () => onSelectApp('contacts')],
+        ]}
+      />
+      <WorkspaceTileSection
+        title="Workspaces"
+        tiles={[
+          ['Office', 'Watch the team collaborate in 3D', BriefcaseBusiness],
+          ['SOPs', 'Reusable process DAGs', Activity],
+          ['Market', 'Install skills, employees and templates', Store],
+          ['Personnel', 'Hire, edit and tune employees', Users, onOpenSettings],
+          ['Studio', 'Edit the office layout', Grid2X2, onOpenSettings],
+        ]}
+      />
+    </div>
+  );
+}
+
+function WorkspaceTileSection({
+  title,
+  tiles,
+}: {
+  title: string;
+  tiles: Array<[string, string, LucideIcon, (() => void)?]>;
+}) {
+  return (
+    <section className="mt-sp-7">
+      <h3 className="mb-sp-3 text-fs-micro font-bold uppercase tracking-wide text-ink-3">
+        {title}
+      </h3>
+      <div className="grid-workspace-home-tiles grid gap-sp-3">
+        {tiles.map(([name, description, Icon, onClick]) => (
+          <Button
+            key={name}
+            type="button"
+            variant="ghost"
+            onClick={onClick}
+            disabled={!onClick}
+            className="grid h-auto justify-start gap-sp-2 rounded-r-md border border-line-soft bg-surface-1 p-sp-4 text-left shadow-elev-1 transition-colors hover:bg-surface-sunken"
+          >
+            <span className="grid size-9 place-items-center rounded-r-sm bg-accent-surface text-accent">
+              <Icon className="size-4" aria-hidden="true" />
+            </span>
+            <span className="text-fs-sm font-bold text-ink-1">{name}</span>
+            <span className="text-fs-meta text-ink-3">{description}</span>
+          </Button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -255,8 +620,10 @@ function createWorkspaceRows(
   }
   if (app === 'contacts') {
     return [
-      { title: 'Team directory', detail: 'Employee identities and status', meta: 'people' },
-      ...shared,
+      { title: 'Alex Chen', detail: 'Developer · Engineering · working now', meta: 'busy' },
+      { title: 'Maya Lin', detail: 'DevOps · Engineering · idle', meta: 'idle' },
+      { title: 'Sophie Park', detail: 'Writer · Design · offline', meta: 'off' },
+      { title: 'OpenClaw', detail: 'A2A render partner · external brand', meta: 'ext' },
     ];
   }
   if (app === 'workplace') {
@@ -266,8 +633,11 @@ function createWorkspaceRows(
     ];
   }
   return [
-    { title: 'Project docs', detail: 'Workspace files and deliverables', meta: 'library' },
-    ...shared,
+    { title: 'Q3 Roadmap Outline', detail: 'Maya · Alex +2 · just now', meta: 'docx' },
+    { title: 'Fixture Verification Report', detail: 'Marcus · Maya · 1h ago', meta: 'md' },
+    { title: 'Launch metrics', detail: 'Sophie · 3h ago', meta: 'csv' },
+    { title: 'Pitch deck v2', detail: `${project} · produced by the team`, meta: 'pptx' },
+    { title: 'DevOps runbook', detail: 'Maya · onboarding', meta: 'pdf' },
   ];
 }
 

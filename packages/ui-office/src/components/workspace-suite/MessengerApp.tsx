@@ -84,7 +84,7 @@ export function MessengerApp(props: MessengerAppProps) {
   return (
     <div className="flex h-full min-h-0 min-w-0">
       {/* Conversation list */}
-      <div className="flex w-80 shrink-0 flex-col border-r border-line bg-surface-1">
+      <div className="flex w-workspace-suite-list shrink-0 flex-col border-r border-line bg-surface-1">
         <div className="flex flex-col gap-2 border-b border-line-soft px-3 pb-2 pt-2.5">
           <span className="text-fs-md font-bold text-ink-1">Chats</span>
           <label
