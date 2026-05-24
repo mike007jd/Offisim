@@ -56,7 +56,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
 
       {/* Permissions */}
       <div className="border-2 border-line p-3 flex flex-col gap-2">
-        <h4 className="text-xs font-medium text-ink-3 uppercase tracking-wide font-pixel-body">
+        <h4 className="text-xs font-medium text-ink-3 uppercase tracking-wide font-sans">
           Permissions
         </h4>
 
@@ -94,7 +94,7 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
       {/* Required MCP Servers */}
       {manifest.requirements.required_mcps.length > 0 && (
         <div className="border-2 border-line p-3 flex flex-col gap-2">
-          <h4 className="text-xs font-medium text-ink-3 uppercase tracking-wide font-pixel-body">
+          <h4 className="text-xs font-medium text-ink-3 uppercase tracking-wide font-sans">
             Required MCP Servers
           </h4>
           {manifest.requirements.required_mcps.map((mcp) => (

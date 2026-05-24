@@ -62,7 +62,7 @@ export function RecentActivityCard() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-ink-2">
+        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-ink-2">
           Recent Activity
         </CardTitle>
       </CardHeader>
@@ -80,11 +80,11 @@ export function RecentActivityCard() {
                   <Badge variant="secondary" className="text-caption shrink-0">
                     {shortenEventType(item.eventType)}
                   </Badge>
-                  <span className="text-caption text-ink-1 font-pixel-mono truncate">
+                  <span className="text-caption text-ink-1 font-mono truncate">
                     {item.entityName}
                   </span>
                 </div>
-                <span className="text-caption text-ink-2/50 font-pixel-mono shrink-0">
+                <span className="text-caption text-ink-2/50 font-mono shrink-0">
                   {formatTime(item.timestamp)}
                 </span>
               </div>

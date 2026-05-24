@@ -158,7 +158,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
 
   return (
     <div className="flex h-full flex-col bg-surface-elevated">
-      <div className="flex-1 overflow-y-auto px-sp-5">
+      <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-sp-5">
         <div className="flex w-full flex-col pb-32">
           <ProfileSection
             title="Identity"
@@ -315,12 +315,12 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 rows={4}
               />
             </FieldStack>
-            <div className="rounded-r-md border border-line-soft bg-surface-sunken">
+            <div className="rounded-md border border-line-soft bg-surface-sunken">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => setShowSystemPrompt((v) => !v)}
-                className="h-auto w-full justify-start gap-1.5 rounded-r-md px-3 py-2 text-fs-sm text-ink-3 hover:text-ink-1"
+                className="h-auto w-full justify-start gap-1.5 rounded-md px-3 py-2 text-fs-sm text-ink-3 hover:text-ink-1"
               >
                 {showSystemPrompt ? (
                   <ChevronDown className="size-3.5 shrink-0" />
@@ -401,7 +401,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                           variant="outline"
                           size="sm"
                           onClick={() => updateField('modelPreference', m)}
-                          className="h-6 rounded-r-xs px-1.5 py-0.5 text-caption text-text-secondary hover:border-border-focus hover:text-accent-text"
+                          className="h-6 rounded-xs px-1.5 py-0.5 text-caption text-text-secondary hover:border-border-focus hover:text-accent-text"
                         >
                           {m}
                         </Button>

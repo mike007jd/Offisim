@@ -22,7 +22,7 @@ export function PlaceholderTab({ title, description }: PlaceholderTabProps) {
 
 export function TabScrollShell({ children }: { children: ReactNode }) {
   return (
-    <div className="h-full overflow-y-auto px-6 py-6">
+    <div data-personnel-tab-scroll className="h-full overflow-y-auto px-6 py-6">
       <div className="w-full">{children}</div>
     </div>
   );

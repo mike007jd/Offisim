@@ -45,7 +45,7 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-ink-2">
+        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-ink-2">
           Cost by Model
         </CardTitle>
       </CardHeader>
@@ -63,10 +63,10 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
               return (
                 <div key={agg.groupKey} className="flex flex-col gap-0.5">
                   <div className="flex items-center justify-between text-caption">
-                    <span className="text-ink-1 font-pixel-mono truncate max-w-cost-model-name">
+                    <span className="text-ink-1 font-mono truncate max-w-cost-model-name">
                       {agg.groupKey}
                     </span>
-                    <span className="text-ink-2/70 font-pixel-mono">
+                    <span className="text-ink-2/70 font-mono">
                       {formatCost(agg.totalCost)} ({agg.callCount} calls)
                     </span>
                   </div>
@@ -78,7 +78,7 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
                     />
                   </div>
                   {pricingNote ? (
-                    <div className="text-caption font-pixel-mono text-ink-2/55">{pricingNote}</div>
+                    <div className="text-caption font-mono text-ink-2/55">{pricingNote}</div>
                   ) : null}
                 </div>
               );

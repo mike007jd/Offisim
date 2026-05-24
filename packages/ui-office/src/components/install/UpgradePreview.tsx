@@ -131,7 +131,7 @@ function CategorySection({
         onClick={() => setExpanded((v) => !v)}
       >
         <ChevronIcon className="size-3.5 text-text-muted" />
-        <span className="font-pixel-body text-xs font-medium uppercase tracking-wide text-text-secondary">
+        <span className="font-sans text-xs font-medium uppercase tracking-wide text-text-secondary">
           {CATEGORY_LABELS[category]}
         </span>
         <span className="text-xs text-text-muted">({entries.length})</span>

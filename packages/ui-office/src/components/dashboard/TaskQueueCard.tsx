@@ -31,12 +31,12 @@ function TaskRow({ task }: { task: TaskRunRow }) {
         <Badge variant={variant} className="text-caption shrink-0">
           {task.task_type}
         </Badge>
-        <span className="text-xs text-ink-1 font-pixel-mono truncate">
+        <span className="text-xs text-ink-1 font-mono truncate">
           {task.employee_id ?? 'unassigned'}
         </span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-caption text-ink-2/60 font-pixel-mono">
+        <span className="text-caption text-ink-2/60 font-mono">
           {formatDuration(task.started_at)}
         </span>
         <Badge variant={variant} className="text-caption">
@@ -59,7 +59,7 @@ export function TaskQueueCard({ queue }: TaskQueueCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-pixel-display uppercase tracking-wider text-ink-2">
+        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-ink-2">
           Task Queue
         </CardTitle>
       </CardHeader>

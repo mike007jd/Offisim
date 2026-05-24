@@ -17,6 +17,17 @@ export const SHELL_HEIGHTS = {
   toolbar: 54,
 } as const;
 
+/** V3 layout contract shared by Tailwind utilities and renderer metrics. */
+export const SHELL_LAYOUT = {
+  officeRailCollapsed: 44,
+  officeLeftRail: 288,
+  officeRightRail: 448,
+  personnelLeftRail: 280,
+  personnelLeftRailCollapsed: 64,
+  personnelTabletRail: 220,
+  personnelInspector: 420,
+} as const;
+
 const TOKEN_NAME_OVERRIDES: Record<string, string> = {
   surfaceElevated: 'surface-elevated',
   surfaceMuted: 'surface-muted',
@@ -203,6 +214,13 @@ function v3NativeVars() {
     `  --ls-caps: ${LETTER_SPACING.caps};`,
     `  --title: ${SHELL_HEIGHTS.title}px;`,
     `  --toolbar: ${SHELL_HEIGHTS.toolbar}px;`,
+    `  --office-rail-collapsed: ${SHELL_LAYOUT.officeRailCollapsed}px;`,
+    `  --office-left-rail: ${SHELL_LAYOUT.officeLeftRail}px;`,
+    `  --office-right-rail: ${SHELL_LAYOUT.officeRightRail}px;`,
+    `  --personnel-left-rail: ${SHELL_LAYOUT.personnelLeftRail}px;`,
+    `  --personnel-left-rail-collapsed: ${SHELL_LAYOUT.personnelLeftRailCollapsed}px;`,
+    `  --personnel-tablet-rail: ${SHELL_LAYOUT.personnelTabletRail}px;`,
+    `  --personnel-inspector: ${SHELL_LAYOUT.personnelInspector}px;`,
   ];
 }
 

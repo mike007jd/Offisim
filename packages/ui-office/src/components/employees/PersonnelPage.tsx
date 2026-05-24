@@ -423,6 +423,18 @@ function PersonnelTabs({
   activeCompanyId: string | null;
   selectedEmployeeId: string | null;
 }) {
+  const tabBodyRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const activeScroll = tabBodyRef.current?.querySelector<HTMLElement>(
+        '[data-state="active"] [data-personnel-tab-scroll]',
+      );
+      activeScroll?.scrollTo({ left: 0, top: 0 });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTab, selectedEmployeeId]);
+
   return (
     <Tabs
       value={activeTab}
@@ -434,13 +446,13 @@ function PersonnelTabs({
           <TabsTrigger
             key={t.value}
             value={t.value}
-            className="h-7 shrink-0 rounded-r-sm border border-transparent bg-transparent px-3 text-fs-sm font-medium text-ink-3 transition-colors hover:bg-surface-sunken hover:text-ink-1 data-[state=active]:border-line-soft data-[state=active]:bg-surface-1 data-[state=active]:font-semibold data-[state=active]:text-accent"
+            className="h-7 shrink-0 rounded-sm border border-transparent bg-transparent px-3 text-fs-sm font-medium text-ink-3 transition-colors hover:bg-surface-sunken hover:text-ink-1 data-[state=active]:border-line-soft data-[state=active]:bg-surface-1 data-[state=active]:font-semibold data-[state=active]:text-accent"
           >
             {t.label}
           </TabsTrigger>
         ))}
       </TabsList>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div ref={tabBodyRef} className="flex min-h-0 flex-1 flex-col">
         <TabsContent
           value="profile"
           forceMount

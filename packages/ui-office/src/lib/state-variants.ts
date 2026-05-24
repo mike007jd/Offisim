@@ -1,6 +1,5 @@
 /** Shared state → Badge variant / Tailwind dot class mappings.
- *  Single source of truth — consumed by AgentCard, EmployeeInspector,
- *  TeamHealthCard, CompanyStatusCard. */
+ *  Single source of truth for agent status surfaces. */
 
 import type { BadgeProps } from '@offisim/ui-core';
 

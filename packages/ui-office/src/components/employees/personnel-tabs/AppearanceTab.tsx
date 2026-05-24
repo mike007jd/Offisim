@@ -42,7 +42,10 @@ export function AppearanceTab({ editor }: AppearanceTabProps) {
   const isExternal = formData.isExternal;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-6 py-6">
+    <div
+      data-personnel-tab-scroll
+      className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-6 py-6"
+    >
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-appearance-tab">
         <div className="min-w-0">
           {isExternal ? (

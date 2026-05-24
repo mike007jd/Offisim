@@ -1,7 +1,6 @@
 import type { CompanyStartupPayload, ProjectRow, RuntimeEvent } from '@offisim/shared-types';
 import { ToastBanner, TooltipProvider, useToasts } from '@offisim/ui-core';
 import {
-  EmployeeInspector,
   ErrorBoundary,
   FirstRunWelcomeScreen,
   OnboardingTourProvider,
@@ -525,22 +524,6 @@ export function App({ onCompanySwitch }: AppProps) {
               dismissTour();
             }}
           />
-
-          {isOffice && (
-            <EmployeeInspector
-              employeeId={officeState.selectedEmployeeId}
-              companyId={activeCompanyId ?? ''}
-              agents={agents}
-              leftOffset={officeState.leftPanelWidth}
-              onClose={() => officeBindings.handleSelectEmployee(null)}
-              onOpenEditor={(id) => routeToPersonnel(id, 'profile')}
-              onStartChat={(id) => {
-                officeBindings.handleSelectEmployee(id);
-                officeBindings.bumpChatOpenToken();
-              }}
-              addToast={addToast}
-            />
-          )}
 
           <OnboardingController
             activeCompanyId={activeCompanyId}

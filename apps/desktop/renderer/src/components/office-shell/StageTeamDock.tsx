@@ -22,10 +22,9 @@ interface StageTeamDockProps {
 }
 
 /**
- * Horizontal Team dock below the stage — relocation home of the displaced
- * left-rail employee roster (`AgentPanel`). Each employee is an avatar + name +
- * status dot; selecting one anchors the existing employee inspector / Personnel
- * routing. The strip ends with an `Add` slot that opens employee creation.
+ * Horizontal Team dock below the stage. Each employee is an avatar + name +
+ * status dot; selecting one anchors the Personnel route. The strip ends with an
+ * `Add` slot that opens employee creation.
  * In-scene avatars (scene canvas) carry the same roster on the stage itself.
  */
 export function StageTeamDock({

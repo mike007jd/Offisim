@@ -55,7 +55,7 @@ export function ErrorBanner({
       {/* Main error bar */}
       <div className="flex items-center gap-2 px-4 py-2 text-sm text-error">
         <AlertCircle className="size-4 shrink-0" />
-        <span className="flex-1 truncate font-pixel-mono text-xs">{message}</span>
+        <span className="flex-1 truncate font-mono text-xs">{message}</span>
 
         {/* Action buttons */}
         <div className="flex shrink-0 items-center gap-1">
@@ -131,7 +131,7 @@ export function ErrorBanner({
       {showSwapPerson && onSwapPerson && employeeList.length > 0 && (
         <div className="px-4 pb-2">
           <div className="flex items-center gap-2">
-            <span className="shrink-0 font-pixel-mono text-caption text-error">
+            <span className="shrink-0 font-mono text-caption text-error">
               Re-dispatch to:
             </span>
             <Select
@@ -158,7 +158,7 @@ export function ErrorBanner({
       {/* Error details panel */}
       {showDetails && (
         <div className="border-t border-error/20 px-4 pb-3">
-          <div className="mt-2 max-h-48 flex flex-col gap-1.5 overflow-y-auto rounded bg-surface-elevated p-3 font-pixel-mono text-caption text-text-primary">
+          <div className="mt-2 max-h-48 flex flex-col gap-1.5 overflow-y-auto rounded bg-surface-elevated p-3 font-mono text-caption text-text-primary">
             <div>
               <span className="text-error">Error Message:</span>{' '}
               <span className="break-all">{message}</span>

@@ -15,104 +15,18 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const intersectPoint = new THREE.Vector3();
-const htmlProjectPoint = new THREE.Vector3();
-const HTML_LABEL_HALF_WIDTH = 92;
-const COMPACT_HTML_LABEL_HALF_WIDTH = 58;
-const HTML_LABEL_HALF_HEIGHT = 18;
-const HTML_LABEL_MARGIN = 18;
-const HTML_LABEL_ROW_OFFSET = 34;
-const HTML_LABEL_OFFSCREEN = -10000;
-const COMPACT_LABEL_AVAILABLE_WIDTH = 680;
-const LABEL_ROW_OFFSETS = [0, -1, 1, -2, 2, -3, 3] as const;
 
 const COMPACT_ZONE_LABELS: Record<string, string> = {
   'ART & DESIGN': 'ART',
   DEVELOPMENT: 'DEV',
   'MEETING ROOM': 'MEET',
+  'PRODUCT HUB': 'PRODUCT',
   'REST AREA': 'REST',
+  'SERVER CLOSET': 'SERVER',
   'SERVER ROOM': 'SERVER',
 };
 
-interface LabelRect {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
-
-export interface LabelLayoutAccumulator {
-  key: string;
-  rects: LabelRect[];
-}
-
-export function createLabelLayoutAccumulator(): LabelLayoutAccumulator {
-  return { key: '', rects: [] };
-}
-
-function rectsOverlap(a: LabelRect, b: LabelRect) {
-  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-}
-
-interface LabelLayoutSlot {
-  index: number;
-  count: number;
-  accumulator: LabelLayoutAccumulator;
-}
-
-function createInsetAwareHtmlPosition(
-  leftInset: number,
-  rightInset: number,
-  labelHalfWidth = HTML_LABEL_HALF_WIDTH,
-  layout?: LabelLayoutSlot,
-) {
-  return (el: THREE.Object3D, camera: THREE.Camera, size: { width: number; height: number }) => {
-    if (layout) {
-      const sizeKey = `${size.width}:${size.height}:${layout.count}`;
-      const acc = layout.accumulator;
-      if (layout.index === 0 || sizeKey !== acc.key || acc.rects.length >= layout.count) {
-        acc.key = sizeKey;
-        acc.rects = [];
-      }
-    }
-
-    htmlProjectPoint.setFromMatrixPosition(el.matrixWorld).project(camera);
-    const projectedX = (htmlProjectPoint.x * 0.5 + 0.5) * size.width;
-    const projectedY = (htmlProjectPoint.y * -0.5 + 0.5) * size.height;
-    const minX = leftInset + labelHalfWidth + HTML_LABEL_MARGIN;
-    const maxX = size.width - rightInset - labelHalfWidth - HTML_LABEL_MARGIN;
-    const clampedX = minX <= maxX ? THREE.MathUtils.clamp(projectedX, minX, maxX) : size.width / 2;
-    const minY = HTML_LABEL_MARGIN + HTML_LABEL_HALF_HEIGHT;
-    const maxY = size.height - HTML_LABEL_MARGIN - HTML_LABEL_HALF_HEIGHT;
-
-    if (!layout) {
-      return [clampedX, THREE.MathUtils.clamp(projectedY, minY, maxY)];
-    }
-
-    const rects = layout.accumulator.rects;
-    for (const row of LABEL_ROW_OFFSETS) {
-      const candidateY = THREE.MathUtils.clamp(
-        projectedY + row * HTML_LABEL_ROW_OFFSET,
-        minY,
-        maxY,
-      );
-      const rect = {
-        left: clampedX - labelHalfWidth,
-        right: clampedX + labelHalfWidth,
-        top: candidateY - HTML_LABEL_HALF_HEIGHT,
-        bottom: candidateY + HTML_LABEL_HALF_HEIGHT,
-      };
-      if (!rects.some((placed) => rectsOverlap(rect, placed))) {
-        rects.push(rect);
-        return [clampedX, candidateY];
-      }
-    }
-
-    return [HTML_LABEL_OFFSCREEN, HTML_LABEL_OFFSCREEN];
-  };
-}
-
-function getCompactZoneLabel(name: string, isCompact: boolean) {
-  if (!isCompact) return name;
+function getZoneLabel(name: string) {
   const normalized = name.trim().toUpperCase();
   if (COMPACT_ZONE_LABELS[normalized]) return COMPACT_ZONE_LABELS[normalized];
   if (normalized.length <= 10) return normalized;
@@ -130,10 +44,6 @@ export function ZoneLabel({
   activityCount,
   hasBlocked,
   isMeetingActive,
-  viewportInsets,
-  labelLayoutIndex,
-  labelLayoutCount,
-  labelLayoutAccumulator,
 }: {
   position: [number, number, number];
   size: [number, number];
@@ -149,16 +59,9 @@ export function ZoneLabel({
     left: number;
     right: number;
   };
-  labelLayoutIndex?: number;
-  labelLayoutCount?: number;
-  labelLayoutAccumulator?: LabelLayoutAccumulator;
 }) {
   const sc = useSceneColors();
-  const canvasSize = useThree((state) => state.size);
-  const visibleLabelWidth = canvasSize.width - viewportInsets.left - viewportInsets.right;
-  const isCompactLabel =
-    canvasSize.width < 520 || visibleLabelWidth < COMPACT_LABEL_AVAILABLE_WIDTH;
-  const displayName = getCompactZoneLabel(name, isCompactLabel);
+  const displayName = getZoneLabel(name);
   const floorOpacity = getZoneRugOpacity({
     isDragging: Boolean(isDragging),
     isHovered: Boolean(isHovered),
@@ -172,40 +75,6 @@ export function ZoneLabel({
   });
 
   const edgePlaneGeo = useMemo(() => new THREE.PlaneGeometry(size[0], size[1]), [size[0], size[1]]);
-  const htmlPosition = useMemo(
-    () =>
-      createInsetAwareHtmlPosition(
-        viewportInsets.left,
-        viewportInsets.right,
-        isCompactLabel ? COMPACT_HTML_LABEL_HALF_WIDTH : HTML_LABEL_HALF_WIDTH,
-        labelLayoutAccumulator !== undefined &&
-          labelLayoutIndex !== undefined &&
-          labelLayoutCount !== undefined
-          ? {
-              index: labelLayoutIndex,
-              count: labelLayoutCount,
-              accumulator: labelLayoutAccumulator,
-            }
-          : undefined,
-      ),
-    [
-      viewportInsets.left,
-      viewportInsets.right,
-      isCompactLabel,
-      labelLayoutIndex,
-      labelLayoutCount,
-      labelLayoutAccumulator,
-    ],
-  );
-  const dropHtmlPosition = useMemo(
-    () =>
-      createInsetAwareHtmlPosition(
-        viewportInsets.left,
-        viewportInsets.right,
-        isCompactLabel ? COMPACT_HTML_LABEL_HALF_WIDTH : HTML_LABEL_HALF_WIDTH,
-      ),
-    [viewportInsets.left, viewportInsets.right, isCompactLabel],
-  );
   useEffect(() => () => edgePlaneGeo.dispose(), [edgePlaneGeo]);
 
   return (
@@ -239,7 +108,6 @@ export function ZoneLabel({
           position={[0, 0.8, 0]}
           center
           style={{ pointerEvents: 'none' }}
-          calculatePosition={dropHtmlPosition}
         >
           <div
             style={{
@@ -269,7 +137,6 @@ export function ZoneLabel({
         position={[0, 0.5, -size[1] / 2 + 0.5]}
         center
         style={{ pointerEvents: 'none' }}
-        calculatePosition={htmlPosition}
       >
         <div
           data-zone-label={name}
@@ -278,9 +145,9 @@ export function ZoneLabel({
             backdropFilter: 'blur(8px)',
             border: `1px solid ${color}66`,
             borderRadius: '8px',
-            maxWidth: isCompactLabel ? '116px' : undefined,
+            maxWidth: '128px',
             overflow: 'hidden',
-            padding: isCompactLabel ? '4px 10px' : '4px 12px',
+            padding: '4px 12px',
             boxShadow: `0 10px 28px ${sc.wallShadow}80, 0 0 16px ${sc.labelGlow}22`,
             whiteSpace: 'nowrap',
           }}
@@ -288,7 +155,7 @@ export function ZoneLabel({
           <span
             style={{
               color: sc.zoneLabelText,
-              fontSize: isCompactLabel ? '10px' : '11px',
+              fontSize: '11px',
               fontWeight: 900,
               letterSpacing: 0,
               textTransform: 'uppercase',

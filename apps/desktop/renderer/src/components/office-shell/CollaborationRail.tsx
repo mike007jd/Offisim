@@ -1,5 +1,5 @@
 import type { ProjectRow } from '@offisim/shared-types';
-import { ChatDrawer, ChatPanel, RightSidebar } from '@offisim/ui-office/web';
+import { ChatDrawer, ChatPanel } from '@offisim/ui-office/web';
 import type { StarterPrompt } from '../../lib/onboarding-prompts';
 
 interface CollaborationRailProps {
@@ -79,12 +79,14 @@ export function ChatDock(props: CollaborationRailProps) {
 
 export function CollaborationSidebar(props: CollaborationRailProps) {
   return (
-    <RightSidebar
-      chatPanel={renderChatPanel({
-        ...props,
-        showMeetingPanel: false,
-        showActivityRail: true,
-      })}
-    />
+    <div className="box-border flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden bg-surface-elevated text-text-primary">
+      <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
+        {renderChatPanel({
+          ...props,
+          showMeetingPanel: false,
+          showActivityRail: true,
+        })}
+      </div>
+    </div>
   );
 }

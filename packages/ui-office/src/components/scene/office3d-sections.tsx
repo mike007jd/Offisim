@@ -1,17 +1,12 @@
 import { DARK_SEMANTIC_COLORS } from '@offisim/ui-core/tokens';
 import { Html } from '@react-three/drei';
-import { useRef } from 'react';
 import { CEREMONY_LABELS } from '../../lib/ceremony-labels';
 import type { EmployeePerformanceCueMap } from '../../runtime/employee-performance-cues.js';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { ManagerPresence3D } from './ManagerPresence3D.js';
 import { MeetingBubble3D } from './MeetingBubble3D.js';
 import { EmployeeMarker, type PlacedEmployee } from './office3d-employees.js';
-import {
-  TaskFlowLine,
-  ZoneLabel,
-  createLabelLayoutAccumulator,
-} from './office3d-scene-primitives.js';
+import { TaskFlowLine, ZoneLabel } from './office3d-scene-primitives.js';
 import {
   type DragState3D,
   type FlowLineData,
@@ -71,7 +66,6 @@ export function Office3DZoneLayer({
     right: number;
   };
 }) {
-  const labelLayoutAccumulator = useRef(createLabelLayoutAccumulator()).current;
   return (
     <>
       {zones3D.map((zone, index) => (
@@ -90,9 +84,6 @@ export function Office3DZoneLayer({
             zone.archetype === 'meeting' && (zoneActivity[zone.zoneId]?.count ?? 0) > 0
           }
           viewportInsets={viewportInsets}
-          labelLayoutIndex={index}
-          labelLayoutCount={zones3D.length}
-          labelLayoutAccumulator={labelLayoutAccumulator}
         />
       ))}
     </>

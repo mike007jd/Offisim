@@ -1,13 +1,14 @@
 import { Button, cn } from '@offisim/ui-core';
+import { SHELL_LAYOUT } from '@offisim/ui-core/tokens';
 import { ChevronLeft, ChevronRight, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
 
 const SHELL_RAIL_WIDTHS = {
-  collapsed: 44,
-  left: 288,
-  right: 448,
+  collapsed: SHELL_LAYOUT.officeRailCollapsed,
+  left: SHELL_LAYOUT.officeLeftRail,
+  right: SHELL_LAYOUT.officeRightRail,
 } as const;
 
 interface AppLayoutProps {

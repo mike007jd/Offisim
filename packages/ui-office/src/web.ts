@@ -1,6 +1,4 @@
 export { ErrorBoundary } from './components/ErrorBoundary.js';
-export { AgentPanel } from './components/agents/AgentPanel.js';
-export { EmployeeInspector } from './components/agents/EmployeeInspector.js';
 export { ChatDrawer } from './components/chat/ChatDrawer.js';
 export { ChatPanel } from './components/chat/ChatPanel.js';
 export { getConversationKey } from './components/chat/chat-session-store.js';
@@ -13,7 +11,6 @@ export {
 } from './components/employees/PersonnelPage.js';
 export { AppLayout } from './components/layout/AppLayout.js';
 export { Header } from './components/layout/Header.js';
-export { RightSidebar } from './components/layout/RightSidebar.js';
 export { NotificationCenter } from './components/notifications/NotificationCenter.js';
 export { OnboardingTour } from './components/onboarding/OnboardingTour.js';
 export { FirstRunWelcomeScreen } from './components/onboarding/FirstRunWelcomeScreen.js';

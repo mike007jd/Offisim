@@ -50,19 +50,19 @@
   }
 
   .grid-personnel-desktop-expanded {
-    grid-template-columns: 280px minmax(0, 1fr) minmax(0, 420px);
+    grid-template-columns: var(--personnel-left-rail) minmax(0, 1fr) var(--personnel-inspector);
   }
 
   .grid-personnel-desktop-collapsed {
-    grid-template-columns: 64px minmax(0, 1fr) minmax(0, 420px);
+    grid-template-columns: var(--personnel-left-rail-collapsed) minmax(0, 1fr) var(--personnel-inspector);
   }
 
   .grid-personnel-tablet-expanded {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: var(--personnel-tablet-rail) minmax(0, 1fr);
   }
 
   .grid-personnel-tablet-collapsed {
-    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-columns: var(--personnel-left-rail-collapsed) minmax(0, 1fr);
   }
 
   .studio-canvas-frame {
@@ -77,19 +77,15 @@
   }
 
   .w-office-rail-collapsed {
-    width: 2.75rem;
+    width: var(--office-rail-collapsed);
   }
 
   .w-office-left-rail {
-    width: 18rem;
+    width: var(--office-left-rail);
   }
 
   .w-office-right-rail {
-    width: 28rem;
-  }
-
-  .max-w-employee-inspector {
-    max-width: min(22rem, calc(100vw - 2rem));
+    width: var(--office-right-rail);
   }
 
   .h-market-listing-card {
@@ -2299,33 +2295,6 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;
-}
-
-/* ── Keep legacy pixel classes working (mapped to new system) ── */
-.font-pixel-display {
-  font-family: var(--font-sans);
-  font-weight: 900;
-}
-.font-pixel-body {
-  font-family: var(--font-sans);
-}
-.font-pixel-mono {
-  font-family: var(--font-mono);
-}
-.pixel-border {
-  border: 1px solid var(--border-val);
-  border-radius: 0.75rem;
-}
-.pixel-border-double {
-  border: 1px solid var(--border-val);
-  border-radius: 0.75rem;
-}
-.pixel-inset {
-  border: 1px solid var(--glass-border);
-  border-radius: 0.5rem;
-}
-.pixel-press:active {
-  transform: scale(0.98);
 }
 
 /* ── Stagger animation for list items ── */

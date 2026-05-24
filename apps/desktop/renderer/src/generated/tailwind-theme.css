@@ -1,4 +1,4 @@
-/* AUTO-GENERATED — DO NOT EDIT — source: packages/ui-core/src/tokens — commit: 0bae65b5 */
+/* AUTO-GENERATED — DO NOT EDIT — source: packages/ui-core/src/tokens — commit: 21e887a5 */
 
 @theme inline {
   --color-surface: var(--color-surface-val);
@@ -304,6 +304,13 @@
   --ls-caps: 0.14em;
   --title: 40px;
   --toolbar: 54px;
+  --office-rail-collapsed: 44px;
+  --office-left-rail: 288px;
+  --office-right-rail: 448px;
+  --personnel-left-rail: 280px;
+  --personnel-left-rail-collapsed: 64px;
+  --personnel-tablet-rail: 220px;
+  --personnel-inspector: 420px;
   --wiz-bg: #0c1019;
   --wiz-surface: rgba(255,255,255,0.02);
   --wiz-line: rgba(255,255,255,0.06);
