@@ -30,102 +30,102 @@ const ROLE_TONE_CLASSES: Record<
   { dot: string; text: string; border: string; surface: string; rail: string }
 > = {
   developer: {
-    dot: 'bg-info',
-    text: 'text-info',
-    border: 'border-info-muted',
-    surface: 'bg-info-muted',
-    rail: 'bg-info',
+    dot: 'bg-accent',
+    text: 'text-accent',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
+    rail: 'bg-accent',
   },
   backend: {
-    dot: 'bg-info',
-    text: 'text-info',
-    border: 'border-info-muted',
-    surface: 'bg-info-muted',
-    rail: 'bg-info',
+    dot: 'bg-accent',
+    text: 'text-accent',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
+    rail: 'bg-accent',
   },
   frontend: {
     dot: 'bg-accent',
     text: 'text-accent',
-    border: 'border-accent-muted',
-    surface: 'bg-accent-muted',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
     rail: 'bg-accent',
   },
   fullstack: {
     dot: 'bg-accent',
     text: 'text-accent',
-    border: 'border-accent-muted',
-    surface: 'bg-accent-muted',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
     rail: 'bg-accent',
   },
   pm: {
     dot: 'bg-accent',
     text: 'text-accent',
-    border: 'border-accent-muted',
-    surface: 'bg-accent-muted',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
     rail: 'bg-accent',
   },
   product_manager: {
     dot: 'bg-accent',
     text: 'text-accent',
-    border: 'border-accent-muted',
-    surface: 'bg-accent-muted',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
     rail: 'bg-accent',
   },
   manager: {
     dot: 'bg-accent',
     text: 'text-accent',
-    border: 'border-accent-muted',
-    surface: 'bg-accent-muted',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
     rail: 'bg-accent',
   },
   designer: {
-    dot: 'bg-warning',
-    text: 'text-warning',
-    border: 'border-warning-muted',
-    surface: 'bg-warning-muted',
-    rail: 'bg-warning',
+    dot: 'bg-warn',
+    text: 'text-warn',
+    border: 'border-warn/30',
+    surface: 'bg-warn-surface',
+    rail: 'bg-warn',
   },
   ui_designer: {
-    dot: 'bg-warning',
-    text: 'text-warning',
-    border: 'border-warning-muted',
-    surface: 'bg-warning-muted',
-    rail: 'bg-warning',
+    dot: 'bg-warn',
+    text: 'text-warn',
+    border: 'border-warn/30',
+    surface: 'bg-warn-surface',
+    rail: 'bg-warn',
   },
   ux_designer: {
-    dot: 'bg-warning',
-    text: 'text-warning',
-    border: 'border-warning-muted',
-    surface: 'bg-warning-muted',
-    rail: 'bg-warning',
+    dot: 'bg-warn',
+    text: 'text-warn',
+    border: 'border-warn/30',
+    surface: 'bg-warn-surface',
+    rail: 'bg-warn',
   },
   artist: {
-    dot: 'bg-warning',
-    text: 'text-warning',
-    border: 'border-warning-muted',
-    surface: 'bg-warning-muted',
-    rail: 'bg-warning',
+    dot: 'bg-warn',
+    text: 'text-warn',
+    border: 'border-warn/30',
+    surface: 'bg-warn-surface',
+    rail: 'bg-warn',
   },
   analyst: {
-    dot: 'bg-success',
-    text: 'text-success',
-    border: 'border-success-muted',
-    surface: 'bg-success-muted',
-    rail: 'bg-success',
+    dot: 'bg-ok',
+    text: 'text-ok',
+    border: 'border-ok/30',
+    surface: 'bg-ok-surface',
+    rail: 'bg-ok',
   },
   qa: {
-    dot: 'bg-success',
-    text: 'text-success',
-    border: 'border-success-muted',
-    surface: 'bg-success-muted',
-    rail: 'bg-success',
+    dot: 'bg-ok',
+    text: 'text-ok',
+    border: 'border-ok/30',
+    surface: 'bg-ok-surface',
+    rail: 'bg-ok',
   },
   researcher: {
-    dot: 'bg-info',
-    text: 'text-info',
-    border: 'border-info-muted',
-    surface: 'bg-info-muted',
-    rail: 'bg-info',
+    dot: 'bg-accent',
+    text: 'text-accent',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
+    rail: 'bg-accent',
   },
   devops: {
     dot: 'bg-ink-4',
@@ -137,44 +137,44 @@ const ROLE_TONE_CLASSES: Record<
   engineering_manager: {
     dot: 'bg-accent',
     text: 'text-accent',
-    border: 'border-accent-muted',
-    surface: 'bg-accent-muted',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
     rail: 'bg-accent',
   },
   writer: {
-    dot: 'bg-success',
-    text: 'text-success',
-    border: 'border-success-muted',
-    surface: 'bg-success-muted',
-    rail: 'bg-success',
+    dot: 'bg-ok',
+    text: 'text-ok',
+    border: 'border-ok/30',
+    surface: 'bg-ok-surface',
+    rail: 'bg-ok',
   },
   seo_specialist: {
-    dot: 'bg-warning',
-    text: 'text-warning',
-    border: 'border-warning-muted',
-    surface: 'bg-warning-muted',
-    rail: 'bg-warning',
+    dot: 'bg-warn',
+    text: 'text-warn',
+    border: 'border-warn/30',
+    surface: 'bg-warn-surface',
+    rail: 'bg-warn',
   },
   project_manager: {
     dot: 'bg-accent',
     text: 'text-accent',
-    border: 'border-accent-muted',
-    surface: 'bg-accent-muted',
+    border: 'border-accent/30',
+    surface: 'bg-accent-surface',
     rail: 'bg-accent',
   },
   account_manager: {
-    dot: 'bg-error',
-    text: 'text-error',
-    border: 'border-error-muted',
-    surface: 'bg-error-muted',
-    rail: 'bg-error',
+    dot: 'bg-danger',
+    text: 'text-danger',
+    border: 'border-danger/30',
+    surface: 'bg-danger-surface',
+    rail: 'bg-danger',
   },
   graphic_designer: {
-    dot: 'bg-warning',
-    text: 'text-warning',
-    border: 'border-warning-muted',
-    surface: 'bg-warning-muted',
-    rail: 'bg-warning',
+    dot: 'bg-warn',
+    text: 'text-warn',
+    border: 'border-warn/30',
+    surface: 'bg-warn-surface',
+    rail: 'bg-warn',
   },
 };
 
@@ -316,10 +316,10 @@ export function CompanyCreationWizard({
 
   if (step === 'checking') {
     return (
-      <div className="flex h-screen items-center justify-center bg-wiz-bg">
+      <div className="flex h-dvh items-center justify-center bg-bg">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="size-6 animate-spin text-wiz-blue" />
-          <p className="text-caption text-wiz-ink-3">Loading templates...</p>
+          <Loader2 className="size-6 animate-spin text-accent" />
+          <p className="text-fs-meta text-ink-3">Loading templates...</p>
         </div>
       </div>
     );
@@ -356,41 +356,39 @@ export function CompanyCreationWizard({
   })();
 
   return (
-    <div className="fixed inset-0 z-modal flex flex-col overflow-hidden bg-wiz-bg text-wiz-ink-1">
+    <div className="fixed inset-0 z-modal flex flex-col overflow-hidden bg-bg text-ink-1">
       <div className="company-wizard-grid-bg pointer-events-none absolute inset-0" />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
         {selected && meta ? (
           <>
             <div
-              className="animate-wiz-fade-in-fast flex w-full shrink-0 flex-col border-b border-wiz-line lg:w-80 lg:border-r lg:border-b-0"
+              className="animate-wiz-fade-in-fast flex w-full shrink-0 flex-col border-b border-line lg:w-80 lg:border-r lg:border-b-0"
               key={`info-${selected.id}`}
             >
-              <div className="flex shrink-0 flex-col gap-3 border-b border-wiz-line px-4 pt-4 pb-3">
-                <div className="flex flex-col items-center gap-2 rounded-xl border border-wiz-line bg-wiz-surface px-2 py-2.5">
+              <div className="flex shrink-0 flex-col gap-3 border-b border-line px-4 pt-4 pb-3">
+                <div className="flex flex-col items-center gap-2 rounded-r-lg border border-line bg-surface-1 px-2 py-2.5">
                   <div className="flex w-full items-center">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => switchTemplate(-1)}
-                      className="size-10 shrink-0 text-wiz-ink-3 hover:text-wiz-ink-1"
+                      className="size-10 shrink-0 text-ink-3 hover:text-ink-1"
                       aria-label="Previous template"
                     >
                       <ChevronLeft className="size-6" aria-hidden="true" />
                     </Button>
                     <div className="flex min-w-0 flex-1 items-center justify-center gap-2.5">
                       <div className={`shrink-0 ${meta.accent}`}>{meta.icon}</div>
-                      <h2 className="truncate text-lg font-semibold text-wiz-ink-1">
-                        {selected.name}
-                      </h2>
+                      <h2 className="truncate text-lg font-semibold text-ink-1">{selected.name}</h2>
                     </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => switchTemplate(1)}
-                      className="size-10 shrink-0 text-wiz-ink-3 hover:text-wiz-ink-1"
+                      className="size-10 shrink-0 text-ink-3 hover:text-ink-1"
                       aria-label="Next template"
                     >
                       <ChevronRight className="size-6" aria-hidden="true" />
@@ -404,10 +402,8 @@ export function CompanyCreationWizard({
                         variant="ghost"
                         onClick={() => setSelectedTemplateId(template.id)}
                         className={cn(
-                          'h-1.5 rounded-full border-0 p-0 transition-all',
-                          index === currentTemplateIdx
-                            ? 'w-4 bg-wiz-blue'
-                            : 'w-1.5 bg-wiz-line-2',
+                          'h-1.5 rounded-r-pill border-0 p-0 transition-all',
+                          index === currentTemplateIdx ? 'w-4 bg-accent' : 'w-1.5 bg-line-soft',
                         )}
                         aria-label={`Select ${template.name}`}
                       />
@@ -417,13 +413,11 @@ export function CompanyCreationWizard({
 
                 {!isCreateYourOwn && (
                   <>
-                    <div className="rounded-lg border border-wiz-line bg-wiz-surface px-3 py-2">
-                      <p className="text-caption font-semibold uppercase tracking-wider text-wiz-ink-4">
+                    <div className="rounded-r-md border border-line bg-surface-1 px-3 py-2">
+                      <p className="text-fs-meta font-semibold uppercase tracking-wider text-ink-4">
                         Zones · {zoneSummary.length}
                       </p>
-                      <p className="mt-1 text-caption text-wiz-ink-2">
-                        {zoneSummary.join(' • ')}
-                      </p>
+                      <p className="mt-1 text-fs-meta text-ink-2">{zoneSummary.join(' • ')}</p>
                     </div>
                     <div className="mt-3 flex">
                       <Button
@@ -432,10 +426,10 @@ export function CompanyCreationWizard({
                         size="sm"
                         onClick={() => setInfoTab('team')}
                         className={cn(
-                          'h-auto rounded-none px-0 pb-2 pr-4 text-caption font-semibold uppercase tracking-wider',
+                          'h-auto rounded-none px-0 pb-2 pr-4 text-fs-meta font-semibold uppercase tracking-wider',
                           infoTab === 'team'
-                            ? 'border-b-2 border-wiz-blue text-wiz-ink-1'
-                            : 'text-wiz-ink-4 hover:text-wiz-ink-2',
+                            ? 'border-b-2 border-accent text-ink-1'
+                            : 'text-ink-4 hover:text-ink-2',
                         )}
                       >
                         Team · {selected.employees.length}
@@ -447,10 +441,10 @@ export function CompanyCreationWizard({
                           size="sm"
                           onClick={() => setInfoTab('workflows')}
                           className={cn(
-                            'h-auto rounded-none px-4 pb-2 text-caption font-semibold uppercase tracking-wider',
+                            'h-auto rounded-none px-4 pb-2 text-fs-meta font-semibold uppercase tracking-wider',
                             infoTab === 'workflows'
-                              ? 'border-b-2 border-wiz-blue text-wiz-ink-1'
-                              : 'text-wiz-ink-4 hover:text-wiz-ink-2',
+                              ? 'border-b-2 border-accent text-ink-1'
+                              : 'text-ink-4 hover:text-ink-2',
                           )}
                         >
                           Workflows · {selected.sops.length}
@@ -464,16 +458,16 @@ export function CompanyCreationWizard({
               <div className="flex-1 overflow-y-auto px-4 py-3">
                 {isCreateYourOwn ? (
                   <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
-                    <div className="text-wiz-emerald">{meta.iconLg}</div>
-                    <p className="text-sm text-wiz-ink-2">{meta.tagline}</p>
+                    <div className="text-ok">{meta.iconLg}</div>
+                    <p className="text-fs-sm text-ink-2">{meta.tagline}</p>
                     <div className="flex w-full flex-col gap-2">
                       {meta.capabilities.map((capability) => (
                         <div
                           key={capability}
-                          className="flex items-center gap-2 rounded-lg border border-wiz-line bg-wiz-surface px-3 py-2"
+                          className="flex items-center gap-2 rounded-r-md border border-line bg-surface-1 px-3 py-2"
                         >
-                          <span className="size-1.5 shrink-0 rounded-full bg-wiz-emerald" />
-                          <span className="text-caption text-wiz-ink-2">{capability}</span>
+                          <span className="size-1.5 shrink-0 rounded-r-pill bg-ok" />
+                          <span className="text-fs-meta text-ink-2">{capability}</span>
                         </div>
                       ))}
                     </div>
@@ -496,11 +490,11 @@ export function CompanyCreationWizard({
               className="animate-wiz-fade-in flex min-h-80 min-w-0 flex-1 items-center justify-center p-4 lg:min-h-0"
               key={`fp-${selected.id}`}
             >
-              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl border border-wiz-line bg-wiz-surface p-2">
+              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-r-lg border border-line bg-surface-1 p-2">
                 {isCreateYourOwn ? (
                   <div className="flex flex-col items-center gap-3 text-center">
-                    <Wrench className="size-12 text-wiz-emerald/40" />
-                    <p className="text-sm text-wiz-ink-3">
+                    <Wrench className="size-12 text-ok/40" />
+                    <p className="text-fs-sm text-ink-3">
                       Your custom office will be designed in the 3D Studio editor
                     </p>
                   </div>
@@ -516,12 +510,12 @@ export function CompanyCreationWizard({
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-sm text-wiz-ink-3">Select a template above</p>
+            <p className="text-fs-sm text-ink-3">Select a template above</p>
           </div>
         )}
       </div>
 
-      <div className="pb-safe-3 relative z-10 border-t border-wiz-line bg-wiz-bg/90 px-4 py-3 backdrop-blur-xl lg:px-6 lg:py-4">
+      <div className="pb-safe-3 relative z-10 border-t border-line bg-bg/90 px-4 py-3 backdrop-blur-xl lg:px-6 lg:py-4">
         {step === 'creating' ? (
           <BuildingAnimation />
         ) : (
@@ -533,7 +527,7 @@ export function CompanyCreationWizard({
                 onClick={onDismiss}
                 disabled={isCreating || openingStudio}
                 aria-label="Back"
-                className="h-11 shrink-0 gap-1.5 px-4 font-mono text-caption uppercase tracking-wider lg:self-end"
+                className="h-11 shrink-0 gap-1.5 px-4 font-mono text-fs-meta uppercase tracking-wider lg:self-end"
               >
                 <ChevronLeft className="size-4" aria-hidden="true" />
                 Back
@@ -542,7 +536,7 @@ export function CompanyCreationWizard({
             <div className="flex-1">
               <label
                 htmlFor="company-name"
-                className="mb-1.5 block text-caption font-medium uppercase tracking-wider text-wiz-ink-4"
+                className="mb-1.5 block text-fs-meta font-medium uppercase tracking-wider text-ink-4"
               >
                 Company Name
               </label>
@@ -552,7 +546,7 @@ export function CompanyCreationWizard({
                 value={companyName}
                 onChange={(event) => setCompanyName(event.target.value)}
                 placeholder="My AI Company"
-                className="h-11 text-sm"
+                className="h-11 text-fs-sm"
               />
             </div>
             <Button
@@ -574,7 +568,7 @@ export function CompanyCreationWizard({
           </div>
         )}
         {visibleError && (
-          <p className="mt-2 text-center text-caption text-danger">{visibleError}</p>
+          <p className="mt-2 text-center text-fs-meta text-danger">{visibleError}</p>
         )}
       </div>
     </div>
@@ -585,14 +579,12 @@ function BuildingAnimation() {
   return (
     <div className="animate-wiz-fade-in-slow flex flex-col items-center gap-3 py-2">
       <div className="flex items-center gap-3">
-        <Loader2 className="size-5 animate-spin text-wiz-blue" />
-        <span className="animate-wiz-building-pulse text-sm font-medium text-wiz-ink-1">
+        <Loader2 className="size-5 animate-spin text-accent" />
+        <span className="animate-wiz-building-pulse text-fs-sm font-medium text-ink-1">
           Building your office...
         </span>
       </div>
-      <p className="text-caption text-wiz-ink-3">
-        Setting up employees, workflows, and office layout
-      </p>
+      <p className="text-fs-meta text-ink-3">Setting up employees, workflows, and office layout</p>
     </div>
   );
 }
@@ -607,7 +599,7 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
   const toggleExpand = useCallback(() => setExpanded((value) => !value), []);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-wiz-line bg-wiz-surface">
+    <div className="overflow-hidden rounded-r-lg border border-line bg-surface-1">
       <Button
         type="button"
         variant="ghost"
@@ -615,35 +607,32 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
         onClick={toggleExpand}
       >
         <div className="relative shrink-0">
-          <img src={avatarUri} alt="" className="size-11 rounded-full" />
+          <img src={avatarUri} alt="" className="size-11 rounded-r-pill" />
           <div
-            className={cn('absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-wiz-bg', roleTone.dot)}
+            className={cn(
+              'absolute -bottom-0.5 -right-0.5 size-3.5 rounded-r-pill border-2 border-bg',
+              roleTone.dot,
+            )}
           />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-base font-medium text-wiz-ink-1">{name}</div>
-          <div className={cn('mt-0.5 text-body-sm', roleTone.text)}>
-            {roleLabel}
-          </div>
-          {bio && (
-            <div className="mt-0.5 truncate text-caption italic text-wiz-ink-4">
-              {bio.bio}
-            </div>
-          )}
+          <div className="truncate text-base font-medium text-ink-1">{name}</div>
+          <div className={cn('mt-0.5 text-body-sm', roleTone.text)}>{roleLabel}</div>
+          {bio && <div className="mt-0.5 truncate text-fs-meta italic text-ink-4">{bio.bio}</div>}
         </div>
-        <div className="shrink-0 text-wiz-ink-3">
+        <div className="shrink-0 text-ink-3">
           {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
         </div>
       </Button>
 
       {expanded && bio && (
-        <div className="animate-wiz-slide-up border-t border-wiz-line px-3 pb-3 pt-0">
+        <div className="animate-wiz-slide-up border-t border-line px-3 pb-3 pt-0">
           <div className="mt-2 flex flex-wrap gap-1.5">
             {bio.expertise.map((tag) => (
               <span
                 key={tag}
                 className={cn(
-                  'rounded-md border px-1.5 py-0.5 text-caption font-medium',
+                  'rounded-r-sm border px-1.5 py-0.5 text-fs-meta font-medium',
                   roleTone.border,
                   roleTone.surface,
                   roleTone.text,
@@ -652,13 +641,11 @@ function EmployeeCard({ name, role }: { name: string; role: string }) {
                 {tag}
               </span>
             ))}
-            <span className="rounded-md border border-wiz-line bg-wiz-surface px-1.5 py-0.5 text-caption text-wiz-ink-3">
+            <span className="rounded-r-sm border border-line bg-surface-1 px-1.5 py-0.5 text-fs-meta text-ink-3">
               {bio.style}
             </span>
           </div>
-          <p className="mt-2 text-caption leading-relaxed text-wiz-ink-3">
-            {bio.helpsWith}
-          </p>
+          <p className="mt-2 text-fs-meta leading-relaxed text-ink-3">{bio.helpsWith}</p>
         </div>
       )}
     </div>
@@ -676,15 +663,15 @@ function ProductionWorkflow({
         <div key={sop.sop_id} className="flex w-full flex-col items-center">
           {sops.length > 1 && sopIdx > 0 && (
             <div className="my-2 flex w-full items-center gap-2">
-              <div className="h-px flex-1 bg-wiz-line-2" />
-              <span className="text-caption font-medium uppercase tracking-wider text-wiz-blue">
+              <div className="h-px flex-1 bg-line-soft" />
+              <span className="text-fs-meta font-medium uppercase tracking-wider text-accent">
                 Phase {sopIdx + 1}
               </span>
-              <div className="h-px flex-1 bg-wiz-line-2" />
+              <div className="h-px flex-1 bg-line-soft" />
             </div>
           )}
           {sops.length > 1 && sopIdx === 0 && (
-            <div className="mb-2 text-caption font-medium uppercase tracking-wider text-wiz-blue">
+            <div className="mb-2 text-fs-meta font-medium uppercase tracking-wider text-accent">
               Phase 1
             </div>
           )}
@@ -698,18 +685,16 @@ function ProductionWorkflow({
               <div key={step.step_id} className="flex w-full flex-col items-center">
                 <div
                   className={cn(
-                    'relative w-full overflow-hidden rounded-lg border px-3 py-2',
+                    'relative w-full overflow-hidden rounded-r-md border px-3 py-2',
                     stepTone.border,
                     stepTone.surface,
                   )}
                 >
                   <div className={cn('absolute bottom-0 left-0 top-0 w-1', stepTone.rail)} />
                   <div className="pl-2.5">
-                    <div className="text-caption font-medium text-wiz-ink-1">
-                      {step.label}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-caption">
-                      <span className={cn('size-1.5 rounded-full', stepTone.dot)} />
+                    <div className="text-fs-meta font-medium text-ink-1">{step.label}</div>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-fs-meta">
+                      <span className={cn('size-1.5 rounded-r-pill', stepTone.dot)} />
                       <span className={stepTone.text}>{stepRole}</span>
                     </div>
                   </div>
@@ -719,12 +704,7 @@ function ProductionWorkflow({
                   <svg className="shrink-0 text-line" width="8" height="16" viewBox="0 0 8 16">
                     <title>Workflow connector</title>
                     <line x1="4" y1="0" x2="4" y2="12" stroke="currentColor" strokeWidth={1} />
-                    <path
-                      d="M2 10l2 4 2-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={0.8}
-                    />
+                    <path d="M2 10l2 4 2-4" fill="none" stroke="currentColor" strokeWidth={0.8} />
                   </svg>
                 )}
               </div>

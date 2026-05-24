@@ -156,22 +156,22 @@ export function OnboardingTour({
     <>
       {ringStyle && !needsWorkspaceSwitch && (
         <div
-          className="pointer-events-none fixed z-top rounded-xl ring-2 ring-accent/70 shadow-glow-accent transition-all duration-normal"
+          className="pointer-events-none fixed z-top rounded-r-lg ring-2 ring-accent/70 shadow-glow-accent transition-all duration-normal"
           // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
           style={ringStyle}
         />
       )}
       <div
-        className="pointer-events-auto fixed z-top rounded-2xl border border-border-default bg-surface-elevated p-4 shadow-modal"
+        className="pointer-events-auto fixed z-top rounded-r-lg border border-line bg-surface-1 p-4 shadow-modal"
         // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
         style={needsWorkspaceSwitch ? centeredPosition : position}
         data-onboarding-step={activeStep.id}
       >
-        <p className="text-caption uppercase tracking-wider text-accent-text">
+        <p className="text-fs-meta uppercase tracking-wider text-accent">
           Step {activeIndex + 1} of {TOUR_STEPS.length}
         </p>
-        <h2 className="mt-2 text-sm font-semibold text-text-primary">{activeStep.title}</h2>
-        <p className="mt-1.5 text-xs leading-relaxed text-text-secondary">
+        <h2 className="mt-2 text-fs-sm font-semibold text-ink-1">{activeStep.title}</h2>
+        <p className="mt-1.5 text-fs-meta leading-relaxed text-ink-3">
           {needsWorkspaceSwitch
             ? `Switch to ${workspaceLabel(activeStep.workspace)} to continue.`
             : activeStep.body}
@@ -187,7 +187,7 @@ export function OnboardingTour({
             }}
             variant="secondary"
             size="sm"
-            className="h-7 px-3 text-caption disabled:cursor-not-allowed disabled:opacity-45"
+            className="h-7 px-3 text-fs-meta disabled:cursor-not-allowed disabled:opacity-45"
           >
             Back
           </Button>
@@ -197,7 +197,7 @@ export function OnboardingTour({
               onClick={onDismiss}
               variant="secondary"
               size="sm"
-              className="h-7 px-3 text-caption"
+              className="h-7 px-3 text-fs-meta"
             >
               {activeStep.secondaryActionLabel ?? 'Skip'}
             </Button>
@@ -211,7 +211,7 @@ export function OnboardingTour({
                 onCompleteStep(activeStep.id);
               }}
               size="sm"
-              className="h-7 px-3 text-caption"
+              className="h-7 px-3 text-fs-meta"
             >
               {needsWorkspaceSwitch
                 ? `Switch to ${workspaceLabel(activeStep.workspace)}`

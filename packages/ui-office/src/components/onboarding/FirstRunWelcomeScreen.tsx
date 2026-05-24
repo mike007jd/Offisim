@@ -33,25 +33,25 @@ export function FirstRunWelcomeScreen({
     >
       <div className="grid min-h-first-run-welcome gap-6 md:grid-first-run-welcome">
         <div className="flex flex-col justify-center gap-4">
-          <p className="max-w-2xl text-base leading-7 text-text-secondary">
+          <p className="max-w-2xl text-base leading-7 text-ink-3">
             Offisim gives you an AI team, a workspace, and a live office surface in one place. Start
             by connecting a provider, then create a project and send the team its first task.
           </p>
-          <p className="max-w-2xl text-sm leading-6 text-text-muted">
+          <p className="max-w-2xl text-fs-sm leading-6 text-ink-4">
             The guide will highlight the exact controls you need; you can skip it and explore at any
             time.
           </p>
         </div>
-        <div className="flex min-h-first-run-preview flex-col justify-between rounded-xl border border-border-default bg-surface-muted p-4">
+        <div className="flex min-h-first-run-preview flex-col justify-between rounded-r-lg border border-line bg-surface-2 p-4">
           <div>
-            <div className="h-10 w-10 rounded-lg bg-accent-muted" />
+            <div className="h-10 w-10 rounded-r-md bg-accent-surface" />
             <div className="mt-6 h-3 w-32 rounded bg-border-subtle" />
             <div className="mt-3 h-2 w-48 rounded bg-border-muted" />
           </div>
           <div className="flex flex-col gap-2">
-            <div className="h-8 rounded-lg border border-border-subtle bg-surface-elevated" />
-            <div className="h-8 rounded-lg border border-border-subtle bg-surface-elevated" />
-            <div className="h-8 rounded-lg border border-border-subtle bg-surface-elevated" />
+            <div className="h-8 rounded-r-md border border-line-soft bg-surface-1" />
+            <div className="h-8 rounded-r-md border border-line-soft bg-surface-1" />
+            <div className="h-8 rounded-r-md border border-line-soft bg-surface-1" />
           </div>
         </div>
       </div>

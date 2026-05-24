@@ -293,7 +293,7 @@ function NarrowHeader({
   return (
     <>
       <header
-        className="flex min-h-11 items-center justify-between gap-2 rounded-2xl border border-border-default bg-surface-elevated/92 px-2 py-1.5 text-text-primary shadow-overlay backdrop-blur-md"
+        className="flex min-h-11 items-center justify-between gap-2 rounded-r-lg border border-line bg-surface-1/92 px-2 py-1.5 text-ink-1 shadow-overlay backdrop-blur-md"
         data-layout-tier="narrow"
       >
         <Button
@@ -309,11 +309,11 @@ function NarrowHeader({
           size="icon"
           aria-label="Open workspace menu"
           onClick={onOpenDrawer}
-          className="size-8 rounded-full"
+          className="size-8 rounded-r-pill"
         >
           <Menu className="size-4" aria-hidden="true" />
         </Button>
-        <h1 className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-text-primary">
+        <h1 className="min-w-0 flex-1 truncate text-center text-fs-sm font-semibold text-ink-1">
           {slots.title}
         </h1>
         <DropdownMenu>
@@ -324,7 +324,7 @@ function NarrowHeader({
               variant="secondary"
               size="icon"
               aria-label="More actions"
-              className="size-8 rounded-full"
+              className="size-8 rounded-r-pill"
             >
               <MoreHorizontal className="size-4" aria-hidden="true" />
             </Button>
@@ -332,7 +332,7 @@ function NarrowHeader({
           <DropdownMenuContent align="end" className="max-h-96 w-72 overflow-y-auto p-2">
             <div className="flex flex-col gap-2">
               {isOffice && viewMode && onViewModeChange ? (
-                <div className="rounded-lg border border-border-subtle bg-surface-muted p-2">
+                <div className="rounded-r-md border border-line-soft bg-surface-2 p-2">
                   <ViewModeToggle
                     value={viewMode}
                     onChange={onViewModeChange}
@@ -340,10 +340,10 @@ function NarrowHeader({
                   />
                 </div>
               ) : null}
-              {slots.project ? <div className="rounded-lg p-1">{slots.project}</div> : null}
-              {isOffice && slots.mode ? <div className="rounded-lg p-1">{slots.mode}</div> : null}
+              {slots.project ? <div className="rounded-r-md p-1">{slots.project}</div> : null}
+              {isOffice && slots.mode ? <div className="rounded-r-md p-1">{slots.mode}</div> : null}
               {isOffice && slots.officeTools ? (
-                <div className="rounded-lg p-1">{slots.officeTools}</div>
+                <div className="rounded-r-md p-1">{slots.officeTools}</div>
               ) : null}
               {slots.marketActions}
             </div>
@@ -367,12 +367,12 @@ function NarrowHeader({
             aria-modal="true"
             aria-label="Workspace menu"
             tabIndex={-1}
-            className="absolute inset-y-0 left-0 flex w-full max-w-sm flex-col border-r border-border-default bg-surface-elevated p-4 shadow-modal outline-none"
+            className="absolute inset-y-0 left-0 flex w-full max-w-sm flex-col border-r border-line bg-surface-1 p-4 shadow-modal outline-none"
           >
             <div className="mb-4 flex items-center justify-between">
               <div className="min-w-0">
-                <p className="text-caption uppercase tracking-wider text-text-muted">Workspace</p>
-                <p className="truncate text-sm font-semibold text-text-primary">
+                <p className="text-fs-meta uppercase tracking-wider text-ink-4">Workspace</p>
+                <p className="truncate text-fs-sm font-semibold text-ink-1">
                   {companyName || 'Select Company'}
                 </p>
               </div>
@@ -382,7 +382,7 @@ function NarrowHeader({
                 size="icon"
                 aria-label="Close workspace menu"
                 onClick={onCloseDrawer}
-                className="size-8 rounded-full"
+                className="size-8 rounded-r-pill"
               >
                 <X className="size-4" aria-hidden="true" />
               </Button>
@@ -408,10 +408,10 @@ function NarrowHeader({
                       onCloseDrawer();
                     }}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm',
+                      'flex w-full items-center gap-3 rounded-r-md border px-3 py-2 text-left text-fs-sm',
                       selected
-                        ? 'border-border-focus bg-accent-muted text-accent-text'
-                        : 'border-border-subtle bg-surface-muted text-text-secondary hover:border-border-default hover:bg-surface-hover hover:text-text-primary',
+                        ? 'border-accent bg-accent-surface text-accent'
+                        : 'border-line-soft bg-surface-2 text-ink-3 hover:border-line hover:bg-surface-sunken hover:text-ink-1',
                     )}
                   >
                     <Icon className="size-4" />
@@ -420,7 +420,7 @@ function NarrowHeader({
                 );
               })}
             </div>
-            <div className="mt-4 flex flex-col gap-2 border-t border-border-subtle pt-4">
+            <div className="mt-4 flex flex-col gap-2 border-t border-line-soft pt-4">
               {onOpenCompanySelect && (
                 <Button
                   ref={providerCtaRef}
@@ -499,7 +499,7 @@ function CompanySwitcher({
   const items: EntityDropdownItem[] = visibleCompanies.map((company) => ({
     id: company.company_id,
     label: company.name,
-    icon: <Building2 className="h-3.5 w-3.5 text-text-muted" />,
+    icon: <Building2 className="h-3.5 w-3.5 text-ink-4" />,
   }));
 
   return (
@@ -518,14 +518,14 @@ function CompanySwitcher({
           type="button"
           variant="secondary"
           size="sm"
-          className="h-8 min-w-48 max-w-64 rounded-full px-3"
+          className="h-8 min-w-48 max-w-64 rounded-r-pill px-3"
           title="Switch Company"
         >
           <Building2 className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate text-caption font-medium text-text-primary">
+          <span className="min-w-0 flex-1 truncate text-fs-meta font-medium text-ink-1">
             {currentName || 'Select Company'}
           </span>
-          <ChevronDown className="size-3 shrink-0 text-text-muted" aria-hidden="true" />
+          <ChevronDown className="size-3 shrink-0 text-ink-4" aria-hidden="true" />
         </Button>
       }
     />
@@ -548,7 +548,7 @@ function PeerWorkspaceNav({
   return (
     <nav
       aria-label="Primary workspace navigation"
-      className="flex max-w-full items-center gap-0.5 overflow-hidden rounded-md border border-border-default bg-surface-muted p-0.5 shadow-elev-1"
+      className="flex max-w-full items-center gap-0.5 overflow-hidden rounded-r-sm border border-line bg-surface-2 p-0.5 shadow-elev-1"
     >
       {items.map((item) => {
         const selected = item.key === active;
@@ -569,10 +569,10 @@ function PeerWorkspaceNav({
             title={item.label}
             aria-current={selected ? 'page' : undefined}
             className={cn(
-              'inline-flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-3.5 py-1 text-caption font-semibold tracking-wide transition-colors',
+              'inline-flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-3.5 py-1 text-fs-meta font-semibold tracking-wide transition-colors',
               selected
                 ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring'
-                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+                : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
             )}
           >
             <Icon className="size-3.5 shrink-0" />
@@ -600,7 +600,7 @@ function WorkspaceIconBar({
     <div
       role="toolbar"
       aria-label="Workspace and office tools"
-      className="flex items-center gap-0.5 rounded-md border border-border-default bg-surface-muted p-0.5 shadow-elev-1"
+      className="flex items-center gap-0.5 rounded-r-sm border border-line bg-surface-2 p-0.5 shadow-elev-1"
     >
       {items.map((item) => {
         const selected = item.key === active;
@@ -617,7 +617,7 @@ function WorkspaceIconBar({
               'grid size-7 place-items-center rounded-sm transition-colors',
               selected
                 ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring'
-                : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+                : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
             )}
           >
             <Icon className="size-4" />
@@ -678,7 +678,7 @@ function OfficeToolBar({ items }: { items: ReadonlyArray<HeaderOfficeToolItem> }
     <div
       role="toolbar"
       aria-label="Office tools"
-      className="flex items-center gap-0.5 rounded-full border border-border-default bg-surface-muted p-0.5"
+      className="flex items-center gap-0.5 rounded-r-pill border border-line bg-surface-2 p-0.5"
     >
       {visible.map((tool) => (
         <OfficeToolButton key={tool.key} tool={tool} />
@@ -691,7 +691,7 @@ function OfficeToolBar({ items }: { items: ReadonlyArray<HeaderOfficeToolItem> }
               variant="ghost"
               size="icon"
               aria-label="More office tools"
-              className="size-7 rounded-full text-text-secondary"
+              className="size-7 rounded-r-pill text-ink-3"
             >
               <MoreHorizontal className="size-4" aria-hidden="true" />
             </Button>
@@ -712,7 +712,7 @@ function OfficeToolBar({ items }: { items: ReadonlyArray<HeaderOfficeToolItem> }
                 <tool.icon className="size-4" />
                 <span className="flex-1">{tool.label}</span>
                 {tool.shortcut && (
-                  <kbd className="rounded border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-caption text-text-muted">
+                  <kbd className="rounded border border-line-soft bg-surface-2 px-1.5 py-0.5 text-fs-meta text-ink-4">
                     {tool.shortcut}
                   </kbd>
                 )}
@@ -743,10 +743,10 @@ function OfficeToolButton({ tool }: { tool: HeaderOfficeToolItem }) {
       title={tool.disabled ? tool.disabledReason : label}
       data-office-tool={tool.key}
       className={cn(
-        'relative size-7 rounded-full disabled:cursor-not-allowed disabled:opacity-40',
+        'relative size-7 rounded-r-pill disabled:cursor-not-allowed disabled:opacity-40',
         active
-          ? 'text-accent hover:text-accent after:absolute after:bottom-0.5 after:left-2 after:right-2 after:h-px after:rounded-full after:bg-accent'
-          : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary',
+          ? 'text-accent hover:text-accent after:absolute after:bottom-0.5 after:left-2 after:right-2 after:h-px after:rounded-r-pill after:bg-accent'
+          : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
       )}
     >
       <Icon className="size-4" aria-hidden="true" />

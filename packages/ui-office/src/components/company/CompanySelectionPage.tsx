@@ -117,9 +117,7 @@ function CompanyPortalPreview({
   }
 
   if (loading) {
-    return (
-      <div className="h-full animate-pulse rounded-2xl border border-border-default bg-surface-muted" />
-    );
+    return <div className="h-full animate-pulse rounded-r-lg border border-line bg-surface-2" />;
   }
 
   if (!bounds || zones.length === 0) {
@@ -127,7 +125,7 @@ function CompanyPortalPreview({
   }
 
   return (
-    <div className="h-full rounded-2xl border border-border-default bg-surface-elevated p-4">
+    <div className="h-full rounded-r-lg border border-line bg-surface-1 p-4">
       <svg
         viewBox={`0 0 ${viewBox.w} ${viewBox.h}`}
         className="h-full w-full"
@@ -275,7 +273,7 @@ export function CompanySelectionPage({
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-surface text-text-primary lg:flex-row">
+    <div className="flex h-dvh flex-col overflow-hidden bg-bg text-ink-1 lg:flex-row">
       {creatingNew && (
         <CompanyCreationWizard
           mode="create-new"
@@ -287,13 +285,11 @@ export function CompanySelectionPage({
           onDismiss={() => setCreatingNew(false)}
         />
       )}
-      <aside className="flex shrink-0 flex-col border-border-default bg-surface-elevated p-5 lg:w-80 lg:border-r">
+      <aside className="flex shrink-0 flex-col border-line bg-surface-1 p-5 lg:w-80 lg:border-r">
         <div className="mb-4 flex items-center justify-between lg:mb-5">
           <div>
-            <div className="text-caption uppercase tracking-wider text-text-muted">Companies</div>
-            <div className="mt-1 text-xl font-semibold text-text-primary lg:mt-2 lg:text-2xl">
-              Portal
-            </div>
+            <div className="text-fs-meta uppercase tracking-wider text-ink-4">Companies</div>
+            <div className="mt-1 text-xl font-semibold text-ink-1 lg:mt-2 lg:text-2xl">Portal</div>
           </div>
           <Button type="button" size="sm" onClick={() => setCreatingNew(true)}>
             <FolderPlus className="size-4" aria-hidden="true" />
@@ -303,7 +299,7 @@ export function CompanySelectionPage({
 
         <div className="flex max-h-80 flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none lg:gap-3">
           {visibleCompanies.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border-default bg-surface-muted p-5 text-sm text-text-secondary">
+            <div className="rounded-r-lg border border-dashed border-line bg-surface-2 p-5 text-fs-sm text-ink-3">
               No companies yet. Create one to start building your workspace.
             </div>
           ) : (
@@ -346,8 +342,8 @@ export function CompanySelectionPage({
           <section className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <div className="text-caption uppercase tracking-wider text-text-muted">Preview</div>
-                <div className="mt-1 text-xl font-semibold text-text-primary lg:mt-2 lg:text-2xl">
+                <div className="text-fs-meta uppercase tracking-wider text-ink-4">Preview</div>
+                <div className="mt-1 text-xl font-semibold text-ink-1 lg:mt-2 lg:text-2xl">
                   {selectedCompany?.name ?? 'Company Showcase'}
                 </div>
               </div>
@@ -362,21 +358,19 @@ export function CompanySelectionPage({
             </div>
           </section>
 
-          <aside className="rounded-2xl border border-border-default bg-surface-elevated p-5 lg:w-80 lg:shrink-0">
-            <div className="text-caption uppercase tracking-wider text-text-muted">
-              Company Brief
-            </div>
+          <aside className="rounded-r-lg border border-line bg-surface-1 p-5 lg:w-80 lg:shrink-0">
+            <div className="text-fs-meta uppercase tracking-wider text-ink-4">Company Brief</div>
             {selectedCompany ? (
               <>
                 <div className="mt-4 flex items-start gap-3">
-                  <div className="rounded-xl border border-border-default bg-surface-muted p-3">
+                  <div className="rounded-r-lg border border-line bg-surface-2 p-3">
                     <Building2 className="size-5 text-accent" aria-hidden="true" />
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-xl font-semibold text-text-primary">
+                    <div className="truncate text-xl font-semibold text-ink-1">
                       {selectedCompany.name}
                     </div>
-                    <div className="mt-1 text-sm text-text-secondary">
+                    <div className="mt-1 text-fs-sm text-ink-3">
                       {selectedCompany.template_label ?? 'Custom company'}
                     </div>
                   </div>
@@ -389,7 +383,7 @@ export function CompanySelectionPage({
                   <InfoStat label="Assets" value={String(data?.prefabs.length ?? 0)} />
                 </div>
 
-                <p className="mt-4 text-caption text-text-muted">
+                <p className="mt-4 text-fs-meta text-ink-4">
                   Updated {formatUpdatedAt(selectedCompany.updated_at)}
                 </p>
 
@@ -414,7 +408,7 @@ export function CompanySelectionPage({
                     {archiveArmed ? 'Confirm Archive' : 'Archive Company'}
                   </Button>
                   {archiveArmed && (
-                    <p className="rounded-xl border border-error/30 bg-error-muted px-4 py-3 text-xs leading-relaxed text-error">
+                    <p className="rounded-r-lg border border-danger/30 bg-danger-surface px-4 py-3 text-fs-meta leading-relaxed text-danger">
                       Archive {selectedCompany.name}? The company will be removed from the active
                       list.
                     </p>
@@ -422,7 +416,7 @@ export function CompanySelectionPage({
                 </div>
               </>
             ) : (
-              <div className="mt-6 rounded-xl border border-dashed border-border-default bg-surface-muted p-5 text-sm text-text-secondary">
+              <div className="mt-6 rounded-r-lg border border-dashed border-line bg-surface-2 p-5 text-fs-sm text-ink-3">
                 Pick a company on the left to inspect its layout, or create a new company.
               </div>
             )}
@@ -484,10 +478,10 @@ function CompanyRow({
         }
       }}
       className={cn(
-        'group w-full rounded-xl border p-3 text-left transition lg:p-4',
+        'group w-full rounded-r-lg border p-3 text-left transition lg:p-4',
         isPreview
-          ? 'border-border-focus bg-accent-muted shadow-glow-accent'
-          : 'border-border-default bg-surface hover:border-border-strong hover:bg-surface-hover',
+          ? 'border-accent bg-accent-surface shadow-glow-accent'
+          : 'border-line bg-bg hover:border-line-strong hover:bg-surface-sunken',
         isRenaming ? 'cursor-default' : 'cursor-pointer',
       )}
     >
@@ -515,9 +509,9 @@ function CompanyRow({
               aria-label={`Rename ${company.name}`}
             />
           ) : (
-            <div className="truncate text-base font-semibold text-text-primary">{company.name}</div>
+            <div className="truncate text-base font-semibold text-ink-1">{company.name}</div>
           )}
-          <div className="mt-1 text-xs uppercase tracking-wider text-text-muted">
+          <div className="mt-1 text-fs-meta uppercase tracking-wider text-ink-4">
             {company.template_label ?? 'Custom Layout'}
           </div>
         </div>
@@ -545,7 +539,7 @@ function CompanyRow({
           )}
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-4 text-xs text-text-secondary lg:mt-4">
+      <div className="mt-3 flex items-center gap-4 text-fs-meta text-ink-3 lg:mt-4">
         <span className="inline-flex items-center gap-1.5">
           <Users className="size-3.5" aria-hidden="true" />
           {summary.employeeCount}
@@ -561,9 +555,9 @@ function CompanyRow({
 
 function InfoStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border-subtle bg-surface-muted p-4">
-      <div className="text-caption uppercase tracking-wider text-text-muted">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-text-primary">{value}</div>
+    <div className="rounded-r-lg border border-line-soft bg-surface-2 p-4">
+      <div className="text-fs-meta uppercase tracking-wider text-ink-4">{label}</div>
+      <div className="mt-2 text-2xl font-semibold text-ink-1">{value}</div>
     </div>
   );
 }
@@ -576,13 +570,13 @@ function PreviewState({
   return (
     <div
       className={cn(
-        'flex h-full items-center justify-center rounded-2xl border bg-surface-muted',
-        dashed ? 'border-dashed border-border-default' : 'border-border-default',
+        'flex h-full items-center justify-center rounded-r-lg border bg-surface-2',
+        dashed ? 'border-dashed border-line' : 'border-line',
       )}
     >
       <div className="px-8 text-center">
-        <div className="text-xl font-semibold text-text-primary">{title}</div>
-        <p className="mt-2 text-sm text-text-secondary">{description}</p>
+        <div className="text-xl font-semibold text-ink-1">{title}</div>
+        <p className="mt-2 text-fs-sm text-ink-3">{description}</p>
       </div>
     </div>
   );
