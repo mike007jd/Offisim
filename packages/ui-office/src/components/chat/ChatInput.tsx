@@ -622,7 +622,7 @@ export function ChatInput({
                       className={cn(
                         'chat-composer-command-badge',
                         COMMAND_CATEGORIES[command.category]?.badgeClass ??
-                          'bg-surface-muted text-text-muted',
+                          'bg-surface-2 text-ink-4',
                       )}
                     >
                       {command.category}
@@ -665,7 +665,7 @@ export function ChatInput({
         {/* Hint line */}
         <div className="chat-composer-meta-row">
           {disabled && disabledReason ? (
-            <span className="text-caption text-warning">{disabledReason}</span>
+            <span className="text-fs-meta text-warn">{disabledReason}</span>
           ) : (
             <>
               <Button
@@ -684,11 +684,11 @@ export function ChatInput({
               >
                 <Paperclip className="chat-composer-attach-icon" aria-hidden="true" />
               </Button>
-              <span className="text-caption text-text-muted">
-                <kbd className="text-text-muted">/</kbd> commands
+              <span className="text-fs-meta text-ink-4">
+                <kbd className="text-ink-4">/</kbd> commands
               </span>
-              <span className="text-caption text-text-muted">
-                <kbd className="text-text-muted">@</kbd> mention
+              <span className="text-fs-meta text-ink-4">
+                <kbd className="text-ink-4">@</kbd> mention
               </span>
             </>
           )}

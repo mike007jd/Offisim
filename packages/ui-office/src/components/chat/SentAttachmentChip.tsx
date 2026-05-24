@@ -51,13 +51,13 @@ export interface SentAttachmentChipProps {
 }
 
 const sentAttachmentChipVariants = cva(
-  'flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-md border px-2 py-1 text-xs',
+  'flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-r-sm border px-2 py-1 text-fs-meta',
   {
     variants: {
       state: {
-        default: 'border-border-default bg-surface text-text-primary',
-        evicted: 'cursor-default border-border-default bg-surface-muted text-text-muted',
-        parseError: 'border-warning/60 bg-warning-muted text-text-primary',
+        default: 'border-line bg-surface-1 text-ink-1',
+        evicted: 'cursor-default border-line bg-surface-2 text-ink-4',
+        parseError: 'border-warn/60 bg-warn-surface text-ink-1',
       },
     },
     defaultVariants: { state: 'default' },
@@ -114,15 +114,15 @@ export function SentAttachmentChip({ attachment, attachmentStore }: SentAttachme
               className="sent-attachment-image"
             />
           ) : (
-            <Icon className="h-4 w-4 shrink-0 text-text-secondary" />
+            <Icon className="h-4 w-4 shrink-0 text-ink-3" />
           )}
         </SentAttachmentImageFrame>
       ) : (
-        <Icon className="h-4 w-4 shrink-0 text-text-secondary" />
+        <Icon className="h-4 w-4 shrink-0 text-ink-3" />
       )}
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{attachment.filename}</div>
-        <div className="truncate text-caption text-text-muted">
+        <div className="truncate text-fs-meta text-ink-4">
           {formatAttachmentBytes(attachment.byteLength)}
           {summary ? ` · ${summary}` : ''}
         </div>
@@ -132,7 +132,7 @@ export function SentAttachmentChip({ attachment, attachmentStore }: SentAttachme
           asChild
           variant="ghost"
           size="iconSm"
-          className={cn('shrink-0 text-text-muted', !isEvicted && 'hover:text-text-primary')}
+          className={cn('shrink-0 text-ink-4', !isEvicted && 'hover:text-ink-1')}
         >
           <a
             href={status.objectUrl}

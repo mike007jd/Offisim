@@ -63,7 +63,7 @@ function ToolFallbackRoot({
       open={isOpen}
       onOpenChange={handleOpenChange}
       className={cn(
-        'aui-tool-fallback-root group/tool-fallback-root w-full rounded-lg border py-3',
+        'aui-tool-fallback-root group/tool-fallback-root w-full rounded-r-md border py-3',
         className,
       )}
       // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
@@ -108,7 +108,7 @@ function ToolFallbackTrigger({
     <CollapsibleTrigger
       data-slot="tool-fallback-trigger"
       className={cn(
-        'aui-tool-fallback-trigger group/trigger flex w-full items-center gap-2 px-4 text-sm transition-colors',
+        'aui-tool-fallback-trigger group/trigger flex w-full items-center gap-2 px-4 text-fs-sm transition-colors',
         className,
       )}
       {...props}
@@ -163,7 +163,7 @@ function ToolFallbackContent({
     <CollapsibleContent
       data-slot="tool-fallback-content"
       className={cn(
-        'aui-tool-fallback-content relative overflow-hidden text-sm outline-none',
+        'aui-tool-fallback-content relative overflow-hidden text-fs-sm outline-none',
         'group/collapsible-content ease-out',
         'data-[state=closed]:animate-collapsible-up',
         'data-[state=open]:animate-collapsible-down',

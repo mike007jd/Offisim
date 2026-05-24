@@ -23,10 +23,10 @@ interface SkillInstallConfirmBubbleProps {
 }
 
 const WIDE_SCOPE_RE = /^(bash|network|fs|exec)(:|\*)/iu;
-const SECTION_LABEL_CLASS = 'text-caption font-semibold uppercase tracking-wide text-text-muted';
-const MUTED_CAPTION_CLASS = 'text-caption text-text-muted';
+const SECTION_LABEL_CLASS = 'text-fs-meta font-semibold uppercase tracking-wide text-ink-4';
+const MUTED_CAPTION_CLASS = 'text-fs-meta text-ink-4';
 const PREVIEW_PANEL_CLASS =
-  'mt-1 whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-2 text-caption text-text-secondary';
+  'mt-1 whitespace-pre-wrap break-words rounded-r-sm border border-line-soft bg-surface-2 p-2 text-fs-meta text-ink-3';
 
 function isWideScope(tool: string): boolean {
   return WIDE_SCOPE_RE.test(tool);
@@ -144,22 +144,17 @@ export function SkillInstallConfirmBubble({
       : `Employee: ${resolveEmployeeLabel(context)}`;
 
   return (
-    <Card
-      className={cn(
-        POPOVER_CARD_SKIN_CLASS,
-        badge.variant === 'error' && 'border-danger',
-      )}
-    >
-      <CardHeader className="gap-2 border-b border-border-subtle pb-3">
+    <Card className={cn(POPOVER_CARD_SKIN_CLASS, badge.variant === 'error' && 'border-danger')}>
+      <CardHeader className="gap-2 border-b border-line-soft pb-3">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="min-w-0 truncate text-sm text-text-primary">
+          <CardTitle className="min-w-0 truncate text-fs-sm text-ink-1">
             {headerTitle(action, context.skillName, context)}
           </CardTitle>
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
-        {employeeName && <span className="text-xs text-text-muted">From: {employeeName}</span>}
+        {employeeName && <span className="text-fs-meta text-ink-4">From: {employeeName}</span>}
         {action !== 'edit' && action !== 'create' && (
-          <p className="line-clamp-2 whitespace-pre-wrap text-xs text-text-secondary">
+          <p className="line-clamp-2 whitespace-pre-wrap text-fs-meta text-ink-3">
             {context.skillDescription}
           </p>
         )}
@@ -168,7 +163,7 @@ export function SkillInstallConfirmBubble({
         {action === 'fork' && context.parent && (
           <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Fork</div>
-            <p className="text-xs text-text-primary">
+            <p className="text-fs-meta text-ink-1">
               {`"${context.parent.name}@${context.parent.version}" → ${resolveEmployeeLabel(context)}`}
             </p>
             <p className={MUTED_CAPTION_CLASS}>Parent: {context.parent.slug}</p>
@@ -182,13 +177,13 @@ export function SkillInstallConfirmBubble({
               <div>
                 <div className={MUTED_CAPTION_CLASS}>Old</div>
                 <div className={PREVIEW_PANEL_CLASS}>
-                  {context.bodyDiff.oldPreview || <span className="text-text-muted">(empty)</span>}
+                  {context.bodyDiff.oldPreview || <span className="text-ink-4">(empty)</span>}
                 </div>
               </div>
               <div>
                 <div className={MUTED_CAPTION_CLASS}>New</div>
-                <div className="mt-1 whitespace-pre-wrap break-words rounded-md border border-success/40 bg-success-muted p-2 text-caption text-success">
-                  {context.bodyDiff.newPreview || <span className="text-text-muted">(empty)</span>}
+                <div className="mt-1 whitespace-pre-wrap break-words rounded-r-sm border border-ok/40 bg-ok-surface p-2 text-fs-meta text-ok">
+                  {context.bodyDiff.newPreview || <span className="text-ink-4">(empty)</span>}
                 </div>
               </div>
             </div>
@@ -199,7 +194,7 @@ export function SkillInstallConfirmBubble({
           <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Permissions</div>
             {context.allowedTools.length === 0 ? (
-              <p className="text-xs text-text-muted">No tools declared.</p>
+              <p className="text-fs-meta text-ink-4">No tools declared.</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {context.allowedTools.map((tool) => {
@@ -209,8 +204,8 @@ export function SkillInstallConfirmBubble({
                       key={tool}
                       className={
                         wideScope
-                          ? 'rounded-md border border-error/50 bg-error-muted px-2 py-0.5 text-caption font-medium text-error'
-                          : 'rounded-md border border-border-subtle bg-surface-muted px-2 py-0.5 text-caption text-text-secondary'
+                          ? 'rounded-r-sm border border-danger/50 bg-danger-surface px-2 py-0.5 text-fs-meta font-medium text-danger'
+                          : 'rounded-r-sm border border-line-soft bg-surface-2 px-2 py-0.5 text-fs-meta text-ink-3'
                       }
                       data-wide-scope={wideScope ? 'true' : 'false'}
                     >
@@ -226,7 +221,7 @@ export function SkillInstallConfirmBubble({
         {action === 'install' && (
           <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Source</div>
-            <p className="break-all text-xs text-text-primary">
+            <p className="break-all text-fs-meta text-ink-1">
               {describeSource(context.sourceKind, context.sourceRef)}
             </p>
           </section>
@@ -235,7 +230,7 @@ export function SkillInstallConfirmBubble({
         {action === 'create' && (
           <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Attribution</div>
-            <p className="break-all text-xs text-text-primary">
+            <p className="break-all text-fs-meta text-ink-1">
               Authored by {context.modelKey ?? context.sourceRef}
             </p>
             {context.slug && <p className={MUTED_CAPTION_CLASS}>Slug: {context.slug}</p>}
@@ -245,7 +240,7 @@ export function SkillInstallConfirmBubble({
         {action !== 'edit' && (
           <section className="flex flex-col gap-1.5">
             <div className={SECTION_LABEL_CLASS}>Scope</div>
-            <p className="text-xs text-text-primary">{scopeLabel}</p>
+            <p className="text-fs-meta text-ink-1">{scopeLabel}</p>
           </section>
         )}
 
@@ -262,13 +257,13 @@ export function SkillInstallConfirmBubble({
           )}
 
         {hasFrontmatterError && context.frontmatterError && (
-          <section className="flex flex-col gap-1.5 rounded-md border border-error/40 bg-error-muted p-3">
-            <div className="text-caption font-semibold uppercase tracking-wide text-error">
+          <section className="flex flex-col gap-1.5 rounded-r-sm border border-danger/40 bg-danger-surface p-3">
+            <div className="text-fs-meta font-semibold uppercase tracking-wide text-danger">
               Frontmatter error
             </div>
-            <p className="text-xs text-error">{context.frontmatterError.detail}</p>
+            <p className="text-fs-meta text-danger">{context.frontmatterError.detail}</p>
             {context.frontmatterError.field && (
-              <p className="font-mono text-caption text-error">
+              <p className="font-mono text-fs-meta text-danger">
                 {context.frontmatterError.reason}: {context.frontmatterError.field}
               </p>
             )}
@@ -280,15 +275,15 @@ export function SkillInstallConfirmBubble({
             <div className={SECTION_LABEL_CLASS}>SKILL.md preview</div>
             <div
               className={cn(
-                'whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-surface-muted p-3 text-xs',
+                'whitespace-pre-wrap break-words rounded-r-sm border border-line-soft bg-surface-2 p-3 text-fs-meta',
                 showFullBody
-                  ? 'max-h-64 overflow-y-auto text-text-primary'
-                  : 'relative max-h-20 overflow-hidden text-text-secondary',
+                  ? 'max-h-64 overflow-y-auto text-ink-1'
+                  : 'relative max-h-20 overflow-hidden text-ink-3',
               )}
             >
               {body}
               {!showFullBody && shouldClampBody && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface-muted to-transparent" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface-2 to-transparent" />
               )}
             </div>
             {shouldClampBody && (
@@ -297,7 +292,7 @@ export function SkillInstallConfirmBubble({
                 variant="link"
                 size="sm"
                 onClick={() => setShowFullBody((s) => !s)}
-                className="h-auto p-0 text-caption font-medium"
+                className="h-auto p-0 text-fs-meta font-medium"
               >
                 {showFullBody ? 'Show less' : 'Show details'}
               </Button>
@@ -329,9 +324,9 @@ function AssetGroup({ label, paths }: { label: string; paths: string[] }) {
   return (
     <div>
       <div className={MUTED_CAPTION_CLASS}>{label}</div>
-      <ul className="ml-2 mt-0.5 flex flex-col gap-0.5 text-xs text-text-secondary">
+      <ul className="ml-2 mt-0.5 flex flex-col gap-0.5 text-fs-meta text-ink-3">
         {paths.map((p) => (
-          <li key={p} className="font-mono text-caption text-text-secondary">
+          <li key={p} className="font-mono text-fs-meta text-ink-3">
             {p}
           </li>
         ))}

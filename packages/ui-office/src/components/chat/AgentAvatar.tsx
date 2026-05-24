@@ -1,19 +1,19 @@
 import { Avatar, AvatarFallback, cn } from '@offisim/ui-core';
 
 const ROLE_AVATAR_TONE: Record<string, string> = {
-  developer: 'bg-info',
-  engineer: 'bg-info',
-  backend: 'bg-info',
+  developer: 'bg-accent',
+  engineer: 'bg-accent',
+  backend: 'bg-accent',
   frontend: 'bg-accent',
-  fullstack: 'bg-info',
+  fullstack: 'bg-accent',
   pm: 'bg-accent',
   product_manager: 'bg-accent',
-  researcher: 'bg-success',
-  analyst: 'bg-success',
-  designer: 'bg-warning',
-  artist: 'bg-warning',
-  ui_designer: 'bg-warning',
-  ux_designer: 'bg-warning',
+  researcher: 'bg-ok',
+  analyst: 'bg-ok',
+  designer: 'bg-warn',
+  artist: 'bg-warn',
+  ui_designer: 'bg-warn',
+  ux_designer: 'bg-warn',
 };
 
 function roleAvatarTone(role: string): string {
@@ -29,7 +29,7 @@ export interface AgentAvatarProps {
 export function AgentAvatar({ name, role, className }: AgentAvatarProps) {
   return (
     <Avatar size="sm" ring="none" className={cn('chat-composer-menu-avatar', className)}>
-      <AvatarFallback className={cn('text-text-inverse', roleAvatarTone(role))}>
+      <AvatarFallback className={cn('text-accent-fg', roleAvatarTone(role))}>
         {name[0] ?? ''}
       </AvatarFallback>
     </Avatar>

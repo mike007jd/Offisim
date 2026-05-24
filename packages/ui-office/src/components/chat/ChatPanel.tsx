@@ -197,16 +197,16 @@ function ChatContextStrip({
 }) {
   if (!project && attachmentCount === 0) return null;
   return (
-    <div className="border-t border-border-default px-3 py-1.5">
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-caption text-text-muted">
+    <div className="border-t border-line px-3 py-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-fs-meta text-ink-4">
         {project ? (
-          <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 py-1">
-            <BriefcaseBusiness className="h-3 w-3 shrink-0 text-text-secondary" />
-            <span className="min-w-0 truncate text-text-secondary">{project.name}</span>
+          <span className="inline-flex max-w-full items-center gap-1 rounded-r-pill border border-line-soft bg-surface-2 px-2 py-1">
+            <BriefcaseBusiness className="h-3 w-3 shrink-0 text-ink-3" />
+            <span className="min-w-0 truncate text-ink-3">{project.name}</span>
           </span>
         ) : null}
         {attachmentCount > 0 ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2 py-1 text-text-secondary">
+          <span className="inline-flex items-center gap-1 rounded-r-pill border border-line-soft bg-surface-2 px-2 py-1 text-ink-3">
             <Paperclip className="h-3 w-3" />
             <span>{attachmentCount} attached</span>
           </span>
@@ -713,7 +713,7 @@ export function ChatPanel({
             variant="outline"
             size="sm"
             onClick={() => handleSend(text)}
-            className="rounded-full border-border-subtle bg-surface-muted px-3 py-1.5 text-xs text-text-secondary hover:border-border-focus hover:bg-accent-muted hover:text-accent-text"
+            className="rounded-r-pill border-line-soft bg-surface-2 px-3 py-1.5 text-fs-meta text-ink-3 hover:border-accent hover:bg-accent-surface hover:text-accent"
             data-onboarding-starter-prompt={label}
           >
             {label}
@@ -764,17 +764,17 @@ export function ChatPanel({
     >
       <div
         data-chat-panel-root
-        className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-surface-elevated text-text-primary"
+        className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-surface-1 text-ink-1"
       >
         {!isReady && (
-          <div className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-muted px-3 py-1.5 text-caption text-warning">
+          <div className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-r-md border border-warn/30 bg-warn-surface px-3 py-1.5 text-fs-meta text-warn">
             <span>Configure an API key to enable AI collaboration.</span>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={onOpenSettings}
-              className="h-6 shrink-0 rounded-md border-warning/30 bg-surface px-2 py-0.5 text-caption text-warning hover:bg-surface-hover"
+              className="h-6 shrink-0 rounded-r-sm border-warn/30 bg-surface-1 px-2 py-0.5 text-fs-meta text-warn hover:bg-surface-sunken"
             >
               Settings
             </Button>
@@ -785,18 +785,18 @@ export function ChatPanel({
 
         {/* Direct chat header — single compact line */}
         {isDirectChat && (
-          <div className="flex h-8 items-center gap-2 border-b border-border-default px-3">
+          <div className="flex h-8 items-center gap-2 border-b border-line px-3">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={onClearSelection}
-              className="h-auto gap-1 px-0 py-0 text-text-muted hover:text-text-primary"
+              className="h-auto gap-1 px-0 py-0 text-ink-4 hover:text-ink-1"
             >
               <ArrowLeft className="size-3" />
-              <span className="text-xs">Team</span>
+              <span className="text-fs-meta">Team</span>
             </Button>
-            <span className="text-xs font-medium text-text-primary">
+            <span className="text-fs-meta font-medium text-ink-1">
               {selectedEmployeeName ?? selectedEmployeeId}
             </span>
           </div>
@@ -823,7 +823,7 @@ export function ChatPanel({
               afterMessages={starterPromptContent}
               footer={assistantThreadFooter}
               emptyState={
-                <div className="rounded-xl border border-border-subtle bg-surface-muted px-3 py-2 text-xs text-text-muted">
+                <div className="rounded-r-lg border border-line-soft bg-surface-2 px-3 py-2 text-fs-meta text-ink-4">
                   {isDirectChat
                     ? `Start a conversation with ${selectedEmployeeName ?? 'this employee'}`
                     : 'Enter a task to start collaborating.'}

@@ -23,7 +23,7 @@ export function InteractionPrompt({ request, employeeName, onRespond }: Interact
         closeOnBackdrop={false}
         closeOnEscape={false}
         title="Decision required"
-        className="border-border-default bg-surface-elevated"
+        className="border-line bg-surface-1"
       >
         {body}
       </DialogShell>

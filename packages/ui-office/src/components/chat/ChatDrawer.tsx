@@ -231,8 +231,8 @@ export function ChatDrawer({ children, requestOpen }: ChatDrawerProps) {
       >
         <ChatDrawerToggleLabel>
           <MessageSquare className="size-3.5 text-accent" />
-          <span className="text-xs font-medium text-text-primary">Chat</span>
-          {compact && <Minimize2 className="size-3 text-text-muted" />}
+          <span className="text-fs-meta font-medium text-ink-1">Chat</span>
+          {compact && <Minimize2 className="size-3 text-ink-4" />}
         </ChatDrawerToggleLabel>
         <ChatDrawerToggleChevron open={open}>
           <ChevronUp className="size-3.5" />

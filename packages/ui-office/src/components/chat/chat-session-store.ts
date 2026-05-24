@@ -664,9 +664,8 @@ function reduceChatSession(
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const previous =
         conversation.streaming ?? createEmptyStreamingState(action.payload.nodeName ?? null);
-      const nextToolCalls = mergeToolCalls(previous.toolCalls, [
-        toolCallFromTelemetry(action.payload),
-      ]) ?? [];
+      const nextToolCalls =
+        mergeToolCalls(previous.toolCalls, [toolCallFromTelemetry(action.payload)]) ?? [];
       return {
         ...state,
         conversations: {

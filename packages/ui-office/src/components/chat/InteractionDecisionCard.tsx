@@ -34,24 +34,24 @@ export function InteractionDecisionCard({
   }
 
   return (
-    <Card className="border-border-default bg-surface-elevated backdrop-blur-md">
+    <Card className="border-line bg-surface-1 backdrop-blur-md">
       <CardHeader className="gap-2">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-sm text-text-primary">{request.title}</CardTitle>
+          <CardTitle className="text-fs-sm text-ink-1">{request.title}</CardTitle>
           <Badge variant={request.severity === 'high' ? 'error' : 'secondary'}>
             {request.severity === 'high' ? 'High risk' : 'Decision'}
           </Badge>
         </div>
-        {employeeName && <span className="text-xs text-text-secondary">From: {employeeName}</span>}
-        <p className="whitespace-pre-wrap text-xs text-text-secondary">{request.prompt}</p>
+        {employeeName && <span className="text-fs-meta text-ink-3">From: {employeeName}</span>}
+        <p className="whitespace-pre-wrap text-fs-meta text-ink-3">{request.prompt}</p>
         {request.recommendation && (
-          <div className="rounded-md border border-info bg-info-muted px-3 py-2 text-xs text-info">
+          <div className="rounded-r-sm border border-accent bg-accent-surface px-3 py-2 text-fs-meta text-accent">
             <div className="font-medium">
               Boss recommends:{' '}
               {request.options.find((option) => option.id === request.recommendation?.optionId)
                 ?.label ?? request.recommendation.optionId}
             </div>
-            <div className="mt-1 text-text-secondary">{request.recommendation.reason}</div>
+            <div className="mt-1 text-ink-3">{request.recommendation.reason}</div>
           </div>
         )}
       </CardHeader>

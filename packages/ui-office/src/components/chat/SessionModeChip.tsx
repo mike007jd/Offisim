@@ -27,7 +27,7 @@ interface SessionModeBadgeProps {
 function SessionModeBadge({ mode }: SessionModeBadgeProps) {
   return (
     <span
-      className={`inline-flex h-4 items-center rounded-full border px-1.5 text-caption font-black uppercase tracking-wide ${MODE_CLASS[mode]}`}
+      className={`inline-flex h-4 items-center rounded-r-pill border px-1.5 text-fs-meta font-black uppercase tracking-wide ${MODE_CLASS[mode]}`}
     >
       {INTERACTION_MODE_LABEL[mode]}
     </span>
@@ -47,12 +47,12 @@ export function SessionModeChip({ current, onChange }: SessionModeChipProps) {
           type="button"
           variant="outline"
           size="sm"
-          className="h-5 gap-1 rounded-full border-border-subtle bg-surface-muted px-1.5 text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+          className="h-5 gap-1 rounded-r-pill border-line-soft bg-surface-2 px-1.5 text-ink-3 hover:bg-surface-sunken hover:text-ink-1"
           title="Switch session mode"
           aria-label="Switch session mode"
         >
           <SessionModeBadge mode={current} />
-          <ChevronDown className="size-3 text-text-muted" />
+          <ChevronDown className="size-3 text-ink-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" collisionPadding={8} className="w-72">
@@ -66,10 +66,10 @@ export function SessionModeChip({ current, onChange }: SessionModeChipProps) {
           >
             <SessionModeBadge mode={mode} />
             <span className="min-w-0">
-              <span className="block text-xs font-semibold text-text-primary">
+              <span className="block text-fs-meta font-semibold text-ink-1">
                 {INTERACTION_MODE_LABEL[mode]}
               </span>
-              <span className="block text-caption leading-snug text-text-secondary">
+              <span className="block text-fs-meta leading-snug text-ink-3">
                 {INTERACTION_MODE_DESCRIPTION[mode]}
               </span>
             </span>
