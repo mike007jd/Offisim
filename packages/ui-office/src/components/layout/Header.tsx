@@ -7,7 +7,6 @@ import {
   EntityDropdown,
   type EntityDropdownItem,
   SegmentedControl,
-  cn,
   useFocusTrap,
   useRegisterModal,
   useTopmostEscape,
@@ -223,16 +222,16 @@ export function Header({
 
 function DesktopHeader({ slots }: { slots: HeaderSlots }) {
   return (
-    <header className="grid-app-header-desktop grid h-app-toolbar items-center gap-sp-4 px-sp-5 text-ink-1">
-      <div className="flex min-w-0 items-center gap-2 overflow-hidden justify-self-start">
+    <header className="app-header-desktop">
+      <div className="app-header-left">
         {slots.viewMode}
         {slots.company}
         {slots.project}
       </div>
 
-      <div className="min-w-0 max-w-full overflow-hidden justify-self-center">{slots.peerNav}</div>
+      <div className="app-header-center">{slots.peerNav}</div>
 
-      <div className="flex min-w-0 items-center justify-end gap-2 overflow-hidden justify-self-end">
+      <div className="app-header-right">
         {slots.apiSettings}
         {slots.mode}
         {slots.iconbar}
@@ -292,10 +291,7 @@ function NarrowHeader({
 }: NarrowHeaderProps) {
   return (
     <>
-      <header
-        className="flex min-h-11 items-center justify-between gap-2 rounded-r-lg border border-line bg-surface-1/92 px-2 py-1.5 text-ink-1 shadow-overlay backdrop-blur-md"
-        data-layout-tier="narrow"
-      >
+      <header className="app-header-narrow" data-layout-tier="narrow">
         <Button
           ref={
             activeWorkspace === 'personnel'
@@ -309,13 +305,11 @@ function NarrowHeader({
           size="icon"
           aria-label="Open workspace menu"
           onClick={onOpenDrawer}
-          className="size-8 rounded-r-pill"
+          className="app-header-narrow-button"
         >
-          <Menu className="size-4" aria-hidden="true" />
+          <Menu data-icon="header-menu" aria-hidden="true" />
         </Button>
-        <h1 className="min-w-0 flex-1 truncate text-center text-fs-sm font-semibold text-ink-1">
-          {slots.title}
-        </h1>
+        <h1 className="app-header-narrow-title">{slots.title}</h1>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -324,15 +318,15 @@ function NarrowHeader({
               variant="secondary"
               size="icon"
               aria-label="More actions"
-              className="size-8 rounded-r-pill"
+              className="app-header-narrow-button"
             >
-              <MoreHorizontal className="size-4" aria-hidden="true" />
+              <MoreHorizontal data-icon="header-more" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="max-h-96 w-72 overflow-y-auto p-2">
-            <div className="flex flex-col gap-2">
+          <DropdownMenuContent align="end" className="app-header-menu-content">
+            <div className="app-header-menu-stack">
               {isOffice && viewMode && onViewModeChange ? (
-                <div className="rounded-r-md border border-line-soft bg-surface-2 p-2">
+                <div className="app-header-menu-panel">
                   <ViewModeToggle
                     value={viewMode}
                     onChange={onViewModeChange}
@@ -340,10 +334,12 @@ function NarrowHeader({
                   />
                 </div>
               ) : null}
-              {slots.project ? <div className="rounded-r-md p-1">{slots.project}</div> : null}
-              {isOffice && slots.mode ? <div className="rounded-r-md p-1">{slots.mode}</div> : null}
+              {slots.project ? <div className="app-header-menu-pad">{slots.project}</div> : null}
+              {isOffice && slots.mode ? (
+                <div className="app-header-menu-pad">{slots.mode}</div>
+              ) : null}
               {isOffice && slots.officeTools ? (
-                <div className="rounded-r-md p-1">{slots.officeTools}</div>
+                <div className="app-header-menu-pad">{slots.officeTools}</div>
               ) : null}
               {slots.marketActions}
             </div>
@@ -352,12 +348,12 @@ function NarrowHeader({
       </header>
 
       {drawerOpen && (
-        <div className="fixed inset-0 z-top" role="presentation">
+        <div className="app-header-drawer-layer" role="presentation">
           <Button
             type="button"
             variant="ghost"
             aria-label="Close workspace menu"
-            className="absolute inset-0 h-auto w-auto rounded-none border-0 bg-surface/70 p-0 hover:bg-surface/70"
+            className="app-header-drawer-scrim"
             onClick={onCloseDrawer}
           />
           <aside
@@ -367,14 +363,12 @@ function NarrowHeader({
             aria-modal="true"
             aria-label="Workspace menu"
             tabIndex={-1}
-            className="absolute inset-y-0 left-0 flex w-full max-w-sm flex-col border-r border-line bg-surface-1 p-4 shadow-modal outline-none"
+            className="app-header-drawer"
           >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-fs-meta uppercase tracking-wider text-ink-4">Workspace</p>
-                <p className="truncate text-fs-sm font-semibold text-ink-1">
-                  {companyName || 'Select Company'}
-                </p>
+            <div className="app-header-drawer-head">
+              <div>
+                <p>Workspace</p>
+                <p>{companyName || 'Select Company'}</p>
               </div>
               <Button
                 type="button"
@@ -382,12 +376,12 @@ function NarrowHeader({
                 size="icon"
                 aria-label="Close workspace menu"
                 onClick={onCloseDrawer}
-                className="size-8 rounded-r-pill"
+                className="app-header-drawer-close"
               >
-                <X className="size-4" aria-hidden="true" />
+                <X data-icon="drawer-close" aria-hidden="true" />
               </Button>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="app-header-drawer-nav">
               {peerWorkspaces.map((item) => {
                 const Icon = item.icon;
                 const selected = item.key === activeWorkspace;
@@ -407,20 +401,16 @@ function NarrowHeader({
                       activateWorkspaceLink(event, item.key, onSelectWorkspace);
                       onCloseDrawer();
                     }}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-r-md border px-3 py-2 text-left text-fs-sm',
-                      selected
-                        ? 'border-accent bg-accent-surface text-accent'
-                        : 'border-line-soft bg-surface-2 text-ink-3 hover:border-line hover:bg-surface-sunken hover:text-ink-1',
-                    )}
+                    className="app-header-drawer-link"
+                    data-selected={selected || undefined}
                   >
-                    <Icon className="size-4" />
+                    <Icon data-icon="drawer-nav" />
                     <span>{item.label}</span>
                   </a>
                 );
               })}
             </div>
-            <div className="mt-4 flex flex-col gap-2 border-t border-line-soft pt-4">
+            <div className="app-header-drawer-actions">
               {onOpenCompanySelect && (
                 <Button
                   ref={providerCtaRef}
@@ -431,7 +421,7 @@ function NarrowHeader({
                     onOpenCompanySelect();
                     onCloseDrawer();
                   }}
-                  className="w-full justify-start"
+                  className="app-header-drawer-action"
                 >
                   Switch Company
                 </Button>
@@ -445,7 +435,7 @@ function NarrowHeader({
                     onOpenSettings();
                     onCloseDrawer();
                   }}
-                  className="w-full justify-start"
+                  className="app-header-drawer-action"
                 >
                   Open API Settings
                 </Button>
@@ -499,7 +489,7 @@ function CompanySwitcher({
   const items: EntityDropdownItem[] = visibleCompanies.map((company) => ({
     id: company.company_id,
     label: company.name,
-    icon: <Building2 className="h-3.5 w-3.5 text-ink-4" />,
+    icon: <Building2 className="app-header-company-item-icon" />,
   }));
 
   return (
@@ -518,14 +508,12 @@ function CompanySwitcher({
           type="button"
           variant="secondary"
           size="sm"
-          className="h-8 min-w-48 max-w-64 rounded-r-pill px-3"
+          className="app-header-company-trigger"
           title="Switch Company"
         >
-          <Building2 className="size-3.5 shrink-0 text-accent" aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate text-fs-meta font-medium text-ink-1">
-            {currentName || 'Select Company'}
-          </span>
-          <ChevronDown className="size-3 shrink-0 text-ink-4" aria-hidden="true" />
+          <Building2 data-icon="company" aria-hidden="true" />
+          <span>{currentName || 'Select Company'}</span>
+          <ChevronDown data-icon="company-caret" aria-hidden="true" />
         </Button>
       }
     />
@@ -546,10 +534,7 @@ function PeerWorkspaceNav({
   marketRef: (el: HTMLElement | null) => void;
 }) {
   return (
-    <nav
-      aria-label="Primary workspace navigation"
-      className="flex max-w-full items-center gap-0.5 overflow-hidden rounded-r-sm border border-line bg-surface-2 p-0.5 shadow-elev-1"
-    >
+    <nav aria-label="Primary workspace navigation" className="app-header-peer-nav">
       {items.map((item) => {
         const selected = item.key === active;
         const Icon = item.icon;
@@ -568,14 +553,10 @@ function PeerWorkspaceNav({
             aria-label={`${item.label} workspace`}
             title={item.label}
             aria-current={selected ? 'page' : undefined}
-            className={cn(
-              'inline-flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-3.5 py-1 text-fs-meta font-semibold tracking-wide transition-colors',
-              selected
-                ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring'
-                : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
-            )}
+            className="app-header-peer-link"
+            data-selected={selected || undefined}
           >
-            <Icon className="size-3.5 shrink-0" />
+            <Icon data-icon="peer-nav" />
             <span className="truncate">{item.label}</span>
           </a>
         );
@@ -597,11 +578,7 @@ function WorkspaceIconBar({
 }) {
   const showStudio = officeTools && officeTools.length > 0;
   return (
-    <div
-      role="toolbar"
-      aria-label="Workspace and office tools"
-      className="flex items-center gap-0.5 rounded-r-sm border border-line bg-surface-2 p-0.5 shadow-elev-1"
-    >
+    <div role="toolbar" aria-label="Workspace and office tools" className="app-header-iconbar">
       {items.map((item) => {
         const selected = item.key === active;
         const Icon = item.icon;
@@ -613,20 +590,16 @@ function WorkspaceIconBar({
             aria-label={`${item.label} workspace`}
             title={`${item.label} workspace`}
             aria-current={selected ? 'page' : undefined}
-            className={cn(
-              'grid size-7 place-items-center rounded-sm transition-colors',
-              selected
-                ? 'bg-accent-surface text-accent ring-1 ring-inset ring-accent-ring'
-                : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
-            )}
+            className="app-header-icon-link"
+            data-selected={selected || undefined}
           >
-            <Icon className="size-4" />
+            <Icon data-icon="iconbar" />
           </a>
         );
       })}
       {showStudio ? (
         <>
-          <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-border-default" />
+          <span aria-hidden="true" className="app-header-iconbar-divider" />
           {officeTools.map((tool) => (
             <OfficeToolButton key={tool.key} tool={tool} />
           ))}
@@ -675,11 +648,7 @@ function OfficeToolBar({ items }: { items: ReadonlyArray<HeaderOfficeToolItem> }
   const overflow = items.slice(MAX_VISIBLE_OFFICE_TOOLS);
 
   return (
-    <div
-      role="toolbar"
-      aria-label="Office tools"
-      className="flex items-center gap-0.5 rounded-r-pill border border-line bg-surface-2 p-0.5"
-    >
+    <div role="toolbar" aria-label="Office tools" className="app-header-office-tools">
       {visible.map((tool) => (
         <OfficeToolButton key={tool.key} tool={tool} />
       ))}
@@ -691,31 +660,23 @@ function OfficeToolBar({ items }: { items: ReadonlyArray<HeaderOfficeToolItem> }
               variant="ghost"
               size="icon"
               aria-label="More office tools"
-              className="size-7 rounded-r-pill text-ink-3"
+              className="app-header-office-tool"
             >
-              <MoreHorizontal className="size-4" aria-hidden="true" />
+              <MoreHorizontal data-icon="office-tool-more" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            collisionPadding={8}
-            className="max-h-96 w-48 overflow-y-auto"
-          >
+          <DropdownMenuContent align="end" collisionPadding={8} className="app-header-tool-menu">
             {overflow.map((tool) => (
               <DropdownMenuItem
                 key={tool.key}
                 disabled={tool.disabled}
                 title={tool.disabled ? tool.disabledReason : undefined}
                 onSelect={() => tool.onActivate()}
-                className="gap-2"
+                className="app-header-tool-menu-item"
               >
-                <tool.icon className="size-4" />
-                <span className="flex-1">{tool.label}</span>
-                {tool.shortcut && (
-                  <kbd className="rounded border border-line-soft bg-surface-2 px-1.5 py-0.5 text-fs-meta text-ink-4">
-                    {tool.shortcut}
-                  </kbd>
-                )}
+                <tool.icon data-icon="tool-menu" />
+                <span>{tool.label}</span>
+                {tool.shortcut && <kbd>{tool.shortcut}</kbd>}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -742,14 +703,10 @@ function OfficeToolButton({ tool }: { tool: HeaderOfficeToolItem }) {
       aria-label={label}
       title={tool.disabled ? tool.disabledReason : label}
       data-office-tool={tool.key}
-      className={cn(
-        'relative size-7 rounded-r-pill disabled:cursor-not-allowed disabled:opacity-40',
-        active
-          ? 'text-accent hover:text-accent after:absolute after:bottom-0.5 after:left-2 after:right-2 after:h-px after:rounded-r-pill after:bg-accent'
-          : 'text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
-      )}
+      className="app-header-office-tool"
+      data-active={active || undefined}
     >
-      <Icon className="size-4" aria-hidden="true" />
+      <Icon data-icon="office-tool" aria-hidden="true" />
     </Button>
   );
 }
