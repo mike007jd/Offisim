@@ -157,77 +157,73 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
   );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="settings-external">
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-ink-1">External Employees</h2>
-          <p className="mt-1 text-fs-sm text-ink-3">
+      <div className="settings-external-head">
+        <div className="settings-external-head-copy">
+          <h2>External Employees</h2>
+          <p>
             Branded A2A agents connected to this company. Offisim dispatches tasks over JSON-RPC
             using each agent card.
           </p>
         </div>
         <Button onClick={() => setInstallOpen(true)}>
-          <Plug className="size-4" /> Connect agent
+          <Plug data-icon="inline-start" /> Connect agent
         </Button>
       </div>
 
       {isLoading && rows.length === 0 && (
-        <div className="flex items-center gap-2 text-fs-sm text-ink-3">
-          <Loader2 className="size-4 animate-spin" /> Loading…
+        <div className="settings-loading-row">
+          <Loader2 data-icon="loading" /> Loading…
         </div>
       )}
 
       {!isLoading && rows.length === 0 && (
-        <div className="rounded-r-md border border-dashed border-line bg-surface-2 px-6 py-10 text-center">
-          <p className="text-fs-sm font-semibold text-ink-1">No external employees yet</p>
-          <p className="mt-1 text-fs-meta text-ink-4">
-            Connect an A2A endpoint to add a branded external employee.
-          </p>
+        <div className="settings-external-empty">
+          <p>No external employees yet</p>
+          <span>Connect an A2A endpoint to add a branded external employee.</span>
         </div>
       )}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="settings-external-list">
         {rows.map((row) => {
           const brand = lookupExternalBrand(row.brand_key);
           const card = parseAgentCard(row.agent_card_json);
           const isBusy = busyRowId === row.employee_id;
           const isEditing = editingTokenId === row.employee_id;
           return (
-            <li key={row.employee_id} className="rounded-r-md border border-line bg-surface-1 p-4">
-              <div className="flex items-start gap-3">
+            <li key={row.employee_id} className="settings-external-row">
+              <div className="settings-external-row-main">
                 <img
                   alt={`${brand.displayName} avatar`}
                   src={brand.asset2dUri}
-                  className="size-11 rounded-r-md"
+                  className="settings-external-avatar"
                 />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <p className="truncate text-fs-sm font-semibold text-ink-1">{row.name}</p>
-                    <span className="rounded-r-pill border border-line-soft bg-surface-2 px-2 py-0.5 text-fs-meta text-ink-3">
-                      {brand.displayName}
-                    </span>
-                    <span className="text-fs-meta text-ink-4">role: {row.role_slug}</span>
+                <div className="settings-external-copy">
+                  <div className="settings-external-title-row">
+                    <p>{row.name}</p>
+                    <span className="settings-external-brand">{brand.displayName}</span>
+                    <span className="settings-external-role">role: {row.role_slug}</span>
                   </div>
-                  <p className="mt-1 truncate text-fs-meta text-ink-3">{row.a2a_url ?? '—'}</p>
+                  <p className="settings-external-url">{row.a2a_url ?? '—'}</p>
                   {card?.name && card.name !== row.name && (
-                    <p className="mt-0.5 truncate text-fs-meta text-ink-4">
+                    <p className="settings-external-card">
                       agent card: {card.name}
                       {card.version ? ` · v${card.version}` : ''}
                     </p>
                   )}
                 </div>
-                <div className="flex flex-shrink-0 items-center gap-2">
+                <div className="settings-external-actions">
                   {onEditEmployee && (
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => onEditEmployee(row.employee_id)}
                       disabled={isBusy}
-                      className="gap-1.5 text-fs-meta"
+                      className="settings-inline-action"
                     >
-                      <Pencil className="size-3" /> Edit
+                      <Pencil data-icon="inline-action" /> Edit
                     </Button>
                   )}
                   <Button
@@ -237,9 +233,9 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
                     disabled={isBusy || !row.a2a_url}
                   >
                     {isBusy ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <Loader2 data-icon="inline-action-loading" />
                     ) : (
-                      <RefreshCw className="size-3.5" />
+                      <RefreshCw data-icon="inline-action" />
                     )}
                     Refresh
                   </Button>
@@ -257,20 +253,15 @@ export function SettingsExternalTab({ onEditEmployee }: SettingsExternalTabProps
                     onClick={() => handleDisconnect(row)}
                     disabled={isBusy}
                   >
-                    <Trash2 className="size-3.5" /> Disconnect
+                    <Trash2 data-icon="inline-action" /> Disconnect
                   </Button>
                 </div>
               </div>
 
               {isEditing && (
-                <div className="mt-3 flex items-end gap-2 rounded-r-md border border-line bg-surface-2 p-3">
-                  <div className="flex-1">
-                    <label
-                      className="text-fs-meta uppercase tracking-ls-caps text-ink-4"
-                      htmlFor={`token-${row.employee_id}`}
-                    >
-                      Bearer token
-                    </label>
+                <div className="settings-external-token-editor">
+                  <div>
+                    <label htmlFor={`token-${row.employee_id}`}>Bearer token</label>
                     <Input
                       id={`token-${row.employee_id}`}
                       type="password"

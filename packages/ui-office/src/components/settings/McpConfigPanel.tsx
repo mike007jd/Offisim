@@ -327,9 +327,9 @@ export function McpConfigPanel() {
   }, [servers]);
 
   return (
-    <div className="flex flex-col gap-sp-3">
+    <div className="settings-panel-stack">
       <SettingsSection title="Add MCP server">
-        <div className="grid gap-3 md:mcp-config-row-grid md:items-start">
+        <div className="settings-mcp-add-grid">
           <div>
             <Select value={transport} onValueChange={(v) => setTransport(v as McpTransport)}>
               <SelectTrigger className={surfaceInputProps('text-fs-sm')}>
@@ -369,9 +369,9 @@ export function McpConfigPanel() {
               (transport === 'stdio' ? !command.trim() : !url.trim()) ||
               connecting !== null
             }
-            className="h-10 border-ok/40 bg-ok-surface text-ok hover:border-ok hover:bg-surface-sunken"
+            className="settings-mcp-add-button"
           >
-            <Plus className="size-3.5" />
+            <Plus data-icon="mcp-add" />
             {connecting ? 'Connecting…' : 'Add'}
           </Button>
         </div>
@@ -384,30 +384,30 @@ export function McpConfigPanel() {
           />
         )}
         {pendingStdio && (
-          <div className="rounded-r-sm border border-warn/40 bg-warn-surface px-3 py-3 text-fs-meta text-ink-3">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <span className="font-medium text-ink-1">Confirm stdio MCP server</span>
-              <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-fs-meta">
+          <div className="settings-mcp-confirm">
+            <div className="settings-mcp-confirm-head">
+              <span>Confirm stdio MCP server</span>
+              <Badge variant="warning" className="settings-mcp-risk-badge">
                 High risk
               </Badge>
             </div>
-            <dl className="grid gap-1">
-              <div className="grid gap-1 sm:mcp-config-detail-grid">
-                <dt className="text-ink-4">Command</dt>
+            <dl className="settings-mcp-detail-list">
+              <div>
+                <dt>Command</dt>
                 <dd className="break-all font-mono">{pendingStdio.command}</dd>
               </div>
-              <div className="grid gap-1 sm:mcp-config-detail-grid">
-                <dt className="text-ink-4">Args</dt>
+              <div>
+                <dt>Args</dt>
                 <dd className="break-all font-mono">
                   {pendingStdio.args.length > 0 ? pendingStdio.args.join(' ') : '(none)'}
                 </dd>
               </div>
-              <div className="grid gap-1 sm:mcp-config-detail-grid">
-                <dt className="text-ink-4">Source</dt>
+              <div>
+                <dt>Source</dt>
                 <dd>{pendingStdio.source}</dd>
               </div>
-              <div className="grid gap-1 sm:mcp-config-detail-grid">
-                <dt className="text-ink-4">Tools</dt>
+              <div>
+                <dt>Tools</dt>
                 <dd>
                   {pendingStdio.requestedTools.length > 0
                     ? pendingStdio.requestedTools.join(', ')
@@ -415,7 +415,7 @@ export function McpConfigPanel() {
                 </dd>
               </div>
             </dl>
-            <div className="mt-3 flex gap-2">
+            <div className="settings-mcp-confirm-actions">
               <Button
                 onClick={handleConfirmStdio}
                 size="sm"
@@ -435,40 +435,35 @@ export function McpConfigPanel() {
             </div>
           </div>
         )}
-        {formError && <p className="text-fs-meta text-danger">{formError}</p>}
+        {formError && <p className="settings-inline-danger">{formError}</p>}
       </SettingsSection>
 
       <SettingsSection title="Configured servers">
         {servers.length === 0 ? (
-          <p className="text-fs-meta text-ink-4">
+          <p className="settings-muted-copy">
             No MCP servers configured. Add one above to enable tool use.
           </p>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="settings-mcp-groups">
             {grouped.map(([groupTransport, groupServers]) => (
-              <div key={groupTransport} className="flex flex-col gap-1.5">
-                <header className="text-fs-meta uppercase tracking-ls-caps text-ink-4">
+              <div key={groupTransport} className="settings-mcp-group">
+                <header>
                   {groupTransport.toUpperCase()} · {groupServers.length}
                 </header>
-                <ul className="flex flex-col gap-1">
+                <ul>
                   {groupServers.map((server) => (
-                    <li
-                      key={serverKey(server)}
-                      className="flex items-center gap-3 rounded-r-sm border border-line-soft bg-surface-1 px-3 py-2 hover:bg-surface-sunken"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-fs-sm font-medium text-ink-1">
-                            {server.name}
-                          </span>
+                    <li key={serverKey(server)} className="settings-mcp-server-row">
+                      <div className="settings-mcp-server-main">
+                        <div className="settings-mcp-server-head">
+                          <span>{server.name}</span>
                           <Badge
                             variant={isConnected(server.name) ? 'success' : 'secondary'}
-                            className="shrink-0 px-1.5 py-0 text-fs-meta"
+                            className="settings-mcp-server-badge"
                           >
                             {connectionLabel(server.name)}
                           </Badge>
                         </div>
-                        <p className="mt-0.5 truncate font-mono text-fs-meta text-ink-4">
+                        <p>
                           {server.transport === 'stdio'
                             ? [server.command ?? '', ...(server.args ?? [])]
                                 .filter(Boolean)
@@ -476,7 +471,7 @@ export function McpConfigPanel() {
                             : (server.url ?? '')}
                         </p>
                       </div>
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="settings-mcp-server-actions">
                         {!isConnected(server.name) && (
                           <Button
                             variant="ghost"
@@ -484,9 +479,9 @@ export function McpConfigPanel() {
                             onClick={() => handleReconnect(server)}
                             disabled={!isReady || connecting !== null}
                             title="Reconnect"
-                            className="size-7 p-0 text-ink-3 hover:text-ok"
+                            className="settings-icon-action"
                           >
-                            <RefreshCw className="size-3.5" />
+                            <RefreshCw data-icon="settings-action" />
                           </Button>
                         )}
                         <Button
@@ -494,9 +489,9 @@ export function McpConfigPanel() {
                           size="sm"
                           onClick={() => handleRemove(server)}
                           title="Delete server"
-                          className="size-7 p-0 text-ink-3 hover:text-danger"
+                          className="settings-icon-action settings-icon-action-danger"
                         >
-                          <Trash2 className="size-3.5" />
+                          <Trash2 data-icon="settings-action" />
                         </Button>
                       </div>
                     </li>

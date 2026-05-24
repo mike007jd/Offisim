@@ -187,47 +187,45 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
   }
 
   const resolvedSummary = (
-    <div className="flex flex-wrap items-center gap-2 text-fs-sm text-ink-3">
-      <span className="font-semibold text-ink-1">
+    <div className="settings-provider-summary">
+      <span className="settings-provider-summary-title">
         {selectedProduct?.displayName ?? 'Manual product'}
       </span>
       {selectedAccess?.label ? (
-        <Badge className="text-fs-meta uppercase tracking-ls-caps">{selectedAccess.label}</Badge>
+        <Badge className="settings-provider-summary-badge">{selectedAccess.label}</Badge>
       ) : null}
-      <span className="text-fs-meta text-ink-4">{routeSummary || 'Select a product'}</span>
+      <span className="settings-provider-summary-route">{routeSummary || 'Select a product'}</span>
     </div>
   );
 
   return (
-    <div ref={providerTargetRef} className="flex min-h-0 flex-col gap-sp-4">
-      <Card className="rounded-r-md border-line-soft bg-surface-1 shadow-elev-1">
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-r-md bg-accent text-accent-fg shadow-elev-1">
-              <KeyRound className="size-5" aria-hidden="true" />
+    <div ref={providerTargetRef} className="settings-panel-stack">
+      <Card className="settings-provider-hero">
+        <CardContent className="settings-provider-hero-content">
+          <div className="settings-provider-hero-main">
+            <div className="settings-provider-hero-icon">
+              <KeyRound data-icon="provider-hero" aria-hidden="true" />
             </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="truncate text-fs-md font-semibold text-ink-1">
-                  {selectedVariant?.displayName ?? selectedProduct?.displayName ?? 'Manual'}
-                </h3>
+            <div className="settings-provider-hero-copy">
+              <div className="settings-provider-hero-title-row">
+                <h3>{selectedVariant?.displayName ?? selectedProduct?.displayName ?? 'Manual'}</h3>
                 <Badge variant={isProviderReady ? 'success' : 'warning'} size="xs">
                   {statusLabel}
                 </Badge>
               </div>
-              <p className="mt-1 truncate font-mono text-fs-sm text-ink-3">
+              <p>
                 {model || 'No model selected'} · {EXECUTION_LANE_LABELS[executionLane]} ·{' '}
                 {selectedRegion}
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap justify-end gap-2">
-            <Badge variant="outline" size="xs" className="gap-1">
-              <Route className="size-3" aria-hidden="true" />
+          <div className="settings-provider-hero-badges">
+            <Badge variant="outline" size="xs" className="settings-icon-badge">
+              <Route data-icon="badge" aria-hidden="true" />
               {selectedCompatibility}
             </Badge>
-            <Badge variant="outline" size="xs" className="gap-1">
-              <CheckCircle2 className="size-3" aria-hidden="true" />
+            <Badge variant="outline" size="xs" className="settings-icon-badge">
+              <CheckCircle2 data-icon="badge" aria-hidden="true" />
               {selectedSurface}
             </Badge>
           </div>
@@ -270,7 +268,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             </Select>
           </SettingsField>
         </SettingsControlGrid>
-        <p className="text-fs-meta text-ink-4" title={selectedCapabilities}>
+        <p className="settings-muted-copy" title={selectedCapabilities}>
           {selectedAccess?.description || selectedCapabilities}
         </p>
       </SettingsSection>
@@ -321,7 +319,7 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             ) : null}
           </SettingsField>
         ) : (
-          <p className="text-fs-meta text-ink-4">Credentials managed by host.</p>
+          <p className="settings-muted-copy">Credentials managed by host.</p>
         )}
 
         {isThinkingProvider ? (
@@ -342,22 +340,22 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
             type="button"
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className="settings-inline-action"
             disabled={isPullingProviderList}
             aria-busy={isPullingProviderList || undefined}
             onClick={handleProviderListPull}
           >
             {isPullingProviderList ? (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              <Loader2 data-icon="inline-action-loading" aria-hidden="true" />
             ) : (
-              <RefreshCw className="size-3.5" aria-hidden="true" />
+              <RefreshCw data-icon="inline-action" aria-hidden="true" />
             )}
             Refresh
           </Button>
         }
       >
-        <div className="flex flex-wrap items-center gap-2 text-fs-meta text-ink-4">
-          <Badge className="text-fs-meta uppercase tracking-ls-caps">Agent scoped</Badge>
+        <div className="settings-provider-catalog-summary">
+          <Badge className="settings-provider-summary-badge">Agent scoped</Badge>
           <span>
             {providerListPull
               ? `${pulledModelOptions.length} fresh model suggestions for ${selectedProduct?.displayName ?? productId}.`
@@ -365,14 +363,11 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
           </span>
         </div>
         {providerListPull ? (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="settings-provider-source-grid">
             {providerListPull.sources.map((source) => (
-              <div
-                key={source.sourceId}
-                className="rounded-r-sm border border-line bg-surface-1 px-2 py-1.5"
-              >
-                <p className="font-medium text-ink-3">{source.label}</p>
-                <p className="mt-0.5 text-fs-meta text-ink-4">{formatSourceSummary(source)}</p>
+              <div key={source.sourceId} className="settings-provider-source">
+                <p>{source.label}</p>
+                <span>{formatSourceSummary(source)}</span>
               </div>
             ))}
           </div>
@@ -462,16 +457,10 @@ export function SettingsProviderTab({ controller }: SettingsProviderTabProps) {
           />
         </SettingsField>
 
-        <div className="text-fs-meta text-ink-4">
-          <span className="font-semibold uppercase tracking-ls-caps text-ink-3">
-            Effective endpoint
-          </span>
-          <p className="mt-1 break-all font-mono text-fs-sm text-ink-1">
-            {effectiveEndpoint || 'Resolved at runtime'}
-          </p>
-          {selectedVariant?.notes ? (
-            <p className="mt-2 text-fs-meta text-ink-4">{selectedVariant.notes}</p>
-          ) : null}
+        <div className="settings-endpoint-summary">
+          <span>Effective endpoint</span>
+          <p>{effectiveEndpoint || 'Resolved at runtime'}</p>
+          {selectedVariant?.notes ? <small>{selectedVariant.notes}</small> : null}
         </div>
       </SettingsSection>
     </div>

@@ -135,7 +135,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
   const mainHarnessStatuses = listMainHarnessRuntimeStatus(mainHarnessPolicy);
 
   return (
-    <div className="flex flex-col gap-sp-3">
+    <div className="settings-panel-stack">
       <SettingsSection title="Runtime defaults">
         <SettingsControlGrid columns={3}>
           <SettingsField id="settings-execution-mode" label="Execution mode">
@@ -179,7 +179,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
               ariaLabel="Theme"
             />
             {theme === 'system' ? (
-              <p className="mt-2 text-fs-meta text-ink-4">
+              <p className="settings-field-note">
                 Following OS preference: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}
               </p>
             ) : null}
@@ -213,7 +213,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
       </SettingsSection>
 
       <SettingsSection title="Main harness control">
-        <SettingsControlGrid columns={3} className="gap-3">
+        <SettingsControlGrid columns={3}>
           <SettingsStatCard label="Default owner" value="Offisim core" />
           <SettingsStatCard
             label="Driver profiles"
@@ -229,14 +229,14 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
           />
         </SettingsControlGrid>
         {mainHarnessStatuses.length > 0 ? (
-          <div className="mt-3 grid gap-2">
+          <div className="settings-runtime-status-list">
             {mainHarnessStatuses.map((status) => (
               <div
                 key={`${status.mode}:${status.runtimeProfileId}`}
-                className="flex items-center justify-between rounded-r-sm border border-line px-3 py-2 text-fs-meta"
+                className="settings-runtime-status-row"
               >
-                <span className="font-medium text-ink-1">{status.runtimeProfileId}</span>
-                <span className={status.selectable ? 'text-ok' : 'text-warn'}>
+                <span>{status.runtimeProfileId}</span>
+                <span data-state={status.selectable ? 'ok' : 'warn'}>
                   {status.selectable ? 'Verified' : status.reason}
                 </span>
               </div>
@@ -246,10 +246,10 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
       </SettingsSection>
 
       <SettingsSection title="Conversation memory & summarization">
-        <div className="flex flex-col gap-5">
+        <div className="settings-runtime-groups">
           <div>
             <h4 className={SUBSECTION_HEADING_CLASS}>Memory</h4>
-            <SettingsControlGrid columns={4} className="mt-3">
+            <SettingsControlGrid columns={4} className="settings-runtime-control-grid">
               <BooleanSelect
                 id="runtime-memory-enabled"
                 label="Enabled"
@@ -283,8 +283,8 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
 
           <div>
             <h4 className={SUBSECTION_HEADING_CLASS}>Summarization</h4>
-            <p className="mt-1 text-fs-meta text-ink-4">Auto-compress long conversations.</p>
-            <SettingsControlGrid columns={3} className="mt-3">
+            <p className="settings-muted-copy">Auto-compress long conversations.</p>
+            <SettingsControlGrid columns={3} className="settings-runtime-control-grid">
               <BooleanSelect
                 id="runtime-summarization-enabled"
                 label="Enabled"
