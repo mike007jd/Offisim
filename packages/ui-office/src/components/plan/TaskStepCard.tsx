@@ -1,7 +1,6 @@
-import { Button, cn } from '@offisim/ui-core';
+import { Button } from '@offisim/ui-core';
 import { ChevronDown } from 'lucide-react';
 import type { DashboardStep } from '../../hooks/useTaskDashboard';
-import { taskStatusDotClass } from '../../lib/status-display';
 import { TaskItem } from './TaskItem';
 
 // ---------------------------------------------------------------------------
@@ -22,28 +21,27 @@ export function TaskStepCard({
   getTaskCost?: (taskRunId: string) => number;
 }) {
   return (
-    <div className="rounded border border-line-soft bg-surface-1">
+    <div className="task-step-card" data-status={step.status}>
       <Button
         type="button"
         variant="ghost"
         onClick={() => onToggle(step.stepIndex)}
-        className="h-auto w-full justify-start gap-2 rounded-none px-2 py-1.5 text-left text-xs"
+        className="task-step-trigger"
+        data-expanded={step.expanded ? 'true' : undefined}
       >
         {/* Status dot */}
-        <span className={cn('size-2 shrink-0 rounded-full', taskStatusDotClass(step.status))} />
-        <span className="flex-1 truncate text-ink-1">
+        <span className="task-step-dot" data-status={step.status} />
+        <span className="task-step-title">
           Step {step.stepIndex + 1}: {step.description}
         </span>
         <ChevronDown
-          className={cn(
-            'size-3 shrink-0 text-ink-2 transition-transform',
-            step.expanded && 'rotate-180',
-          )}
+          className="task-step-chevron"
+          data-expanded={step.expanded ? 'true' : undefined}
         />
       </Button>
 
       {step.expanded && step.tasks.length > 0 && (
-        <ul className="flex flex-col gap-1 border-t border-line-soft px-2 py-1">
+        <ul className="task-step-list">
           {step.tasks.map((task) => (
             <TaskItem
               key={task.taskRunId}

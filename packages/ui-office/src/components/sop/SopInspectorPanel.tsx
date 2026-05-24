@@ -91,7 +91,7 @@ export function SopInspectorPanel({
 
   if (!step) {
     return (
-      <aside className={cn('sop-inspector sop-inspector-empty', className)}>
+      <aside className={cn('sop-inspector', className)} data-empty="true">
         <p>Select a step to inspect</p>
       </aside>
     );
@@ -112,8 +112,9 @@ export function SopInspectorPanel({
       {roleMissing && (
         <div className="sop-inspector-section">
           <p className="sop-inline-warning">
-            No employee with role <span className="font-bold">{step.role_slug}</span> — dispatcher
-            will fall back.
+            No employee with role{' '}
+            <span className="sop-inspector-role-missing">{step.role_slug}</span> — dispatcher will
+            fall back.
           </p>
         </div>
       )}
@@ -121,7 +122,7 @@ export function SopInspectorPanel({
       {status === 'failed' && (
         <div className="sop-inspector-section">
           <SectionLabel>Last error</SectionLabel>
-          <div className="sop-inline-error sop-inline-error-block">
+          <div className="sop-inline-error" data-block="true">
             {lastFailedTask?.taskType?.trim() && (
               <div className="sop-inspector-code-title">{lastFailedTask.taskType.trim()}</div>
             )}
@@ -162,7 +163,7 @@ export function SopInspectorPanel({
         )}
       </div>
 
-      <div className="sop-inspector-section sop-inspector-section-last">
+      <div className="sop-inspector-section" data-last="true">
         <SectionLabel>Output key</SectionLabel>
         <div className="sop-inspector-output-row">
           <code className="sop-inspector-output-code">{step.output_key}</code>

@@ -33,9 +33,9 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
           : `${projects.length} unfinished projects`;
 
   return (
-    <div className="flex items-center gap-2 rounded-r-md border border-warn bg-warn-surface px-4 py-2 text-sm">
-      <span className="shrink-0 text-warn">{label}</span>
-      <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+    <div className="resume-bar">
+      <span className="resume-bar-label">{label}</span>
+      <div className="resume-bar-actions">
         {projects.map((p) => (
           <Button
             key={p.threadId}
@@ -43,7 +43,7 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
             variant="outline"
             size="sm"
             onClick={() => onResume(p.threadId)}
-            className="max-w-48 truncate border-warn bg-surface px-2.5 text-xs text-ink-1 hover:bg-surface-sunken"
+            className="resume-bar-project"
             title={p.projectName}
           >
             {p.status === 'blocked' ? 'Review' : 'Resume'} {p.projectName}
@@ -55,7 +55,7 @@ export function ResumeBar({ projects, onResume, onDismiss }: ResumeBarProps) {
         variant="ghost"
         size="sm"
         onClick={onDismiss}
-        className="ml-auto shrink-0 text-xs text-warn hover:text-ink-1"
+        className="resume-bar-dismiss"
         aria-label="Dismiss unfinished project notice"
       >
         Dismiss
