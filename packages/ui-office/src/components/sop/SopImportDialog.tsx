@@ -121,7 +121,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
         size="sm"
         title={
           <span className="flex items-center gap-2">
-            <Download className="h-4 w-4 text-accent" />
+            <Download className="size-4 text-accent" />
             Import SOP from URL
           </span>
         }
@@ -140,9 +140,9 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
           ) : null
         }
       >
-        <div className="flex flex-col gap-3 pt-2">
+        <div className="flex flex-col gap-sp-4 pt-sp-2">
           <div className="flex items-center gap-2">
-            <Link className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+            <Link className="size-3.5 shrink-0 text-ink-4" />
             <Input
               type="url"
               value={url}
@@ -152,7 +152,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
                 setError(null);
               }}
               placeholder="https://raw.githubusercontent.com/..."
-              className="flex-1 rounded-lg border border-border-default bg-surface px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+              className="h-9 flex-1 rounded-r-sm border-line bg-surface-1 px-2.5 py-1.5 text-fs-sm text-ink-1 placeholder:text-ink-4 focus:border-accent"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -168,25 +168,25 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
               variant="outline"
               onClick={handlePreview}
               disabled={loading || !url.trim()}
-              className="w-full text-xs"
+              className="w-full rounded-r-sm text-fs-sm"
             >
               {loading ? 'Fetching...' : 'Preview'}
             </Button>
           )}
 
           {error && (
-            <p className="rounded border border-error bg-error-muted px-2 py-1 text-caption text-error">
+            <p className="rounded-r-sm border border-danger/40 bg-danger-surface px-2.5 py-2 text-fs-meta text-danger">
               {error}
             </p>
           )}
 
           {preview && (
-            <div className="flex flex-col gap-1.5 rounded-lg border border-border-default bg-surface-muted p-3">
-              <p className="text-sm font-medium text-text-primary">{preview.name}</p>
+            <div className="flex flex-col gap-sp-2 rounded-r-md border border-line bg-surface-2 p-sp-4">
+              <p className="text-fs-sm font-semibold text-ink-1">{preview.name}</p>
               {preview.description && (
-                <p className="text-caption text-text-secondary">{preview.description}</p>
+                <p className="text-fs-sm text-ink-3">{preview.description}</p>
               )}
-              <p className="text-caption text-text-muted">{preview.stepCount} steps</p>
+              <p className="text-fs-meta text-ink-4">{preview.stepCount} steps</p>
             </div>
           )}
         </div>

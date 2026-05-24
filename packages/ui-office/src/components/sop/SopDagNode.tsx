@@ -8,17 +8,17 @@ import type { SopStepStatus } from './sop-dag-layout';
 // ---------------------------------------------------------------------------
 
 const DEFAULT_ROLE_TONE = {
-  rail: 'bg-text-muted',
-  chip: 'bg-surface-muted',
-  text: 'text-text-secondary',
+  rail: 'bg-ink-4',
+  chip: 'bg-surface-sunken',
+  text: 'text-ink-3',
 };
 
 const ROLE_TONE: Record<string, { rail: string; chip: string; text: string }> = {
-  developer: { rail: 'bg-info', chip: 'bg-info-muted', text: 'text-info' },
-  designer: { rail: 'bg-accent', chip: 'bg-accent-muted', text: 'text-accent' },
-  pm: { rail: 'bg-warning', chip: 'bg-warning-muted', text: 'text-warning' },
+  developer: { rail: 'bg-accent', chip: 'bg-accent-surface', text: 'text-accent' },
+  designer: { rail: 'bg-violet', chip: 'bg-violet-surface', text: 'text-violet' },
+  pm: { rail: 'bg-warn', chip: 'bg-warn-surface', text: 'text-warn' },
   qa: { rail: 'bg-success', chip: 'bg-success-muted', text: 'text-success' },
-  devops: { rail: 'bg-error', chip: 'bg-error-muted', text: 'text-error' },
+  devops: { rail: 'bg-danger', chip: 'bg-danger-surface', text: 'text-danger' },
 };
 
 function getRoleTone(roleSlug: string) {
@@ -30,10 +30,10 @@ function getRoleTone(roleSlug: string) {
 // ---------------------------------------------------------------------------
 
 export const STATUS_DOT: Record<SopStepStatus, string> = {
-  pending: 'bg-text-muted',
-  active: 'animate-pulse bg-info',
+  pending: 'bg-ink-4',
+  active: 'animate-pulse bg-accent',
   completed: 'bg-success',
-  failed: 'bg-error',
+  failed: 'bg-danger',
 };
 
 export const STATUS_LABEL: Record<SopStepStatus, string> = {
@@ -69,45 +69,43 @@ export const SopDagNode = memo(function SopDagNode({
   const depsCount = step.dependencies.length;
 
   const borderClass = selected
-    ? 'border-border-focus shadow-overlay'
-    : 'border-border-default hover:border-border-strong hover:shadow-overlay';
+    ? 'border-accent-ring shadow-overlay'
+    : 'border-line-soft hover:border-line-strong hover:shadow-overlay';
 
   return (
     <Button
       type="button"
       variant="ghost"
       onClick={() => onStepClick(step.step_id)}
-      className={`relative h-sop-dag-node w-sop-dag-node items-stretch overflow-hidden rounded-lg border bg-surface-elevated p-0 text-left transition-all ${editMode ? 'cursor-move' : 'cursor-pointer'} ${borderClass}`}
+      className={`relative h-sop-dag-node w-sop-dag-node items-stretch overflow-hidden rounded-r-md border bg-surface-1 p-0 text-left transition-all ${editMode ? 'cursor-move' : 'cursor-pointer'} ${borderClass}`}
     >
       {/* Left color bar */}
       <div className={cn('w-1 shrink-0', roleTone.rail)} />
 
       {/* Content */}
-      <div className="flex-1 min-w-0 p-3 flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3">
         {/* Top row: status dot + label + deps chip + role badge */}
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
-          <span className="flex-1 truncate text-sm font-semibold text-text-primary">
-            {step.label}
-          </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`size-2 shrink-0 rounded-r-pill ${STATUS_DOT[status]}`} />
+          <span className="flex-1 truncate text-fs-sm font-semibold text-ink-1">{step.label}</span>
           {depsCount > 0 && (
-            <span className="shrink-0 rounded-full bg-surface-muted px-1.5 py-0.5 text-caption text-text-secondary">
+            <span className="shrink-0 rounded-r-pill bg-surface-sunken px-1.5 py-0.5 text-fs-meta text-ink-3">
               deps · {depsCount}
             </span>
           )}
           {status === 'failed' && (
-            <span className="shrink-0 rounded-full bg-error-muted px-1.5 py-0.5 text-caption font-semibold uppercase tracking-wide text-error">
+            <span className="shrink-0 rounded-r-pill bg-danger-surface px-1.5 py-0.5 text-fs-meta font-semibold uppercase tracking-wide text-danger">
               failed
             </span>
           )}
           {roleMissing && (
-            <span className="shrink-0 rounded-full border border-warning/40 bg-warning-muted px-1.5 py-0.5 text-caption text-warning">
+            <span className="shrink-0 rounded-r-pill border border-warn/40 bg-warn-surface px-1.5 py-0.5 text-fs-meta text-warn">
               ⚠ no {step.role_slug}
             </span>
           )}
           <span
             className={cn(
-              'shrink-0 rounded-full px-1.5 py-0.5 text-caption',
+              'shrink-0 rounded-r-pill px-1.5 py-0.5 text-fs-meta',
               roleTone.chip,
               roleTone.text,
             )}
@@ -117,12 +115,12 @@ export const SopDagNode = memo(function SopDagNode({
         </div>
 
         {/* Instruction excerpt — single line to make room for output_key subline */}
-        <p className="line-clamp-1 flex-1 text-xs leading-relaxed text-text-secondary">
+        <p className="line-clamp-1 flex-1 text-fs-sm leading-relaxed text-ink-3">
           {step.instruction}
         </p>
 
         {/* Output key */}
-        <p className="truncate font-mono text-caption text-text-muted">→ {step.output_key}</p>
+        <p className="truncate font-mono text-fs-meta text-ink-4">→ {step.output_key}</p>
       </div>
     </Button>
   );

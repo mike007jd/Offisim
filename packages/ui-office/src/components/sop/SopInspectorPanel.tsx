@@ -95,7 +95,7 @@ export function SopInspectorPanel({
     return (
       <aside
         className={cn(
-          'flex w-sop-inspector shrink-0 items-center justify-center border-l border-border-default bg-surface-elevated',
+          'flex w-sop-inspector shrink-0 items-center justify-center border-l border-line bg-surface-1',
           className,
         )}
       >
@@ -107,14 +107,14 @@ export function SopInspectorPanel({
   return (
     <aside
       className={cn(
-        'flex w-sop-inspector shrink-0 flex-col overflow-y-auto border-l border-border-default bg-surface-elevated',
+        'flex w-sop-inspector shrink-0 flex-col overflow-y-auto border-l border-line bg-surface-1',
         className,
       )}
     >
       <div className="border-b border-line-soft px-sp-5 pb-sp-4 pt-sp-5">
         <div className="text-fs-md font-bold leading-snug text-ink-1">{step.label}</div>
         <div className="mt-1.5 flex items-center gap-2 text-fs-sm text-ink-3">
-          <span className={`size-2 rounded-full ${STATUS_DOT[status]}`} />
+          <span className={`size-2 rounded-r-pill ${STATUS_DOT[status]}`} />
           <span>{STATUS_LABEL[status]}</span>
           <span aria-hidden>·</span>
           <span>{step.role_slug}</span>

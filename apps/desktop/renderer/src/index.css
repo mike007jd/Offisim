@@ -187,6 +187,18 @@
     width: 20rem;
   }
 
+  .w-sop-step-index {
+    width: 3rem;
+  }
+
+  .w-sop-role-select {
+    width: 8rem;
+  }
+
+  .min-h-sop-step-instruction {
+    min-height: 3.5rem;
+  }
+
   .max-w-skill-binding-description {
     max-width: 16.25rem;
   }

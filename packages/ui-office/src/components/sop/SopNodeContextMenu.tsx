@@ -64,7 +64,7 @@ export function SopNodeContextMenu({
   const items: MenuItem[] = [
     {
       label: 'Edit',
-      icon: <Pencil className="w-3.5 h-3.5" />,
+      icon: <Pencil className="size-3.5" />,
       action: () => {
         onEdit(stepId);
         onClose();
@@ -72,7 +72,7 @@ export function SopNodeContextMenu({
     },
     {
       label: 'Duplicate',
-      icon: <Copy className="w-3.5 h-3.5" />,
+      icon: <Copy className="size-3.5" />,
       action: () => {
         onDuplicate(stepId);
         onClose();
@@ -80,7 +80,7 @@ export function SopNodeContextMenu({
     },
     {
       label: 'Delete',
-      icon: <Trash2 className="w-3.5 h-3.5" />,
+      icon: <Trash2 className="size-3.5" />,
       danger: true,
       action: () => {
         onDelete(stepId);
@@ -101,7 +101,7 @@ export function SopNodeContextMenu({
       ref={menuRef}
       // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
       style={style}
-      className="w-sop-context-menu rounded-lg border border-border-default bg-surface-elevated py-1 shadow-xl backdrop-blur-sm"
+      className="w-sop-context-menu rounded-r-md border border-line bg-surface-1 py-1 shadow-elev-2 backdrop-blur-sm"
       onPointerDown={(e) => e.stopPropagation()}
     >
       {items.map((item) => (
@@ -113,8 +113,8 @@ export function SopNodeContextMenu({
           onClick={item.action}
           className={`h-auto w-full justify-start gap-2 rounded-none px-3 py-1.5 text-sm ${
             item.danger
-              ? 'text-error hover:bg-error-muted'
-              : 'text-text-secondary hover:bg-surface-hover'
+              ? 'text-danger hover:bg-danger-surface'
+              : 'text-ink-2 hover:bg-surface-sunken'
           }`}
         >
           {item.icon}

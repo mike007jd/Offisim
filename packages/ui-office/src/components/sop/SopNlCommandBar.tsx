@@ -46,7 +46,7 @@ export function SopNlCommandBar({
   }, [value, disabled, onSubmit]);
 
   return (
-    <div className="flex h-16 shrink-0 items-center gap-2 border-t border-border-default bg-surface-elevated px-4">
+    <div className="flex h-16 shrink-0 items-center gap-2 border-t border-line bg-surface-2 px-sp-5">
       <Input
         type="text"
         value={value}
@@ -54,14 +54,14 @@ export function SopNlCommandBar({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
-        className="h-10 flex-1 border-border-default bg-surface text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+        className="h-10 flex-1 rounded-r-md border-line bg-surface-1 text-fs-sm text-ink-1 placeholder:text-ink-4 focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
       />
       <Button
         type="button"
         onClick={handleSend}
         disabled={disabled || !value.trim()}
         size="icon"
-        className="size-10 text-text-inverse disabled:cursor-not-allowed disabled:bg-surface-disabled disabled:text-text-disabled"
+        className="size-10 rounded-r-md text-accent-fg disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-4"
       >
         <Send className="size-4" />
       </Button>

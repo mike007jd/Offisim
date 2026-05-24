@@ -98,9 +98,9 @@ export function SopRunProgressStrip({ definition, sopTemplateId }: SopRunProgres
   return (
     <output
       aria-live="polite"
-      className={`flex h-8 items-center gap-2 border-b px-3 text-caption font-medium tracking-wide ${accentClass}`}
+      className={`flex h-8 items-center gap-2 border-b px-3 text-fs-sm font-medium ${accentClass}`}
     >
-      <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+      <span className={`size-2 shrink-0 rounded-r-pill ${dotClass}`} />
       <span className="truncate">{body}</span>
     </output>
   );

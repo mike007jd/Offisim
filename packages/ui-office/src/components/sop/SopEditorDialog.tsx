@@ -204,29 +204,29 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
           </>
         }
       >
-        <div className="flex flex-col gap-3 py-2">
+        <div className="flex flex-col gap-sp-4 py-sp-2">
           {/* Name & Description */}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-sp-2">
             <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="SOP name..."
-              className="h-8 text-sm"
+              className="h-9 rounded-r-sm border-line bg-surface-1 text-fs-sm text-ink-1 placeholder:text-ink-4"
             />
             <Input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optional)"
-              className="h-8 text-caption text-text-secondary"
+              className="h-9 rounded-r-sm border-line bg-surface-1 text-fs-sm text-ink-2 placeholder:text-ink-4"
             />
           </div>
 
           {/* Steps */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-sp-3">
             <div className="flex items-center justify-between">
-              <span className="text-caption font-semibold uppercase tracking-wider text-text-muted">
+              <span className="text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
                 Steps ({steps.length})
               </span>
               <Button
@@ -234,7 +234,7 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                 variant="ghost"
                 size="sm"
                 onClick={addStep}
-                className="h-7 gap-0.5 px-2 text-caption text-accent-text hover:text-accent"
+                className="h-7 gap-1 rounded-r-sm px-2 text-fs-sm text-accent hover:bg-accent-surface"
               >
                 <Plus className="size-3" aria-hidden="true" /> Add Step
               </Button>
@@ -243,10 +243,10 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
             {steps.map((step, i) => (
               <div
                 key={step.step_id}
-                className="flex flex-col gap-1.5 rounded-lg border border-border-default bg-surface-muted p-2"
+                className="flex flex-col gap-sp-2 rounded-r-md border border-line bg-surface-2 p-sp-3"
               >
-                <div className="flex items-center gap-1.5">
-                  <span className="w-12 shrink-0 font-mono text-caption text-text-muted">
+                <div className="flex items-center gap-sp-2">
+                  <span className="w-sop-step-index shrink-0 font-mono text-fs-meta text-ink-4">
                     #{i + 1}
                   </span>
                   <Input
@@ -254,13 +254,13 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                     value={step.label}
                     onChange={(e) => updateStep(i, { label: e.target.value })}
                     placeholder="Step label"
-                    className="h-7 flex-1 px-1.5 py-0.5 text-caption"
+                    className="h-8 flex-1 rounded-r-xs border-line bg-surface-1 px-2 py-1 text-fs-sm text-ink-1 placeholder:text-ink-4"
                   />
                   <Select
                     value={step.role_slug}
                     onValueChange={(value) => updateStep(i, { role_slug: value as RoleSlug })}
                   >
-                    <SelectTrigger className="h-7 w-32 px-2 py-0.5 text-caption text-text-secondary">
+                    <SelectTrigger className="h-8 w-sop-role-select rounded-r-xs border-line bg-surface-1 px-2 py-1 text-fs-sm text-ink-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -277,7 +277,7 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                       variant="ghost"
                       size="icon"
                       onClick={() => removeStep(i)}
-                      className="size-7 text-text-muted hover:text-error"
+                      className="size-8 rounded-r-xs text-ink-4 hover:bg-danger-surface hover:text-danger"
                       aria-label={`Remove step ${i + 1}`}
                     >
                       <Trash2 className="size-3" aria-hidden="true" />
@@ -289,11 +289,11 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                   onChange={(e) => updateStep(i, { instruction: e.target.value })}
                   placeholder="Instruction for this step..."
                   rows={2}
-                  className="min-h-14 resize-none px-1.5 py-1 text-caption text-text-secondary"
+                  className="min-h-sop-step-instruction resize-none rounded-r-xs border-line bg-surface-1 px-2 py-1.5 text-fs-sm text-ink-2 placeholder:text-ink-4"
                 />
                 {i > 0 && (
                   <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-caption text-text-muted">After:</span>
+                    <span className="text-fs-meta text-ink-4">After:</span>
                     {steps.slice(0, i).map((prev) => {
                       const selected = step.dependencies.includes(prev.step_id);
                       return (
@@ -310,10 +310,10 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
                             });
                           }}
                           className={cn(
-                            'h-6 rounded px-1.5 py-0.5 text-caption',
+                            'h-6 rounded-r-xs px-1.5 py-0.5 text-fs-meta',
                             selected
-                              ? 'border-border-focus bg-accent-muted text-accent-text'
-                              : 'bg-surface-muted text-text-muted hover:border-border-strong',
+                              ? 'border-accent-ring bg-accent-surface text-accent'
+                              : 'border-line-soft bg-surface-1 text-ink-4 hover:border-line hover:text-ink-2',
                           )}
                         >
                           #{steps.indexOf(prev) + 1}
@@ -328,9 +328,9 @@ export function SopEditorDialog({ open, onOpenChange, onCreated }: SopEditorDial
 
           {/* Validation errors */}
           {errors.length > 0 && (
-            <div className="flex flex-col gap-0.5 rounded border border-error bg-error-muted p-2">
+            <div className="flex flex-col gap-1 rounded-r-sm border border-danger/40 bg-danger-surface p-sp-3">
               {errors.map((err) => (
-                <p key={err} className="text-caption text-error">
+                <p key={err} className="text-fs-meta text-danger">
                   {err}
                 </p>
               ))}
