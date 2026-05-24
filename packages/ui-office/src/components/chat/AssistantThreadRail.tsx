@@ -30,7 +30,7 @@ function ThreadListItemChrome() {
     <>
       {isRenaming ? (
         <form
-          className="flex h-sp-7 max-w-36 min-w-28 items-center px-sp-1"
+          className="assistant-thread-rename-form"
           onSubmit={(event) => {
             event.preventDefault();
             commitRename();
@@ -39,7 +39,7 @@ function ThreadListItemChrome() {
           <Input
             autoFocus
             aria-label="Rename thread"
-            className="h-sp-6 min-w-0 rounded-r-sm border border-accent bg-surface-1 px-sp-1.5 text-fs-meta font-semibold text-accent outline-none"
+            className="assistant-thread-rename-input"
             value={draftTitle}
             onChange={(event) => setDraftTitle(event.currentTarget.value)}
             onBlur={commitRename}
@@ -54,15 +54,10 @@ function ThreadListItemChrome() {
       ) : (
         <ThreadListItemPrimitive.Trigger
           render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-sp-7 max-w-36 justify-start gap-sp-1 rounded-r-sm px-sp-2 text-fs-meta text-ink-4 hover:bg-surface-sunken hover:text-ink-1 group-data-[active=true]:font-semibold group-data-[active=true]:text-accent"
-            />
+            <Button type="button" variant="ghost" size="sm" className="assistant-thread-trigger" />
           }
         >
-          <MessageSquare className="size-3.5 shrink-0" aria-hidden="true" />
+          <MessageSquare data-icon="inline-start" aria-hidden="true" />
           <span className="truncate">
             <ThreadListItemPrimitive.Title fallback="Untitled" />
           </span>
@@ -77,41 +72,36 @@ function ThreadListItemChrome() {
               size="iconSm"
               aria-label="Thread actions"
               title="Thread actions"
-              className="h-sp-7 w-sp-7 rounded-r-sm text-ink-4 opacity-0 hover:bg-surface-sunken hover:text-ink-1 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+              className="assistant-thread-more-trigger"
             />
           }
         >
-          <MoreHorizontal className="size-3.5" aria-hidden="true" />
+          <MoreHorizontal data-icon="inline-start" aria-hidden="true" />
         </ThreadListItemMorePrimitive.Trigger>
-        <ThreadListItemMorePrimitive.Content
-          align="end"
-          className="z-popover min-w-32 overflow-hidden rounded-r-md border border-line-soft bg-surface-1 p-sp-1 shadow-elev-2"
-        >
+        <ThreadListItemMorePrimitive.Content align="end" className="assistant-thread-menu">
           <ThreadListItemMorePrimitive.Item
-            className="flex h-sp-8 items-center gap-sp-2 rounded-r-sm px-sp-2 text-fs-sm text-ink-2 outline-none hover:bg-surface-sunken focus:bg-surface-sunken"
+            className="assistant-thread-menu-item"
             onSelect={() => {
               setDraftTitle(title);
               setIsRenaming(true);
             }}
           >
-            <Pencil className="size-3.5" aria-hidden="true" />
+            <Pencil data-icon="inline-start" aria-hidden="true" />
             Rename
           </ThreadListItemMorePrimitive.Item>
-          <ThreadListItemMorePrimitive.Separator className="my-sp-1 h-px bg-line-soft" />
+          <ThreadListItemMorePrimitive.Separator className="assistant-thread-menu-separator" />
           <ThreadListItemPrimitive.Archive
-            render={
-              <ThreadListItemMorePrimitive.Item className="flex h-sp-8 items-center gap-sp-2 rounded-r-sm px-sp-2 text-fs-sm text-ink-2 outline-none hover:bg-surface-sunken focus:bg-surface-sunken" />
-            }
+            render={<ThreadListItemMorePrimitive.Item className="assistant-thread-menu-item" />}
           >
-            <Archive className="size-3.5" aria-hidden="true" />
+            <Archive data-icon="inline-start" aria-hidden="true" />
             Archive
           </ThreadListItemPrimitive.Archive>
           <ThreadListItemPrimitive.Delete
             render={
-              <ThreadListItemMorePrimitive.Item className="flex h-sp-8 items-center gap-sp-2 rounded-r-sm px-sp-2 text-fs-sm text-danger outline-none hover:bg-danger-surface focus:bg-danger-surface" />
+              <ThreadListItemMorePrimitive.Item className="assistant-thread-menu-item assistant-thread-menu-item-danger" />
             }
           >
-            <Trash2 className="size-3.5" aria-hidden="true" />
+            <Trash2 data-icon="inline-start" aria-hidden="true" />
             Delete
           </ThreadListItemPrimitive.Delete>
         </ThreadListItemMorePrimitive.Content>
@@ -122,24 +112,19 @@ function ThreadListItemChrome() {
 
 export function AssistantThreadRail() {
   return (
-    <ThreadListPrimitive.Root className="border-b border-line-soft bg-surface-1 px-sp-2 py-sp-2">
-      <div className="flex min-w-0 items-center gap-sp-1 overflow-x-auto">
+    <ThreadListPrimitive.Root className="assistant-thread-rail-root">
+      <div className="assistant-thread-rail-strip custom-scrollbar">
         <ThreadListPrimitive.New
           render={
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="h-sp-7 shrink-0 gap-sp-1 rounded-r-sm border-line-soft bg-surface-2 px-sp-2 text-fs-meta font-semibold text-ink-3 hover:border-line hover:bg-surface-sunken hover:text-ink-1 data-[active=true]:border-accent data-[active=true]:bg-accent-surface data-[active=true]:text-accent"
-            />
+            <Button type="button" variant="secondary" size="sm" className="assistant-thread-new" />
           }
         >
-          <Plus className="size-3.5" aria-hidden="true" />
+          <Plus data-icon="inline-start" aria-hidden="true" />
           New
         </ThreadListPrimitive.New>
         <ThreadListPrimitive.Items>
           {() => (
-            <ThreadListItemPrimitive.Root className="group inline-flex min-w-0 shrink-0 items-center rounded-r-sm border border-transparent data-[active=true]:border-accent data-[active=true]:bg-accent-surface">
+            <ThreadListItemPrimitive.Root className="assistant-thread-list-item group">
               <ThreadListItemChrome />
             </ThreadListItemPrimitive.Root>
           )}
@@ -150,7 +135,7 @@ export function AssistantThreadRail() {
               type="button"
               variant="secondary"
               size="sm"
-              className="h-sp-7 shrink-0 rounded-r-sm border-line-soft bg-surface-2 px-sp-2 text-fs-meta font-semibold text-ink-3 hover:border-line hover:bg-surface-sunken hover:text-ink-1 disabled:hidden"
+              className="assistant-thread-load-more"
             />
           }
         >

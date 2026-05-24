@@ -197,17 +197,17 @@ function ChatContextStrip({
 }) {
   if (!project && attachmentCount === 0) return null;
   return (
-    <div className="border-t border-line px-3 py-1.5">
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-fs-meta text-ink-4">
+    <div className="chat-context-strip">
+      <div className="chat-context-strip-row">
         {project ? (
-          <span className="inline-flex max-w-full items-center gap-1 rounded-r-pill border border-line-soft bg-surface-2 px-2 py-1">
-            <BriefcaseBusiness className="h-3 w-3 shrink-0 text-ink-3" />
+          <span className="chat-context-chip">
+            <BriefcaseBusiness data-icon="inline-start" aria-hidden="true" />
             <span className="min-w-0 truncate text-ink-3">{project.name}</span>
           </span>
         ) : null}
         {attachmentCount > 0 ? (
-          <span className="inline-flex items-center gap-1 rounded-r-pill border border-line-soft bg-surface-2 px-2 py-1 text-ink-3">
-            <Paperclip className="h-3 w-3" />
+          <span className="chat-context-chip">
+            <Paperclip data-icon="inline-start" aria-hidden="true" />
             <span>{attachmentCount} attached</span>
           </span>
         ) : null}
@@ -785,20 +785,18 @@ export function ChatPanel({
 
         {/* Direct chat header — single compact line */}
         {isDirectChat && (
-          <div className="flex h-8 items-center gap-2 border-b border-line px-3">
+          <div className="chat-direct-header">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={onClearSelection}
-              className="h-auto gap-1 px-0 py-0 text-ink-4 hover:text-ink-1"
+              className="chat-direct-back"
             >
-              <ArrowLeft className="size-3" />
+              <ArrowLeft data-icon="inline-start" aria-hidden="true" />
               <span className="text-fs-meta">Team</span>
             </Button>
-            <span className="text-fs-meta font-medium text-ink-1">
-              {selectedEmployeeName ?? selectedEmployeeId}
-            </span>
+            <span className="chat-direct-title">{selectedEmployeeName ?? selectedEmployeeId}</span>
           </div>
         )}
 

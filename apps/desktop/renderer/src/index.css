@@ -757,6 +757,250 @@
     width: var(--sp-5);
   }
 
+  .chat-context-strip {
+    border-top: var(--border-width-thin) solid var(--line);
+    padding: calc(var(--sp-1) + var(--sp-1) / 2) var(--sp-3);
+  }
+
+  .chat-context-strip-row {
+    align-items: center;
+    color: var(--ink-4);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: var(--text-fs-meta);
+    gap: calc(var(--sp-1) + var(--sp-1) / 2);
+    min-width: 0;
+  }
+
+  .chat-context-chip {
+    align-items: center;
+    background: var(--surface-2);
+    border: var(--border-width-thin) solid var(--line-soft);
+    border-radius: var(--radius-pill);
+    color: var(--ink-3);
+    display: inline-flex;
+    gap: var(--sp-1);
+    max-width: 100%;
+    padding: var(--sp-1) var(--sp-2);
+  }
+
+  .chat-context-chip [data-icon] {
+    flex-shrink: 0;
+    height: var(--sp-3);
+    width: var(--sp-3);
+  }
+
+  .chat-direct-header {
+    align-items: center;
+    border-bottom: var(--border-width-thin) solid var(--line);
+    display: flex;
+    gap: var(--sp-2);
+    height: var(--sp-8);
+    padding-inline: var(--sp-3);
+  }
+
+  .chat-direct-back {
+    color: var(--ink-4);
+    gap: var(--sp-1);
+    height: auto;
+    padding: 0;
+  }
+
+  .chat-direct-back:hover {
+    color: var(--ink-1);
+  }
+
+  .chat-direct-back [data-icon] {
+    height: var(--sp-3);
+    width: var(--sp-3);
+  }
+
+  .chat-direct-title {
+    color: var(--ink-1);
+    font-size: var(--text-fs-meta);
+    font-weight: var(--text-body--font-weight);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .assistant-thread-rail-root {
+    background: var(--surface-1);
+    border-bottom: var(--border-width-thin) solid var(--line-soft);
+    padding: var(--sp-2);
+  }
+
+  .assistant-thread-rail-strip {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-1);
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .assistant-thread-new,
+  .assistant-thread-load-more,
+  .assistant-thread-trigger {
+    border-radius: var(--r-sm);
+    font-size: var(--text-fs-meta);
+    font-weight: var(--text-body--font-weight);
+    height: var(--sp-7);
+  }
+
+  .assistant-thread-new,
+  .assistant-thread-load-more {
+    background: var(--surface-2);
+    border-color: var(--line-soft);
+    color: var(--ink-3);
+    flex-shrink: 0;
+    gap: var(--sp-1);
+    padding-inline: var(--sp-2);
+  }
+
+  .assistant-thread-new:hover,
+  .assistant-thread-load-more:hover {
+    background: var(--surface-sunken);
+    border-color: var(--line);
+    color: var(--ink-1);
+  }
+
+  .assistant-thread-new[data-active="true"] {
+    background: var(--accent-surface);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .assistant-thread-load-more:disabled {
+    display: none;
+  }
+
+  .assistant-thread-list-item {
+    align-items: center;
+    border: var(--border-width-thin) solid transparent;
+    border-radius: var(--r-sm);
+    display: inline-flex;
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  .assistant-thread-list-item[data-active="true"] {
+    background: var(--accent-surface);
+    border-color: var(--accent);
+  }
+
+  .assistant-thread-trigger {
+    color: var(--ink-4);
+    gap: var(--sp-1);
+    justify-content: flex-start;
+    max-width: calc(var(--spacing-8) * 4 + var(--spacing-2));
+    padding-inline: var(--sp-2);
+  }
+
+  .assistant-thread-trigger:hover {
+    background: var(--surface-sunken);
+    color: var(--ink-1);
+  }
+
+  .assistant-thread-list-item[data-active="true"] .assistant-thread-trigger {
+    color: var(--accent);
+    font-weight: var(--text-h2--font-weight);
+  }
+
+  .assistant-thread-trigger [data-icon],
+  .assistant-thread-new [data-icon],
+  .assistant-thread-load-more [data-icon],
+  .assistant-thread-more-trigger [data-icon],
+  .assistant-thread-menu-item [data-icon] {
+    flex-shrink: 0;
+    height: calc(var(--sp-3) + var(--sp-1) / 2);
+    width: calc(var(--sp-3) + var(--sp-1) / 2);
+  }
+
+  .assistant-thread-more-trigger {
+    border-radius: var(--r-sm);
+    color: var(--ink-4);
+    height: var(--sp-7);
+    opacity: 0;
+    width: var(--sp-7);
+  }
+
+  .assistant-thread-more-trigger:hover {
+    background: var(--surface-sunken);
+    color: var(--ink-1);
+  }
+
+  .assistant-thread-list-item:hover .assistant-thread-more-trigger,
+  .assistant-thread-more-trigger:focus-visible,
+  .assistant-thread-more-trigger[data-state="open"] {
+    opacity: 1;
+  }
+
+  .assistant-thread-rename-form {
+    align-items: center;
+    display: flex;
+    height: var(--sp-7);
+    max-width: calc(var(--spacing-8) * 4 + var(--spacing-2));
+    min-width: calc(var(--spacing-8) * 3 + var(--spacing-4));
+    padding-inline: var(--sp-1);
+  }
+
+  .assistant-thread-rename-input {
+    background: var(--surface-1);
+    border: var(--border-width-thin) solid var(--accent);
+    border-radius: var(--r-sm);
+    color: var(--accent);
+    font-size: var(--text-fs-meta);
+    font-weight: var(--text-body--font-weight);
+    height: var(--sp-6);
+    min-width: 0;
+    outline: none;
+    padding-inline: calc(var(--sp-1) + var(--sp-1) / 2);
+  }
+
+  .assistant-thread-menu {
+    background: var(--surface-1);
+    border: var(--border-width-thin) solid var(--line-soft);
+    border-radius: var(--r-md);
+    box-shadow: var(--elev-2);
+    min-width: calc(var(--spacing-8) * 4);
+    overflow: hidden;
+    padding: var(--sp-1);
+    z-index: var(--z-dropdown);
+  }
+
+  .assistant-thread-menu-item {
+    align-items: center;
+    border-radius: var(--r-sm);
+    color: var(--ink-2);
+    display: flex;
+    font-size: var(--text-fs-sm);
+    gap: var(--sp-2);
+    height: var(--sp-8);
+    outline: none;
+    padding-inline: var(--sp-2);
+  }
+
+  .assistant-thread-menu-item:hover,
+  .assistant-thread-menu-item:focus {
+    background: var(--surface-sunken);
+  }
+
+  .assistant-thread-menu-item-danger {
+    color: var(--danger);
+  }
+
+  .assistant-thread-menu-item-danger:hover,
+  .assistant-thread-menu-item-danger:focus {
+    background: var(--danger-surface);
+  }
+
+  .assistant-thread-menu-separator {
+    background: var(--line-soft);
+    height: var(--border-width-thin);
+    margin-block: var(--sp-1);
+  }
+
   .offisim-thread-root {
     --offisim-thread-message-max-width: 65ch;
     display: flex;
