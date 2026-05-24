@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
-  cn,
 } from '@offisim/ui-core';
 import { Check, ChevronLeft, ChevronRight, ClipboardList, Pencil, X } from 'lucide-react';
 import {
@@ -28,14 +27,7 @@ import {
 import { useDashboardMetrics } from '../../hooks/useDashboardMetrics';
 import { useTaskDashboard } from '../../hooks/useTaskDashboard';
 import { toErrorMessage } from '../../lib/error-message.js';
-import {
-  KANBAN_STATES,
-  kanbanOriginBadgeClass,
-  kanbanOriginLabel,
-  kanbanStateBorderClass,
-  kanbanStateDotClass,
-  kanbanStateLabel,
-} from '../../lib/status-display';
+import { KANBAN_STATES, kanbanOriginLabel, kanbanStateLabel } from '../../lib/status-display';
 import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import type { AgentState } from '../../runtime/use-agent-states';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
@@ -156,9 +148,9 @@ function PlanKanbanBoard({
 
   if (!dashboard.planId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-        <ClipboardList className="h-8 w-8 text-ink-4" />
-        <p className="text-fs-sm text-ink-3">No active plan</p>
+      <div className="kanban-empty-plan">
+        <ClipboardList data-icon="empty-plan" aria-hidden="true" />
+        <p>No active plan</p>
       </div>
     );
   }
@@ -170,77 +162,71 @@ function PlanKanbanBoard({
   const progressStyle = { width: `${pct}%` };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="kanban-plan-board">
       {/* ── Top bar: plan progress summary ── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-line-soft shrink-0">
-        <h3 className="text-fs-meta font-black uppercase tracking-wider text-ink-3">Board</h3>
+      <div className="kanban-plan-topbar">
+        <h3>Board</h3>
 
         {/* Progress bar */}
-        <div className="h-1.5 max-w-48 flex-1 overflow-hidden rounded-r-pill bg-surface-2">
+        <div className="kanban-progress-track">
           <div
-            className={cn(
-              'h-full rounded-r-pill transition-all duration-500',
-              dashboard.isComplete ? 'bg-ok' : 'bg-accent',
-            )}
+            className="kanban-progress-bar"
+            data-complete={dashboard.isComplete || undefined}
             // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
             style={progressStyle}
           />
         </div>
 
-        <span className="font-mono text-fs-meta text-ink-4 tabular-nums">
+        <span className="kanban-progress-count">
           {dashboard.stats.completed}/{dashboard.stats.total} tasks
         </span>
 
         {dashboard.stats.active > 0 && (
-          <span className="flex items-center gap-1 text-fs-meta text-accent">
-            <span className="h-1.5 w-1.5 rounded-r-pill bg-accent animate-pulse" />
+          <span className="kanban-active-count">
+            <span />
             {dashboard.stats.active} active
           </span>
         )}
 
         {dashboard.stats.failed > 0 && (
-          <span className="text-fs-meta text-danger">{dashboard.stats.failed} failed</span>
+          <span className="kanban-failed-count">{dashboard.stats.failed} failed</span>
         )}
 
-        <div className="ml-auto flex gap-1">
+        <div className="kanban-scroll-actions">
           <Button
             type="button"
             aria-label="Scroll left"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-ink-4 hover:text-ink-1"
+            className="kanban-scroll-button"
             onClick={() => scrollBy(-280)}
           >
-            <ChevronLeft className="h-3.5 w-3.5" />
+            <ChevronLeft data-icon="scroll-left" aria-hidden="true" />
           </Button>
           <Button
             type="button"
             aria-label="Scroll right"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-ink-4 hover:text-ink-1"
+            className="kanban-scroll-button"
             onClick={() => scrollBy(280)}
           >
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight data-icon="scroll-right" aria-hidden="true" />
           </Button>
         </div>
       </div>
 
       {/* ── Horizontal scrolling board ── */}
-      <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
-        <div className="flex gap-3 p-3 h-full min-w-max">
+      <div ref={scrollRef} className="kanban-plan-scroll custom-scrollbar">
+        <div className="kanban-plan-columns">
           {/* ═══ Requirements column ═══ */}
           <KanbanColumn title="Requirements" stepIndex={null} status="requirements" tasks={[]}>
-            <div className="flex flex-col gap-1.5 rounded-r-md border border-line-soft bg-surface-1 px-2.5 py-2">
-              {requestText && (
-                <p className="whitespace-pre-wrap text-fs-meta leading-relaxed text-ink-1">
-                  {requestText}
-                </p>
-              )}
+            <div className="kanban-requirements-card">
+              {requestText && <p data-primary>{requestText}</p>}
               {dashboard.summary ? (
-                <p className="text-fs-meta leading-relaxed text-ink-3">{dashboard.summary}</p>
+                <p>{dashboard.summary}</p>
               ) : requestText ? (
-                <p className="text-fs-meta italic text-ink-4">Waiting for plan…</p>
+                <p data-muted>Waiting for plan…</p>
               ) : null}
             </div>
           </KanbanColumn>
@@ -368,38 +354,27 @@ function LiveKanbanBoard({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden px-4 pb-7 pt-3">
+    <div className="kanban-live-board">
       {errorMessage && (
-        <div
-          role="alert"
-          className="mb-2 rounded-r-md border border-danger/30 bg-danger-surface px-3 py-2 text-fs-meta font-medium text-danger"
-        >
+        <div role="alert" className="kanban-live-error">
           {errorMessage}
         </div>
       )}
 
-      <div className="custom-scrollbar flex min-h-0 flex-1 gap-3 overflow-x-auto">
+      <div className="kanban-live-scroll custom-scrollbar">
         {KANBAN_STATES.map((state) => (
           <section
             key={state}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => handleDrop(event, state)}
-            className="flex min-h-0 min-w-24 flex-1 flex-col overflow-hidden rounded-r-md border border-line-soft bg-bg/68 shadow-sm"
+            className="kanban-live-column"
+            data-state={state}
           >
-            <header
-              className={cn(
-                'flex items-center justify-between border-b border-t-2 border-line-soft px-3 py-3',
-                kanbanStateBorderClass(state),
-              )}
-            >
-              <span className="truncate text-body-sm font-bold text-ink-1">
-                {kanbanStateLabel(state)}
-              </span>
-              <span className="rounded-r-pill bg-surface-2 px-1.5 font-mono text-fs-meta text-ink-4">
-                {grouped[state].length}
-              </span>
+            <header>
+              <span>{kanbanStateLabel(state)}</span>
+              <span>{grouped[state].length}</span>
             </header>
-            <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+            <div className="kanban-live-column-body custom-scrollbar">
               {grouped[state].map((card) => (
                 <LiveKanbanCard
                   key={card.id}
@@ -411,28 +386,24 @@ function LiveKanbanBoard({
                   onDragEnd={() => setDraggedCardId(null)}
                 />
               ))}
-              {grouped[state].length === 0 && (
-                <div className="flex min-h-24 items-center justify-center rounded-r-md border border-dashed border-line-soft bg-bg/35 text-fs-meta text-ink-4">
-                  Drop here
-                </div>
-              )}
+              {grouped[state].length === 0 && <div className="kanban-drop-empty">Drop here</div>}
               {creatingState === state ? (
                 <form
-                  className="mt-auto flex flex-col gap-2 rounded-r-md border border-line-soft bg-surface-1 p-2.5"
+                  className="kanban-create-form"
                   onSubmit={(event) => handleCreate(event, state)}
                 >
                   <Input
                     name="title"
                     autoFocus
                     placeholder="Card title"
-                    className="h-8 border-line-soft bg-bg px-2 text-fs-meta"
+                    className="kanban-create-input"
                     disabled={!onCreate || busyId === `new:${state}`}
                   />
                   <Select
                     name="assignedEmployeeId"
                     disabled={!onCreate || busyId === `new:${state}`}
                   >
-                    <SelectTrigger className="h-8 border-line-soft bg-bg px-2 text-fs-meta text-ink-3">
+                    <SelectTrigger className="kanban-create-input">
                       <SelectValue placeholder="No assignee" />
                     </SelectTrigger>
                     <SelectContent>
@@ -448,22 +419,23 @@ function LiveKanbanBoard({
                     <Input
                       name="blockedReason"
                       placeholder="Blocked reason"
-                      className="h-8 border-danger/25 bg-danger-surface/20 px-2 text-fs-meta text-ink-3"
+                      className="kanban-create-input"
+                      data-danger
                       disabled={!onCreate || busyId === `new:${state}`}
                     />
                   ) : (
                     <Input
                       name="note"
                       placeholder="Note"
-                      className="h-8 border-line-soft bg-bg px-2 text-fs-meta text-ink-3"
+                      className="kanban-create-input"
                       disabled={!onCreate || busyId === `new:${state}`}
                     />
                   )}
-                  <div className="flex gap-1">
+                  <div className="kanban-create-actions">
                     <Button
                       type="submit"
                       size="sm"
-                      className="h-7 flex-1 px-2 text-fs-meta"
+                      className="kanban-create-submit"
                       disabled={!onCreate || busyId === `new:${state}`}
                     >
                       Add
@@ -472,7 +444,7 @@ function LiveKanbanBoard({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 px-2 text-fs-meta"
+                      className="kanban-create-cancel"
                       disabled={busyId === `new:${state}`}
                       onClick={() => setCreatingState(null)}
                     >
@@ -484,7 +456,7 @@ function LiveKanbanBoard({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="mt-auto h-9 w-full text-body-sm text-ink-3 hover:border-line-soft hover:text-accent"
+                  className="kanban-add-card-button"
                   disabled={!onCreate}
                   onClick={() => setCreatingState(state)}
                 >
@@ -544,7 +516,7 @@ function LiveKanbanCard({
 
   return (
     <article
-      className="group relative rounded-r-md border border-line-soft bg-surface-1 p-3 shadow-sm transition hover:border-accent"
+      className="kanban-live-card"
       draggable={!editing}
       onDragStart={(event) => {
         event.dataTransfer.setData('text/plain', card.id);
@@ -552,17 +524,15 @@ function LiveKanbanCard({
       }}
       onDragEnd={onDragEnd}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="kanban-card-head">
         {editing ? (
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="min-w-0 flex-1 border-line-soft bg-bg px-2 py-1 text-fs-meta font-semibold"
+            className="kanban-card-title-input"
           />
         ) : (
-          <h3 className="min-w-0 flex-1 pr-5 text-body-sm font-semibold leading-snug text-ink-1">
-            {card.title}
-          </h3>
+          <h3>{card.title}</h3>
         )}
         {!editing ? (
           <Button
@@ -570,39 +540,37 @@ function LiveKanbanCard({
             aria-label="Edit card"
             variant="outline"
             size="icon"
-            className="absolute right-2 top-2 h-6 w-6 bg-bg/85 text-ink-4 opacity-0 shadow-sm hover:text-accent focus-visible:opacity-100 group-hover:opacity-100"
+            className="kanban-card-edit-button"
             disabled={busy}
             onClick={() => setEditing(true)}
           >
-            <Pencil className="h-3 w-3" />
+            <Pencil data-icon="edit-card" aria-hidden="true" />
           </Button>
         ) : (
           <Badge
             variant="outline"
             size="xs"
-            className={cn(
-              'hidden shrink-0 px-1.5 font-bold uppercase lg:inline-flex',
-              kanbanOriginBadgeClass(card.origin),
-            )}
+            className="kanban-origin-badge"
+            data-origin={card.origin}
           >
             {kanbanOriginLabel(card.origin)}
           </Badge>
         )}
       </div>
       {editing ? (
-        <div className="mt-2 flex flex-col gap-1.5">
+        <div className="kanban-card-edit-stack">
           <Textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
             rows={2}
             placeholder="Note"
-            className="resize-none border-line-soft bg-bg px-2 py-1 text-fs-meta leading-relaxed text-ink-3"
+            className="kanban-card-note-input"
           />
           <Select
             value={assignee || '__none'}
             onValueChange={(value) => setAssignee(value === '__none' ? '' : value)}
           >
-            <SelectTrigger className="h-7 border-line-soft bg-bg px-2 text-fs-meta text-ink-3">
+            <SelectTrigger className="kanban-card-select">
               <SelectValue placeholder="No assignee" />
             </SelectTrigger>
             <SelectContent>
@@ -618,63 +586,59 @@ function LiveKanbanCard({
             value={blockedReason}
             onChange={(event) => setBlockedReason(event.target.value)}
             placeholder="Blocked reason"
-            className="h-7 border-line-soft bg-bg px-2 text-fs-meta text-ink-3"
+            className="kanban-card-select"
           />
         </div>
       ) : (
-        card.note && (
-          <p className="mt-1.5 line-clamp-2 text-fs-meta leading-relaxed text-ink-3">{card.note}</p>
-        )
+        card.note && <p className="kanban-card-note">{card.note}</p>
       )}
       {!editing && (
-        <div className="mt-3 flex items-end justify-between gap-2">
-          <div className="min-w-0 flex flex-col gap-1">
+        <div className="kanban-card-meta-row">
+          <div className="kanban-card-meta">
             <span
-              className={cn(
-                'inline-flex max-w-full truncate rounded-r-sm border px-1.5 py-0.5 text-fs-meta font-semibold',
-                card.blockedReason
-                  ? 'border-danger bg-danger-surface text-danger'
-                  : kanbanOriginBadgeClass(card.origin),
-              )}
+              className="kanban-origin-badge"
+              data-origin={card.origin}
+              data-blocked={card.blockedReason ? true : undefined}
             >
               {card.blockedReason || kanbanOriginLabel(card.origin)}
             </span>
             {assignedAgent ? (
-              <span className="flex min-w-0 items-center gap-1 text-fs-meta font-medium text-ink-3">
+              <span className="kanban-card-assignee">
                 <EmployeeAvatar
                   agent={assignedAgent}
                   size={16}
-                  className="h-4 w-4 rounded-r-pill"
+                  className="kanban-card-assignee-avatar"
                 />
-                <span className="truncate">{assignedAgent.name}</span>
+                <span>{assignedAgent.name}</span>
               </span>
             ) : null}
           </div>
           <span
-            className={cn('mb-1 h-2 w-2 shrink-0 rounded-r-pill', kanbanStateDotClass(card.state))}
+            className="kanban-state-dot"
+            data-state={card.state}
             aria-label={`${kanbanStateLabel(card.state)} status`}
           />
         </div>
       )}
-      <div className="mt-3 flex flex-wrap gap-1">
+      <div className="kanban-card-actions">
         {editing ? (
           <>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 gap-1 border-ok/40 bg-ok-surface px-2 text-fs-meta font-semibold text-ok"
+              className="kanban-card-save"
               disabled={busy || title.trim().length === 0}
               onClick={() => void save()}
             >
-              <Check className="h-3 w-3" />
+              <Check data-icon="save-card" aria-hidden="true" />
               Save
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 gap-1 px-2 text-fs-meta text-ink-3 hover:text-ink-1"
+              className="kanban-card-cancel"
               disabled={busy}
               onClick={() => {
                 setTitle(card.title);
@@ -684,7 +648,7 @@ function LiveKanbanCard({
                 setEditing(false);
               }}
             >
-              <X className="h-3 w-3" />
+              <X data-icon="cancel-card" aria-hidden="true" />
               Cancel
             </Button>
           </>
