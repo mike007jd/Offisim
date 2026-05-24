@@ -3,15 +3,15 @@ import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 
 export function TabScrollShell({ children }: { children: ReactNode }) {
   return (
-    <div data-personnel-tab-scroll className="h-full overflow-y-auto px-6 py-6">
-      <div className="w-full">{children}</div>
+    <div data-personnel-tab-scroll className="personnel-tab-scroll-shell">
+      <div className="personnel-tab-scroll-inner">{children}</div>
     </div>
   );
 }
 
 export function TabSelectionEmpty({ message }: { message: string }) {
   return (
-    <div className="flex h-full items-center justify-center px-6 py-10">
+    <div className="personnel-tab-empty">
       <EmptyState variant="compact" title={message} />
     </div>
   );
@@ -29,14 +29,12 @@ export function PersonnelTabSection({
   className?: string;
 }) {
   return (
-    <section className={cn('border-b border-line-soft py-sp-5', className)}>
-      <header className="mb-sp-3">
-        <h3 className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
-          {title}
-        </h3>
-        {description ? <p className="mt-1 text-fs-meta text-ink-4">{description}</p> : null}
+    <section className={cn('personnel-tab-section', className)}>
+      <header>
+        <h3>{title}</h3>
+        {description ? <p>{description}</p> : null}
       </header>
-      <div className="flex flex-col gap-sp-3">{children}</div>
+      <div>{children}</div>
     </section>
   );
 }
@@ -55,7 +53,7 @@ export function PersonnelField({
   className?: string;
 }) {
   return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
+    <div className={cn('personnel-field', className)}>
       <PersonnelFieldLabel htmlFor={htmlFor}>{label}</PersonnelFieldLabel>
       {children}
       {note ? <PersonnelFieldNote>{note}</PersonnelFieldNote> : null}
@@ -70,7 +68,7 @@ export function PersonnelFieldLabel({
   htmlFor?: string;
   children: ReactNode;
 }) {
-  const className = 'text-fs-meta font-medium text-ink-2';
+  const className = 'personnel-field-label';
   if (!htmlFor) {
     return <span className={className}>{children}</span>;
   }
@@ -82,15 +80,13 @@ export function PersonnelFieldLabel({
 }
 
 export function PersonnelFieldNote({ children }: { children: ReactNode }) {
-  return <p className="text-fs-meta text-ink-4">{children}</p>;
+  return <p className="personnel-field-note">{children}</p>;
 }
 
 export function PersonnelReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <PersonnelField label={label}>
-      <div className="min-h-9 rounded-r-sm border border-line-soft bg-surface-1 px-3 py-2 text-fs-sm text-ink-1">
-        {value}
-      </div>
+      <div className="personnel-readonly-field">{value}</div>
     </PersonnelField>
   );
 }
@@ -101,14 +97,8 @@ export function PersonnelSaveBar({
   ...props
 }: ComponentPropsWithoutRef<'div'>) {
   return (
-    <div
-      className={cn(
-        'shrink-0 border-t border-line-soft bg-surface-2 px-sp-5 py-3 shadow-overlay',
-        className,
-      )}
-      {...props}
-    >
-      <div className="flex w-full items-center justify-between gap-3">{children}</div>
+    <div className={cn('personnel-save-bar', className)} {...props}>
+      <div>{children}</div>
     </div>
   );
 }

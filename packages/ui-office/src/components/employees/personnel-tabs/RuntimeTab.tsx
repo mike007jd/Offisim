@@ -38,8 +38,8 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
   if (formData.isExternal) {
     return (
       <TabScrollShell>
-        <p className="flex items-center gap-2 text-fs-meta text-ink-4">
-          <Lock className="h-3.5 w-3.5" />
+        <p className="personnel-runtime-external">
+          <Lock data-icon="runtime-lock" aria-hidden="true" />
           External A2A peer — routing handled by brand endpoint.
         </p>
       </TabScrollShell>
@@ -52,10 +52,10 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="flex w-full flex-col gap-6 pb-32">
-          <PersonnelTabSection title="Execution binding" className="py-0">
+    <div className="personnel-runtime-tab">
+      <div data-personnel-tab-scroll className="personnel-runtime-scroll">
+        <div className="personnel-runtime-stack">
+          <PersonnelTabSection title="Execution binding" className="personnel-tab-section-flush">
             <RuntimeBindingControl
               scope="employee"
               value={formData.runtimeBinding}
@@ -64,7 +64,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
               resolvedSource={resolved.source}
             />
           </PersonnelTabSection>
-          <PersonnelTabSection title="Tool permissions" className="py-0">
+          <PersonnelTabSection title="Tool permissions" className="personnel-tab-section-flush">
             <ToolPermissionEditor
               value={formData.toolPermissionPolicy}
               onChange={(value) => updateField('toolPermissionPolicy', value)}
@@ -74,10 +74,10 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
       </div>
 
       {isDirty && (
-        <PersonnelSaveBar className="bg-surface-1 px-6">
-          <div className="flex flex-1 items-center justify-end gap-3">
+        <PersonnelSaveBar className="personnel-save-bar-surface">
+          <div className="personnel-save-bar-end">
             <Button size="sm" disabled={isSaving} onClick={save}>
-              <Save className="mr-1 h-3.5 w-3.5" />
+              <Save data-icon="save" aria-hidden="true" />
               {isSaving ? 'Saving...' : 'Save'}
             </Button>
           </div>
