@@ -1,5 +1,7 @@
 import type { ProjectRow, ProjectStatus } from '@offisim/shared-types';
 import {
+  Badge,
+  type BadgeProps,
   Button,
   EntityDropdown,
   type EntityDropdownItem,
@@ -10,11 +12,11 @@ import { useState } from 'react';
 import { ProjectSelectedSummary } from './ProjectListPanel.js';
 
 const STATUS_DOT: Record<ProjectStatus, string> = {
-  planning: 'bg-accent',
-  active: 'bg-ok',
-  paused: 'bg-warn',
-  completed: 'bg-ink-3',
-  archived: 'bg-ink-4',
+  planning: 'planning',
+  active: 'active',
+  paused: 'paused',
+  completed: 'completed',
+  archived: 'archived',
 };
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -25,12 +27,12 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
   archived: 'Archived',
 };
 
-const STATUS_CHIP: Record<ProjectStatus, string> = {
-  planning: 'text-accent bg-accent-surface border border-accent',
-  active: 'text-ok bg-ok-surface border border-ok',
-  paused: 'text-warn bg-warn-surface border border-warn',
-  completed: 'text-ink-2 bg-surface-2 border border-line',
-  archived: 'text-ink-3 bg-surface-2 border border-line-soft',
+const STATUS_CHIP_VARIANT: Record<ProjectStatus, BadgeProps['variant']> = {
+  planning: 'info',
+  active: 'success',
+  paused: 'warning',
+  completed: 'secondary',
+  archived: 'outline',
 };
 
 const ALL_OPTION_ID = '__all__';
@@ -53,11 +55,15 @@ function projectItem(project: ProjectRow): EntityDropdownItem {
   return {
     id: project.project_id,
     label: project.name,
-    icon: <span className={`mt-1 h-1.5 w-1.5 rounded-full ${STATUS_DOT[project.status]}`} />,
+    icon: <span className="project-selector-status-dot" data-status={STATUS_DOT[project.status]} />,
     badge: (
-      <span className={`rounded px-1.5 py-0.5 text-fs-micro ${STATUS_CHIP[project.status]}`}>
+      <Badge
+        variant={STATUS_CHIP_VARIANT[project.status]}
+        size="xs"
+        className="project-selector-status-badge"
+      >
         {STATUS_LABEL[project.status]}
-      </span>
+      </Badge>
     ),
     hint: project.description ?? undefined,
   };
@@ -88,7 +94,7 @@ export function ProjectSelector({
         {
           id: ALL_OPTION_ID,
           label: 'All (no project scope)',
-          icon: <Archive className="h-3.5 w-3.5 shrink-0 text-ink-3" />,
+          icon: <Archive data-icon="project-all" />,
         },
       ],
     },
@@ -110,25 +116,24 @@ export function ProjectSelector({
       type="button"
       variant="outline"
       size="sm"
-      className="h-8 w-full min-w-0 justify-between gap-1.5 rounded-r-pill border-line bg-surface-2 px-3 text-fs-meta text-ink-2 hover:border-line-strong hover:bg-surface-sunken hover:text-ink-1"
+      className="project-selector-trigger"
       title="Select project context"
     >
-      <span className="flex min-w-0 items-center gap-1.5">
-        <FolderClosed className="size-3.5 flex-shrink-0 text-accent" />
+      <span data-slot="summary">
+        <FolderClosed data-icon="project" />
         {activeProject ? (
           <>
             <span
-              className={`size-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[activeProject.status]}`}
+              className="project-selector-status-dot"
+              data-status={STATUS_DOT[activeProject.status]}
             />
-            <span className="min-w-0 truncate">{activeProject.name}</span>
+            <span data-slot="project-name">{activeProject.name}</span>
           </>
         ) : (
-          <span className="text-ink-3">All</span>
+          <span data-slot="all-projects">All</span>
         )}
       </span>
-      <ChevronDown
-        className={`size-3 flex-shrink-0 text-ink-3 transition-transform ${open ? 'rotate-180' : ''}`}
-      />
+      <ChevronDown data-icon="project-caret" data-open={open ? 'true' : 'false'} />
     </Button>
   );
 
@@ -139,7 +144,7 @@ export function ProjectSelector({
       trigger={trigger}
       align="start"
       collisionPadding={8}
-      contentClassName="w-72 max-h-project-select-content overflow-y-auto"
+      contentClassName="project-selector-content max-h-project-select-content"
       title={projects.length > 0 ? `Projects · ${projects.length}` : 'Projects'}
       sections={sections}
       activeId={activeProjectId ?? ALL_OPTION_ID}
@@ -147,7 +152,7 @@ export function ProjectSelector({
       emptyText="No projects yet. Create one below."
       bodyExtras={
         summaryMode === 'compact' && activeProject ? (
-          <div className="mt-2">
+          <div className="project-selector-summary">
             <ProjectSelectedSummary
               project={activeProject}
               onRequestEdit={onRequestEditProject}
@@ -161,7 +166,7 @@ export function ProjectSelector({
         onRequestCreate
           ? {
               label: 'New project',
-              icon: <FolderPlus className="h-3.5 w-3.5" />,
+              icon: <FolderPlus data-icon="project-new" />,
               onSelect: () => {
                 setOpen(false);
                 onRequestCreate();

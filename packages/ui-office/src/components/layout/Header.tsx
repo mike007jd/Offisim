@@ -502,7 +502,7 @@ function CompanySwitcher({
       emptyText="No companies yet."
       align="start"
       collisionPadding={8}
-      contentClassName="w-72"
+      contentClassName="app-header-company-content"
       trigger={
         <Button
           type="button"
@@ -557,7 +557,7 @@ function PeerWorkspaceNav({
             data-selected={selected || undefined}
           >
             <Icon data-icon="peer-nav" />
-            <span className="truncate">{item.label}</span>
+            <span data-slot="label">{item.label}</span>
           </a>
         );
       })}

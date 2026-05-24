@@ -337,7 +337,7 @@ function RequirementsSection({
   if (caps.length === 0 && mcps.length === 0 && models.length === 0) return null;
   return (
     <Section title="Requirements">
-      <div className="flex flex-col gap-2">
+      <div className="market-detail-requirements">
         {caps.length > 0 && (
           <div className="market-detail-requirement-row">
             <span className={CAPS_LABEL}>Capabilities</span>
