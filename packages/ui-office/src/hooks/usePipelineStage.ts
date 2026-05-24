@@ -20,8 +20,8 @@ import {
  * Fine-grained pipeline stages that map 1:1 to the main graph flow:
  *   Boss → Manager → PM → Employee → Summary
  *
- * Legacy 4-stage names are preserved as aliases in STAGE_META for backward compat
- * with StatusBar (which reads label/colorClass/dotClass).
+ * Legacy 4-stage names are preserved as aliases in STAGE_META for older run
+ * surfaces that still read label/colorClass/dotClass.
  */
 export type PipelineStage = 'boss' | 'manager' | 'planning' | 'executing' | 'summary' | null;
 

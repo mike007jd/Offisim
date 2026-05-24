@@ -50,10 +50,10 @@ function sameCounts(a: ActiveEmployeeCount, b: ActiveEmployeeCount): boolean {
 }
 
 /**
- * Single source of truth for the "employees active" count surfaced in
- * StatusBar footer and 3D overlay. Owns one shared `Map<employeeId,
- * EmployeeState>`, derives `{ active, total, blocked }` via the locked
- * predicates above, and resets symmetrically on run-start and company switch.
+ * Single source of truth for the "employees active" count surfaced in scene and
+ * dashboard readouts. Owns one shared `Map<employeeId, EmployeeState>`, derives
+ * `{ active, total, blocked }` via the locked predicates above, and resets
+ * symmetrically on run-start and company switch.
  */
 export function useActiveEmployeeCount(): ActiveEmployeeCount {
   const { eventBus, repos } = useOffisimRuntimeServices();

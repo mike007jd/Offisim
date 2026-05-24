@@ -42,6 +42,24 @@ const primitiveImplementationParts = [
   '/packages/ui-core/src/components/textarea.tsx',
   '/packages/ui-core/src/components/toast-banner.tsx',
 ];
+const forbiddenLegacyShellTerms = [
+  {
+    literal: 'StageRunAxisFloats',
+    note: 'old Office Board/Live floating scene chrome must not be restored',
+  },
+  {
+    literal: 'LiveRunOverlay',
+    note: 'old Live scene overlay must be replaced by StagePipe plus assistant-ui run records',
+  },
+  {
+    literal: 'MessageBubble',
+    note: 'chat message rendering must stay assistant-ui-owned via OffisimThread/MessagePrimitive',
+  },
+  {
+    literal: 'StreamingBubble',
+    note: 'streaming chat rendering must stay assistant-ui-owned via OffisimThread/MessagePrimitive',
+  },
+];
 
 const checks = [
   {
@@ -114,6 +132,10 @@ function shouldSkipCheck(file, checkName) {
     : false;
 }
 
+function shouldSkipLegacyTermCheck(file) {
+  return file.replaceAll('\\', '/').endsWith('/scripts/lint-ui-hardcode.mjs');
+}
+
 function* walk(entry) {
   const abs = resolve(rootDir, entry);
   if (shouldSkip(abs)) return;
@@ -136,6 +158,21 @@ for (const root of scanRoots) {
       const line = lines[lineIndex];
       const previousLine = lineIndex > 0 ? lines[lineIndex - 1] : '';
       if (line.includes(allowedMarker) || previousLine.includes(allowedMarker)) continue;
+      if (!shouldSkipLegacyTermCheck(file)) {
+        for (const term of forbiddenLegacyShellTerms) {
+          const column = line.indexOf(term.literal);
+          if (column !== -1) {
+            violations.push({
+              file: relative(rootDir, file),
+              line: lineIndex + 1,
+              column: column + 1,
+              literal: term.literal,
+              name: 'forbidden legacy shell/chat UI',
+              note: term.note,
+            });
+          }
+        }
+      }
       for (const check of checks) {
         if (shouldSkipCheck(file, check.name)) continue;
         check.regex.lastIndex = 0;

@@ -98,8 +98,8 @@ function estimateCost(inputTokens: number, outputTokens: number, model?: string)
  * token totals, cost estimate, active tasks, employee utilization, and elapsed time.
  *
  * Employee utilization (`active` / `total`) is delegated to
- * `useActiveEmployeeCount()` so the StatusBar footer and the 3D overlay
- * read the same authoritative numbers.
+ * `useActiveEmployeeCount()` so scene readouts and dashboard cards read the same
+ * authoritative numbers.
  */
 export function useDashboardMetrics(): DashboardMetrics {
   const { eventBus } = useOffisimRuntimeServices();
