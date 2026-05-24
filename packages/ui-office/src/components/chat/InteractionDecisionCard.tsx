@@ -34,37 +34,37 @@ export function InteractionDecisionCard({
   }
 
   return (
-    <Card className="border-line bg-surface-1 backdrop-blur-md">
-      <CardHeader className="gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-fs-sm text-ink-1">{request.title}</CardTitle>
+    <Card className="interaction-decision-card">
+      <CardHeader className="interaction-decision-head">
+        <div className="interaction-decision-title-row">
+          <CardTitle className="interaction-decision-title">{request.title}</CardTitle>
           <Badge variant={request.severity === 'high' ? 'error' : 'secondary'}>
             {request.severity === 'high' ? 'High risk' : 'Decision'}
           </Badge>
         </div>
-        {employeeName && <span className="text-fs-meta text-ink-3">From: {employeeName}</span>}
-        <p className="whitespace-pre-wrap text-fs-meta text-ink-3">{request.prompt}</p>
+        {employeeName && <span className="interaction-decision-source">From: {employeeName}</span>}
+        <p className="interaction-decision-prompt">{request.prompt}</p>
         {request.recommendation && (
-          <div className="rounded-r-sm border border-accent bg-accent-surface px-3 py-2 text-fs-meta text-accent">
-            <div className="font-medium">
+          <div className="interaction-decision-recommendation">
+            <div>
               Boss recommends:{' '}
               {request.options.find((option) => option.id === request.recommendation?.optionId)
                 ?.label ?? request.recommendation.optionId}
             </div>
-            <div className="mt-1 text-ink-3">{request.recommendation.reason}</div>
+            <div>{request.recommendation.reason}</div>
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="interaction-decision-body">
         {request.allowFreeformResponse && (
           <Textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
             placeholder={request.placeholder ?? 'Tell Offisim what to do instead'}
-            className="min-h-interaction-note"
+            className="interaction-decision-note"
           />
         )}
-        <div className="flex flex-wrap gap-2">
+        <div className="interaction-decision-actions">
           {request.options.map((option) => (
             <Button
               key={option.id}

@@ -5,8 +5,8 @@ import {
 } from '../../runtime/use-system-message-feed';
 
 const ENTRY_STYLES = {
-  info: 'border-accent bg-accent-surface text-accent',
-  warning: 'border-warn bg-warn-surface text-warn',
+  info: 'info',
+  warning: 'warning',
 } as const;
 
 const ICON_MAP: Record<SystemMessageIcon, typeof Sparkles> = {
@@ -21,19 +21,16 @@ export function SystemMessageFeed() {
   if (!hasMessages) return null;
 
   return (
-    <div className="mb-2 grid gap-2">
+    <div className="system-message-feed">
       {entries.map((entry) => (
-        <div
-          key={entry.id}
-          className={`flex items-start gap-3 rounded-r-lg border px-3 py-2.5 text-fs-meta shadow-resting ${ENTRY_STYLES[entry.tone]}`}
-        >
+        <div key={entry.id} className="system-message-entry" data-tone={ENTRY_STYLES[entry.tone]}>
           {(() => {
             const Icon = ICON_MAP[entry.icon ?? 'default'];
-            return <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" />;
+            return <Icon data-icon="system-message" aria-hidden="true" />;
           })()}
-          <div className="min-w-0 flex flex-col gap-1">
-            <p className="font-semibold uppercase tracking-wide text-fs-meta">{entry.title}</p>
-            <p className="leading-relaxed text-ink-3">{entry.detail}</p>
+          <div className="system-message-copy">
+            <p className="system-message-title">{entry.title}</p>
+            <p className="system-message-detail">{entry.detail}</p>
           </div>
         </div>
       ))}
