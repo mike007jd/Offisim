@@ -137,6 +137,33 @@ function ToolGroupSurface({
 }
 
 function AssistantGroupedParts() {
+  const partCount = useAuiState((s) => s.message.parts.length);
+  const isRunning = useAuiState((s) => s.message.status?.type === 'running');
+
+  if (partCount === 0) {
+    if (!isRunning) return null;
+    return (
+      <MessagePrimitive.Parts>
+        {({ part }) => {
+          switch (part.type) {
+            case 'text':
+              return <MarkdownText />;
+            case 'reasoning':
+              return <Reasoning {...part} />;
+            case 'tool-call':
+              return part.toolUI ?? <ToolFallback {...part} />;
+            default:
+              return (
+                <ThreadStatusFrame tone="warning">
+                  Unsupported message part: {part.type}
+                </ThreadStatusFrame>
+              );
+          }
+        }}
+      </MessagePrimitive.Parts>
+    );
+  }
+
   return (
     <MessagePrimitive.GroupedParts groupBy={groupOffisimMessagePart}>
       {({ part, children }) => {
