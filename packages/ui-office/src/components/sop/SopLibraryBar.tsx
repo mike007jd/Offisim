@@ -1,4 +1,4 @@
-import { Button } from '@offisim/ui-core';
+import { Button, cn } from '@offisim/ui-core';
 import { LayoutGrid, Menu, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
@@ -49,73 +49,58 @@ export function SopLibraryBar({
   }, [confirmDelete, onDelete]);
 
   return (
-    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-surface-1 px-sp-5">
+    <div className="sop-toolbar">
       {onToggleSidebar && (
         <Button
           variant="ghost"
           size="icon"
-          className="size-7 rounded-r-sm text-ink-3 hover:bg-surface-sunken hover:text-ink-1"
+          className="sop-toolbar-icon-button"
           onClick={onToggleSidebar}
           aria-label="Open SOP list"
         >
-          <Menu className="size-4" />
+          <Menu data-icon="toolbar-menu" />
         </Button>
       )}
 
       <Button
         variant="default"
         size="sm"
-        className="h-7 gap-1 rounded-r-sm text-fs-sm"
+        className="sop-toolbar-button"
         onClick={onRun}
         disabled={!selectedSopId}
       >
-        <Play className="size-3" /> Run
+        <Play data-icon="toolbar-action" /> Run
       </Button>
 
       {allowEditMode && selectedSopId && onEditModeToggle && (
         <Button
           variant="outline"
           size="sm"
-          className={`h-7 gap-1 rounded-r-sm text-fs-sm ${editMode ? 'border-warn bg-warn-surface text-warn' : ''}`}
+          className={cn('sop-toolbar-button', editMode && 'sop-toolbar-button-active')}
           onClick={onEditModeToggle}
         >
-          <Pencil className="size-3" />
+          <Pencil data-icon="toolbar-action" />
           {editMode ? 'Editing' : 'Edit'}
         </Button>
       )}
 
       {allowEditMode && selectedSopId && editMode && onAddStep && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1 rounded-r-sm text-fs-sm"
-          onClick={onAddStep}
-        >
-          <Plus className="size-3" /> Add Step
+        <Button variant="outline" size="sm" className="sop-toolbar-button" onClick={onAddStep}>
+          <Plus data-icon="toolbar-action" /> Add Step
         </Button>
       )}
 
       {allowEditMode && selectedSopId && editMode && onAutoLayout && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1 rounded-r-sm text-fs-sm"
-          onClick={onAutoLayout}
-        >
-          <LayoutGrid className="size-3" /> Auto Layout
+        <Button variant="outline" size="sm" className="sop-toolbar-button" onClick={onAutoLayout}>
+          <LayoutGrid data-icon="toolbar-action" /> Auto Layout
         </Button>
       )}
 
-      <div className="flex-1" />
+      <div className="sop-toolbar-spacer" />
 
       {selectedSopId && hasSourceUrl && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1 rounded-r-sm text-fs-sm"
-          onClick={onSync}
-        >
-          <RefreshCw className="size-3" /> Sync
+        <Button variant="outline" size="sm" className="sop-toolbar-button" onClick={onSync}>
+          <RefreshCw data-icon="toolbar-action" /> Sync
         </Button>
       )}
 
@@ -123,10 +108,10 @@ export function SopLibraryBar({
         <Button
           variant="outline"
           size="sm"
-          className={`h-7 gap-1 rounded-r-sm text-fs-sm ${confirmDelete ? 'border-danger text-danger' : ''}`}
+          className={cn('sop-toolbar-button', confirmDelete && 'sop-toolbar-button-danger')}
           onClick={handleDelete}
         >
-          <Trash2 className="size-3" />
+          <Trash2 data-icon="toolbar-action" />
           {confirmDelete ? 'Confirm' : 'Delete'}
         </Button>
       )}

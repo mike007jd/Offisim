@@ -68,21 +68,7 @@ export function SopRunProgressStrip({ definition, sopTemplateId }: SopRunProgres
   const totalTasks = store.stats.total;
   const completedTasks = store.stats.completed;
 
-  // V3 status-tinted families: in-flight → accent, terminal success → ok,
-  // any failure → danger. (Replaces the legacy info/success/error families.)
-  const accentClass = stats.hasFailure
-    ? 'border-danger/40 bg-danger-surface text-danger'
-    : isRunning
-      ? 'border-accent-ring bg-accent-surface text-accent'
-      : 'border-ok/40 bg-ok-surface text-ok';
-
-  const dotClass = stats.hasFailure
-    ? isRunning
-      ? 'animate-pulse bg-danger'
-      : 'bg-danger'
-    : isRunning
-      ? 'animate-pulse bg-accent'
-      : 'bg-ok';
+  const tone = stats.hasFailure ? 'danger' : isRunning ? 'active' : 'ok';
 
   let body: string;
   if (isRunning) {
@@ -96,12 +82,9 @@ export function SopRunProgressStrip({ definition, sopTemplateId }: SopRunProgres
   }
 
   return (
-    <output
-      aria-live="polite"
-      className={`flex h-8 items-center gap-2 border-b px-3 text-fs-sm font-medium ${accentClass}`}
-    >
-      <span className={`size-2 shrink-0 rounded-r-pill ${dotClass}`} />
-      <span className="truncate">{body}</span>
+    <output aria-live="polite" className="sop-run-strip" data-tone={tone}>
+      <span className="sop-run-strip-dot" data-tone={tone} />
+      <span className="sop-run-strip-copy">{body}</span>
     </output>
   );
 }

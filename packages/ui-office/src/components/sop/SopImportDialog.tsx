@@ -120,8 +120,8 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
         onOpenChange={onOpenChange}
         size="sm"
         title={
-          <span className="flex items-center gap-2">
-            <Download className="size-4 text-accent" />
+          <span className="sop-dialog-title">
+            <Download data-icon="dialog-title" />
             Import SOP from URL
           </span>
         }
@@ -140,9 +140,9 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
           ) : null
         }
       >
-        <div className="flex flex-col gap-sp-4 pt-sp-2">
-          <div className="flex items-center gap-2">
-            <Link className="size-3.5 shrink-0 text-ink-4" />
+        <div className="sop-dialog-stack">
+          <div className="sop-import-url-row">
+            <Link data-icon="url" />
             <Input
               type="url"
               value={url}
@@ -152,7 +152,7 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
                 setError(null);
               }}
               placeholder="https://raw.githubusercontent.com/..."
-              className="h-9 flex-1 rounded-r-sm border-line bg-surface-1 px-2.5 py-1.5 text-fs-sm text-ink-1 placeholder:text-ink-4 focus:border-accent"
+              className="sop-import-url-input"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -168,25 +168,21 @@ export function SopImportDialog({ open, onOpenChange, onImported }: SopImportDia
               variant="outline"
               onClick={handlePreview}
               disabled={loading || !url.trim()}
-              className="w-full rounded-r-sm text-fs-sm"
+              className="sop-import-preview-button"
             >
               {loading ? 'Fetching...' : 'Preview'}
             </Button>
           )}
 
-          {error && (
-            <p className="rounded-r-sm border border-danger/40 bg-danger-surface px-2.5 py-2 text-fs-meta text-danger">
-              {error}
-            </p>
-          )}
+          {error && <p className="sop-inline-error">{error}</p>}
 
           {preview && (
-            <div className="flex flex-col gap-sp-2 rounded-r-md border border-line bg-surface-2 p-sp-4">
-              <p className="text-fs-sm font-semibold text-ink-1">{preview.name}</p>
+            <div className="sop-import-preview">
+              <p className="sop-import-preview-title">{preview.name}</p>
               {preview.description && (
-                <p className="text-fs-sm text-ink-3">{preview.description}</p>
+                <p className="sop-import-preview-description">{preview.description}</p>
               )}
-              <p className="text-fs-meta text-ink-4">{preview.stepCount} steps</p>
+              <p className="sop-import-preview-meta">{preview.stepCount} steps</p>
             </div>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { cn } from '@offisim/ui-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { SopRuntimeStepState } from '../../hooks/useSopRuntimeState';
@@ -602,7 +603,7 @@ export function SopDagCanvas({
   return (
     <div
       ref={containerRef}
-      className={`flex-1 overflow-hidden relative select-none ${cursorClass}`}
+      className={cn('sop-dag-canvas', cursorClass)}
       onWheel={handleWheel}
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMove}
@@ -611,7 +612,7 @@ export function SopDagCanvas({
       onDoubleClick={handleCanvasDoubleClick}
     >
       <svg
-        className="absolute inset-0"
+        className="sop-dag-svg"
         width="100%"
         height="100%"
         role="img"
@@ -657,7 +658,7 @@ export function SopDagCanvas({
       </svg>
 
       <div
-        className="absolute left-0 top-0"
+        className="sop-dag-graph-layer"
         // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
         style={graphLayerStyle}
       >
@@ -672,7 +673,7 @@ export function SopDagCanvas({
           return (
             <div
               key={node.stepId}
-              className="absolute"
+              className="sop-dag-node-layer"
               // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
               style={nodeStyle}
             >
@@ -690,7 +691,7 @@ export function SopDagCanvas({
       </div>
 
       <svg
-        className="absolute inset-0"
+        className="sop-dag-svg"
         width="100%"
         height="100%"
         aria-hidden={editMode ? undefined : true}

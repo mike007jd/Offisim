@@ -4,7 +4,7 @@ import { Check, Copy } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type TaskInfo, usePlanStepStore } from '../../hooks/plan-step-store';
 import type { SopRuntimeStepState } from '../../hooks/useSopRuntimeState';
-import { STATUS_DOT, STATUS_LABEL } from './SopDagNode';
+import { STATUS_LABEL } from './SopDagNode';
 import type { SopStepStatus } from './sop-dag-layout';
 
 export interface SopInspectorPanelProps {
@@ -31,9 +31,7 @@ function pickLatestFailedTask(tasks: readonly TaskInfo[]): TaskInfo | null {
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">{children}</div>
-  );
+  return <div className="sop-inspector-section-label">{children}</div>;
 }
 
 export function SopInspectorPanel({
@@ -93,28 +91,18 @@ export function SopInspectorPanel({
 
   if (!step) {
     return (
-      <aside
-        className={cn(
-          'flex w-sop-inspector shrink-0 items-center justify-center border-l border-line bg-surface-1',
-          className,
-        )}
-      >
-        <p className="px-6 text-center text-fs-sm text-ink-4">Select a step to inspect</p>
+      <aside className={cn('sop-inspector sop-inspector-empty', className)}>
+        <p>Select a step to inspect</p>
       </aside>
     );
   }
 
   return (
-    <aside
-      className={cn(
-        'flex w-sop-inspector shrink-0 flex-col overflow-y-auto border-l border-line bg-surface-1',
-        className,
-      )}
-    >
-      <div className="border-b border-line-soft px-sp-5 pb-sp-4 pt-sp-5">
-        <div className="text-fs-md font-bold leading-snug text-ink-1">{step.label}</div>
-        <div className="mt-1.5 flex items-center gap-2 text-fs-sm text-ink-3">
-          <span className={`size-2 rounded-r-pill ${STATUS_DOT[status]}`} />
+    <aside className={cn('sop-inspector', className)}>
+      <div className="sop-inspector-head">
+        <div className="sop-inspector-title">{step.label}</div>
+        <div className="sop-inspector-meta">
+          <span className="sop-status-dot" data-status={status} />
           <span>{STATUS_LABEL[status]}</span>
           <span aria-hidden>·</span>
           <span>{step.role_slug}</span>
@@ -122,8 +110,8 @@ export function SopInspectorPanel({
       </div>
 
       {roleMissing && (
-        <div className="flex flex-col gap-sp-3 border-b border-line-soft p-sp-5">
-          <p className="rounded-r-sm border border-warn/40 bg-warn-surface px-2.5 py-2 text-fs-meta leading-snug text-warn">
+        <div className="sop-inspector-section">
+          <p className="sop-inline-warning">
             No employee with role <span className="font-bold">{step.role_slug}</span> — dispatcher
             will fall back.
           </p>
@@ -131,32 +119,32 @@ export function SopInspectorPanel({
       )}
 
       {status === 'failed' && (
-        <div className="flex flex-col gap-sp-3 border-b border-line-soft p-sp-5">
+        <div className="sop-inspector-section">
           <SectionLabel>Last error</SectionLabel>
-          <div className="rounded-r-sm border border-danger/30 bg-danger-surface px-2.5 py-2 text-fs-meta leading-snug text-danger">
+          <div className="sop-inline-error sop-inline-error-block">
             {lastFailedTask?.taskType?.trim() && (
-              <div className="font-mono font-semibold">{lastFailedTask.taskType.trim()}</div>
+              <div className="sop-inspector-code-title">{lastFailedTask.taskType.trim()}</div>
             )}
-            <div className="mt-0.5 whitespace-pre-wrap">
+            <div className="sop-inspector-prewrap">
               {lastFailedTask?.description?.trim() || '—'}
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col gap-sp-3 border-b border-line-soft p-sp-5">
+      <div className="sop-inspector-section">
         <SectionLabel>Instruction</SectionLabel>
-        <p className="whitespace-pre-wrap text-fs-sm leading-relaxed text-ink-2">
-          {step.instruction || <span className="italic text-ink-4">No instruction</span>}
+        <p className="sop-inspector-body-copy">
+          {step.instruction || <span className="sop-inspector-muted">No instruction</span>}
         </p>
       </div>
 
-      <div className="flex flex-col gap-sp-3 border-b border-line-soft p-sp-5">
+      <div className="sop-inspector-section">
         <SectionLabel>Dependencies</SectionLabel>
         {dependencyLabels.length === 0 ? (
-          <p className="text-fs-sm italic text-ink-4">None</p>
+          <p className="sop-inspector-muted">None</p>
         ) : (
-          <ul className="flex flex-col gap-1.5">
+          <ul className="sop-inspector-dependencies">
             {dependencyLabels.map((dep) => (
               <li key={dep.stepId}>
                 <Button
@@ -164,7 +152,7 @@ export function SopInspectorPanel({
                   variant="ghost"
                   size="sm"
                   onClick={() => onSelectStep(dep.stepId)}
-                  className="h-auto w-full justify-start truncate rounded-r-sm border border-line-soft bg-surface-2 px-2.5 py-1.5 text-left text-fs-sm font-medium text-ink-2 hover:border-accent-ring hover:bg-accent-surface hover:text-accent"
+                  className="sop-inspector-dependency"
                 >
                   {dep.label}
                 </Button>
@@ -174,28 +162,26 @@ export function SopInspectorPanel({
         )}
       </div>
 
-      <div className="flex flex-col gap-sp-3 p-sp-5">
+      <div className="sop-inspector-section sop-inspector-section-last">
         <SectionLabel>Output key</SectionLabel>
-        <div className="flex items-center gap-2">
-          <code className="min-w-0 flex-1 truncate rounded-r-xs bg-surface-sunken px-2.5 py-1.5 font-mono text-fs-meta text-accent">
-            {step.output_key}
-          </code>
+        <div className="sop-inspector-output-row">
+          <code className="sop-inspector-output-code">{step.output_key}</code>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={handleCopy}
             aria-label="Copy output key"
-            className="h-auto shrink-0 gap-1 rounded-r-xs border border-line-soft bg-surface-2 px-2.5 py-1.5 text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3 hover:border-accent-ring hover:bg-accent-surface hover:text-accent"
+            className="sop-inspector-copy"
           >
             {copied ? (
               <>
-                <Check className="size-3" />
+                <Check data-icon="inspector-copy" />
                 Copied
               </>
             ) : (
               <>
-                <Copy className="size-3" />
+                <Copy data-icon="inspector-copy" />
                 Copy
               </>
             )}

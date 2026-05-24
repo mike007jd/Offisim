@@ -606,14 +606,12 @@ export function SopViewSurface({
     : undefined;
 
   return (
-    <div className="relative flex h-full overflow-hidden bg-bg text-ink-1" data-layout-tier={tier}>
+    <div className="sop-view-shell" data-layout-tier={tier}>
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Left sidebar — SOP list */}
       {showInlineSidebar && sidebar}
 
-      {/* Right panel — toolbar + canvas + command bar */}
-      <div className="relative flex min-w-0 flex-1 flex-col bg-bg">
+      <div className="sop-view-center">
         <SopLibraryBar
           selectedSopId={sessionState.selectedSopId}
           hasSourceUrl={!!selectedSop?.sourceUrl}
@@ -640,16 +638,8 @@ export function SopViewSurface({
         )}
 
         {saveStatus !== 'idle' && (
-          <div className="pointer-events-none absolute right-4 top-14 z-10">
-            <span
-              className={`rounded-r-pill px-2 py-1 font-mono text-fs-meta uppercase tracking-wide ${
-                saveStatus === 'saving'
-                  ? 'border border-line bg-surface-1 text-ink-3'
-                  : saveStatus === 'saved'
-                    ? 'border border-ok/30 bg-ok-surface text-ok'
-                    : 'border border-danger/30 bg-danger-surface text-danger'
-              }`}
-            >
+          <div className="sop-save-region">
+            <span className="sop-save-pill" data-state={saveStatus}>
               {saveStatus === 'saving'
                 ? 'Saving…'
                 : saveStatus === 'saved'
@@ -719,30 +709,30 @@ export function SopViewSurface({
           type="button"
           variant="ghost"
           size="icon"
-          className="absolute right-3 top-14 z-overlay size-9 rounded-r-pill border border-line-soft bg-surface-1 shadow-modal"
+          className="sop-inspector-handle"
           onClick={() => setInspectorOpen((prev) => !prev)}
           aria-label={inspectorOpen ? 'Close SOP inspector' : 'Open SOP inspector'}
         >
           {inspectorOpen ? (
-            <PanelRightClose className="size-4" />
+            <PanelRightClose data-icon="inspector-handle" />
           ) : (
-            <PanelRightOpen className="size-4" />
+            <PanelRightOpen data-icon="inspector-handle" />
           )}
         </Button>
       )}
 
       {showInspectorOverlay && (
-        <div className="absolute inset-y-10 right-3 z-overlay w-sop-inspector-overlay overflow-hidden rounded-r-lg border border-line-soft bg-surface-1 shadow-modal">
-          <div className="flex h-9 items-center justify-end border-b border-line-soft px-2">
+        <div className="sop-inspector-overlay">
+          <div className="sop-inspector-overlay-header">
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="size-7 rounded-r-sm"
+              className="sop-mini-button"
               onClick={() => setInspectorOpen(false)}
               aria-label="Close SOP inspector"
             >
-              <X className="size-4" />
+              <X data-icon="mini-action" />
             </Button>
           </div>
           <SopInspectorPanel
@@ -752,37 +742,37 @@ export function SopViewSurface({
             stepIds={stepIds}
             onSelectStep={handleStepClick}
             missingRoleSet={missingRoleSet}
-            className="h-sop-inspector-overlay-panel w-full border-l-0"
+            className="sop-inspector-overlay-panel"
           />
         </div>
       )}
 
       {sidebarDrawerOpen && tier === 'narrow' && (
-        <div className="absolute inset-0 z-modal flex">
+        <div className="sop-sidebar-drawer">
           <Button
             type="button"
             variant="ghost"
             aria-label="Close SOP list"
-            className="absolute inset-0 h-auto w-auto rounded-none bg-surface-1/70 p-0 hover:bg-surface-1/70"
+            className="sop-sidebar-scrim"
             onClick={() => setSidebarDrawerOpen(false)}
           />
-          <div className="relative z-10 h-full shadow-modal">{sidebar}</div>
+          <div className="sop-sidebar-drawer-panel">{sidebar}</div>
         </div>
       )}
 
       {showInspectorSheet && (
-        <div className="absolute inset-x-0 bottom-0 z-overlay max-h-sop-inspector-sheet overflow-hidden rounded-t-r-lg border-t border-line-soft bg-surface-1 shadow-modal">
-          <div className="flex h-10 items-center justify-between border-b border-line-soft px-3">
-            <span className="text-fs-sm font-semibold text-ink-2">Step inspector</span>
+        <div className="sop-inspector-sheet">
+          <div className="sop-inspector-sheet-header">
+            <span>Step inspector</span>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="size-7 rounded-r-sm"
+              className="sop-mini-button"
               onClick={() => setInspectorOpen(false)}
               aria-label="Close SOP inspector"
             >
-              <X className="size-4" />
+              <X data-icon="mini-action" />
             </Button>
           </div>
           <SopInspectorPanel
@@ -792,7 +782,7 @@ export function SopViewSurface({
             stepIds={stepIds}
             onSelectStep={handleStepClick}
             missingRoleSet={missingRoleSet}
-            className="max-h-sop-inspector-sheet-panel w-full border-l-0"
+            className="sop-inspector-sheet-panel"
           />
         </div>
       )}
@@ -809,7 +799,7 @@ export function SopViewSurface({
           }}
           anchor={
             // ui-hardcode-allowed: popover anchor is runtime pointer geometry.
-            <div className="fixed h-px w-px" style={addStepAnchorStyle} />
+            <div className="sop-popover-anchor" style={addStepAnchorStyle} />
           }
           initialValues={
             addStepPopover.editStepId

@@ -73,14 +73,14 @@ export function SopAddStepPopover({
       <PopoverContent
         side="bottom"
         align="start"
-        className="w-sop-add-popover p-3"
+        className="sop-step-popover"
         stackId={stackId}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           inputRef.current?.focus();
         }}
       >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        <form onSubmit={handleSubmit} className="sop-step-form">
           <Input
             ref={inputRef}
             type="text"
@@ -105,9 +105,9 @@ export function SopAddStepPopover({
             onChange={(event) => setInstruction(event.target.value)}
             placeholder="Instruction (optional)..."
             rows={2}
-            className="resize-none text-xs"
+            className="sop-step-form-textarea"
           />
-          <div className="flex items-center justify-end gap-2 pt-1">
+          <div className="sop-step-form-actions">
             <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

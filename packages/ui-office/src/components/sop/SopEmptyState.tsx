@@ -27,7 +27,7 @@ export function SopEmptyState({
 
   if (!hasNoSops) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="sop-empty-state">
         <EmptyState
           icon={ClipboardList}
           title={title}
@@ -64,14 +64,14 @@ export function SopEmptyState({
   ];
 
   return (
-    <div className="flex flex-1 items-center justify-center px-sp-7 py-sp-7">
+    <div className="sop-empty-state sop-empty-state-start">
       <EmptyState
         icon={FileText}
         title={title}
         description={description}
-        className="max-w-3xl"
+        className="sop-empty-state-card"
         footer={
-          <div className="grid w-full gap-sp-3 pt-sp-2 sm:grid-cols-3">
+          <div className="sop-empty-action-grid">
             {actions.map((action) => {
               const Icon = action.icon;
               return (
@@ -81,14 +81,12 @@ export function SopEmptyState({
                   variant="outline"
                   disabled={action.disabled}
                   onClick={action.onClick}
-                  className="h-auto min-h-20 flex-col items-start justify-between gap-2 rounded-r-md border-line-soft bg-surface-1 p-4 text-left shadow-elev-1 hover:bg-surface-sunken"
+                  className="sop-empty-action"
                 >
-                  <Icon className="size-4 text-ink-3" aria-hidden="true" />
-                  <span className="flex flex-col items-start gap-1">
-                    <span className="text-fs-sm font-semibold text-ink-1">{action.label}</span>
-                    <span className="text-fs-meta font-normal text-ink-3">
-                      {action.description}
-                    </span>
+                  <Icon data-icon="empty-action" aria-hidden="true" />
+                  <span className="sop-empty-action-copy">
+                    <span className="sop-empty-action-label">{action.label}</span>
+                    <span className="sop-empty-action-description">{action.description}</span>
                   </span>
                 </Button>
               );

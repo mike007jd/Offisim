@@ -46,7 +46,7 @@ export function SopNlCommandBar({
   }, [value, disabled, onSubmit]);
 
   return (
-    <div className="flex h-16 shrink-0 items-center gap-2 border-t border-line bg-surface-2 px-sp-5">
+    <div className="sop-command-bar">
       <Input
         type="text"
         value={value}
@@ -54,16 +54,16 @@ export function SopNlCommandBar({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
-        className="h-10 flex-1 rounded-r-md border-line bg-surface-1 text-fs-sm text-ink-1 placeholder:text-ink-4 focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+        className="sop-command-input"
       />
       <Button
         type="button"
         onClick={handleSend}
         disabled={disabled || !value.trim()}
         size="icon"
-        className="size-10 rounded-r-md text-accent-fg disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-4"
+        className="sop-command-send"
       >
-        <Send className="size-4" />
+        <Send data-icon="command-send" />
       </Button>
     </div>
   );

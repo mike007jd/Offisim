@@ -44,19 +44,19 @@ export function SopSidebar({
 
   if (collapsed) {
     return (
-      <div className="flex w-office-rail-collapsed shrink-0 flex-col items-center gap-2 border-r border-line bg-surface-0 py-3">
+      <div className="sop-sidebar sop-sidebar-collapsed">
         <Button
           type="button"
           onClick={onToggleCollapse}
           variant="outline"
           size="icon"
-          className="size-8 rounded-r-sm border-line-soft text-ink-4 hover:bg-surface-sunken hover:text-ink-1"
+          className="sop-sidebar-collapse-button"
           aria-label="Expand SOP sidebar"
           title="Expand SOP sidebar"
         >
-          <ChevronRight className="size-4" />
+          <ChevronRight data-icon="sidebar-expand" />
         </Button>
-        <div className="h-px w-6 bg-line-soft" />
+        <div className="sop-sidebar-divider" />
         {filtered.map((sop) => (
           <Button
             key={sop.sopTemplateId}
@@ -65,10 +65,10 @@ export function SopSidebar({
             variant="ghost"
             size="icon"
             className={cn(
-              'size-8 rounded-r-sm border text-fs-meta font-semibold uppercase transition',
+              'sop-sidebar-initial',
               selectedSopId === sop.sopTemplateId
-                ? 'border-accent-ring bg-accent-surface text-accent'
-                : 'border-transparent text-ink-4 hover:bg-surface-sunken hover:text-ink-1',
+                ? 'sop-sidebar-initial-active'
+                : 'sop-sidebar-initial-idle',
             )}
             aria-label={sop.name}
             title={sop.name}
@@ -81,23 +81,22 @@ export function SopSidebar({
   }
 
   return (
-    <div className="w-sop-sidebar flex shrink-0 flex-col border-r border-line bg-surface-1">
-      {/* Sidebar header */}
-      <div className="flex shrink-0 flex-col gap-2 px-3 pb-2 pt-3">
-        <div className="flex items-center justify-between">
-          <span className="text-fs-micro font-bold uppercase tracking-wide text-ink-3">SOPs</span>
-          <div className="flex items-center gap-1">
+    <div className="sop-sidebar">
+      <div className="sop-sidebar-header">
+        <div className="sop-sidebar-top">
+          <span className="sop-sidebar-caption">SOPs</span>
+          <div className="sop-sidebar-actions">
             {onToggleCollapse && (
               <Button
                 type="button"
                 onClick={onToggleCollapse}
                 variant="outline"
                 size="icon"
-                className="size-6 rounded-r-xs border-line-soft text-ink-4 hover:bg-surface-sunken hover:text-ink-1"
+                className="sop-mini-button"
                 title="Collapse SOP sidebar"
                 aria-label="Collapse SOP sidebar"
               >
-                <ChevronLeft className="size-3" />
+                <ChevronLeft data-icon="mini-action" />
               </Button>
             )}
             <Button
@@ -105,48 +104,44 @@ export function SopSidebar({
               onClick={onImportClick}
               variant="outline"
               size="icon"
-              className="size-6 rounded-r-xs border-line-soft text-ink-4 hover:bg-surface-sunken hover:text-ink-1"
+              className="sop-mini-button"
               title="Import SOP"
               aria-label="Import SOP"
             >
-              <Download className="size-3" />
+              <Download data-icon="mini-action" />
             </Button>
             <Button
               type="button"
               onClick={onCreateClick}
               variant="outline"
               size="icon"
-              className="size-6 rounded-r-xs border-line-soft text-ink-4 hover:bg-surface-sunken hover:text-ink-1"
+              className="sop-mini-button"
               title="Create SOP"
               aria-label="Create SOP"
             >
-              <Plus className="size-3" />
+              <Plus data-icon="mini-action" />
             </Button>
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 size-3 -translate-y-1/2 text-ink-4" />
+        <div className="sop-search">
+          <Search data-icon="search" />
           <Input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search..."
-            className="h-8 w-full rounded-r-sm border-line bg-surface-sunken pl-6 pr-2 text-fs-sm text-ink-1 placeholder:text-ink-4 focus:border-accent"
+            className="sop-search-input"
           />
         </div>
       </div>
 
-      {/* SOP list */}
-      <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2">
-        {loading && <WorkspaceListSkeleton rows={6} className="px-0 py-2" />}
+      <div className="sop-list">
+        {loading && <WorkspaceListSkeleton rows={6} className="sop-list-skeleton" />}
         {!loading && filtered.length === 0 && (
-          <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
-            <ClipboardList className="size-5 text-ink-4" />
-            <p className="text-fs-sm text-ink-4">
-              {sops.length === 0 ? 'No SOPs yet' : 'No matches'}
-            </p>
+          <div className="sop-empty-list">
+            <ClipboardList data-icon="empty-list" />
+            <p>{sops.length === 0 ? 'No SOPs yet' : 'No matches'}</p>
           </div>
         )}
         {filtered.map((sop) => (
@@ -156,14 +151,12 @@ export function SopSidebar({
             onClick={() => onSelectSop(sop.sopTemplateId)}
             variant="ghost"
             className={cn(
-              'h-auto w-full flex-col items-start justify-start rounded-r-sm px-2.5 py-2 text-left transition-colors',
-              selectedSopId === sop.sopTemplateId
-                ? 'border border-accent-ring bg-accent-surface text-accent'
-                : 'border border-transparent text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
+              'sop-list-row',
+              selectedSopId === sop.sopTemplateId ? 'sop-list-row-active' : 'sop-list-row-idle',
             )}
           >
-            <div className="truncate text-fs-sm font-semibold">{sop.name}</div>
-            <div className="mt-0.5 text-fs-meta text-ink-4">
+            <div className="sop-list-row-title">{sop.name}</div>
+            <div className="sop-list-row-meta">
               {sop.stepCount} step{sop.stepCount !== 1 ? 's' : ''}
               {sop.sourceUrl ? ' \u00B7 synced' : ''}
             </div>

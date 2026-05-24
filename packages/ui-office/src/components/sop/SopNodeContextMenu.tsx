@@ -1,5 +1,4 @@
 import { Button } from '@offisim/ui-core';
-import { Z_INDEX_SCALE } from '@offisim/ui-core/tokens';
 import { Copy, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
@@ -64,7 +63,7 @@ export function SopNodeContextMenu({
   const items: MenuItem[] = [
     {
       label: 'Edit',
-      icon: <Pencil className="size-3.5" />,
+      icon: <Pencil data-icon="context-menu" />,
       action: () => {
         onEdit(stepId);
         onClose();
@@ -72,7 +71,7 @@ export function SopNodeContextMenu({
     },
     {
       label: 'Duplicate',
-      icon: <Copy className="size-3.5" />,
+      icon: <Copy data-icon="context-menu" />,
       action: () => {
         onDuplicate(stepId);
         onClose();
@@ -80,7 +79,7 @@ export function SopNodeContextMenu({
     },
     {
       label: 'Delete',
-      icon: <Trash2 className="size-3.5" />,
+      icon: <Trash2 data-icon="context-menu" />,
       danger: true,
       action: () => {
         onDelete(stepId);
@@ -93,7 +92,6 @@ export function SopNodeContextMenu({
     position: 'absolute',
     left: Math.min(position.x, window.innerWidth - 160),
     top: Math.min(position.y, window.innerHeight - 140),
-    ['zIndex']: Z_INDEX_SCALE.dropdown,
   };
 
   return (
@@ -101,7 +99,7 @@ export function SopNodeContextMenu({
       ref={menuRef}
       // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
       style={style}
-      className="w-sop-context-menu rounded-r-md border border-line bg-surface-1 py-1 shadow-elev-2 backdrop-blur-sm"
+      className="sop-context-menu"
       onPointerDown={(e) => e.stopPropagation()}
     >
       {items.map((item) => (
@@ -111,11 +109,8 @@ export function SopNodeContextMenu({
           variant="ghost"
           size="sm"
           onClick={item.action}
-          className={`h-auto w-full justify-start gap-2 rounded-none px-3 py-1.5 text-sm ${
-            item.danger
-              ? 'text-danger hover:bg-danger-surface'
-              : 'text-ink-2 hover:bg-surface-sunken'
-          }`}
+          className="sop-context-menu-item"
+          data-tone={item.danger ? 'danger' : 'default'}
         >
           {item.icon}
           {item.label}
