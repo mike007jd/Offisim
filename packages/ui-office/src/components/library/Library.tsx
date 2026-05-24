@@ -25,50 +25,48 @@ export function Library() {
   };
 
   return (
-    <div className="flex flex-col gap-3 overflow-hidden p-3">
-      <h2 className="text-fs-micro uppercase tracking-wider text-ink-3">Library</h2>
+    <div className="library-panel">
+      <h2>Library</h2>
 
       {/* Search + Upload */}
-      <div className="flex items-center gap-1.5">
+      <div className="library-panel-tools">
         <Input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search documents..."
-          className="h-7 min-w-0 flex-1 px-2 py-1 text-fs-micro"
+          className="library-panel-search"
         />
         <Input
           ref={fileInputRef}
           type="file"
           accept=".txt,.md,.csv,.json"
           onChange={handleFileUpload}
-          className="hidden"
+          className="library-panel-file"
         />
         <Button
           type="button"
           size="sm"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="h-7 flex-shrink-0 gap-1 px-2 text-fs-micro"
+          className="library-panel-upload"
         >
-          <Upload className="size-3" aria-hidden="true" />
+          <Upload data-icon="inline-start" aria-hidden="true" />
           <span>{uploading ? '...' : 'Upload'}</span>
         </Button>
       </div>
 
       {/* Document list */}
       {loading ? (
-        <p className="py-2 text-fs-micro text-ink-3">Loading...</p>
+        <p className="library-panel-state">Loading...</p>
       ) : documents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-          <div className="flex size-10 items-center justify-center rounded-r-md border border-line-soft bg-surface-2">
-            <Book className="size-5 text-ink-3" aria-hidden="true" />
+        <div className="library-panel-empty">
+          <div data-slot="icon-frame">
+            <Book data-icon="empty" aria-hidden="true" />
           </div>
-          <div className="px-2">
-            <p className="text-fs-micro font-semibold text-ink-2">
-              {searchQuery ? 'No matches' : 'No Documents'}
-            </p>
-            <p className="mt-1.5 text-fs-micro leading-relaxed text-ink-3">
+          <div>
+            <p>{searchQuery ? 'No matches' : 'No Documents'}</p>
+            <p data-slot="hint">
               {searchQuery
                 ? 'No documents match your search. Try different keywords.'
                 : 'Upload text, markdown, CSV or JSON files to make them available as reference material for your AI employees.'}
@@ -76,22 +74,19 @@ export function Library() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-1.5">
+        <div className="library-panel-list">
           {documents.map((doc) => (
-            <div
-              key={doc.doc_id}
-              className="flex items-center gap-2 overflow-hidden rounded-r-md border border-line-soft bg-surface-2 px-2 py-1.5"
-            >
-              <FileText className="size-3 flex-shrink-0 text-ink-3" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-fs-micro text-ink-1">{doc.title}</div>
-                <div className="truncate text-fs-micro text-ink-3">
+            <div key={doc.doc_id} className="library-panel-row">
+              <FileText data-icon="document" aria-hidden="true" />
+              <div className="library-panel-row-copy">
+                <div>{doc.title}</div>
+                <div data-slot="meta">
                   {doc.source_type} · {doc.content_text.length.toLocaleString()} chars
                   {doc.file_size ? ` · ${(doc.file_size / 1024).toFixed(1)}KB` : ''}
                 </div>
               </div>
               {confirmDeleteId === doc.doc_id ? (
-                <div className="flex flex-shrink-0 items-center gap-1">
+                <div className="library-panel-confirm">
                   <Button
                     type="button"
                     variant="destructive"
@@ -100,7 +95,7 @@ export function Library() {
                       deleteDocument(doc.doc_id);
                       setConfirmDeleteId(null);
                     }}
-                    className="h-6 px-1.5 py-0.5 text-fs-micro"
+                    className="library-panel-confirm-delete"
                   >
                     Delete
                   </Button>
@@ -109,7 +104,7 @@ export function Library() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setConfirmDeleteId(null)}
-                    className="h-6 px-1 py-0.5 text-fs-micro"
+                    className="library-panel-confirm-cancel"
                   >
                     Cancel
                   </Button>
@@ -120,11 +115,11 @@ export function Library() {
                   variant="ghost"
                   size="icon"
                   onClick={() => setConfirmDeleteId(doc.doc_id)}
-                  className="size-6 flex-shrink-0 p-0.5 text-ink-3 hover:text-danger"
+                  className="library-panel-delete"
                   title="Delete document"
                   aria-label={`Delete ${doc.title}`}
                 >
-                  <Trash2 className="size-3" aria-hidden="true" />
+                  <Trash2 data-icon="button" aria-hidden="true" />
                 </Button>
               )}
             </div>

@@ -154,16 +154,14 @@ export function ProjectCreateDialog({
       }
     >
       <form
-        className="flex flex-col gap-4"
+        className="project-dialog-form"
         onSubmit={(e) => {
           e.preventDefault();
           void handleSubmit();
         }}
       >
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="project-create-name" className="text-xs font-medium text-ink-2">
-            Name
-          </label>
+        <div className="project-dialog-field">
+          <label htmlFor="project-create-name">Name</label>
           <Input
             id="project-create-name"
             value={name}
@@ -172,9 +170,9 @@ export function ProjectCreateDialog({
           />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="project-create-description" className="text-xs font-medium text-ink-2">
-            Description <span className="text-ink-3">(optional)</span>
+        <div className="project-dialog-field">
+          <label htmlFor="project-create-description">
+            Description <span>(optional)</span>
           </label>
           <Textarea
             id="project-create-description"
@@ -185,18 +183,18 @@ export function ProjectCreateDialog({
           />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-ink-2">
-            Workspace folder {workspaceRequired && <span className="text-danger">(required)</span>}
+        <div className="project-dialog-field">
+          <span data-slot="label">
+            Workspace folder {workspaceRequired && <span data-state="required">(required)</span>}
           </span>
           {desktopMode ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 flex-1 items-center gap-2 rounded-r-md border border-line bg-surface px-3 text-sm text-ink-1">
-                  <Folder className="size-4 flex-shrink-0 text-accent" />
+            <div className="project-dialog-folder">
+              <div>
+                <div className="project-dialog-folder-input">
+                  <Folder data-icon="folder" aria-hidden="true" />
                   <Input
                     aria-label="Workspace folder path"
-                    className="h-7 min-w-0 flex-1 border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-ink-3 focus-visible:ring-0 disabled:opacity-60"
+                    className="project-dialog-path-input"
                     value={workspaceRoot ?? ''}
                     onChange={(e) => setWorkspaceRoot(trimToNull(e.target.value))}
                     placeholder="Paste local workspace path"
@@ -210,8 +208,9 @@ export function ProjectCreateDialog({
                   size="sm"
                   onClick={handleChooseFolder}
                   disabled={picking || submitting}
+                  className="project-dialog-folder-action"
                 >
-                  <FolderSearch className="size-3.5" />
+                  <FolderSearch data-icon="inline-start" aria-hidden="true" />
                   {picking ? 'Choosing…' : 'Choose'}
                 </Button>
                 {workspaceRoot && (
@@ -222,34 +221,34 @@ export function ProjectCreateDialog({
                     onClick={handleClearFolder}
                     disabled={submitting}
                     aria-label="Clear folder"
+                    className="project-dialog-folder-action"
                   >
-                    <X className="size-3.5" />
+                    <X data-icon="inline-start" aria-hidden="true" />
                     Clear
                   </Button>
                 )}
               </div>
               {workspaceRequired && !workspaceRoot && (
-                <p className="text-xs text-danger">
-                  Choose a workspace folder before creating this project.
-                </p>
+                <p data-state="error">Choose a workspace folder before creating this project.</p>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 rounded-r-md border border-line bg-surface-2 px-3 py-2 text-xs text-ink-3">
-              <Folder className="size-4 flex-shrink-0 opacity-60" />
+            <div className="project-dialog-folder-unavailable">
+              <Folder data-icon="folder" aria-hidden="true" />
               Folder binding is desktop-only.
             </div>
           )}
         </div>
 
-        {error && (
-          <p className="rounded-r-md border border-danger bg-danger-surface px-3 py-2 text-xs text-danger">
-            {error}
-          </p>
-        )}
+        {error && <p className="project-dialog-error">{error}</p>}
 
         {/* Hidden submit so Enter triggers the form. The footer button does the same. */}
-        <Button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+        <Button
+          type="submit"
+          className="project-dialog-hidden-submit"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
       </form>
     </DialogShell>
   );
