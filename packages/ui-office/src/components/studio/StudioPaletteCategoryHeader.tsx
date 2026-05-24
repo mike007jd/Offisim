@@ -31,13 +31,10 @@ export function StudioPaletteCategoryHeader({
       size="sm"
       onClick={onClick}
       aria-label={ariaLabel ?? `${collapsed ? 'Expand' : 'Collapse'} ${label} (${count} items)`}
-      className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-left text-caption font-bold text-text-secondary"
+      className="h-auto w-full justify-start gap-sp-2 rounded-none px-sp-3 py-sp-2 text-left text-fs-micro font-bold text-ink-2"
     >
       <ChevronDown
-        className={cn(
-          'size-3 shrink-0 text-text-muted transition-transform',
-          collapsed && '-rotate-90',
-        )}
+        className={cn('size-3 shrink-0 text-ink-3 transition-transform', collapsed && '-rotate-90')}
         aria-hidden="true"
       />
       {icon}
@@ -47,7 +44,7 @@ export function StudioPaletteCategoryHeader({
           REQUIRED
         </Badge>
       )}
-      <span className="ml-auto text-caption font-medium text-text-muted">{count}</span>
+      <span className="ml-auto text-fs-micro font-medium text-ink-3">{count}</span>
     </Button>
   );
 }

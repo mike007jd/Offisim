@@ -478,7 +478,7 @@ function ZoneFloor({
                   background: STUDIO_COLORS.surface0,
                   color: STUDIO_COLORS.accentText,
                 }}
-                className="rounded-full px-2 py-1 text-caption font-semibold uppercase tracking-ls-caps"
+                className="rounded-r-pill px-sp-2 py-sp-1 text-fs-micro font-semibold uppercase tracking-ls-caps"
               >
                 Edit
               </Button>

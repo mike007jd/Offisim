@@ -31,10 +31,10 @@ export function StudioPalettePrefabCard({
       aria-label={`Place ${definition.name} (${definition.gridSize[0]}x${definition.gridSize[1]})`}
       title={`${definition.name} (${definition.gridSize[0]}x${definition.gridSize[1]})`}
       className={cn(
-        'h-auto flex-col gap-0.5 rounded-md border px-1 py-2',
+        'h-auto flex-col gap-sp-1 rounded-r-md border px-sp-1 py-sp-2',
         isActive
-          ? 'border-border-focus bg-accent-muted'
-          : 'border-border-subtle bg-surface-muted hover:bg-surface-hover',
+          ? 'border-focus bg-accent-surface'
+          : 'border-line-soft bg-surface-2 hover:bg-surface-sunken',
       )}
     >
       <PrefabThumbnail
@@ -44,8 +44,8 @@ export function StudioPalettePrefabCard({
       />
       <span
         className={cn(
-          'line-clamp-2 w-full break-words text-center text-caption font-medium leading-tight',
-          isActive ? 'text-accent-text' : 'text-text-muted',
+          'line-clamp-2 w-full break-words text-center text-fs-micro font-medium leading-tight',
+          isActive ? 'text-accent' : 'text-ink-3',
         )}
       >
         {definition.name}

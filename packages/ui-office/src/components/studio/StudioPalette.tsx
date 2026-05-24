@@ -27,11 +27,11 @@ interface CategoryMeta {
 
 const CATEGORIES: CategoryMeta[] = [
   { id: 'workspace', label: 'Workspace', Icon: Monitor, colorClass: 'text-accent' },
-  { id: 'compute', label: 'Compute', Icon: Server, colorClass: 'text-info' },
-  { id: 'knowledge', label: 'Knowledge', Icon: BookOpen, colorClass: 'text-warning' },
-  { id: 'collaboration', label: 'Collaboration', Icon: Users, colorClass: 'text-success' },
-  { id: 'infrastructure', label: 'Infrastructure', Icon: Cpu, colorClass: 'text-error' },
-  { id: 'decorative', label: 'Decorative', Icon: Leaf, colorClass: 'text-text-secondary' },
+  { id: 'compute', label: 'Compute', Icon: Server, colorClass: 'text-accent' },
+  { id: 'knowledge', label: 'Knowledge', Icon: BookOpen, colorClass: 'text-warn' },
+  { id: 'collaboration', label: 'Collaboration', Icon: Users, colorClass: 'text-ok' },
+  { id: 'infrastructure', label: 'Infrastructure', Icon: Cpu, colorClass: 'text-danger' },
+  { id: 'decorative', label: 'Decorative', Icon: Leaf, colorClass: 'text-ink-2' },
 ];
 
 // -- Styles -------------------------------------------------------------------
@@ -88,9 +88,9 @@ export function StudioPalette() {
   const isPlacing = tool === 'place';
 
   return (
-    <div className="absolute bottom-10 left-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-r border-border-default bg-surface-elevated font-sans">
+    <div className="absolute bottom-10 left-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-r border-line bg-surface-1 font-sans">
       {/* Header */}
-      <div className="shrink-0 border-b border-border-default px-3 py-2 text-caption font-black uppercase tracking-normal text-text-muted">
+      <div className="shrink-0 border-b border-line px-sp-3 py-sp-2 text-fs-micro font-black uppercase tracking-ls-caps text-ink-3">
         {isEditingZone && focusedZone
           ? `${focusedZone.label} — Allowed Assets`
           : activeTab === 'assets'
@@ -105,7 +105,7 @@ export function StudioPalette() {
             focusedZone &&
             focusedZone.allowedCategories.length > 0 &&
             visibleCategories.every((cat) => (grouped.get(cat.id)?.length ?? 0) === 0) && (
-              <div className="px-3 py-4 text-center text-caption text-text-muted">
+              <div className="px-sp-3 py-sp-4 text-center text-fs-micro text-ink-3">
                 No prefabs allowed in this zone
               </div>
             )}
@@ -123,7 +123,7 @@ export function StudioPalette() {
                   count={items.length}
                 />
                 {!isCollapsed && (
-                  <div className="grid grid-cols-2 gap-1 px-2 pb-2 pt-0.5">
+                  <div className="grid grid-cols-2 gap-sp-1 px-sp-2 pb-sp-2 pt-sp-1">
                     {items.map((prefab) => {
                       const isActive = isPlacing && placingPrefab?.prefabId === prefab.prefabId;
                       return (
@@ -174,20 +174,20 @@ function ZoneOverview({
 
   return (
     <div className={LIST_CLASS}>
-      <div className="flex flex-col gap-2 p-2">
+      <div className="flex flex-col gap-sp-2 p-sp-2">
         <Button
           type="button"
           size="sm"
           onClick={() => setShowPresets((open) => !open)}
           aria-expanded={showPresets}
-          className="min-h-8 justify-center gap-1 font-bold"
+          className="min-h-8 justify-center gap-sp-1 font-bold"
         >
           <Plus className="size-3.5" aria-hidden="true" />
           Add Zone
         </Button>
 
         {sortedZones.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border-subtle p-3 text-center text-caption text-text-muted">
+          <div className="rounded-r-md border border-dashed border-line-soft p-sp-3 text-center text-fs-micro text-ink-3">
             No zones yet.
           </div>
         ) : (
@@ -205,7 +205,7 @@ function ZoneOverview({
       </div>
 
       {showPresets && (
-        <div className="border-t border-border-subtle pt-1">
+        <div className="border-t border-line-soft pt-sp-1">
           {ZONE_PRESET_GROUPS.map((group) => {
             const isCollapsed = collapsed[`zone-${group.archetype}`] ?? false;
             const required = isRequiredArchetype(group.archetype);
@@ -215,14 +215,14 @@ function ZoneOverview({
                 <StudioPaletteCategoryHeader
                   collapsed={isCollapsed}
                   onClick={() => onToggleCategory(`zone-${group.archetype}`)}
-                  icon={<span className="text-caption">{group.icon}</span>}
+                  icon={<span className="text-fs-micro">{group.icon}</span>}
                   label={group.label}
                   count={group.presets.length}
                   required={required}
                   ariaLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${group.label} zone group (${group.presets.length} presets)`}
                 />
                 {!isCollapsed && (
-                  <div className="flex flex-col gap-1 px-2 pb-2 pt-0.5">
+                  <div className="flex flex-col gap-sp-1 px-sp-2 pb-sp-2 pt-sp-1">
                     {group.presets.map((preset) => (
                       <StudioPaletteZonePresetCard
                         key={preset.id}
@@ -261,15 +261,15 @@ function ZoneOverviewRow({
   return (
     <div
       className={cn(
-        'flex min-h-11 items-center gap-2 rounded-md border px-2 py-1',
-        selected ? 'border-border-focus bg-accent-muted' : 'border-border-subtle bg-surface-muted',
+        'flex min-h-11 items-center gap-sp-2 rounded-r-md border px-sp-2 py-sp-1',
+        selected ? 'border-focus bg-accent-surface' : 'border-line-soft bg-surface-2',
       )}
     >
       <Button
         type="button"
         variant="ghost"
         onClick={onSelect}
-        className="h-auto min-w-0 flex-1 justify-start gap-2 border-0 bg-transparent p-0 text-left hover:bg-transparent"
+        className="h-auto min-w-0 flex-1 justify-start gap-sp-2 border-0 bg-transparent p-0 text-left hover:bg-transparent"
       >
         <svg className="size-5 shrink-0 rounded" viewBox="0 0 20 20" aria-hidden="true">
           <rect width="20" height="20" rx="4" fill={`${zone.floorColor}`} />
@@ -287,13 +287,13 @@ function ZoneOverviewRow({
         <span className="min-w-0 flex-1">
           <span
             className={cn(
-              'block truncate text-caption font-bold',
-              selected ? 'text-accent-text' : 'text-text-primary',
+              'block truncate text-fs-micro font-bold',
+              selected ? 'text-accent' : 'text-ink-1',
             )}
           >
             {zone.label}
           </span>
-          <span className="mt-0.5 block text-caption text-text-muted">
+          <span className="mt-sp-1 block text-fs-micro text-ink-3">
             {zone.w}x{zone.d} · {itemCount} items · {zone.deskSlots} desks
           </span>
         </span>
@@ -304,7 +304,7 @@ function ZoneOverviewRow({
         size="sm"
         onClick={onEdit}
         aria-label={`Edit ${zone.label}`}
-        className="h-7 rounded-full px-2 text-caption font-bold"
+        className="h-7 rounded-r-pill px-sp-2 text-fs-micro font-bold"
       >
         <Pencil className="size-3" aria-hidden="true" />
         Edit

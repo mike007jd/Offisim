@@ -49,12 +49,12 @@ const TOOLS: ToolDef[] = [
 // -- Presentation --------------------------------------------------------------
 
 const toolbarButtonClass =
-  'h-8 gap-1 rounded-md px-2 font-sans text-xs text-text-secondary data-[active=true]:border-accent data-[active=true]:bg-accent-muted data-[active=true]:text-accent-text';
+  'h-8 gap-sp-1 rounded-r-sm px-sp-2 font-sans text-fs-micro text-ink-2 data-[active=true]:border-accent data-[active=true]:bg-accent-surface data-[active=true]:text-accent';
 
 const kbdClass =
-  'inline-flex h-5 min-w-5 items-center justify-center rounded border border-border-subtle bg-surface-muted px-1 font-mono text-caption leading-none text-text-muted';
+  'inline-flex h-5 min-w-5 items-center justify-center rounded-r-xs border border-line-soft bg-surface-2 px-sp-1 font-mono text-fs-micro leading-none text-ink-3';
 
-const separatorClass = 'mx-2 h-6 w-px shrink-0 bg-border-default';
+const separatorClass = 'mx-sp-2 h-6 w-px shrink-0 bg-line';
 
 // -- Component ----------------------------------------------------------------
 
@@ -121,7 +121,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
   const canSave = dirty && !saving;
 
   return (
-    <div className="absolute left-0 right-0 top-0 z-sticky flex h-11 items-center overflow-hidden border-b border-border-default bg-surface-elevated font-sans">
+    <div className="absolute left-0 right-0 top-0 z-sticky flex h-11 items-center overflow-hidden border-b border-line bg-surface-1 font-sans">
       {/* Back */}
       <Button
         type="button"
@@ -183,7 +183,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
           aria-label="Exit zone editing (Esc)"
           variant="outline"
           size="sm"
-          className={cn(toolbarButtonClass, 'border-warning bg-warning-muted text-warning')}
+          className={cn(toolbarButtonClass, 'border-warn bg-warn-surface text-warn')}
         >
           <X className="h-3.5 w-3.5" />
           <span className="font-semibold">{editingZoneLabel}</span>
@@ -206,14 +206,14 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
       <div className={separatorClass} />
 
       {/* Item count */}
-      <span className="font-mono text-xs text-text-secondary">
+      <span className="font-mono text-fs-micro text-ink-2">
         {instanceCount} item{instanceCount !== 1 ? 's' : ''}
       </span>
 
       <div className="flex-1" />
 
       {/* Save — wrapped for dirty indicator dot */}
-      <div className="relative mr-2">
+      <div className="relative mr-sp-2">
         <Button
           type="button"
           onClick={onSave}
@@ -225,7 +225,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
           className={cn(
             toolbarButtonClass,
             !canSave && 'cursor-not-allowed',
-            saveFlash && 'border-success bg-success-muted text-success',
+            saveFlash && 'border-ok bg-ok-surface text-ok',
           )}
         >
           <Save className="h-3.5 w-3.5" />
@@ -234,7 +234,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
         </Button>
         {/* Dirty amber dot — Skill §15 */}
         {dirty && !saveFlash && (
-          <div className="-right-0.5 -top-0.5 pointer-events-none absolute h-1.5 w-1.5 rounded-full bg-warning" />
+          <div className="-right-0.5 -top-0.5 pointer-events-none absolute h-1.5 w-1.5 rounded-full bg-warn" />
         )}
       </div>
     </div>

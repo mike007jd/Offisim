@@ -32,9 +32,9 @@ const RACK_BADGE_VARIANT: Record<RackStatus, 'success' | 'secondary' | 'error' |
 };
 
 const SLOT_DOT: Record<SlotStatus, string> = {
-  available: 'bg-success',
+  available: 'bg-ok',
   occupied: 'bg-accent',
-  error: 'bg-error',
+  error: 'bg-danger',
 };
 
 function rackBadgeVariant(status: RackStatus) {
@@ -42,7 +42,7 @@ function rackBadgeVariant(status: RackStatus) {
 }
 
 function slotDotColor(status: SlotStatus) {
-  return SLOT_DOT[status] ?? 'bg-text-muted';
+  return SLOT_DOT[status] ?? 'bg-ink-4';
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
@@ -63,34 +63,36 @@ function SlotList({
   onRemoveSlot,
 }: SlotListProps) {
   return (
-    <div className="mt-2 flex flex-col gap-1 border-l border-border-subtle pl-1">
+    <div className="mt-sp-2 flex flex-col gap-sp-1 border-l border-line-soft pl-sp-1">
       {rack.slots.length === 0 && (
-        <p className="py-1 pl-1 text-caption text-text-muted">No slots — add a capability below</p>
+        <p className="py-sp-1 pl-sp-1 text-fs-micro text-ink-3">
+          No slots — add a capability below
+        </p>
       )}
 
       {rack.slots.map((slot) => (
         <div
           key={slot.slot_id}
-          className="flex items-center justify-between gap-1 rounded bg-surface-muted px-2 py-1"
+          className="flex items-center justify-between gap-sp-1 rounded-r-sm bg-surface-2 px-sp-2 py-sp-1"
         >
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <div className="flex min-w-0 flex-1 items-center gap-sp-1">
             <Circle
               className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${slotDotColor(slot.status)}`}
               fill="currentColor"
               strokeWidth={0}
             />
-            <span className="truncate font-mono text-caption text-text-primary">
+            <span className="truncate font-mono text-fs-micro text-ink-1">
               {slot.capability_name}
             </span>
           </div>
-          <div className="flex flex-shrink-0 items-center gap-1">
-            <span className="font-mono text-caption text-text-muted">{slot.exposure_scope}</span>
+          <div className="flex flex-shrink-0 items-center gap-sp-1">
+            <span className="font-mono text-fs-micro text-ink-3">{slot.exposure_scope}</span>
             <Button
               type="button"
               variant="ghost"
               size="icon"
               onClick={() => onRemoveSlot(slot.slot_id)}
-              className="h-5 w-5 text-text-muted hover:text-error"
+              className="h-5 w-5 text-ink-3 hover:text-danger"
               title="Remove slot"
             >
               <Trash2 className="h-2.5 w-2.5" />
@@ -100,13 +102,13 @@ function SlotList({
       ))}
 
       {/* Add slot inline input */}
-      <div className="mt-0.5 flex items-center gap-1">
+      <div className="mt-sp-1 flex items-center gap-sp-1">
         <Input
           type="text"
           value={newSlotInput}
           onChange={(e) => onSlotInputChange(e.target.value)}
           placeholder="Capability name"
-          className="h-7 min-w-0 flex-1 border-border-subtle bg-surface px-2 py-0.5 text-caption"
+          className="h-7 min-w-0 flex-1 border-line-soft bg-surface-1 px-sp-2 py-sp-1 text-fs-micro"
           onKeyDown={(e) => e.key === 'Enter' && onAddSlot()}
         />
         <Button
@@ -114,7 +116,7 @@ function SlotList({
           variant="outline"
           size="sm"
           onClick={onAddSlot}
-          className="h-7 flex-shrink-0 gap-0.5 px-1.5 text-caption"
+          className="h-7 flex-shrink-0 gap-sp-1 px-sp-2 text-fs-micro"
         >
           <Plus className="h-2.5 w-2.5" />
         </Button>
@@ -147,16 +149,16 @@ function RackCard({
   const isBound = rack.status === 'bound';
 
   return (
-    <div className="flex flex-col gap-2 overflow-hidden rounded-lg border border-border-subtle bg-surface-muted p-3">
+    <div className="flex flex-col gap-sp-2 overflow-hidden rounded-r-md border border-line-soft bg-surface-2 p-sp-3">
       {/* Rack header */}
-      <div className="flex min-w-0 items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Server className="h-3 w-3 flex-shrink-0 text-text-secondary" />
+      <div className="flex min-w-0 items-start justify-between gap-sp-2">
+        <div className="flex min-w-0 flex-1 items-center gap-sp-2">
+          <Server className="h-3 w-3 flex-shrink-0 text-ink-2" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-caption font-semibold leading-tight text-text-primary">
+            <p className="truncate text-fs-sm font-semibold leading-tight text-ink-1">
               {rack.label}
             </p>
-            <p className="truncate font-mono text-caption text-text-muted">{rack.provider_type}</p>
+            <p className="truncate font-mono text-fs-micro text-ink-3">{rack.provider_type}</p>
           </div>
         </div>
         <Badge
@@ -169,11 +171,11 @@ function RackCard({
       </div>
 
       {/* Slot count summary */}
-      <div className="flex items-center gap-3 text-caption text-text-muted">
+      <div className="flex items-center gap-sp-3 text-fs-micro text-ink-3">
         <span>
           {rack.slots.length} slot{rack.slots.length !== 1 ? 's' : ''}
         </span>
-        <span className="text-success">
+        <span className="text-ok">
           {rack.slots.filter((s) => s.status === 'available').length} available
         </span>
       </div>
@@ -188,14 +190,14 @@ function RackCard({
       />
 
       {/* Rack actions */}
-      <div className="flex items-center gap-1 border-t border-border-subtle pt-1">
+      <div className="flex items-center gap-sp-1 border-t border-line-soft pt-sp-1">
         {isBound ? (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => onUnbind(rack.rack_id)}
-            className="h-6 gap-1 px-1.5 text-caption text-warning hover:text-warning"
+            className="h-6 gap-sp-1 px-sp-2 text-fs-micro text-warn hover:text-warn"
           >
             <Unplug className="h-2.5 w-2.5" />
             Unbind
@@ -206,7 +208,7 @@ function RackCard({
             variant="ghost"
             size="sm"
             onClick={() => onBind(rack.rack_id)}
-            className="h-6 gap-1 px-1.5 text-caption text-success hover:text-success"
+            className="h-6 gap-sp-1 px-sp-2 text-fs-micro text-ok hover:text-ok"
           >
             <Wifi className="h-2.5 w-2.5" />
             Bind
@@ -217,7 +219,7 @@ function RackCard({
           variant="ghost"
           size="icon"
           onClick={() => onDelete(rack.rack_id)}
-          className="ml-auto h-6 w-6 text-text-muted hover:text-error"
+          className="ml-auto h-6 w-6 text-ink-3 hover:text-danger"
         >
           <Trash2 className="h-2.5 w-2.5" />
         </Button>
@@ -230,13 +232,13 @@ function RackCard({
 
 function EmptyRacks() {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-subtle bg-surface-muted">
-        <Server className="h-5 w-5 text-text-muted" />
+    <div className="flex flex-col items-center justify-center gap-sp-3 py-sp-8 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-r-md border border-line-soft bg-surface-2">
+        <Server className="h-5 w-5 text-ink-3" />
       </div>
-      <div className="px-2">
-        <p className="text-caption font-semibold text-text-secondary">No MCP Racks</p>
-        <p className="mt-1.5 text-caption leading-relaxed text-text-muted">
+      <div className="px-sp-2">
+        <p className="text-fs-sm font-semibold text-ink-2">No MCP Racks</p>
+        <p className="mt-sp-1 text-fs-micro leading-relaxed text-ink-3">
           Racks are groups of MCP server capabilities that your AI employees can access. Create a
           rack, add capability slots, then bind it to make tools available to agents.
         </p>
@@ -256,10 +258,10 @@ const STATUS_ICON: Record<
   ToolExecutionTelemetryPayload['status'],
   { Icon: typeof CheckCircle; iconClassName: string }
 > = {
-  started: { Icon: Clock, iconClassName: 'text-text-secondary' },
-  completed: { Icon: CheckCircle, iconClassName: 'text-success' },
-  error: { Icon: AlertCircle, iconClassName: 'text-error' },
-  denied: { Icon: AlertCircle, iconClassName: 'text-warning' },
+  started: { Icon: Clock, iconClassName: 'text-ink-2' },
+  completed: { Icon: CheckCircle, iconClassName: 'text-ok' },
+  error: { Icon: AlertCircle, iconClassName: 'text-danger' },
+  denied: { Icon: AlertCircle, iconClassName: 'text-warn' },
 };
 
 interface ServerRoomProps {
@@ -321,17 +323,17 @@ export function ServerRoom({ activeThreadId }: ServerRoomProps) {
   );
 
   return (
-    <div className="flex flex-col gap-3 overflow-hidden">
+    <div className="flex flex-col gap-sp-3 overflow-hidden">
       {/* Section header */}
-      <h2 className="text-caption uppercase tracking-wider text-text-secondary">Server Room</h2>
+      <h2 className="text-fs-micro uppercase tracking-ls-caps text-ink-2">Server Room</h2>
 
       {/* Rack list */}
       {loading ? (
-        <div className="py-2 text-caption text-text-muted">Loading racks...</div>
+        <div className="py-sp-2 text-fs-micro text-ink-3">Loading racks...</div>
       ) : racks.length === 0 ? (
         <EmptyRacks />
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-sp-2">
           {racks.map((rack: RackWithSlots) => (
             <RackCard
               key={rack.rack_id}
@@ -349,18 +351,18 @@ export function ServerRoom({ activeThreadId }: ServerRoomProps) {
       )}
 
       {/* Add rack — below content */}
-      <div className="flex flex-col gap-1.5 border-t border-border-subtle pt-2">
-        <label htmlFor="server-room-new-rack" className="text-caption font-medium text-text-muted">
+      <div className="flex flex-col gap-sp-1 border-t border-line-soft pt-sp-2">
+        <label htmlFor="server-room-new-rack" className="text-fs-micro font-medium text-ink-3">
           Add New Rack
         </label>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-sp-1">
           <Input
             id="server-room-new-rack"
             type="text"
             value={newRackLabel}
             onChange={(e) => setNewRackLabel(e.target.value)}
             placeholder="Rack name"
-            className="h-8 min-w-0 flex-1 border-border-subtle bg-surface px-2 py-1 text-caption"
+            className="h-8 min-w-0 flex-1 border-line-soft bg-surface-1 px-sp-2 py-sp-1 text-fs-micro"
             onKeyDown={(e) => e.key === 'Enter' && handleCreateRack()}
           />
           <Button
@@ -368,7 +370,7 @@ export function ServerRoom({ activeThreadId }: ServerRoomProps) {
             size="sm"
             onClick={handleCreateRack}
             disabled={!newRackLabel.trim()}
-            className="h-8 flex-shrink-0 gap-1 px-2 text-caption"
+            className="h-8 flex-shrink-0 gap-sp-1 px-sp-2 text-fs-micro"
           >
             <Plus className="h-3 w-3" />
             <span>Add</span>
@@ -392,19 +394,19 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
   if (!activeThreadId) return null;
 
   return (
-    <div className="mt-3 border-t border-border-subtle pt-2">
+    <div className="mt-sp-3 border-t border-line-soft pt-sp-2">
       <Button
         type="button"
         variant="ghost"
         onClick={() => setExpanded((v) => !v)}
-        className="mb-1.5 h-auto w-full justify-start gap-1.5 p-0 text-left hover:bg-transparent"
+        className="mb-sp-1 h-auto w-full justify-start gap-sp-1 p-0 text-left hover:bg-transparent"
       >
-        <Activity className="h-3 w-3 text-info" />
-        <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
+        <Activity className="h-3 w-3 text-accent" />
+        <span className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-2">
           Tool Activity
         </span>
         {stats.total > 0 && (
-          <span className="ml-auto text-caption text-text-muted">
+          <span className="ml-auto text-fs-micro text-ink-3">
             {stats.total} calls &middot; {Math.round(stats.successRate * 100)}% ok &middot; avg{' '}
             {formatMs(stats.avgDurationMs)}
           </span>
@@ -413,7 +415,7 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
 
       {expanded &&
         (entries.length === 0 ? (
-          <p className="px-1 text-caption italic text-text-muted">No tool calls yet</p>
+          <p className="px-sp-1 text-fs-micro italic text-ink-3">No tool calls yet</p>
         ) : (
           <ScrollArea className="max-h-40">
             {entries.slice(-20).map((e) => {
@@ -421,12 +423,12 @@ function ToolActivitySection({ activeThreadId }: { activeThreadId: string | null
               return (
                 <div
                   key={`${e.toolCallId}-${e.startedAt}`}
-                  className="flex items-center gap-1.5 px-1 py-0.5 text-caption transition-colors hover:bg-surface-hover"
+                  className="flex items-center gap-sp-1 px-sp-1 py-sp-1 text-fs-micro transition-colors hover:bg-surface-sunken"
                 >
                   <Icon className={`h-2.5 w-2.5 shrink-0 ${iconClassName}`} />
-                  <span className="min-w-0 flex-1 truncate text-text-secondary">{e.toolName}</span>
+                  <span className="min-w-0 flex-1 truncate text-ink-2">{e.toolName}</span>
                   {e.durationMs != null && (
-                    <span className="shrink-0 text-text-muted">{formatMs(e.durationMs)}</span>
+                    <span className="shrink-0 text-ink-3">{formatMs(e.durationMs)}</span>
                   )}
                 </div>
               );

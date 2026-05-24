@@ -28,7 +28,7 @@ export function StudioPaletteZonePresetCard({
       onClick={handleClick}
       aria-label={`Place ${preset.label} zone (${sizeLabel})`}
       title={preset.description}
-      className="h-auto w-full justify-start gap-2 rounded-md border border-border-subtle bg-surface-muted px-1 py-2 text-left hover:bg-surface-hover"
+      className="h-auto w-full justify-start gap-sp-2 rounded-r-md border border-line-soft bg-surface-2 px-sp-1 py-sp-2 text-left hover:bg-surface-sunken"
     >
       {/* Color swatch with optional lock overlay */}
       <div className="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded">
@@ -41,28 +41,26 @@ export function StudioPaletteZonePresetCard({
             width={Math.min(20, Math.round((preset.w / Math.max(preset.w, preset.d)) * 20))}
             height={Math.min(20, Math.round((preset.d / Math.max(preset.w, preset.d)) * 20))}
             rx="2"
-            className="fill-surface-elevated"
+            className="fill-surface-1"
           />
         </svg>
         {isRequired && (
           <div className="absolute bottom-px right-px flex items-center justify-center">
-            <Lock className="size-2 text-text-inverse" aria-hidden="true" />
+            <Lock className="size-2 text-ink-inverse" aria-hidden="true" />
           </div>
         )}
       </div>
 
       {/* Text info */}
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-caption font-medium text-text-secondary">
-          {preset.label}
-        </span>
-        <span className="flex flex-wrap gap-1 text-caption text-text-muted">
+      <div className="flex min-w-0 flex-1 flex-col gap-sp-1">
+        <span className="truncate text-fs-micro font-medium text-ink-2">{preset.label}</span>
+        <span className="flex flex-wrap gap-sp-1 text-fs-micro text-ink-3">
           <span>{sizeLabel}</span>
-          <span className="text-text-disabled">·</span>
+          <span className="text-ink-4">·</span>
           <span>{itemsLabel}</span>
           {desksLabel && (
             <>
-              <span className="text-text-disabled">·</span>
+              <span className="text-ink-4">·</span>
               <span>{desksLabel}</span>
             </>
           )}

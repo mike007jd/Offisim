@@ -34,13 +34,13 @@ import { useStudioHierarchyLevel, useStudioStore } from './StudioState.js';
 
 // -- Styles -------------------------------------------------------------------
 
-const SECTION_CLASS = 'border-b border-border-subtle px-4 py-3';
-const LABEL_CLASS = 'mb-1 text-caption font-semibold uppercase tracking-normal text-text-muted';
-const VALUE_CLASS = 'font-mono text-body-sm text-text-primary';
-const ROW_CLASS = 'mb-1 flex items-center gap-2';
-const AXIS_CLASS = 'text-caption font-bold';
+const SECTION_CLASS = 'border-b border-line-soft px-sp-4 py-sp-3';
+const LABEL_CLASS = 'mb-sp-1 text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3';
+const VALUE_CLASS = 'font-mono text-fs-sm text-ink-1';
+const ROW_CLASS = 'mb-sp-1 flex items-center gap-sp-2';
+const AXIS_CLASS = 'text-fs-micro font-bold';
 const KBD_CLASS =
-  'ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-border-subtle bg-surface-muted px-1 font-mono text-caption leading-none text-text-muted';
+  'ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-r-xs border border-line-soft bg-surface-2 px-sp-1 font-mono text-fs-micro leading-none text-ink-3';
 
 // -- Component ----------------------------------------------------------------
 
@@ -75,18 +75,18 @@ function StudioPropertiesEmptyState() {
   const hint = TOOL_HINTS[tool] ?? DEFAULT_TOOL_HINT;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-5 text-center">
-      <BoxSelect className="size-8 text-text-disabled" aria-hidden="true" />
-      <div className="text-caption font-semibold text-text-primary">Nothing selected</div>
-      <div className="max-w-60 text-caption leading-relaxed text-text-muted">{hint.hint}</div>
-      <div className="flex w-full flex-col gap-1 border-t border-border-subtle pt-2 text-caption text-text-secondary">
+    <div className="flex flex-1 flex-col items-center justify-center gap-sp-3 p-sp-5 text-center">
+      <BoxSelect className="size-8 text-ink-4" aria-hidden="true" />
+      <div className="text-fs-sm font-semibold text-ink-1">Nothing selected</div>
+      <div className="max-w-60 text-fs-micro leading-relaxed text-ink-3">{hint.hint}</div>
+      <div className="flex w-full flex-col gap-sp-1 border-t border-line-soft pt-sp-2 text-fs-micro text-ink-2">
         <span>
-          Current tool: <strong className="text-text-primary">{hint.label}</strong>
+          Current tool: <strong className="text-ink-1">{hint.label}</strong>
         </span>
         {focusedZoneId && (
           <span>
             Focused zone:{' '}
-            <strong className="text-text-primary">
+            <strong className="text-ink-1">
               {focusedZoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : focusedZoneId}
             </strong>
           </span>
@@ -157,13 +157,13 @@ export function StudioProperties() {
   }
 
   return (
-    <div className="absolute bottom-10 right-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-l border-border-default bg-surface-elevated font-sans">
-      <div className="shrink-0 border-b border-border-default px-3 py-2 text-caption font-black uppercase tracking-normal text-text-muted">
+    <div className="absolute bottom-10 right-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-l border-line bg-surface-1 font-sans">
+      <div className="shrink-0 border-b border-line px-sp-3 py-sp-2 text-fs-micro font-black uppercase tracking-ls-caps text-ink-3">
         Properties
       </div>
 
       {/* Hierarchy anchor row */}
-      <div className="shrink-0 border-b border-border-subtle px-3 py-1 text-caption tracking-normal text-text-muted">
+      <div className="shrink-0 border-b border-line-soft px-sp-3 py-sp-1 text-fs-micro tracking-ls-caps text-ink-3">
         {anchorText}
       </div>
 
@@ -227,9 +227,9 @@ export function StudioProperties() {
               <div className={SECTION_CLASS}>
                 <div className={LABEL_CLASS}>Position</div>
                 <div className={ROW_CLASS}>
-                  <span className={`${AXIS_CLASS} text-error`}>X</span>
+                  <span className={`${AXIS_CLASS} text-danger`}>X</span>
                   <span className={VALUE_CLASS}>{selectedZone.cx.toFixed(1)}</span>
-                  <span className={`${AXIS_CLASS} ml-3 text-info`}>Z</span>
+                  <span className={`${AXIS_CLASS} ml-sp-3 text-accent`}>Z</span>
                   <span className={VALUE_CLASS}>{selectedZone.cz.toFixed(1)}</span>
                 </div>
               </div>
@@ -274,7 +274,7 @@ export function StudioProperties() {
               )}
 
               {/* Rotate zone */}
-              <div className="px-4">
+              <div className="px-sp-4">
                 <Button
                   type="button"
                   variant="secondary"
@@ -293,7 +293,7 @@ export function StudioProperties() {
               <div className="flex-1" />
 
               {/* Delete zone */}
-              <div className="px-4 py-3">
+              <div className="px-sp-4 py-sp-3">
                 {required ? (
                   <Button
                     type="button"
@@ -336,7 +336,7 @@ export function StudioProperties() {
               <div className={SECTION_CLASS}>
                 <div className={LABEL_CLASS}>Prefab</div>
                 <div className={VALUE_CLASS}>{definition.name}</div>
-                <div className="mt-1 text-caption capitalize text-text-muted">
+                <div className="mt-sp-1 text-fs-micro capitalize text-ink-3">
                   {definition.category}
                 </div>
               </div>
@@ -345,9 +345,9 @@ export function StudioProperties() {
               <div className={SECTION_CLASS}>
                 <div className={LABEL_CLASS}>Position</div>
                 <div className={ROW_CLASS}>
-                  <span className={`${AXIS_CLASS} text-error`}>X</span>
+                  <span className={`${AXIS_CLASS} text-danger`}>X</span>
                   <span className={VALUE_CLASS}>{x.toFixed(1)}</span>
-                  <span className={`${AXIS_CLASS} ml-3 text-info`}>Z</span>
+                  <span className={`${AXIS_CLASS} ml-sp-3 text-accent`}>Z</span>
                   <span className={VALUE_CLASS}>{z.toFixed(1)}</span>
                 </div>
               </div>
@@ -364,7 +364,7 @@ export function StudioProperties() {
                     onClick={rotateSelected}
                     aria-label="Rotate 90 degrees clockwise"
                     title="Rotate +90\u00B0"
-                    className="h-7 gap-1 px-2 text-caption"
+                    className="h-7 gap-sp-1 px-sp-2 text-fs-micro"
                   >
                     <RotateCw className="size-3" aria-hidden="true" />
                     <span>+90\u00B0</span>
@@ -385,13 +385,17 @@ export function StudioProperties() {
                   <MapPin className="size-3 shrink-0 text-ink-3" />
                   {instanceZone ? (
                     <>
-                      <svg className="size-2 shrink-0 rounded-sm" viewBox="0 0 8 8" aria-hidden="true">
+                      <svg
+                        className="size-2 shrink-0 rounded-sm"
+                        viewBox="0 0 8 8"
+                        aria-hidden="true"
+                      >
                         <rect width="8" height="8" rx="2" fill={instanceZone.accentColor} />
                       </svg>
                       <span className={VALUE_CLASS}>{instanceZone.label}</span>
                     </>
                   ) : (
-                    <span className="text-caption italic text-text-muted">
+                    <span className="text-fs-micro italic text-ink-3">
                       {instance.zoneId === UNASSIGNED_ZONE_ID ? 'Unassigned' : instance.zoneId}
                     </span>
                   )}
@@ -402,7 +406,7 @@ export function StudioProperties() {
               <div className="flex-1" />
 
               {/* Delete */}
-              <div className="px-4 py-3">
+              <div className="px-sp-4 py-sp-3">
                 <Button
                   type="button"
                   variant="destructive"

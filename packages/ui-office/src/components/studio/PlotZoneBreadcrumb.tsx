@@ -87,7 +87,7 @@ export function PlotZoneBreadcrumb() {
   };
 
   return (
-    <div className="pointer-events-auto absolute left-60 right-60 top-25 z-sticky flex h-8 items-center gap-sp-1 border-b border-line bg-surface-elevated px-sp-3 text-fs-sm">
+    <div className="pointer-events-auto absolute left-60 right-60 top-25 z-sticky flex h-8 items-center gap-sp-1 border-b border-line bg-surface-1 px-sp-3 text-fs-sm">
       <Segment
         label={`Plot · ${plotSize.name}`}
         active={level === 'plot'}

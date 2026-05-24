@@ -251,14 +251,12 @@ export const STUDIO_TRANSITION = {
 } as const;
 
 export const STUDIO_PANEL_CLASS = {
-  left:
-    'absolute bottom-10 left-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-r border-line bg-surface-elevated',
+  left: 'absolute bottom-10 left-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-r border-line bg-surface-1',
   right:
-    'absolute bottom-10 right-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-l border-line bg-surface-elevated',
-  top:
-    'absolute inset-x-0 top-0 z-sticky flex h-11 flex-row items-center overflow-hidden border-b border-line bg-surface-elevated',
+    'absolute bottom-10 right-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-l border-line bg-surface-1',
+  top: 'absolute inset-x-0 top-0 z-sticky flex h-11 flex-row items-center overflow-hidden border-b border-line bg-surface-1',
   bottom:
-    'absolute inset-x-0 bottom-0 z-sticky flex h-10 flex-row items-center justify-center overflow-hidden border-t border-line bg-surface-elevated',
+    'absolute inset-x-0 bottom-0 z-sticky flex h-10 flex-row items-center justify-center overflow-hidden border-t border-line bg-surface-1',
 } as const;
 
 export const STUDIO_LABEL_CLASS =
@@ -267,7 +265,7 @@ export const STUDIO_VALUE_CLASS = 'font-mono text-fs-sm text-ink-1';
 export const STUDIO_SECTION_HEADER_CLASS =
   'shrink-0 border-b border-line px-sp-3 py-sp-2 text-fs-micro font-black uppercase tracking-ls-caps text-ink-3';
 export const STUDIO_KBD_CLASS =
-  'inline-flex h-4 min-w-4 items-center justify-center rounded-r-xs border border-line-soft bg-surface-muted px-1 font-mono text-fs-micro leading-none text-ink-3';
+  'inline-flex h-4 min-w-4 items-center justify-center rounded-r-xs border border-line-soft bg-surface-2 px-1 font-mono text-fs-micro leading-none text-ink-3';
 
 export function studioToolButtonClass(active: boolean): string {
   return active
@@ -277,6 +275,6 @@ export function studioToolButtonClass(active: boolean): string {
 
 export function studioInputClass(focused: boolean): string {
   return focused
-    ? 'h-8 rounded-r-sm border-line-strong bg-surface-muted px-sp-2 text-fs-sm text-ink-1 outline-none transition-colors'
+    ? 'h-8 rounded-r-sm border-line-strong bg-surface-2 px-sp-2 text-fs-sm text-ink-1 outline-none transition-colors'
     : 'h-8 rounded-r-sm border-line-soft bg-transparent px-sp-2 text-fs-sm text-ink-1 outline-none transition-colors';
 }

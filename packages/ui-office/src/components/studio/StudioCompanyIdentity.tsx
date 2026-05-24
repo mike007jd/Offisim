@@ -2,10 +2,7 @@ import type { RuntimeRepositories } from '@offisim/core/browser';
 import { Input, Textarea, cn } from '@offisim/ui-core';
 import { useEffect, useRef, useState } from 'react';
 import { parseCompanyDescription, updateCompanyIdentity } from '../../lib/company-identity.js';
-import {
-  STUDIO_LABEL_CLASS,
-  studioInputClass,
-} from './studio-style-helpers.js';
+import { STUDIO_LABEL_CLASS, studioInputClass } from './studio-style-helpers.js';
 
 export const STUDIO_IDENTITY_HEIGHT = 56;
 
@@ -86,7 +83,7 @@ export function StudioCompanyIdentity({
   const isCreate = mode === 'create';
 
   return (
-    <div className="absolute left-60 right-60 top-11 z-sticky flex h-14 items-center gap-sp-3 border-b border-line bg-surface-elevated px-sp-3">
+    <div className="absolute left-60 right-60 top-11 z-sticky flex h-14 items-center gap-sp-3 border-b border-line bg-surface-1 px-sp-3">
       <div className="flex shrink-0 items-center gap-sp-2">
         <span className={STUDIO_LABEL_CLASS}>Company</span>
         <Input
@@ -136,8 +133,7 @@ export function StudioCompanyIdentity({
             aria-label="Company description"
             className={cn(
               `${studioInputClass(descFocused)} w-full flex-1 resize-none leading-snug`,
-              descFocused &&
-                'absolute inset-x-0 top-2 z-elevated h-24 py-sp-1 shadow-elev-2',
+              descFocused && 'absolute inset-x-0 top-2 z-elevated h-24 py-sp-1 shadow-elev-2',
             )}
           />
         )}
