@@ -1,4 +1,8 @@
-import type { ChatAttachmentRef, RunScope } from '@offisim/shared-types';
+import type {
+  ChatAttachmentRef,
+  RunScope,
+  ToolExecutionTelemetryPayload,
+} from '@offisim/shared-types';
 import { create } from 'zustand';
 import { stripLegacySpeakerPrefix } from '../../lib/legacy-speaker-prefix';
 
@@ -26,12 +30,28 @@ export interface ChatMessage {
    * for non-attachment messages.
    */
   attachments?: ChatAttachmentRef[];
+  /** Runtime tool telemetry rendered as assistant-ui native tool-call parts. */
+  toolCalls?: ChatToolCall[];
+}
+
+export interface ChatToolCall {
+  toolCallId: string;
+  toolName: string;
+  toolType: ToolExecutionTelemetryPayload['toolType'];
+  status: ToolExecutionTelemetryPayload['status'];
+  evidenceClass: ToolExecutionTelemetryPayload['evidenceClass'];
+  startedAt: number;
+  serverName?: string;
+  completedAt?: number;
+  durationMs?: number;
+  errorType?: string;
 }
 
 export interface ChatStreamingState {
   nodeName: string | null;
   content: string;
   reasoning: string;
+  toolCalls: ChatToolCall[];
   isStreaming: boolean;
   updatedAt: number;
 }
@@ -89,6 +109,9 @@ function normalizeMessage(raw: unknown): ChatMessage | null {
   const attachments = Array.isArray(raw.attachments)
     ? raw.attachments.map(normalizeAttachmentRef).filter((ref): ref is ChatAttachmentRef => !!ref)
     : undefined;
+  const toolCalls = Array.isArray(raw.toolCalls)
+    ? raw.toolCalls.map(normalizeToolCall).filter((call): call is ChatToolCall => !!call)
+    : undefined;
   const status =
     raw.status === 'completed' || raw.status === 'interrupted' || raw.status === 'failed'
       ? raw.status
@@ -105,6 +128,33 @@ function normalizeMessage(raw: unknown): ChatMessage | null {
     ...(typeof raw.createdAt === 'number' ? { createdAt: raw.createdAt } : {}),
     ...(typeof raw.runId === 'string' ? { runId: raw.runId } : {}),
     ...(attachments && attachments.length > 0 ? { attachments } : {}),
+    ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+  };
+}
+
+function normalizeToolCall(raw: unknown): ChatToolCall | null {
+  if (!isObject(raw)) return null;
+  if (
+    typeof raw.toolCallId !== 'string' ||
+    typeof raw.toolName !== 'string' ||
+    typeof raw.toolType !== 'string' ||
+    typeof raw.status !== 'string' ||
+    typeof raw.evidenceClass !== 'string' ||
+    typeof raw.startedAt !== 'number'
+  ) {
+    return null;
+  }
+  return {
+    toolCallId: raw.toolCallId,
+    toolName: raw.toolName,
+    toolType: raw.toolType as ToolExecutionTelemetryPayload['toolType'],
+    status: raw.status as ToolExecutionTelemetryPayload['status'],
+    evidenceClass: raw.evidenceClass as ToolExecutionTelemetryPayload['evidenceClass'],
+    startedAt: raw.startedAt,
+    ...(typeof raw.serverName === 'string' ? { serverName: raw.serverName } : {}),
+    ...(typeof raw.completedAt === 'number' ? { completedAt: raw.completedAt } : {}),
+    ...(typeof raw.durationMs === 'number' ? { durationMs: raw.durationMs } : {}),
+    ...(typeof raw.errorType === 'string' ? { errorType: raw.errorType } : {}),
   };
 }
 
@@ -177,6 +227,11 @@ interface ChatSessionStore {
     options?: { status?: MessageStatus },
   ) => void;
   commitToolCallCheckpoint: (conversationKey: string, runId: string) => void;
+  recordToolExecutionTelemetry: (
+    conversationKey: string,
+    runId: string,
+    payload: ToolExecutionTelemetryPayload,
+  ) => void;
   terminateActiveRun: (
     conversationKey: string,
     runId: string,
@@ -253,11 +308,13 @@ function finalizeAssistantMessage(
     status: MessageStatus;
     nodeName?: string | null;
     reasoning?: string | undefined;
+    toolCalls?: ChatToolCall[] | undefined;
   },
   mode: 'append' | 'replace',
 ): ChatMessage[] {
   const sanitizedContent = stripLegacySpeakerPrefix(payload.content);
-  if (!sanitizedContent.trim()) return messages;
+  const toolCalls = payload.toolCalls?.length ? payload.toolCalls : undefined;
+  if (!sanitizedContent.trim() && !toolCalls?.length) return messages;
   const existingIndex = messages.findIndex(
     (message) => message.role === 'assistant' && message.runId === runId,
   );
@@ -271,6 +328,7 @@ function finalizeAssistantMessage(
         status: payload.status,
         nodeName: payload.nodeName,
         reasoning: payload.reasoning || undefined,
+        toolCalls,
         createdAt: Date.now(),
         runId,
       },
@@ -286,8 +344,20 @@ function finalizeAssistantMessage(
     status: payload.status,
     nodeName: payload.nodeName ?? existing.nodeName,
     reasoning: mergeDistinctText(existing.reasoning, payload.reasoning),
+    toolCalls: mergeToolCalls(existing.toolCalls, toolCalls),
   };
   return next;
+}
+
+function mergeToolCalls(
+  existing: ChatToolCall[] | undefined,
+  incoming: ChatToolCall[] | undefined,
+): ChatToolCall[] | undefined {
+  if (!incoming?.length) return existing;
+  const byId = new Map<string, ChatToolCall>();
+  for (const call of existing ?? []) byId.set(call.toolCallId, call);
+  for (const call of incoming) byId.set(call.toolCallId, { ...byId.get(call.toolCallId), ...call });
+  return [...byId.values()];
 }
 
 function terminalContentForStatus(status: 'failed' | 'interrupted'): string {
@@ -301,9 +371,33 @@ function createEmptyStreamingState(nodeName: string | null = null): ChatStreamin
     nodeName,
     content: '',
     reasoning: '',
+    toolCalls: [],
     isStreaming: false,
     updatedAt: Date.now(),
   };
+}
+
+function toolCallFromTelemetry(payload: ToolExecutionTelemetryPayload): ChatToolCall {
+  return {
+    toolCallId: payload.toolCallId,
+    toolName: payload.toolName,
+    toolType: payload.toolType,
+    status: payload.status,
+    evidenceClass: payload.evidenceClass,
+    startedAt: payload.startedAt,
+    ...(payload.serverName ? { serverName: payload.serverName } : {}),
+    ...(payload.completedAt ? { completedAt: payload.completedAt } : {}),
+    ...(payload.durationMs !== undefined ? { durationMs: payload.durationMs } : {}),
+    ...(payload.errorType ? { errorType: payload.errorType } : {}),
+  };
+}
+
+function hasVisibleStreamingProgress(streaming: ChatStreamingState): boolean {
+  return (
+    streaming.content.trim().length > 0 ||
+    streaming.reasoning.trim().length > 0 ||
+    streaming.toolCalls.length > 0
+  );
 }
 
 function ensureConversation(
@@ -353,6 +447,12 @@ type ChatSessionAction =
       options?: { status?: MessageStatus };
     }
   | { type: 'commitToolCallCheckpoint'; conversationKey: string; runId: string }
+  | {
+      type: 'recordToolExecutionTelemetry';
+      conversationKey: string;
+      runId: string;
+      payload: ToolExecutionTelemetryPayload;
+    }
   | {
       type: 'terminateActiveRun';
       conversationKey: string;
@@ -422,6 +522,7 @@ function reduceChatSession(
               nodeName: action.nodeName,
               content: shouldReset ? '' : previous.content,
               reasoning: shouldReset ? '' : previous.reasoning,
+              toolCalls: shouldReset ? [] : previous.toolCalls,
               isStreaming: previous.isStreaming,
               updatedAt: Date.now(),
             },
@@ -458,6 +559,7 @@ function reduceChatSession(
       const shouldReset = previous.nodeName !== action.nodeName;
       let nextContent = shouldReset ? '' : previous.content;
       let nextReasoning = shouldReset ? '' : previous.reasoning;
+      const nextToolCalls = shouldReset ? [] : previous.toolCalls;
       if (action.channel === 'reasoning') {
         nextReasoning += action.content;
       } else {
@@ -473,6 +575,7 @@ function reduceChatSession(
               nodeName: action.nodeName,
               content: nextContent,
               reasoning: nextReasoning,
+              toolCalls: nextToolCalls,
               isStreaming: true,
               updatedAt: Date.now(),
             },
@@ -485,7 +588,7 @@ function reduceChatSession(
       if (!activeRun) return state;
       const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
       const streaming = conversation.streaming;
-      if (!streaming || !streaming.content.trim()) return state;
+      if (!streaming || !hasVisibleStreamingProgress(streaming)) return state;
       return {
         ...state,
         conversations: {
@@ -500,6 +603,7 @@ function reduceChatSession(
                 status: action.options?.status ?? 'completed',
                 nodeName: streaming.nodeName,
                 reasoning: streaming.reasoning || undefined,
+                toolCalls: streaming.toolCalls,
               },
               'append',
             ),
@@ -507,6 +611,7 @@ function reduceChatSession(
               ...streaming,
               content: '',
               reasoning: '',
+              toolCalls: [],
               updatedAt: Date.now(),
             },
           },
@@ -520,8 +625,7 @@ function reduceChatSession(
       const streaming = conversation.streaming;
       if (!streaming) return state;
       const content = streaming.content.trim();
-      const reasoning = streaming.reasoning.trim();
-      const hasVisibleProgress = content.length > 0 || reasoning.length > 0;
+      const hasVisibleProgress = hasVisibleStreamingProgress(streaming);
       return {
         ...state,
         conversations: {
@@ -537,6 +641,7 @@ function reduceChatSession(
                     status: 'completed',
                     nodeName: streaming.nodeName,
                     reasoning: streaming.reasoning || undefined,
+                    toolCalls: streaming.toolCalls,
                   },
                   'append',
                 )
@@ -545,7 +650,34 @@ function reduceChatSession(
               ...streaming,
               content: '',
               reasoning: '',
+              toolCalls: [],
               isStreaming: false,
+              updatedAt: Date.now(),
+            },
+          },
+        },
+      };
+    }
+    case 'recordToolExecutionTelemetry': {
+      const activeRun = activeRunMatchingScope(state, action.conversationKey, action.runId);
+      if (!activeRun) return state;
+      const conversation = ensureConversation(state.conversations, activeRun.conversationKey);
+      const previous =
+        conversation.streaming ?? createEmptyStreamingState(action.payload.nodeName ?? null);
+      const nextToolCalls = mergeToolCalls(previous.toolCalls, [
+        toolCallFromTelemetry(action.payload),
+      ]) ?? [];
+      return {
+        ...state,
+        conversations: {
+          ...state.conversations,
+          [activeRun.conversationKey]: {
+            ...conversation,
+            streaming: {
+              ...previous,
+              nodeName: action.payload.nodeName ?? previous.nodeName,
+              toolCalls: nextToolCalls,
+              isStreaming: action.payload.status === 'started' ? true : previous.isStreaming,
               updatedAt: Date.now(),
             },
           },
@@ -559,7 +691,8 @@ function reduceChatSession(
       const streaming = conversation.streaming;
       const content = streaming?.content.trim() ?? '';
       const reasoning = streaming?.reasoning.trim() ?? '';
-      const hasVisibleProgress = content.length > 0 || reasoning.length > 0;
+      const hasVisibleProgress =
+        content.length > 0 || reasoning.length > 0 || (streaming?.toolCalls.length ?? 0) > 0;
       const shouldCommitTerminalMessage =
         !!streaming && (hasVisibleProgress || action.status === 'interrupted');
       const newMessages = shouldCommitTerminalMessage
@@ -571,6 +704,7 @@ function reduceChatSession(
               status: action.status,
               nodeName: streaming.nodeName,
               reasoning: streaming.reasoning || undefined,
+              toolCalls: streaming.toolCalls,
             },
             'append',
           )
@@ -602,6 +736,7 @@ function reduceChatSession(
               ...previous,
               content: '',
               reasoning: '',
+              toolCalls: [],
               isStreaming: true,
               updatedAt: Date.now(),
             },
@@ -631,6 +766,7 @@ function reduceChatSession(
                 status: 'completed',
                 nodeName: streaming?.nodeName,
                 reasoning: streaming?.reasoning || undefined,
+                toolCalls: streaming?.toolCalls,
               },
               'replace',
             ),
@@ -713,6 +849,15 @@ export const useChatSessionStore = create<ChatSessionStore>((set, get) => ({
         type: 'commitToolCallCheckpoint',
         conversationKey,
         runId,
+      }),
+    ),
+  recordToolExecutionTelemetry: (conversationKey, runId, payload) =>
+    set((state) =>
+      reduceChatSessionWithPersistence(state, {
+        type: 'recordToolExecutionTelemetry',
+        conversationKey,
+        runId,
+        payload,
       }),
     ),
   terminateActiveRun: (conversationKey, runId, options) =>

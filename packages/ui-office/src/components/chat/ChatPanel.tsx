@@ -661,6 +661,7 @@ export function ChatPanel({
         <PitchHall
           activeThreadId={activeThreadId ?? null}
           activeProjectId={activeProjectId ?? null}
+          deliverables={threadDeliverables}
         />
       </div>
     ) : null;

@@ -2,7 +2,7 @@ import type { AppendMessage, ThreadMessageLike } from '@assistant-ui/react';
 import type { ChatAttachmentRef } from '@offisim/shared-types';
 import { useMemo } from 'react';
 import { useStreamingContentForConversation } from '../../../runtime/use-streaming-content';
-import type { ChatMessage } from '../chat-session-store';
+import type { ChatMessage, ChatToolCall } from '../chat-session-store';
 import { useChatSessionStore } from '../chat-session-store';
 
 /** Stable id for the synthetic in-flight streaming segment. */
@@ -29,7 +29,18 @@ export interface OffisimMessageCustom {
 
 type OffisimContentPart =
   | { readonly type: 'reasoning'; readonly text: string }
-  | { readonly type: 'text'; readonly text: string };
+  | { readonly type: 'text'; readonly text: string }
+  | {
+      readonly type: 'tool-call';
+      readonly toolCallId: string;
+      readonly toolName: string;
+      readonly args: ToolCallJson;
+      readonly argsText: string;
+      readonly result?: ToolCallJson;
+      readonly isError?: boolean;
+    };
+
+type ToolCallJson = Record<string, string | number | boolean | null>;
 
 function attachmentType(ref: ChatAttachmentRef): 'image' | 'document' | 'file' {
   if (ref.kind === 'image' || ref.mimeType.startsWith('image/')) return 'image';
@@ -69,6 +80,37 @@ function resolveMessageStatus(message: OffisimAdapterMessage): ThreadMessageLike
   }
 }
 
+function toolCallArgs(call: ChatToolCall): ToolCallJson {
+  return {
+    toolType: call.toolType,
+    evidenceClass: call.evidenceClass,
+    ...(call.serverName ? { serverName: call.serverName } : {}),
+  };
+}
+
+function toolCallResult(call: ChatToolCall): ToolCallJson | undefined {
+  if (call.status === 'started') return undefined;
+  return {
+    status: call.status,
+    ...(call.durationMs !== undefined ? { durationMs: call.durationMs } : {}),
+    ...(call.errorType ? { errorType: call.errorType } : {}),
+  };
+}
+
+function toAssistantToolCallPart(call: ChatToolCall): OffisimContentPart {
+  const args = toolCallArgs(call);
+  const result = toolCallResult(call);
+  return {
+    type: 'tool-call',
+    toolCallId: call.toolCallId,
+    toolName: call.toolName,
+    args,
+    argsText: JSON.stringify(args),
+    ...(result ? { result } : {}),
+    ...(call.status === 'error' || call.status === 'denied' ? { isError: true } : {}),
+  };
+}
+
 /**
  * `ChatMessage` → `ThreadMessageLike`. Keeps reasoning as a native reasoning
  * part, the body as a text part, maps Offisim terminal status onto assistant-ui
@@ -82,7 +124,12 @@ export function convertOffisimMessage(message: OffisimAdapterMessage): ThreadMes
   if (message.role === 'assistant' && message.reasoning && message.reasoning.trim().length > 0) {
     content.push({ type: 'reasoning', text: message.reasoning });
   }
-  content.push({ type: 'text', text: message.content });
+  if (message.content.trim().length > 0) {
+    content.push({ type: 'text', text: message.content });
+  }
+  if (message.role === 'assistant' && message.toolCalls?.length) {
+    content.push(...message.toolCalls.map(toAssistantToolCallPart));
+  }
 
   const status = message.role === 'assistant' ? resolveMessageStatus(message) : undefined;
 
@@ -117,7 +164,7 @@ export function useOffisimAdapterMessages(
   const messages = useChatSessionStore(
     (state) => state.conversations[conversationKey]?.messages ?? EMPTY_MESSAGES,
   );
-  const { content, reasoning, isStreaming, nodeName } =
+  const { content, reasoning, toolCalls, isStreaming, nodeName } =
     useStreamingContentForConversation(conversationKey);
 
   return useMemo(() => {
@@ -129,9 +176,10 @@ export function useOffisimAdapterMessages(
       isRunning: true,
       nodeName,
       ...(reasoning ? { reasoning } : {}),
+      ...(toolCalls.length > 0 ? { toolCalls: [...toolCalls] } : {}),
     };
     return [...messages, streamingSegment];
-  }, [messages, isStreaming, content, reasoning, nodeName]);
+  }, [messages, isStreaming, content, reasoning, toolCalls, nodeName]);
 }
 
 /** Joins the text parts of an assistant-ui `AppendMessage` into a plain string. */

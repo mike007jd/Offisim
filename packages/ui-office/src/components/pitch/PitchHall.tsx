@@ -17,14 +17,17 @@ import { DeliverableCard } from '../deliverable/DeliverableCard';
 export function PitchHall({
   activeThreadId,
   activeProjectId,
+  deliverables: deliverablesProp,
 }: {
   activeThreadId?: string | null;
   activeProjectId?: string | null;
+  deliverables?: Deliverable[];
 }) {
   // `activeThreadId` is the product-layer chat_threads.thread_id (RunScope.threadId).
   // Pass it as the `useDeliverables` filter so the right-rail Outputs panel scopes
   // to the active thread; pass null in cross-thread surfaces to see everything.
-  const deliverables = useDeliverables(activeThreadId ?? null);
+  const hookedDeliverables = useDeliverables(activeThreadId ?? null);
+  const deliverables = deliverablesProp ?? hookedDeliverables;
   const { repos, eventBus } = useOffisimRuntimeServices();
   const { desktopVaultRoot } = useOffisimRuntimeDesktopHost();
   const { activeCompanyId } = useCompany();

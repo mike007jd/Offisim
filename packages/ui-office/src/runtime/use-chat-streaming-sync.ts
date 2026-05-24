@@ -143,8 +143,8 @@ export function useChatStreamingSync(eventBus: EventBus): void {
         if (store.isActiveRunTerminated()) return;
 
         const payload = event.payload;
-        if (payload.status !== 'started' || payload.nodeName !== 'employee') return;
-        store.commitToolCallCheckpoint(scope.conversationKey, scope.runId);
+        if (payload.nodeName !== 'employee') return;
+        store.recordToolExecutionTelemetry(scope.conversationKey, scope.runId, payload);
       },
     );
 

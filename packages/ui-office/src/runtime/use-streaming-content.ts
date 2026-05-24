@@ -1,9 +1,14 @@
 import { useCallback } from 'react';
-import { getConversationKey, useChatSessionStore } from '../components/chat/chat-session-store.js';
+import {
+  getConversationKey,
+  type ChatToolCall,
+  useChatSessionStore,
+} from '../components/chat/chat-session-store.js';
 
 export function useStreamingContent(): {
   content: string;
   reasoning: string;
+  toolCalls: readonly ChatToolCall[];
   isStreaming: boolean;
   nodeName: string | null;
 } {
@@ -18,6 +23,7 @@ export function useStreamingContent(): {
 export function useStreamingContentForConversation(conversationKey: string): {
   content: string;
   reasoning: string;
+  toolCalls: readonly ChatToolCall[];
   isStreaming: boolean;
   nodeName: string | null;
 } {
@@ -31,6 +37,7 @@ export function useStreamingContentForConversation(conversationKey: string): {
   return {
     content: stream?.content ?? '',
     reasoning: stream?.reasoning ?? '',
+    toolCalls: stream?.toolCalls ?? [],
     isStreaming: stream?.isStreaming ?? false,
     nodeName: stream?.nodeName ?? null,
   };
