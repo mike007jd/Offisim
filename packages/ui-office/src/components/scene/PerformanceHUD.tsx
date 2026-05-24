@@ -84,17 +84,17 @@ function PerformanceHUDInner() {
   if (!visible) return null;
 
   return (
-    <div className="absolute top-2 left-2 z-40 pointer-events-none select-none" aria-hidden="true">
-      <div
-        style={{ fontSize: 10, lineHeight: '1.6' }}
-        className="bg-black/70 text-green-400 font-mono px-2 py-1 rounded"
-      >
+    <div
+      className="pointer-events-none absolute left-sp-sm top-sp-sm z-40 select-none"
+      aria-hidden="true"
+    >
+      <div className="rounded-r-sm bg-ink-1/80 px-sp-sm py-sp-xs font-mono text-fs-micro leading-relaxed text-success">
         <div>FPS&nbsp;&nbsp;&nbsp;{stats.fps.toString().padStart(4, '\u00a0')}</div>
         <div>FRAME&nbsp;{stats.frameMs.toFixed(1).padStart(6, '\u00a0')} ms</div>
         {stats.heapMB !== null && (
           <div>HEAP&nbsp;&nbsp;{stats.heapMB.toString().padStart(5, '\u00a0')} MB</div>
         )}
-        <div className="text-green-700 mt-0.5">F2 toggle</div>
+        <div className="mt-sp-xs text-success/70">F2 toggle</div>
       </div>
     </div>
   );

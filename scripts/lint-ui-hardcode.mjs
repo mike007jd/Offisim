@@ -18,7 +18,6 @@ const runtimeGeometryFiles = [
   '/packages/ui-office/src/components/scene/ManagerPresence3D.tsx',
   '/packages/ui-office/src/components/scene/Office2DCanvasView.tsx',
   '/packages/ui-office/src/components/scene/Office3DView.tsx',
-  '/packages/ui-office/src/components/scene/PerformanceHUD.tsx',
   '/packages/ui-office/src/components/scene/office3d-employees.tsx',
   '/packages/ui-office/src/components/scene/office3d-primitives.tsx',
   '/packages/ui-office/src/components/scene/office3d-scene-primitives.tsx',
