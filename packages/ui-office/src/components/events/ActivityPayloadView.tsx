@@ -10,11 +10,11 @@ export interface ActivityPayloadViewProps {
 export function ActivityPayloadView({ payload, depth = 0 }: ActivityPayloadViewProps) {
   const entries = Object.entries(payload);
   if (entries.length === 0) {
-    return <p className="text-fs-meta italic text-ink-4">Empty payload</p>;
+    return <p className="activity-payload-empty">Empty payload</p>;
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="activity-payload">
       {entries.map(([key, value]) => (
         <PayloadEntry key={key} entryKey={key} value={value} depth={depth} />
       ))}
@@ -34,7 +34,7 @@ function PayloadEntry({
   if (value === null || value === undefined) {
     return (
       <Row label={entryKey}>
-        <span className="italic text-ink-4">null</span>
+        <span className="activity-payload-null">null</span>
       </Row>
     );
   }
@@ -42,7 +42,7 @@ function PayloadEntry({
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return (
       <Row label={entryKey}>
-        <span className="text-ink-1">{String(value)}</span>
+        <span className="activity-payload-value">{String(value)}</span>
       </Row>
     );
   }
@@ -51,7 +51,9 @@ function PayloadEntry({
     if (value.length <= 5) {
       return (
         <Row label={entryKey}>
-          <span className="text-ink-1">[{value.map((v) => formatPrimitive(v)).join(', ')}]</span>
+          <span className="activity-payload-value">
+            [{value.map((v) => formatPrimitive(v)).join(', ')}]
+          </span>
         </Row>
       );
     }
@@ -72,7 +74,7 @@ function PayloadEntry({
     } catch {
       return (
         <Row label={entryKey}>
-          <span className="italic text-ink-4">[Unable to display]</span>
+          <span className="activity-payload-null">[Unable to display]</span>
         </Row>
       );
     }
@@ -86,7 +88,7 @@ function PayloadEntry({
 
   return (
     <Row label={entryKey}>
-      <span className="text-ink-1">{String(value)}</span>
+      <span className="activity-payload-value">{String(value)}</span>
     </Row>
   );
 }
@@ -99,9 +101,9 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="activity-payload-row flex items-baseline">
-      <span className="shrink-0 font-mono text-fs-meta text-ink-3">{label}</span>
-      <span className="break-all text-fs-meta">{children}</span>
+    <div className="activity-payload-row">
+      <span className="activity-payload-key">{label}</span>
+      <span className="activity-payload-cell">{children}</span>
     </div>
   );
 }
@@ -124,12 +126,12 @@ function CollapsibleSection({
         variant="ghost"
         size="sm"
         onClick={() => setOpen((prev) => !prev)}
-        className="h-auto gap-sp-1 px-0 py-sp-1 font-mono text-fs-meta text-ink-3 hover:text-ink-1"
+        className="activity-payload-toggle"
       >
         {open ? (
-          <ChevronDown className="activity-payload-icon" />
+          <ChevronDown data-icon="payload-toggle" />
         ) : (
-          <ChevronRight className="activity-payload-icon" />
+          <ChevronRight data-icon="payload-toggle" />
         )}
         {label}
       </Button>

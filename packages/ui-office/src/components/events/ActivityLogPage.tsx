@@ -165,7 +165,7 @@ export function ActivityLogPage({
 
   if (events.length === 0) {
     return (
-      <div className="flex h-full flex-col bg-bg text-ink-1" data-layout-tier={tier}>
+      <div className="activity-page" data-layout-tier={tier}>
         <ToastBanner toasts={toasts} onDismiss={dismissToast} />
         <ActivityEmptyState variant="no-events" onBackToOffice={onBackToOffice} />
       </div>
@@ -174,7 +174,7 @@ export function ActivityLogPage({
 
   // 7.2 — Layout: filter bar + content area
   return (
-    <div className="flex h-full flex-col bg-bg text-ink-1" data-layout-tier={tier}>
+    <div className="activity-page" data-layout-tier={tier}>
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
       <ActivityFilterBar
         datePreset={sessionState.datePreset}
@@ -190,10 +190,10 @@ export function ActivityLogPage({
       />
       <div
         className={cn(
-          'grid min-h-0 flex-1',
+          'activity-content-grid',
           sessionState.selectedEventId && focusedEvent && tier !== 'narrow'
-            ? 'grid-activity-detail'
-            : 'grid-cols-1',
+            ? 'activity-content-grid-detail'
+            : 'activity-content-grid-single',
         )}
       >
         {/* 7.5 — Empty state: filters yield no results */}
@@ -210,13 +210,18 @@ export function ActivityLogPage({
               selectedEventId={sessionState.selectedEventId}
               onSelectEvent={handleSelectEvent}
               className={cn(
-                'min-w-0',
-                sessionState.selectedEventId && tier === 'narrow' && 'hidden',
+                'activity-timeline-pane',
+                sessionState.selectedEventId && tier === 'narrow' && 'activity-timeline-hidden',
               )}
               getEmployeeName={getEmployeeName}
             />
             {sessionState.selectedEventId && focusedEvent && (
-              <div className={cn('min-w-0', tier !== 'narrow' && 'border-l border-line')}>
+              <div
+                className={cn(
+                  'activity-detail-pane',
+                  tier !== 'narrow' && 'activity-detail-pane-bordered',
+                )}
+              >
                 <ActivityEventDetail event={focusedEvent} onClose={handleCloseDetail} />
               </div>
             )}

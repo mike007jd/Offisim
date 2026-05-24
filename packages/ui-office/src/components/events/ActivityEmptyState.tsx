@@ -20,7 +20,7 @@ export function ActivityEmptyState({
 }: ActivityEmptyStateProps) {
   if (variant === 'no-events') {
     return (
-      <div className="flex flex-1 items-center justify-center px-sp-6">
+      <div className="activity-empty-state">
         <EmptyState
           icon={Activity}
           title="No activity yet"
@@ -36,7 +36,7 @@ export function ActivityEmptyState({
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center px-sp-6">
+    <div className="activity-empty-state">
       <EmptyState
         icon={Search}
         title="No events match your filters"

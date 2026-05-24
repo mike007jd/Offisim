@@ -21,13 +21,11 @@ export function ActivityTimeGroup({
   getEmployeeName,
 }: ActivityTimeGroupProps) {
   return (
-    <div>
+    <div className="activity-time-group">
       {/* Group header — sticky, surface-sunken band */}
-      <div className="activity-time-header sticky top-0 z-sticky flex items-center bg-surface-sunken">
-        <span className="text-fs-sm font-bold text-ink-1">{label}</span>
-        <span className="activity-time-count rounded-r-pill border border-line-soft bg-surface-1 text-fs-meta text-ink-4">
-          {eventCount}
-        </span>
+      <div className="activity-time-header">
+        <span className="activity-time-label">{label}</span>
+        <span className="activity-time-count">{eventCount}</span>
       </div>
       {/* Event rows */}
       {events.map(({ event, level, collapsedCount }) => {

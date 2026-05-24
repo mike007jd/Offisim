@@ -115,21 +115,19 @@ export function EventItem({ event }: EventItemProps) {
   const topicLabel = formatEventType(event.type);
 
   return (
-    <div className="flex items-start gap-sp-2 px-sp-3 py-sp-2 text-fs-meta">
-      <Icon className={`activity-event-icon shrink-0 ${EVENT_TONE_CLASS[iconTone]}`} />
-      <div className="min-w-0 flex-1 flex flex-col gap-sp-1">
-        <div className="break-words leading-relaxed text-ink-1">
-          <span className="font-medium">{label}</span>
-          {action && <span className="activity-event-action-gap text-ink-3">{action}</span>}
+    <div className="activity-event-item">
+      <Icon className="activity-event-icon" data-tone={iconTone} />
+      <div className="activity-event-copy">
+        <div className="activity-event-title">
+          <span>{label}</span>
+          {action && <span className="activity-event-action-gap">{action}</span>}
         </div>
-        <div className="flex flex-wrap items-center gap-x-sp-2 gap-y-sp-1 text-fs-meta text-ink-4">
-          <span className="font-mono">{topicLabel}</span>
-          {event.entityId ? <span className="font-mono">ID {event.entityId}</span> : null}
+        <div className="activity-event-meta">
+          <span>{topicLabel}</span>
+          {event.entityId ? <span>ID {event.entityId}</span> : null}
         </div>
       </div>
-      <span className="activity-event-time-offset shrink-0 text-ink-4">
-        {formatTimestamp(event.timestamp)}
-      </span>
+      <span className="activity-event-time-offset">{formatTimestamp(event.timestamp)}</span>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { cn } from '@offisim/ui-core';
 import { ActivityTimeGroup } from './ActivityTimeGroup';
 import type { TimeGroup } from './activity-log-grouping';
 
@@ -17,7 +18,7 @@ export function ActivityTimeline({
   getEmployeeName,
 }: ActivityTimelineProps) {
   return (
-    <div className={`overflow-y-auto ${className}`}>
+    <div className={cn('activity-timeline', className)}>
       {groups.map((group) => (
         <ActivityTimeGroup
           key={group.label}
