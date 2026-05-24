@@ -332,7 +332,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         disabled={isPackaging || !selectedSourceId}
         onClick={() => void handleDownload()}
       >
-        <Download className="size-4" />
+        <Download data-icon="publish-action" />
         {isPackaging ? 'Building...' : 'Download package'}
       </Button>
       <Button
@@ -340,7 +340,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         disabled={isPackaging || isSubmitting || !selectedSourceId}
         onClick={() => void handleSubmit()}
       >
-        <CloudUpload className="size-4" />
+        <CloudUpload data-icon="publish-action" />
         {isSubmitting ? 'Submitting...' : 'Submit draft'}
       </Button>
     </>
@@ -356,14 +356,14 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
         description="Build a package from an employee or a skill, then submit a registry draft with platform-verified artifact bytes."
         footer={footer}
         onRequestClose={handleRequestClose}
-        className="border-line bg-surface-1 text-ink-1"
+        className="publish-dialog-shell"
       >
-        <div className="grid gap-8 lg:grid-publish-dialog">
-          <div className="flex flex-col gap-6">
+        <div className="publish-dialog">
+          <div className="publish-dialog-form">
             <Field
               label={
-                <span className="flex items-center gap-1.5">
-                  <KeyRound className="size-3.5 text-accent" />
+                <span className="publish-dialog-label-icon">
+                  <KeyRound data-icon="publish-label" />
                   Registry token
                 </span>
               }
@@ -386,7 +386,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
               />
             </Field>
 
-            <div className="flex flex-col gap-4">
+            <div className="publish-dialog-fields">
               {hasMultipleKinds && (
                 <Field label="Kind" htmlFor="publish-kind">
                   <Select value={kind} onValueChange={(value) => setKind(value as PublishKind)}>
@@ -416,7 +416,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
                 </Select>
               </Field>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="publish-dialog-field-grid">
                 <Field label="Title" htmlFor="publish-title">
                   <Input
                     id="publish-title"
@@ -486,23 +486,21 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
               <Field label="Description / README" htmlFor="publish-description">
                 <Textarea
                   id="publish-description"
-                  className="min-h-32"
+                  className="publish-dialog-description"
                   value={form.description}
                   onChange={(event) => updateForm('description', event.target.value)}
                   placeholder="What this package includes, who it is for, and setup notes."
                 />
               </Field>
 
-              {(status || error) && <p className="text-fs-sm text-ink-3">{status ?? error}</p>}
+              {(status || error) && <p className="publish-dialog-status">{status ?? error}</p>}
             </div>
           </div>
 
-          <aside className="flex flex-col gap-6 lg:border-l lg:border-line-soft lg:pl-6">
-            <div>
-              <p className="text-fs-meta font-semibold uppercase tracking-wide text-ink-3">
-                Draft preview
-              </p>
-              <dl className="mt-3 flex flex-col gap-1.5 text-xs">
+          <aside className="publish-dialog-preview">
+            <div className="publish-dialog-preview-section">
+              <p className="publish-dialog-preview-title">Draft preview</p>
+              <dl className="publish-dialog-preview-list">
                 <DraftRow label="Title" value={form.title || 'Untitled package'} />
                 <DraftRow label="Version" value={form.version} />
                 <DraftRow
@@ -512,25 +510,20 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
               </dl>
             </div>
 
-            <div>
-              <p className="text-fs-meta font-semibold uppercase tracking-wide text-ink-3">
-                Recent drafts
-              </p>
+            <div className="publish-dialog-preview-section">
+              <p className="publish-dialog-preview-title">Recent drafts</p>
               {isLoading ? (
-                <p className="mt-3 text-fs-meta text-ink-4">Loading…</p>
+                <p className="publish-dialog-preview-empty">Loading…</p>
               ) : drafts.length === 0 ? (
-                <p className="mt-3 text-fs-meta text-ink-4">No drafts yet.</p>
+                <p className="publish-dialog-preview-empty">No drafts yet.</p>
               ) : (
-                <ul className="mt-3 flex flex-col gap-2">
+                <ul className="publish-dialog-drafts">
                   {drafts.slice(0, 5).map((draft) => (
-                    <li
-                      key={draft.draft_id}
-                      className="border-l-2 border-line-soft pl-2.5 text-fs-meta"
-                    >
-                      <p className="font-medium text-ink-1">
+                    <li key={draft.draft_id} className="publish-dialog-draft-row">
+                      <p className="publish-dialog-draft-title">
                         {draft.title ?? draft.kind ?? 'Untitled draft'}
                       </p>
-                      <p className="text-fs-meta text-ink-4">
+                      <p className="publish-dialog-draft-meta">
                         {draftStatusLabel(draft.status)} ·{' '}
                         {draftValidationLabel(draft.validation_state)}
                       </p>
@@ -559,21 +552,21 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-fs-sm font-medium text-ink-2">
+    <div className="publish-dialog-field">
+      <label htmlFor={htmlFor} className="publish-dialog-field-label">
         {label}
       </label>
       {children}
-      {hint ? <p className="text-fs-meta text-ink-4">{hint}</p> : null}
+      {hint ? <p className="publish-dialog-field-hint">{hint}</p> : null}
     </div>
   );
 }
 
 function DraftRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-ink-4">{label}</dt>
-      <dd className="truncate text-ink-1">{value}</dd>
+    <div className="publish-dialog-preview-row">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }

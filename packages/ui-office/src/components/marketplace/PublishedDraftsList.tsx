@@ -50,10 +50,10 @@ export function PublishedDraftsList() {
 
   if (state === 'loading') {
     return (
-      <div className="flex flex-col gap-2 p-4">
+      <div className="market-published-drafts">
         {Array.from({ length: 3 }).map((_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder
-          <Skeleton key={i} className="h-16 rounded-r-md" />
+          <Skeleton key={i} className="market-published-draft-skeleton" />
         ))}
       </div>
     );
@@ -80,21 +80,18 @@ export function PublishedDraftsList() {
   }
 
   return (
-    <div className="flex flex-col gap-2 p-4">
+    <div className="market-published-drafts">
       {drafts.map((draft) => (
-        <div
-          key={draft.draft_id}
-          className="rounded-r-md border border-line-soft bg-surface-1 p-4 shadow-elev-1"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate text-fs-sm font-semibold text-ink-1">
+        <div key={draft.draft_id} className="market-published-draft">
+          <div className="market-published-draft-top">
+            <div className="market-published-draft-main">
+              <div className="market-published-draft-title">
                 {draft.title ?? draft.kind ?? 'Untitled draft'}
               </div>
               {draft.summary && (
-                <div className="mt-0.5 truncate text-fs-meta text-ink-3">{draft.summary}</div>
+                <div className="market-published-draft-summary">{draft.summary}</div>
               )}
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-fs-meta text-ink-4">
+              <div className="market-published-draft-meta">
                 {draft.kind && (
                   <Badge variant="secondary" size="xs">
                     {draft.kind}
@@ -103,7 +100,11 @@ export function PublishedDraftsList() {
                 <span>Updated {new Date(draft.updated_at).toLocaleDateString()}</span>
               </div>
             </div>
-            <Badge variant={draftStatusVariant(draft.status)} size="xs" className="shrink-0">
+            <Badge
+              variant={draftStatusVariant(draft.status)}
+              size="xs"
+              className="market-published-draft-status"
+            >
               {draftStatusLabel(draft.status)}
             </Badge>
           </div>
