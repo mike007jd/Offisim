@@ -38,7 +38,7 @@ export function MarketListingCard({
   return (
     <Card
       className={cn(
-        'market-listing-card group',
+        'market-listing-card',
         rarityClassName(listing.kind),
         featured && 'market-listing-card-featured',
         selected && 'market-listing-card-selected',
@@ -135,7 +135,7 @@ function KindPreview({ listing }: { listing: ListingSummary }) {
 function EmployeePreview({ listing }: { listing: ListingSummary }) {
   const tags = listing.tags?.slice(0, 3) ?? [];
   return (
-    <div className="market-kind-preview market-kind-preview-employee" data-kind="employee">
+    <div className="market-kind-preview" data-kind="employee">
       <div className="market-kind-avatar">{initialsForTitle(listing.title)}</div>
       <div className="market-kind-tags">
         {tags.map((tag) => (
@@ -151,7 +151,7 @@ function EmployeePreview({ listing }: { listing: ListingSummary }) {
 function SkillPreview({ listing }: { listing: ListingSummary }) {
   const caps = (listing.tags ?? []).slice(0, 2);
   return (
-    <div className="market-kind-preview market-kind-preview-skill" data-kind="skill">
+    <div className="market-kind-preview" data-kind="skill">
       <div className="market-kind-permissions">
         {['NET', 'FS', 'SEC'].map((label, index) => (
           <span key={label} className="market-kind-permission" data-active={index === 0}>
@@ -173,7 +173,7 @@ function SkillPreview({ listing }: { listing: ListingSummary }) {
 
 function SopPreview() {
   return (
-    <div className="market-kind-preview market-kind-preview-sop" data-kind="sop">
+    <div className="market-kind-preview" data-kind="sop">
       <div className="market-kind-pipeline">
         {[0, 1, 2, 3, 4].map((index) => (
           <span key={index} className="market-kind-pipeline-step">
@@ -200,7 +200,7 @@ function SopPreview() {
 
 function TemplatePreview() {
   return (
-    <div className="market-kind-preview market-kind-preview-template" data-kind="company_template">
+    <div className="market-kind-preview" data-kind="company_template">
       <div className="market-kind-role-strip">
         {TEMPLATE_ROLES.map((role) => (
           <span key={role} className="market-kind-role" data-role={role.toLowerCase()}>
@@ -214,7 +214,7 @@ function TemplatePreview() {
 
 function LayoutPreview() {
   return (
-    <div className="market-kind-preview market-kind-preview-layout" data-kind="office_layout">
+    <div className="market-kind-preview" data-kind="office_layout">
       <span className="market-kind-layout-zone" data-zone="team" />
       <span className="market-kind-layout-zone" data-zone="focus" />
       <span className="market-kind-layout-zone" data-zone="meeting" />
@@ -225,7 +225,7 @@ function LayoutPreview() {
 
 function PrefabPreview() {
   return (
-    <div className="market-kind-preview market-kind-preview-prefab" data-kind="prefab">
+    <div className="market-kind-preview" data-kind="prefab">
       <span className="market-kind-prefab-piece" data-piece="desk" />
       <span className="market-kind-prefab-piece" data-piece="anchor" />
       <span className="market-kind-prefab-piece" data-piece="desk" />
@@ -235,7 +235,7 @@ function PrefabPreview() {
 
 function BundlePreview() {
   return (
-    <div className="market-kind-preview market-kind-preview-bundle" data-kind="bundle">
+    <div className="market-kind-preview" data-kind="bundle">
       <div className="market-kind-bundle-stack">
         {BUNDLE_ICONS.map((StackIcon, index) => (
           <span key={StackIcon.displayName ?? index} className="market-kind-bundle-item">

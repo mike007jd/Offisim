@@ -1,4 +1,4 @@
-import { Button, Input, cn } from '@offisim/ui-core';
+import { Button, EmptyState, Input } from '@offisim/ui-core';
 import { ChevronLeft, FileText, Folder, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { toErrorMessage } from '../../lib/error-message.js';
@@ -166,10 +166,12 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
   if (!workspaceRoot) {
     return (
       <div className="project-workspace-files-empty">
-        <div className="project-workspace-files-empty-message">
-          <Folder className="size-3" aria-hidden="true" />
-          <span>No workspace folder</span>
-        </div>
+        <EmptyState
+          variant="compact"
+          icon={Folder}
+          title="No workspace folder"
+          className="project-workspace-files-empty-state"
+        />
       </div>
     );
   }
@@ -177,10 +179,12 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
   if (!desktopMode) {
     return (
       <div className="project-workspace-files-empty">
-        <div className="project-workspace-files-empty-message">
-          <Folder className="size-3" aria-hidden="true" />
-          <span>Desktop files only</span>
-        </div>
+        <EmptyState
+          variant="compact"
+          icon={Folder}
+          title="Desktop files only"
+          className="project-workspace-files-empty-state"
+        />
       </div>
     );
   }
@@ -207,7 +211,7 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
           aria-label="Refresh workspace files"
           title="Refresh"
         >
-          <RefreshCw className={cn('size-3', directoryLoading && 'animate-spin')} />
+          <RefreshCw data-icon="refresh" data-loading={directoryLoading ? 'true' : undefined} />
         </Button>
       </div>
 
@@ -232,22 +236,21 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
             setCurrentPath(parentWorkspacePath(currentPath));
           }}
         >
-          <ChevronLeft className="size-3" aria-hidden="true" />
+          <ChevronLeft data-icon="inline-start" aria-hidden="true" />
           Up
         </Button>
       )}
 
-      <div className="project-workspace-files-list custom-scrollbar">
+      <div className="project-workspace-files-list">
         {filteredEntries.map((entry) => (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             key={entry.path || entry.name}
-            className={cn(
-              'project-workspace-files-row',
-              selectedFilePath === entry.path ? 'bg-accent-surface text-accent' : 'text-ink-2',
-            )}
+            className="project-workspace-files-row"
+            data-kind={entry.isDirectory ? 'directory' : 'file'}
+            data-selected={selectedFilePath === entry.path ? 'true' : undefined}
             onClick={() => {
               if (entry.isDirectory) {
                 setCurrentPath(entry.path);
@@ -259,11 +262,11 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
             title={entry.path}
           >
             {entry.isDirectory ? (
-              <Folder className="size-3 flex-shrink-0 text-accent" aria-hidden="true" />
+              <Folder data-icon="entry" aria-hidden="true" />
             ) : (
-              <FileText className="size-3 flex-shrink-0 text-ink-3" aria-hidden="true" />
+              <FileText data-icon="entry" aria-hidden="true" />
             )}
-            <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+            <span className="project-workspace-files-name">{entry.name}</span>
             {!entry.isDirectory && (
               <span className="project-workspace-files-size">
                 {formatWorkspaceFileSize(entry.size)}
@@ -287,7 +290,7 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
         <div className="project-workspace-files-preview-stack">
           <pre className="project-workspace-files-preview">{selection.preview}</pre>
           {selection.truncated && (
-            <p className="text-fs-micro text-ink-3">
+            <p className="project-workspace-files-truncation">
               preview truncated · {formatWorkspaceFileSize(selection.totalSize)} total
             </p>
           )}

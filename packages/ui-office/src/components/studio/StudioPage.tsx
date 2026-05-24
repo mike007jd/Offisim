@@ -16,12 +16,12 @@ import {
 } from '@offisim/shared-types';
 import {
   Button,
+  DialogShell,
   Input,
   ToastBanner,
   getTopmostModalId,
   useRegisterModal,
   useToasts,
-  useTopmostEscape,
 } from '@offisim/ui-core';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -70,8 +70,6 @@ function CompanyNameModal({
   const [name, setName] = useState('My Company');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useTopmostEscape('studio-company-name', onCancel);
-
   useEffect(() => {
     inputRef.current?.select();
   }, []);
@@ -82,27 +80,28 @@ function CompanyNameModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-surface-1"
-      role="presentation"
-      onClick={onCancel}
-      tabIndex={-1}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onCancel();
+    <DialogShell
+      open
+      onOpenChange={(open) => {
+        if (!open) onCancel();
       }}
+      stackId="studio-company-name"
+      title="Company Name"
+      size="xs"
+      showCloseButton={false}
+      className="studio-company-name-dialog"
+      footer={
+        <>
+          <Button type="button" onClick={onCancel} aria-label="Cancel" variant="secondary">
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSubmit} aria-label="Create company">
+            Create
+          </Button>
+        </>
+      }
     >
-      <dialog
-        open
-        aria-labelledby="company-name-modal-title"
-        onPointerDown={(e) => e.stopPropagation()}
-        className="m-0 flex w-full max-w-sm flex-col gap-sp-4 rounded-r-md border border-line bg-surface-1 p-sp-6"
-      >
-        <h2
-          id="company-name-modal-title"
-          className="font-sans text-fs-body font-semibold text-ink-1"
-        >
-          Company Name
-        </h2>
+      <div className="studio-company-name-field">
         <Input
           ref={inputRef}
           value={name}
@@ -112,18 +111,10 @@ function CompanyNameModal({
             if (e.key === 'Escape') onCancel();
           }}
           aria-label="Company name"
-          className="w-full border-focus bg-surface-2 text-ink-1"
+          className="studio-company-name-input"
         />
-        <div className="flex justify-end gap-2">
-          <Button type="button" onClick={onCancel} aria-label="Cancel" variant="secondary">
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleSubmit} aria-label="Create company">
-            Create
-          </Button>
-        </div>
-      </dialog>
-    </div>
+      </div>
+    </DialogShell>
   );
 }
 
@@ -143,9 +134,6 @@ export function StudioPage(props: StudioPageProps) {
   // the inline company-name modal can take topmost ownership above us.
   const studioStackId = 'studio-page';
   useRegisterModal(studioStackId, 'overlay');
-  const companyNameModalStackId = 'studio-company-name';
-  useRegisterModal(showNameModal ? companyNameModalStackId : null, 'dialog');
-
   // Pending save resolver when waiting for company name
   const pendingSaveRef = useRef<((name: string | null) => void) | null>(null);
   const savingRef = useRef(false);
@@ -404,7 +392,7 @@ export function StudioPage(props: StudioPageProps) {
   // -- Render -----------------------------------------------------------------
 
   return (
-    <div className="fixed inset-0 z-dropdown bg-surface font-sans">
+    <div className="studio-page-root">
       {/* Top toolbar: tools, grid toggle, save, back */}
       <StudioToolbar onSave={handleSave} onBack={onBack} saving={saving} saveFlash={saveFlash} />
 
@@ -427,10 +415,10 @@ export function StudioPage(props: StudioPageProps) {
       <StudioProperties />
 
       {/* 3D canvas area */}
-      <div className="studio-canvas-frame absolute">
+      <div className="studio-canvas-frame">
         {loading ? (
-          <div className="flex h-full w-full items-center justify-center bg-bg">
-            <Loader2 className="h-8 w-8 animate-spin text-ink-3" />
+          <div className="studio-canvas-loading">
+            <Loader2 data-icon="loading" aria-hidden="true" />
           </div>
         ) : (
           <StudioCanvas focusRef={focusRef}>
