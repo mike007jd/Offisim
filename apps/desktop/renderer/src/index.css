@@ -14048,6 +14048,165 @@
     width: calc(var(--sp-1) + (var(--sp-1) / 2));
   }
 
+  .first-run-welcome {
+    display: grid;
+    gap: var(--sp-6);
+    min-height: calc(var(--sp-8) * 11 + var(--sp-2));
+  }
+
+  @media (min-width: 768px) {
+    .first-run-welcome {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    }
+  }
+
+  .first-run-welcome-copy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    justify-content: center;
+  }
+
+  .first-run-welcome-copy p {
+    max-width: calc(var(--sp-8) * 32);
+  }
+
+  .first-run-welcome-copy [data-slot="primary"] {
+    color: var(--ink-3);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  .first-run-welcome-copy [data-slot="secondary"] {
+    color: var(--ink-4);
+    font-size: var(--text-fs-sm);
+    line-height: var(--text-body--line-height);
+  }
+
+  .first-run-preview {
+    background: var(--surface-2);
+    border: var(--border-width-thin) solid var(--line);
+    border-radius: 0 var(--r-lg) var(--r-lg) 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: calc(var(--sp-8) * 6 + var(--sp-7));
+    padding: var(--sp-4);
+  }
+
+  .first-run-preview [data-slot="icon"] {
+    background: var(--accent-surface);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    height: calc(var(--sp-8) + var(--sp-2));
+    width: calc(var(--sp-8) + var(--sp-2));
+  }
+
+  .first-run-preview [data-slot="line-strong"] {
+    background: var(--border-subtle);
+    border-radius: var(--r-sm);
+    height: var(--sp-3);
+    margin-block-start: var(--sp-6);
+    width: calc(var(--sp-8) * 4);
+  }
+
+  .first-run-preview [data-slot="line-muted"] {
+    background: var(--border-muted);
+    border-radius: var(--r-sm);
+    height: var(--sp-2);
+    margin-block-start: var(--sp-3);
+    width: calc(var(--sp-8) * 6);
+  }
+
+  .first-run-preview [data-slot="stack"] {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+
+  .first-run-preview [data-slot="stack"] > div {
+    background: var(--surface-1);
+    border: var(--border-width-thin) solid var(--line-soft);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    height: var(--sp-8);
+  }
+
+  .onboarding-tour-ring {
+    border-radius: 0 var(--r-lg) var(--r-lg) 0;
+    box-shadow: var(--shadow-glow-accent);
+    pointer-events: none;
+    position: fixed;
+    transition: inset var(--duration-normal) var(--ease-standard),
+      width var(--duration-normal) var(--ease-standard),
+      height var(--duration-normal) var(--ease-standard);
+    z-index: var(--z-top);
+  }
+
+  .onboarding-tour-ring::after {
+    border: calc(var(--border-width-thin) * 2) solid color-mix(in srgb, var(--accent) 70%, transparent);
+    border-radius: inherit;
+    content: "";
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .onboarding-tour-card {
+    background: var(--surface-1);
+    border: var(--border-width-thin) solid var(--line);
+    border-radius: 0 var(--r-lg) var(--r-lg) 0;
+    box-shadow: var(--shadow-modal);
+    padding: var(--sp-4);
+    pointer-events: auto;
+    position: fixed;
+    z-index: var(--z-top);
+  }
+
+  .onboarding-tour-card [data-slot="step"] {
+    color: var(--accent);
+    font-size: var(--text-fs-meta);
+    letter-spacing: var(--ls-caps);
+    text-transform: uppercase;
+  }
+
+  .onboarding-tour-card h2 {
+    color: var(--ink-1);
+    font-size: var(--text-fs-sm);
+    font-weight: 700;
+    margin-block-start: var(--sp-2);
+  }
+
+  .onboarding-tour-card [data-slot="body"] {
+    color: var(--ink-3);
+    font-size: var(--text-fs-meta);
+    line-height: var(--text-body--line-height);
+    margin-block-start: calc(var(--sp-1) + (var(--sp-1) / 2));
+  }
+
+  .onboarding-tour-actions {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+    justify-content: space-between;
+    margin-block-start: var(--sp-3);
+  }
+
+  .onboarding-tour-actions > div {
+    align-items: center;
+    display: flex;
+    gap: var(--sp-2);
+  }
+
+  .onboarding-tour-button {
+    font-size: var(--text-fs-meta);
+    height: var(--sp-7);
+    padding-inline: var(--sp-3);
+  }
+
+  .onboarding-tour-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
   .w-sop-context-menu {
     width: 8.75rem;
   }
