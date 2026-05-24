@@ -124,11 +124,9 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
   const advancedOverrides = policy.overrides.filter((override) => !isCorePattern(override.pattern));
 
   return (
-    <div className="flex flex-col gap-sp-4">
-      <div className="rounded-r-sm border border-line-soft bg-surface-sunken p-sp-3">
-        <span id={defaultModeId} className="mb-2 block text-fs-meta font-medium text-ink-2">
-          Default mode
-        </span>
+    <div className="tool-permission-editor">
+      <div className="tool-permission-default">
+        <span id={defaultModeId}>Default mode</span>
         <SegmentedControl
           size="sm"
           ariaLabel="Default tool approval mode"
@@ -138,20 +136,17 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
         />
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="tool-permission-core-list">
         {CORE_TOOL_ROWS.map((row) => {
           const override = policy.overrides.find((item) => item.pattern === row.pattern);
           const mode = override?.mode ?? policy.defaultMode;
           const Icon = row.Icon;
           return (
-            <div
-              key={row.pattern}
-              className="grid grid-tool-permission-row items-center gap-3 rounded-r-sm border border-line-soft bg-surface-1 px-sp-3 py-sp-2"
-            >
-              <Icon className="size-4 text-ink-4" aria-hidden="true" />
-              <div className="min-w-0">
-                <p className="truncate text-fs-sm font-medium text-ink-1">{row.label}</p>
-                <p className="truncate text-fs-meta text-ink-3">{row.hint}</p>
+            <div key={row.pattern} className="tool-permission-row">
+              <Icon data-icon="tool-kind" aria-hidden="true" />
+              <div>
+                <p data-slot="label">{row.label}</p>
+                <p data-slot="hint">{row.hint}</p>
               </div>
               <SegmentedControl
                 size="sm"
@@ -165,38 +160,34 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
         })}
       </div>
 
-      <details className="rounded-r-sm border border-line-soft bg-surface-1 p-sp-3">
-        <summary className="cursor-pointer text-fs-meta font-medium text-ink-2">
-          Advanced patterns
-        </summary>
-        <div className="mt-sp-3 flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-fs-meta text-ink-3">Glob overrides for non-standard tools.</p>
+      <details className="tool-permission-advanced">
+        <summary>Advanced patterns</summary>
+        <div>
+          <div className="tool-permission-advanced-head">
+            <p>Glob overrides for non-standard tools.</p>
             <Button
               type="button"
               onClick={addOverride}
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-fs-meta text-ink-3"
+              className="tool-permission-add-button"
             >
               Add pattern
             </Button>
           </div>
 
           {advancedOverrides.length === 0 && (
-            <p className="rounded-r-sm border border-dashed border-line-soft px-sp-3 py-sp-2 text-fs-meta text-ink-3">
-              No advanced overrides.
-            </p>
+            <p className="tool-permission-empty">No advanced overrides.</p>
           )}
 
           {policy.overrides.map((override, index) =>
             isCorePattern(override.pattern) ? null : (
-              <div key={`${override.pattern}-${index}`} className="grid grid-tool-overrides gap-2">
+              <div key={`${override.pattern}-${index}`} className="tool-permission-override-row">
                 <Input
                   value={override.pattern}
                   onChange={(event) => updateOverride(index, { pattern: event.target.value })}
                   placeholder="calendar.*"
-                  className="border-line bg-surface-1 text-fs-sm text-ink-1"
+                  className="tool-permission-pattern-input"
                 />
                 <Select
                   value={override.mode}
@@ -222,7 +213,7 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
                   onClick={() => removeOverride(index)}
                   variant="outline"
                   size="sm"
-                  className="h-9 px-2 text-fs-meta text-ink-3"
+                  className="tool-permission-remove-button"
                 >
                   Remove
                 </Button>

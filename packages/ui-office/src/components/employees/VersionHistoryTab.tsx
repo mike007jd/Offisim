@@ -40,55 +40,48 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
   const [confirmRollback, setConfirmRollback] = useState<number | null>(null);
 
   if (loading) {
-    return <p className="text-fs-sm text-ink-2/50 py-4 text-center">Loading version history...</p>;
+    return <p className="version-history-state">Loading version history...</p>;
   }
 
   if (versions.length === 0) {
-    return (
-      <p className="text-fs-sm text-ink-2/50 py-4 text-center">No version history available.</p>
-    );
+    return <p className="version-history-state">No version history available.</p>;
   }
 
   if (versions.length === 1) {
     return (
-      <p className="text-fs-sm text-ink-2/50 py-4 text-center">
+      <p className="version-history-state">
         Only one version exists. Make changes to build up history.
       </p>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3 pt-2">
+    <div className="version-history-tab">
       {/* Fork provenance badge */}
       {forkOrigin && (
-        <div className="flex items-center gap-2 rounded-r-xs border border-accent/20 bg-accent-surface px-2 py-1.5">
-          <Badge variant="info" className="shrink-0">
+        <div className="version-history-origin">
+          <Badge variant="info" className="version-history-badge">
             Forked
           </Badge>
-          <span className="text-fs-meta text-ink-2/70">
+          <span>
             From:{' '}
             {forkOrigin.sourceUrl ? (
-              <a
-                href={forkOrigin.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
+              <a href={forkOrigin.sourceUrl} target="_blank" rel="noopener noreferrer">
                 {forkOrigin.sourceAssetId}
               </a>
             ) : (
-              <span className="font-mono">{forkOrigin.sourceAssetId}</span>
+              <span data-slot="asset-id">{forkOrigin.sourceAssetId}</span>
             )}
             {forkOrigin.sourcePackageId && (
-              <span className="text-ink-2/50 ml-1">(pkg: {forkOrigin.sourcePackageId})</span>
+              <span data-slot="package-id">(pkg: {forkOrigin.sourcePackageId})</span>
             )}
           </span>
         </div>
       )}
 
       {/* Timeline list */}
-      <ScrollArea className="max-h-48">
-        <div className="flex flex-col gap-1">
+      <ScrollArea className="version-history-scroll">
+        <div className="version-history-list">
           {versions.map((v) => {
             const badge = CHANGE_TYPE_BADGE[v.change_type] ?? {
               label: v.change_type,
@@ -102,24 +95,17 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
                 type="button"
                 key={v.version_id}
                 variant="ghost"
-                className={`h-auto justify-start gap-2 rounded-r-xs px-2 py-1.5 text-left text-fs-sm ${
-                  isSelected
-                    ? 'border border-accent bg-accent-surface'
-                    : 'border border-transparent hover:bg-surface-sunken'
-                }`}
+                className="version-history-item"
+                data-selected={isSelected ? 'true' : 'false'}
                 onClick={() => selectVersion(isSelected ? null : v.version_num)}
               >
-                <span className="w-8 shrink-0 font-mono text-fs-meta text-ink-4">
-                  v{v.version_num}
-                </span>
-                <Badge variant={badge.variant} className="shrink-0">
+                <span data-slot="version">v{v.version_num}</span>
+                <Badge variant={badge.variant} className="version-history-badge">
                   {badge.label}
                 </Badge>
-                <span className="flex-1 truncate text-fs-meta text-ink-4">
-                  {v.change_summary ?? formatTimestamp(v.created_at)}
-                </span>
+                <span data-slot="summary">{v.change_summary ?? formatTimestamp(v.created_at)}</span>
                 {isCurrent && (
-                  <Badge variant="secondary" className="shrink-0">
+                  <Badge variant="secondary" className="version-history-badge">
                     current
                   </Badge>
                 )}
@@ -131,15 +117,15 @@ export function VersionHistoryTab({ employeeId, forkOrigin }: VersionHistoryTabP
 
       {/* Diff display */}
       {selectedVersion != null && diffResult != null && (
-        <div className="border border-line rounded-r-xs p-2">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-fs-meta text-ink-2/70 font-medium">
+        <div className="version-history-diff">
+          <div className="version-history-diff-head">
+            <span>
               Changes from v{selectedVersion} to v{versions[0]?.version_num} (current)
             </span>
             {/* Rollback button */}
             {confirmRollback === selectedVersion ? (
-              <div className="flex items-center gap-1">
-                <span className="text-fs-meta text-warn">Rollback to v{selectedVersion}?</span>
+              <div className="version-history-confirm">
+                <span>Rollback to v{selectedVersion}?</span>
                 <Button
                   size="sm"
                   variant="destructive"
