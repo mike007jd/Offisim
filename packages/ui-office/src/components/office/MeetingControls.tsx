@@ -1,13 +1,4 @@
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-  cn,
-} from '@offisim/ui-core';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@offisim/ui-core';
 import {
   ClipboardCheck,
   Lightbulb,
@@ -116,19 +107,17 @@ export function MeetingControls({
   if (status === 'idle') return null;
 
   return (
-    <Card className="border-line-soft">
-      <CardHeader className="pb-sp-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-fs-sm uppercase tracking-ls-caps text-ink-3">
-            Meeting
-          </CardTitle>
+    <Card className="meeting-controls">
+      <CardHeader className="meeting-controls-header">
+        <div>
+          <CardTitle>Meeting</CardTitle>
           <Badge variant={STATUS_VARIANTS[status]}>{STATUS_LABELS[status]}</Badge>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col gap-sp-2">
+        <div className="meeting-controls-body">
           {/* Meeting type selector */}
-          <div className="flex gap-sp-1">
+          <div className="meeting-controls-types">
             {MEETING_TYPES.map(({ value, label, Icon }) => (
               <Button
                 key={value}
@@ -136,19 +125,15 @@ export function MeetingControls({
                 variant="ghost"
                 size="sm"
                 onClick={() => handleMeetingTypeChange(value)}
-                className={cn(
-                  'h-7 gap-sp-1 rounded-r-sm px-sp-2 text-fs-micro',
-                  meetingType === value
-                    ? 'border border-focus bg-accent-surface text-accent'
-                    : 'border border-transparent text-ink-3 hover:text-ink-2',
-                )}
+                className="meeting-controls-type"
+                data-active={meetingType === value ? 'true' : 'false'}
               >
-                <Icon className="size-3" />
+                <Icon data-icon="inline-start" aria-hidden="true" />
                 {label}
               </Button>
             ))}
           </div>
-          <div className="flex gap-sp-1">
+          <div className="meeting-controls-actions">
             {status === 'running' && (
               <>
                 <Button
@@ -156,9 +141,9 @@ export function MeetingControls({
                   variant="outline"
                   onClick={onPause}
                   title="Pause meeting"
-                  className="gap-sp-1"
+                  className="meeting-controls-action"
                 >
-                  <Pause className="size-3" />
+                  <Pause data-icon="inline-start" aria-hidden="true" />
                   Pause
                 </Button>
                 <Button
@@ -166,9 +151,9 @@ export function MeetingControls({
                   variant="outline"
                   onClick={onEnd}
                   title="End meeting"
-                  className="gap-sp-1"
+                  className="meeting-controls-action"
                 >
-                  <Square className="size-3" />
+                  <Square data-icon="inline-start" aria-hidden="true" />
                   End
                 </Button>
                 <Button
@@ -176,9 +161,9 @@ export function MeetingControls({
                   variant="outline"
                   onClick={() => setShowInjectInput((prev) => !prev)}
                   title="Inject comment"
-                  className="gap-sp-1"
+                  className="meeting-controls-action"
                 >
-                  <MessageSquarePlus className="size-3" />
+                  <MessageSquarePlus data-icon="inline-start" aria-hidden="true" />
                   Comment
                 </Button>
               </>
@@ -190,9 +175,9 @@ export function MeetingControls({
                   variant="outline"
                   onClick={onResume}
                   title="Resume meeting"
-                  className="gap-sp-1"
+                  className="meeting-controls-action"
                 >
-                  <Play className="size-3" />
+                  <Play data-icon="inline-start" aria-hidden="true" />
                   Resume
                 </Button>
                 <Button
@@ -200,19 +185,19 @@ export function MeetingControls({
                   variant="outline"
                   onClick={onEnd}
                   title="End meeting"
-                  className="gap-sp-1"
+                  className="meeting-controls-action"
                 >
-                  <Square className="size-3" />
+                  <Square data-icon="inline-start" aria-hidden="true" />
                   End
                 </Button>
               </>
             )}
           </div>
           {showInjectInput && status === 'running' && (
-            <div className="flex gap-sp-1">
+            <div className="meeting-controls-inject">
               <Input
                 type="text"
-                className="h-8 flex-1 border-line-soft bg-transparent px-sp-2 py-sp-1 text-fs-micro text-ink-2 placeholder:text-ink-3 focus:border-focus"
+                className="meeting-controls-input"
                 placeholder="Type your comment..."
                 value={injectText}
                 onChange={(e) => setInjectText(e.target.value)}

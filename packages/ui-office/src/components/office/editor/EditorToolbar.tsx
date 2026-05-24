@@ -27,70 +27,66 @@ export function EditorToolbar({
   onClose,
 }: EditorToolbarProps) {
   return (
-    <Toolbar className="h-12 shrink-0 justify-between border-b border-line-soft px-sp-4">
-      <div className="flex items-center gap-sp-3">
+    <Toolbar className="editor-toolbar">
+      <div className="editor-toolbar-start">
         <Button
           type="button"
           onClick={onClose}
           variant="ghost"
           size="sm"
-          className="gap-sp-1 px-sp-2 text-ink-3 hover:text-ink-1"
+          className="editor-toolbar-back"
           aria-label="Close editor"
         >
-          <ArrowLeft className="size-3.5" />
+          <ArrowLeft data-icon="button" aria-hidden="true" />
         </Button>
-        <ToolbarSeparator className="h-4" />
-        <h1 className="font-mono text-fs-micro font-black uppercase tracking-ls-caps text-ink-1">
-          OFFICE STUDIO
-        </h1>
-        <Badge variant="secondary" className="font-mono text-fs-micro">
+        <ToolbarSeparator className="editor-toolbar-separator" />
+        <h1>OFFICE STUDIO</h1>
+        <Badge variant="secondary" className="editor-toolbar-badge">
           Zone edit mode
         </Badge>
         {selectedZoneLabel && (
-          <Badge variant="info" className="font-mono text-fs-micro">
+          <Badge variant="info" className="editor-toolbar-badge">
             Focus: {selectedZoneLabel}
           </Badge>
         )}
         {dirty && (
-          <Badge variant="warning" className="ml-sp-2 font-mono text-fs-micro">
+          <Badge variant="warning" className="editor-toolbar-badge" data-offset="true">
             Unsaved
           </Badge>
         )}
       </div>
-      <ToolbarGroup className="gap-sp-2">
-        <ToolbarGroup className="mr-sp-2 gap-sp-1">
+      <ToolbarGroup className="editor-toolbar-actions">
+        <ToolbarGroup className="editor-toolbar-zoom">
           <Button
             type="button"
             onClick={onZoomOut}
             variant="ghost"
             size="icon"
-            className="size-7 text-ink-3 hover:text-ink-1"
+            className="editor-toolbar-icon"
             aria-label="Zoom out"
           >
-            <ZoomOut className="size-3.5" />
+            <ZoomOut data-icon="button" aria-hidden="true" />
           </Button>
-          <span className="w-8 text-center font-mono text-fs-micro text-ink-3">
-            {Math.round(zoom * 100)}%
-          </span>
+          <span className="editor-toolbar-zoom-value">{Math.round(zoom * 100)}%</span>
           <Button
             type="button"
             onClick={onZoomIn}
             variant="ghost"
             size="icon"
-            className="size-7 text-ink-3 hover:text-ink-1"
+            className="editor-toolbar-icon"
             aria-label="Zoom in"
           >
-            <ZoomIn className="size-3.5" />
+            <ZoomIn data-icon="button" aria-hidden="true" />
           </Button>
           <Button
             type="button"
             onClick={onZoomFit}
             variant="ghost"
             size="icon"
-            className="size-7 text-ink-3 hover:text-ink-1"
+            className="editor-toolbar-icon"
             aria-label="Fit zoom"
           >
-            <Maximize2 className="size-3.5" />
+            <Maximize2 data-icon="button" aria-hidden="true" />
           </Button>
         </ToolbarGroup>
         <Button
@@ -98,9 +94,9 @@ export function EditorToolbar({
           onClick={onResetAll}
           variant="outline"
           size="sm"
-          className="gap-sp-1 px-sp-3 font-mono text-fs-micro text-ink-2"
+          className="editor-toolbar-action"
         >
-          <RotateCcw className="size-3" />
+          <RotateCcw data-icon="inline-start" aria-hidden="true" />
           Reset
         </Button>
         <Button
@@ -108,9 +104,9 @@ export function EditorToolbar({
           onClick={onSave}
           disabled={saving || !dirty}
           size="sm"
-          className="gap-sp-1 px-sp-4 font-mono text-fs-micro font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+          className="editor-toolbar-save"
         >
-          <Save className="size-3" />
+          <Save data-icon="inline-start" aria-hidden="true" />
           {saving ? 'Saving...' : 'Save'}
         </Button>
       </ToolbarGroup>

@@ -9,9 +9,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  cn,
 } from '@offisim/ui-core';
 import { ChevronDown, Lock, Plus } from 'lucide-react';
+import type { CSSProperties } from 'react';
 
 export interface PresetPaletteProps {
   collapsed: Record<string, boolean>;
@@ -43,18 +43,16 @@ export function PresetPalette({
   onCreateCustom,
 }: PresetPaletteProps) {
   return (
-    <div className="flex w-60 shrink-0 flex-col overflow-hidden border-r border-line-soft bg-surface-1">
-      <div className="border-b border-line-soft px-sp-3 py-sp-2">
-        <p className="font-mono text-fs-micro font-bold uppercase tracking-ls-caps text-ink-3">
-          ZONE_PRESETS
-        </p>
+    <div className="preset-palette">
+      <div className="preset-palette-head">
+        <p>ZONE_PRESETS</p>
       </div>
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="preset-palette-scroll custom-scrollbar">
         {ZONE_PRESET_GROUPS.map((group) => {
           const isCollapsed = collapsed[group.archetype] ?? false;
           const required = isRequiredArchetype(group.archetype);
           return (
-            <div key={group.archetype}>
+            <div key={group.archetype} className="preset-palette-group">
               <Button
                 type="button"
                 variant="ghost"
@@ -62,20 +60,18 @@ export function PresetPalette({
                 onClick={() =>
                   setCollapsed((p) => ({ ...p, [group.archetype]: !p[group.archetype] }))
                 }
-                className="h-auto w-full justify-start rounded-none px-sp-3 py-sp-2 text-left font-mono text-fs-micro font-semibold"
+                className="preset-palette-group-trigger"
+                data-collapsed={isCollapsed ? 'true' : 'false'}
               >
-                <ChevronDown
-                  className={cn('size-3 transition-transform', isCollapsed && '-rotate-90')}
-                  aria-hidden="true"
-                />
+                <ChevronDown data-icon="collapse" aria-hidden="true" />
                 <span>{group.icon}</span>
-                <span className="flex-1">{group.label}</span>
+                <span data-slot="label">{group.label}</span>
                 {required && (
                   <Badge size="xs" variant="warning">
                     REQUIRED
                   </Badge>
                 )}
-                <span className="text-ink-3">{group.presets.length}</span>
+                <span data-slot="count">{group.presets.length}</span>
               </Button>
               {!isCollapsed &&
                 group.presets.map((preset) => (
@@ -90,7 +86,7 @@ export function PresetPalette({
           );
         })}
 
-        <div className="mt-sp-1 border-t border-line-soft pt-sp-1">
+        <div className="preset-palette-custom">
           <Button
             type="button"
             variant="ghost"
@@ -99,25 +95,25 @@ export function PresetPalette({
               setShowCustomForm((v) => !v);
               setPlacingPreset(null);
             }}
-            className="h-auto w-full justify-start rounded-none px-sp-3 py-sp-2 text-left font-mono text-fs-micro"
+            className="preset-palette-custom-trigger"
           >
-            <Plus className="size-3" aria-hidden="true" />
+            <Plus data-icon="inline-start" aria-hidden="true" />
             <span>Create Custom Zone</span>
           </Button>
           {showCustomForm && (
-            <div className="flex flex-col gap-sp-2 px-sp-3 pb-sp-2">
+            <div className="preset-palette-custom-form">
               <Input
                 type="text"
                 value={customLabel}
                 onChange={(e) => setCustomLabel(e.target.value)}
                 placeholder="Zone name..."
-                className="h-8 font-mono text-fs-micro"
+                className="preset-palette-input"
               />
               <Select
                 value={customArchetype}
                 onValueChange={(value) => setCustomArchetype(value as ZoneArchetype)}
               >
-                <SelectTrigger className="h-8 font-mono text-fs-micro">
+                <SelectTrigger className="preset-palette-input">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -132,7 +128,7 @@ export function PresetPalette({
                 type="button"
                 size="sm"
                 onClick={onCreateCustom}
-                className="w-full font-mono text-fs-micro"
+                className="preset-palette-add"
               >
                 Add to Canvas
               </Button>
@@ -142,13 +138,11 @@ export function PresetPalette({
       </div>
 
       {placingPreset && (
-        <div className="border-t border-line-soft bg-accent-surface px-sp-3 py-sp-2">
-          <p className="font-mono text-fs-micro text-accent">
+        <div className="preset-palette-status">
+          <p>
             Placing: <strong>{placingPreset.label}</strong>
           </p>
-          <p className="mt-sp-1 font-mono text-fs-micro text-ink-3">
-            Click on canvas to place · ESC to cancel
-          </p>
+          <p data-slot="hint">Click on canvas to place · ESC to cancel</p>
         </div>
       )}
     </div>
@@ -163,47 +157,32 @@ interface PresetCardProps {
 
 function PresetCard({ preset, isActive, onClick }: PresetCardProps) {
   const required = isRequiredArchetype(preset.archetype);
+  const previewStyle = {
+    '--preset-accent': preset.accentColor,
+    '--preset-preview-width': `${Math.min((preset.w / 20) * 100, 100)}%`,
+    '--preset-preview-depth': `${Math.min((preset.d / 12) * 100, 100)}%`,
+  } as CSSProperties;
   return (
     <Button
       type="button"
       variant="ghost"
       onClick={onClick}
-      className={cn(
-        'h-auto w-full justify-start rounded-none border-l-2 px-2 py-2 pl-6 text-left transition-all',
-        isActive
-          ? 'border-accent bg-accent-surface text-accent'
-          : 'border-transparent text-ink-3 hover:bg-surface-sunken hover:text-ink-1',
-      )}
+      className="preset-card"
+      data-active={isActive ? 'true' : 'false'}
     >
-      <div className="relative shrink-0">
-        <div
-          className="size-8 rounded"
-          style={{
-            backgroundColor: `${preset.accentColor}20`,
-            border: `1.5px solid ${preset.accentColor}40`,
-          }}
-        >
-          <div
-            className="absolute rounded-sm"
-            style={{
-              backgroundColor: `${preset.accentColor}50`,
-              width: `${Math.min((preset.w / 20) * 100, 100)}%`,
-              height: `${Math.min((preset.d / 12) * 100, 100)}%`,
-              left: '50%',
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-            }}
-          />
+      <div className="preset-card-preview-wrap">
+        <div className="preset-card-preview" style={previewStyle}>
+          <div />
         </div>
         {required && (
-          <div className="absolute -right-1 -top-1 flex size-3 items-center justify-center rounded-r-pill bg-warn">
-            <Lock className="size-1.5 text-ink-inverse" aria-hidden="true" />
+          <div className="preset-card-required">
+            <Lock data-icon="required" aria-hidden="true" />
           </div>
         )}
       </div>
-      <div className="min-w-0 flex-1">
-        <span className="block truncate font-mono text-fs-micro font-medium">{preset.label}</span>
-        <span className="block font-mono text-fs-micro text-ink-3">
+      <div className="preset-card-copy">
+        <span>{preset.label}</span>
+        <span data-slot="meta">
           {preset.w}x{preset.d} · {preset.prefabs.length} items
           {preset.deskSlots > 0 && ` · ${preset.deskSlots} desks`}
         </span>
