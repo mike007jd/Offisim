@@ -30,27 +30,27 @@ export interface MarketCardGridProps {
   readonly selectedListingId?: string | null;
 }
 
-const GRID_CLASS = 'grid grid-market-card-list p-sp-7';
+const GRID_CLASS = 'market-card-grid';
 
 function SkeletonCard() {
   return (
-    <div className="flex h-market-grid-card flex-col overflow-hidden rounded-r-md border border-line-soft bg-surface-1 shadow-elev-1">
-      <div className="flex flex-none items-start gap-2 border-b border-line-soft px-3 pb-2 pt-3">
-        <Skeleton className="size-8 rounded-r-sm" />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-center justify-between gap-2">
-            <Skeleton className="h-4 w-20 rounded-r-xs" />
-            <Skeleton className="h-5 w-16 rounded-r-pill" />
+    <div className="market-card-skeleton">
+      <div className="market-card-skeleton-cover">
+        <Skeleton className="market-card-skeleton-avatar" />
+        <div className="market-card-skeleton-cover-lines">
+          <div className="market-card-skeleton-cover-row">
+            <Skeleton className="market-card-skeleton-line" data-size="short" />
+            <Skeleton className="market-card-skeleton-line" data-size="chip" />
           </div>
-          <Skeleton className="h-5 w-3/4 rounded-r-xs" />
+          <Skeleton className="market-card-skeleton-line" data-size="long" />
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-1.5 px-3 py-2.5">
-        <Skeleton className="h-3 w-full rounded-r-xs" />
-        <Skeleton className="h-3 w-2/3 rounded-r-xs" />
-        <div className="mt-auto flex gap-1.5 pt-2">
-          <Skeleton className="h-5 w-12 rounded-r-xs" />
-          <Skeleton className="h-5 w-14 rounded-r-xs" />
+      <div className="market-card-skeleton-body">
+        <Skeleton className="market-card-skeleton-line" data-size="full" />
+        <Skeleton className="market-card-skeleton-line" data-size="medium" />
+        <div className="market-card-skeleton-stats">
+          <Skeleton className="market-card-skeleton-line" data-size="stat" />
+          <Skeleton className="market-card-skeleton-line" data-size="stat-wide" />
         </div>
       </div>
     </div>
@@ -124,11 +124,11 @@ export function MarketCardGrid({
       })}
 
       {/* Sentinel for infinite scroll */}
-      <div ref={sentinelRef} className="col-span-full h-1" />
+      <div ref={sentinelRef} className="market-card-grid-sentinel" />
 
       {isLoadingMore && (
-        <div className="col-span-full flex justify-center py-4">
-          <Loader2 className="size-6 animate-spin text-ink-4" />
+        <div className="market-card-grid-loading">
+          <Loader2 data-icon="loading" />
         </div>
       )}
     </div>

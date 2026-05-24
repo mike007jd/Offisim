@@ -168,7 +168,7 @@ export function MarketPage({
     results.length === 0;
 
   return (
-    <div className="flex h-full flex-col" data-layout-tier={tier}>
+    <div className="market-page" data-layout-tier={tier}>
       <ToastBanner toasts={toasts} onDismiss={dismissToast} />
 
       {/* Narrow detail is a drill-in page; tablet/desktop keep filters visible beside detail. */}
@@ -190,7 +190,7 @@ export function MarketPage({
         />
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="market-page-body">
         {/* Explore: Detail view */}
         {showDetail && tier === 'narrow' && (
           <MarketDetailView
@@ -207,11 +207,11 @@ export function MarketPage({
 
         {showDetail && tier !== 'narrow' && (
           <div
-            className={`grid h-full min-h-0 ${
+            className={`market-page-detail-grid ${
               tier === 'desktop' ? 'grid-market-detail-desktop' : 'grid-market-detail-tablet'
             }`}
           >
-            <div className="min-h-0 overflow-y-auto">
+            <div className="market-page-listing-pane">
               <MarketCardGrid
                 results={results}
                 isLoading={isLoading}

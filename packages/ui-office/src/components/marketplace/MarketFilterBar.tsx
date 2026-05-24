@@ -48,7 +48,6 @@ export interface MarketFilterBarProps {
 }
 
 const MANAGE_TABS = ['installed', 'updates', 'published'] as const;
-const FILTER_ICON_CLASS = 'size-3 shrink-0 text-ink-4';
 
 const KIND_FILTER_ICON: Partial<Record<AssetKind | 'all', LucideIcon>> = {
   employee: UserPlus,
@@ -86,8 +85,8 @@ function Segmented<V extends string>({
       size="sm"
       layout={layout === 'sheet' ? 'scroll' : 'default'}
       className={cn(
-        'rounded-r-md border-line bg-surface-2 shadow-elev-1',
-        layout === 'sheet' && 'w-full justify-start',
+        'market-filter-segmented',
+        layout === 'sheet' && 'market-filter-segmented-sheet',
       )}
       items={options.map((opt): SegmentedControlItem<V> => {
         const Icon = opt.icon;
@@ -95,7 +94,7 @@ function Segmented<V extends string>({
           value: opt.value,
           label: (
             <>
-              {Icon && <Icon className="size-3" aria-hidden="true" />}
+              {Icon && <Icon data-icon="segmented" aria-hidden="true" />}
               {opt.label}
             </>
           ),
@@ -175,8 +174,8 @@ export function MarketFilterBar({
           {onFileImport ? (
             <FileImportTrigger onFileSelect={onFileImport} compact={!narrow} />
           ) : null}
-          <ToolbarButton onClick={onPublishClick} className="text-ink-2">
-            <CloudUpload className={FILTER_ICON_CLASS} aria-hidden="true" />
+          <ToolbarButton onClick={onPublishClick} className="market-filter-publish">
+            <CloudUpload data-icon="toolbar" aria-hidden="true" />
             Publish
           </ToolbarButton>
         </>
@@ -185,54 +184,49 @@ export function MarketFilterBar({
   );
 
   return (
-    <div className="shrink-0 border-b border-line bg-surface-1">
-      <div className="flex min-h-12 flex-wrap items-center gap-3 px-sp-7 py-2">
-        <div className="relative min-w-56 flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-4" />
+    <div className="market-filter-bar">
+      <div className="market-filter-main">
+        <div className="market-filter-search">
+          <Search data-icon="search" />
           <Input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search packages…"
-            className="h-8 w-full rounded-r-md border-line bg-surface-2 pl-9 text-fs-sm text-ink-1 placeholder:text-ink-4 focus:border-accent"
+            className="market-filter-search-input"
           />
         </div>
 
         {narrow ? (
           <ToolbarIconButton onClick={() => setSheetOpen(true)} aria-label="Open market filters">
-            <SlidersHorizontal className="size-4" />
+            <SlidersHorizontal data-icon="toolbar" />
           </ToolbarIconButton>
         ) : (
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">{controls}</div>
+          <div className="market-filter-controls">{controls}</div>
         )}
       </div>
 
       {narrowSheetOpen && (
-        <div className="fixed inset-0 z-modal flex items-end bg-glass-bg">
-          <div
-            ref={sheetRef}
-            className="w-full rounded-t-r-lg border-t border-line bg-surface-1 p-4 shadow-elev-2"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="text-fs-sm font-semibold text-ink-1">Market filters</div>
+        <div className="market-filter-sheet-scrim">
+          <div ref={sheetRef} className="market-filter-sheet">
+            <div className="market-filter-sheet-header">
+              <div className="market-filter-sheet-title">Market filters</div>
               <ToolbarIconButton
                 onClick={() => setSheetOpen(false)}
                 shape="compact"
                 aria-label="Close market filters"
               >
-                <X className="size-4" />
+                <X data-icon="toolbar" />
               </ToolbarIconButton>
             </div>
-            <div className="flex min-w-0 flex-col gap-3 overflow-hidden">{controls}</div>
+            <div className="market-filter-sheet-controls">{controls}</div>
           </div>
         </div>
       )}
 
       {mode === 'manage' && (
-        <div className="flex items-center gap-2 px-sp-7 pb-2">
-          <span className="text-fs-micro font-semibold uppercase tracking-wide text-ink-3">
-            View
-          </span>
+        <div className="market-filter-subrow">
+          <span className="market-filter-subrow-label">View</span>
           <ManageTabDropdown manageTab={manageTab} onManageTabChange={onManageTabChange} />
         </div>
       )}
@@ -256,9 +250,9 @@ function ModeDropdown({
   return (
     <EntityDropdown
       trigger={
-        <ToolbarButton aria-label="Marketplace mode">
+        <ToolbarButton aria-label="Marketplace mode" className="market-filter-mode">
           <span>{mode === 'explore' ? 'Explore' : 'Manage'}</span>
-          <ChevronDown className={FILTER_ICON_CLASS} />
+          <ChevronDown data-icon="toolbar" />
         </ToolbarButton>
       }
       items={items}
@@ -266,7 +260,7 @@ function ModeDropdown({
       onSelect={(id) => onModeChange(id as 'explore' | 'manage')}
       align="end"
       collisionPadding={8}
-      contentClassName={cn('w-44', inSheet && 'z-modal')}
+      contentClassName={cn('market-filter-mode-menu', inSheet && 'z-modal')}
     />
   );
 }
@@ -286,10 +280,10 @@ function ManageTabDropdown({
   return (
     <EntityDropdown
       trigger={
-        <ToolbarButton shape="compact" aria-label="Manage view">
-          <Layers className={FILTER_ICON_CLASS} />
+        <ToolbarButton shape="compact" aria-label="Manage view" className="market-filter-manage">
+          <Layers data-icon="toolbar" />
           <span>{current}</span>
-          <ChevronDown className={FILTER_ICON_CLASS} />
+          <ChevronDown data-icon="toolbar" />
         </ToolbarButton>
       }
       items={items}
@@ -297,7 +291,7 @@ function ManageTabDropdown({
       onSelect={(id) => onManageTabChange(id as 'installed' | 'updates' | 'published')}
       align="start"
       collisionPadding={8}
-      contentClassName="w-44"
+      contentClassName="market-filter-mode-menu"
     />
   );
 }
