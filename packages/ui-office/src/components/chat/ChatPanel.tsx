@@ -202,7 +202,7 @@ function ChatContextStrip({
         {project ? (
           <span className="chat-context-chip">
             <BriefcaseBusiness data-icon="inline-start" aria-hidden="true" />
-            <span className="min-w-0 truncate text-ink-3">{project.name}</span>
+            <span data-slot="project-name">{project.name}</span>
           </span>
         ) : null}
         {attachmentCount > 0 ? (
@@ -643,7 +643,7 @@ export function ChatPanel({
     />
   ) : null;
   const railHeadContent = !compact ? (
-    <div className="box-border flex shrink-0 flex-col gap-1 empty:hidden">
+    <div className="chat-rail-head">
       {activityRail}
       <SystemMessageFeed />
       {pendingInteraction?.severity !== 'high' && pendingInteraction && respondToInteraction && (
@@ -657,7 +657,7 @@ export function ChatPanel({
   ) : null;
   const deliverableContent =
     !compact && threadDeliverables.length > 0 ? (
-      <div className="box-border shrink-0 border-t border-line py-2">
+      <div className="chat-deliverable-strip">
         <PitchHall
           activeThreadId={activeThreadId ?? null}
           activeProjectId={activeProjectId ?? null}
@@ -672,14 +672,14 @@ export function ChatPanel({
       pendingInteraction?.severity === 'high') ? (
       <>
         {showMeetingPanel && (
-          <div className="shrink-0">
+          <div className="chat-blocking-panel">
             <Suspense fallback={null}>
               <MeetingPanel agents={agents} />
             </Suspense>
           </div>
         )}
         {meetingState.status === 'idle' && meetingState.actions.length > 0 && (
-          <div className="shrink-0">
+          <div className="chat-blocking-panel">
             <Suspense fallback={null}>
               <MeetingActionItems
                 actions={meetingState.actions}
@@ -705,7 +705,7 @@ export function ChatPanel({
     isReady &&
     onboardingStarterPrompts &&
     onboardingStarterPrompts.length > 0 ? (
-      <div className="shrink-0 flex flex-wrap gap-2 py-2" data-testid="chat-starter-chip-row">
+      <div className="chat-starter-chip-row" data-testid="chat-starter-chip-row">
         {onboardingStarterPrompts.slice(0, 3).map(({ label, text }) => (
           <Button
             key={label}
@@ -713,7 +713,7 @@ export function ChatPanel({
             variant="outline"
             size="sm"
             onClick={() => handleSend(text)}
-            className="rounded-r-pill border-line-soft bg-surface-2 px-3 py-1.5 text-fs-meta text-ink-3 hover:border-accent hover:bg-accent-surface hover:text-accent"
+            className="chat-starter-chip"
             data-onboarding-starter-prompt={label}
           >
             {label}
@@ -722,7 +722,7 @@ export function ChatPanel({
       </div>
     ) : null;
   const assistantThreadFooter = (
-    <div className="shrink-0">
+    <div className="chat-assistant-footer">
       {!compact ? (
         <ChatContextStrip
           project={activeProject ?? null}
@@ -762,19 +762,16 @@ export function ChatPanel({
       onCancel={abortExecution}
       threadList={threadListAdapter}
     >
-      <div
-        data-chat-panel-root
-        className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-surface-1 text-ink-1"
-      >
+      <div data-chat-panel-root className="chat-panel-root">
         {!isReady && (
-          <div className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-r-md border border-warn/30 bg-warn-surface px-3 py-1.5 text-fs-meta text-warn">
+          <div className="chat-provider-warning">
             <span>Configure an API key to enable AI collaboration.</span>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={onOpenSettings}
-              className="h-6 shrink-0 rounded-r-sm border-warn/30 bg-surface-1 px-2 py-0.5 text-fs-meta text-warn hover:bg-surface-sunken"
+              className="chat-provider-warning-action"
             >
               Settings
             </Button>
@@ -794,7 +791,7 @@ export function ChatPanel({
               className="chat-direct-back"
             >
               <ArrowLeft data-icon="inline-start" aria-hidden="true" />
-              <span className="text-fs-meta">Team</span>
+              <span data-slot="label">Team</span>
             </Button>
             <span className="chat-direct-title">{selectedEmployeeName ?? selectedEmployeeId}</span>
           </div>
@@ -814,14 +811,14 @@ export function ChatPanel({
         )}
 
         {compact ? (
-          <div className="box-border flex w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden py-2 pl-3 pr-4">
+          <div className="chat-compact-thread">
             <OffisimThread
               attachmentStore={attachmentStore}
-              className="justify-end"
+              className="chat-compact-thread-content"
               afterMessages={starterPromptContent}
               footer={assistantThreadFooter}
               emptyState={
-                <div className="rounded-r-lg border border-line-soft bg-surface-2 px-3 py-2 text-fs-meta text-ink-4">
+                <div className="chat-empty-card">
                   {isDirectChat
                     ? `Start a conversation with ${selectedEmployeeName ?? 'this employee'}`
                     : 'Enter a task to start collaborating.'}
@@ -830,7 +827,7 @@ export function ChatPanel({
             />
           </div>
         ) : (
-          <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
+          <div className="chat-full-thread">
             <OffisimThread
               attachmentStore={attachmentStore}
               beforeMessages={railHeadContent}
@@ -844,10 +841,8 @@ export function ChatPanel({
               footer={assistantThreadFooter}
               emptyState={
                 isDirectChat ? (
-                  <div className="flex flex-1 items-center justify-center">
-                    <p className="text-fs-sm text-ink-3">
-                      Start a conversation with {selectedEmployeeName ?? 'this employee'}
-                    </p>
+                  <div className="chat-direct-empty">
+                    <p>Start a conversation with {selectedEmployeeName ?? 'this employee'}</p>
                   </div>
                 ) : null
               }

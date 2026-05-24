@@ -61,18 +61,11 @@ function CollapsedBar({
       aria-label={ariaLabel}
       onClick={onClick}
       variant="ghost"
-      className="app-collapsed-bar flex h-full w-full flex-col items-center justify-center gap-3 rounded-none transition-colors hover:bg-surface-sunken"
+      className="app-collapsed-bar"
     >
       <Chevron data-icon="inline-start" aria-hidden="true" />
       <Icon data-icon="inline-start" aria-hidden="true" />
-      <span
-        className={cn(
-          'writing-vertical-rl text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3',
-          side === 'right' && 'rotate-180',
-        )}
-      >
-        {label}
-      </span>
+      <span data-side={side}>{label}</span>
     </Button>
   );
 }
@@ -175,27 +168,27 @@ export function AppLayout({
   const showRight = !isNarrow && eventLog != null;
   const showRunRail = !centerContent && (runRailStart || runRailCenter || runRailEnd);
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-bg text-ink-1">
-      <div className="relative z-30 shrink-0 border-b border-line bg-surface-1">{header}</div>
+    <div className="app-layout-shell">
+      <div className="app-layout-header">{header}</div>
       <div
         className={cn(
-          'grid-office-main min-h-0 min-w-0 flex-1',
+          'app-layout-grid',
           !showLeft
-            ? 'grid-office-main-left-hidden'
+            ? 'app-layout-grid-left-hidden'
             : leftOpen
-              ? 'grid-office-main-left-expanded'
-              : 'grid-office-main-left-collapsed',
+              ? 'app-layout-grid-left-expanded'
+              : 'app-layout-grid-left-collapsed',
           !showRight
-            ? 'grid-office-main-right-hidden'
+            ? 'app-layout-grid-right-hidden'
             : rightOpen
-              ? 'grid-office-main-right-expanded'
-              : 'grid-office-main-right-collapsed',
+              ? 'app-layout-grid-right-expanded'
+              : 'app-layout-grid-right-collapsed',
         )}
       >
         {showLeft && (
-          <aside className="col-start-1 row-start-1 row-end-3 flex min-h-0 flex-col overflow-hidden border-r border-line bg-surface-1">
+          <aside className="app-layout-left-rail">
             {leftOpen ? (
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{agentPanel}</div>
+              <div className="app-layout-rail-content">{agentPanel}</div>
             ) : (
               <CollapsedBar
                 side="left"
@@ -208,33 +201,23 @@ export function AppLayout({
           </aside>
         )}
 
-        <main className="relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden">
+        <main className="app-layout-center">
           {centerContent ?? sceneCanvas}
           {showRunRail ? (
-            <div className="pointer-events-none absolute inset-0 z-elevated">
-              <div className="pointer-events-auto absolute left-sp-4 top-sp-3 min-w-0">
-                {runRailStart}
-              </div>
-              <div className="pointer-events-auto absolute left-1/2 top-sp-3 min-w-0 -translate-x-1/2">
-                {runRailCenter}
-              </div>
-              <div className="pointer-events-auto absolute bottom-sp-4 right-sp-4 min-w-0">
-                {runRailEnd}
-              </div>
+            <div className="app-layout-run-rail">
+              <div data-slot="start">{runRailStart}</div>
+              <div data-slot="center">{runRailCenter}</div>
+              <div data-slot="end">{runRailEnd}</div>
             </div>
           ) : null}
         </main>
 
-        {teamDock && !centerContent ? (
-          <div className="col-start-2 row-start-2 min-w-0 border-t border-line bg-surface-1">
-            {teamDock}
-          </div>
-        ) : null}
+        {teamDock && !centerContent ? <div className="app-layout-team-dock">{teamDock}</div> : null}
 
         {showRight && (
-          <aside className="col-start-3 row-start-1 row-end-3 flex min-h-0 flex-col overflow-hidden border-l border-line bg-surface-1">
+          <aside className="app-layout-right-rail">
             {rightOpen ? (
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{eventLog}</div>
+              <div className="app-layout-rail-content">{eventLog}</div>
             ) : (
               <CollapsedBar
                 side="right"
@@ -250,9 +233,7 @@ export function AppLayout({
 
       {/* Narrow tier: chat as a bottom drawer (no room for a solid right column) */}
       {chatDrawer && (chatDrawerMode === 'always' || isNarrow) && isNarrow ? (
-        <div className="pointer-events-auto absolute bottom-4 left-4 right-4 z-30">
-          {chatDrawer}
-        </div>
+        <div className="app-layout-mobile-chat">{chatDrawer}</div>
       ) : null}
     </div>
   );

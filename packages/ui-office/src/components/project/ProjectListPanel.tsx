@@ -49,27 +49,27 @@ export function ProjectSelectedSummary({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-r-md border border-line-soft bg-surface-2 px-3 py-2 text-fs-micro text-ink-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-fs-micro uppercase tracking-wider text-ink-2">Project</span>
-        <span className="min-w-0 truncate text-right font-medium text-ink-1">{project.name}</span>
+    <div className="project-selected-summary">
+      <div className="project-selected-summary-row">
+        <span data-slot="label">Project</span>
+        <span data-slot="value">{project.name}</span>
       </div>
-      <div className="flex flex-col gap-0.5">
-        <span className="text-fs-micro uppercase tracking-wider text-ink-2">Workspace folder</span>
+      <div className="project-selected-summary-stack">
+        <span data-slot="label">Workspace folder</span>
         <span
-          className={project.workspace_root ? 'text-ink-1' : 'text-ink-2'}
+          data-state={project.workspace_root ? 'bound' : 'empty'}
           title={project.workspace_root ?? undefined}
         >
           {formatWorkspaceRootHint(project.workspace_root)}
         </span>
       </div>
-      <div className="flex items-center gap-3 text-ink-2">
+      <div className="project-selected-summary-meta">
         <span>
-          <span className="text-ink-1 font-medium">{threadCount ?? '—'}</span> threads
+          <span data-slot="value">{threadCount ?? '—'}</span> threads
         </span>
       </div>
       {(canOpenFolder || onRequestEdit) && (
-        <div className="flex flex-wrap justify-end gap-1.5">
+        <div className="project-selected-summary-actions">
           {canOpenFolder && (
             <Button
               type="button"
@@ -77,11 +77,11 @@ export function ProjectSelectedSummary({
               size="sm"
               onClick={handleOpenFolder}
               disabled={openingFolder}
-              className="h-7 gap-1 px-2 text-fs-micro text-ink-2 hover:text-ink-1 disabled:opacity-50"
+              className="project-selected-summary-action"
             >
-              <FolderOpen className="size-3" />
+              <FolderOpen data-icon="inline-start" aria-hidden="true" />
               Open
-              <ExternalLink className="size-2.5 opacity-60" />
+              <ExternalLink data-icon="inline-end" aria-hidden="true" />
             </Button>
           )}
           {onRequestEdit && (
@@ -90,9 +90,9 @@ export function ProjectSelectedSummary({
               variant="outline"
               size="sm"
               onClick={() => onRequestEdit(project)}
-              className="h-7 gap-1 px-2 text-fs-micro text-ink-2 hover:text-ink-1"
+              className="project-selected-summary-action"
             >
-              <Pencil className="size-3" />
+              <Pencil data-icon="inline-start" aria-hidden="true" />
               Edit
             </Button>
           )}
