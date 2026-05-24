@@ -1,4 +1,4 @@
-import { Badge, ScrollArea, cn } from '@offisim/ui-core';
+import { Badge, ScrollArea } from '@offisim/ui-core';
 import {
   AlertTriangle,
   CheckSquare,
@@ -30,12 +30,6 @@ const MEETING_TYPE_META: Record<MeetingType, { label: string; Icon: FC<LucidePro
   review: { label: 'Review', Icon: ClipboardCheck },
 };
 
-const PRIORITY_COLORS: Record<MeetingActionItem['priority'], string> = {
-  high: 'text-danger',
-  medium: 'text-warn',
-  low: 'text-ink-3',
-};
-
 // ── Sub-components ─────────────────────────────────────────────────────────
 
 function ParticipantDot({
@@ -56,18 +50,9 @@ function ParticipantDot({
     .toUpperCase();
 
   return (
-    <div className="relative flex-shrink-0" title={name}>
-      <div
-        className={cn(
-          'flex size-5 items-center justify-center rounded-r-pill text-fs-micro font-semibold',
-          isActive
-            ? 'bg-accent-surface text-accent ring-1 ring-accent/60'
-            : 'bg-surface-2 text-ink-3',
-        )}
-      >
-        {initials}
-      </div>
-      {isActive && <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-ok" />}
+    <div className="meeting-participant" data-active={isActive ? 'true' : 'false'} title={name}>
+      <div>{initials}</div>
+      {isActive && <span />}
     </div>
   );
 }
@@ -80,20 +65,13 @@ function ActionItemRow({
   const assigneeName = assignee?.name ?? item.assigneeEmployeeId;
 
   return (
-    <div className="flex items-start gap-sp-1 py-sp-1">
-      <CheckSquare className={cn('mt-0.5 size-3 flex-shrink-0', PRIORITY_COLORS[item.priority])} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-fs-micro text-ink-2">{item.description}</p>
-        <p className="text-fs-micro text-ink-3">→ {assigneeName}</p>
+    <div className="meeting-action-row" data-priority={item.priority}>
+      <CheckSquare data-icon="priority" aria-hidden="true" />
+      <div>
+        <p>{item.description}</p>
+        <p data-slot="assignee">→ {assigneeName}</p>
       </div>
-      <span
-        className={cn(
-          'flex-shrink-0 text-fs-micro font-semibold uppercase tracking-ls-caps',
-          PRIORITY_COLORS[item.priority],
-        )}
-      >
-        {item.priority}
-      </span>
+      <span>{item.priority}</span>
     </div>
   );
 }
@@ -145,31 +123,27 @@ export function MeetingPanel({
     status === 'running' ? 'success' : status === 'paused' ? 'warning' : 'default';
 
   return (
-    <div className="flex flex-col gap-sp-2 border-t border-line-soft px-sp-2 py-sp-2">
+    <div className="meeting-panel">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-sp-1">
-          <MetaIcon className="size-3 text-ink-3" />
-          <span className="text-fs-micro font-medium text-ink-2">{meta.label}</span>
+      <div className="meeting-panel-header">
+        <div>
+          <MetaIcon data-icon="meeting-type" aria-hidden="true" />
+          <span>{meta.label}</span>
         </div>
-        <div className="flex items-center gap-sp-1">
-          {duration !== null && (
-            <span className="font-mono text-fs-micro text-ink-3 tabular-nums">
-              {formatDuration(duration)}
-            </span>
-          )}
+        <div>
+          {duration !== null && <span data-slot="timer">{formatDuration(duration)}</span>}
           <Badge variant={statusBadgeVariant}>{status === 'running' ? 'Live' : 'Paused'}</Badge>
         </div>
       </div>
 
       {/* ── Participants ────────────────────────────────────────────── */}
       {participantIds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-sp-1">
-          <span className="text-fs-micro uppercase tracking-ls-caps text-ink-3">In room</span>
+        <div className="meeting-participants">
+          <span data-slot="label">In room</span>
           {participantIds.map((id) => (
             <ParticipantDot key={id} participantId={id} agents={agents} />
           ))}
-          <span className="text-fs-micro text-ink-3">
+          <span data-slot="count">
             {participantIds.length} {participantIds.length === 1 ? 'person' : 'people'}
           </span>
         </div>
@@ -177,19 +151,17 @@ export function MeetingPanel({
 
       {/* ── Transcript ──────────────────────────────────────────────── */}
       {transcript.length > 0 && (
-        <div>
-          <p className="mb-sp-1 text-fs-micro uppercase tracking-ls-caps text-ink-3">Transcript</p>
-          <ScrollArea className="max-h-20 pr-1">
-            <div className="flex flex-col gap-sp-1">
+        <div className="meeting-section">
+          <p data-slot="label">Transcript</p>
+          <ScrollArea className="meeting-transcript-scroll">
+            <div className="meeting-transcript-list">
               {transcript.map((entry) => {
                 const speaker = agents.get(entry.participantId);
                 const speakerName = speaker?.name ?? entry.participantId;
                 return (
-                  <div key={entry.id} className="flex gap-sp-1">
-                    <span className="flex-shrink-0 text-fs-micro font-semibold text-accent">
-                      {speakerName}:
-                    </span>
-                    <span className="text-fs-micro leading-tight text-ink-2">{entry.content}</span>
+                  <div key={entry.id} className="meeting-transcript-row">
+                    <span data-slot="speaker">{speakerName}:</span>
+                    <span data-slot="content">{entry.content}</span>
                   </div>
                 );
               })}
@@ -201,11 +173,9 @@ export function MeetingPanel({
 
       {/* ── Action items ─────────────────────────────────────────────── */}
       {actions.length > 0 && (
-        <div>
-          <p className="mb-sp-1 text-fs-micro uppercase tracking-ls-caps text-ink-3">
-            Actions ({actions.length})
-          </p>
-          <div className="flex flex-col gap-sp-1">
+        <div className="meeting-section">
+          <p data-slot="label">Actions ({actions.length})</p>
+          <div className="meeting-actions">
             {actions.map((item) => (
               <ActionItemRow key={item.actionItemId} item={item} agents={agents} />
             ))}
@@ -215,8 +185,8 @@ export function MeetingPanel({
 
       {/* No transcript yet indicator */}
       {transcript.length === 0 && actions.length === 0 && (
-        <div className="flex items-center gap-sp-1 text-fs-micro text-ink-3">
-          <AlertTriangle className="size-3" />
+        <div className="meeting-waiting">
+          <AlertTriangle data-icon="waiting" aria-hidden="true" />
           <span>Waiting for discussion...</span>
         </div>
       )}

@@ -250,7 +250,7 @@ export function ExternalEmployeeInstallDialog({
         <Button onClick={handleDiscover} disabled={!isValidUrl || isDiscovering}>
           {isDiscovering ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Discovering...
+              <Loader2 data-icon="loading" aria-hidden="true" /> Discovering...
             </>
           ) : (
             'Discover'
@@ -268,7 +268,7 @@ export function ExternalEmployeeInstallDialog({
         <Button onClick={handleConfirm} disabled={!canConfirm}>
           {isSubmitting ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Creating...
+              <Loader2 data-icon="loading" aria-hidden="true" /> Creating...
             </>
           ) : (
             'Confirm'
@@ -295,11 +295,9 @@ export function ExternalEmployeeInstallDialog({
         onRequestClose={handleRequestClose}
       >
         {step === 'endpoint' && (
-          <div className="mt-2 flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-fs-meta uppercase tracking-wide text-ink-4" htmlFor="a2a-url">
-                Agent base URL
-              </label>
+          <div className="external-install-form">
+            <div className="external-install-field">
+              <label htmlFor="a2a-url">Agent base URL</label>
               <Input
                 id="a2a-url"
                 value={url}
@@ -307,19 +305,14 @@ export function ExternalEmployeeInstallDialog({
                 placeholder="https://your-agent.example.dev"
                 autoFocus
               />
-              <p className="text-fs-meta text-ink-4">
+              <p>
                 Offisim will GET {'{url}'}/.well-known/agent-card.json with an optional bearer
                 token.
               </p>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label
-                className="text-fs-meta uppercase tracking-wide text-ink-4"
-                htmlFor="a2a-token"
-              >
-                Bearer token (optional)
-              </label>
+            <div className="external-install-field">
+              <label htmlFor="a2a-token">Bearer token (optional)</label>
               <Input
                 id="a2a-token"
                 value={token}
@@ -329,13 +322,8 @@ export function ExternalEmployeeInstallDialog({
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label
-                className="text-fs-meta uppercase tracking-wide text-ink-4"
-                htmlFor="a2a-agent-id"
-              >
-                Agent ID (optional)
-              </label>
+            <div className="external-install-field">
+              <label htmlFor="a2a-agent-id">Agent ID (optional)</label>
               <Input
                 id="a2a-agent-id"
                 value={agentId}
@@ -345,10 +333,7 @@ export function ExternalEmployeeInstallDialog({
             </div>
 
             {error && (
-              <div
-                className="rounded-r-md border border-danger/40 bg-danger-surface px-3 py-2 text-fs-sm text-danger"
-                role="alert"
-              >
+              <div className="external-install-alert" role="alert">
                 {error}
               </div>
             )}
@@ -356,44 +341,36 @@ export function ExternalEmployeeInstallDialog({
         )}
 
         {step === 'preview' && card && (
-          <div className="mt-2 flex flex-col gap-4">
-            <div className="rounded-r-md border border-line-soft bg-surface-2 p-4">
-              <div className="flex items-start gap-3">
+          <div className="external-install-form">
+            <div className="external-install-card">
+              <div className="external-install-card-head">
                 <img
                   alt={`${brandEntry.displayName} avatar`}
                   src={brandEntry.asset2dUri}
-                  className="h-12 w-12 rounded-r-md"
+                  className="external-install-avatar"
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-fs-sm font-semibold text-ink-1">{card.name}</p>
+                <div className="external-install-card-title">
+                  <p>{card.name}</p>
                   {card.provider?.organization && (
-                    <p className="truncate text-fs-meta text-ink-3">{card.provider.organization}</p>
+                    <p data-slot="organization">{card.provider.organization}</p>
                   )}
-                  <p className="mt-1 text-fs-meta text-ink-4">version {card.version}</p>
+                  <p data-slot="version">version {card.version}</p>
                 </div>
               </div>
-              {card.description && <p className="mt-3 text-fs-sm text-ink-3">{card.description}</p>}
+              {card.description && (
+                <p className="external-install-description">{card.description}</p>
+              )}
               {card.skills && card.skills.length > 0 && (
-                <ul className="mt-3 flex flex-wrap gap-1.5">
+                <ul className="external-install-skills">
                   {card.skills.map((skill) => (
-                    <li
-                      key={skill.id}
-                      className="rounded-r-pill border border-line-soft bg-surface-1 px-2 py-0.5 text-fs-meta text-ink-3"
-                    >
-                      {skill.name}
-                    </li>
+                    <li key={skill.id}>{skill.name}</li>
                   ))}
                 </ul>
               )}
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label
-                className="text-fs-meta uppercase tracking-wide text-ink-4"
-                htmlFor="a2a-display-name"
-              >
-                Display name
-              </label>
+            <div className="external-install-field">
+              <label htmlFor="a2a-display-name">Display name</label>
               <Input
                 id="a2a-display-name"
                 value={displayName}
@@ -401,14 +378,9 @@ export function ExternalEmployeeInstallDialog({
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="a2a-brand"
-                  className="text-fs-meta uppercase tracking-wide text-ink-4"
-                >
-                  Brand
-                </label>
+            <div className="external-install-grid">
+              <div className="external-install-field">
+                <label htmlFor="a2a-brand">Brand</label>
                 <Select
                   value={brandKey}
                   onValueChange={(value) => setBrandKey(value as ExternalBrandVariant)}
@@ -425,19 +397,12 @@ export function ExternalEmployeeInstallDialog({
                   </SelectContent>
                 </Select>
                 {brandKey === 'custom' && (
-                  <p className="text-fs-meta text-ink-4">
-                    No canonical brand matched - using custom fallback avatar.
-                  </p>
+                  <p>No canonical brand matched - using custom fallback avatar.</p>
                 )}
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="a2a-role"
-                  className="text-fs-meta uppercase tracking-wide text-ink-4"
-                >
-                  Role
-                </label>
+              <div className="external-install-field">
+                <label htmlFor="a2a-role">Role</label>
                 <Select value={roleSlug} onValueChange={(value) => setRoleSlug(value as RoleSlug)}>
                   <SelectTrigger id="a2a-role">
                     <SelectValue placeholder="Select role..." />
@@ -454,10 +419,7 @@ export function ExternalEmployeeInstallDialog({
             </div>
 
             {error && (
-              <div
-                className="rounded-r-md border border-danger/40 bg-danger-surface px-3 py-2 text-fs-sm text-danger"
-                role="alert"
-              >
+              <div className="external-install-alert" role="alert">
                 {error}
               </div>
             )}

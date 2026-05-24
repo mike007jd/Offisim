@@ -51,23 +51,23 @@ export function ErrorBanner({
   const latestError = hasHistory ? errorHistory[errorHistory.length - 1] : null;
 
   return (
-    <div className="border-b-2 border-danger/30 bg-danger-surface">
+    <div className="error-banner">
       {/* Main error bar */}
-      <div className="flex items-center gap-2 px-4 py-2 text-sm text-danger">
-        <AlertCircle className="size-4 shrink-0" />
-        <span className="flex-1 truncate font-mono text-xs">{message}</span>
+      <div className="error-banner-main">
+        <AlertCircle data-icon="status" aria-hidden="true" />
+        <span data-slot="message">{message}</span>
 
         {/* Action buttons */}
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="error-banner-actions">
           {onRetry && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-danger hover:bg-danger-surface hover:text-danger"
+              className="error-banner-action"
               onClick={onRetry}
               title="Retry with same configuration"
             >
-              <RefreshCw className="mr-1 size-3" />
+              <RefreshCw data-icon="inline-start" aria-hidden="true" />
               Retry
             </Button>
           )}
@@ -76,11 +76,11 @@ export function ErrorBanner({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-danger hover:bg-danger-surface hover:text-danger"
+              className="error-banner-action"
               onClick={() => setShowSwapPerson(!showSwapPerson)}
               title="Re-dispatch task to a different employee"
             >
-              <UserRoundCog className="mr-1 size-3" />
+              <UserRoundCog data-icon="inline-start" aria-hidden="true" />
               Swap Person
             </Button>
           )}
@@ -89,11 +89,11 @@ export function ErrorBanner({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-danger hover:bg-danger-surface hover:text-danger"
+              className="error-banner-action"
               onClick={onSwapModel}
               title="Change LLM model in settings and retry"
             >
-              <Zap className="mr-1 size-3" />
+              <Zap data-icon="inline-start" aria-hidden="true" />
               Swap Model
             </Button>
           )}
@@ -101,16 +101,16 @@ export function ErrorBanner({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-danger hover:bg-danger-surface hover:text-danger"
+            className="error-banner-action"
             onClick={() => setShowDetails(!showDetails)}
             title="View error details"
           >
-            <Code className="mr-1 size-3" />
+            <Code data-icon="inline-start" aria-hidden="true" />
             Details
             {showDetails ? (
-              <ChevronUp className="ml-0.5 size-3" />
+              <ChevronUp data-icon="inline-end" aria-hidden="true" />
             ) : (
-              <ChevronDown className="ml-0.5 size-3" />
+              <ChevronDown data-icon="inline-end" aria-hidden="true" />
             )}
           </Button>
 
@@ -119,26 +119,26 @@ export function ErrorBanner({
             variant="ghost"
             size="icon"
             onClick={onDismiss}
-            className="ml-1 size-6 shrink-0 text-danger hover:bg-danger-surface hover:text-danger"
+            className="error-banner-dismiss"
             aria-label="Dismiss error"
           >
-            <X className="size-4" />
+            <X data-icon="button" aria-hidden="true" />
           </Button>
         </div>
       </div>
 
       {/* Swap Person dropdown */}
       {showSwapPerson && onSwapPerson && employeeList.length > 0 && (
-        <div className="px-4 pb-2">
-          <div className="flex items-center gap-2">
-            <span className="shrink-0 font-mono text-fs-micro text-danger">Re-dispatch to:</span>
+        <div className="error-banner-swap">
+          <div>
+            <span>Re-dispatch to:</span>
             <Select
               onValueChange={(id) => {
                 onSwapPerson(id);
                 setShowSwapPerson(false);
               }}
             >
-              <SelectTrigger className="h-7 max-w-48 border-danger/30 text-xs">
+              <SelectTrigger className="error-banner-select">
                 <SelectValue placeholder="Select employee..." />
               </SelectTrigger>
               <SelectContent>
@@ -155,51 +155,48 @@ export function ErrorBanner({
 
       {/* Error details panel */}
       {showDetails && (
-        <div className="border-t border-danger/20 px-4 pb-3">
-          <div className="mt-2 max-h-48 flex flex-col gap-1.5 overflow-y-auto rounded bg-surface-1 p-3 font-mono text-fs-micro text-ink-1">
+        <div className="error-banner-details-wrap">
+          <div className="error-banner-details">
             <div>
-              <span className="text-danger">Error Message:</span>{' '}
-              <span className="break-all">{message}</span>
+              <span data-tone="danger">Error Message:</span> <span data-break>{message}</span>
             </div>
             {latestError && (
               <>
                 <div>
-                  <span className="text-danger">Error Code:</span> {latestError.errorCode}
+                  <span data-tone="danger">Error Code:</span> {latestError.errorCode}
                 </div>
                 <div>
-                  <span className="text-danger">Node:</span> {latestError.nodeName}
+                  <span data-tone="danger">Node:</span> {latestError.nodeName}
                 </div>
                 {latestError.employeeId && (
                   <div>
-                    <span className="text-danger">Employee:</span> {latestError.employeeId}
+                    <span data-tone="danger">Employee:</span> {latestError.employeeId}
                   </div>
                 )}
                 {latestError.taskRunId && (
                   <div>
-                    <span className="text-danger">Task Run:</span> {latestError.taskRunId}
+                    <span data-tone="danger">Task Run:</span> {latestError.taskRunId}
                   </div>
                 )}
                 <div>
-                  <span className="text-danger">Recoverable:</span>{' '}
+                  <span data-tone="danger">Recoverable:</span>{' '}
                   {latestError.recoverable ? 'Yes' : 'No'}
                 </div>
                 <div>
-                  <span className="text-danger">Time:</span>{' '}
+                  <span data-tone="danger">Time:</span>{' '}
                   {new Date(latestError.timestamp).toLocaleTimeString()}
                 </div>
               </>
             )}
             {hasHistory && errorHistory.length > 1 && (
-              <div className="mt-2 pt-2 border-t border-line">
-                <span className="text-warn">Error History ({errorHistory.length} total):</span>
+              <div className="error-banner-history">
+                <span data-tone="warn">Error History ({errorHistory.length} total):</span>
                 {errorHistory
                   .slice(-5)
                   .reverse()
                   .map((err, i) => (
-                    <div key={`${err.timestamp}-${i}`} className="mt-1 pl-2 border-l border-line">
-                      <span className="text-ink-2/60">
-                        [{new Date(err.timestamp).toLocaleTimeString()}]
-                      </span>{' '}
+                    <div key={`${err.timestamp}-${i}`}>
+                      <span data-slot="time">[{new Date(err.timestamp).toLocaleTimeString()}]</span>{' '}
                       {err.nodeName}: {err.message}
                     </div>
                   ))}
