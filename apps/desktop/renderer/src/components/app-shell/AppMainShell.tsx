@@ -242,6 +242,7 @@ export function AppMainShell(props: AppMainShellProps) {
             selectedEmployeeId={officeState.selectedEmployeeId}
             onSelectEmployee={(id) => onSelectEmployee(id)}
             onOpenCreator={onOpenEmployeeCreator}
+            onOpenPersonnel={() => onSelectWorkspace('personnel')}
           />
         ) : null
       }

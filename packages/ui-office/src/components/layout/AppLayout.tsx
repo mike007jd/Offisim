@@ -1,6 +1,6 @@
 import { Button, cn } from '@offisim/ui-core';
 import { SHELL_LAYOUT } from '@offisim/ui-core/tokens';
-import { ChevronLeft, ChevronRight, MessageSquare, type LucideIcon, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, type LucideIcon, MessageSquare, Users } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLayoutTier } from '../../hooks/use-layout-tier.js';
 import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
@@ -61,10 +61,10 @@ function CollapsedBar({
       aria-label={ariaLabel}
       onClick={onClick}
       variant="ghost"
-      className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-none transition-colors hover:bg-surface-sunken"
+      className="app-collapsed-bar flex h-full w-full flex-col items-center justify-center gap-3 rounded-none transition-colors hover:bg-surface-sunken"
     >
-      <Chevron className="size-3.5 text-ink-3" />
-      <Icon className="size-4 text-ink-3" />
+      <Chevron data-icon="inline-start" aria-hidden="true" />
+      <Icon data-icon="inline-start" aria-hidden="true" />
       <span
         className={cn(
           'writing-vertical-rl text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3',
@@ -195,9 +195,7 @@ export function AppLayout({
         {showLeft && (
           <aside className="col-start-1 row-start-1 row-end-3 flex min-h-0 flex-col overflow-hidden border-r border-line bg-surface-1">
             {leftOpen ? (
-              <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
-                {agentPanel}
-              </div>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{agentPanel}</div>
             ) : (
               <CollapsedBar
                 side="left"
@@ -236,9 +234,7 @@ export function AppLayout({
         {showRight && (
           <aside className="col-start-3 row-start-1 row-end-3 flex min-h-0 flex-col overflow-hidden border-l border-line bg-surface-1">
             {rightOpen ? (
-              <div className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
-                {eventLog}
-              </div>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{eventLog}</div>
             ) : (
               <CollapsedBar
                 side="right"

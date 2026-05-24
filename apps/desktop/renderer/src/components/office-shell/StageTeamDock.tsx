@@ -1,5 +1,6 @@
 import { type AgentState, DicebearAvatar, agentStatusTone } from '@offisim/ui-office/web';
-import { Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, UsersRound } from 'lucide-react';
+import { useState } from 'react';
 import {
   StageTeamAddButton,
   StageTeamAddLabel,
@@ -12,6 +13,8 @@ import {
   StageTeamRoster,
   StageTeamStatusDot,
   StageTeamSummary,
+  StageTeamToolButton,
+  StageTeamTools,
 } from './StageShellSurfaces';
 
 interface StageTeamDockProps {
@@ -19,6 +22,7 @@ interface StageTeamDockProps {
   selectedEmployeeId: string | null;
   onSelectEmployee: (id: string) => void;
   onOpenCreator: () => void;
+  onOpenPersonnel: () => void;
 }
 
 /**
@@ -32,11 +36,13 @@ export function StageTeamDock({
   selectedEmployeeId,
   onSelectEmployee,
   onOpenCreator,
+  onOpenPersonnel,
 }: StageTeamDockProps) {
   const entries = [...agents.entries()];
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <StageTeamDockShell aria-label="Team dock">
+    <StageTeamDockShell aria-label="Team dock" data-collapsed={collapsed ? 'true' : 'false'}>
       <StageTeamSummary>
         <StageTeamLabel>Team</StageTeamLabel>
         <StageTeamCountBadge>
@@ -69,6 +75,30 @@ export function StageTeamDock({
           <StageTeamAddLabel>Add</StageTeamAddLabel>
         </StageTeamAddButton>
       </StageTeamRoster>
+
+      <StageTeamTools>
+        <StageTeamToolButton
+          type="button"
+          aria-label="Open personnel directory"
+          title="Open personnel directory"
+          onClick={onOpenPersonnel}
+        >
+          <UsersRound data-icon="inline-start" aria-hidden="true" />
+        </StageTeamToolButton>
+        <StageTeamToolButton
+          type="button"
+          aria-label={collapsed ? 'Expand team dock' : 'Collapse team dock'}
+          aria-pressed={collapsed}
+          title={collapsed ? 'Expand team dock' : 'Collapse team dock'}
+          onClick={() => setCollapsed((current) => !current)}
+        >
+          {collapsed ? (
+            <ChevronUp data-icon="inline-start" aria-hidden="true" />
+          ) : (
+            <ChevronDown data-icon="inline-start" aria-hidden="true" />
+          )}
+        </StageTeamToolButton>
+      </StageTeamTools>
     </StageTeamDockShell>
   );
 }

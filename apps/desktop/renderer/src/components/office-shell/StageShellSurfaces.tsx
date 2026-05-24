@@ -135,6 +135,12 @@ export function StageTeamRoster({ className, ...props }: HTMLAttributes<HTMLDivE
   );
 }
 
+export function StageTeamTools({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div data-slot="stage-team-tools" className={cn('stage-team-tools', className)} {...props} />
+  );
+}
+
 export function StageTeamEmployeeButton({
   className,
   state,
@@ -202,6 +208,21 @@ export function StageTeamAddButton({
       data-slot="stage-team-add-button"
       variant="ghost"
       className={cn('stage-team-add-button', className)}
+      {...props}
+    />
+  );
+}
+
+export function StageTeamToolButton({
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'variant'>) {
+  return (
+    <Button
+      data-slot="stage-team-tool-button"
+      variant="ghost"
+      size="iconSm"
+      className={cn('stage-team-tool-button', className)}
       {...props}
     />
   );
