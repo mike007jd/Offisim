@@ -16,42 +16,36 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
-function diffColor(from: unknown, to: unknown): string {
-  if (from === undefined || from === null) return 'text-ok'; // added
-  if (to === undefined || to === null) return 'text-danger'; // removed
-  return 'text-warn'; // changed
+function diffTone(from: unknown, to: unknown): string {
+  if (from === undefined || from === null) return 'added';
+  if (to === undefined || to === null) return 'removed';
+  return 'changed';
 }
 
 export function VersionDiffTable({ diffs }: VersionDiffTableProps) {
   if (diffs.length === 0) {
-    return <p className="text-fs-sm text-ink-2/50 italic py-2">No differences found.</p>;
+    return <p className="version-diff-empty">No differences found.</p>;
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-fs-sm border-collapse">
+    <div className="version-diff-scroll">
+      <table className="version-diff-table">
         <thead>
-          <tr className="border-b border-line">
-            <th className="text-left py-1.5 px-2 text-ink-2/70 font-medium">Field</th>
-            <th className="text-left py-1.5 px-2 text-ink-2/70 font-medium">Previous</th>
-            <th className="text-left py-1.5 px-2 text-ink-2/70 font-medium">Current</th>
+          <tr>
+            <th>Field</th>
+            <th>Previous</th>
+            <th>Current</th>
           </tr>
         </thead>
         <tbody>
           {diffs.map((diff) => (
-            <tr key={diff.field} className="border-b border-line">
-              <td className={`py-1.5 px-2 font-mono text-fs-meta ${diffColor(diff.from, diff.to)}`}>
-                {diff.field}
+            <tr key={diff.field}>
+              <td data-tone={diffTone(diff.from, diff.to)}>{diff.field}</td>
+              <td data-slot="previous">
+                <pre>{formatValue(diff.from)}</pre>
               </td>
-              <td className="py-1.5 px-2 text-ink-2/60">
-                <pre className="whitespace-pre-wrap break-all text-fs-meta font-mono">
-                  {formatValue(diff.from)}
-                </pre>
-              </td>
-              <td className="py-1.5 px-2 text-ink-2">
-                <pre className="whitespace-pre-wrap break-all text-fs-meta font-mono">
-                  {formatValue(diff.to)}
-                </pre>
+              <td data-slot="current">
+                <pre>{formatValue(diff.to)}</pre>
               </td>
             </tr>
           ))}

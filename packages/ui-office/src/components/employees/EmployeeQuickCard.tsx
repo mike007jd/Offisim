@@ -23,16 +23,16 @@ function parseConfig(raw: string | null): { modelPreference: string; temperature
   };
 }
 
-/** Map employee enabled value (0|1) + agent state to a display label + colour. */
-function statusBadge(enabled: number, agentState?: string): { label: string; cls: string } {
-  if (!enabled) return { label: 'disabled', cls: 'bg-surface-2 text-ink-4' };
+/** Map employee enabled value (0|1) + agent state to a display label + tone. */
+function statusBadge(enabled: number, agentState?: string): { label: string; tone: string } {
+  if (!enabled) return { label: 'disabled', tone: 'disabled' };
   switch (agentState) {
     case 'working':
-      return { label: 'working', cls: 'bg-ok-surface text-ok' };
+      return { label: 'working', tone: 'working' };
     case 'blocked':
-      return { label: 'blocked', cls: 'bg-danger-surface text-danger' };
+      return { label: 'blocked', tone: 'blocked' };
     default:
-      return { label: 'idle', cls: 'bg-surface-sunken text-ink-2' };
+      return { label: 'idle', tone: 'idle' };
   }
 }
 
@@ -95,11 +95,17 @@ function InlineEdit({
         setDraft(e.target.value),
       onBlur: commit,
       onKeyDown: handleKeyDown,
-      className: `w-full bg-surface-1 text-fs-sm text-ink-1 focus-visible:ring-danger/40 ${className}`,
+      className: `employee-quick-inline-field ${className}`,
       placeholder,
     };
     if (multiline) {
-      return <Textarea {...shared} rows={2} className={`${shared.className} resize-none`} />;
+      return (
+        <Textarea
+          {...shared}
+          rows={2}
+          className={`${shared.className} employee-quick-inline-area`}
+        />
+      );
     }
     return <Input {...shared} />;
   }
@@ -110,9 +116,9 @@ function InlineEdit({
       variant="ghost"
       onClick={startEdit}
       aria-label="Edit field"
-      className={`h-auto w-full cursor-text justify-start whitespace-normal rounded-r-xs px-1.5 py-0.5 text-left transition-colors hover:bg-surface-2 ${className}`}
+      className={`employee-quick-inline-button ${className}`}
     >
-      {value || <span className="text-ink-2/40 italic">{placeholder}</span>}
+      {value || <span data-slot="placeholder">{placeholder}</span>}
     </Button>
   );
 }
@@ -131,7 +137,7 @@ export interface EmployeeQuickCardProps {
 export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQuickCardProps) {
   const persona = parsePersona(employee.persona_json);
   const config = parseConfig(employee.config_json);
-  const { label: statusLabel, cls: statusCls } = statusBadge(employee.enabled, agentState);
+  const { label: statusLabel, tone: statusTone } = statusBadge(employee.enabled, agentState);
 
   // Helper: save a persona field
   const savePersField = useCallback(
@@ -145,65 +151,56 @@ export function EmployeeQuickCard({ employee, agentState, onUpdate }: EmployeeQu
   );
 
   return (
-    <div className="flex flex-col gap-2 bg-surface-1 border border-line rounded-r-md p-3 shadow-sm hover:shadow-md transition-shadow w-full">
+    <div className="employee-quick-card">
       {/* Header row: name + status badge */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
+      <div className="employee-quick-header">
+        <div>
           <InlineEdit
             value={employee.name}
             placeholder="Name"
-            className="font-semibold text-fs-sm text-ink-1"
+            className="employee-quick-name"
             onSave={(next) => onUpdate(employee.employee_id, { name: next })}
           />
         </div>
-        <span
-          className={`shrink-0 text-fs-meta font-medium px-1.5 py-0.5 rounded-r-pill ${statusCls}`}
-        >
+        <span className="employee-quick-status" data-tone={statusTone}>
           {statusLabel}
         </span>
       </div>
 
       {/* Role badge */}
-      <div>
-        <span className="inline-block text-fs-meta font-mono bg-surface-sunken text-ink-2 rounded-r-xs px-1.5 py-0.5">
-          {employee.role_slug}
-        </span>
+      <div className="employee-quick-role">
+        <span>{employee.role_slug}</span>
       </div>
 
       {/* Expertise */}
-      <div>
-        <p className="text-fs-meta text-ink-2/60 uppercase tracking-wider mb-0.5">Expertise</p>
+      <div className="employee-quick-field">
+        <p>Expertise</p>
         <InlineEdit
           value={persona.expertise}
           placeholder="e.g. React, Node.js"
-          className="text-fs-meta text-ink-2"
+          className="employee-quick-body"
           multiline
           onSave={(next) => savePersField('expertise', next)}
         />
       </div>
 
       {/* Style */}
-      <div>
-        <p className="text-fs-meta text-ink-2/60 uppercase tracking-wider mb-0.5">Style</p>
+      <div className="employee-quick-field">
+        <p>Style</p>
         <InlineEdit
           value={persona.style}
           placeholder="e.g. detail-oriented"
-          className="text-fs-meta text-ink-2"
+          className="employee-quick-body"
           onSave={(next) => savePersField('style', next)}
         />
       </div>
 
       {/* Model + temperature footer */}
-      <div className="mt-auto pt-2 border-t border-line/60 flex items-center justify-between gap-2">
-        <span
-          className="max-w-employee-quick-meta truncate text-fs-meta text-ink-2/70"
-          title={config.modelPreference || '跟随统一设置'}
-        >
+      <div className="employee-quick-footer">
+        <span data-slot="model" title={config.modelPreference || '跟随统一设置'}>
           {config.modelPreference || <em>跟随统一设置</em>}
         </span>
-        <span className="text-fs-meta font-mono text-ink-2/70 shrink-0">
-          T {config.temperature.toFixed(1)}
-        </span>
+        <span data-slot="temperature">T {config.temperature.toFixed(1)}</span>
       </div>
     </div>
   );
