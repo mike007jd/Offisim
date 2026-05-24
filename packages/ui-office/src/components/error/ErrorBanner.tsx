@@ -51,9 +51,9 @@ export function ErrorBanner({
   const latestError = hasHistory ? errorHistory[errorHistory.length - 1] : null;
 
   return (
-    <div className="border-b-2 border-error/30 bg-error-muted">
+    <div className="border-b-2 border-danger/30 bg-danger-surface">
       {/* Main error bar */}
-      <div className="flex items-center gap-2 px-4 py-2 text-sm text-error">
+      <div className="flex items-center gap-2 px-4 py-2 text-sm text-danger">
         <AlertCircle className="size-4 shrink-0" />
         <span className="flex-1 truncate font-mono text-xs">{message}</span>
 
@@ -63,7 +63,7 @@ export function ErrorBanner({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-error hover:bg-error-muted hover:text-error"
+              className="h-6 px-2 text-xs text-danger hover:bg-danger-surface hover:text-danger"
               onClick={onRetry}
               title="Retry with same configuration"
             >
@@ -76,7 +76,7 @@ export function ErrorBanner({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-error hover:bg-error-muted hover:text-error"
+              className="h-6 px-2 text-xs text-danger hover:bg-danger-surface hover:text-danger"
               onClick={() => setShowSwapPerson(!showSwapPerson)}
               title="Re-dispatch task to a different employee"
             >
@@ -89,7 +89,7 @@ export function ErrorBanner({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-error hover:bg-error-muted hover:text-error"
+              className="h-6 px-2 text-xs text-danger hover:bg-danger-surface hover:text-danger"
               onClick={onSwapModel}
               title="Change LLM model in settings and retry"
             >
@@ -101,7 +101,7 @@ export function ErrorBanner({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-error hover:bg-error-muted hover:text-error"
+            className="h-6 px-2 text-xs text-danger hover:bg-danger-surface hover:text-danger"
             onClick={() => setShowDetails(!showDetails)}
             title="View error details"
           >
@@ -119,7 +119,7 @@ export function ErrorBanner({
             variant="ghost"
             size="icon"
             onClick={onDismiss}
-            className="ml-1 size-6 shrink-0 text-error hover:bg-error-muted hover:text-error"
+            className="ml-1 size-6 shrink-0 text-danger hover:bg-danger-surface hover:text-danger"
             aria-label="Dismiss error"
           >
             <X className="size-4" />
@@ -131,16 +131,14 @@ export function ErrorBanner({
       {showSwapPerson && onSwapPerson && employeeList.length > 0 && (
         <div className="px-4 pb-2">
           <div className="flex items-center gap-2">
-            <span className="shrink-0 font-mono text-caption text-error">
-              Re-dispatch to:
-            </span>
+            <span className="shrink-0 font-mono text-fs-micro text-danger">Re-dispatch to:</span>
             <Select
               onValueChange={(id) => {
                 onSwapPerson(id);
                 setShowSwapPerson(false);
               }}
             >
-              <SelectTrigger className="h-7 max-w-48 border-error/30 text-xs">
+              <SelectTrigger className="h-7 max-w-48 border-danger/30 text-xs">
                 <SelectValue placeholder="Select employee..." />
               </SelectTrigger>
               <SelectContent>
@@ -157,51 +155,48 @@ export function ErrorBanner({
 
       {/* Error details panel */}
       {showDetails && (
-        <div className="border-t border-error/20 px-4 pb-3">
-          <div className="mt-2 max-h-48 flex flex-col gap-1.5 overflow-y-auto rounded bg-surface-elevated p-3 font-mono text-caption text-text-primary">
+        <div className="border-t border-danger/20 px-4 pb-3">
+          <div className="mt-2 max-h-48 flex flex-col gap-1.5 overflow-y-auto rounded bg-surface-1 p-3 font-mono text-fs-micro text-ink-1">
             <div>
-              <span className="text-error">Error Message:</span>{' '}
+              <span className="text-danger">Error Message:</span>{' '}
               <span className="break-all">{message}</span>
             </div>
             {latestError && (
               <>
                 <div>
-                  <span className="text-error">Error Code:</span> {latestError.errorCode}
+                  <span className="text-danger">Error Code:</span> {latestError.errorCode}
                 </div>
                 <div>
-                  <span className="text-error">Node:</span> {latestError.nodeName}
+                  <span className="text-danger">Node:</span> {latestError.nodeName}
                 </div>
                 {latestError.employeeId && (
                   <div>
-                    <span className="text-error">Employee:</span> {latestError.employeeId}
+                    <span className="text-danger">Employee:</span> {latestError.employeeId}
                   </div>
                 )}
                 {latestError.taskRunId && (
                   <div>
-                    <span className="text-error">Task Run:</span> {latestError.taskRunId}
+                    <span className="text-danger">Task Run:</span> {latestError.taskRunId}
                   </div>
                 )}
                 <div>
-                  <span className="text-error">Recoverable:</span>{' '}
+                  <span className="text-danger">Recoverable:</span>{' '}
                   {latestError.recoverable ? 'Yes' : 'No'}
                 </div>
                 <div>
-                  <span className="text-error">Time:</span>{' '}
+                  <span className="text-danger">Time:</span>{' '}
                   {new Date(latestError.timestamp).toLocaleTimeString()}
                 </div>
               </>
             )}
             {hasHistory && errorHistory.length > 1 && (
               <div className="mt-2 pt-2 border-t border-line">
-                <span className="text-warning">Error History ({errorHistory.length} total):</span>
+                <span className="text-warn">Error History ({errorHistory.length} total):</span>
                 {errorHistory
                   .slice(-5)
                   .reverse()
                   .map((err, i) => (
-                    <div
-                      key={`${err.timestamp}-${i}`}
-                      className="mt-1 pl-2 border-l border-line"
-                    >
+                    <div key={`${err.timestamp}-${i}`} className="mt-1 pl-2 border-l border-line">
                       <span className="text-ink-2/60">
                         [{new Date(err.timestamp).toLocaleTimeString()}]
                       </span>{' '}

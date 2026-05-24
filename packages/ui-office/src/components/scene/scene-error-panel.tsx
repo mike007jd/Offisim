@@ -20,7 +20,7 @@ export function SceneErrorPanel({ error, onRetry }: SceneErrorPanelProps) {
           type="button"
           variant="outline"
           size="sm"
-          className="mt-3 bg-surface-muted text-xs text-text-primary hover:bg-surface-hover"
+          className="mt-3 bg-surface-2 text-xs text-ink-1 hover:bg-surface-sunken"
           onClick={onRetry}
         >
           Retry

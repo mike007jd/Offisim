@@ -646,7 +646,7 @@ export function SopViewSurface({
                 saveStatus === 'saving'
                   ? 'border border-line bg-surface-1 text-ink-3'
                   : saveStatus === 'saved'
-                    ? 'border border-success/30 bg-success-muted text-success'
+                    ? 'border border-ok/30 bg-ok-surface text-ok'
                     : 'border border-danger/30 bg-danger-surface text-danger'
               }`}
             >

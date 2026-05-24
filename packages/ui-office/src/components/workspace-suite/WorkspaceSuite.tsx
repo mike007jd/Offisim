@@ -432,7 +432,7 @@ function WorkspaceAgendaSurface({
           {[
             ['Today', 'Q3 Launch standup', '09:30 · daily ceremony', 'bg-accent'],
             ['Today', 'Attachment pipeline run', '11:00 · live run', 'bg-violet'],
-            ['Tomorrow', 'Design review', '14:00 · Sophie, Marcus', 'bg-success'],
+            ['Tomorrow', 'Design review', '14:00 · Sophie, Marcus', 'bg-ok'],
             ['Monday', 'Weekly retro run', '10:00 · auto-scheduled SOP', 'bg-warn'],
           ].map(([day, eventTitle, meta, tone]) => (
             <div
@@ -471,7 +471,7 @@ function WorkspaceAgendaSurface({
                 <span
                   className={cn(
                     'grid size-4 place-items-center rounded-r-xs border border-line-soft',
-                    state === 'done' && 'border-success bg-success text-accent-fg',
+                    state === 'done' && 'border-ok bg-ok text-accent-fg',
                   )}
                 >
                   {state === 'done' ? <Check className="size-3" aria-hidden="true" /> : null}

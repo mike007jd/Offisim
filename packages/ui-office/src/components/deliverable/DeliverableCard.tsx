@@ -33,11 +33,10 @@ const EXPORT_FORMATS: { value: ExportFormat; label: string }[] = [
   { value: 'txt', label: 'TXT' },
 ];
 
-const ACTION_CLASS = 'h-6 px-2 text-caption text-text-secondary hover:text-text-primary';
-const SOP_DEFAULT_CLASS =
-  'h-6 px-2 text-caption text-text-secondary hover:text-success disabled:opacity-50';
+const ACTION_CLASS = 'h-6 px-2 text-fs-micro text-ink-2 hover:text-ink-1';
+const SOP_DEFAULT_CLASS = 'h-6 px-2 text-fs-micro text-ink-2 hover:text-ok disabled:opacity-50';
 const SOP_PROMOTED_CLASS =
-  'h-6 px-2 text-caption bg-success text-text-inverse hover:bg-success animate-pulse';
+  'h-6 px-2 text-fs-micro bg-ok text-ink-inverse hover:bg-ok animate-pulse';
 
 function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -124,7 +123,7 @@ function ContributorStack({ contributors, size = 20 }: ContributorStackProps) {
       {overflow.length > 0 && (
         <span
           title={overflowLabel}
-          className="flex min-w-5 items-center justify-center rounded-full bg-surface-muted px-1 text-caption text-text-secondary ring-1 ring-border-default"
+          className="flex min-w-5 items-center justify-center rounded-full bg-surface-2 px-1 text-fs-micro text-ink-2 ring-1 ring-border-default"
           // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
           style={overflowStyle}
         >
@@ -143,13 +142,13 @@ function DeliverableHeader({ item }: DeliverableHeaderProps) {
   const Icon = mimeTypeToIcon(item.artifact.mimeType);
   return (
     <div className="flex w-full min-w-0 max-w-full items-start gap-2 overflow-hidden">
-      <Icon className="h-4 w-4 shrink-0 text-text-muted mt-px" />
+      <Icon className="h-4 w-4 shrink-0 text-ink-3 mt-px" />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 max-w-full items-baseline justify-between gap-2">
-          <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-primary">
+          <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink-1">
             {item.title}
           </span>
-          <span className="shrink-0 text-caption text-text-muted tabular-nums">
+          <span className="shrink-0 text-fs-micro text-ink-3 tabular-nums">
             {formatDeliverableBytes(item.contentSize)} · {formatTimeAgo(item.createdAt)}
           </span>
         </div>
@@ -199,14 +198,14 @@ function CompactCard({ item, employeeLabel }: CompactCardProps) {
   const { content, mimeType } = item.artifact;
 
   return (
-    <div className="mt-2 box-border w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-success bg-success-muted px-3 py-2">
+    <div className="mt-2 box-border w-full min-w-0 max-w-full overflow-hidden rounded-r-md border border-ok bg-ok-surface px-3 py-2">
       <DeliverableHeader item={item} />
-      <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden text-caption">
-        <span className="inline-flex max-w-full items-center truncate rounded border border-success bg-surface px-1.5 py-px font-medium text-success">
+      <div className="mt-1.5 flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-hidden text-fs-micro">
+        <span className="inline-flex max-w-full items-center truncate rounded border border-ok bg-surface px-1.5 py-px font-medium text-ok">
           {artifactLabel}
         </span>
-        {mimeType && <span className="text-text-secondary">{mimeType}</span>}
-        {employeeLabel && <span className="text-text-muted">· {employeeLabel}</span>}
+        {mimeType && <span className="text-ink-2">{mimeType}</span>}
+        {employeeLabel && <span className="text-ink-3">· {employeeLabel}</span>}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
         <CopyButton content={item.content} className={ACTION_CLASS} />
@@ -318,15 +317,15 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
   return (
     <Card
       className={cn(
-        'animate-in fade-in slide-in-from-bottom-2 duration-300 overflow-hidden bg-surface-muted transition-all',
-        isNew ? 'border-success shadow-glow-success' : 'border-border-subtle',
+        'animate-in fade-in slide-in-from-bottom-2 duration-300 overflow-hidden bg-surface-2 transition-all',
+        isNew ? 'border-ok shadow-glow-success' : 'border-line-soft',
       )}
     >
       <CardHeader className="p-3 pb-1">
         <DeliverableHeader item={item} />
       </CardHeader>
       <CardContent className="p-3 pt-1">
-        <p className="font-mono text-caption leading-relaxed text-text-secondary whitespace-pre-wrap break-words">
+        <p className="font-mono text-fs-micro leading-relaxed text-ink-2 whitespace-pre-wrap break-words">
           {truncate(content, 200)}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-1">
@@ -336,12 +335,12 @@ function FullCard({ item, desktopVaultRoot, activeProjectId, onSaveAsSop, isNew 
               value={selectedFormat}
               onValueChange={(v: string) => setSelectedFormat(v as ExportFormat)}
             >
-              <SelectTrigger className="h-6 w-deliverable-review-select border-border-subtle bg-surface text-caption text-text-secondary">
+              <SelectTrigger className="h-6 w-deliverable-review-select border-line-soft bg-surface text-fs-micro text-ink-2">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {EXPORT_FORMATS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-caption">
+                  <SelectItem key={opt.value} value={opt.value} className="text-fs-micro">
                     {opt.label}
                   </SelectItem>
                 ))}

@@ -88,13 +88,13 @@ function PerformanceHUDInner() {
       className="pointer-events-none absolute left-sp-sm top-sp-sm z-40 select-none"
       aria-hidden="true"
     >
-      <div className="rounded-r-sm bg-ink-1/80 px-sp-sm py-sp-xs font-mono text-fs-micro leading-relaxed text-success">
+      <div className="rounded-r-sm bg-ink-1/80 px-sp-sm py-sp-xs font-mono text-fs-micro leading-relaxed text-ok">
         <div>FPS&nbsp;&nbsp;&nbsp;{stats.fps.toString().padStart(4, '\u00a0')}</div>
         <div>FRAME&nbsp;{stats.frameMs.toFixed(1).padStart(6, '\u00a0')} ms</div>
         {stats.heapMB !== null && (
           <div>HEAP&nbsp;&nbsp;{stats.heapMB.toString().padStart(5, '\u00a0')} MB</div>
         )}
-        <div className="mt-sp-xs text-success/70">F2 toggle</div>
+        <div className="mt-sp-xs text-ok/70">F2 toggle</div>
       </div>
     </div>
   );

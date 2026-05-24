@@ -47,19 +47,19 @@ const SEVERITY_CONFIG: Record<
   info: {
     label: 'Info',
     icon: Info,
-    textClass: 'text-success',
+    textClass: 'text-ok',
     badgeVariant: 'success',
   },
   warning: {
     label: 'Warning',
     icon: AlertTriangle,
-    textClass: 'text-warning',
+    textClass: 'text-warn',
     badgeVariant: 'warning',
   },
   breaking: {
     label: 'Breaking',
     icon: OctagonAlert,
-    textClass: 'text-error',
+    textClass: 'text-danger',
     badgeVariant: 'error',
   },
 };
@@ -91,7 +91,7 @@ function DiffEntryRow({ entry }: { entry: DiffEntry }) {
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-ink-2/70">
             {entry.oldValue && (
               <span className="inline-flex items-center gap-0.5">
-                <Minus className="h-2.5 w-2.5 text-error/70" />
+                <Minus className="h-2.5 w-2.5 text-danger/70" />
                 <span className="line-through">{entry.oldValue}</span>
               </span>
             )}
@@ -100,7 +100,7 @@ function DiffEntryRow({ entry }: { entry: DiffEntry }) {
             )}
             {entry.newValue && (
               <span className="inline-flex items-center gap-0.5">
-                <Plus className="h-2.5 w-2.5 text-success/70" />
+                <Plus className="h-2.5 w-2.5 text-ok/70" />
                 <span>{entry.newValue}</span>
               </span>
             )}
@@ -123,20 +123,20 @@ function CategorySection({
   const ChevronIcon = expanded ? ChevronDown : ChevronRight;
 
   return (
-    <div className="mb-2 border border-border-subtle">
+    <div className="mb-2 border border-line-soft">
       <Button
         type="button"
         variant="ghost"
-        className="h-auto w-full justify-start gap-2 rounded-none px-2 py-1.5 text-left hover:bg-surface-hover"
+        className="h-auto w-full justify-start gap-2 rounded-none px-2 py-1.5 text-left hover:bg-surface-sunken"
         onClick={() => setExpanded((v) => !v)}
       >
-        <ChevronIcon className="size-3.5 text-text-muted" />
-        <span className="font-sans text-xs font-medium uppercase tracking-wide text-text-secondary">
+        <ChevronIcon className="size-3.5 text-ink-3" />
+        <span className="font-sans text-xs font-medium uppercase tracking-wide text-ink-2">
           {CATEGORY_LABELS[category]}
         </span>
-        <span className="text-xs text-text-muted">({entries.length})</span>
+        <span className="text-xs text-ink-3">({entries.length})</span>
         {hasBreaking && (
-          <Badge variant="error" className="ml-auto px-1 py-0 text-caption">
+          <Badge variant="error" className="ml-auto px-1 py-0 text-fs-micro">
             Breaking
           </Badge>
         )}
@@ -188,19 +188,19 @@ export function UpgradePreview({ diff, packageTitle, onConfirm, onCancel }: Upgr
       {diff.entries.length > 0 && (
         <div className="flex gap-3 text-xs">
           {diff.counts.breaking > 0 && (
-            <span className="text-error flex items-center gap-1">
+            <span className="text-danger flex items-center gap-1">
               <OctagonAlert className="h-3 w-3" />
               {diff.counts.breaking} breaking
             </span>
           )}
           {diff.counts.warning > 0 && (
-            <span className="text-warning flex items-center gap-1">
+            <span className="text-warn flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
               {diff.counts.warning} warnings
             </span>
           )}
           {diff.counts.info > 0 && (
-            <span className="text-success flex items-center gap-1">
+            <span className="text-ok flex items-center gap-1">
               <Info className="h-3 w-3" />
               {diff.counts.info} info
             </span>

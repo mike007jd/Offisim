@@ -31,7 +31,7 @@ function LoadingContent() {
 function DoneContent({ onClose, isUpgrade = false }: { onClose: () => void; isUpgrade?: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
-      <CheckCircle2 className="h-10 w-10 text-success" />
+      <CheckCircle2 className="h-10 w-10 text-ok" />
       <h3 className="text-base font-semibold text-ink-1">
         {isUpgrade ? 'Upgrade Complete' : 'Installation Complete'}
       </h3>
@@ -58,9 +58,9 @@ function ErrorContent({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
-      <XCircle className="h-10 w-10 text-error" />
+      <XCircle className="h-10 w-10 text-danger" />
       <h3 className="text-base font-semibold text-ink-1">Installation Failed</h3>
-      <p className="text-sm text-error text-center">{error}</p>
+      <p className="text-sm text-danger text-center">{error}</p>
       <div className="mt-2 flex items-center gap-2">
         <Button variant="outline" onClick={onCancel}>
           Close

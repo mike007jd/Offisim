@@ -85,7 +85,7 @@ export function DevLightingPanel() {
         type="button"
         variant="link"
         size="sm"
-        className="h-auto p-0 text-warning underline-offset-2"
+        className="h-auto p-0 text-warn underline-offset-2"
         onClick={() => {
           clearDevLightingOverrides();
           refresh();

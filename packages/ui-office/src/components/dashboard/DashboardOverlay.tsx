@@ -47,7 +47,7 @@ const DASHBOARD_SCROLL_SHORT_CLASS = 'max-h-dashboard-card-list';
 const DASHBOARD_OVERLAY_CONTENT_CLASS = 'mx-auto max-w-dashboard-overlay px-sp-7 py-sp-6';
 const DASHBOARD_OVERLAY_HEADER_CLASS = 'mb-sp-6 flex items-center justify-between';
 const DASHBOARD_OVERLAY_TITLE_CLASS =
-  'text-fs-lg font-semibold uppercase tracking-ls-caps text-text-primary';
+  'text-fs-lg font-semibold uppercase tracking-ls-caps text-ink-1';
 const DASHBOARD_GRID_CLASS = 'grid grid-cols-1 gap-sp-4 lg:grid-cols-2 xl:grid-cols-3';
 
 // ---------------------------------------------------------------------------
@@ -78,10 +78,10 @@ function NotificationsCard({
   onClearAll: () => void;
 }) {
   const levelDotClass: Record<Notification['level'], string> = {
-    info: 'bg-info',
-    success: 'bg-success',
-    warning: 'bg-warning',
-    error: 'bg-error',
+    info: 'bg-accent',
+    success: 'bg-ok',
+    warning: 'bg-warn',
+    error: 'bg-danger',
   };
 
   return (
@@ -132,14 +132,12 @@ function NotificationsCard({
                   />
                   <div className={cn(DASHBOARD_STATUS_DOT_CLASS, levelDotClass[n.level])} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-fs-sm leading-tight text-text-secondary">
-                      {n.title}
-                    </p>
-                    <p className="mt-sp-1 line-clamp-3 text-caption leading-tight text-text-muted">
+                    <p className="truncate text-fs-sm leading-tight text-ink-2">{n.title}</p>
+                    <p className="mt-sp-1 line-clamp-3 text-fs-micro leading-tight text-ink-3">
                       {n.message}
                     </p>
                   </div>
-                  <span className="shrink-0 text-caption text-text-muted">
+                  <span className="shrink-0 text-fs-micro text-ink-3">
                     {formatTimestamp(n.timestamp)}
                   </span>
                   {n.dismissable && (
@@ -147,7 +145,7 @@ function NotificationsCard({
                       type="button"
                       variant="ghost"
                       size="iconSm"
-                      className="z-elevated shrink-0 text-text-muted hover:text-text-secondary"
+                      className="z-elevated shrink-0 text-ink-3 hover:text-ink-2"
                       aria-label={`Dismiss notification: ${n.title}`}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -200,21 +198,19 @@ function ErrorHistoryCard({ errors }: { errors: TrackedError[] }) {
                       <XCircle
                         className={cn(
                           DASHBOARD_ROW_ICON_CLASS,
-                          err.recoverable ? 'text-warning' : 'text-error',
+                          err.recoverable ? 'text-warn' : 'text-danger',
                         )}
                       />
-                      <span className="min-w-0 flex-1 truncate font-mono text-fs-sm text-text-secondary">
+                      <span className="min-w-0 flex-1 truncate font-mono text-fs-sm text-ink-2">
                         {err.errorCode}
                       </span>
-                      <span className="ml-auto shrink-0 text-caption text-text-muted">
+                      <span className="ml-auto shrink-0 text-fs-micro text-ink-3">
                         {formatTimestamp(err.timestamp)}
                       </span>
                     </div>
-                    <p className="mt-sp-1 line-clamp-3 text-caption text-text-secondary">
-                      {err.message}
-                    </p>
+                    <p className="mt-sp-1 line-clamp-3 text-fs-micro text-ink-2">{err.message}</p>
                     {err.nodeName && (
-                      <span className="mt-sp-1 block text-caption text-text-muted">
+                      <span className="mt-sp-1 block text-fs-micro text-ink-3">
                         node: {err.nodeName}
                         {err.employeeId ? ` | employee: ${err.employeeId}` : ''}
                       </span>
@@ -260,14 +256,14 @@ function OutputsCard() {
                 .map((d) => (
                   <div key={d.id} className={DASHBOARD_ITEM_CLASS}>
                     <div className="flex items-center justify-between">
-                      <span className="min-w-0 flex-1 truncate text-fs-sm text-text-primary">
+                      <span className="min-w-0 flex-1 truncate text-fs-sm text-ink-1">
                         {d.title}
                       </span>
-                      <span className="ml-sp-2 shrink-0 text-caption text-text-muted">
+                      <span className="ml-sp-2 shrink-0 text-fs-micro text-ink-3">
                         {formatTimestamp(d.createdAt)}
                       </span>
                     </div>
-                    <p className="mt-sp-1 line-clamp-2 text-caption text-text-muted">
+                    <p className="mt-sp-1 line-clamp-2 text-fs-micro text-ink-3">
                       {truncate(d.content, 120)}
                     </p>
                     {d.contributingEmployees.length > 0 && (
@@ -355,7 +351,7 @@ export function DashboardOverlay({ open, onClose, activeThreadId }: DashboardOve
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="text-text-muted hover:text-text-primary"
+              className="text-ink-3 hover:text-ink-1"
               title="Close dashboard (Esc)"
               aria-label="Close dashboard"
             >

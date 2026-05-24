@@ -65,7 +65,7 @@ export function CostOverviewCard({ summary, loading }: CostOverviewCardProps) {
 function KpiCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-line bg-surface-sunken/20 p-2">
-      <div className="text-caption text-ink-2/70 font-mono uppercase">{label}</div>
+      <div className="text-fs-micro text-ink-2/70 font-mono uppercase">{label}</div>
       <div className="text-sm font-medium text-ink-1 font-mono">{value}</div>
     </div>
   );

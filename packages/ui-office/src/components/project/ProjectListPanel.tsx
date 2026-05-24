@@ -49,27 +49,23 @@ export function ProjectSelectedSummary({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-caption text-text-secondary">
+    <div className="flex flex-col gap-2 rounded-r-md border border-line-soft bg-surface-2 px-3 py-2 text-fs-micro text-ink-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-caption uppercase tracking-wider text-text-secondary">Project</span>
-        <span className="min-w-0 truncate text-right font-medium text-text-primary">
-          {project.name}
-        </span>
+        <span className="text-fs-micro uppercase tracking-wider text-ink-2">Project</span>
+        <span className="min-w-0 truncate text-right font-medium text-ink-1">{project.name}</span>
       </div>
       <div className="flex flex-col gap-0.5">
-        <span className="text-caption uppercase tracking-wider text-text-secondary">
-          Workspace folder
-        </span>
+        <span className="text-fs-micro uppercase tracking-wider text-ink-2">Workspace folder</span>
         <span
-          className={project.workspace_root ? 'text-text-primary' : 'text-text-secondary'}
+          className={project.workspace_root ? 'text-ink-1' : 'text-ink-2'}
           title={project.workspace_root ?? undefined}
         >
           {formatWorkspaceRootHint(project.workspace_root)}
         </span>
       </div>
-      <div className="flex items-center gap-3 text-text-secondary">
+      <div className="flex items-center gap-3 text-ink-2">
         <span>
-          <span className="text-text-primary font-medium">{threadCount ?? '—'}</span> threads
+          <span className="text-ink-1 font-medium">{threadCount ?? '—'}</span> threads
         </span>
       </div>
       {(canOpenFolder || onRequestEdit) && (
@@ -81,7 +77,7 @@ export function ProjectSelectedSummary({
               size="sm"
               onClick={handleOpenFolder}
               disabled={openingFolder}
-              className="h-7 gap-1 px-2 text-caption text-text-secondary hover:text-text-primary disabled:opacity-50"
+              className="h-7 gap-1 px-2 text-fs-micro text-ink-2 hover:text-ink-1 disabled:opacity-50"
             >
               <FolderOpen className="size-3" />
               Open
@@ -94,7 +90,7 @@ export function ProjectSelectedSummary({
               variant="outline"
               size="sm"
               onClick={() => onRequestEdit(project)}
-              className="h-7 gap-1 px-2 text-caption text-text-secondary hover:text-text-primary"
+              className="h-7 gap-1 px-2 text-fs-micro text-ink-2 hover:text-ink-1"
             >
               <Pencil className="size-3" />
               Edit

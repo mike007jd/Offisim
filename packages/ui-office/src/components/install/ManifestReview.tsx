@@ -78,7 +78,9 @@ export function ManifestReview({ plan, onApprove, onCancel }: ManifestReviewProp
           <KeyRound className="h-3.5 w-3.5 shrink-0" />
           <span>
             Secrets:{' '}
-            <span className="text-ink-1 font-medium">{perms.declares_secrets ? 'Yes' : 'None'}</span>
+            <span className="text-ink-1 font-medium">
+              {perms.declares_secrets ? 'Yes' : 'None'}
+            </span>
           </span>
         </div>
 

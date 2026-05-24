@@ -17,7 +17,7 @@ const ROLE_TONE: Record<string, { rail: string; chip: string; text: string }> = 
   developer: { rail: 'bg-accent', chip: 'bg-accent-surface', text: 'text-accent' },
   designer: { rail: 'bg-violet', chip: 'bg-violet-surface', text: 'text-violet' },
   pm: { rail: 'bg-warn', chip: 'bg-warn-surface', text: 'text-warn' },
-  qa: { rail: 'bg-success', chip: 'bg-success-muted', text: 'text-success' },
+  qa: { rail: 'bg-ok', chip: 'bg-ok-surface', text: 'text-ok' },
   devops: { rail: 'bg-danger', chip: 'bg-danger-surface', text: 'text-danger' },
 };
 
@@ -32,7 +32,7 @@ function getRoleTone(roleSlug: string) {
 export const STATUS_DOT: Record<SopStepStatus, string> = {
   pending: 'bg-ink-4',
   active: 'animate-pulse bg-accent',
-  completed: 'bg-success',
+  completed: 'bg-ok',
   failed: 'bg-danger',
 };
 

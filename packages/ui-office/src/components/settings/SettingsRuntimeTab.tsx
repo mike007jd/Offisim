@@ -230,7 +230,7 @@ export function SettingsRuntimeTab({ controller }: SettingsRuntimeTabProps) {
                 className="flex items-center justify-between rounded-r-sm border border-line px-3 py-2 text-fs-meta"
               >
                 <span className="font-medium text-ink-1">{status.runtimeProfileId}</span>
-                <span className={status.selectable ? 'text-success' : 'text-warn'}>
+                <span className={status.selectable ? 'text-ok' : 'text-warn'}>
                   {status.selectable ? 'Verified' : status.reason}
                 </span>
               </div>

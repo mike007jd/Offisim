@@ -148,7 +148,7 @@ export function SceneCanvas({
             <Suspense
               fallback={
                 <div className="flex h-full w-full items-center justify-center">
-                  <div className="animate-pulse font-mono text-caption text-text-muted">
+                  <div className="animate-pulse font-mono text-fs-micro text-ink-3">
                     LOADING 2D MAP...
                   </div>
                 </div>
@@ -177,7 +177,7 @@ export function SceneCanvas({
               <Suspense
                 fallback={
                   <div className="flex h-full w-full items-center justify-center">
-                    <div className="animate-pulse font-mono text-caption text-text-muted">
+                    <div className="animate-pulse font-mono text-fs-micro text-ink-3">
                       LOADING 3D ENGINE...
                     </div>
                   </div>

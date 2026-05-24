@@ -65,11 +65,11 @@ function getStepStatus(
 function StepIcon({ status }: { status: 'completed' | 'active' | 'pending' | 'error' }) {
   switch (status) {
     case 'completed':
-      return <CheckCircle2 className="h-4 w-4 text-success" />;
+      return <CheckCircle2 className="h-4 w-4 text-ok" />;
     case 'active':
       return <Loader2 className="h-4 w-4 text-danger animate-spin" />;
     case 'error':
-      return <XCircle className="h-4 w-4 text-error" />;
+      return <XCircle className="h-4 w-4 text-danger" />;
     default:
       return <Circle className="h-4 w-4 text-ink-3" />;
   }

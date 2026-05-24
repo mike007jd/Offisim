@@ -155,7 +155,7 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
 
   if (!workspaceRoot) {
     return (
-      <div className="border-t border-border-subtle pt-2 text-caption text-text-secondary">
+      <div className="border-t border-line-soft pt-2 text-fs-micro text-ink-2">
         <div className="flex items-center gap-1.5">
           <Folder className="size-3" aria-hidden="true" />
           <span>No workspace folder</span>
@@ -166,7 +166,7 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
 
   if (!desktopMode) {
     return (
-      <div className="border-t border-border-subtle pt-2 text-caption text-text-secondary">
+      <div className="border-t border-line-soft pt-2 text-fs-micro text-ink-2">
         <div className="flex items-center gap-1.5">
           <Folder className="size-3" aria-hidden="true" />
           <span>Desktop files only</span>
@@ -178,8 +178,8 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
   const selectedFilePath = selection?.path ?? null;
 
   return (
-    <div className="border-t border-border-subtle pt-2">
-      <div className="mb-1.5 flex items-center gap-2 text-caption uppercase tracking-wider text-text-muted">
+    <div className="border-t border-line-soft pt-2">
+      <div className="mb-1.5 flex items-center gap-2 text-fs-micro uppercase tracking-wider text-ink-3">
         <span className="min-w-0 flex-1 truncate" title={displayPath}>
           Workspace files {displayPath}
         </span>
@@ -187,7 +187,7 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
           type="button"
           variant="ghost"
           size="icon"
-          className="size-6 text-text-muted"
+          className="size-6 text-ink-3"
           onClick={() => setReloadVersion((version) => version + 1)}
           disabled={directoryLoading}
           aria-label="Refresh workspace files"
@@ -202,7 +202,7 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
           type="button"
           variant="ghost"
           size="sm"
-          className="mb-1 h-auto justify-start gap-1 px-0 py-1 text-caption"
+          className="mb-1 h-auto justify-start gap-1 px-0 py-1 text-fs-micro"
           onClick={() => {
             dispatchSelection({ type: 'clear' });
             setCurrentPath(parentWorkspacePath(currentPath));
@@ -221,10 +221,8 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
             size="sm"
             key={entry.path || entry.name}
             className={cn(
-              'h-auto w-full min-w-0 justify-start gap-1.5 rounded px-1.5 py-1 text-left text-caption',
-              selectedFilePath === entry.path
-                ? 'bg-accent-muted text-accent-text'
-                : 'text-text-secondary',
+              'h-auto w-full min-w-0 justify-start gap-1.5 rounded px-1.5 py-1 text-left text-fs-micro',
+              selectedFilePath === entry.path ? 'bg-accent-surface text-accent' : 'text-ink-2',
             )}
             onClick={() => {
               if (entry.isDirectory) {
@@ -237,36 +235,36 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
             title={entry.path}
           >
             {entry.isDirectory ? (
-              <Folder className="size-3 flex-shrink-0 text-info" aria-hidden="true" />
+              <Folder className="size-3 flex-shrink-0 text-accent" aria-hidden="true" />
             ) : (
-              <FileText className="size-3 flex-shrink-0 text-text-muted" aria-hidden="true" />
+              <FileText className="size-3 flex-shrink-0 text-ink-3" aria-hidden="true" />
             )}
             <span className="min-w-0 flex-1 truncate">{entry.name}</span>
             {!entry.isDirectory && (
-              <span className="flex-shrink-0 text-caption text-text-muted">
+              <span className="flex-shrink-0 text-fs-micro text-ink-3">
                 {formatWorkspaceFileSize(entry.size)}
               </span>
             )}
           </Button>
         ))}
         {!directoryLoading && entries.length === 0 && (
-          <div className="px-1.5 py-2 text-caption text-text-muted">Empty folder</div>
+          <div className="px-1.5 py-2 text-fs-micro text-ink-3">Empty folder</div>
         )}
       </div>
 
       {selection?.kind === 'loading' && (
-        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-surface px-2 py-1.5 text-caption leading-relaxed text-text-secondary">
+        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-line-soft bg-surface px-2 py-1.5 text-fs-micro leading-relaxed text-ink-2">
           Loading...
         </pre>
       )}
 
       {selection?.kind === 'ready' && (
         <div className="mt-2 flex flex-col gap-1">
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border-subtle bg-surface px-2 py-1.5 text-caption leading-relaxed text-text-secondary">
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded border border-line-soft bg-surface px-2 py-1.5 text-fs-micro leading-relaxed text-ink-2">
             {selection.preview}
           </pre>
           {selection.truncated && (
-            <p className="text-caption text-text-muted">
+            <p className="text-fs-micro text-ink-3">
               preview truncated · {formatWorkspaceFileSize(selection.totalSize)} total
             </p>
           )}
@@ -274,13 +272,13 @@ export function ProjectWorkspaceFiles({ projectId, workspaceRoot }: ProjectWorks
       )}
 
       {selection?.kind === 'error' && (
-        <div className="mt-2 rounded border border-error bg-error-muted px-2 py-1 text-caption text-error">
+        <div className="mt-2 rounded border border-danger bg-danger-surface px-2 py-1 text-fs-micro text-danger">
           {selection.message}
         </div>
       )}
 
       {directoryError && (
-        <div className="mt-2 rounded border border-error bg-error-muted px-2 py-1 text-caption text-error">
+        <div className="mt-2 rounded border border-danger bg-danger-surface px-2 py-1 text-fs-micro text-danger">
           {directoryError}
         </div>
       )}

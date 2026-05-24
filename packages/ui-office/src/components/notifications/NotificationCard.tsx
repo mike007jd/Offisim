@@ -10,10 +10,10 @@ interface NotificationCardProps {
 }
 
 const LEVEL_STYLES: Record<Notification['level'], { icon: typeof Info; iconClassName: string }> = {
-  info: { icon: Info, iconClassName: 'text-info' },
-  success: { icon: CheckCircle, iconClassName: 'text-success' },
-  warning: { icon: AlertCircle, iconClassName: 'text-warning' },
-  error: { icon: XCircle, iconClassName: 'text-error' },
+  info: { icon: Info, iconClassName: 'text-accent' },
+  success: { icon: CheckCircle, iconClassName: 'text-ok' },
+  warning: { icon: AlertCircle, iconClassName: 'text-warn' },
+  error: { icon: XCircle, iconClassName: 'text-danger' },
 };
 
 function formatTimestamp(ts: number): string {
@@ -47,7 +47,7 @@ export function NotificationCard({
   return (
     <div
       className={cn(
-        'flex items-start gap-2 border-b border-border-subtle p-2 transition-colors hover:bg-surface-hover',
+        'flex items-start gap-2 border-b border-line-soft p-2 transition-colors hover:bg-surface-sunken',
         notification.read ? 'opacity-60' : '',
       )}
     >
@@ -59,13 +59,13 @@ export function NotificationCard({
       >
         <Icon className={cn('mt-0.5 size-4 shrink-0', iconClassName)} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium leading-tight text-text-primary">
+          <p className="truncate text-xs font-medium leading-tight text-ink-1">
             {notification.title}
           </p>
-          <p className="mt-0.5 line-clamp-2 text-caption leading-tight text-text-muted">
+          <p className="mt-0.5 line-clamp-2 text-fs-micro leading-tight text-ink-3">
             {notification.message}
           </p>
-          <span className="mt-0.5 block text-caption text-text-muted">
+          <span className="mt-0.5 block text-fs-micro text-ink-3">
             {formatTimestamp(notification.timestamp)}
           </span>
         </div>

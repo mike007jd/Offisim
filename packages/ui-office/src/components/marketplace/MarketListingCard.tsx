@@ -208,12 +208,12 @@ function SopPreview() {
             <span
               className={cn(
                 'size-3 rounded-full border border-line-strong bg-surface-1',
-                index < 2 && 'bg-success',
+                index < 2 && 'bg-ok',
                 index === 2 && 'market-rarity-cta shadow-overlay',
               )}
             />
             {index < 4 && (
-              <span className={cn('h-0.5 flex-1 bg-line-strong', index < 2 && 'bg-success')} />
+              <span className={cn('h-0.5 flex-1 bg-line-strong', index < 2 && 'bg-ok')} />
             )}
           </div>
         ))}
@@ -231,7 +231,7 @@ function TemplatePreview() {
       {[
         ['PM', 'bg-accent'],
         ['UX', 'bg-violet'],
-        ['DEV', 'bg-success'],
+        ['DEV', 'bg-ok'],
         ['QA', 'bg-danger'],
         ['OPS', 'bg-text-secondary'],
       ].map(([label, className]) => (

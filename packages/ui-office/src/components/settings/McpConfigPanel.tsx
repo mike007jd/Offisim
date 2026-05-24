@@ -369,7 +369,7 @@ export function McpConfigPanel() {
               (transport === 'stdio' ? !command.trim() : !url.trim()) ||
               connecting !== null
             }
-            className="h-10 border-success/40 bg-success-muted text-success hover:border-success hover:bg-surface-sunken"
+            className="h-10 border-ok/40 bg-ok-surface text-ok hover:border-ok hover:bg-surface-sunken"
           >
             <Plus className="size-3.5" />
             {connecting ? 'Connecting…' : 'Add'}
@@ -484,7 +484,7 @@ export function McpConfigPanel() {
                             onClick={() => handleReconnect(server)}
                             disabled={!isReady || connecting !== null}
                             title="Reconnect"
-                            className="size-7 p-0 text-ink-3 hover:text-success"
+                            className="size-7 p-0 text-ink-3 hover:text-ok"
                           >
                             <RefreshCw className="size-3.5" />
                           </Button>

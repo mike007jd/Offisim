@@ -370,7 +370,7 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
               htmlFor="publish-auth-token"
               hint={
                 creator ? (
-                  <span className="text-success">
+                  <span className="text-ok">
                     Publishing as @{creator.handle} ({creator.display_name})
                   </span>
                 ) : (

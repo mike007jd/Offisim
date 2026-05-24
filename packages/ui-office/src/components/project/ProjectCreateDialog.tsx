@@ -161,7 +161,7 @@ export function ProjectCreateDialog({
         }}
       >
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="project-create-name" className="text-xs font-medium text-text-secondary">
+          <label htmlFor="project-create-name" className="text-xs font-medium text-ink-2">
             Name
           </label>
           <Input
@@ -173,11 +173,8 @@ export function ProjectCreateDialog({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="project-create-description"
-            className="text-xs font-medium text-text-secondary"
-          >
-            Description <span className="text-text-muted">(optional)</span>
+          <label htmlFor="project-create-description" className="text-xs font-medium text-ink-2">
+            Description <span className="text-ink-3">(optional)</span>
           </label>
           <Textarea
             id="project-create-description"
@@ -189,17 +186,17 @@ export function ProjectCreateDialog({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">
-            Workspace folder {workspaceRequired && <span className="text-error">(required)</span>}
+          <span className="text-xs font-medium text-ink-2">
+            Workspace folder {workspaceRequired && <span className="text-danger">(required)</span>}
           </span>
           {desktopMode ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <div className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-border-default bg-surface px-3 text-sm text-text-primary">
-                  <Folder className="size-4 flex-shrink-0 text-info" />
+                <div className="flex h-9 flex-1 items-center gap-2 rounded-r-md border border-line bg-surface px-3 text-sm text-ink-1">
+                  <Folder className="size-4 flex-shrink-0 text-accent" />
                   <Input
                     aria-label="Workspace folder path"
-                    className="h-7 min-w-0 flex-1 border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-text-muted focus-visible:ring-0 disabled:opacity-60"
+                    className="h-7 min-w-0 flex-1 border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-ink-3 focus-visible:ring-0 disabled:opacity-60"
                     value={workspaceRoot ?? ''}
                     onChange={(e) => setWorkspaceRoot(trimToNull(e.target.value))}
                     placeholder="Paste local workspace path"
@@ -232,13 +229,13 @@ export function ProjectCreateDialog({
                 )}
               </div>
               {workspaceRequired && !workspaceRoot && (
-                <p className="text-xs text-error">
+                <p className="text-xs text-danger">
                   Choose a workspace folder before creating this project.
                 </p>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 rounded-lg border border-border-default bg-surface-muted px-3 py-2 text-xs text-text-muted">
+            <div className="flex items-center gap-2 rounded-r-md border border-line bg-surface-2 px-3 py-2 text-xs text-ink-3">
               <Folder className="size-4 flex-shrink-0 opacity-60" />
               Folder binding is desktop-only.
             </div>
@@ -246,7 +243,7 @@ export function ProjectCreateDialog({
         </div>
 
         {error && (
-          <p className="rounded-lg border border-error bg-error-muted px-3 py-2 text-xs text-error">
+          <p className="rounded-r-md border border-danger bg-danger-surface px-3 py-2 text-xs text-danger">
             {error}
           </p>
         )}

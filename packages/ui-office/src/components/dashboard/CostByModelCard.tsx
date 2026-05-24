@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@offisim/ui-core';
 
 /** Provider → bar color mapping. */
 const PROVIDER_COLORS: Record<string, string> = {
-  openai: 'bg-success',
-  anthropic: 'bg-warning',
-  'openai-compat': 'bg-info',
+  openai: 'bg-ok',
+  anthropic: 'bg-warn',
+  'openai-compat': 'bg-accent',
 };
 
 function getBarColor(groupKey: string): string {
@@ -62,7 +62,7 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
               const barStyle = { width: `${widthPct}%` };
               return (
                 <div key={agg.groupKey} className="flex flex-col gap-0.5">
-                  <div className="flex items-center justify-between text-caption">
+                  <div className="flex items-center justify-between text-fs-micro">
                     <span className="text-ink-1 font-mono truncate max-w-cost-model-name">
                       {agg.groupKey}
                     </span>
@@ -78,7 +78,7 @@ export function CostByModelCard({ byModel, loading }: CostByModelCardProps) {
                     />
                   </div>
                   {pricingNote ? (
-                    <div className="text-caption font-mono text-ink-2/55">{pricingNote}</div>
+                    <div className="text-fs-micro font-mono text-ink-2/55">{pricingNote}</div>
                   ) : null}
                 </div>
               );

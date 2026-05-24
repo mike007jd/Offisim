@@ -22,7 +22,7 @@ export function TaskStepCard({
   getTaskCost?: (taskRunId: string) => number;
 }) {
   return (
-    <div className="rounded border border-border-subtle bg-surface-elevated">
+    <div className="rounded border border-line-soft bg-surface-1">
       <Button
         type="button"
         variant="ghost"
@@ -31,19 +31,19 @@ export function TaskStepCard({
       >
         {/* Status dot */}
         <span className={cn('size-2 shrink-0 rounded-full', taskStatusDotClass(step.status))} />
-        <span className="flex-1 truncate text-text-primary">
+        <span className="flex-1 truncate text-ink-1">
           Step {step.stepIndex + 1}: {step.description}
         </span>
         <ChevronDown
           className={cn(
-            'size-3 shrink-0 text-text-secondary transition-transform',
+            'size-3 shrink-0 text-ink-2 transition-transform',
             step.expanded && 'rotate-180',
           )}
         />
       </Button>
 
       {step.expanded && step.tasks.length > 0 && (
-        <ul className="flex flex-col gap-1 border-t border-border-subtle px-2 py-1">
+        <ul className="flex flex-col gap-1 border-t border-line-soft px-2 py-1">
           {step.tasks.map((task) => (
             <TaskItem
               key={task.taskRunId}

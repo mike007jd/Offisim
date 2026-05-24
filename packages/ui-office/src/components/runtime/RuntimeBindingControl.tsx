@@ -172,26 +172,26 @@ export function RuntimeBindingControl({
           return (
             <RadioGroupItem key={option.id} value={option.id} disabled={optionDisabled} asChild>
               <div
-                className={`flex h-auto min-h-runtime-binding-card w-auto flex-col items-start gap-1 rounded-lg border px-3 py-3 text-left transition ${
+                className={`flex h-auto min-h-runtime-binding-card w-auto flex-col items-start gap-1 rounded-r-md border px-3 py-3 text-left transition ${
                   isSelected
-                    ? 'border-border-focus bg-accent-muted text-accent-text'
-                    : 'border-border-default bg-surface text-text-primary hover:border-border-strong hover:bg-surface-hover'
+                    ? 'border-focus bg-accent-surface text-accent'
+                    : 'border-line bg-surface text-ink-1 hover:border-line-strong hover:bg-surface-sunken'
                 } ${
                   optionDisabled
-                    ? 'cursor-not-allowed opacity-55 hover:border-border-default hover:bg-surface'
+                    ? 'cursor-not-allowed opacity-55 hover:border-line hover:bg-surface'
                     : 'cursor-pointer'
                 }`}
               >
                 <span className="text-sm font-medium">{option.label}</span>
-                <span className="text-caption leading-snug text-text-secondary">{description}</span>
+                <span className="text-fs-micro leading-snug text-ink-2">{description}</span>
                 {selectedProfile ? (
-                  <span className="text-caption leading-snug text-text-muted">
+                  <span className="text-fs-micro leading-snug text-ink-3">
                     {selectedProfile.profileId} · {selectedProfile.tier} ·{' '}
                     {selectedProfile.evidenceClass} · {selectedProfile.verification.status}
                   </span>
                 ) : null}
                 {engineProfiles?.fullAgent && !option.profileId ? (
-                  <span className="text-caption leading-snug text-warning">
+                  <span className="text-fs-micro leading-snug text-warn">
                     {engineProfiles.fullAgent.availability === 'production'
                       ? `Full-agent promoted: ${engineProfiles.fullAgent.profileId}`
                       : `Full-agent target unavailable: ${engineProfiles.fullAgent.profileId} · missing ${engineProfiles.fullAgent.verification.blockers
@@ -201,10 +201,8 @@ export function RuntimeBindingControl({
                 ) : null}
                 {option.profileId && selectedProfile ? (
                   <span
-                    className={`text-caption leading-snug ${
-                      selectedProfile.availability === 'production'
-                        ? 'text-success'
-                        : 'text-warning'
+                    className={`text-fs-micro leading-snug ${
+                      selectedProfile.availability === 'production' ? 'text-ok' : 'text-warn'
                     }`}
                   >
                     {selectedProfile.availability === 'production'
@@ -215,7 +213,7 @@ export function RuntimeBindingControl({
                   </span>
                 ) : null}
                 {engineUnavailable && (
-                  <span className="mt-1 text-caption uppercase tracking-wider text-warning">
+                  <span className="mt-1 text-fs-micro uppercase tracking-wider text-warn">
                     {ENGINE_UNAVAILABLE_HINT}
                   </span>
                 )}
@@ -226,16 +224,16 @@ export function RuntimeBindingControl({
       </RadioGroup>
 
       {scope === 'employee' && resolvedBinding && (
-        <p className="text-xs text-text-secondary">
+        <p className="text-xs text-ink-2">
           Resolved:{' '}
-          <span className="font-medium text-text-primary">
+          <span className="font-medium text-ink-1">
             {resolvedBindingLabel(resolvedBinding, resolvedSource)}
           </span>
         </p>
       )}
 
       {showPreviewDisclosure && (
-        <p className="rounded-lg border border-warning/30 bg-warning-muted px-3 py-2 text-caption leading-snug text-warning">
+        <p className="rounded-r-md border border-warn/30 bg-warn-surface px-3 py-2 text-fs-micro leading-snug text-warn">
           Text-only preview · SDK transport is model access, not a full-agent route. Gateway-bridged
           tools and SDK-native full-agent profiles become selectable only after deterministic,
           benchmark, trusted-host, release app, denied-path, cancellation, rollback, sandbox, and

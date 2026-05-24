@@ -71,7 +71,7 @@ export function StepProgressBar({ steps, activeFilter, onSegmentClick }: StepPro
           const tooltipStyle = { left: `${leftPct}%` };
           return (
             <div
-              className="pointer-events-none absolute top-full z-50 mt-1 max-w-step-tooltip rounded bg-surface-elevated px-2 py-1 text-caption text-accent-fg shadow-lg"
+              className="pointer-events-none absolute top-full z-50 mt-1 max-w-step-tooltip rounded bg-surface-1 px-2 py-1 text-fs-micro text-accent-fg shadow-lg"
               // ui-hardcode-allowed: runtime geometry or third-party primitive style bridge.
               style={tooltipStyle}
             >

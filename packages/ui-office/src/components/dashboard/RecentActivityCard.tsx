@@ -77,14 +77,14 @@ export function RecentActivityCard() {
                 className="flex items-center justify-between gap-2 rounded px-1.5 py-1 hover:bg-surface-sunken/20"
               >
                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                  <Badge variant="secondary" className="text-caption shrink-0">
+                  <Badge variant="secondary" className="text-fs-micro shrink-0">
                     {shortenEventType(item.eventType)}
                   </Badge>
-                  <span className="text-caption text-ink-1 font-mono truncate">
+                  <span className="text-fs-micro text-ink-1 font-mono truncate">
                     {item.entityName}
                   </span>
                 </div>
-                <span className="text-caption text-ink-2/50 font-mono shrink-0">
+                <span className="text-fs-micro text-ink-2/50 font-mono shrink-0">
                   {formatTime(item.timestamp)}
                 </span>
               </div>

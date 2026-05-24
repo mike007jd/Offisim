@@ -137,9 +137,9 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
       const stageLabel = stage ? STAGE_META[stage].chatLabel : 'Runtime active';
       return (
         <div className="p-3">
-          <div className="rounded-2xl border border-info/20 bg-info-muted/50 px-4 py-5 text-center">
-            <p className="text-sm font-semibold text-info">{stageLabel}</p>
-            <p className="mt-2 text-xs leading-relaxed text-text-muted">
+          <div className="rounded-r-md border border-accent/20 bg-accent-surface/50 px-4 py-5 text-center">
+            <p className="text-sm font-semibold text-accent">{stageLabel}</p>
+            <p className="mt-2 text-xs leading-relaxed text-ink-3">
               {routeLabel ??
                 'The boss is routing the request and the manager is building the first executable plan.'}
             </p>
@@ -160,8 +160,8 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-accent-fg">Plan Progress</h3>
         <div className="flex gap-2">
-          <span className="text-caption text-accent">{dashboard.stats.active} active</span>
-          <span className="text-caption text-ink-2">
+          <span className="text-fs-micro text-accent">{dashboard.stats.active} active</span>
+          <span className="text-fs-micro text-ink-2">
             {dashboard.stats.completed}/{dashboard.stats.total}
           </span>
         </div>
@@ -185,12 +185,12 @@ export function TaskDashboard({ agents }: { agents?: Map<string, { name: string 
       {/* Filter badge */}
       {stepFilter !== null && (
         <div className="flex items-center gap-1">
-          <span className="text-caption text-text-secondary">Filtered: Step {stepFilter + 1}</span>
+          <span className="text-fs-micro text-ink-2">Filtered: Step {stepFilter + 1}</span>
           <Button
             type="button"
             variant="link"
             size="sm"
-            className="h-auto p-0 text-caption text-info"
+            className="h-auto p-0 text-fs-micro text-accent"
             onClick={() => setStepFilter(null)}
           >
             clear

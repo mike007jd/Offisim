@@ -25,8 +25,7 @@ const WORKSPACE_MIN_HEIGHT_CLASS: Record<string, string> = {
   settings: 'min-h-0',
 };
 
-const WORKSPACE_SHELL_CLASS =
-  'flex h-full min-h-0 flex-col overflow-hidden pointer-events-auto';
+const WORKSPACE_SHELL_CLASS = 'flex h-full min-h-0 flex-col overflow-hidden pointer-events-auto';
 
 const WORKSPACE_HEADER_CLASS =
   'border-b border-line px-sp-6 py-sp-5 max-xl:px-sp-5 max-xl:py-sp-4 max-md:px-sp-4 max-md:py-sp-3';
@@ -49,10 +48,10 @@ function LoadingSkeleton({ eyebrow, title }: { eyebrow: string; title: string })
         <h1 className={WORKSPACE_TITLE_CLASS}>{title}</h1>
       </header>
       <div className="flex min-h-0 flex-col gap-4 px-sp-6 py-sp-6">
-        <div className="h-4 w-3/4 animate-pulse rounded bg-surface-muted" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-surface-muted" />
-        <div className="h-32 w-full animate-pulse rounded-lg bg-surface-muted" />
-        <div className="h-4 w-2/3 animate-pulse rounded bg-surface-muted" />
+        <div className="h-4 w-3/4 animate-pulse rounded bg-surface-2" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-surface-2" />
+        <div className="h-32 w-full animate-pulse rounded-r-md bg-surface-2" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-surface-2" />
       </div>
     </div>
   );
@@ -64,8 +63,8 @@ function ErrorState({ message }: { message: string }) {
       data-testid="workspace-error"
       className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center"
     >
-      <AlertCircle className="h-8 w-8 text-error" />
-      <p className="max-w-md text-sm text-error">{message}</p>
+      <AlertCircle className="h-8 w-8 text-danger" />
+      <p className="max-w-md text-sm text-danger">{message}</p>
     </div>
   );
 }
@@ -112,7 +111,9 @@ export function WorkspacePageShell({
               {empty}
             </div>
           ) : (
-            <div className={cn('min-h-0 flex-1 overflow-hidden', workspaceMinHeightClass(workspace))}>
+            <div
+              className={cn('min-h-0 flex-1 overflow-hidden', workspaceMinHeightClass(workspace))}
+            >
               {children}
             </div>
           )}

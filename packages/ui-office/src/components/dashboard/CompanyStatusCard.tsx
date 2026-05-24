@@ -27,16 +27,16 @@ export function CompanyStatusCard({ agents }: CompanyStatusCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm uppercase tracking-wider text-text-muted">
+        <CardTitle className="text-sm uppercase tracking-wider text-ink-3">
           Company Status
         </CardTitle>
       </CardHeader>
       <CardContent>
         {agents.size === 0 ? (
-          <div className="text-xs text-text-muted/60">No employees.</div>
+          <div className="text-xs text-ink-3/60">No employees.</div>
         ) : (
           <div className="flex flex-col gap-2">
-            <div className="text-xs text-text-muted/70 font-mono">
+            <div className="text-xs text-ink-3/70 font-mono">
               {agents.size} employee{agents.size !== 1 ? 's' : ''}
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -44,7 +44,7 @@ export function CompanyStatusCard({ agents }: CompanyStatusCardProps) {
                 <Badge
                   key={state}
                   variant={STATE_VARIANTS[state] ?? 'secondary'}
-                  className="text-caption"
+                  className="text-fs-micro"
                 >
                   {state}: {count}
                 </Badge>
@@ -52,16 +52,14 @@ export function CompanyStatusCard({ agents }: CompanyStatusCardProps) {
             </div>
           </div>
         )}
-        <div className="mt-2 flex flex-col gap-0.5 border-t border-border-subtle pt-2">
+        <div className="mt-2 flex flex-col gap-0.5 border-t border-line-soft pt-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-text-muted/70">Completion</span>
-            <span className="font-mono text-success">{(taskCompletionRate * 100).toFixed(0)}%</span>
+            <span className="text-ink-3/70">Completion</span>
+            <span className="font-mono text-ok">{(taskCompletionRate * 100).toFixed(0)}%</span>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-text-muted/70">Intervention</span>
-            <span className="font-mono text-warning">
-              {(bossInterventionRate * 100).toFixed(0)}%
-            </span>
+            <span className="text-ink-3/70">Intervention</span>
+            <span className="font-mono text-warn">{(bossInterventionRate * 100).toFixed(0)}%</span>
           </div>
         </div>
       </CardContent>

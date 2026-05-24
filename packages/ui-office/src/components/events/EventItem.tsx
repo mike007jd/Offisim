@@ -82,7 +82,7 @@ interface EventItemProps {
 const EVENT_TONE_CLASS: Record<EventTone, string> = {
   error: 'text-danger',
   info: 'text-accent',
-  success: 'text-success',
+  success: 'text-ok',
   warning: 'text-warn',
   accent: 'text-accent',
 };

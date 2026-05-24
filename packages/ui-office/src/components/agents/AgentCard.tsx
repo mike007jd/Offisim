@@ -55,11 +55,11 @@ export function AgentCard({ id, agent, isSelected, skillHighlight, onClick }: Ag
       aria-label={isInteractive ? `${agent.name} employee card` : undefined}
       aria-pressed={isInteractive ? (isSelected ?? false) : undefined}
       className={[
-        'group min-h-20 rounded-lg border px-2.5 py-2 cursor-pointer',
+        'group min-h-20 rounded-r-md border px-2.5 py-2 cursor-pointer',
         'transition-colors duration-200',
         isSelected
-          ? 'border-border-focus bg-accent-muted'
-          : 'border-border-subtle/70 bg-surface-muted/70 hover:border-border-default hover:bg-surface-hover',
+          ? 'border-focus bg-accent-surface'
+          : 'border-line-soft/70 bg-surface-2/70 hover:border-line hover:bg-surface-sunken',
         glowing ? glowClass : '',
       ]
         .filter(Boolean)
@@ -84,36 +84,34 @@ export function AgentCard({ id, agent, isSelected, skillHighlight, onClick }: Ag
         {/* Info */}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <span className="min-w-0 truncate text-sm font-semibold text-text-primary">
-              {agent.name}
-            </span>
+            <span className="min-w-0 truncate text-sm font-semibold text-ink-1">{agent.name}</span>
             <div className="flex shrink-0 items-center gap-1.5">
               <Badge
                 variant={variant}
-                className="min-w-12 justify-center text-caption transition-colors duration-300"
+                className="min-w-12 justify-center text-fs-micro transition-colors duration-300"
               >
                 {agent.state}
               </Badge>
             </div>
           </div>
-          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-text-secondary">
+          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-2">
             {roleLabel}
-            <Wrench className="inline h-2.5 w-2.5 flex-shrink-0 text-text-muted" />
+            <Wrench className="inline h-2.5 w-2.5 flex-shrink-0 text-ink-3" />
           </p>
           <div className="mt-1.5 flex min-w-0 flex-wrap gap-1">
-            <span className="rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-caption leading-none text-text-muted">
+            <span className="rounded-full border border-line-soft bg-surface-2 px-1.5 py-0.5 text-fs-micro leading-none text-ink-3">
               {agent.isExternal ? 'External' : 'Internal'}
             </span>
             {skillHighlight ? (
               <span
-                className="max-w-36 animate-pulse truncate rounded-full border border-success/30 bg-success-muted px-1.5 py-0.5 text-caption leading-none text-success"
+                className="max-w-36 animate-pulse truncate rounded-full border border-ok/30 bg-ok-surface px-1.5 py-0.5 text-fs-micro leading-none text-ok"
                 title={skillHighlight.detail}
               >
                 {skillHighlight.label}
               </span>
             ) : null}
             {hasTask && (
-              <span className="max-w-32 truncate rounded-full border border-border-subtle bg-surface-muted px-1.5 py-0.5 text-caption leading-none text-text-secondary">
+              <span className="max-w-32 truncate rounded-full border border-line-soft bg-surface-2 px-1.5 py-0.5 text-fs-micro leading-none text-ink-2">
                 {task.stepIndex + 1}/{task.totalSteps} {truncate(task.stepLabel, 18)}
               </span>
             )}
@@ -157,7 +155,7 @@ function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
         type="button"
         variant="ghost"
         size="sm"
-        className="h-auto w-full justify-between px-0 py-0 text-caption font-mono text-text-muted hover:text-text-secondary"
+        className="h-auto w-full justify-between px-0 py-0 text-fs-micro font-mono text-ink-3 hover:text-ink-2"
         onClick={(e) => {
           e.stopPropagation();
           setExpanded((prev) => !prev);
@@ -171,30 +169,30 @@ function SubTaskList({ subTasks }: { subTasks?: SubTaskInfo[] }) {
 
       <div className="mt-1 flex flex-col gap-0.5">
         {visibleTasks.map((st) => (
-          <div key={st.stepIndex} className="flex items-center gap-1 text-caption font-mono">
+          <div key={st.stepIndex} className="flex items-center gap-1 text-fs-micro font-mono">
             <span className="flex-shrink-0">{STATUS_ICON[st.status]}</span>
             <span
               className={[
                 'truncate max-w-32',
                 st.status === 'done'
-                  ? 'text-text-muted'
+                  ? 'text-ink-3'
                   : st.status === 'failed'
-                    ? 'text-error'
-                    : 'text-text-secondary',
+                    ? 'text-danger'
+                    : 'text-ink-2',
               ].join(' ')}
             >
               {truncate(st.label, 25)}
             </span>
             {st.status === 'running' && st.startedAt && (
-              <span className="ml-auto text-text-muted">
+              <span className="ml-auto text-ink-3">
                 {Math.round((Date.now() - st.startedAt) / 1000)}s
               </span>
             )}
-            {st.status === 'done' && <span className="ml-auto text-text-muted">done</span>}
+            {st.status === 'done' && <span className="ml-auto text-ink-3">done</span>}
           </div>
         ))}
         {hiddenCount > 0 && !expanded && (
-          <div className="pl-4 text-caption font-mono text-text-muted">+{hiddenCount} more</div>
+          <div className="pl-4 text-fs-micro font-mono text-ink-3">+{hiddenCount} more</div>
         )}
       </div>
     </div>

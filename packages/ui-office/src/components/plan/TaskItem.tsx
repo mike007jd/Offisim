@@ -27,10 +27,10 @@ export function TaskItem({
         data-task-run-id={task.taskRunId}
         variant="ghost"
         className={cn(
-          'h-auto w-full justify-start gap-2 text-left text-caption transition-colors duration-500',
-          'rounded px-1 py-0.5 hover:bg-surface-hover',
-          task.status === 'running' && 'border-l-2 border-info pl-1',
-          isExpanded && 'bg-surface-hover',
+          'h-auto w-full justify-start gap-2 text-left text-fs-micro transition-colors duration-500',
+          'rounded px-1 py-0.5 hover:bg-surface-sunken',
+          task.status === 'running' && 'border-l-2 border-accent pl-1',
+          isExpanded && 'bg-surface-sunken',
           onTaskClick ? 'cursor-pointer' : 'cursor-default',
         )}
         onClick={() => onTaskClick?.(task.taskRunId)}
@@ -38,13 +38,11 @@ export function TaskItem({
         <span className={cn('shrink-0 rounded px-1 py-0.5', taskStatusBadgeClass(task.status))}>
           {taskStatusLabel(task.status)}
         </span>
-        <span className="shrink-0 text-info">
+        <span className="shrink-0 text-accent">
           {task.assigneeName ?? task.employeeName ?? task.employeeId ?? 'Unassigned'}
         </span>
-        <span className="truncate text-text-primary">{task.description || task.taskType}</span>
-        {taskCost > 0 && (
-          <span className="shrink-0 font-mono text-success">${taskCost.toFixed(4)}</span>
-        )}
+        <span className="truncate text-ink-1">{task.description || task.taskType}</span>
+        {taskCost > 0 && <span className="shrink-0 font-mono text-ok">${taskCost.toFixed(4)}</span>}
       </Button>
 
       {/* Inline detail panel with CSS transition */}

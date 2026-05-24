@@ -104,11 +104,7 @@ export function ZoneLabel({
       )}
       {isMeetingActive && <MeetingActiveLabel />}
       {isDragging && !isSource && (
-        <Html
-          position={[0, 0.8, 0]}
-          center
-          style={{ pointerEvents: 'none' }}
-        >
+        <Html position={[0, 0.8, 0]} center style={{ pointerEvents: 'none' }}>
           <div
             style={{
               background: isHovered ? color : sc.zoneLabelBg,
@@ -133,11 +129,7 @@ export function ZoneLabel({
           </div>
         </Html>
       )}
-      <Html
-        position={[0, 0.5, -size[1] / 2 + 0.5]}
-        center
-        style={{ pointerEvents: 'none' }}
-      >
+      <Html position={[0, 0.5, -size[1] / 2 + 0.5]} center style={{ pointerEvents: 'none' }}>
         <div
           data-zone-label={name}
           style={{

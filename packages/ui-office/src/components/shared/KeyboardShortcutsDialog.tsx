@@ -25,10 +25,10 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
         {SHORTCUTS.map((shortcut) => (
           <div
             key={shortcut.keys}
-            className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-sm"
+            className="flex items-center justify-between rounded-r-md border border-line-soft bg-surface-2 px-3 py-2 text-sm"
           >
-            <span className="text-text-secondary">{shortcut.description}</span>
-            <kbd className="rounded-md border border-border-default bg-surface px-2 py-1 text-caption text-text-muted">
+            <span className="text-ink-2">{shortcut.description}</span>
+            <kbd className="rounded-md border border-line bg-surface px-2 py-1 text-fs-micro text-ink-3">
               {shortcut.keys}
             </kbd>
           </div>

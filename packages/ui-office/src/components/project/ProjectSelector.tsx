@@ -10,9 +10,9 @@ import { useState } from 'react';
 import { ProjectSelectedSummary } from './ProjectListPanel.js';
 
 const STATUS_DOT: Record<ProjectStatus, string> = {
-  planning: 'bg-info',
-  active: 'bg-success',
-  paused: 'bg-warning',
+  planning: 'bg-accent',
+  active: 'bg-ok',
+  paused: 'bg-warn',
   completed: 'bg-text-muted',
   archived: 'bg-text-disabled',
 };
@@ -26,11 +26,11 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 };
 
 const STATUS_CHIP: Record<ProjectStatus, string> = {
-  planning: 'text-info bg-info-muted border border-info',
-  active: 'text-success bg-success-muted border border-success',
-  paused: 'text-warning bg-warning-muted border border-warning',
-  completed: 'text-text-secondary bg-surface-muted border border-border-default',
-  archived: 'text-text-muted bg-surface-muted border border-border-subtle',
+  planning: 'text-accent bg-accent-surface border border-accent',
+  active: 'text-ok bg-ok-surface border border-ok',
+  paused: 'text-warn bg-warn-surface border border-warn',
+  completed: 'text-ink-2 bg-surface-2 border border-line',
+  archived: 'text-ink-3 bg-surface-2 border border-line-soft',
 };
 
 const ALL_OPTION_ID = '__all__';
@@ -55,7 +55,7 @@ function projectItem(project: ProjectRow): EntityDropdownItem {
     label: project.name,
     icon: <span className={`mt-1 h-1.5 w-1.5 rounded-full ${STATUS_DOT[project.status]}`} />,
     badge: (
-      <span className={`rounded px-1.5 py-0.5 text-caption ${STATUS_CHIP[project.status]}`}>
+      <span className={`rounded px-1.5 py-0.5 text-fs-micro ${STATUS_CHIP[project.status]}`}>
         {STATUS_LABEL[project.status]}
       </span>
     ),
@@ -88,7 +88,7 @@ export function ProjectSelector({
         {
           id: ALL_OPTION_ID,
           label: 'All (no project scope)',
-          icon: <Archive className="h-3.5 w-3.5 shrink-0 text-text-muted" />,
+          icon: <Archive className="h-3.5 w-3.5 shrink-0 text-ink-3" />,
         },
       ],
     },
@@ -110,11 +110,11 @@ export function ProjectSelector({
       type="button"
       variant="outline"
       size="sm"
-      className="h-7 w-full min-w-0 justify-between gap-1.5 rounded-full border-border-default bg-surface-muted px-2.5 text-xs text-text-secondary hover:border-border-strong hover:bg-surface-hover hover:text-text-primary"
+      className="h-7 w-full min-w-0 justify-between gap-1.5 rounded-r-pill border-line bg-surface-2 px-2.5 text-xs text-ink-2 hover:border-line-strong hover:bg-surface-sunken hover:text-ink-1"
       title="Select project context"
     >
       <span className="flex min-w-0 items-center gap-1.5">
-        <BriefcaseBusiness className="size-3.5 flex-shrink-0 text-info" />
+        <BriefcaseBusiness className="size-3.5 flex-shrink-0 text-accent" />
         {activeProject ? (
           <>
             <span
@@ -123,11 +123,11 @@ export function ProjectSelector({
             <span className="min-w-0 truncate">{activeProject.name}</span>
           </>
         ) : (
-          <span className="text-text-muted">All</span>
+          <span className="text-ink-3">All</span>
         )}
       </span>
       <ChevronDown
-        className={`size-3 flex-shrink-0 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`}
+        className={`size-3 flex-shrink-0 text-ink-3 transition-transform ${open ? 'rotate-180' : ''}`}
       />
     </Button>
   );

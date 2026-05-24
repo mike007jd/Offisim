@@ -12,10 +12,10 @@ import type { RunToolPolicy } from '@offisim/shared-types';
 export type CommandCategory = 'team' | 'workflow' | 'config' | 'chat';
 
 export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; badgeClass: string }> = {
-  team: { label: 'Team', badgeClass: 'bg-success-muted text-success' },
-  workflow: { label: 'Workflow', badgeClass: 'bg-info-muted text-info' },
-  config: { label: 'Config', badgeClass: 'bg-accent-muted text-accent' },
-  chat: { label: 'Chat', badgeClass: 'bg-surface-muted text-text-muted' },
+  team: { label: 'Team', badgeClass: 'bg-ok-surface text-ok' },
+  workflow: { label: 'Workflow', badgeClass: 'bg-accent-surface text-accent' },
+  config: { label: 'Config', badgeClass: 'bg-accent-surface text-accent' },
+  chat: { label: 'Chat', badgeClass: 'bg-surface-2 text-ink-3' },
 };
 
 // ── Context types (provided by ChatPanel) ──────────────────────────
