@@ -51,6 +51,7 @@ export const REPLAY_SCENARIO_IDS = [
   'install-materialization-rolls-back-partial-production-assets',
   'permission-ask-approved-blocks-and-then-executes',
   'permission-ask-denied-does-not-execute',
+  'permission-employee-deny-blocks-tool',
   'pm-heartbeat-flags-blocked-task',
   'pm-planner-clears-stale-dispatch-state',
   'plan-review-cancel-terminates',

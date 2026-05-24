@@ -1,0 +1,111 @@
+{
+  "id": "permission-employee-deny-blocks-tool",
+  "category": "permission",
+  "entryMode": "boss_chat",
+  "interactionMode": "human_in_loop",
+  "seed": {
+    "company": { "companyId": "company-employee-permission-deny", "name": "Employee Deny Co" },
+    "thread": { "threadId": "thread-employee-permission-deny", "status": "running" },
+    "employees": [
+      {
+        "id": "emp-policy-deny",
+        "name": "Dina",
+        "role": "engineer",
+        "config": {
+          "toolPermissionPolicy": {
+            "defaultMode": "deny",
+            "overrides": []
+          }
+        }
+      }
+    ],
+    "taskRuns": [
+      {
+        "id": "task-employee-perm-deny",
+        "employeeId": "emp-policy-deny",
+        "taskType": "general",
+        "input": { "description": "Try write_file under employee deny policy" }
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "write_file",
+      "description": "Write a file",
+      "parameters": { "type": "object", "properties": { "path": { "type": "string" } } }
+    }
+  ],
+  "llmTurns": [
+    {
+      "id": "employee-tool-request",
+      "match": {
+        "contains": "Try write_file under employee deny policy",
+        "toolNames": ["write_file"]
+      },
+      "content": "",
+      "toolCalls": [
+        { "id": "call-write-policy-denied", "name": "write_file", "arguments": { "path": "blocked.txt" } }
+      ]
+    },
+    {
+      "id": "employee-denied-final",
+      "match": { "contains": "TOOL_PERMISSION_DENIED" },
+      "content": "EMPLOYEE_POLICY_DENIED_TOOL"
+    },
+    {
+      "id": "consolidator",
+      "match": { "contains": "EMPLOYEE_POLICY_DENIED_TOOL" },
+      "content": "{\"memories\":[]}"
+    }
+  ],
+  "initialState": {
+    "taskPlan": {
+      "planId": "plan-employee-permission-deny",
+      "threadId": "thread-employee-permission-deny",
+      "companyId": "company-employee-permission-deny",
+      "summary": "Employee deny plan",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "description": "Handle employee deny policy",
+          "tasks": [
+            {
+              "taskType": "general",
+              "employeeId": "emp-policy-deny",
+              "assigneeKind": "employee",
+              "assigneeName": "Dina",
+              "description": "Try write_file under employee deny policy",
+              "dependsOnStepOutput": false,
+              "taskRunId": "task-employee-perm-deny"
+            }
+          ]
+        }
+      ]
+    },
+    "pendingAssignments": [
+      {
+        "taskType": "general",
+        "employeeId": "emp-policy-deny",
+        "assigneeKind": "employee",
+        "assigneeName": "Dina",
+        "taskRunId": "task-employee-perm-deny",
+        "stepIndex": 0,
+        "inputJson": {
+          "description": "Try write_file under employee deny policy",
+          "stepIndex": 0
+        }
+      }
+    ],
+    "dispatchedStepIndices": [0]
+  },
+  "runs": [{ "startAt": "employee" }],
+  "assertions": [
+    {
+      "kind": "mcpAuditContains",
+      "toolName": "write_file",
+      "approvedBy": "employee:deny",
+      "errorIncludes": "TOOL_PERMISSION_DENIED"
+    },
+    { "kind": "toolExecutions", "count": 0 }
+  ]
+}

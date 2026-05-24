@@ -257,6 +257,7 @@ export function useEmployeeEditor(): UseEmployeeEditorReturn {
 
   const save = useCallback(async () => {
     if (!repos) return;
+    if (employeeId && formData.isExternal) return;
     setIsSaving(true);
 
     try {

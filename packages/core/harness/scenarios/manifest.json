@@ -17,6 +17,11 @@
       "invariants": ["permission.deny_returns_denied", "tool.not_executed"]
     },
     {
+      "id": "permission-employee-deny-blocks-tool",
+      "category": "permission",
+      "invariants": ["permission.employee_deny_absolute", "tool.not_executed"]
+    },
+    {
       "id": "plan-review-cancel-terminates",
       "category": "interaction",
       "invariants": ["interaction.cancel_terminal", "graph.no_employee_after_cancel"]

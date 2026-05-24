@@ -23,7 +23,7 @@ export interface EmployeePersona {
   decisionStyle?: DecisionStyle;
 }
 
-export type EmployeeToolApprovalMode = 'auto' | 'ask_first_time' | 'always_ask';
+export type EmployeeToolApprovalMode = 'auto' | 'ask_first_time' | 'always_ask' | 'deny';
 
 export interface EmployeeToolPermissionOverride {
   pattern: string;
@@ -111,7 +111,10 @@ function pickDecisionStyle(value: unknown): DecisionStyle | undefined {
 }
 
 function pickToolApprovalMode(value: unknown): EmployeeToolApprovalMode | undefined {
-  return value === 'auto' || value === 'ask_first_time' || value === 'always_ask'
+  return value === 'auto' ||
+    value === 'ask_first_time' ||
+    value === 'always_ask' ||
+    value === 'deny'
     ? value
     : undefined;
 }

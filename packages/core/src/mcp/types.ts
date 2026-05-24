@@ -96,8 +96,8 @@ export interface McpClientFactory {
   createClient(config: McpServerConfig): Promise<McpConnection>;
 }
 
-/** P1: auto-approve all. P2 adds ask_first_time and always_ask enforcement. */
-export type ToolApprovalMode = 'auto' | 'ask_first_time' | 'always_ask';
+/** Employee-level MCP approval policy. Runtime policy remains the absolute guardrail. */
+export type ToolApprovalMode = 'auto' | 'ask_first_time' | 'always_ask' | 'deny';
 
 export interface ToolPermissionPolicy {
   readonly defaultMode: ToolApprovalMode;

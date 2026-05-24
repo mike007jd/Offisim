@@ -2,6 +2,7 @@ import type { ToolApprovalMode, ToolPermissionPolicy } from '@offisim/core/brows
 import {
   Button,
   Input,
+  SegmentedControl,
   Select,
   SelectContent,
   SelectGroup,
@@ -20,8 +21,36 @@ const DEFAULT_POLICY: ToolPermissionPolicy = {
   overrides: [],
 };
 
+const MODE_ITEMS: Array<{ value: ToolApprovalMode; label: string }> = [
+  { value: 'auto', label: 'Allow' },
+  { value: 'ask_first_time', label: 'Ask' },
+  { value: 'deny', label: 'Deny' },
+];
+
+const ADVANCED_MODE_ITEMS: Array<{ value: ToolApprovalMode; label: string }> = [
+  ...MODE_ITEMS,
+  { value: 'always_ask', label: 'Always Ask' },
+];
+
+const CORE_TOOL_ROWS: ReadonlyArray<{ label: string; pattern: string; hint: string }> = [
+  { label: 'Read files', pattern: 'read_file', hint: 'Workspace file read access.' },
+  { label: 'Write files', pattern: 'write_file', hint: 'Workspace file mutations.' },
+  { label: 'Shell', pattern: 'bash', hint: 'Local command execution.' },
+  { label: 'Web search', pattern: 'web_search', hint: 'Network research tool access.' },
+  { label: 'Memory recall', pattern: 'recall', hint: 'Long-term context retrieval.' },
+  { label: 'Git', pattern: 'git*', hint: 'Repository status and source-control actions.' },
+];
+
 function normalizePolicy(value: ToolPermissionPolicy | null): ToolPermissionPolicy {
   return value ?? DEFAULT_POLICY;
+}
+
+function displayMode(mode: ToolApprovalMode): ToolApprovalMode {
+  return mode === 'always_ask' ? 'ask_first_time' : mode;
+}
+
+function isCorePattern(pattern: string): boolean {
+  return CORE_TOOL_ROWS.some((row) => row.pattern === pattern);
 }
 
 export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorProps) {
@@ -30,6 +59,14 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
 
   const updateDefaultMode = (defaultMode: ToolApprovalMode) => {
     onChange({ ...policy, defaultMode });
+  };
+
+  const setCoreToolMode = (pattern: string, mode: ToolApprovalMode) => {
+    const nextOverrides = policy.overrides.filter((override) => override.pattern !== pattern);
+    if (mode !== policy.defaultMode) {
+      nextOverrides.push({ pattern, mode });
+    }
+    onChange({ ...policy, overrides: nextOverrides });
   };
 
   const updateOverride = (
@@ -58,82 +95,114 @@ export function ToolPermissionEditor({ value, onChange }: ToolPermissionEditorPr
     });
   };
 
+  const advancedOverrides = policy.overrides.filter((override) => !isCorePattern(override.pattern));
+
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border-default bg-surface-muted p-3">
-      <div>
-        <span id={defaultModeId} className="mb-1 block text-xs text-text-muted">
-          Default approval mode
+    <div className="flex flex-col gap-sp-4">
+      <div className="rounded-md border border-line-soft bg-surface-sunken p-sp-3">
+        <span id={defaultModeId} className="mb-2 block text-fs-meta font-medium text-ink-2">
+          Default mode
         </span>
-        <Select
-          value={policy.defaultMode}
-          onValueChange={(mode) => updateDefaultMode(mode as ToolApprovalMode)}
-        >
-          <SelectTrigger aria-labelledby={defaultModeId} className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="auto">Auto</SelectItem>
-              <SelectItem value="ask_first_time">Ask First Time</SelectItem>
-              <SelectItem value="always_ask">Always Ask</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+        <SegmentedControl
+          size="sm"
+          ariaLabel="Default tool approval mode"
+          value={displayMode(policy.defaultMode)}
+          onChange={(mode) => updateDefaultMode(mode as ToolApprovalMode)}
+          items={MODE_ITEMS}
+        />
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-text-muted">Tool-specific overrides</p>
-          <Button
-            type="button"
-            onClick={addOverride}
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-xs text-text-secondary"
-          >
-            Add override
-          </Button>
-        </div>
-
-        {policy.overrides.length === 0 && (
-          <p className="text-xs text-text-muted">No tool overrides configured.</p>
-        )}
-
-        {policy.overrides.map((override, index) => (
-          <div key={`${override.pattern}-${index}`} className="grid grid-tool-overrides gap-2">
-            <Input
-              value={override.pattern}
-              onChange={(event) => updateOverride(index, { pattern: event.target.value })}
-              placeholder="calendar.*"
-              className="border-border-default bg-surface text-sm text-text-primary"
-            />
-            <Select
-              value={override.mode}
-              onValueChange={(mode) => updateOverride(index, { mode: mode as ToolApprovalMode })}
+        {CORE_TOOL_ROWS.map((row) => {
+          const override = policy.overrides.find((item) => item.pattern === row.pattern);
+          const mode = override?.mode ?? policy.defaultMode;
+          return (
+            <div
+              key={row.pattern}
+              className="grid grid-tool-permission-row items-center gap-3 rounded-md border border-line-soft bg-surface-1 px-sp-3 py-sp-2"
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="auto">Auto</SelectItem>
-                  <SelectItem value="ask_first_time">Ask First Time</SelectItem>
-                  <SelectItem value="always_ask">Always Ask</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+              <div className="min-w-0">
+                <p className="truncate text-fs-sm font-medium text-ink-1">{row.label}</p>
+                <p className="truncate text-caption text-ink-3">{row.hint}</p>
+              </div>
+              <SegmentedControl
+                size="sm"
+                ariaLabel={`${row.label} permission`}
+                value={displayMode(mode)}
+                onChange={(nextMode) => setCoreToolMode(row.pattern, nextMode as ToolApprovalMode)}
+                items={MODE_ITEMS}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      <details className="rounded-md border border-line-soft bg-surface-1 p-sp-3">
+        <summary className="cursor-pointer text-fs-meta font-medium text-ink-2">
+          Advanced patterns
+        </summary>
+        <div className="mt-sp-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-caption text-ink-3">Glob overrides for non-standard tools.</p>
             <Button
               type="button"
-              onClick={() => removeOverride(index)}
+              onClick={addOverride}
               variant="outline"
               size="sm"
-              className="h-9 px-2 text-xs text-text-secondary"
+              className="h-7 px-2 text-xs text-text-secondary"
             >
-              Remove
+              Add pattern
             </Button>
           </div>
-        ))}
-      </div>
+
+          {advancedOverrides.length === 0 && (
+            <p className="rounded-md border border-dashed border-line-soft px-sp-3 py-sp-2 text-caption text-ink-3">
+              No advanced overrides.
+            </p>
+          )}
+
+          {policy.overrides.map((override, index) =>
+            isCorePattern(override.pattern) ? null : (
+              <div key={`${override.pattern}-${index}`} className="grid grid-tool-overrides gap-2">
+                <Input
+                  value={override.pattern}
+                  onChange={(event) => updateOverride(index, { pattern: event.target.value })}
+                  placeholder="calendar.*"
+                  className="border-border-default bg-surface text-sm text-text-primary"
+                />
+                <Select
+                  value={override.mode}
+                  onValueChange={(mode) =>
+                    updateOverride(index, { mode: mode as ToolApprovalMode })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {ADVANCED_MODE_ITEMS.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  onClick={() => removeOverride(index)}
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-2 text-xs text-text-secondary"
+                >
+                  Remove
+                </Button>
+              </div>
+            ),
+          )}
+        </div>
+      </details>
     </div>
   );
 }

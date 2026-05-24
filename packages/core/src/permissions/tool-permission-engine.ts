@@ -59,6 +59,9 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
         employeeId: request.employeeId,
       });
     }
+    if (employeeDecision?.behavior === 'deny') {
+      return employeeDecision;
+    }
 
     const granted = this.deps.grants?.consumeMatchingGrant({
       threadId: request.threadId,
@@ -130,6 +133,19 @@ export class ToolPermissionEngine implements ToolPermissionAuthorizer {
 
     const employeeMatch = resolveEmployeePolicyMatch(employeePolicy, request.toolName);
     const policyHash = await buildEmployeePolicyHash(employeePolicy, employeeMatch);
+    if (employeeMatch.mode === 'deny') {
+      return {
+        behavior: 'deny',
+        source: 'employee',
+        reason: employeeMatch.matchedPattern
+          ? `Employee override '${employeeMatch.matchedPattern}' blocks this tool.`
+          : 'Employee default policy blocks this tool.',
+        approvedBy: 'employee:deny',
+        ...(employeeMatch.matchedPattern ? { matchedPattern: employeeMatch.matchedPattern } : {}),
+        policyHash,
+      };
+    }
+
     if (employeeMatch.mode === 'auto') {
       return {
         behavior: 'allow',

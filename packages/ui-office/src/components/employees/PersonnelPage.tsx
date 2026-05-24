@@ -26,6 +26,9 @@ import { useEmployeeEditor } from '../../hooks/useEmployeeEditor';
 import { lookupExternalBrand } from '../../lib/brand-registry';
 import { ROLE_LABELS, ROLE_OPTIONS } from '../../lib/roles';
 import { useSidebarCollapse } from '../../lib/sidebar-collapse-store.js';
+import { STATE_LABELS } from '../../lib/state-labels';
+import { STATE_VARIANTS } from '../../lib/state-variants';
+import { useAgentStates } from '../../runtime/use-agent-states';
 import { useOffisimRuntimeServices } from '../../runtime/offisim-runtime-context';
 import { useCompany } from '../company/CompanyContext.js';
 import { EmployeeAvatar } from '../shared/EmployeeAvatar';
@@ -87,6 +90,7 @@ export function PersonnelPage({
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleSlug | 'all'>('all');
   const listFocusRef = useRef<HTMLElement | null>(null);
+  const agentStates = useAgentStates();
 
   // Holds the latest roster so the selection→editor effect can short-circuit
   // the redundant `findById` when the row is already in hand from `findByCompany`.
@@ -328,6 +332,7 @@ export function PersonnelPage({
               const isSelected = row.employee_id === sessionState.selectedEmployeeId;
               const isExternal = row.is_external === 1;
               const brandLabel = isExternal ? lookupExternalBrand(row.brand_key).displayName : null;
+              const liveState = agentStates.get(row.employee_id)?.state ?? 'idle';
               return (
                 <Button
                   key={row.employee_id}
@@ -355,6 +360,7 @@ export function PersonnelPage({
                       <span className="text-caption text-text-secondary">
                         {ROLE_LABELS[row.role_slug] ?? row.role_slug}
                       </span>
+                      <LiveStatePill state={liveState} />
                       {brandLabel && (
                         <Badge size="xs" variant="outline">
                           {brandLabel}
@@ -539,6 +545,16 @@ function DetailHeader({ employee, onBack }: { employee: EmployeeRow; onBack?: ()
         )}
       </div>
     </div>
+  );
+}
+
+function LiveStatePill({ state }: { state: string }) {
+  const normalized = state || 'idle';
+  if (normalized === 'idle') return null;
+  return (
+    <Badge size="xs" variant={STATE_VARIANTS[normalized] ?? 'secondary'}>
+      {STATE_LABELS[normalized] ?? normalized}
+    </Badge>
   );
 }
 

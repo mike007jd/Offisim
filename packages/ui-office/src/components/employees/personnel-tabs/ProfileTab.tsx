@@ -2,6 +2,7 @@ import { computeFloorPlan } from '@offisim/renderer';
 import type { RoleSlug } from '@offisim/shared-types';
 import { extractZoneSlug } from '@offisim/shared-types';
 import {
+  Badge,
   Button,
   Input,
   SegmentedControl,
@@ -18,10 +19,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useCompanyZones } from '../../../hooks/useCompanyZones.js';
 import type { UseEmployeeEditorReturn } from '../../../hooks/useEmployeeEditor';
 import { buildSystemPrompt } from '../../../lib/build-system-prompt';
+import { lookupExternalBrand } from '../../../lib/brand-registry';
 import { ROLE_OPTIONS } from '../../../lib/roles';
 import { useCompany } from '../../company/CompanyContext.js';
 import { SkillBindingList } from '../SkillBindingList';
-import { ToolPermissionEditor } from '../ToolPermissionEditor';
 
 interface ProviderOption {
   value: string;
@@ -102,7 +103,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
   const { activeCompanyId } = useCompany();
   const { zones: companyZones } = useCompanyZones();
   const isEditMode = employeeId !== null;
-  const canSave = isDirty && formData.name.trim() !== '' && !isSaving;
+  const canSave = !formData.isExternal && isDirty && formData.name.trim() !== '' && !isSaving;
   const modelMode = formData.modelPreference.trim() ? 'custom' : 'inherit';
 
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
@@ -156,14 +157,54 @@ export function ProfileTab({ editor }: ProfileTabProps) {
     ? (workstationOptions.find((w) => w.value === formData.workstation_id)?.label ?? 'Assigned')
     : null;
 
+  if (formData.isExternal) {
+    const brand = lookupExternalBrand(formData.brandKey);
+    const roleLabel = ROLE_OPTIONS.find((role) => role.value === formData.role_slug)?.label;
+    return (
+      <div className="flex h-full flex-col bg-surface-elevated">
+        <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-sp-5">
+          <div className="flex w-full flex-col pb-10">
+            <div className="mt-sp-5 rounded-md border border-line-soft bg-surface-sunken px-sp-4 py-sp-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-fs-sm font-semibold text-ink-1">Brand-managed employee</p>
+                  <p className="mt-1 text-caption text-ink-3">
+                    Profile, runtime, and permissions are controlled by the external A2A endpoint.
+                  </p>
+                </div>
+                <Badge variant="outline" size="xs" className="shrink-0">
+                  {brand.displayName}
+                </Badge>
+              </div>
+            </div>
+
+            <ProfileSection title="Identity">
+              <ReadOnlyField label="Name" value={formData.name || 'Unnamed employee'} />
+              <ReadOnlyField label="Role" value={roleLabel ?? formData.role_slug} />
+              <ReadOnlyField label="Status" value={formData.enabled ? 'Enabled' : 'Disabled'} />
+              <ReadOnlyField label="Brand" value={brand.displayName} />
+              <ReadOnlyField label="Workstation" value={workstationLabel ?? 'Unassigned'} />
+            </ProfileSection>
+
+            <ProfileSection title="Persona">
+              <ReadOnlyField label="Expertise" value={formData.expertise || 'Managed externally'} />
+              <ReadOnlyField label="Working Style" value={formData.style || 'Managed externally'} />
+              <ReadOnlyField
+                label="Instructions"
+                value={formData.customInstructions || 'Managed externally'}
+              />
+            </ProfileSection>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col bg-surface-elevated">
       <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-sp-5">
         <div className="flex w-full flex-col pb-32">
-          <ProfileSection
-            title="Identity"
-            description="Employee record, role, and workstation binding."
-          >
+          <ProfileSection title="Identity">
             <FieldStack>
               <FieldLabel htmlFor="editor-name">Name</FieldLabel>
               <Input
@@ -234,10 +275,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
             </FieldStack>
           </ProfileSection>
 
-          <ProfileSection
-            title="Persona"
-            description="Behavioral profile used to compose the system prompt."
-          >
+          <ProfileSection title="Persona">
             <FieldStack>
               <FieldLabel htmlFor="editor-expertise">Expertise</FieldLabel>
               <Textarea
@@ -337,10 +375,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
             </div>
           </ProfileSection>
 
-          <ProfileSection
-            title="Runtime and tools"
-            description="Model override, token budget, skills, and tool access."
-          >
+          <ProfileSection title="Config">
             <FieldStack>
               <FieldLabel>Model mode</FieldLabel>
               <SegmentedControl
@@ -349,7 +384,7 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 value={modelMode}
                 onChange={handleModelModeChange}
                 items={[
-                  { value: 'inherit', label: 'Inherit defaults' },
+                  { value: 'inherit', label: 'Inherit unified setting' },
                   { value: 'custom', label: 'Custom model' },
                 ]}
               />
@@ -443,20 +478,13 @@ export function ProfileTab({ editor }: ProfileTabProps) {
                 </p>
               )}
             </FieldStack>
-            {isEditMode && employeeId && (
-              <FieldStack>
-                <FieldLabel>Skills</FieldLabel>
-                <SkillBindingList companyId={activeCompanyId} employeeId={employeeId} />
-              </FieldStack>
-            )}
-            <FieldStack>
-              <FieldLabel>Tool Permissions</FieldLabel>
-              <ToolPermissionEditor
-                value={formData.toolPermissionPolicy}
-                onChange={(value) => updateField('toolPermissionPolicy', value)}
-              />
-            </FieldStack>
           </ProfileSection>
+
+          {isEditMode && employeeId && (
+            <ProfileSection title="Skills">
+              <SkillBindingList companyId={activeCompanyId} employeeId={employeeId} />
+            </ProfileSection>
+          )}
         </div>
       </div>
 
@@ -495,11 +523,9 @@ export function ProfileTab({ editor }: ProfileTabProps) {
 
 function ProfileSection({
   title,
-  description,
   children,
 }: {
   title: string;
-  description: string;
   children: ReactNode;
 }) {
   return (
@@ -508,7 +534,6 @@ function ProfileSection({
         <h3 className="text-fs-micro font-semibold uppercase tracking-ls-caps text-ink-3">
           {title}
         </h3>
-        <p className="mt-1 text-fs-sm leading-relaxed text-ink-3">{description}</p>
       </header>
       <div className="flex flex-col gap-sp-3">{children}</div>
     </section>
@@ -528,5 +553,16 @@ function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: ReactNo
     <label htmlFor={htmlFor} className={className}>
       {children}
     </label>
+  );
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <FieldStack>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="min-h-9 rounded-md border border-line-soft bg-surface-1 px-3 py-2 text-fs-sm text-ink-1">
+        {value}
+      </div>
+    </FieldStack>
   );
 }

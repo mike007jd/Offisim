@@ -54,7 +54,9 @@
   }
 
   .grid-personnel-desktop-collapsed {
-    grid-template-columns: var(--personnel-left-rail-collapsed) minmax(0, 1fr) var(--personnel-inspector);
+    grid-template-columns: var(--personnel-left-rail-collapsed) minmax(0, 1fr) var(
+        --personnel-inspector
+      );
   }
 
   .grid-personnel-tablet-expanded {
@@ -138,6 +140,10 @@
 
   .grid-tool-overrides {
     grid-template-columns: 1fr 8.75rem auto;
+  }
+
+  .grid-tool-permission-row {
+    grid-template-columns: minmax(0, 1fr) 12rem;
   }
 
   .max-w-step-tooltip {

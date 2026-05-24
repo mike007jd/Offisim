@@ -9,6 +9,7 @@ import {
   RuntimeBindingControl,
   type RuntimeBindingResolvedSource,
 } from '../../runtime/RuntimeBindingControl.js';
+import { ToolPermissionEditor } from '../ToolPermissionEditor';
 import { TabScrollShell } from './shared';
 
 interface RuntimeTabProps {
@@ -52,7 +53,7 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div data-personnel-tab-scroll className="flex-1 overflow-y-auto px-6 py-6">
         <div className="flex w-full flex-col gap-6 pb-32">
           <section className="flex flex-col gap-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
@@ -64,6 +65,15 @@ export function RuntimeTab({ editor }: RuntimeTabProps) {
               onChange={handleChange}
               resolvedBinding={resolved.binding}
               resolvedSource={resolved.source}
+            />
+          </section>
+          <section className="flex flex-col gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              Tool permissions
+            </h3>
+            <ToolPermissionEditor
+              value={formData.toolPermissionPolicy}
+              onChange={(value) => updateField('toolPermissionPolicy', value)}
             />
           </section>
         </div>
