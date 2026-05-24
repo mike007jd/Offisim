@@ -254,48 +254,65 @@ export function ChatInput({
   ]);
 
   // ── Select slash command ────────────────────────────────────────
-  function selectSlashCommand(cmd: ChatCommand) {
-    const currentText = aui.composer().getState().text;
-    const slashTrigger = detectComposerTrigger(
-      currentText,
-      '/',
-      textareaRef.current?.selectionStart ?? currentText.length,
-    );
-    if (slashTrigger && slashTrigger.offset !== 0) {
-      setComposerText(currentText);
-      requestAnimationFrame(submitComposerForm);
-      return;
-    }
-    setComposerText(`/${cmd.name} `);
-    textareaRef.current?.focus();
-  }
+  const selectSlashCommand = useCallback(
+    (cmd: ChatCommand) => {
+      const currentText = aui.composer().getState().text;
+      const slashTrigger = detectComposerTrigger(
+        currentText,
+        '/',
+        textareaRef.current?.selectionStart ?? currentText.length,
+      );
+      if (slashTrigger && slashTrigger.offset !== 0) {
+        setComposerText(currentText);
+        requestAnimationFrame(submitComposerForm);
+        return;
+      }
+      setComposerText(`/${cmd.name} `);
+      textareaRef.current?.focus();
+    },
+    [aui, setComposerText, submitComposerForm],
+  );
+
+  const slashCommands = useMemo(
+    () =>
+      visibleCommands.map((command) => ({
+        id: command.name,
+        label: `/${command.name}`,
+        description: command.description,
+        execute: () => selectSlashCommand(command),
+      })),
+    [selectSlashCommand, visibleCommands],
+  );
+
+  const mentionItems = useMemo(
+    () =>
+      mentionOptions.map((option) => ({
+        id: option.id,
+        type: 'mention' as const,
+        label: option.name,
+        description: option.role,
+        metadata: {
+          initial: option.name[0] ?? '',
+          role: option.role,
+        },
+      })),
+    [mentionOptions],
+  );
+
+  const handleMentionInserted = useCallback(() => {
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
 
   const slashCommand = unstable_useSlashCommandAdapter({
-    commands: visibleCommands.map((command) => ({
-      id: command.name,
-      label: `/${command.name}`,
-      description: command.description,
-      execute: () => selectSlashCommand(command),
-    })),
+    commands: slashCommands,
     removeOnExecute: true,
   });
 
   const mention = unstable_useMentionAdapter({
     includeModelContextTools: false,
     formatter: mentionFormatter,
-    items: mentionOptions.map((option) => ({
-      id: option.id,
-      type: 'mention',
-      label: option.name,
-      description: option.role,
-      metadata: {
-        initial: option.name[0] ?? '',
-        role: option.role,
-      },
-    })),
-    onInserted: () => {
-      requestAnimationFrame(() => textareaRef.current?.focus());
-    },
+    items: mentionItems,
+    onInserted: handleMentionInserted,
   });
 
   function slashQueryHasNoResults(value: string, cursorPosition: number): boolean {

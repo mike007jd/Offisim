@@ -4,7 +4,7 @@ import type { ChatAttachmentRef } from '@offisim/shared-types';
 import type { InteractionRequest, ProjectRow } from '@offisim/shared-types';
 import { Button } from '@offisim/ui-core';
 import { ArrowLeft, BriefcaseBusiness, Paperclip } from 'lucide-react';
-import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useDeliverables } from '../../hooks/useDeliverables';
 import { useErrorTracking } from '../../hooks/useErrorTracking';
 import { useMeeting } from '../../hooks/useMeeting.js';
@@ -87,6 +87,7 @@ interface ChatPanelProps {
 }
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
+const EMPTY_ATTACHMENT_REFS: ChatAttachmentRef[] = [];
 const DIRECT_CHAT_TARGET_MISSING_ERROR =
   'Direct chat target missing — selectedEmployeeId not propagated';
 const MAX_AVAILABLE_THREAD_ATTACHMENTS = 20;
@@ -138,7 +139,7 @@ function collectThreadAttachmentRefs(
   conversations: Record<string, { messages: ChatMessage[] }>,
   threadId: string | null,
 ): ChatAttachmentRef[] {
-  if (!threadId) return [];
+  if (!threadId) return EMPTY_ATTACHMENT_REFS;
   const refs: ChatAttachmentRef[] = [];
   for (const [key, conversation] of Object.entries(conversations)) {
     if (conversationKeyThreadId(key) !== threadId) continue;
@@ -147,7 +148,20 @@ function collectThreadAttachmentRefs(
       refs.push(...message.attachments);
     }
   }
+  if (refs.length === 0) return EMPTY_ATTACHMENT_REFS;
   return mergeAttachmentRefs(refs);
+}
+
+function createThreadAttachmentRefsSelector(threadId: string | null) {
+  let lastConversations: Record<string, { messages: ChatMessage[] }> | null = null;
+  let lastResult: ChatAttachmentRef[] = EMPTY_ATTACHMENT_REFS;
+
+  return (state: { conversations: Record<string, { messages: ChatMessage[] }> }) => {
+    if (state.conversations === lastConversations) return lastResult;
+    lastConversations = state.conversations;
+    lastResult = collectThreadAttachmentRefs(state.conversations, threadId);
+    return lastResult;
+  };
 }
 
 function resolveInteractionTargetEmployeeId(
@@ -274,12 +288,11 @@ export function ChatPanel({
       [conversationKey],
     ),
   );
-  const availableThreadAttachments = useChatSessionStore(
-    useCallback(
-      (state) => collectThreadAttachmentRefs(state.conversations, activeThreadId),
-      [activeThreadId],
-    ),
+  const availableThreadAttachmentsSelector = useMemo(
+    () => createThreadAttachmentRefsSelector(activeThreadId),
+    [activeThreadId],
   );
+  const availableThreadAttachments = useChatSessionStore(availableThreadAttachmentsSelector);
 
   // assistant-ui thread-list adapter (backed by chat_threads). Switching routes
   // through the SSOT writer when provided; otherwise switching is inert.
