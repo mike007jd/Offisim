@@ -79,7 +79,7 @@ function truncateLabel(text: string, maxLength: number): string {
 
 /**
  * Single source of truth for skill install outcome chat copy. Consumed by
- * both the activity rail (ui-office) and the chat assistant message surface
+ * both runtime activity views and the chat assistant message surface
  * (`interaction-follow-up.ts`). Slug comes from the outcome itself
  * (`payload.skillSlug`); when `kind` has no slug, the no-slug fallback runs.
  */

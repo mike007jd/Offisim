@@ -1,6 +1,6 @@
 // ── Zone Domain Model ──────────────────────────────────────────────
 // Single source of truth for zone types across the entire Offisim codebase.
-// Replaces both ui-office/lib/zone-config.ts and renderer/tokens/departments.ts.
+// Shared zone contract for the renderer domain model.
 
 import type { SemanticCategory } from './prefab.js';
 import type { RoleSlug } from './roles.js';

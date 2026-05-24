@@ -1,6 +1,6 @@
 // ── System Zone Templates ──────────────────────────────────────────
 // Single source of truth for the 7 default zones seeded per company.
-// Merges coordinates/accent from ui-office zone-config + floorColors from renderer departments.
+// Shared system zone templates consumed by renderer/domain code.
 // All consumers should derive from SYSTEM_ZONE_TEMPLATES instead of maintaining their own mapping.
 
 import { normalizeZoneId } from './zone-resolution.js';

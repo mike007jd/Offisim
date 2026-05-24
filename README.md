@@ -44,7 +44,7 @@ smaller set of retained gates that must match the risk of the change:
 - aggregated security harnesses for P0/P1 platform, marketplace, local-tool, attachment, registry, provider-list, SOP sync, and web fetch/search boundaries
 - targeted Rust safety checks for desktop credential transport, sidecars, workspace containment, local shell/git/path commands, and install materialization
 - platform migration generation/drift checks for `apps/platform` / `packages/db-platform`
-- package builds for changed desktop UI surfaces before any desktop verification
+- package builds for the desktop renderer before any desktop verification
 - release `.app` live verification from the current worktree path for desktop runtime behavior
 
 Do not reintroduce broad `vitest`, Playwright, `pnpm test`, `test:ai`, or ad-hoc
@@ -53,10 +53,10 @@ release evidence must name the deterministic harness/Rust/platform/build/live
 gate that actually proved the behavior.
 
 For desktop release verification, dev webviews, dev servers, localhost browser
-results, and old bundle-id launches are not sufficient. Build `@offisim/ui-office`
-first when it changes, then build `@offisim/desktop`, launch the exact release
-`.app` path from this worktree, and record the app path/hash plus Computer Use or
-equivalent release-app evidence.
+results, and old bundle-id launches are not sufficient. Build the desktop
+renderer and `@offisim/desktop`, launch the exact release `.app` path from this
+worktree, and record the app path/hash plus Computer Use or equivalent
+release-app evidence.
 
 Detailed machine setup, env notes, and startup combinations live in `Docs/00_start_here/LOCAL_DEVELOPMENT.md`.
 Deployment-specific guidance lives in `Docs/00_start_here/DEPLOYMENT.md`.
@@ -91,12 +91,10 @@ The product and package scope are branded as `Offisim` / `@offisim/*`.
 Current application/package shape:
 
 - `apps/desktop` — Tauri 2 desktop app and release target
-- `apps/desktop/renderer` — internal Vite + React WebView renderer owned by the desktop app
+- `apps/desktop/renderer` — internal Vite + React WebView renderer owned by the desktop app; currently a clean new-design mount point
 - `apps/platform` — registry/auth/review/install support API
 - `packages/core` — orchestration kernel and runtime domain logic
 - `packages/renderer` — scene tokens, layout engine, prefab/state logic
-- `packages/ui-office` — office shell and scene views (`Three.js` 3D + `SVG` 2D)
-- `packages/ui-core` — shared DOM primitives
 - `packages/asset-schema` / `install-core` / `registry-client` / `db-*` / `shared-types` / `doc-engine` — contracts and support layers
 
 ## Document map
