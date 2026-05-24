@@ -40,19 +40,15 @@ export function StagedAttachmentChip({ attachment, onRemove }: StagedAttachmentC
   }, [attachment.error, attachment.summary]);
 
   return (
-    <div className="flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-r-sm border border-line bg-surface-1 px-2 py-1 text-fs-meta">
+    <div className="staged-attachment-chip">
       {isImage && objectUrl ? (
-        <img
-          src={objectUrl}
-          alt={attachment.filename}
-          className="h-8 w-8 shrink-0 rounded-r-xs object-cover"
-        />
+        <img src={objectUrl} alt={attachment.filename} className="staged-attachment-thumbnail" />
       ) : (
-        <Icon className="h-4 w-4 shrink-0 text-ink-3" />
+        <Icon data-icon="attachment-kind" />
       )}
-      <div className="min-w-0 flex-1">
-        <span className="block truncate font-medium text-ink-1">{attachment.filename}</span>
-        <div className="truncate text-fs-meta text-ink-4">
+      <div className="staged-attachment-body">
+        <span className="staged-attachment-name">{attachment.filename}</span>
+        <div className="staged-attachment-meta">
           {formatAttachmentBytes(attachment.byteLength)} · {summary}
         </div>
       </div>
@@ -62,9 +58,9 @@ export function StagedAttachmentChip({ attachment, onRemove }: StagedAttachmentC
         size="icon"
         onClick={() => onRemove(attachment.attachmentId)}
         aria-label={`Remove ${attachment.filename}`}
-        className="size-5 shrink-0 text-ink-4 hover:text-ink-1"
+        className="staged-attachment-remove"
       >
-        <X className="size-3" />
+        <X data-icon="remove" />
       </Button>
     </div>
   );

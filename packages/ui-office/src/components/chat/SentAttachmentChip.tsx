@@ -1,6 +1,5 @@
 import type { ChatAttachmentRef } from '@offisim/shared-types';
-import { Button, cn } from '@offisim/ui-core';
-import { cva } from 'class-variance-authority';
+import { Button } from '@offisim/ui-core';
 import { Download, Paperclip } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import type { AttachmentStore } from '../../lib/attachment-store.js';
@@ -50,20 +49,6 @@ export interface SentAttachmentChipProps {
   attachmentStore: AttachmentStore | null;
 }
 
-const sentAttachmentChipVariants = cva(
-  'flex w-full min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-r-sm border px-2 py-1 text-fs-meta',
-  {
-    variants: {
-      state: {
-        default: 'border-line bg-surface-1 text-ink-1',
-        evicted: 'cursor-default border-line bg-surface-2 text-ink-4',
-        parseError: 'border-warn/60 bg-warn-surface text-ink-1',
-      },
-    },
-    defaultVariants: { state: 'default' },
-  },
-);
-
 function SentAttachmentImageFrame({
   children,
 }: {
@@ -96,7 +81,7 @@ export function SentAttachmentChip({ attachment, attachmentStore }: SentAttachme
     <div
       data-slot="sent-attachment-chip"
       data-state={state}
-      className={sentAttachmentChipVariants({ state })}
+      className="sent-attachment-chip"
       title={
         isEvicted
           ? 'No longer available locally. Re-attach to recover.'
@@ -114,33 +99,28 @@ export function SentAttachmentChip({ attachment, attachmentStore }: SentAttachme
               className="sent-attachment-image"
             />
           ) : (
-            <Icon className="h-4 w-4 shrink-0 text-ink-3" />
+            <Icon data-icon="attachment-kind" />
           )}
         </SentAttachmentImageFrame>
       ) : (
-        <Icon className="h-4 w-4 shrink-0 text-ink-3" />
+        <Icon data-icon="attachment-kind" />
       )}
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium">{attachment.filename}</div>
-        <div className="truncate text-fs-meta text-ink-4">
+      <div className="sent-attachment-body">
+        <div className="sent-attachment-name">{attachment.filename}</div>
+        <div className="sent-attachment-meta">
           {formatAttachmentBytes(attachment.byteLength)}
           {summary ? ` · ${summary}` : ''}
         </div>
       </div>
       {status.kind === 'ready' && status.objectUrl ? (
-        <Button
-          asChild
-          variant="ghost"
-          size="iconSm"
-          className={cn('shrink-0 text-ink-4', !isEvicted && 'hover:text-ink-1')}
-        >
+        <Button asChild variant="ghost" size="iconSm" className="sent-attachment-download">
           <a
             href={status.objectUrl}
             download={attachment.filename}
             aria-label={`Download ${attachment.filename}`}
             title={`Download ${attachment.filename}`}
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download data-icon="download" />
           </a>
         </Button>
       ) : null}
