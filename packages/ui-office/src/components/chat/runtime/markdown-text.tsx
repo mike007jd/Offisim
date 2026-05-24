@@ -35,8 +35,8 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
   };
 
   return (
-    <div className="aui-code-header-root mt-2.5 flex items-center justify-between rounded-r-lg border border-line/50 border-b-0 bg-surface-sunken/50 px-3 py-1.5 text-fs-meta">
-      <span className="aui-code-header-language font-medium text-ink-3 lowercase">{language}</span>
+    <div className="aui-code-header-root">
+      <span className="aui-code-header-language">{language}</span>
       <TooltipIconButton tooltip="Copy" onClick={onCopy}>
         {!isCopied && <CopyIcon />}
         {isCopied && <CheckIcon />}
@@ -70,156 +70,32 @@ const useCopyToClipboard = ({
 };
 
 const defaultComponents = memoizeMarkdownComponents({
-  h1: ({ className, ...props }) => (
-    <h1
-      className={cn(
-        'aui-md-h1 mb-2 scroll-m-20 font-semibold text-base first:mt-0 last:mb-0',
-        className,
-      )}
-      {...props}
-    />
-  ),
-  h2: ({ className, ...props }) => (
-    <h2
-      className={cn(
-        'aui-md-h2 mt-3 mb-1.5 scroll-m-20 font-semibold text-fs-sm first:mt-0 last:mb-0',
-        className,
-      )}
-      {...props}
-    />
-  ),
-  h3: ({ className, ...props }) => (
-    <h3
-      className={cn(
-        'aui-md-h3 mt-2.5 mb-1 scroll-m-20 font-semibold text-fs-sm first:mt-0 last:mb-0',
-        className,
-      )}
-      {...props}
-    />
-  ),
-  h4: ({ className, ...props }) => (
-    <h4
-      className={cn(
-        'aui-md-h4 mt-2 mb-1 scroll-m-20 font-medium text-fs-sm first:mt-0 last:mb-0',
-        className,
-      )}
-      {...props}
-    />
-  ),
-  h5: ({ className, ...props }) => (
-    <h5
-      className={cn('aui-md-h5 mt-2 mb-1 font-medium text-fs-sm first:mt-0 last:mb-0', className)}
-      {...props}
-    />
-  ),
-  h6: ({ className, ...props }) => (
-    <h6
-      className={cn('aui-md-h6 mt-2 mb-1 font-medium text-fs-sm first:mt-0 last:mb-0', className)}
-      {...props}
-    />
-  ),
-  p: ({ className, ...props }) => (
-    <p
-      className={cn('aui-md-p my-2.5 leading-normal first:mt-0 last:mb-0', className)}
-      {...props}
-    />
-  ),
-  a: ({ className, ...props }) => (
-    <a
-      className={cn(
-        'aui-md-a text-accent underline underline-offset-2 hover:text-accent/80',
-        className,
-      )}
-      {...props}
-    />
-  ),
+  h1: ({ className, ...props }) => <h1 className={cn('aui-md-h1', className)} {...props} />,
+  h2: ({ className, ...props }) => <h2 className={cn('aui-md-h2', className)} {...props} />,
+  h3: ({ className, ...props }) => <h3 className={cn('aui-md-h3', className)} {...props} />,
+  h4: ({ className, ...props }) => <h4 className={cn('aui-md-h4', className)} {...props} />,
+  h5: ({ className, ...props }) => <h5 className={cn('aui-md-h5', className)} {...props} />,
+  h6: ({ className, ...props }) => <h6 className={cn('aui-md-h6', className)} {...props} />,
+  p: ({ className, ...props }) => <p className={cn('aui-md-p', className)} {...props} />,
+  a: ({ className, ...props }) => <a className={cn('aui-md-a', className)} {...props} />,
   blockquote: ({ className, ...props }) => (
-    <blockquote
-      className={cn(
-        'aui-md-blockquote my-2.5 border-line/30 border-s-2 ps-3 text-ink-3 italic',
-        className,
-      )}
-      {...props}
-    />
+    <blockquote className={cn('aui-md-blockquote', className)} {...props} />
   ),
-  ul: ({ className, ...props }) => (
-    <ul
-      className={cn('aui-md-ul my-2 ms-4 list-disc marker:text-ink-3 [&>li]:mt-1', className)}
-      {...props}
-    />
-  ),
-  ol: ({ className, ...props }) => (
-    <ol
-      className={cn('aui-md-ol my-2 ms-4 list-decimal marker:text-ink-3 [&>li]:mt-1', className)}
-      {...props}
-    />
-  ),
-  hr: ({ className, ...props }) => (
-    <hr className={cn('aui-md-hr my-2 border-line/20', className)} {...props} />
-  ),
+  ul: ({ className, ...props }) => <ul className={cn('aui-md-ul', className)} {...props} />,
+  ol: ({ className, ...props }) => <ol className={cn('aui-md-ol', className)} {...props} />,
+  hr: ({ className, ...props }) => <hr className={cn('aui-md-hr', className)} {...props} />,
   table: ({ className, ...props }) => (
-    <table
-      className={cn(
-        'aui-md-table my-2 w-full border-separate border-spacing-0 overflow-y-auto',
-        className,
-      )}
-      {...props}
-    />
+    <table className={cn('aui-md-table', className)} {...props} />
   ),
-  th: ({ className, ...props }) => (
-    <th
-      className={cn(
-        'aui-md-th bg-surface-sunken px-2 py-1 text-start font-medium first:rounded-r-lg last:rounded-r-lg [[align=center]]:text-center [[align=right]]:text-right',
-        className,
-      )}
-      {...props}
-    />
-  ),
-  td: ({ className, ...props }) => (
-    <td
-      className={cn(
-        'aui-md-td border-line/20 border-s border-b px-2 py-1 text-start last:border-e [[align=center]]:text-center [[align=right]]:text-right',
-        className,
-      )}
-      {...props}
-    />
-  ),
-  tr: ({ className, ...props }) => (
-    <tr
-      className={cn(
-        'aui-md-tr m-0 border-b p-0 first:border-t [&:last-child>td:first-child]:rounded-r-xs-es-lg [&:last-child>td:last-child]:rounded-r-xs-ee-lg',
-        className,
-      )}
-      {...props}
-    />
-  ),
-  li: ({ className, ...props }) => (
-    <li className={cn('aui-md-li leading-normal', className)} {...props} />
-  ),
-  sup: ({ className, ...props }) => (
-    <sup className={cn('aui-md-sup [&>a]:text-fs-meta [&>a]:no-underline', className)} {...props} />
-  ),
-  pre: ({ className, ...props }) => (
-    <pre
-      className={cn(
-        'aui-md-pre overflow-x-auto rounded-t-none rounded-r-lg border border-line/50 border-t-0 bg-surface-sunken/30 p-3 text-fs-meta leading-relaxed',
-        className,
-      )}
-      {...props}
-    />
-  ),
+  th: ({ className, ...props }) => <th className={cn('aui-md-th', className)} {...props} />,
+  td: ({ className, ...props }) => <td className={cn('aui-md-td', className)} {...props} />,
+  tr: ({ className, ...props }) => <tr className={cn('aui-md-tr', className)} {...props} />,
+  li: ({ className, ...props }) => <li className={cn('aui-md-li', className)} {...props} />,
+  sup: ({ className, ...props }) => <sup className={cn('aui-md-sup', className)} {...props} />,
+  pre: ({ className, ...props }) => <pre className={cn('aui-md-pre', className)} {...props} />,
   code: function Code({ className, ...props }) {
     const isCodeBlock = useIsMarkdownCodeBlock();
-    return (
-      <code
-        className={cn(
-          !isCodeBlock &&
-            'aui-md-inline-code rounded-r-sm border border-line/50 bg-surface-sunken/50 px-1.5 py-0.5 font-mono text-fs-meta',
-          className,
-        )}
-        {...props}
-      />
-    );
+    return <code className={cn(!isCodeBlock && 'aui-md-inline-code', className)} {...props} />;
   },
   CodeHeader,
 });

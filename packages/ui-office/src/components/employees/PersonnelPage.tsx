@@ -11,13 +11,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  TABS_RETAIN_STATE_CLASS,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
   WorkspaceListSkeleton,
-  cn,
 } from '@offisim/ui-core';
 import { ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -479,46 +477,22 @@ function PersonnelTabs({
         ))}
       </TabsList>
       <div ref={tabBodyRef} className="personnel-tabs-body">
-        <TabsContent
-          value="profile"
-          forceMount
-          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
-        >
+        <TabsContent value="profile" forceMount className="personnel-tabs-content">
           <ProfileTab editor={editor} />
         </TabsContent>
-        <TabsContent
-          value="appearance"
-          forceMount
-          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
-        >
+        <TabsContent value="appearance" forceMount className="personnel-tabs-content">
           <AppearanceTab editor={editor} />
         </TabsContent>
-        <TabsContent
-          value="runtime"
-          forceMount
-          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
-        >
+        <TabsContent value="runtime" forceMount className="personnel-tabs-content">
           <RuntimeTab editor={editor} />
         </TabsContent>
-        <TabsContent
-          value="skills"
-          forceMount
-          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
-        >
+        <TabsContent value="skills" forceMount className="personnel-tabs-content">
           <SkillsTab companyId={activeCompanyId} employeeId={selectedEmployeeId} />
         </TabsContent>
-        <TabsContent
-          value="memory"
-          forceMount
-          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
-        >
+        <TabsContent value="memory" forceMount className="personnel-tabs-content">
           <MemoryTab companyId={activeCompanyId} employeeId={selectedEmployeeId} />
         </TabsContent>
-        <TabsContent
-          value="history"
-          forceMount
-          className={cn('personnel-tabs-content', TABS_RETAIN_STATE_CLASS)}
-        >
+        <TabsContent value="history" forceMount className="personnel-tabs-content">
           <HistoryTab
             employeeId={selectedEmployeeId}
             sourceAssetId={editor.sourceAssetId}

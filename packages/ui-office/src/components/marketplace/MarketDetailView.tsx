@@ -60,7 +60,7 @@ export function MarketDetailView({
 
   if (loading) {
     return (
-      <div className={cn('market-detail-view', isPanel && 'market-detail-view-panel')}>
+      <div className="market-detail-view" data-layout={isPanel ? 'panel' : layout}>
         <DetailHead onBack={onBack} kindChip={null} />
         <div className="market-detail-scroll">
           <DetailSkeleton />
@@ -71,7 +71,7 @@ export function MarketDetailView({
 
   if (unavailable || !detail) {
     return (
-      <div className={cn('market-detail-view', isPanel && 'market-detail-view-panel')}>
+      <div className="market-detail-view" data-layout={isPanel ? 'panel' : layout}>
         <DetailHead onBack={onBack} kindChip={null} />
         <div className="market-detail-unavailable">
           <p className="market-detail-unavailable-title">Listing unavailable</p>
@@ -106,16 +106,13 @@ export function MarketDetailView({
 
   return (
     <div
-      className={cn(
-        'market-detail-view',
-        isPanel && 'market-detail-view-panel',
-        rarityClassName(detail.kind),
-      )}
+      className={cn('market-detail-view', rarityClassName(detail.kind))}
+      data-layout={isPanel ? 'panel' : layout}
     >
       <DetailHead
         onBack={onBack}
         kindChip={
-          <span className="market-detail-kind-chip market-rarity-chip">
+          <span className="market-detail-kind-chip">
             {Icon && <Icon data-icon="kind" aria-hidden="true" />}
             {formatMarketKindLabel(detail.kind)}
           </span>
@@ -176,7 +173,8 @@ export function MarketDetailView({
               type="button"
               disabled
               variant="secondary"
-              className="market-detail-install market-detail-install-disabled"
+              className="market-detail-install"
+              data-state="disabled"
             >
               Installed
             </Button>
@@ -184,7 +182,8 @@ export function MarketDetailView({
             <Button
               type="button"
               onClick={() => onInstall(detail.listing_id, version)}
-              className="market-detail-install market-rarity-cta"
+              className="market-detail-install"
+              data-state="active"
             >
               Install
             </Button>
@@ -244,7 +243,9 @@ function MetaRow({ label, value, mono }: { label: string; value: string; mono?: 
   return (
     <div className="market-detail-meta-row">
       <dt className={CAPS_LABEL}>{label}</dt>
-      <dd className={cn('market-detail-meta-value', mono && 'market-detail-mono')}>{value}</dd>
+      <dd className="market-detail-meta-value" data-mono={mono ? 'true' : undefined}>
+        {value}
+      </dd>
     </div>
   );
 }
@@ -289,7 +290,8 @@ function ScreenshotCarousel({
               aria-label="Previous screenshot"
               variant="secondary"
               size="icon"
-              className="market-detail-shot-nav market-detail-shot-nav-prev"
+              className="market-detail-shot-nav"
+              data-direction="prev"
             >
               <ChevronLeft data-icon="shot-nav" aria-hidden="true" />
             </Button>
@@ -299,7 +301,8 @@ function ScreenshotCarousel({
               aria-label="Next screenshot"
               variant="secondary"
               size="icon"
-              className="market-detail-shot-nav market-detail-shot-nav-next"
+              className="market-detail-shot-nav"
+              data-direction="next"
             >
               <ChevronRight data-icon="shot-nav" aria-hidden="true" />
             </Button>
@@ -312,10 +315,8 @@ function ScreenshotCarousel({
                   size="icon"
                   onClick={() => setIndex(i)}
                   aria-label={`Show screenshot ${i + 1}`}
-                  className={cn(
-                    'market-detail-shot-dot',
-                    i === index && 'market-detail-shot-dot-active',
-                  )}
+                  className="market-detail-shot-dot"
+                  data-active={i === index ? 'true' : undefined}
                 />
               ))}
             </div>
@@ -355,7 +356,7 @@ function RequirementsSection({
             <span className={CAPS_LABEL}>MCPs</span>
             <div className="market-detail-chip-row">
               {mcps.map((m) => (
-                <span key={m} className={cn(CHIP, 'market-detail-mono')}>
+                <span key={m} className={CHIP} data-mono="true">
                   {m}
                 </span>
               ))}
@@ -369,7 +370,8 @@ function RequirementsSection({
               {models.map((m) => (
                 <span
                   key={m.profile}
-                  className={cn(CHIP, 'market-detail-mono')}
+                  className={CHIP}
+                  data-mono="true"
                   title={m.reason ?? undefined}
                 >
                   {m.profile}
