@@ -8,8 +8,18 @@
 import { getAllBuiltinPrefabs } from '@offisim/renderer';
 import type { PrefabDefinition, SemanticCategory, Zone } from '@offisim/shared-types';
 import { ZONE_PRESET_GROUPS, isRequiredArchetype } from '@offisim/shared-types';
-import { Button, cn } from '@offisim/ui-core';
-import { BookOpen, Cpu, Leaf, Monitor, Pencil, Plus, Server, Users } from 'lucide-react';
+import { Button } from '@offisim/ui-core';
+import {
+  BookOpen,
+  Cpu,
+  Leaf,
+  type LucideIcon,
+  Monitor,
+  Pencil,
+  Plus,
+  Server,
+  Users,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StudioPaletteCategoryHeader } from './StudioPaletteCategoryHeader.js';
 import { StudioPalettePrefabCard } from './StudioPalettePrefabCard.js';
@@ -21,22 +31,18 @@ import { useStudioStore } from './StudioState.js';
 interface CategoryMeta {
   id: SemanticCategory;
   label: string;
-  Icon: React.ComponentType<{ className?: string }>;
-  colorClass: string;
+  Icon: LucideIcon;
+  tone: 'accent' | 'warn' | 'ok' | 'danger' | 'muted';
 }
 
 const CATEGORIES: CategoryMeta[] = [
-  { id: 'workspace', label: 'Workspace', Icon: Monitor, colorClass: 'text-accent' },
-  { id: 'compute', label: 'Compute', Icon: Server, colorClass: 'text-accent' },
-  { id: 'knowledge', label: 'Knowledge', Icon: BookOpen, colorClass: 'text-warn' },
-  { id: 'collaboration', label: 'Collaboration', Icon: Users, colorClass: 'text-ok' },
-  { id: 'infrastructure', label: 'Infrastructure', Icon: Cpu, colorClass: 'text-danger' },
-  { id: 'decorative', label: 'Decorative', Icon: Leaf, colorClass: 'text-ink-2' },
+  { id: 'workspace', label: 'Workspace', Icon: Monitor, tone: 'accent' },
+  { id: 'compute', label: 'Compute', Icon: Server, tone: 'accent' },
+  { id: 'knowledge', label: 'Knowledge', Icon: BookOpen, tone: 'warn' },
+  { id: 'collaboration', label: 'Collaboration', Icon: Users, tone: 'ok' },
+  { id: 'infrastructure', label: 'Infrastructure', Icon: Cpu, tone: 'danger' },
+  { id: 'decorative', label: 'Decorative', Icon: Leaf, tone: 'muted' },
 ];
-
-// -- Styles -------------------------------------------------------------------
-
-const LIST_CLASS = 'flex-1 overflow-y-auto py-1';
 
 // -- Component ----------------------------------------------------------------
 
@@ -88,9 +94,9 @@ export function StudioPalette() {
   const isPlacing = tool === 'place';
 
   return (
-    <div className="absolute bottom-10 left-0 top-11 z-sticky flex w-60 flex-col overflow-hidden border-r border-line bg-surface-1 font-sans">
+    <div className="studio-palette">
       {/* Header */}
-      <div className="shrink-0 border-b border-line px-sp-3 py-sp-2 text-fs-micro font-black uppercase tracking-ls-caps text-ink-3">
+      <div className="studio-palette-head">
         {isEditingZone && focusedZone
           ? `${focusedZone.label} — Allowed Assets`
           : activeTab === 'assets'
@@ -100,14 +106,12 @@ export function StudioPalette() {
 
       {/* Tab content */}
       {isEditingZone && activeTab === 'assets' ? (
-        <div className={LIST_CLASS}>
+        <div className="studio-palette-list">
           {isEditingZone &&
             focusedZone &&
             focusedZone.allowedCategories.length > 0 &&
             visibleCategories.every((cat) => (grouped.get(cat.id)?.length ?? 0) === 0) && (
-              <div className="px-sp-3 py-sp-4 text-center text-fs-micro text-ink-3">
-                No prefabs allowed in this zone
-              </div>
+              <div className="studio-palette-empty">No prefabs allowed in this zone</div>
             )}
           {visibleCategories.map((cat) => {
             const items = grouped.get(cat.id) ?? [];
@@ -118,12 +122,12 @@ export function StudioPalette() {
                 <StudioPaletteCategoryHeader
                   collapsed={isCollapsed}
                   onClick={() => toggleCategory(cat.id)}
-                  icon={<cat.Icon className={`size-3 ${cat.colorClass}`} />}
+                  icon={<cat.Icon className="studio-palette-category-icon" data-tone={cat.tone} />}
                   label={cat.label}
                   count={items.length}
                 />
                 {!isCollapsed && (
-                  <div className="grid grid-cols-2 gap-sp-1 px-sp-2 pb-sp-2 pt-sp-1">
+                  <div className="studio-palette-prefab-grid">
                     {items.map((prefab) => {
                       const isActive = isPlacing && placingPrefab?.prefabId === prefab.prefabId;
                       return (
@@ -173,23 +177,21 @@ function ZoneOverview({
   }, [instances]);
 
   return (
-    <div className={LIST_CLASS}>
-      <div className="flex flex-col gap-sp-2 p-sp-2">
+    <div className="studio-palette-list">
+      <div className="studio-zone-overview">
         <Button
           type="button"
           size="sm"
           onClick={() => setShowPresets((open) => !open)}
           aria-expanded={showPresets}
-          className="min-h-8 justify-center gap-sp-1 font-bold"
+          className="studio-zone-add-button"
         >
-          <Plus className="size-3.5" aria-hidden="true" />
+          <Plus data-icon="inline-start" aria-hidden="true" />
           Add Zone
         </Button>
 
         {sortedZones.length === 0 ? (
-          <div className="rounded-r-md border border-dashed border-line-soft p-sp-3 text-center text-fs-micro text-ink-3">
-            No zones yet.
-          </div>
+          <div className="studio-zone-empty">No zones yet.</div>
         ) : (
           sortedZones.map((zone) => (
             <ZoneOverviewRow
@@ -205,7 +207,7 @@ function ZoneOverview({
       </div>
 
       {showPresets && (
-        <div className="border-t border-line-soft pt-sp-1">
+        <div className="studio-zone-presets">
           {ZONE_PRESET_GROUPS.map((group) => {
             const isCollapsed = collapsed[`zone-${group.archetype}`] ?? false;
             const required = isRequiredArchetype(group.archetype);
@@ -215,14 +217,14 @@ function ZoneOverview({
                 <StudioPaletteCategoryHeader
                   collapsed={isCollapsed}
                   onClick={() => onToggleCategory(`zone-${group.archetype}`)}
-                  icon={<span className="text-fs-micro">{group.icon}</span>}
+                  icon={<span className="studio-zone-group-icon">{group.icon}</span>}
                   label={group.label}
                   count={group.presets.length}
                   required={required}
                   ariaLabel={`${isCollapsed ? 'Expand' : 'Collapse'} ${group.label} zone group (${group.presets.length} presets)`}
                 />
                 {!isCollapsed && (
-                  <div className="flex flex-col gap-sp-1 px-sp-2 pb-sp-2 pt-sp-1">
+                  <div className="studio-zone-preset-list">
                     {group.presets.map((preset) => (
                       <StudioPaletteZonePresetCard
                         key={preset.id}
@@ -259,19 +261,9 @@ function ZoneOverviewRow({
   onEdit: () => void;
 }) {
   return (
-    <div
-      className={cn(
-        'flex min-h-11 items-center gap-sp-2 rounded-r-md border px-sp-2 py-sp-1',
-        selected ? 'border-focus bg-accent-surface' : 'border-line-soft bg-surface-2',
-      )}
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={onSelect}
-        className="h-auto min-w-0 flex-1 justify-start gap-sp-2 border-0 bg-transparent p-0 text-left hover:bg-transparent"
-      >
-        <svg className="size-5 shrink-0 rounded" viewBox="0 0 20 20" aria-hidden="true">
+    <div className="studio-zone-row" data-selected={selected ? 'true' : 'false'}>
+      <Button type="button" variant="ghost" onClick={onSelect} className="studio-zone-row-main">
+        <svg className="studio-zone-swatch" viewBox="0 0 20 20" aria-hidden="true">
           <rect width="20" height="20" rx="4" fill={`${zone.floorColor}`} />
           <rect
             x="1"
@@ -284,16 +276,9 @@ function ZoneOverviewRow({
             strokeWidth="2"
           />
         </svg>
-        <span className="min-w-0 flex-1">
-          <span
-            className={cn(
-              'block truncate text-fs-micro font-bold',
-              selected ? 'text-accent' : 'text-ink-1',
-            )}
-          >
-            {zone.label}
-          </span>
-          <span className="mt-sp-1 block text-fs-micro text-ink-3">
+        <span className="studio-zone-row-copy">
+          <span data-slot="label">{zone.label}</span>
+          <span data-slot="meta">
             {zone.w}x{zone.d} · {itemCount} items · {zone.deskSlots} desks
           </span>
         </span>
@@ -304,9 +289,9 @@ function ZoneOverviewRow({
         size="sm"
         onClick={onEdit}
         aria-label={`Edit ${zone.label}`}
-        className="h-7 rounded-r-pill px-sp-2 text-fs-micro font-bold"
+        className="studio-zone-edit-button"
       >
-        <Pencil className="size-3" aria-hidden="true" />
+        <Pencil data-icon="inline-start" aria-hidden="true" />
         Edit
       </Button>
     </div>

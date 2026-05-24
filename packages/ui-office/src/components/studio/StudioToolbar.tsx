@@ -5,7 +5,7 @@
  * Keyboard shortcuts: 1=Select, 2=Move, 3=Rotate, 4=Place, G=Grid snap.
  */
 
-import { Button, cn } from '@offisim/ui-core';
+import { Button } from '@offisim/ui-core';
 import {
   ArrowLeft,
   BoxSelect,
@@ -45,16 +45,6 @@ const TOOLS: ToolDef[] = [
   { id: 'rotate', label: 'Rotate', shortcut: 'E', Icon: RotateCcw },
   { id: 'place', label: 'Place', shortcut: 'P', Icon: Plus },
 ];
-
-// -- Presentation --------------------------------------------------------------
-
-const toolbarButtonClass =
-  'h-8 gap-sp-1 rounded-r-sm px-sp-2 font-sans text-fs-micro text-ink-2 data-[active=true]:border-accent data-[active=true]:bg-accent-surface data-[active=true]:text-accent';
-
-const kbdClass =
-  'inline-flex h-5 min-w-5 items-center justify-center rounded-r-xs border border-line-soft bg-surface-2 px-sp-1 font-mono text-fs-micro leading-none text-ink-3';
-
-const separatorClass = 'mx-sp-2 h-6 w-px shrink-0 bg-line';
 
 // -- Component ----------------------------------------------------------------
 
@@ -121,7 +111,7 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
   const canSave = dirty && !saving;
 
   return (
-    <div className="absolute left-0 right-0 top-0 z-sticky flex h-11 items-center overflow-hidden border-b border-line bg-surface-1 font-sans">
+    <div className="studio-toolbar">
       {/* Back */}
       <Button
         type="button"
@@ -129,13 +119,13 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
         aria-label="Back to company selection"
         variant="ghost"
         size="sm"
-        className={toolbarButtonClass}
+        className="studio-toolbar-button"
       >
-        <ArrowLeft className="h-3.5 w-3.5" />
+        <ArrowLeft data-icon="inline-start" aria-hidden="true" />
         <span>Back</span>
       </Button>
 
-      <div className={separatorClass} />
+      <div className="studio-toolbar-separator" />
 
       {/* Tool buttons */}
       {TOOLS.map((t) => {
@@ -149,15 +139,15 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
             variant="ghost"
             size="sm"
             data-active={active}
-            className={toolbarButtonClass}
+            className="studio-toolbar-button"
           >
-            <t.Icon className="h-3.5 w-3.5" />
-            <kbd className={kbdClass}>{t.shortcut}</kbd>
+            <t.Icon data-icon="inline-start" aria-hidden="true" />
+            <kbd>{t.shortcut}</kbd>
           </Button>
         );
       })}
 
-      <div className={separatorClass} />
+      <div className="studio-toolbar-separator" />
 
       {/* Grid snap toggle */}
       <Button
@@ -167,13 +157,13 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
         variant="ghost"
         size="sm"
         data-active={gridSnap}
-        className={toolbarButtonClass}
+        className="studio-toolbar-button"
       >
-        <Grid3x3 className="h-3.5 w-3.5" />
-        <kbd className={kbdClass}>G</kbd>
+        <Grid3x3 data-icon="inline-start" aria-hidden="true" />
+        <kbd>G</kbd>
       </Button>
 
-      <div className={separatorClass} />
+      <div className="studio-toolbar-separator" />
 
       {/* Edit Zone controls */}
       {isEditingZone ? (
@@ -183,11 +173,12 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
           aria-label="Exit zone editing (Esc)"
           variant="outline"
           size="sm"
-          className={cn(toolbarButtonClass, 'border-warn bg-warn-surface text-warn')}
+          className="studio-toolbar-button"
+          data-tone="warn"
         >
-          <X className="h-3.5 w-3.5" />
-          <span className="font-semibold">{editingZoneLabel}</span>
-          <kbd className={kbdClass}>Esc</kbd>
+          <X data-icon="inline-start" aria-hidden="true" />
+          <span data-slot="strong">{editingZoneLabel}</span>
+          <kbd>Esc</kbd>
         </Button>
       ) : selectedZoneId ? (
         <Button
@@ -196,24 +187,24 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
           aria-label="Enter zone editing mode"
           variant="ghost"
           size="sm"
-          className={toolbarButtonClass}
+          className="studio-toolbar-button"
         >
-          <BoxSelect className="h-3.5 w-3.5" />
+          <BoxSelect data-icon="inline-start" aria-hidden="true" />
           <span>Edit Zone</span>
         </Button>
       ) : null}
 
-      <div className={separatorClass} />
+      <div className="studio-toolbar-separator" />
 
       {/* Item count */}
-      <span className="font-mono text-fs-micro text-ink-2">
+      <span className="studio-toolbar-count">
         {instanceCount} item{instanceCount !== 1 ? 's' : ''}
       </span>
 
-      <div className="flex-1" />
+      <div className="studio-toolbar-spacer" />
 
       {/* Save — wrapped for dirty indicator dot */}
-      <div className="relative mr-sp-2">
+      <div className="studio-toolbar-save-wrap">
         <Button
           type="button"
           onClick={onSave}
@@ -222,20 +213,16 @@ export function StudioToolbar({ onSave, onBack, saving, saveFlash }: StudioToolb
           variant="ghost"
           size="sm"
           data-active={canSave}
-          className={cn(
-            toolbarButtonClass,
-            !canSave && 'cursor-not-allowed',
-            saveFlash && 'border-ok bg-ok-surface text-ok',
-          )}
+          className="studio-toolbar-button"
+          data-disabled={!canSave ? 'true' : 'false'}
+          data-flash={saveFlash ? 'true' : 'false'}
         >
-          <Save className="h-3.5 w-3.5" />
+          <Save data-icon="inline-start" aria-hidden="true" />
           <span>{saving ? 'Saving\u2026' : saveFlash ? 'Saved!' : 'Save'}</span>
-          <kbd className={kbdClass}>{'\u2318'}S</kbd>
+          <kbd>{'\u2318'}S</kbd>
         </Button>
         {/* Dirty amber dot — Skill §15 */}
-        {dirty && !saveFlash && (
-          <div className="-right-0.5 -top-0.5 pointer-events-none absolute h-1.5 w-1.5 rounded-full bg-warn" />
-        )}
+        {dirty && !saveFlash && <div className="studio-toolbar-dirty-dot" />}
       </div>
     </div>
   );
