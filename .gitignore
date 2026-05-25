@@ -1,5 +1,6 @@
 node_modules/
 dist/
+build/
 .turbo/
 *.tsbuildinfo
 .DS_Store
@@ -12,7 +13,9 @@ dist/
 target/
 src-tauri/target/
 .next/
+.next/dev/logs/
 .vercel/
+coverage/
 *.swp
 *.swo
 tmp/
@@ -28,22 +31,38 @@ tmp/
 
 # Playwright test artifacts
 test-results/
+frontend/test-results/
 playwright-report/
 blob-report/
 output/
+output/playwright/
 apps/web/output/
 apps/*/dist/
 packages/*/dist/
 
 # Test/debug screenshots and artifacts
+.codex-screenshots/
 screenshots/
+test-screenshots/
+*.screenshot.*
 audit-*.png
 smoke-*.png
 [0-9]*-*.png
 /icon.png
+output_frontend_home.png
+Docs/design/.audit-*.png
 test-*.mjs
 apps/desktop/src-tauri/resources/claude-agent-host.mjs
 .gitnexus
+
+# Local logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+vite-debug.log*
 
 # Historical verification artifacts stay out of git; keep textual archive notes instead.
 .live-verify/
