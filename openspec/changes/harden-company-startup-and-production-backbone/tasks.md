@@ -61,5 +61,5 @@
 
 - [x] 9.1 Run `openspec validate harden-company-startup-and-production-backbone --strict`.
 - [x] 9.2 Run the new deterministic harness scenarios for providerless startup, typed SOP runs, artifact intent, project null workspace, and asset materialization rollback.
-- [x] 9.3 Run affected package builds for core/shared-types/ui-office/desktop as required by touched implementation.
+- [x] 9.3 Run affected package builds for core/shared-types/desktop renderer/desktop as required by touched implementation.
 - [x] 9.4 Run release `.app` verification only for non-UI runtime truths: no-provider no-fake-work, real startup lifecycle state, `pm_planner` planning phase, typed SOP dispatch, and null-workspace project behavior.

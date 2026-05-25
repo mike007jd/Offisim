@@ -40,7 +40,6 @@
 | 12 | DiceBear `avataaars` | 2D 头像来源；跨大版本升级时 outfit color 映射会漂 |
 | 13 | Three.js / R3F | 3D scene；版本漂 2D 降级 fallback 还在 |
 | 14 | SheetJS CDN tarball | doc-engine xlsx 走 `https://cdn.sheetjs.com/..tgz` install-time 拉（SheetJS 许可），CDN 下线即坏 |
-| 15 | Radix Popover | `@offisim/ui-core` exposes a Radix-backed `Popover` primitive (`@radix-ui/react-popover 1.1.15`, current npm latest on 2026-04-30) integrated with modal-stack as `kind:'popover'`; product code should not hand-roll popover portals or document listeners |
 
 ---
 

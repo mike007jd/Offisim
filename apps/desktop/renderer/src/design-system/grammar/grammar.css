@@ -1,0 +1,97 @@
+.off-caps-label {
+  color: var(--off-ink-3);
+  font-size: var(--off-fs-micro);
+  font-weight: 680;
+  letter-spacing: var(--off-ls-caps);
+  text-transform: uppercase;
+}
+
+.off-card-block {
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-1);
+  box-shadow: var(--off-elev-1);
+  padding: var(--off-sp-6);
+}
+
+.off-status-pill {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-4);
+  border-radius: var(--off-r-pill);
+  font-size: var(--off-fs-micro);
+  font-weight: 720;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.off-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.off-status-pill.is-running .off-status-dot {
+  animation: off-pulse 1.6s ease infinite;
+}
+
+.off-status-pill-accent {
+  background: var(--off-accent-surface);
+  color: var(--off-accent);
+}
+
+.off-status-pill-ok {
+  background: var(--off-ok-surface);
+  color: var(--off-ok);
+}
+
+.off-status-pill-warn {
+  background: var(--off-warn-surface);
+  color: var(--off-warn);
+}
+
+.off-status-pill-danger {
+  background: var(--off-danger-surface);
+  color: var(--off-danger);
+}
+
+.off-status-pill-violet {
+  background: var(--off-violet-surface);
+  color: var(--off-violet);
+}
+
+.off-status-pill-muted {
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-3);
+}
+
+.off-icon {
+  display: block;
+  stroke-width: 2;
+}
+
+.off-icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.off-icon-md {
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes off-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.86);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

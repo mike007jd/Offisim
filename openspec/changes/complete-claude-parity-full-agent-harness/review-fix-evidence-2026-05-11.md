@@ -40,7 +40,7 @@ Reason: the release app selected model is `MiniMax-M2.7`. After the model-pass-t
   - Codex SDK-native full-power is back to `blocked` with the selected-model release blocker.
 - `packages/core/src/testing/engine-profile-runner.ts`
   - The deterministic profile gate now expects Codex full-power to be blocked.
-- `packages/ui-office/src/components/runtime/RuntimeBindingControl.tsx`
+- Runtime binding presentation
   - The Codex full-agent card no longer says "promoted" when the profile is blocked.
 
 ## Release App Evidence
@@ -100,11 +100,11 @@ Passed after the review fix:
 
 - `git diff --check`
 - `pnpm --filter @offisim/core typecheck`
-- `pnpm --filter @offisim/ui-office typecheck`
+- `pnpm --filter @offisim/desktop-renderer typecheck`
 - `pnpm harness:contract -- --force-build`
 - `pnpm harness:engine-profiles -- --force-build`
 - `pnpm harness:model-bench -- --force-build --report-file openspec/changes/complete-claude-parity-full-agent-harness/model-bench-report-2026-05-11.json`
-- `pnpm --filter @offisim/ui-office build`
+- `pnpm --filter @offisim/desktop-renderer build`
 - `pnpm --filter @offisim/desktop build`
 
 `model-bench-report-2026-05-11.json` records:

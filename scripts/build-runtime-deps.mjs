@@ -10,6 +10,7 @@ console.log(
         '@offisim/shared-types',
         '@offisim/install-core',
         '@offisim/db-local',
+        '@offisim/doc-engine',
         '@offisim/core',
       ],
     },

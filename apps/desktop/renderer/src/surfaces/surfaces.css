@@ -1,0 +1,37 @@
+.off-framework-surface {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(280px, 420px);
+  align-content: start;
+  gap: var(--off-sp-7);
+  padding: var(--off-sp-7);
+  background: var(--off-bg);
+}
+
+.off-stack-row {
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-4);
+  margin-top: var(--off-sp-5);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+}
+
+.off-stack-grid {
+  display: grid;
+  gap: var(--off-sp-3);
+  margin-top: var(--off-sp-5);
+}
+
+.off-stack-grid div {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-3);
+  padding: 0 var(--off-sp-4);
+  border: 1px solid var(--off-line-soft);
+  border-radius: var(--off-r-sm);
+  background: var(--off-surface-2);
+  color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+}

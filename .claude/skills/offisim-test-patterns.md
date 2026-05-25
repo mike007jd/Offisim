@@ -1,6 +1,6 @@
 # Offisim Test / Harness Patterns
 
-> **When to use:** Creating or editing deterministic harness scenarios, migrating legacy tests, or adding focused coverage for repositories, runtime orchestration, zones, renderer layout, workspace navigation, or UI-office hooks/components.
+> **When to use:** Creating or editing deterministic harness scenarios, migrating legacy tests, or adding focused coverage for repositories, runtime orchestration, zones, or desktop renderer integration.
 
 Current architecture decision: Offisim is Tauri v2 desktop-only. Renderer code lives under `apps/desktop/renderer`; do not add product validation that treats standalone web as a product surface.
 
@@ -21,22 +21,11 @@ Use the repo's existing test scaffolds instead of inventing new fixtures.
 - Use Drizzle/integration tests for transaction guarantees, persistence compatibility, or SQL behavior.
 - Do not pay the Drizzle cost for logic that memory repos already cover.
 
-## UI-office Patterns
+## Desktop Renderer Reset
 
-- Use the shared jsdom setup in `packages/ui-office/src/__tests__/setup.ts`.
-- Mock `useOffisimRuntime`, `useCompanyCreation`, or context providers when the test only cares about rendering logic.
-- Keep event buses fake and synchronous unless the test explicitly covers event streaming.
-
-## Workspace IA Patterns
-
-- Workspace session state coverage belongs to the desktop renderer target `apps/desktop/renderer/src/components/workspaces/`.
-- `useWorkspaceSessionState.test.ts` — tests session state preservation across workspace switches.
-- `useWorkspaceBackNavigation.test.ts` — tests browser history integration and back unwind ordering.
-- `WorkspaceRouter.test.ts` — tests workspace exclusivity (exactly one workspace mounted at a time).
-- `WorkspacePageShell.test.ts` — tests page shell rendering with header/loading/error states.
-- `computeLayoutTier.test.ts` — tests responsive tier determinism (same width → same tier).
-- For workspace state machine tests, use `createDefaultSessionState()` from `types.ts` as the baseline.
-- Property-based tests (fast-check) are optional but encouraged for state machine invariants.
+- The previous shared UI-package test surface has been removed.
+- Do not add tests or fixtures that assume the previous workspace shell, router, scene, chat rail, or component library still exists.
+- New UI work should define its own focused verification path after the new design is implemented.
 
 ## Renderer / Zone Rules
 

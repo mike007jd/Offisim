@@ -5,9 +5,8 @@ Last updated: 2026-05-11
 This file is the durable evidence log for product-taxonomy lane exposure.
 Curated provider facts such as endpoints and models come from
 `provider-source-registry`; product identity, access mode, and host-gated
-exposure rules come from the repo-owned product taxonomy in
-`packages/ui-office/src/lib/provider-product-taxonomy.ts`. Only lanes backed by
-real harness evidence should be advertised here. Product UI may still hide a
+exposure rules come from the repo-owned provider product taxonomy. Only lanes backed by
+real harness evidence should be advertised here. Product surfaces may still hide a
 verified lane until the current runtime host actually supports it.
 
 ## Legend

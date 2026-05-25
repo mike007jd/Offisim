@@ -21,7 +21,7 @@ This file is the source of truth for roadmap debt reviews. Do not use raw unchec
 | Codex local-auth resolver | Product entry exists, but trusted-host local auth is not yet fully wired end to end. | `apps/desktop/src-tauri/src/runtime_secrets.rs` |
 | Skills UX/product closure | The skill platform is live, but upload affordances, local sync UX, and end-user evidence are not fully closed. | `openspec/specs/skill-fork-and-edit/spec.md`, archived T2.1/T2.3 verify records |
 | A2A server completeness | Outbound/external employee wiring exists, but full server completeness is not finished. | `packages/core/src/a2a/a2a-server.ts` |
-| External contributor avatar metadata tail | External employee brand avatars are live, but contributor metadata for deliverables is not fully propagated. | `packages/ui-office/src/components/deliverable/DeliverableCard.tsx` |
+| External contributor avatar metadata tail | External employee brand avatars are live, but contributor metadata for deliverables is not fully propagated. | Deliverable contributor metadata propagation |
 
 ### Docs/process cleanup
 

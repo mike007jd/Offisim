@@ -18,7 +18,7 @@ This is an intentional deferral, not an unresolved question. Current product wor
 ## Current Repo Posture
 
 - Desktop MCP bridge (`apps/desktop/src-tauri/src/mcp_bridge/`) currently executes local MCP processes over JSON-RPC stdio.
-- The legacy UI config surface that modeled MCP transport as `stdio | sse` has been removed with the old UI framework.
+- Desktop currently has no product-facing MCP transport configuration surface for choosing between `stdio` and remote transports.
 - Desktop registered `sse` entries are refused at connect time today; only stdio is actually launched by the Rust bridge.
 - `openspec/protocols-ledger.md` previously tracked MCP transport as drift because it still named SSE as the remote path without a durable migration rule.
 

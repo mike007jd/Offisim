@@ -11,6 +11,7 @@ const REQUIRED_BUILD_ARTIFACTS = [
   'packages/shared-types/dist/index.js',
   'packages/install-core/dist/index.js',
   'packages/db-local/dist/index.js',
+  'packages/doc-engine/dist/index.js',
   'packages/core/dist/index.js',
   'packages/core/dist/testing/chaos-runner.js',
   'packages/core/dist/testing/context-budget-runner.js',
@@ -25,6 +26,7 @@ const RUNTIME_BUILD_PACKAGES = [
   '@offisim/shared-types',
   '@offisim/install-core',
   '@offisim/db-local',
+  '@offisim/doc-engine',
   '@offisim/core',
 ];
 
@@ -313,7 +315,14 @@ function run(command, args) {
 }
 
 function clearIncrementalState() {
-  for (const pkg of ['asset-schema', 'shared-types', 'install-core', 'db-local', 'core']) {
+  for (const pkg of [
+    'asset-schema',
+    'shared-types',
+    'install-core',
+    'db-local',
+    'doc-engine',
+    'core',
+  ]) {
     rmSync(rootPath('packages', pkg, 'tsconfig.tsbuildinfo'), { force: true });
   }
 }

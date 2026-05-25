@@ -3,19 +3,18 @@
 ## Current Shape
 
 Offisim is Tauri-only desktop plus the platform/registry backend. The desktop
-renderer at `apps/desktop/renderer` is now a clean React mount point for the
-incoming design system.
+renderer at `apps/desktop/renderer` owns the new UI framework and design-system
+implementation.
 
-The old UI framework has been removed:
+New UI work must follow `Docs/UI_FRAMEWORK_STACK.md` and the design source under
+`Docs/design`. The approved stack is React 19, Tailwind CSS v4, shadcn/ui,
+assistant-ui, Motion for React (`motion/react`), lucide-react, TanStack Query,
+Zustand, React Hook Form + Zod, dnd-kit, TanStack Virtual,
+react-resizable-panels, cmdk, Sonner, and Recharts for small runtime charts.
 
-- no `packages/ui-office`
-- no `packages/ui-core`
-- no Tailwind/shadcn renderer setup
-- no old desktop renderer shell, workspace router, office shell, or UI hooks
-
-Do not restore those packages, aliases, generated theme CSS, old component
-trees, or old release instructions. New UI work should build from the renderer
-mount point and the design source under `Docs/design`.
+Do not create a standalone web product or a shared visual UI package. Visual
+components, styling, motion, assistant surface composition, and desktop layout
+ownership stay inside `apps/desktop/renderer`.
 
 ## Build And Verification
 

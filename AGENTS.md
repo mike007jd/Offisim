@@ -18,6 +18,13 @@
 - Tauri 仍需要 WebView renderer，所以删除 web 产品不等于删除 React UI；正确方向是把 renderer 收到 desktop ownership 下。
 - 最终验收只认当前 worktree 的 release `.app` + Computer Use 真实交互；localhost、dev server、dev webview、browser screenshot 只能作为排查证据。
 
+# UI 框架决策（2026-05-25）
+- 新 UI 框架 source of truth 是 `Docs/UI_FRAMEWORK_STACK.md`；设计 source of truth 是 `Docs/design/.v3-dna-brief.md` 和同目录原型。
+- Approved stack: React 19 + Vite + Tauri renderer, Tailwind CSS v4, shadcn/ui, assistant-ui, Motion for React (`motion/react`), lucide-react, TanStack Query, Zustand, React Hook Form + Zod, dnd-kit, TanStack Virtual, react-resizable-panels, cmdk, Sonner, Recharts。
+- UI ownership 留在 `apps/desktop/renderer`。不要重建共享视觉 UI package；shared packages 只能承载类型、runtime/data contract，不承载视觉组件库。
+- Tailwind 只做 token/utility 编译层；shadcn 只做本地 accessible primitives；assistant-ui 只做 assistant surface/runtime primitives；Motion 只做统一动态语法。任何库都不能覆盖 Offisim V3 dense HUD 设计语言。
+- 禁止新引入非批准动画框架、组件套件或 CSS-in-JS 层，除非另有明确 OpenSpec 决策。
+
 # 验证 / 测试准则
 - 不在 `packages/core/src/**/*.test.mjs` 新增或保留 runtime / graph / product 行为测试。
 - 新的 graph、runtime、permission、planner、kanban、LLM replay 不变量必须走 deterministic harness：`packages/core/harness/scenarios/*.json` + `packages/core/src/testing/invariant-assertions.ts`，并按需加入 `manifest.json` / replay 或 soak 列表。
@@ -30,7 +37,7 @@
 - 用 Computer Use 测 Tauri 桌面端时，默认测 release `.app`，不要把 dev webview 结果当作最终桌面验收。
 - 验收前先执行桌面 release build，再启动 `apps/desktop/src-tauri/target/release/bundle/macos/Offisim.app`。
 - 若 dev 能跑但 release `.app` 不可交互、黑屏、或 Computer Use 无法附着，按 release 桌面阻塞处理，先查清原因再继续依赖桌面验收结论。
-- 旧 `packages/ui-office` / `packages/ui-core` UI 框架已移除；桌面 renderer 现在是新设计接入用的空 React 壳。桌面验收直接构建当前 renderer 和 `@offisim/desktop`，不能恢复旧 UI 包或旧 dist 路径。
+- 桌面 renderer 承载 `Docs/UI_FRAMEWORK_STACK.md` 定义的新 UI 框架。桌面验收直接构建当前 renderer 和 `@offisim/desktop`，不得引入外部桌面 UI 包或预构建 dist 路径。
 - release `.app` 启动必须用当前 worktree 的精确 `.app` 路径，不能用 `open -b com.offisim.desktop` 这类 bundle id 方式；多个 worktree 共享 bundle id 时会误附着旧包。
 - release `.app` 的窗口附着、截图、点击、关闭、前台切换必须用 Computer Use；不要用 `osascript` / AppleScript 充当桌面验收或窗口控制工具。
 - Project workspace 文件浏览必须走 `project_list_dir` / `project_read_file` 这组受 `workspace_root` sandbox 约束的 Tauri command；不要在 webview 里直接用 `tauri-plugin-fs` 读项目目录。

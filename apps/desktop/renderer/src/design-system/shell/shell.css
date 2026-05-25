@@ -1,0 +1,106 @@
+.off-app {
+  width: 100%;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: var(--off-toolbar) 1fr;
+  overflow: hidden;
+  background: var(--off-bg);
+}
+
+.off-topbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--off-sp-5);
+  padding: 0 var(--off-sp-5);
+  border-bottom: 1px solid var(--off-line);
+  background: var(--off-topbar-bg);
+  backdrop-filter: blur(8px);
+}
+
+.off-scope-bar,
+.off-workspace-nav,
+.off-iconbar {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-2);
+  box-shadow: var(--off-elev-1);
+}
+
+.off-scope-bar {
+  max-width: 440px;
+  padding: 3px;
+  background: var(--off-surface-1);
+}
+
+.off-scope-seg,
+.off-workspace-nav button,
+.off-iconbar button {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--off-sp-2);
+  border: 0;
+  border-radius: var(--off-r-sm);
+  background: transparent;
+  color: var(--off-ink-2);
+}
+
+.off-scope-seg {
+  padding: 0 var(--off-sp-3);
+}
+
+.off-scope-seg:hover,
+.off-workspace-nav button:hover,
+.off-iconbar button:hover {
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-1);
+}
+
+.off-scope-divider {
+  color: var(--off-ink-4);
+  padding: 0 var(--off-sp-1);
+}
+
+.off-workspace-nav {
+  position: absolute;
+  left: 50%;
+  gap: 2px;
+  padding: 3px;
+  transform: translateX(-50%);
+}
+
+.off-workspace-nav button {
+  padding: 0 var(--off-sp-6);
+  font-size: var(--off-fs-base);
+  font-weight: 560;
+}
+
+.off-workspace-nav .is-active {
+  background: var(--off-accent-surface);
+  color: var(--off-accent);
+  box-shadow: inset 0 0 0 1px var(--off-accent-ring);
+  font-weight: 640;
+}
+
+.off-iconbar {
+  margin-left: auto;
+  gap: 2px;
+  padding: 3px;
+}
+
+.off-iconbar button {
+  width: 28px;
+  padding: 0;
+}
+
+.off-iconbar-divider {
+  width: 1px;
+  height: var(--off-iconbar-divider-height);
+  margin: 0 3px;
+  background: var(--off-line);
+}

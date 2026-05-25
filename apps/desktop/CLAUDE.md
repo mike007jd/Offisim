@@ -1,6 +1,6 @@
 # Desktop Runtime Guidance
 
-Tauri 2 桌面壳，frontendDist 直接指 `../renderer/dist`。旧 `packages/ui-office` / `packages/ui-core` UI 框架已移除；renderer 是新设计接入用的空 React 壳。改 renderer 后直接跑 `pnpm --filter @offisim/desktop-renderer build` → `pnpm --filter @offisim/desktop build`。
+Tauri 2 桌面壳，frontendDist 直接指 `../renderer/dist`。renderer 拥有新 UI framework：React 19 + Tailwind CSS v4 + shadcn/ui + assistant-ui + Motion for React + lucide-react + TanStack Query/Zustand/Form/Virtual + dnd-kit + react-resizable-panels + cmdk + Sonner。框架 source of truth 是 `../../Docs/UI_FRAMEWORK_STACK.md`。改 renderer 后直接跑 `pnpm --filter @offisim/desktop-renderer build` → `pnpm --filter @offisim/desktop build`。
 
 ## Capabilities & privileged invokes
 

@@ -103,7 +103,7 @@
 
 ## 10. Release App Verification
 
-- [x] 10.1 Build `@offisim/ui-office` and `@offisim/desktop` release artifacts from the current worktree.
+- [x] 10.1 Build the desktop renderer and `@offisim/desktop` release artifacts from the current worktree.
 - [x] 10.2 Launch the exact release `.app` path, not bundle id, and attach with Computer Use.
 - [x] 10.3 Verify default `offisim-core` fresh employee work in release `.app` with local tool success, denied path, cancellation, and completion evidence.
 - [x] 10.4 Verify each promoted full-agent profile in release `.app` with text success, native tool success, denied native path, MCP lifecycle, cancellation, resume/fork, checkpoint/rollback, budget exhaustion, sandbox escape denial, and typed completion classification.

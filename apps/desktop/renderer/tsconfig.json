@@ -4,6 +4,9 @@
     "baseUrl": ".",
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "outDir": "dist",
     "noEmit": true,
     "composite": false,

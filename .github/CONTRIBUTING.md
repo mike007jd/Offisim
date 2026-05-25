@@ -47,7 +47,7 @@ Use conventional commits when practical:
 Read these before major changes:
 
 - [`CLAUDE.md`](../CLAUDE.md) — repo-wide AI operating rules and architectural context
-- Per-package `CLAUDE.md` where present (`packages/core/CLAUDE.md`, `packages/ui-office/CLAUDE.md`, `apps/platform/CLAUDE.md`)
+- Per-package `CLAUDE.md` where present (`packages/core/CLAUDE.md`, `apps/desktop/CLAUDE.md`, `apps/platform/CLAUDE.md`)
 - [`openspec/specs/`](../openspec/specs/) — capability specifications (rebuild in progress)
 
 ## Verification Guidance

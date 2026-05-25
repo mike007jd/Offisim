@@ -1,0 +1,76 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./tokens.css";
+@import "./motion.css";
+@import "../design-system/grammar/grammar.css";
+@import "../design-system/shell/shell.css";
+@import "../surfaces/surfaces.css";
+
+@source "../**/*.{ts,tsx}";
+
+@theme inline {
+  --font-sans: var(--off-font-sans);
+  --font-mono: var(--off-font-mono);
+
+  --color-background: var(--off-bg);
+  --color-foreground: var(--off-ink-1);
+  --color-card: var(--off-surface-1);
+  --color-card-foreground: var(--off-ink-1);
+  --color-popover: var(--off-surface-1);
+  --color-popover-foreground: var(--off-ink-1);
+  --color-primary: var(--off-accent);
+  --color-primary-foreground: var(--off-accent-fg);
+  --color-secondary: var(--off-surface-2);
+  --color-secondary-foreground: var(--off-ink-2);
+  --color-muted: var(--off-surface-sunken);
+  --color-muted-foreground: var(--off-ink-3);
+  --color-accent: var(--off-accent-surface);
+  --color-accent-foreground: var(--off-accent);
+  --color-destructive: var(--off-danger);
+  --color-border: var(--off-line);
+  --color-input: var(--off-line);
+  --color-ring: var(--off-accent-ring);
+
+  --radius-xs: var(--off-r-xs);
+  --radius-sm: var(--off-r-sm);
+  --radius-md: var(--off-r-md);
+  --radius-lg: var(--off-r-lg);
+}
+
+@layer base {
+  * {
+    border-color: var(--off-line);
+  }
+
+  html,
+  body,
+  #root {
+    min-width: 100%;
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--off-body-bg);
+    color: var(--off-ink-1);
+    font-family: var(--off-font-sans);
+    font-size: var(--off-fs-base);
+    overflow: hidden;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button {
+    cursor: default;
+  }
+
+  :focus-visible {
+    outline: var(--off-focus-ring-width) solid var(--off-accent-ring);
+    outline-offset: var(--off-focus-ring-offset);
+  }
+}
