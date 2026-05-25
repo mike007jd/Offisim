@@ -6,13 +6,13 @@ import { MarketSurface } from './market/MarketSurface.js';
 import { OfficeSurface } from './office/OfficeSurface.js';
 import { PersonnelSurface } from './personnel/PersonnelSurface.js';
 import { SettingsSurface } from './settings/SettingsSurface.js';
-import { SopsSurface } from './sops/SopsSurface.js';
 import { StudioSurface } from './studio/StudioSurface.js';
+import { WorkspaceSurface } from './workspace/WorkspaceSurface.js';
 
 function renderSurface(surface: SurfaceKey): ReactNode {
   switch (surface) {
-    case 'sops':
-      return <SopsSurface />;
+    case 'workspace':
+      return <WorkspaceSurface />;
     case 'market':
       return <MarketSurface />;
     case 'personnel':

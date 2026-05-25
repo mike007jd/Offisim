@@ -3,6 +3,7 @@ export { CardBlock } from './CardBlock.js';
 export { StatusPill } from './StatusPill.js';
 export { RunStatePill } from './RunStatePill.js';
 export { BlockAvatar } from './BlockAvatar.js';
+export { EmployeeAvatar } from './EmployeeAvatar.js';
 export { SegmentedControl, type SegmentedOption } from './SegmentedControl.js';
 export { Select, type SelectOption } from './Select.js';
 export { SearchInput } from './SearchInput.js';

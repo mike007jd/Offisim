@@ -1,3 +1,7 @@
+import type { EmployeeAppearance } from '@/lib/avatar.js';
+
+export type { EmployeeAppearance };
+
 /**
  * Renderer view-model types. These are presentation contracts for the desktop
  * UI; they are intentionally decoupled from the core runtime/db schema so the
@@ -23,7 +27,26 @@ export interface Project {
   branch: string | null;
 }
 
+export interface TemplateEmployee {
+  name: string;
+  role: string;
+  appearance: EmployeeAppearance;
+}
+
+export interface CompanyTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  layoutPreset: string;
+  employees: TemplateEmployee[];
+}
+
 export type EmployeeKind = 'internal' | 'external';
+
+/** Live presence derived from the runtime: idle in office, executing a run,
+ *  blocked on a gate, failed, or offline/asleep. */
+export type EmployeePresence = 'working' | 'idle' | 'blocked' | 'failed' | 'offline';
 
 export interface Employee {
   id: string;
@@ -32,11 +55,21 @@ export interface Employee {
   kind: EmployeeKind;
   brandLabel?: string;
   online: boolean;
+  /** Richer presence used by Office team dock, Personnel roster and Contacts. */
+  presence?: EmployeePresence;
   avatarA: string;
   avatarB: string;
+  appearance?: EmployeeAppearance;
   discipline: string;
   modelLabel: string;
   skillCount: number;
+  /** Office zone the workstation sits in, e.g. "Engineering Bay". */
+  zoneLabel?: string;
+  /** Desk/seat label within the zone, e.g. "Desk 1". */
+  deskLabel?: string;
+  expertise?: string[];
+  /** Disabled employees stay in the roster but do not run. */
+  disabled?: boolean;
 }
 
 export type ThreadScope = 'team' | 'direct';
@@ -68,12 +101,37 @@ export interface RunRecordStep {
   state: 'done' | 'running' | 'pending' | 'error';
 }
 
+/** One Activity entry inside a sedimented run record (tool call / event). */
+export interface RunActivityEntry {
+  id: string;
+  /** Tool / domain label e.g. "read", "edit", "bash". */
+  tool: string;
+  detail: string;
+  state: 'done' | 'running' | 'pending' | 'error';
+  /** Collapsed repeat count for consecutive identical entries. */
+  repeat?: number;
+}
+
+/** One Plan step inside a run record: who did what, role and cost. */
+export interface RunPlanStep {
+  id: string;
+  label: string;
+  assigneeId: string | null;
+  roleLabel: string;
+  costLabel?: string;
+  state: 'done' | 'running' | 'pending' | 'error';
+}
+
 export interface RunRecord {
   id: string;
   title: string;
   meta: string;
   costLabel: string;
   steps: RunRecordStep[];
+  /** Activity + Plan sub-regions shown when the record is expanded (the same
+   *  surface the Live run-axis broadcasts into). */
+  activity?: RunActivityEntry[];
+  plan?: RunPlanStep[];
 }
 
 export interface ChatMessage {
@@ -92,58 +150,40 @@ export interface Deliverable {
   name: string;
   kind: string;
   contributorIds: string[];
+  /** Short body preview shown in the expanded deliverable card. */
+  preview?: string;
+  /** Default export format label, e.g. "DOCX". */
+  format?: string;
 }
 
-export type SopStatus = 'draft' | 'active' | 'archived';
+/* --- Git workbench (left workspace panel, Git tab) --------------------------*/
 
-export interface Sop {
-  id: string;
-  name: string;
-  summary: string;
-  status: SopStatus;
-  stageCount: number;
-  roleCount: number;
-  lastRunLabel: string;
-  runState: RunState;
+export type GitFileStatus = 'added' | 'modified' | 'deleted' | 'renamed';
+
+export interface GitFileChange {
+  path: string;
+  status: GitFileStatus;
+  staged: boolean;
+  added: number;
+  removed: number;
 }
 
-export interface SopStage {
+export type GitCheckState = 'pass' | 'fail' | 'running';
+
+export interface GitCheck {
   id: string;
-  name: string;
-  role: string;
-  state: 'done' | 'running' | 'pending';
+  label: string;
+  state: GitCheckState;
 }
 
-export type ListingKind =
-  | 'employee'
-  | 'skill'
-  | 'sop'
-  | 'template'
-  | 'layout'
-  | 'prefab'
-  | 'bundle';
-
-export interface Listing {
-  id: string;
-  kind: ListingKind;
-  name: string;
-  summary: string;
-  creator: string;
-  rating: number;
-  installs: number;
-  version: string;
-  tags: string[];
-}
-
-export type ActivityLevel = 'info' | 'ok' | 'warn' | 'error';
-
-export interface ActivityEvent {
-  id: string;
-  at: number;
-  level: ActivityLevel;
-  source: string;
-  title: string;
-  detail: string;
+export interface GitWorkbench {
+  branch: string;
+  ahead: number;
+  behind: number;
+  changes: GitFileChange[];
+  /** Unified diff preview lines for the focused file. */
+  diffPreview: Array<{ kind: 'add' | 'remove' | 'context'; text: string }>;
+  checks: GitCheck[];
 }
 
 export interface RunCost {
@@ -164,9 +204,203 @@ export interface FileNode {
   depth: number;
 }
 
+export type ZoneKind = 'workspace' | 'meeting' | 'lounge';
+
+export interface OfficeZone {
+  id: string;
+  label: string;
+  kind: ZoneKind;
+  /** Centre + footprint in office units (top-down x/z plane). */
+  cx: number;
+  cz: number;
+  w: number;
+  d: number;
+}
+
+export interface OfficePlacement {
+  employeeId: string;
+  x: number;
+  z: number;
+  /** Facing angle in degrees (0 faces +z / toward camera). */
+  rotation: number;
+}
+
+export interface OfficeSceneLayout {
+  zones: OfficeZone[];
+  placements: OfficePlacement[];
+  /** Office floor footprint in office units. */
+  floorW: number;
+  floorD: number;
+}
+
+export type BoardColumn = 'todo' | 'doing' | 'blocked' | 'review' | 'done';
+
+/** Who/what produced the card, surfaced as a tag chip on the board. */
+export type BoardTaskTag = 'pm' | 'human' | 'employee' | 'manager';
+
+export interface BoardTask {
+  id: string;
+  title: string;
+  column: BoardColumn;
+  assigneeId: string | null;
+  costLabel?: string;
+  tag?: BoardTaskTag;
+  /** Reason shown on cards parked in the Blocked column. */
+  blockedReason?: string;
+}
+
+/** Allowed kanban transitions (CAS-guarded server-side). The Live board uses
+ *  this to reject invalid moves with an inline warning. */
+export const BOARD_TRANSITIONS: Record<BoardColumn, BoardColumn[]> = {
+  todo: ['doing'],
+  doing: ['blocked', 'review', 'todo'],
+  blocked: ['doing', 'todo'],
+  review: ['done', 'doing'],
+  done: ['review'],
+};
+
 export interface Skill {
   id: string;
   name: string;
   description: string;
   scope: 'global' | 'company' | 'employee';
+}
+
+/* --- Run-state layer (assistant-ui driven) ----------------------------------
+ * The chat run is the source of truth for the Office pipeline pill, the Stop
+ * control, the Live run-axis broadcast and the chat error banner. The renderer
+ * drives these states through the assistant-ui external-store runtime; the
+ * fixture simulation here is the seam where the real harness run feed lands. */
+
+/** Session execution mode shown on the composer mode chip. */
+export type SessionMode = 'sop' | 'direct' | 'hil' | 'yolo';
+
+export const SESSION_MODE_LABEL: Record<SessionMode, string> = {
+  sop: 'SOP',
+  direct: 'Direct',
+  hil: 'Human-in-loop',
+  yolo: 'YOLO',
+};
+
+export type PipelineStageState = 'done' | 'active' | 'pending';
+
+/** One stage of the orchestration pipeline (Boss → Manager → PM → Employee →
+ *  Summary). */
+export interface PipelineStage {
+  id: string;
+  label: string;
+  state: PipelineStageState;
+}
+
+/** The live run currently broadcasting over the stage. */
+export interface RunPipeline {
+  /** Short title of the work in flight, e.g. "Edge case review". */
+  title: string;
+  /** Employee currently holding the run. */
+  assigneeId: string | null;
+  stages: PipelineStage[];
+  /** Progress as completed/total tool steps. */
+  stepDone: number;
+  stepTotal: number;
+}
+
+/** Canonical chat-failure reasons surfaced by the error banner. */
+export type RunErrorReason =
+  | 'transport'
+  | 'auth'
+  | 'context-overflow'
+  | 'tool-failure'
+  | 'aborted'
+  | 'unknown';
+
+export interface TrackedErrorEntry {
+  id: string;
+  at: number;
+  reason: RunErrorReason;
+  message: string;
+}
+
+/** A recoverable chat run failure. Drives the in-thread ErrorBanner with its
+ *  Retry / Swap person / Swap model / Details actions. */
+export interface RunError {
+  id: string;
+  reason: RunErrorReason;
+  message: string;
+  /** Technical detail revealed under "Details". */
+  technicalDetail: string;
+  /** Last few tracked errors, newest first. */
+  history: TrackedErrorEntry[];
+  /** Employees that could take over the run (Swap person). */
+  swapCandidateIds: string[];
+}
+
+/* --- Meetings ---------------------------------------------------------------*/
+
+export type MeetingStatus = 'running' | 'paused' | 'idle';
+export type ActionItemPriority = 'high' | 'medium' | 'low';
+
+export interface MeetingActionItem {
+  id: string;
+  description: string;
+  assigneeId: string | null;
+  priority: ActionItemPriority;
+  done: boolean;
+}
+
+export interface MeetingTranscriptLine {
+  id: string;
+  speakerId: string | null;
+  text: string;
+}
+
+export interface MeetingState {
+  status: MeetingStatus;
+  threadId: string;
+  title: string;
+  inRoomIds: string[];
+  transcript: MeetingTranscriptLine[];
+  actionItems: MeetingActionItem[];
+}
+
+/* --- Chat attachment staging ------------------------------------------------*/
+
+export type AttachmentStatus = 'parsing' | 'parsed' | 'error';
+
+/** Canonical staging failure reasons (size cap, dedupe, unsupported, etc.). */
+export type AttachmentFailReason =
+  | 'too-large'
+  | 'duplicate'
+  | 'unsupported-type'
+  | 'parse-failed'
+  | 'storage-unavailable'
+  | 'too-many';
+
+export const ATTACHMENT_FAIL_MESSAGE: Record<AttachmentFailReason, string> = {
+  'too-large': 'File exceeds the 8 MB attachment limit.',
+  duplicate: 'This file is already attached.',
+  'unsupported-type': 'This file type can’t be attached.',
+  'parse-failed': 'Couldn’t read this file. Try again.',
+  'storage-unavailable': 'Attachment storage is unavailable right now.',
+  'too-many': 'You can attach up to 6 files per message.',
+};
+
+export interface StagedAttachment {
+  id: string;
+  name: string;
+  ext: string;
+  sizeLabel: string;
+  status: AttachmentStatus;
+  /** Present when status is "error". */
+  failReason?: AttachmentFailReason;
+}
+
+/* --- Cross-session resume ---------------------------------------------------*/
+
+export type UnfinishedThreadState = 'running' | 'blocked';
+
+export interface UnfinishedThread {
+  threadId: string;
+  projectId: string;
+  name: string;
+  state: UnfinishedThreadState;
 }

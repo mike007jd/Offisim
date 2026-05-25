@@ -6,12 +6,13 @@
 @import "../design-system/shell/shell.css";
 @import "../surfaces/surfaces.css";
 @import "../surfaces/office/office.css";
-@import "../surfaces/sops/sops.css";
+@import "../surfaces/workspace/workspace.css";
 @import "../surfaces/market/market.css";
 @import "../surfaces/personnel/personnel.css";
 @import "../surfaces/settings/settings.css";
 @import "../surfaces/activity/activity.css";
 @import "../surfaces/studio/studio.css";
+@import "../surfaces/lifecycle/lifecycle.css";
 
 @source "../**/*.{ts,tsx}";
 

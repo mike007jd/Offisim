@@ -19,13 +19,11 @@ import {
   Settings,
   Store,
   UsersRound,
-  Workflow,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const SURFACES: ReadonlyArray<{ key: SurfaceKey; label: string; icon: LucideIcon }> = [
   { key: 'office', label: 'Office', icon: BriefcaseBusiness },
-  { key: 'sops', label: 'SOPs', icon: Workflow },
   { key: 'market', label: 'Market', icon: Store },
   { key: 'personnel', label: 'Personnel', icon: UsersRound },
   { key: 'activity', label: 'Activity', icon: Activity },

@@ -1,11 +1,69 @@
 import type { ChatMessage, Employee, RunRecord } from '@/data/types.js';
-import { BlockAvatar } from '@/design-system/grammar/BlockAvatar.js';
+import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
+import { EmployeeAvatar } from '@/design-system/grammar/EmployeeAvatar.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { cn, initialsOf, relativeTime } from '@/lib/utils.js';
+import { cn, relativeTime } from '@/lib/utils.js';
 import { ChevronRight, FileText, Terminal } from 'lucide-react';
 import { useState } from 'react';
 
-function RunRecordCard({ record }: { record: RunRecord }) {
+/** Expanded run record: Activity (tool feed, with ×N collapse) + Plan (who did
+ *  what, role + cost) — the same two regions the Live run-axis broadcasts into.
+ *  Falls back to the flat step list for records that carry only steps. */
+function RunRecordBody({ record, byId }: { record: RunRecord; byId: Map<string, Employee> }) {
+  const hasRich = (record.activity?.length ?? 0) > 0 || (record.plan?.length ?? 0) > 0;
+  if (!hasRich) {
+    return (
+      <div className="off-rr-body">
+        {record.steps.map((step) => (
+          <div key={step.id} className={cn('off-rr-step', `is-${step.state}`)}>
+            <span className="off-rr-step-dot" />
+            <span className="off-rr-step-tool">{step.label}</span>
+            <span>{step.detail}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="off-rr-body">
+      {record.activity?.length ? (
+        <section className="off-rr-sec">
+          <CapsLabel>Activity</CapsLabel>
+          {record.activity.map((entry) => (
+            <div key={entry.id} className={cn('off-rr-step', `is-${entry.state}`)}>
+              <span className="off-rr-step-dot" />
+              <span className="off-rr-step-tool">{entry.tool}</span>
+              <span>{entry.detail}</span>
+              {entry.repeat && entry.repeat > 1 ? (
+                <span className="off-rr-step-x">×{entry.repeat}</span>
+              ) : null}
+            </div>
+          ))}
+        </section>
+      ) : null}
+      {record.plan?.length ? (
+        <section className="off-rr-sec">
+          <CapsLabel>Plan</CapsLabel>
+          {record.plan.map((step) => {
+            const who = step.assigneeId ? byId.get(step.assigneeId) : undefined;
+            return (
+              <div key={step.id} className={cn('off-rr-plan', `is-${step.state}`)}>
+                <span className="off-rr-plan-seg" />
+                <span className="off-rr-plan-label">{step.label}</span>
+                <span className="off-rr-plan-who">
+                  {who?.name ?? 'Unassigned'} · {step.roleLabel}
+                </span>
+                {step.costLabel ? <span className="off-rr-plan-cost">{step.costLabel}</span> : null}
+              </div>
+            );
+          })}
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function RunRecordCard({ record, byId }: { record: RunRecord; byId: Map<string, Employee> }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={cn('off-run-record', open && 'is-open')}>
@@ -20,17 +78,7 @@ function RunRecordCard({ record }: { record: RunRecord }) {
         <span className="off-rr-cost">{record.costLabel}</span>
         <Icon icon={ChevronRight} size="sm" className="off-rr-caret" />
       </button>
-      {open ? (
-        <div className="off-rr-body">
-          {record.steps.map((step) => (
-            <div key={step.id} className={cn('off-rr-step', `is-${step.state}`)}>
-              <span className="off-rr-step-dot" />
-              <span className="off-rr-step-tool">{step.label}</span>
-              <span>{step.detail}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      {open ? <RunRecordBody record={record} byId={byId} /> : null}
     </div>
   );
 }
@@ -54,8 +102,9 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
     <article className={cn('off-msg', `is-${message.author}`)}>
       <header className="off-msg-head">
         {meta.employee ? (
-          <BlockAvatar
-            initials={initialsOf(meta.employee.name)}
+          <EmployeeAvatar
+            seed={meta.employee.id}
+            appearance={meta.employee.appearance}
             colorA={meta.employee.avatarA}
             colorB={meta.employee.avatarB}
             size={20}
@@ -79,7 +128,7 @@ export function MessageItem({ message, employeesById }: MessageItemProps) {
           </span>
         </div>
       ))}
-      {message.runRecord ? <RunRecordCard record={message.runRecord} /> : null}
+      {message.runRecord ? <RunRecordCard record={message.runRecord} byId={employeesById} /> : null}
     </article>
   );
 }

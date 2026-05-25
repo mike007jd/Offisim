@@ -1,19 +1,27 @@
 import { useUiState } from '@/app/ui-state.js';
 import { OfficeThread } from '@/assistant/OfficeThread.js';
-import { useDeliverables, useEmployees, useMessages, useThreads } from '@/data/queries.js';
+import {
+  useDeliverables,
+  useEmployees,
+  useMessages,
+  useProjects,
+  useThreads,
+} from '@/data/queries.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
-import { ChevronLeft, MessageSquarePlus, MoreHorizontal } from 'lucide-react';
+import { ChevronLeft, MessagesSquare } from 'lucide-react';
 import { useMemo } from 'react';
 import { ThreadList } from './rail/ThreadList.js';
 
 export function ChatRail() {
   const railMode = useUiState((s) => s.railMode);
+  const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const selectedThreadId = useUiState((s) => s.selectedThreadId);
   const closeThread = useUiState((s) => s.closeThread);
 
   const threads = useThreads(projectId);
+  const projects = useProjects(companyId);
   const employees = useEmployees();
   const messages = useMessages(railMode === 'thread' ? selectedThreadId : null);
   const deliverables = useDeliverables();
@@ -24,6 +32,7 @@ export function ChatRail() {
   );
 
   const activeThread = threads.data?.find((t) => t.id === selectedThreadId);
+  const projectName = projects.data?.find((p) => p.id === projectId)?.name ?? 'Project';
 
   if (railMode === 'list') {
     return (
@@ -54,8 +63,13 @@ export function ChatRail() {
           ) : null}
         </div>
         <div className="off-chat-head-tools">
-          <IconButton icon={MessageSquarePlus} label="New thread" variant="ghost" size="iconSm" />
-          <IconButton icon={MoreHorizontal} label="Thread options" variant="ghost" size="iconSm" />
+          <IconButton
+            icon={MessagesSquare}
+            label="Conversation list"
+            variant="ghost"
+            size="iconSm"
+            onClick={closeThread}
+          />
         </div>
       </header>
 
@@ -65,11 +79,14 @@ export function ChatRail() {
         <OfficeThread
           key={selectedThreadId}
           threadId={selectedThreadId}
+          runState={activeThread?.runState ?? 'idle'}
           seedMessages={messages.data ?? []}
           employeesById={employeesById}
           deliverables={deliverables.data ?? []}
           scope={activeThread?.scope ?? 'team'}
           modelLabel={modelLabel}
+          projectName={projectName}
+          attachmentsAvailable={deliverables.data?.length ?? 0}
         />
       )}
     </section>

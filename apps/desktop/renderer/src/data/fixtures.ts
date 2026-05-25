@@ -1,17 +1,19 @@
 import type {
-  ActivityEvent,
+  BoardTask,
   ChatMessage,
   ChatThread,
   Company,
   Deliverable,
   Employee,
   FileNode,
-  Listing,
+  GitWorkbench,
+  MeetingState,
+  OfficeSceneLayout,
   Project,
   RunCost,
+  RunPipeline,
   Skill,
-  Sop,
-  SopStage,
+  UnfinishedThread,
   UsagePoint,
 } from './types.js';
 
@@ -67,11 +69,16 @@ export const employees: Employee[] = [
     role: 'Engineering Lead',
     kind: 'internal',
     online: true,
+    presence: 'working',
     avatarA: '#6a8dff',
     avatarB: '#3a5fd0',
     discipline: 'Backend systems',
     modelLabel: 'MiniMax-M2.7',
     skillCount: 6,
+    appearance: { hairStyle: 'short', clothingColor: '#2f6bff' },
+    zoneLabel: 'Engineering Bay',
+    deskLabel: 'Desk 1',
+    expertise: ['API design', 'TypeScript', 'Data modeling'],
   },
   {
     id: 'emp-devin',
@@ -79,11 +86,16 @@ export const employees: Employee[] = [
     role: 'Product Designer',
     kind: 'internal',
     online: true,
+    presence: 'working',
     avatarA: '#7c4ddb',
     avatarB: '#5b2fb0',
     discipline: 'Interface & flows',
     modelLabel: 'MiniMax-M2.7',
     skillCount: 4,
+    appearance: { hairStyle: 'long', clothingColor: '#7c4ddb' },
+    zoneLabel: 'Design Studio',
+    deskLabel: 'Desk 2',
+    expertise: ['Product UI', 'Flows', 'Prototyping'],
   },
   {
     id: 'emp-sela',
@@ -91,11 +103,16 @@ export const employees: Employee[] = [
     role: 'QA Analyst',
     kind: 'internal',
     online: false,
+    presence: 'idle',
     avatarA: '#1aa46a',
     avatarB: '#0f7a4d',
     discipline: 'Test & verification',
     modelLabel: 'MiniMax-M2.7',
     skillCount: 5,
+    appearance: { hairStyle: 'bob', clothingColor: '#1aa46a' },
+    zoneLabel: 'Engineering Bay',
+    deskLabel: 'Desk 3',
+    expertise: ['Test plans', 'Repro', 'Evidence'],
   },
   {
     id: 'emp-orion',
@@ -104,11 +121,14 @@ export const employees: Employee[] = [
     kind: 'external',
     brandLabel: 'A2A',
     online: true,
+    presence: 'blocked',
     avatarA: '#586273',
     avatarB: '#353c49',
     discipline: 'Static analysis',
     modelLabel: 'Remote agent',
     skillCount: 2,
+    zoneLabel: 'Meeting',
+    expertise: ['Static analysis', 'Threat modeling'],
   },
 ];
 
@@ -182,6 +202,29 @@ export const messages: Record<string, ChatMessage[]> = {
           { id: 's2', label: 'edit', detail: 'added POST /session handler', state: 'done' },
           { id: 's3', label: 'bash', detail: 'pnpm typecheck', state: 'done' },
         ],
+        activity: [
+          { id: 'av1', tool: 'read', detail: 'src/api/session.ts', state: 'done' },
+          { id: 'av2', tool: 'edit', detail: 'added POST /session handler', state: 'done' },
+          { id: 'av3', tool: 'bash', detail: 'pnpm typecheck — passed', state: 'done', repeat: 2 },
+        ],
+        plan: [
+          {
+            id: 'pl1',
+            label: 'Draft session contract',
+            assigneeId: 'emp-mara',
+            roleLabel: 'Engineering Lead',
+            costLabel: '$0.0092',
+            state: 'done',
+          },
+          {
+            id: 'pl2',
+            label: 'Wire handler against sandbox',
+            assigneeId: 'emp-mara',
+            roleLabel: 'Engineering Lead',
+            costLabel: '$0.0092',
+            state: 'done',
+          },
+        ],
       },
     },
     {
@@ -226,181 +269,203 @@ export const messages: Record<string, ChatMessage[]> = {
 };
 
 export const deliverables: Deliverable[] = [
-  { id: 'dl1', name: 'session.ts', kind: 'code', contributorIds: ['emp-mara'] },
-  { id: 'dl2', name: 'onboarding-flow.fig', kind: 'design', contributorIds: ['emp-devin'] },
-  { id: 'dl3', name: 'verify-report.md', kind: 'report', contributorIds: ['emp-sela'] },
-];
-
-export const sops: Sop[] = [
   {
-    id: 'sop-ship',
-    name: 'Ship a Feature',
-    summary: 'Plan, implement, verify, and hand off a scoped feature end to end.',
-    status: 'active',
-    stageCount: 5,
-    roleCount: 3,
-    lastRunLabel: '2h ago',
-    runState: 'running',
+    id: 'dl1',
+    name: 'session.ts',
+    kind: 'code',
+    contributorIds: ['emp-mara'],
+    format: 'TS',
+    preview:
+      'export async function createSession(req: SessionRequest): Promise<Session> {\n  const ttl = 30 * 60_000; // 30m sliding\n  return persist({ ...req, ttl });\n}',
   },
   {
-    id: 'sop-triage',
-    name: 'Incident Triage',
-    summary: 'Reproduce, isolate, and patch a production incident with a written postmortem.',
-    status: 'active',
-    stageCount: 4,
-    roleCount: 2,
-    lastRunLabel: 'Yesterday',
-    runState: 'idle',
+    id: 'dl2',
+    name: 'onboarding-flow.fig',
+    kind: 'design',
+    contributorIds: ['emp-devin', 'emp-mara'],
+    format: 'FIG',
+    preview: 'Empty · Loading · Error · Success states for the Relay onboarding flow.',
   },
   {
-    id: 'sop-research',
-    name: 'Market Research',
-    summary: 'Survey a problem space and produce a comparison brief with recommendations.',
-    status: 'draft',
-    stageCount: 6,
-    roleCount: 2,
-    lastRunLabel: 'Never run',
-    runState: 'idle',
-  },
-];
-
-export const sopStages: Record<string, SopStage[]> = {
-  'sop-ship': [
-    { id: 'st1', name: 'Plan', role: 'Engineering Lead', state: 'done' },
-    { id: 'st2', name: 'Implement', role: 'Engineering Lead', state: 'running' },
-    { id: 'st3', name: 'Design review', role: 'Product Designer', state: 'pending' },
-    { id: 'st4', name: 'Verify', role: 'QA Analyst', state: 'pending' },
-    { id: 'st5', name: 'Hand off', role: 'Engineering Lead', state: 'pending' },
-  ],
-  'sop-triage': [
-    { id: 'tt1', name: 'Reproduce', role: 'QA Analyst', state: 'done' },
-    { id: 'tt2', name: 'Isolate', role: 'Engineering Lead', state: 'done' },
-    { id: 'tt3', name: 'Patch', role: 'Engineering Lead', state: 'pending' },
-    { id: 'tt4', name: 'Postmortem', role: 'Engineering Lead', state: 'pending' },
-  ],
-  'sop-research': [
-    { id: 'rr1', name: 'Survey', role: 'Product Designer', state: 'pending' },
-    { id: 'rr2', name: 'Compare', role: 'Product Designer', state: 'pending' },
-    { id: 'rr3', name: 'Recommend', role: 'Engineering Lead', state: 'pending' },
-  ],
-};
-
-export const listings: Listing[] = [
-  {
-    id: 'ls-react-eng',
-    kind: 'employee',
-    name: 'Senior React Engineer',
-    summary: 'Implements dense product UIs with strict design-system adherence.',
-    creator: 'northwind',
-    rating: 4.8,
-    installs: 3214,
-    version: '2.1.0',
-    tags: ['frontend', 'react', 'design-system'],
-  },
-  {
-    id: 'ls-pdf-skill',
-    kind: 'skill',
-    name: 'PDF Extraction',
-    summary: 'Parse, chunk, and summarize PDFs with citation-safe references.',
-    creator: 'atlas',
-    rating: 4.6,
-    installs: 8190,
-    version: '1.4.2',
-    tags: ['documents', 'parsing'],
-  },
-  {
-    id: 'ls-ship-sop',
-    kind: 'sop',
-    name: 'Ship a Feature',
-    summary: 'Battle-tested five-stage delivery pipeline with verification gates.',
-    creator: 'northwind',
-    rating: 4.9,
-    installs: 1502,
-    version: '3.0.0',
-    tags: ['delivery', 'process'],
-  },
-  {
-    id: 'ls-studio-template',
-    kind: 'template',
-    name: 'Product Studio',
-    summary: 'A five-role company template for shipping software products.',
-    creator: 'harbor',
-    rating: 4.5,
-    installs: 642,
-    version: '1.0.0',
-    tags: ['company', 'template'],
-  },
-  {
-    id: 'ls-open-office',
-    kind: 'layout',
-    name: 'Open Office',
-    summary: 'Compact floor layout tuned for small teams and high visibility.',
-    creator: 'atlas',
-    rating: 4.3,
-    installs: 980,
-    version: '1.2.0',
-    tags: ['office', 'layout'],
-  },
-  {
-    id: 'ls-desk-prefab',
-    kind: 'prefab',
-    name: 'Standing Desk Cluster',
-    summary: 'Reusable desk cluster prefab with seating and props.',
-    creator: 'harbor',
-    rating: 4.1,
-    installs: 410,
-    version: '1.0.1',
-    tags: ['prefab', 'furniture'],
-  },
-  {
-    id: 'ls-launch-bundle',
-    kind: 'bundle',
-    name: 'Launch Kit',
-    summary: 'Template, SOPs, and skills bundled for a product launch.',
-    creator: 'northwind',
-    rating: 4.7,
-    installs: 256,
-    version: '2.0.0',
-    tags: ['bundle', 'launch'],
-  },
-];
-
-export const activityEvents: ActivityEvent[] = [
-  {
-    id: 'ev1',
-    at: now - HOUR * 0.2,
-    level: 'ok',
-    source: 'Mara Quinn',
-    title: 'Run completed',
-    detail: 'Implement session contract · 3 tools · $0.0184',
-  },
-  {
-    id: 'ev2',
-    at: now - HOUR * 0.5,
-    level: 'info',
-    source: 'Devin Park',
-    title: 'Deliverable attached',
-    detail: 'onboarding-flow.fig added to Relay Launch · Team',
-  },
-  {
-    id: 'ev3',
-    at: now - HOUR * 1.2,
-    level: 'warn',
-    source: 'Runtime',
-    title: 'Context window near limit',
-    detail: 'Thread Relay Launch · Team reached 82% of model context',
-  },
-  {
-    id: 'ev4',
-    at: now - HOUR * 26,
-    level: 'error',
-    source: 'Orion Audit',
-    title: 'Transport authorization failed',
-    detail: 'Remote agent returned 401 before run start',
+    id: 'dl3',
+    name: 'verify-report.md',
+    kind: 'report',
+    contributorIds: ['emp-sela', 'emp-devin', 'emp-mara'],
+    format: 'DOCX',
+    preview:
+      '# Verification report\n\n- TTL asserted at 30m sliding renewal\n- 2 onboarding edge cases reproduced and fixed',
   },
 ];
 
 export const runCost: RunCost = { tokens: 48210, costLabel: '$0.41', live: true };
+
+/** The live run broadcasting over the team thread's stage. Seeds the assistant-ui
+ *  run-state store; replaced by the real harness run feed once wired. */
+export const activeRunPipeline: RunPipeline = {
+  title: 'Edge case review',
+  assigneeId: 'emp-devin',
+  stepDone: 3,
+  stepTotal: 7,
+  stages: [
+    { id: 'st-boss', label: 'Boss', state: 'done' },
+    { id: 'st-mgr', label: 'Manager', state: 'done' },
+    { id: 'st-pm', label: 'PM', state: 'done' },
+    { id: 'st-emp', label: 'Employee', state: 'active' },
+    { id: 'st-sum', label: 'Summary', state: 'pending' },
+  ],
+};
+
+export const activeMeeting: MeetingState = {
+  status: 'idle',
+  threadId: 'th-team',
+  title: 'Launch standup',
+  inRoomIds: ['emp-mara', 'emp-devin', 'emp-sela'],
+  transcript: [
+    { id: 'tr1', speakerId: 'emp-mara', text: 'Session contract is merged; TTL verified at 30m.' },
+    {
+      id: 'tr2',
+      speakerId: 'emp-devin',
+      text: 'Onboarding screens in review, two edge cases left.',
+    },
+    {
+      id: 'tr3',
+      speakerId: 'emp-sela',
+      text: 'I’ll run the verification pass after review lands.',
+    },
+  ],
+  actionItems: [
+    {
+      id: 'ai1',
+      description: 'Close the two onboarding edge cases',
+      assigneeId: 'emp-devin',
+      priority: 'high',
+      done: false,
+    },
+    {
+      id: 'ai2',
+      description: 'Run verification pass on the onboarding flow',
+      assigneeId: 'emp-sela',
+      priority: 'medium',
+      done: false,
+    },
+    {
+      id: 'ai3',
+      description: 'Confirm token TTL copy with stakeholders',
+      assigneeId: 'emp-mara',
+      priority: 'low',
+      done: true,
+    },
+  ],
+};
+
+/** Threads from a previous session that did not finish — drives the ResumeBar. */
+export const unfinishedThreads: UnfinishedThread[] = [
+  { threadId: 'th-team', projectId: 'pj-relay', name: 'Relay Launch · Team', state: 'running' },
+  { threadId: 'th-audit', projectId: 'pj-relay', name: 'Orion Audit', state: 'blocked' },
+];
+
+/** Git workbench state per project (left workspace panel Git tab). The real
+ *  desktop wires this through the `git_exec` Tauri command. */
+export const gitWorkbenches: Record<string, GitWorkbench> = {
+  'pj-relay': {
+    branch: 'feat/onboarding',
+    ahead: 3,
+    behind: 0,
+    changes: [
+      { path: 'src/api/session.ts', status: 'modified', staged: true, added: 24, removed: 6 },
+      { path: 'src/ui/onboarding.tsx', status: 'modified', staged: true, added: 58, removed: 12 },
+      { path: 'src/ui/onboarding.test.ts', status: 'added', staged: false, added: 41, removed: 0 },
+      { path: 'docs/legacy-flow.md', status: 'deleted', staged: false, added: 0, removed: 33 },
+    ],
+    diffPreview: [
+      { kind: 'context', text: 'export async function createSession(req) {' },
+      { kind: 'remove', text: '  const ttl = 15 * 60_000;' },
+      { kind: 'add', text: '  const ttl = 30 * 60_000; // 30m sliding renewal' },
+      { kind: 'context', text: '  return persist({ ...req, ttl });' },
+      { kind: 'context', text: '}' },
+    ],
+    checks: [
+      { id: 'ck-types', label: 'typecheck', state: 'pass' },
+      { id: 'ck-build', label: 'build', state: 'pass' },
+      { id: 'ck-lint', label: 'lint', state: 'running' },
+    ],
+  },
+  'pj-ledger': {
+    branch: 'feat/import',
+    ahead: 1,
+    behind: 2,
+    changes: [
+      { path: 'migrations/0002_import.sql', status: 'added', staged: false, added: 64, removed: 0 },
+    ],
+    diffPreview: [{ kind: 'add', text: 'CREATE TABLE import_batches (id TEXT PRIMARY KEY);' }],
+    checks: [{ id: 'ck-types', label: 'typecheck', state: 'pass' }],
+  },
+};
+
+export const boardTasks: BoardTask[] = [
+  {
+    id: 'bt-1',
+    title: 'Implement session contract',
+    column: 'doing',
+    assigneeId: 'emp-mara',
+    costLabel: '$0.0184',
+    tag: 'employee',
+  },
+  {
+    id: 'bt-2',
+    title: 'Review onboarding edge cases',
+    column: 'doing',
+    assigneeId: 'emp-devin',
+    tag: 'employee',
+  },
+  {
+    id: 'bt-3',
+    title: 'Verify token TTL behavior',
+    column: 'todo',
+    assigneeId: 'emp-sela',
+    tag: 'pm',
+  },
+  {
+    id: 'bt-4',
+    title: 'Security pass on transport',
+    column: 'blocked',
+    assigneeId: 'emp-orion',
+    tag: 'manager',
+    blockedReason: 'Waiting on repo access approval',
+  },
+  {
+    id: 'bt-7',
+    title: 'Confirm copy with stakeholders',
+    column: 'review',
+    assigneeId: 'emp-devin',
+    tag: 'human',
+  },
+  {
+    id: 'bt-5',
+    title: 'Draft session contract',
+    column: 'done',
+    assigneeId: 'emp-mara',
+    costLabel: '$0.0092',
+    tag: 'employee',
+  },
+  { id: 'bt-6', title: 'Onboarding flow spec', column: 'done', assigneeId: 'emp-devin', tag: 'pm' },
+];
+
+export const officeScene: OfficeSceneLayout = {
+  floorW: 16,
+  floorD: 12,
+  zones: [
+    { id: 'z-work', label: 'Workspace', kind: 'workspace', cx: -3.4, cz: 0, w: 8, d: 9 },
+    { id: 'z-meet', label: 'Meeting', kind: 'meeting', cx: 4.6, cz: -3, w: 6, d: 4 },
+    { id: 'z-lounge', label: 'Lounge', kind: 'lounge', cx: 4.6, cz: 3, w: 6, d: 4 },
+  ],
+  placements: [
+    { employeeId: 'emp-mara', x: -5, z: -2, rotation: 20 },
+    { employeeId: 'emp-devin', x: -2, z: -2, rotation: -20 },
+    { employeeId: 'emp-sela', x: -5, z: 2, rotation: 20 },
+    { employeeId: 'emp-orion', x: 4.6, z: -3, rotation: 180 },
+  ],
+};
 
 export const usageSeries: UsagePoint[] = [
   { label: 'Mon', runs: 8, cost: 0.62 },

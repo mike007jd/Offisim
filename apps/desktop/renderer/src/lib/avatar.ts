@@ -1,0 +1,174 @@
+import { avataaars } from '@dicebear/collection';
+import { createAvatar } from '@dicebear/core';
+
+/**
+ * Offisim employee avatars — DiceBear `avataaars` rendered from an employee seed,
+ * with optional appearance overrides. Mirrors the legacy avatar-seed logic: a
+ * stable seed picks skin / hair / outfit from curated palettes, and an explicit
+ * appearance (set in Personnel) overrides those choices.
+ */
+
+export type BodyType = 'slim' | 'normal' | 'stocky';
+export type Gender = 'masculine' | 'feminine' | 'neutral';
+export type AccentVariant = 'vest' | 'jacket' | 'scarf';
+
+export interface EmployeeAppearance {
+  hairStyle?: HairStyle;
+  skinColor?: string;
+  hairColor?: string;
+  clothingColor?: string;
+  accentColor?: string;
+  accentVariant?: AccentVariant;
+  bodyType?: BodyType;
+  gender?: Gender;
+}
+
+export type HairStyle =
+  | 'short'
+  | 'long'
+  | 'ponytail'
+  | 'curly'
+  | 'bald'
+  | 'bob'
+  | 'spiky'
+  | 'braids';
+
+const HAIR_STYLE_TO_TOP = {
+  short: 'shortFlat',
+  long: 'straight01',
+  ponytail: 'bun',
+  curly: 'shortCurly',
+  bald: 'shortFlat',
+  bob: 'bob',
+  spiky: 'frizzle',
+  braids: 'fro',
+} as const satisfies Record<HairStyle, string>;
+
+const OUTFIT_COLORS = [
+  '2f6bff',
+  '7c4ddb',
+  '1aa46a',
+  'c98410',
+  'd6453d',
+  '3c4a60',
+  '0f7a4d',
+  '5b2fb0',
+  '1f54d8',
+  '8a5a0c',
+];
+const SKIN_TONES = ['f8d9c4', 'edb98a', 'd08b5b', 'ae5d29', '614335', 'fd9841'];
+const HAIR_COLORS = [
+  '2c1b18',
+  '4a312c',
+  '724133',
+  'a55728',
+  'b58143',
+  'd6b370',
+  'e8e1e1',
+  '724133',
+];
+const TOP_CYCLE = [
+  'shortFlat',
+  'shortCurly',
+  'straight01',
+  'bob',
+  'bun',
+  'frizzle',
+  'fro',
+  'shortWaved',
+] as const;
+
+/** Knuth multiplicative hash → stable index into a palette. */
+function paletteIndex(seed: string, length: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 2654435761 + seed.charCodeAt(i)) >>> 0;
+  }
+  return hash % length;
+}
+
+function pick<T extends string>(seed: string, palette: readonly T[], salt: string): T {
+  return palette[paletteIndex(`${seed}:${salt}`, palette.length)] ?? (palette[0] as T);
+}
+
+function stripHash(hex: string): string {
+  return String(hex).replace(/^#/, '');
+}
+
+const HAIR_STYLES: readonly HairStyle[] = [
+  'short',
+  'long',
+  'ponytail',
+  'curly',
+  'bob',
+  'spiky',
+  'braids',
+];
+const BODY_TYPES: readonly BodyType[] = ['slim', 'normal', 'stocky'];
+const GENDERS: readonly Gender[] = ['masculine', 'feminine', 'neutral'];
+const ACCENT_VARIANTS: readonly AccentVariant[] = ['vest', 'jacket', 'scarf'];
+
+export interface ResolvedAppearance {
+  skin: string;
+  hair: string;
+  clothing: string;
+  accent: string;
+  hairStyle: HairStyle;
+  bodyType: BodyType;
+  gender: Gender;
+  accentVariant: AccentVariant;
+}
+
+/** Resolve concrete colors + body params for an employee — shared by the DiceBear
+ *  avatar and the 3D block character so both read identically. Returns `#rrggbb`. */
+export function resolveAppearance(
+  seed: string,
+  appearance?: EmployeeAppearance,
+): ResolvedAppearance {
+  const withHash = (hex: string) => {
+    const s = String(hex);
+    return s.startsWith('#') ? s : `#${s}`;
+  };
+  const clothing = withHash(appearance?.clothingColor ?? pick(seed, OUTFIT_COLORS, 'outfit'));
+  let accent = withHash(appearance?.accentColor ?? pick(seed, OUTFIT_COLORS, 'accent'));
+  if (accent.toLowerCase() === clothing.toLowerCase()) {
+    const next = OUTFIT_COLORS[(OUTFIT_COLORS.indexOf(accent.slice(1)) + 3) % OUTFIT_COLORS.length];
+    accent = withHash(next ?? '2f6bff');
+  }
+  return {
+    skin: withHash(appearance?.skinColor ?? pick(seed, SKIN_TONES, 'skin')),
+    hair: withHash(appearance?.hairColor ?? pick(seed, HAIR_COLORS, 'hair')),
+    clothing,
+    accent,
+    hairStyle: appearance?.hairStyle ?? pick(seed, HAIR_STYLES, 'hairstyle'),
+    bodyType: appearance?.bodyType ?? pick(seed, BODY_TYPES, 'body'),
+    gender: appearance?.gender ?? pick(seed, GENDERS, 'gender'),
+    accentVariant: appearance?.accentVariant ?? pick(seed, ACCENT_VARIANTS, 'accentvar'),
+  };
+}
+
+const cache = new Map<string, string>();
+
+export function employeeAvatarUri(seed: string, appearance?: EmployeeAppearance): string {
+  const key = `${seed}|${appearance ? JSON.stringify(appearance) : ''}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const hairStyle = appearance?.hairStyle;
+  const top = hairStyle ? HAIR_STYLE_TO_TOP[hairStyle] : pick(seed, TOP_CYCLE, 'top');
+  const isBald = hairStyle === 'bald';
+
+  const uri = createAvatar(avataaars, {
+    seed,
+    radius: 0,
+    backgroundColor: ['transparent'],
+    skinColor: [stripHash(appearance?.skinColor ?? pick(seed, SKIN_TONES, 'skin'))],
+    hairColor: [stripHash(appearance?.hairColor ?? pick(seed, HAIR_COLORS, 'hair'))],
+    clothesColor: [stripHash(appearance?.clothingColor ?? pick(seed, OUTFIT_COLORS, 'outfit'))],
+    top: [top],
+    ...(isBald ? { topProbability: 0 } : {}),
+  }).toDataUri();
+
+  cache.set(key, uri);
+  return uri;
+}

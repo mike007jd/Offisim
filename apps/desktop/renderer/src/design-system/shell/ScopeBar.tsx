@@ -9,13 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/design-system/primitives/dropdown-menu.js';
-import { Check, ChevronDown, FolderGit2, Plus } from 'lucide-react';
+import { Check, ChevronDown, FolderGit2, FolderOpen, Pencil, Plus } from 'lucide-react';
 
 export function ScopeBar() {
   const companyId = useUiState((s) => s.companyId);
   const projectId = useUiState((s) => s.projectId);
   const setCompany = useUiState((s) => s.setCompany);
   const setProject = useUiState((s) => s.setProject);
+  const setSurface = useUiState((s) => s.setSurface);
 
   const companies = useCompanies();
   const projects = useProjects(companyId);
@@ -59,7 +60,7 @@ export function ScopeBar() {
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setSurface('lifecycle')}>
             <Plus className="size-[14px]" />
             New company
           </DropdownMenuItem>
@@ -91,6 +92,19 @@ export function ScopeBar() {
           ) : (
             <DropdownMenuItem disabled>No projects in this company</DropdownMenuItem>
           )}
+          {activeProject ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={!activeProject.workspaceRoot}>
+                <FolderOpen className="size-[14px]" />
+                Open folder
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Pencil className="size-[14px]" />
+                Edit project
+              </DropdownMenuItem>
+            </>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem>
             <Plus className="size-[14px]" />

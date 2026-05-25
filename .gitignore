@@ -70,3 +70,5 @@ openspec/changes/**/.live-verify/
 openspec/changes/**/verify-screenshots/
 openspec/changes/**/evidence/
 openspec/changes/**/evidence.md
+/legacy/
+/legacy-a1c1110/

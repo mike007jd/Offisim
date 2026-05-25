@@ -1,240 +1,404 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useListings } from '@/data/queries.js';
-import type { Listing, ListingKind } from '@/data/types.js';
-import { Chip } from '@/design-system/grammar/Chip.js';
-import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { SearchInput } from '@/design-system/grammar/SearchInput.js';
 import {
   SegmentedControl,
   type SegmentedOption,
 } from '@/design-system/grammar/SegmentedControl.js';
-import { Select } from '@/design-system/grammar/Select.js';
 import { Icon } from '@/design-system/icons/Icon.js';
 import { Button } from '@/design-system/primitives/button.js';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/design-system/primitives/dropdown-menu.js';
 import { cn } from '@/lib/utils.js';
-import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Box,
   Building2,
-  Download,
-  LayoutDashboard,
-  type LucideIcon,
-  Package,
+  ChevronDown,
+  CloudUpload,
+  Layers,
+  LayoutGrid,
+  Loader2,
+  Search,
   Sparkles,
-  Star,
   Store,
   UserRound,
-  Workflow,
-  X,
+  WifiOff,
 } from 'lucide-react';
-import { motion } from 'motion/react';
-import { type CSSProperties, useMemo, useState } from 'react';
-
-const RARITY: Record<ListingKind, { rc: string; rcs: string; icon: LucideIcon }> = {
-  employee: { rc: 'var(--off-accent)', rcs: 'var(--off-accent-surface)', icon: UserRound },
-  skill: { rc: 'var(--off-violet)', rcs: 'var(--off-violet-surface)', icon: Sparkles },
-  sop: { rc: 'var(--off-warn)', rcs: 'var(--off-warn-surface)', icon: Workflow },
-  template: { rc: 'var(--off-violet)', rcs: 'var(--off-violet-surface)', icon: Building2 },
-  layout: { rc: 'var(--off-danger)', rcs: 'var(--off-danger-surface)', icon: LayoutDashboard },
-  prefab: { rc: 'var(--off-warn)', rcs: 'var(--off-warn-surface)', icon: Box },
-  bundle: { rc: 'var(--off-ink-3)', rcs: 'var(--off-surface-sunken)', icon: Package },
-};
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { InstallDialog } from './InstallDialog.js';
+import { MarketCard } from './MarketCard.js';
+import { MarketDetail } from './MarketDetail.js';
+import { MarketManage } from './MarketManage.js';
+import { PublishDialog } from './PublishDialog.js';
+import {
+  type ListingKind,
+  type ManageView,
+  type MarketListing,
+  useMarketListings,
+  usePublishSources,
+} from './market-data.js';
+import { type SortKey, useMarketUi } from './market-store.js';
 
 type KindFilter = 'all' | ListingKind;
+
 const KIND_FILTERS: ReadonlyArray<SegmentedOption<KindFilter>> = [
   { value: 'all', label: 'All' },
-  { value: 'employee', label: 'People' },
-  { value: 'skill', label: 'Skills' },
-  { value: 'sop', label: 'SOPs' },
-  { value: 'template', label: 'Templates' },
+  { value: 'employee', label: 'Employees', icon: <Icon icon={UserRound} size="sm" /> },
+  { value: 'skill', label: 'Skills', icon: <Icon icon={Sparkles} size="sm" /> },
+  { value: 'template', label: 'Templates', icon: <Icon icon={Building2} size="sm" /> },
+  { value: 'layout', label: 'Layouts', icon: <Icon icon={LayoutGrid} size="sm" /> },
+  { value: 'prefab', label: 'Prefabs', icon: <Icon icon={Box} size="sm" /> },
 ];
 
-type SortKey = 'installs' | 'rating' | 'name';
+const SORTS: ReadonlyArray<SegmentedOption<SortKey>> = [
+  { value: 'relevance', label: 'Relevance' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'rating', label: 'Rating' },
+  { value: 'installs', label: 'Installs' },
+];
 
-function cardStyle(kind: ListingKind): CSSProperties {
-  const r = RARITY[kind];
-  return { '--rc': r.rc, '--rcs': r.rcs } as CSSProperties;
-}
+const MANAGE_VIEWS: ReadonlyArray<SegmentedOption<ManageView>> = [
+  { value: 'installed', label: 'Installed', icon: <Icon icon={Layers} size="sm" /> },
+  { value: 'updates', label: 'Updates' },
+  { value: 'published', label: 'Published' },
+];
 
-function compactInstalls(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
-}
-
-function MarketDetail({ listing, onClose }: { listing: Listing; onClose: () => void }) {
-  const rarity = RARITY[listing.kind];
-  return (
-    <motion.aside
-      className="off-mkt-detail"
-      style={cardStyle(listing.kind)}
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <header className="off-mkt-detail-head">
-        <span className="off-mkt-cover-icon" style={{ width: 30, height: 30 }}>
-          <Icon icon={rarity.icon} size="sm" />
-        </span>
-        <span className="off-mkt-kind">{listing.kind}</span>
-        <span className="ml-auto">
-          <IconButton icon={X} label="Close" variant="ghost" size="iconSm" onClick={onClose} />
-        </span>
-      </header>
-      <div className="off-mkt-detail-scroll">
-        <div>
-          <div className="off-mkt-detail-title">{listing.name}</div>
-          <div className="off-mkt-detail-summary">{listing.summary}</div>
-        </div>
-        <Button size="lg" style={{ background: rarity.rc }}>
-          <Icon icon={Download} size="sm" />
-          Install · {compactInstalls(listing.installs)} installs
-        </Button>
-        <div className="off-mkt-meta-grid">
-          <div className="off-mkt-meta">
-            <span className="off-mkt-meta-label">Version</span>
-            <span className="off-mkt-meta-value">{listing.version}</span>
-          </div>
-          <div className="off-mkt-meta">
-            <span className="off-mkt-meta-label">Rating</span>
-            <span className="off-mkt-meta-value">{listing.rating.toFixed(1)}</span>
-          </div>
-          <div className="off-mkt-meta">
-            <span className="off-mkt-meta-label">Installs</span>
-            <span className="off-mkt-meta-value">{listing.installs.toLocaleString()}</span>
-          </div>
-          <div className="off-mkt-meta">
-            <span className="off-mkt-meta-label">Creator</span>
-            <span className="off-mkt-meta-value">@{listing.creator}</span>
-          </div>
-        </div>
-        <div className="off-mkt-tags">
-          {listing.tags.map((tag) => (
-            <Chip key={tag}>{tag}</Chip>
-          ))}
-        </div>
-      </div>
-    </motion.aside>
-  );
-}
+const MIN_CARD = 216;
+const GAP = 14;
+/** Card (200) + the per-row top spacing (sp-7 = 16) used as inter-row rhythm. */
+const ROW_HEIGHT = 216;
 
 export function MarketSurface() {
-  const listings = useListings();
+  const listings = useMarketListings();
+  const sources = usePublishSources();
   const selectedListingId = useUiState((s) => s.selectedListingId);
   const selectListing = useUiState((s) => s.selectListing);
+
+  const mode = useMarketUi((s) => s.mode);
+  const setMode = useMarketUi((s) => s.setMode);
+  const manageView = useMarketUi((s) => s.manageView);
+  const setManageView = useMarketUi((s) => s.setManageView);
+  const sessionInstalledIds = useMarketUi((s) => s.sessionInstalledIds);
+  const markInstalled = useMarketUi((s) => s.markInstalled);
+
   const [kind, setKind] = useState<KindFilter>('all');
-  const [sort, setSort] = useState<SortKey>('installs');
+  const [sort, setSort] = useState<SortKey>('relevance');
   const [query, setQuery] = useState('');
+  const [installTarget, setInstallTarget] = useState<MarketListing | null>(null);
+  const [installOpen, setInstallOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+
+  const isInstalled = (l: MarketListing) => l.installed || sessionInstalledIds.has(l.id);
 
   const filtered = useMemo(() => {
     let list = listings.data ?? [];
     if (kind !== 'all') list = list.filter((l) => l.kind === kind);
     const q = query.trim().toLowerCase();
-    if (q)
+    if (q) {
       list = list.filter(
-        (l) => l.name.toLowerCase().includes(q) || l.tags.some((t) => t.includes(q)),
+        (l) =>
+          l.name.toLowerCase().includes(q) ||
+          l.summary.toLowerCase().includes(q) ||
+          l.tags.some((t) => t.toLowerCase().includes(q)),
       );
-    return [...list].sort((a, b) => {
-      if (sort === 'name') return a.name.localeCompare(b.name);
-      if (sort === 'rating') return b.rating - a.rating;
-      return b.installs - a.installs;
-    });
+    }
+    const sorted = [...list];
+    if (sort === 'rating') sorted.sort((a, b) => b.rating - a.rating);
+    else if (sort === 'installs') sorted.sort((a, b) => b.installs - a.installs);
+    else if (sort === 'newest')
+      sorted.sort((a, b) => b.publishedLabel.localeCompare(a.publishedLabel));
+    return sorted;
   }, [listings.data, kind, sort, query]);
 
-  const selected = listings.data?.find((l) => l.id === selectedListingId) ?? null;
+  const selected = (listings.data ?? []).find((l) => l.id === selectedListingId) ?? null;
+  const detailOpen = selected !== null && mode === 'explore';
+
+  function resetFilters() {
+    setKind('all');
+    setQuery('');
+    setSort('relevance');
+  }
+
+  function openInstall(listing: MarketListing) {
+    setInstallTarget(listing);
+    setInstallOpen(true);
+  }
 
   return (
-    <div className="off-market">
-      <div className="off-mkt-bar">
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Search market"
-          className="off-mkt-search"
-        />
-        <SegmentedControl
-          options={KIND_FILTERS}
-          value={kind}
-          onChange={setKind}
-          ariaLabel="Filter by kind"
-        />
-        <span className="ml-auto" />
-        <Select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortKey)}
-          options={[
-            { value: 'installs', label: 'Most installed' },
-            { value: 'rating', label: 'Top rated' },
-            { value: 'name', label: 'Name' },
-          ]}
-        />
-        <Button size="md">
-          <Icon icon={Store} size="sm" />
-          Publish
-        </Button>
+    <div className={cn('off-market', detailOpen && 'is-with-detail')}>
+      <div className="off-mkt-fbar">
+        <div className="off-mkt-fbar-main">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search packages…"
+            className="off-mkt-search"
+          />
+          {mode === 'explore' ? (
+            <>
+              <SegmentedControl
+                options={KIND_FILTERS}
+                value={kind}
+                onChange={setKind}
+                wrap
+                ariaLabel="Filter by kind"
+              />
+              <SegmentedControl options={SORTS} value={sort} onChange={setSort} ariaLabel="Sort" />
+            </>
+          ) : null}
+          <ModeDropdown mode={mode} onChange={setMode} />
+          {mode === 'explore' ? (
+            <Button
+              size="md"
+              variant="outline"
+              className="ml-auto"
+              onClick={() => setPublishOpen(true)}
+            >
+              <Icon icon={CloudUpload} size="sm" />
+              Publish
+            </Button>
+          ) : null}
+        </div>
+        {mode === 'manage' ? (
+          <div className="off-mkt-fbar-sub">
+            <span className="off-mkt-fbar-lbl">View</span>
+            <SegmentedControl
+              options={MANAGE_VIEWS}
+              value={manageView}
+              onChange={setManageView}
+              ariaLabel="Manage view"
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="off-mkt-grid-wrap">
-        <div className="off-mkt-scroll">
-          {listings.isLoading ? (
-            <SkeletonRows rows={8} className="p-[var(--off-sp-7)]" />
-          ) : listings.isError ? (
-            <ErrorState
-              title="Market unavailable"
-              detail="Couldn't reach the registry. The platform may be offline."
-              onRetry={() => listings.refetch()}
+        {mode === 'manage' ? (
+          <div className="off-mkt-listing">
+            <MarketManage
+              view={manageView}
+              onBrowseExplore={() => setMode('explore')}
+              onPublish={() => setPublishOpen(true)}
             />
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              icon={Store}
-              title={query || kind !== 'all' ? 'No matching listings' : 'Market is empty'}
-              description={
-                query || kind !== 'all'
-                  ? 'Adjust your filters or search term.'
-                  : 'Published employees, skills, and SOPs will appear here.'
-              }
-            />
-          ) : (
-            <div className="off-mkt-grid">
-              {filtered.map((listing) => {
-                const rarity = RARITY[listing.kind];
-                return (
-                  <button
-                    type="button"
-                    key={listing.id}
-                    className={cn(
-                      'off-mkt-card off-focusable',
-                      listing.id === selectedListingId && 'is-active',
-                    )}
-                    style={cardStyle(listing.kind)}
-                    onClick={() => selectListing(listing.id)}
-                  >
-                    <div className="off-mkt-cover">
-                      <span className="off-mkt-cover-icon">
-                        <Icon icon={rarity.icon} size="md" />
-                      </span>
-                      <span className="off-mkt-kind">{listing.kind}</span>
-                    </div>
-                    <div className="off-mkt-body">
-                      <span className="off-mkt-name">{listing.name}</span>
-                      <span className="off-mkt-summary">{listing.summary}</span>
-                      <span className="off-mkt-stats">
-                        <span className="off-mkt-stat is-rating">
-                          <Icon icon={Star} size="sm" />
-                          {listing.rating.toFixed(1)}
-                        </span>
-                        <span className="off-mkt-stat">
-                          <Icon icon={Download} size="sm" />
-                          <span className="off-mkt-mono">{compactInstalls(listing.installs)}</span>
-                        </span>
-                        <span className="off-mkt-creator">@{listing.creator}</span>
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+          </div>
+        ) : listings.isLoading ? (
+          <SkeletonGrid />
+        ) : listings.isError ? (
+          <MarketErrorState onRetry={() => listings.refetch()} />
+        ) : filtered.length === 0 ? (
+          <MarketEmptyState filtered={query !== '' || kind !== 'all'} onReset={resetFilters} />
+        ) : (
+          <CardGrid
+            listings={filtered}
+            selectedId={selectedListingId}
+            isInstalled={isInstalled}
+            onSelect={(id) => selectListing(id)}
+          />
+        )}
+        {detailOpen && selected ? (
+          <MarketDetail
+            listing={selected}
+            installed={isInstalled(selected)}
+            onClose={() => selectListing(null)}
+            onInstall={() => openInstall(selected)}
+          />
+        ) : null}
+      </div>
+
+      <InstallDialog
+        listing={installTarget}
+        open={installOpen}
+        onOpenChange={setInstallOpen}
+        onInstalled={markInstalled}
+      />
+      <PublishDialog
+        open={publishOpen}
+        onOpenChange={setPublishOpen}
+        sources={sources.data ?? []}
+      />
+    </div>
+  );
+}
+
+function ModeDropdown({
+  mode,
+  onChange,
+}: {
+  mode: 'explore' | 'manage';
+  onChange: (m: 'explore' | 'manage') => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className="off-mkt-drop off-focusable" aria-label="Marketplace mode">
+          {mode === 'explore' ? 'Explore' : 'Manage'}
+          <Icon icon={ChevronDown} size="sm" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuItem onSelect={() => onChange('explore')}>Explore</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onChange('manage')}>Manage</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Virtualized responsive card grid. Columns are derived from container width
+ *  (auto-fill minmax(216px,1fr)); TanStack Virtual virtualizes the rows so a
+ *  long registry stays smooth. */
+function CardGrid({
+  listings,
+  selectedId,
+  isInstalled,
+  onSelect,
+}: {
+  listings: MarketListing[];
+  selectedId: string | null;
+  isInstalled: (l: MarketListing) => boolean;
+  onSelect: (id: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [cols, setCols] = useState(3);
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const compute = () => {
+      const inner = el.clientWidth - GAP * 2;
+      const next = Math.max(1, Math.floor((inner + GAP) / (MIN_CARD + GAP)));
+      setCols(next);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const rowCount = Math.ceil(listings.length / cols);
+  const virtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 4,
+  });
+
+  // Re-measure when column count changes the row layout.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: cols is the intended trigger — the body re-measures the virtualizer whenever the column count changes.
+  useEffect(() => {
+    virtualizer.measure();
+  }, [cols, virtualizer]);
+
+  return (
+    <div className="off-mkt-scroll" ref={scrollRef}>
+      <div
+        className="off-mkt-vgrid"
+        style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
+      >
+        {virtualizer.getVirtualItems().map((row) => {
+          const start = row.index * cols;
+          const items = listings.slice(start, start + cols);
+          return (
+            <div
+              key={row.key}
+              className="off-mkt-vrow"
+              style={{
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                transform: `translateY(${row.start}px)`,
+              }}
+            >
+              {items.map((listing) => (
+                <MarketCard
+                  key={listing.id}
+                  listing={listing}
+                  installed={isInstalled(listing)}
+                  selected={listing.id === selectedId}
+                  onSelect={() => onSelect(listing.id)}
+                />
+              ))}
             </div>
-          )}
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SkeletonGrid() {
+  return (
+    <div className="off-mkt-scroll">
+      <div className="off-mkt-skel-grid">
+        {Array.from({ length: 8 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders
+          <div key={i} className="off-mkt-skel">
+            <div className="off-mkt-skel-cover" />
+            <div className="off-mkt-skel-body">
+              <div className="off-mkt-sk" style={{ height: 11, width: '60%' }} />
+              <div className="off-mkt-sk" style={{ height: 13, width: '80%' }} />
+              <div className="off-mkt-sk" style={{ height: 11, width: '100%' }} />
+              <div className="off-mkt-sk" style={{ height: 11, width: '60%' }} />
+              <div className="off-mkt-skel-stats">
+                <div className="off-mkt-sk" style={{ height: 11, width: 30 }} />
+                <div className="off-mkt-sk" style={{ height: 11, width: 46 }} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MarketErrorState({ onRetry }: { onRetry: () => void }) {
+  const setSurface = useUiState((s) => s.setSurface);
+  return (
+    <div className="off-mkt-scroll off-mkt-hero-wrap">
+      <div className="off-mkt-hero">
+        <span className="off-mkt-hero-i is-danger">
+          <Icon icon={WifiOff} size="md" />
+        </span>
+        <div className="off-mkt-hero-t">Market is unavailable</div>
+        <div className="off-mkt-hero-d">
+          Couldn't reach the marketplace service. The platform may be offline.
         </div>
-        {selected ? <MarketDetail listing={selected} onClose={() => selectListing(null)} /> : null}
+        <div className="off-mkt-hero-tech">503 Service Unavailable — platform :4100</div>
+        <div className="off-mkt-hero-a">
+          <Button size="md" onClick={onRetry}>
+            <Icon icon={Loader2} size="sm" />
+            Retry
+          </Button>
+          <Button variant="outline" size="md" onClick={() => setSurface('office')}>
+            Back to Office
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MarketEmptyState({ filtered, onReset }: { filtered: boolean; onReset: () => void }) {
+  return (
+    <div className="off-mkt-scroll off-mkt-hero-wrap">
+      <div className="off-mkt-hero">
+        <span className="off-mkt-hero-i">
+          <Icon icon={filtered ? Search : Store} size="md" />
+        </span>
+        <div className="off-mkt-hero-t">{filtered ? 'No packages found' : 'Market is empty'}</div>
+        <div className="off-mkt-hero-d">
+          {filtered
+            ? 'Try adjusting your search or filters to find what you need.'
+            : 'Published employees, skills, and templates will appear here.'}
+        </div>
+        {filtered ? (
+          <div className="off-mkt-hero-a">
+            <Button size="md" onClick={onReset}>
+              Reset filters
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

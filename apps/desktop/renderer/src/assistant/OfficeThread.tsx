@@ -1,77 +1,112 @@
-import type { ChatMessage, Deliverable, Employee, ThreadScope } from '@/data/types.js';
+import { useUiState } from '@/app/ui-state.js';
+import type { ChatMessage, Deliverable, Employee, RunState, ThreadScope } from '@/data/types.js';
+import { SESSION_MODE_LABEL, type SessionMode } from '@/data/types.js';
 import { Chip } from '@/design-system/grammar/Chip.js';
 import { IconButton } from '@/design-system/grammar/IconButton.js';
 import { Icon } from '@/design-system/icons/Icon.js';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/design-system/primitives/dropdown-menu.js';
 import { ConvOutputs } from '@/surfaces/office/rail/ConvOutputs.js';
 import { MessageItem } from '@/surfaces/office/rail/MessageItem.js';
 import { EmptyState } from '@/surfaces/shared/SurfaceStates.js';
-import {
-  type AppendMessage,
-  AssistantRuntimeProvider,
-  ComposerPrimitive,
-  type ThreadMessageLike,
-  ThreadPrimitive,
-  useExternalStoreRuntime,
-} from '@assistant-ui/react';
-import {
-  ChevronDown,
-  Cpu,
-  MessageSquarePlus,
-  Paperclip,
-  SendHorizontal,
-  SlashSquare,
-} from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { AssistantRuntimeProvider, ComposerPrimitive, ThreadPrimitive } from '@assistant-ui/react';
+import { ChevronDown, Cpu, MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { StagedAttachments } from './composer/StagedAttachments.js';
+import { ChatErrorBanner } from './parts/ChatErrorBanner.js';
+import { MeetingRegion } from './parts/Meeting.js';
+import { useRunStore } from './run-store.js';
+import { useOfficeRuntime } from './runtime/useOfficeRuntime.js';
 
-/** Map an Offisim chat message into the assistant-ui thread model. The original
- *  message is carried in metadata.custom so the V3 renderer keeps full fidelity. */
-function convertMessage(message: ChatMessage): ThreadMessageLike {
-  return {
-    role: message.author === 'boss' ? 'user' : 'assistant',
-    content: [{ type: 'text', text: message.body }],
-    id: message.id,
-    createdAt: new Date(message.at),
-    metadata: { custom: message as unknown as Record<string, unknown> },
-  };
-}
-
-function appendText(message: AppendMessage): string {
-  return message.content
-    .map((part) => ('text' in part ? part.text : ''))
-    .join('')
-    .trim();
-}
+const SESSION_MODES: SessionMode[] = ['sop', 'direct', 'hil', 'yolo'];
 
 interface OfficeThreadProps {
   threadId: string;
+  runState: RunState;
   seedMessages: ChatMessage[];
   employeesById: Map<string, Employee>;
   deliverables: Deliverable[];
   scope: ThreadScope;
   modelLabel: string;
+  projectName: string;
+  attachmentsAvailable: number;
 }
 
-function OfficeComposer({ modelLabel }: { modelLabel: string }) {
+function OfficeComposer({
+  modelLabel,
+  projectName,
+  attachmentsAvailable,
+}: {
+  modelLabel: string;
+  projectName: string;
+  attachmentsAvailable: number;
+}) {
+  const sessionMode = useUiState((s) => s.sessionMode);
+  const setSessionMode = useUiState((s) => s.setSessionMode);
+  const stageFiles = useRunStore((s) => s.stageFiles);
+  const storageAvailable = useRunStore((s) => s.storageAvailable);
+  const fileInput = useRef<HTMLInputElement>(null);
+
   return (
     <ComposerPrimitive.Root className="off-composer">
       <ComposerPrimitive.Input
         className="off-composer-input"
-        placeholder="Message the team — Enter to send, Shift+Enter for newline"
+        placeholder="Message the team — / for commands, @ to mention, Enter to send"
         rows={2}
         submitOnEnter
       />
+      <div className="off-ccs">
+        <span className="off-ccs-project">{projectName}</span>
+        <span className="off-ccs-dot" />
+        <span className="off-ccs-att">{attachmentsAvailable} attachments available</span>
+      </div>
+      <StagedAttachments />
       <div className="off-composer-tools">
-        <IconButton icon={Paperclip} label="Attach file" variant="subtle" size="iconSm" />
-        <IconButton icon={SlashSquare} label="Slash commands" variant="subtle" size="iconSm" />
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          hidden
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []).map((f) => ({
+              name: f.name,
+              bytes: f.size,
+            }));
+            if (files.length) stageFiles(files);
+            e.target.value = '';
+          }}
+        />
+        <IconButton
+          icon={Paperclip}
+          label={storageAvailable ? 'Attach file' : 'Attachment storage unavailable'}
+          variant="subtle"
+          size="iconSm"
+          disabled={!storageAvailable}
+          onClick={() => fileInput.current?.click()}
+        />
         <span className="off-composer-divider" aria-hidden />
-        <Chip as="button" accent dotColor="var(--off-accent)">
-          Team mode
-          <Icon icon={ChevronDown} size="sm" />
-        </Chip>
-        <Chip as="button">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Chip as="button" accent dotColor="var(--off-accent)">
+              {SESSION_MODE_LABEL[sessionMode]}
+              <Icon icon={ChevronDown} size="sm" />
+            </Chip>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {SESSION_MODES.map((mode) => (
+              <DropdownMenuItem key={mode} onSelect={() => setSessionMode(mode)}>
+                {SESSION_MODE_LABEL[mode]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Chip as="span">
           <Icon icon={Cpu} size="sm" />
-          {modelLabel}
-          <Icon icon={ChevronDown} size="sm" />
+          {modelLabel} · Med
         </Chip>
         <span className="off-grow" />
         <ComposerPrimitive.Send className="off-composer-send off-focusable">
@@ -85,41 +120,35 @@ function OfficeComposer({ modelLabel }: { modelLabel: string }) {
 
 export function OfficeThread({
   threadId,
+  runState,
   seedMessages,
   employeesById,
   deliverables,
   scope,
   modelLabel,
+  projectName,
+  attachmentsAvailable,
 }: OfficeThreadProps) {
-  const [drafts, setDrafts] = useState<ChatMessage[]>([]);
-  const messages = useMemo(() => [...seedMessages, ...drafts], [seedMessages, drafts]);
+  const runtime = useOfficeRuntime({ threadId, seedMessages });
+  const syncThread = useRunStore((s) => s.syncThread);
 
-  const onNew = useCallback(
-    async (message: AppendMessage) => {
-      const text = appendText(message);
-      if (!text) return;
-      setDrafts((prev) => [
-        ...prev,
-        {
-          id: `draft-${Date.now()}`,
-          threadId,
-          author: 'boss',
-          employeeId: null,
-          body: text,
-          at: Date.now(),
-        },
-      ]);
-    },
-    [threadId],
-  );
+  // Bind the shared run-state store to this thread: seeds the pipeline / error /
+  // meeting that the stage pill, Live axis and error banner all read.
+  useEffect(() => {
+    syncThread(threadId, runState);
+  }, [threadId, runState, syncThread]);
 
-  const runtime = useExternalStoreRuntime({ messages, onNew, convertMessage, isRunning: false });
+  // Stop the advance timer when the conversation unmounts (e.g. navigating away
+  // mid-run) so it doesn't keep ticking into a store no component reads.
+  useEffect(() => () => useRunStore.getState().stop(), []);
+
+  const messageCount = seedMessages.length;
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="off-thread">
         <ThreadPrimitive.Viewport className="off-thread-viewport">
-          {messages.length === 0 ? (
+          {messageCount === 0 ? (
             <EmptyState
               icon={MessageSquarePlus}
               title="No messages yet"
@@ -137,11 +166,17 @@ export function OfficeThread({
               </ThreadPrimitive.Messages>
             </div>
           )}
+          <ChatErrorBanner />
+          <MeetingRegion />
           {scope === 'team' ? (
             <ConvOutputs deliverables={deliverables} employeesById={employeesById} />
           ) : null}
         </ThreadPrimitive.Viewport>
-        <OfficeComposer modelLabel={modelLabel} />
+        <OfficeComposer
+          modelLabel={modelLabel}
+          projectName={projectName}
+          attachmentsAvailable={attachmentsAvailable}
+        />
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
   );

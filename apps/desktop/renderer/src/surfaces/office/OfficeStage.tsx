@@ -1,105 +1,98 @@
 import { useUiState } from '@/app/ui-state.js';
-import { useEmployees, useRunCost, useThreads } from '@/data/queries.js';
-import { BlockAvatar } from '@/design-system/grammar/BlockAvatar.js';
+import { LiveRunAxis } from '@/assistant/parts/LiveRunAxis.js';
+import { RunPipelinePill } from '@/assistant/parts/RunPipelinePill.js';
+import { useRunStore } from '@/assistant/run-store.js';
+import { useRunCost } from '@/data/queries.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { cn, initialsOf } from '@/lib/utils.js';
-import { Coins, LayoutPanelTop, Radio, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils.js';
+import { Bell, Box, Coins, LayoutPanelTop, Radio, SquareStack } from 'lucide-react';
+import { Suspense } from 'react';
+import { BoardView } from './scene/BoardView.js';
+import { OfficeScene2D } from './scene/OfficeScene2D.js';
+import { OfficeScene3D } from './scene/OfficeScene3D.js';
+
+const UNREAD = 2;
 
 export function OfficeStage() {
-  const projectId = useUiState((s) => s.projectId);
-  const stageMode = useUiState((s) => s.stageMode);
-  const setStageMode = useUiState((s) => s.setStageMode);
-  const runPanel = useUiState((s) => s.runPanel);
-  const toggleRunPanel = useUiState((s) => s.toggleRunPanel);
-  const selectedThreadId = useUiState((s) => s.selectedThreadId);
-  const openThread = useUiState((s) => s.openThread);
+  const stageRunAxis = useUiState((s) => s.stageRunAxis);
+  const toggleStageRunAxis = useUiState((s) => s.toggleStageRunAxis);
+  const sceneRenderMode = useUiState((s) => s.sceneRenderMode);
+  const setSceneRenderMode = useUiState((s) => s.setSceneRenderMode);
 
-  const employees = useEmployees();
-  const threads = useThreads(projectId);
   const runCost = useRunCost();
-
-  const liveThread = threads.data?.find((t) => t.runState === 'running');
-  const isLive = Boolean(liveThread);
+  const isRunning = useRunStore((s) => s.isRunning);
 
   return (
-    <section className={cn('off-stage', isLive && 'is-live')}>
-      <div className="off-scene-wrap">
-        <div className="off-scene">
-          <div className="off-scene-grid">
-            {employees.data?.map((employee) => {
-              const thread = threads.data?.find((t) => t.employeeId === employee.id);
-              const running =
-                thread?.runState === 'running' || (liveThread?.scope === 'team' && employee.online);
-              const active = thread?.id === selectedThreadId;
-              return (
-                <button
-                  type="button"
-                  key={employee.id}
-                  className={cn(
-                    'off-desk off-focusable',
-                    active && 'is-active',
-                    running && 'is-running',
-                  )}
-                  onClick={() => (thread ? openThread(thread.id) : undefined)}
-                >
-                  <BlockAvatar
-                    initials={initialsOf(employee.name)}
-                    colorA={employee.avatarA}
-                    colorB={employee.avatarB}
-                    size={48}
-                    brand={employee.kind === 'external'}
-                  />
-                  <span className="off-desk-name">{employee.name}</span>
-                  <span className="off-desk-role">{employee.role}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+    <section className={cn('off-stage', isRunning && 'is-live')}>
+      {/* The scene is always the base layer; run-axis entries overlay it. */}
+      <div className="off-scene-host">
+        {sceneRenderMode === '3d' ? (
+          <Suspense fallback={<div className="off-scene-loading">Loading scene…</div>}>
+            <OfficeScene3D />
+          </Suspense>
+        ) : (
+          <OfficeScene2D />
+        )}
       </div>
 
+      {stageRunAxis === 'board' ? (
+        <div className="off-stage-overlay off-stage-board">
+          <BoardView />
+        </div>
+      ) : null}
+
+      {stageRunAxis === 'live' ? (
+        <div className="off-stage-overlay off-stage-live">
+          <LiveRunAxis />
+        </div>
+      ) : null}
+
+      {/* Pipeline pill: always present while a run is live (Stop lives here). */}
+      <RunPipelinePill />
+
+      {/* stage-mode (left): 3D / 2D render toggle. */}
       <div className="off-stage-float off-stage-mode">
         <button
           type="button"
-          className={cn('off-stage-entry off-focusable', stageMode === 'scene' && 'is-on')}
-          onClick={() => setStageMode('scene')}
+          className={cn('off-stage-entry off-focusable', sceneRenderMode === '3d' && 'is-on')}
+          onClick={() => setSceneRenderMode('3d')}
         >
-          <Icon icon={Sparkles} size="sm" />
-          Scene
+          <Icon icon={Box} size="sm" />
+          3D
         </button>
         <button
           type="button"
-          className={cn('off-stage-entry off-focusable', stageMode === 'board' && 'is-on')}
-          onClick={() => setStageMode('board')}
+          className={cn('off-stage-entry off-focusable', sceneRenderMode === '2d' && 'is-on')}
+          onClick={() => setSceneRenderMode('2d')}
         >
           <Icon icon={LayoutPanelTop} size="sm" />
-          Board
+          2D
         </button>
       </div>
 
+      {/* stage-runaxis (center): Board + Live overlays on top of the scene. */}
       <div className="off-stage-float off-stage-runaxis">
         <button
           type="button"
-          className={cn('off-stage-entry off-focusable', runPanel === 'board' && 'is-on')}
-          onClick={() => toggleRunPanel('board')}
+          className={cn('off-stage-entry off-focusable', stageRunAxis === 'board' && 'is-on')}
+          onClick={() => toggleStageRunAxis('board')}
         >
-          <Icon icon={LayoutPanelTop} size="sm" />
-          Run board
+          <Icon icon={SquareStack} size="sm" />
+          Board
         </button>
         <button
           type="button"
-          className={cn(
-            'off-stage-entry off-focusable',
-            (runPanel === 'live' || isLive) && 'is-on',
-          )}
-          onClick={() => toggleRunPanel('live')}
+          className={cn('off-stage-entry off-focusable', stageRunAxis === 'live' && 'is-on')}
+          onClick={() => toggleStageRunAxis('live')}
         >
-          {isLive ? <span className="off-stage-livedot" /> : <Icon icon={Radio} size="sm" />}
-          {isLive ? 'Live' : 'Idle'}
+          <span className={cn('off-stage-livedot', isRunning && 'is-on')} />
+          <Icon icon={Radio} size="sm" />
+          Live
         </button>
       </div>
 
-      <div className={cn('off-scene-cost', runCost.data?.live && 'is-live')}>
+      {/* Diegetic cost readout + notifications, on the scene border. */}
+      <div className={cn('off-scene-cost', isRunning && 'is-live')}>
         <span className="off-sc-readout">
           <span className="off-sc-beat">
             <Icon icon={Coins} size="sm" />
@@ -107,13 +100,20 @@ export function OfficeStage() {
           </span>
           <span className="off-sc-div" />
           <b>{runCost.data?.costLabel ?? '$0.00'}</b>
+          {isRunning ? (
+            <>
+              <span className="off-sc-div" />
+              <span className="off-sc-live">live</span>
+            </>
+          ) : null}
         </span>
         <button
           type="button"
           className="off-sc-notif has-unread off-focusable"
-          aria-label="Notifications"
+          aria-label={`Notifications (${UNREAD} unread)`}
         >
-          <Icon icon={Radio} size="sm" />
+          <Icon icon={Bell} size="sm" />
+          <span className="off-sc-notif-count">{UNREAD}</span>
         </button>
       </div>
     </section>

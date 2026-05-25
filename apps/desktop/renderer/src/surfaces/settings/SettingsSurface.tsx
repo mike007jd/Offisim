@@ -1,130 +1,130 @@
-import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
-import { FieldRow } from '@/design-system/grammar/FieldRow.js';
-import { SegmentedControl } from '@/design-system/grammar/SegmentedControl.js';
-import { Select } from '@/design-system/grammar/Select.js';
+import { CapsLabel } from '@/design-system/grammar/index.js';
 import { Icon } from '@/design-system/icons/Icon.js';
-import { Button } from '@/design-system/primitives/button.js';
-import { Input } from '@/design-system/primitives/input.js';
-import { Switch } from '@/design-system/primitives/switch.js';
 import { cn } from '@/lib/utils.js';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Cpu, Info, MonitorCog, Settings2, SlidersHorizontal } from 'lucide-react';
-import { useState } from 'react';
+import { Bot, Cpu, Plug, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
+import { ExternalEmployeesPane } from './ExternalEmployeesPane.js';
+import { McpServersPane } from './McpServersPane.js';
+import { ProviderPane } from './ProviderPane.js';
+import { RuntimePane } from './RuntimePane.js';
+import { type SaveStatus, SettingsSaveBar } from './SettingsSaveBar.js';
+import {
+  type DensityValue,
+  PROVIDER_CONFIGS,
+  type ProviderConfig,
+  type ProviderFormValues,
+  RUNTIME_DEFAULTS,
+  type RuntimeFormValues,
+  type ThemeValue,
+  providerDefaults,
+  providerFormSchema,
+  runtimeFormSchema,
+} from './settings-data.js';
 
-type SettingsTab = 'general' | 'provider' | 'runtime' | 'appearance' | 'about';
+type SettingsTab = 'provider' | 'runtime' | 'mcp' | 'external';
 
-const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Settings2 }> = [
-  { key: 'general', label: 'General', icon: Settings2 },
-  { key: 'provider', label: 'AI Provider', icon: Cpu },
-  { key: 'runtime', label: 'Runtime', icon: MonitorCog },
-  { key: 'appearance', label: 'Appearance', icon: SlidersHorizontal },
-  { key: 'about', label: 'About', icon: Info },
+const NAV: ReadonlyArray<{ key: SettingsTab; label: string; icon: typeof Bot }> = [
+  { key: 'provider', label: 'Provider', icon: Bot },
+  { key: 'runtime', label: 'Runtime', icon: Cpu },
+  { key: 'mcp', label: 'MCP', icon: Plug },
+  { key: 'external', label: 'External Employees', icon: Users },
 ];
 
-const providerSchema = z.object({
-  name: z.string().min(1, 'Required'),
-  baseUrl: z.string().url('Enter a valid URL'),
-  model: z.string().min(1, 'Required'),
-  apiKey: z.string().min(8, 'Key looks too short'),
-});
-type ProviderForm = z.infer<typeof providerSchema>;
-
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="off-card-section">
-      <CapsLabel>{title}</CapsLabel>
-      <div className="off-card-section-body">{children}</div>
-    </section>
-  );
-}
-
-function ToggleRow({
-  label,
-  hint,
-  defaultOn = false,
-}: { label: string; hint: string; defaultOn?: boolean }) {
-  const [on, setOn] = useState(defaultOn);
-  return (
-    <div className="off-setting-row">
-      <div className="off-setting-row-text">
-        <span className="off-setting-row-label">{label}</span>
-        <span className="off-setting-row-hint">{hint}</span>
-      </div>
-      <Switch checked={on} onCheckedChange={setOn} aria-label={label} />
-    </div>
-  );
-}
-
-function ProviderSection() {
-  const form = useForm<ProviderForm>({
-    resolver: zodResolver(providerSchema),
-    defaultValues: {
-      name: 'MiniMax Global',
-      baseUrl: 'https://api.minimax.io/v1',
-      model: 'MiniMax-M2.7',
-      apiKey: '',
-    },
-  });
-
-  const onSubmit = form.handleSubmit(() => {
-    toast.success('Provider configuration saved');
-  });
-
-  return (
-    <form onSubmit={onSubmit}>
-      <SectionCard title="Active provider">
-        <FieldRow
-          label="Display name"
-          hint={form.formState.errors.name?.message}
-          warn={!!form.formState.errors.name}
-        >
-          {({ id }) => <Input id={id} {...form.register('name')} />}
-        </FieldRow>
-        <FieldRow
-          label="Base URL"
-          hint={form.formState.errors.baseUrl?.message}
-          warn={!!form.formState.errors.baseUrl}
-        >
-          {({ id }) => <Input id={id} {...form.register('baseUrl')} />}
-        </FieldRow>
-        <FieldRow
-          label="Model"
-          hint={form.formState.errors.model?.message}
-          warn={!!form.formState.errors.model}
-        >
-          {({ id }) => <Input id={id} {...form.register('model')} />}
-        </FieldRow>
-        <FieldRow
-          label="API key"
-          hint={
-            form.formState.errors.apiKey?.message ?? 'Stored locally and never leaves this device.'
-          }
-          warn={!!form.formState.errors.apiKey}
-        >
-          {({ id }) => (
-            <Input id={id} type="password" placeholder="••••••••" {...form.register('apiKey')} />
-          )}
-        </FieldRow>
-        <div className="off-settings-actions">
-          <Button type="button" variant="subtle" size="sm" onClick={() => form.reset()}>
-            Reset
-          </Button>
-          <Button type="submit" size="sm">
-            Save provider
-          </Button>
-        </div>
-      </SectionCard>
-    </form>
-  );
-}
-
 export function SettingsSurface() {
-  const [tab, setTab] = useState<SettingsTab>('general');
-  const active = NAV.find((n) => n.key === tab);
-  const activeLabel = active?.label ?? 'Settings';
+  const [tab, setTab] = useState<SettingsTab>('provider');
+  const [activeConfigId, setActiveConfigId] = useState(PROVIDER_CONFIGS[0].id);
+  const [theme, setTheme] = useState<ThemeValue>('system');
+  const [density, setDensity] = useState<DensityValue>('normal');
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const providerForm = useForm<ProviderFormValues>({
+    resolver: zodResolver(providerFormSchema),
+    defaultValues: providerDefaults(PROVIDER_CONFIGS[0]),
+    mode: 'onChange',
+  });
+  const runtimeForm = useForm<RuntimeFormValues>({
+    resolver: zodResolver(runtimeFormSchema),
+    defaultValues: RUNTIME_DEFAULTS,
+    mode: 'onChange',
+  });
+
+  const providerDirty = providerForm.formState.isDirty;
+  const runtimeDirty = runtimeForm.formState.isDirty;
+  const providerValid = providerForm.formState.isValid;
+  const runtimeValid = runtimeForm.formState.isValid;
+
+  const dirtyScopes = useMemo(() => {
+    const scopes: string[] = [];
+    if (providerDirty) scopes.push('provider');
+    if (runtimeDirty) scopes.push('runtime');
+    return scopes;
+  }, [providerDirty, runtimeDirty]);
+
+  const anyDirty = dirtyScopes.length > 0;
+  const validationBlocked = anyDirty && (!providerValid || !runtimeValid);
+
+  // Derive the resting save status from form dirtiness (error/saving states are
+  // set imperatively in onSave and kept until resolved).
+  useEffect(() => {
+    setSaveStatus((current) => {
+      if (current === 'saving' || current === 'post-save' || current === 'error') return current;
+      return anyDirty ? 'dirty' : 'idle';
+    });
+  }, [anyDirty]);
+
+  const onSelectConfig = useCallback(
+    (config: ProviderConfig) => {
+      setActiveConfigId(config.id);
+      providerForm.reset(providerDefaults(config));
+    },
+    [providerForm],
+  );
+
+  const onSave = useCallback(async () => {
+    if (!anyDirty || validationBlocked) return;
+    setSaveStatus('saving');
+    setSaveError(null);
+    // Reinitialize phase only when provider/runtime defaults changed.
+    await new Promise((resolve) => setTimeout(resolve, 320));
+    setSaveStatus('post-save');
+    await new Promise((resolve) => setTimeout(resolve, 360));
+    // Persist: snapshot the current values as the new pristine baseline.
+    providerForm.reset(providerForm.getValues());
+    runtimeForm.reset(runtimeForm.getValues());
+    setSaveStatus('idle');
+    toast.success('Settings saved');
+  }, [anyDirty, validationBlocked, providerForm, runtimeForm]);
+
+  const onRetry = useCallback(() => {
+    setSaveStatus(anyDirty ? 'dirty' : 'idle');
+    setSaveError(null);
+    void onSave();
+  }, [anyDirty, onSave]);
+
+  // ⌘S to save when dirty.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        if (tab !== 'external') {
+          event.preventDefault();
+          void onSave();
+        }
+      }
+      if (event.key === 'Escape' && anyDirty) {
+        providerForm.reset();
+        runtimeForm.reset();
+        toast('Changes discarded');
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [tab, anyDirty, onSave, providerForm, runtimeForm]);
+
+  const showSaveBar = tab !== 'external';
 
   return (
     <div className="off-settings">
@@ -143,116 +143,38 @@ export function SettingsSurface() {
         ))}
       </nav>
 
-      <div className="off-settings-scroll">
-        <div className="off-settings-content">
-          <div className="off-settings-pagehead">
-            <span className="off-settings-pagetitle">{activeLabel}</span>
-            <span className="off-settings-pagesub">
-              Configure how Offisim behaves on this device.
-            </span>
-          </div>
-
-          {tab === 'general' ? (
-            <SectionCard title="Workspace">
-              <ToggleRow
-                label="Open last project on launch"
-                hint="Restore the most recent company and project."
-                defaultOn
-              />
-              <ToggleRow
-                label="Confirm before destructive actions"
-                hint="Ask before deleting employees, projects, or runs."
-                defaultOn
-              />
-              <FieldRow label="Default run mode" hint="Applied to new conversations.">
-                {({ id }) => (
-                  <Select
-                    id={id}
-                    defaultValue="team"
-                    options={[
-                      { value: 'team', label: 'Team' },
-                      { value: 'direct', label: 'Direct' },
-                      { value: 'sop', label: 'Run SOP' },
-                    ]}
-                  />
-                )}
-              </FieldRow>
-            </SectionCard>
+      <div className="off-set-main">
+        <div className="off-set-scroll">
+          {tab === 'provider' ? (
+            <ProviderPane
+              form={providerForm}
+              activeConfigId={activeConfigId}
+              onSelectConfig={onSelectConfig}
+            />
           ) : null}
-
-          {tab === 'provider' ? <ProviderSection /> : null}
-
           {tab === 'runtime' ? (
-            <SectionCard title="Execution">
-              <ToggleRow
-                label="Sandbox file & shell tools"
-                hint="Restrict tools to the bound workspace root."
-                defaultOn
-              />
-              <ToggleRow
-                label="Require approval for shell commands"
-                hint="Pause runs before executing shell tools."
-              />
-              <FieldRow label="Max parallel employees" hint="Upper bound on concurrent runs.">
-                {({ id }) => (
-                  <Select
-                    id={id}
-                    defaultValue="3"
-                    options={[
-                      { value: '1', label: '1' },
-                      { value: '3', label: '3' },
-                      { value: '5', label: '5' },
-                    ]}
-                  />
-                )}
-              </FieldRow>
-            </SectionCard>
+            <RuntimePane
+              form={runtimeForm}
+              theme={theme}
+              density={density}
+              onThemeChange={setTheme}
+              onDensityChange={setDensity}
+            />
           ) : null}
-
-          {tab === 'appearance' ? (
-            <SectionCard title="Density">
-              <div className="off-setting-row">
-                <div className="off-setting-row-text">
-                  <span className="off-setting-row-label">Interface density</span>
-                  <span className="off-setting-row-hint">
-                    Compact is tuned for the game-HUD layout.
-                  </span>
-                </div>
-                <SegmentedControl
-                  options={[
-                    { value: 'compact', label: 'Compact' },
-                    { value: 'comfortable', label: 'Comfortable' },
-                  ]}
-                  value="compact"
-                  onChange={() => {}}
-                  ariaLabel="Density"
-                />
-              </div>
-              <ToggleRow
-                label="Reduce motion"
-                hint="Honor the system reduced-motion preference."
-                defaultOn
-              />
-            </SectionCard>
-          ) : null}
-
-          {tab === 'about' ? (
-            <SectionCard title="Build">
-              <div className="off-about-row">
-                <span>Version</span>
-                <span>0.8.0</span>
-              </div>
-              <div className="off-about-row">
-                <span>Renderer</span>
-                <span>React 19 · Tailwind v4</span>
-              </div>
-              <div className="off-about-row">
-                <span>Runtime</span>
-                <span>Tauri 2</span>
-              </div>
-            </SectionCard>
-          ) : null}
+          {tab === 'mcp' ? <McpServersPane /> : null}
+          {tab === 'external' ? <ExternalEmployeesPane /> : null}
         </div>
+
+        {showSaveBar ? (
+          <SettingsSaveBar
+            status={saveStatus}
+            dirtyScopes={dirtyScopes}
+            validationBlocked={validationBlocked}
+            errorMessage={saveError}
+            onSave={() => void onSave()}
+            onRetry={onRetry}
+          />
+        ) : null}
       </div>
     </div>
   );

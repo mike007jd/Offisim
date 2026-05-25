@@ -1,118 +1,285 @@
-import { useActivityEvents, useUsageSeries } from '@/data/queries.js';
-import type { ActivityLevel } from '@/data/types.js';
-import { CapsLabel } from '@/design-system/grammar/CapsLabel.js';
-import {
-  SegmentedControl,
-  type SegmentedOption,
-} from '@/design-system/grammar/SegmentedControl.js';
-import { StatusPill } from '@/design-system/grammar/StatusPill.js';
-import { EmptyState, ErrorState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
-import { UsageChart } from '@/surfaces/shared/UsageChart.js';
+import { useUiState } from '@/app/ui-state.js';
+import { Select, type SelectOption } from '@/design-system/grammar/Select.js';
+import { cn } from '@/lib/utils.js';
+import { EmptyState, SkeletonRows } from '@/surfaces/shared/SurfaceStates.js';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Activity } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { Activity, Search } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { ActivityEventDetail } from './ActivityEventDetail.js';
+import {
+  ALL_EVENT_TYPES,
+  type ActivityFilters,
+  type ActivityRecord,
+  DATE_PRESETS,
+  type DatePreset,
+  type TimelineRow,
+  collapseReroutes,
+  domainIcon,
+  filterRecords,
+  formatRelativeTimestamp,
+  getAvailableActorFilters,
+  getDisplayLabel,
+  getEventLevel,
+  groupByTime,
+  useActivityRecords,
+} from './activity-data.js';
 
-const LEVEL_TONE: Record<ActivityLevel, 'accent' | 'ok' | 'warn' | 'danger'> = {
-  info: 'accent',
-  ok: 'ok',
-  warn: 'warn',
-  error: 'danger',
-};
+const GROUP_HEADER_HEIGHT = 33;
+const ROW_HEIGHT = 48;
 
-type LevelFilter = 'all' | ActivityLevel;
+/** Flat virtualizer items: a group header or one timeline row. */
+type TimelineItem =
+  | { kind: 'header'; key: string; label: string; count: number }
+  | { kind: 'row'; key: string; row: TimelineRow };
 
-const FILTERS: ReadonlyArray<SegmentedOption<LevelFilter>> = [
-  { value: 'all', label: 'All' },
-  { value: 'ok', label: 'Done' },
-  { value: 'warn', label: 'Warnings' },
-  { value: 'error', label: 'Errors' },
+const DATE_OPTIONS: ReadonlyArray<SelectOption> = DATE_PRESETS.map((p) => ({
+  value: p.value,
+  label: p.label,
+}));
+
+const EVENT_TYPE_OPTIONS: ReadonlyArray<SelectOption> = [
+  { value: 'all', label: 'All events' },
+  ...ALL_EVENT_TYPES.map((t) => ({ value: t.value, label: t.label })),
 ];
 
-const timeFmt = new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' });
-
 export function ActivitySurface() {
-  const events = useActivityEvents();
-  const usage = useUsageSeries();
-  const [filter, setFilter] = useState<LevelFilter>('all');
+  const records = useActivityRecords();
+  const setSurface = useUiState((s) => s.setSurface);
+
+  const [datePreset, setDatePreset] = useState<DatePreset>('today');
+  const [eventType, setEventType] = useState<string>('all');
+  const [actor, setActor] = useState<string>('all');
+  const [search, setSearch] = useState('');
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const filtered = useMemo(() => {
-    const list = events.data ?? [];
-    return filter === 'all' ? list : list.filter((e) => e.level === filter);
-  }, [events.data, filter]);
+  const allRecords = useMemo(() => records.data ?? [], [records.data]);
+
+  const filters: ActivityFilters = useMemo(
+    () => ({ datePreset, eventType, actor, search }),
+    [datePreset, eventType, actor, search],
+  );
+
+  const actorOptions = useMemo<ReadonlyArray<SelectOption>>(
+    () => [{ value: 'all', label: 'All actors' }, ...getAvailableActorFilters(allRecords)],
+    [allRecords],
+  );
+
+  // Pipeline: date → type → actor → search → group → collapse.
+  const groups = useMemo(() => {
+    const filtered = filterRecords(allRecords, filters);
+    return groupByTime(filtered).map((group) => ({
+      ...group,
+      rows: collapseReroutes(group.records),
+    }));
+  }, [allRecords, filters]);
+
+  const items = useMemo<TimelineItem[]>(() => {
+    const flat: TimelineItem[] = [];
+    for (const group of groups) {
+      flat.push({
+        kind: 'header',
+        key: `h-${group.key}`,
+        label: group.label,
+        count: group.records.length,
+      });
+      for (const row of group.rows) {
+        flat.push({ kind: 'row', key: `r-${row.record.id}`, row });
+      }
+    }
+    return flat;
+  }, [groups]);
+
+  const selectedRecord = useMemo<ActivityRecord | null>(() => {
+    if (!selectedEventId) return null;
+    return allRecords.find((r) => r.id === selectedEventId) ?? null;
+  }, [selectedEventId, allRecords]);
+
+  // Stale-selection: a selection is set but no longer resolvable (rolled out of
+  // the store, or the filtered list no longer contains it) → toast + reset.
+  useEffect(() => {
+    if (!selectedEventId) return;
+    if (records.isLoading) return;
+    const stillVisible = items.some(
+      (item) => item.kind === 'row' && item.row.record.id === selectedEventId,
+    );
+    if (!stillVisible) {
+      toast.info('The selected event is no longer available.');
+      setSelectedEventId(null);
+    }
+  }, [selectedEventId, items, records.isLoading]);
+
+  const headerIndices = useMemo(() => {
+    const indices: number[] = [];
+    items.forEach((item, i) => {
+      if (item.kind === 'header') indices.push(i);
+    });
+    return indices;
+  }, [items]);
 
   const virtualizer = useVirtualizer({
-    count: filtered.length,
+    count: items.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 56,
-    overscan: 8,
+    estimateSize: (index) => (items[index]?.kind === 'header' ? GROUP_HEADER_HEIGHT : ROW_HEIGHT),
+    overscan: 10,
+    rangeExtractor: (range) => {
+      // Keep the active group header pinned at the top while scrolling.
+      const active = [...headerIndices].reverse().find((i) => i <= range.startIndex);
+      const visible = new Set<number>();
+      if (active !== undefined) visible.add(active);
+      for (let i = range.startIndex; i <= range.endIndex; i++) visible.add(i);
+      return [...visible].sort((a, b) => a - b);
+    },
   });
 
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedEventId((current) => (current === id ? null : id));
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    setSearch('');
+    setEventType('all');
+    setActor('all');
+    setDatePreset('30d');
+  }, []);
+
+  const backToOffice = useCallback(() => setSurface('office'), [setSurface]);
+
+  const detailOpen = selectedRecord !== null;
+  const virtualItems = virtualizer.getVirtualItems();
+
   return (
-    <div className="off-activity">
-      <div className="off-activity-bar">
-        <span className="off-activity-title">Activity</span>
-        <span className="off-activity-count">{filtered.length} events</span>
-        <span className="ml-auto">
-          <SegmentedControl
-            options={FILTERS}
-            value={filter}
-            onChange={setFilter}
-            ariaLabel="Filter activity"
+    <div className="off-act">
+      <div className="off-act-filter">
+        <Select
+          options={DATE_OPTIONS}
+          value={datePreset}
+          aria-label="Date range"
+          onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+        />
+        <Select
+          options={EVENT_TYPE_OPTIONS}
+          value={eventType}
+          aria-label="Event type"
+          onChange={(e) => setEventType(e.target.value)}
+        />
+        <Select
+          options={actorOptions}
+          value={actor}
+          aria-label="Actor"
+          onChange={(e) => setActor(e.target.value)}
+        />
+        <div className="off-act-search">
+          <Search aria-hidden className="off-act-search-ico" />
+          <input
+            className="off-focusable"
+            value={search}
+            placeholder="Search events..."
+            aria-label="Search events"
+            onChange={(e) => setSearch(e.target.value)}
           />
-        </span>
+        </div>
       </div>
 
-      {usage.data?.length ? (
-        <div className="off-activity-usage">
-          <CapsLabel>Runs · last 7 days</CapsLabel>
-          <UsageChart data={usage.data} />
+      {records.isLoading && allRecords.length === 0 ? (
+        <div className="off-act-empty-wrap">
+          <SkeletonRows rows={8} />
         </div>
-      ) : null}
-
-      {events.isLoading ? (
-        <SkeletonRows rows={8} />
-      ) : events.isError ? (
-        <ErrorState
-          title="Couldn't load activity"
-          detail="The activity log is unavailable right now."
-          onRetry={() => events.refetch()}
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Activity}
-          title="No activity"
-          description={
-            filter === 'all'
-              ? 'Runs, deliverables, and warnings will appear here.'
-              : 'No events match this filter.'
-          }
-        />
-      ) : (
-        <div className="off-activity-scroll" ref={scrollRef}>
-          <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-            {virtualizer.getVirtualItems().map((item) => {
-              const event = filtered[item.index];
-              if (!event) return null;
-              return (
-                <div
-                  key={event.id}
-                  className="off-ev-row"
-                  style={{ transform: `translateY(${item.start}px)` }}
-                >
-                  <span className="off-ev-time">{timeFmt.format(event.at)}</span>
-                  <StatusPill tone={LEVEL_TONE[event.level]}>{event.level}</StatusPill>
-                  <span className="off-ev-main">
-                    <span className="off-ev-top">
-                      <span className="off-ev-title">{event.title}</span>
-                      <span className="off-ev-source">{event.source}</span>
-                    </span>
-                    <span className="off-ev-detail">{event.detail}</span>
-                  </span>
-                </div>
-              );
-            })}
+      ) : allRecords.length === 0 ? (
+        <div className="off-act-empty-wrap">
+          <EmptyState
+            icon={Activity}
+            title="No activity yet"
+            description="Activity Log surfaces workspace and runtime events as your company operates — chat and task dispatch, employee plans and tool calls, deliverables, installs, and errors. Start a task in Office and events will appear here."
+            action={{ label: 'Back to Office', onClick: backToOffice }}
+          />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="off-act-empty-wrap">
+          <div className="off-act-noresults">
+            <EmptyState
+              icon={Search}
+              title="No events match your filters"
+              description="Try widening the time range, removing event types, or clearing actor filters."
+              action={{ label: 'Reset filters', onClick: resetFilters }}
+            />
+            <button type="button" className="off-act-noresults-secondary" onClick={backToOffice}>
+              Back to Office
+            </button>
           </div>
+        </div>
+      ) : (
+        <div className={cn('off-act-body', detailOpen && 'is-split')}>
+          <div className="off-act-tl" ref={scrollRef}>
+            <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+              {virtualItems.map((vi) => {
+                const item = items[vi.index];
+                if (!item) return null;
+                const isActiveHeader =
+                  item.kind === 'header' && vi.index === virtualItems[0]?.index;
+                if (item.kind === 'header') {
+                  return (
+                    <div
+                      key={item.key}
+                      className="off-tl-grp-head"
+                      data-pinned={isActiveHeader ? '' : undefined}
+                      style={{
+                        position: isActiveHeader ? 'sticky' : 'absolute',
+                        top: 0,
+                        zIndex: isActiveHeader ? 2 : 1,
+                        transform: isActiveHeader ? undefined : `translateY(${vi.start}px)`,
+                        width: '100%',
+                      }}
+                    >
+                      <span className="off-tl-gl">{item.label}</span>
+                      <span className="off-tl-cnt">{item.count}</span>
+                    </div>
+                  );
+                }
+                const { record, collapsedCount } = item.row;
+                const level = getEventLevel(record.type);
+                const { icon: DomainGlyph, color } = domainIcon(record.type);
+                const selected = record.id === selectedEventId;
+                return (
+                  <button
+                    type="button"
+                    key={item.key}
+                    className={cn(
+                      'off-ev-row off-focusable',
+                      level === 'warning' && 'is-warn',
+                      level === 'error' && 'is-err',
+                      selected && 'is-sel',
+                    )}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      transform: `translateY(${vi.start}px)`,
+                      width: '100%',
+                    }}
+                    onClick={() => toggleSelect(record.id)}
+                  >
+                    <DomainGlyph aria-hidden className={cn('off-ev-ico', `off-ev-ico-${color}`)} />
+                    <span className="off-ev-label">{getDisplayLabel(record)}</span>
+                    {collapsedCount ? <span className="off-ev-x">×{collapsedCount}</span> : null}
+                    <span className="off-ev-ts">{formatRelativeTimestamp(record.at)}</span>
+                    <span
+                      className={cn(
+                        'off-ev-bar',
+                        level === 'warning' && 'is-warn',
+                        level === 'error' && 'is-err',
+                      )}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {selectedRecord ? (
+            <ActivityEventDetail record={selectedRecord} onClose={() => setSelectedEventId(null)} />
+          ) : null}
         </div>
       )}
     </div>
