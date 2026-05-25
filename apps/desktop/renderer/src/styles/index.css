@@ -5,6 +5,13 @@
 @import "../design-system/grammar/grammar.css";
 @import "../design-system/shell/shell.css";
 @import "../surfaces/surfaces.css";
+@import "../surfaces/office/office.css";
+@import "../surfaces/sops/sops.css";
+@import "../surfaces/market/market.css";
+@import "../surfaces/personnel/personnel.css";
+@import "../surfaces/settings/settings.css";
+@import "../surfaces/activity/activity.css";
+@import "../surfaces/studio/studio.css";
 
 @source "../**/*.{ts,tsx}";
 
@@ -27,14 +34,17 @@
   --color-accent: var(--off-accent-surface);
   --color-accent-foreground: var(--off-accent);
   --color-destructive: var(--off-danger);
+  --color-destructive-foreground: var(--off-surface-1);
   --color-border: var(--off-line);
   --color-input: var(--off-line);
   --color-ring: var(--off-accent-ring);
 
+  --radius: var(--off-r-md);
   --radius-xs: var(--off-r-xs);
   --radius-sm: var(--off-r-sm);
   --radius-md: var(--off-r-md);
   --radius-lg: var(--off-r-lg);
+  --radius-pill: var(--off-r-pill);
 }
 
 @layer base {
@@ -72,5 +82,11 @@
   :focus-visible {
     outline: var(--off-focus-ring-width) solid var(--off-accent-ring);
     outline-offset: var(--off-focus-ring-offset);
+  }
+
+  /* Controls that paint their own focus affordance opt out of the blanket outline. */
+  .off-focusable:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1.5px var(--off-surface-1), 0 0 0 3.5px var(--off-accent-ring);
   }
 }

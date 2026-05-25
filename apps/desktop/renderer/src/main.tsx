@@ -10,7 +10,7 @@ if (!root) throw new Error('Root element not found');
 createRoot(root).render(
   <StrictMode>
     <AppProviders>
-      <App onCompanySwitch={() => {}} />
+      <App />
     </AppProviders>
   </StrictMode>,
 );

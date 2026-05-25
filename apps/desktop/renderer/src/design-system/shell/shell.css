@@ -9,6 +9,7 @@
 
 .off-topbar {
   position: relative;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: var(--off-sp-5);
@@ -18,66 +19,120 @@
   backdrop-filter: blur(8px);
 }
 
+.off-surface-host {
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* --- Shared chip-bar containers --- */
 .off-scope-bar,
-.off-workspace-nav,
 .off-iconbar {
   height: 34px;
   display: flex;
   align-items: center;
+  padding: 3px;
   border: 1px solid var(--off-line);
   border-radius: var(--off-r-md);
   background: var(--off-surface-2);
   box-shadow: var(--off-elev-1);
 }
 
+/* --- Scope bar --- */
 .off-scope-bar {
-  max-width: 440px;
-  padding: 3px;
+  max-width: 460px;
+  min-width: 0;
+  gap: 2px;
   background: var(--off-surface-1);
 }
 
-.off-scope-seg,
-.off-workspace-nav button,
-.off-iconbar button {
+.off-scope-seg {
   height: 28px;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: var(--off-sp-2);
+  padding: 0 var(--off-sp-3);
   border: 0;
   border-radius: var(--off-r-sm);
   background: transparent;
   color: var(--off-ink-2);
+  font-size: var(--off-fs-sm);
+  font-weight: 580;
+  transition: background var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
+    var(--off-motion-ease);
 }
 
-.off-scope-seg {
-  padding: 0 var(--off-sp-3);
-}
-
-.off-scope-seg:hover,
-.off-workspace-nav button:hover,
-.off-iconbar button:hover {
+.off-scope-seg:hover {
   background: var(--off-surface-sunken);
   color: var(--off-ink-1);
+}
+
+.off-scope-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-scope-badge {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 26%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.off-scope-caret {
+  color: var(--off-ink-4);
+  flex: none;
 }
 
 .off-scope-divider {
   color: var(--off-ink-4);
   padding: 0 var(--off-sp-1);
+  flex: none;
 }
 
+/* --- Workspace nav (absolute center) --- */
 .off-workspace-nav {
   position: absolute;
   left: 50%;
+  transform: translateX(-50%);
+  height: 34px;
+  display: flex;
+  align-items: center;
   gap: 2px;
   padding: 3px;
-  transform: translateX(-50%);
+  border: 1px solid var(--off-line);
+  border-radius: var(--off-r-md);
+  background: var(--off-surface-2);
+  box-shadow: var(--off-elev-1);
 }
 
 .off-workspace-nav button {
+  height: 28px;
   padding: 0 var(--off-sp-6);
+  border: 0;
+  border-radius: var(--off-r-sm);
+  background: transparent;
+  color: var(--off-ink-2);
   font-size: var(--off-fs-base);
   font-weight: 560;
+  transition: background var(--off-motion-fast) var(--off-motion-ease), color var(--off-motion-fast)
+    var(--off-motion-ease);
+}
+
+.off-workspace-nav button:hover {
+  background: var(--off-surface-sunken);
+  color: var(--off-ink-1);
 }
 
 .off-workspace-nav .is-active {
@@ -87,15 +142,10 @@
   font-weight: 640;
 }
 
+/* --- Icon bar (right) --- */
 .off-iconbar {
   margin-left: auto;
   gap: 2px;
-  padding: 3px;
-}
-
-.off-iconbar button {
-  width: 28px;
-  padding: 0;
 }
 
 .off-iconbar-divider {
@@ -103,4 +153,5 @@
   height: var(--off-iconbar-divider-height);
   margin: 0 3px;
   background: var(--off-line);
+  flex: none;
 }

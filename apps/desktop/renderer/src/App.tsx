@@ -1,14 +1,12 @@
+import { CommandPalette } from '@/app/CommandPalette.js';
 import { AppFrame } from '@/design-system/shell/AppFrame.js';
-import { WorkspaceSurface } from '@/surfaces/WorkspaceSurface.js';
+import { SurfaceRouter } from '@/surfaces/SurfaceRouter.js';
 
-interface AppProps {
-  onCompanySwitch: (id: string | null) => void;
-}
-
-export function App({ onCompanySwitch: _onCompanySwitch }: AppProps) {
+export function App() {
   return (
     <AppFrame>
-      <WorkspaceSurface />
+      <SurfaceRouter />
+      <CommandPalette />
     </AppFrame>
   );
 }

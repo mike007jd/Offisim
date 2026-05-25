@@ -1,3 +1,4 @@
+import { TooltipProvider } from '@/design-system/primitives/tooltip.js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';
 import { type ReactNode, useState } from 'react';
@@ -24,7 +25,7 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <MotionConfig reducedMotion="user">
-        {children}
+        <TooltipProvider>{children}</TooltipProvider>
         <Toaster closeButton richColors position="top-right" />
       </MotionConfig>
     </QueryClientProvider>
